@@ -5,6 +5,7 @@ from datetime import timedelta
 
 from odoo import api, fields, models, _
 from odoo.exceptions import UserError
+from odoo.fields import Command
 from odoo.tools.float_utils import float_compare
 from dateutil.relativedelta import relativedelta
 
@@ -12,168 +13,166 @@ from dateutil.relativedelta import relativedelta
 class StockPicking(models.Model):
     _inherit = 'stock.picking'
 
-    # override existing field domains to prevent suboncontracting production lines from showing in Detailed Operations tab
-    move_line_nosuggest_ids = fields.One2many(
-        domain=['&', '|', ('location_dest_id.usage', '!=', 'production'), ('move_id.picking_code', '!=', 'outgoing'),
-                     '|', ('product_qty', '=', 0.0), '&', ('product_qty', '!=', 0.0), ('qty_done', '!=', 0.0)])
-    move_line_ids_without_package = fields.One2many(
-        domain=['&', '|', ('location_dest_id.usage', '!=', 'production'), ('move_id.picking_code', '!=', 'outgoing'),
-                     '|', ('package_level_id', '=', False), ('picking_type_entire_packs', '=', False)])
-    display_action_record_components = fields.Selection(
-        [('hide', 'Hide'), ('facultative', 'Facultative'), ('mandatory', 'Mandatory')],
-        compute='_compute_display_action_record_components')
+    show_subcontracting_details_visible = fields.Boolean(compute='_compute_show_subcontracting_details_visible')
 
-    @api.depends('state', 'move_lines')
-    def _compute_display_action_record_components(self):
-        self.display_action_record_components = 'hide'
+    @api.depends('move_ids.show_subcontracting_details_visible')
+    def _compute_show_subcontracting_details_visible(self):
         for picking in self:
-            # Hide if not encoding state or it is not a subcontracting picking
-            if picking.state in ('draft', 'cancel', 'done') or not picking._is_subcontract():
-                continue
-            subcontracted_moves = picking.move_lines.filtered(lambda m: m.is_subcontract)
-            if subcontracted_moves._subcontrating_should_be_record():
-                picking.display_action_record_components = 'mandatory'
-                continue
-            if subcontracted_moves._subcontrating_can_be_record():
-                picking.display_action_record_components = 'facultative'
+            picking.show_subcontracting_details_visible = any(m.show_subcontracting_details_visible for m in picking.move_ids)
+
+    @api.depends('picking_type_id', 'partner_id')
+    def _compute_location_id(self):
+        super()._compute_location_id()
+
+        for picking in self:
+            # If this is a subcontractor resupply transfer, set the destination location
+            # to the vendor subcontractor location
+            subcontracting_resupply_type_id = picking.picking_type_id.warehouse_id.subcontracting_resupply_type_id
+            if picking.picking_type_id == subcontracting_resupply_type_id\
+                and picking.partner_id.property_stock_subcontractor:
+                picking.location_dest_id = picking.partner_id.property_stock_subcontractor
+
+    @api.depends('move_ids.is_subcontract', 'move_ids.has_tracking')
+    def _compute_show_lots_text(self):
+        super()._compute_show_lots_text()
+        for picking in self:
+            if any(move.is_subcontract and move.has_tracking != 'none' for move in picking.move_ids):
+                picking.show_lots_text = False
 
     # -------------------------------------------------------------------------
     # Action methods
     # -------------------------------------------------------------------------
     def _action_done(self):
         res = super(StockPicking, self)._action_done()
-
-        for move in self.move_lines.filtered(lambda move: move.is_subcontract):
-            # Auto set qty_producing/lot_producing_id of MO wasn't recorded
-            # manually (if the flexible + record_component or has tracked component)
-            productions = move._get_subcontract_production()
-            recorded_productions = productions.filtered(lambda p: p._has_been_recorded())
-            recorded_qty = sum(recorded_productions.mapped('qty_producing'))
-            sm_done_qty = sum(productions._get_subcontract_move().mapped('quantity_done'))
-            rounding = self.env['decimal.precision'].precision_get('Product Unit of Measure')
-            if float_compare(recorded_qty, sm_done_qty, precision_digits=rounding) >= 0:
-                continue
-            production = productions - recorded_productions
-            if not production:
-                continue
-            if len(production) > 1:
-                raise UserError("It shouldn't happen to have multiple production to record for the same subcontracted move")
-            # Manage additional quantities
-            quantity_done_move = move.product_uom._compute_quantity(move.quantity_done, production.product_uom_id)
-            if float_compare(production.product_qty, quantity_done_move, precision_rounding=production.product_uom_id.rounding) == -1:
-                change_qty = self.env['change.production.qty'].create({
-                    'mo_id': production.id,
-                    'product_qty': quantity_done_move
-                })
-                change_qty.with_context(skip_activity=True).change_prod_qty()
-            # Create backorder MO for each move lines
-            for move_line in move.move_line_ids:
-                if move_line.lot_id:
-                    production.lot_producing_id = move_line.lot_id
-                production.qty_producing = move_line.product_uom_id._compute_quantity(move_line.qty_done, production.product_uom_id)
-                production._set_qty_producing()
-                production.subcontracting_has_been_recorded = True
-                if move_line != move.move_line_ids[-1]:
-                    backorder = production._generate_backorder_productions(close_mo=False)
-                    # The move_dest_ids won't be set because the _split filter out done move
-                    backorder.move_finished_ids.filtered(lambda mo: mo.product_id == move.product_id).move_dest_ids = production.move_finished_ids.filtered(lambda mo: mo.product_id == move.product_id).move_dest_ids
-                    production.product_qty = production.qty_producing
-                    production = backorder
-
         for picking in self:
-            productions_to_done = picking._get_subcontract_production()._subcontracting_filter_to_done()
-            if not productions_to_done:
-                continue
-            productions_to_done = productions_to_done.sudo()
-            production_ids_backorder = []
-            if not self.env.context.get('cancel_backorder'):
-                production_ids_backorder = productions_to_done.filtered(lambda mo: mo.state == "progress").ids
-            productions_to_done.with_context(mo_ids_to_backorder=production_ids_backorder).button_mark_done()
+            productions_to_done = picking._get_subcontract_production().sudo()
+            productions_to_done.button_mark_done()
             # For concistency, set the date on production move before the date
             # on picking. (Traceability report + Product Moves menu item)
-            minimum_date = min(picking.move_line_ids.mapped('date'))
             production_moves = productions_to_done.move_raw_ids | productions_to_done.move_finished_ids
-            production_moves.write({'date': minimum_date - timedelta(seconds=1)})
-            production_moves.move_line_ids.write({'date': minimum_date - timedelta(seconds=1)})
+            if production_moves:
+                minimum_date = min(picking.move_line_ids.mapped('date'))
+                production_moves.write({'date': minimum_date - timedelta(seconds=1)})
+                production_moves.move_line_ids.write({'date': minimum_date - timedelta(seconds=1)})
+
         return res
 
-    def action_record_components(self):
-        self.ensure_one()
-        move_subcontracted = self.move_lines.filtered(lambda m: m.is_subcontract)
-        for move in move_subcontracted:
-            production = move._subcontrating_should_be_record()
-            if production:
-                return move._action_record_components()
-        for move in move_subcontracted:
-            production = move._subcontrating_can_be_record()
-            if production:
-                return move._action_record_components()
-        raise UserError(_("Nothing to record"))
+    def action_show_subcontract_details(self):
+        productions = self._get_subcontract_production().filtered(lambda m: m.state != 'cancel')
+        ctx = {"mrp_subcontracting": True}
+        if self.env.user._is_portal():
+            form_view_id = self.env.ref('mrp_subcontracting.mrp_production_subcontracting_portal_form_view')
+            ctx.update(no_breadcrumbs=False)
+        else:
+            form_view_id = self.env.ref('mrp_subcontracting.mrp_production_subcontracting_form_view')
+        action = {
+            'type': 'ir.actions.act_window',
+            'res_model': 'mrp.production',
+            'target': 'current',
+            'context': ctx
+        }
+        if len(productions) > 1:
+            action.update({
+                'name': _('Subcontracting MOs'),
+                'views': [
+                    (self.env.ref('mrp_subcontracting.mrp_production_subcontracting_tree_view').id, 'list'),
+                    (form_view_id.id, 'form'),
+                ],
+                'domain': [('id', 'in', productions.ids)],
+            })
+        elif len(productions) == 1:
+            action.update({
+                'views': [(form_view_id.id, 'form')],
+                'res_id': productions.id,
+            })
+        else:
+            return {}
+        return action
 
     # -------------------------------------------------------------------------
     # Subcontract helpers
     # -------------------------------------------------------------------------
     def _is_subcontract(self):
         self.ensure_one()
-        return self.picking_type_id.code == 'incoming' and any(m.is_subcontract for m in self.move_lines)
+        return self.picking_type_id.code == 'incoming' and any(m.is_subcontract for m in self.move_ids)
 
     def _get_subcontract_production(self):
-        return self.move_lines._get_subcontract_production()
+        return self.move_ids._get_subcontract_production()
 
     def _get_warehouse(self, subcontract_move):
         return subcontract_move.warehouse_id or self.picking_type_id.warehouse_id or subcontract_move.move_dest_ids.picking_type_id.warehouse_id
 
     def _prepare_subcontract_mo_vals(self, subcontract_move, bom):
         subcontract_move.ensure_one()
-        group = self.env['procurement.group'].create({
+        reference = self.env['stock.reference'].create({
             'name': self.name,
-            'partner_id': self.partner_id.id,
+            'move_ids': [Command.link(subcontract_move.id)],
         })
         product = subcontract_move.product_id
         warehouse = self._get_warehouse(subcontract_move)
+        subcontracting_location = \
+            subcontract_move.picking_id.partner_id.with_company(subcontract_move.company_id).property_stock_subcontractor \
+            or subcontract_move.company_id.subcontracting_location_id
         vals = {
             'company_id': subcontract_move.company_id.id,
-            'procurement_group_id': group.id,
+            'subcontractor_id': subcontract_move.picking_id.partner_id.commercial_partner_id.id,
+            'picking_ids': [subcontract_move.picking_id.id],
             'product_id': product.id,
             'product_uom_id': subcontract_move.product_uom.id,
             'bom_id': bom.id,
-            'location_src_id': subcontract_move.picking_id.partner_id.with_company(subcontract_move.company_id).property_stock_subcontractor.id,
-            'location_dest_id': subcontract_move.picking_id.partner_id.with_company(subcontract_move.company_id).property_stock_subcontractor.id,
-            'product_qty': subcontract_move.product_uom_qty,
+            'location_src_id': subcontracting_location.id,
+            'location_dest_id': subcontracting_location.id,
+            'product_qty': subcontract_move.product_uom_qty or subcontract_move.quantity,
             'picking_type_id': warehouse.subcontracting_type_id.id,
-            'date_planned_start': subcontract_move.date - relativedelta(days=product.produce_delay)
+            'date_start': subcontract_move.date - relativedelta(days=bom.produce_delay),
+            'origin': self.name,
+            'reference_ids': [Command.link(reference.id)],
         }
         return vals
 
+    def _get_subcontract_mo_confirmation_ctx(self):
+        if self._is_subcontract() and not self.env.context.get('cancel_backorder', True):
+            # Do not trigger rules on raw moves when creating backorder for a subcontract receipt.
+            return {'no_procurement': True}
+        return {}  # To override in mrp_subcontracting_purchase
+
     def _subcontracted_produce(self, subcontract_details):
         self.ensure_one()
-
-        group_move = defaultdict(list)
-        group_by_company = defaultdict(list)
+        group_by_company = defaultdict(lambda: ([], []))
         for move, bom in subcontract_details:
-            if float_compare(move.product_qty, 0, precision_rounding=move.product_uom.rounding) <= 0:
+            if move.move_orig_ids.production_id:
+                if len(move.move_orig_ids.move_dest_ids) > 1:
+                    # Magic spicy sauce for the backorder case:
+                    # To ensure correct splitting of the component moves of the SBC MO, we will invoke a split of the SBC
+                    # MO here directly and then link the backorder MO to the backorder move.
+                    # If we would just run _subcontracted_produce as usual for the newly created SBC receipt move, any
+                    # reservations of raw component moves of the SBC MO would not be preserved properly (for example when
+                    # using resupply subcontractor on order)
+                    production_to_split = move.move_orig_ids[0].production_id
+                    original_qty = move.move_orig_ids[0].product_qty
+                    move.move_orig_ids = False
+                    _, new_mo = production_to_split.with_context(allow_more=True)._split_productions({production_to_split: [original_qty, move.product_qty]})
+                    new_mo.move_finished_ids.move_dest_ids = move
+                    continue
+                else:
+                    # do not create extra production for move that have their quantity updated
+                    return
+            quantity = move.product_qty or move.quantity
+            if move.product_uom.compare(quantity, 0) <= 0:
                 # If a subcontracted amount is decreased, don't create a MO that would be for a negative value.
                 continue
+
             mo_subcontract = self._prepare_subcontract_mo_vals(move, bom)
-            # Link the move to the id of the MO's procurement group
-            group_move[mo_subcontract['procurement_group_id']] = move
             # Group the MO by company
-            group_by_company[move.company_id.id].append(mo_subcontract)
+            group_by_company[move.company_id.id][0].append(mo_subcontract)
+            group_by_company[move.company_id.id][1].append(move)
 
-        all_mo = set()
         for company, group in group_by_company.items():
-            grouped_mo = self.env['mrp.production'].with_company(company).create(group)
-            all_mo.update(grouped_mo.ids)
-
-        all_mo = self.env['mrp.production'].browse(sorted(all_mo))
-        self.env['stock.move'].create(all_mo._get_moves_raw_values())
-        self.env['stock.move'].create(all_mo._get_moves_finished_values())
-        all_mo.action_confirm()
-
-        for mo in all_mo:
-            # Link the finished to the receipt move.
-            move = group_move[mo.procurement_group_id.id][0]
-            finished_move = mo.move_finished_ids.filtered(lambda m: m.product_id == move.product_id)
-            finished_move.write({'move_dest_ids': [(4, move.id, False)]})
-
-        all_mo.action_assign()
+            vals_list, moves = group
+            grouped_mo = self.env['mrp.production'].with_company(company).create(vals_list)
+            grouped_mo.with_context(self._get_subcontract_mo_confirmation_ctx()).action_confirm()
+            for mo, move in zip(grouped_mo, moves):
+                mo.date_finished = move.date
+                finished_move = mo.move_finished_ids.filtered(lambda m: m.product_id == move.product_id)
+                finished_move.move_dest_ids = [Command.link(move.id)]
+            grouped_mo.action_assign()

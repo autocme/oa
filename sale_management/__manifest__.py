@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
 
 {
@@ -38,28 +37,39 @@ The Dashboard for the Sales Manager will include
     'website': 'https://www.odoo.com/app/sales',
     'depends': ['sale', 'digest'],
     'data': [
-        'security/sale_management_security.xml',
         'data/digest_data.xml',
-        'views/sale_portal_templates.xml',
-        'views/sale_order_template_views.xml',
+
         'security/ir.model.access.csv',
-        'views/res_config_settings_views.xml',
-        'data/digest_data.xml',
-        'views/sale_management_views.xml',
+        'security/sale_management_security.xml',
+
+        # Define SO template views & actions before their place of use
+        'views/sale_order_template_views.xml',
+
         'views/digest_views.xml',
+        'views/res_config_settings_views.xml',
         'views/sale_order_views.xml',
-        'report/sale_report_templates.xml',
+        'views/sale_portal_templates.xml',
+
+        'views/sale_management_menus.xml',
     ],
     'demo': [
         'data/sale_order_template_demo.xml',
     ],
-    'application': True,
-    'uninstall_hook': 'uninstall_hook',
-    'post_init_hook': 'post_init_hook',
     'assets': {
+        'web.assets_backend': [
+            'sale_management/static/src/fields/**/*',
+        ],
         'web.assets_frontend': [
-            'sale_management/static/src/js/**/*',
+            'sale_management/static/src/interactions/**/*',
+        ],
+        'web.assets_unit_tests': [
+            'sale_management/static/tests/**/*.test.js',
         ],
     },
+    'application': True,
+    'pre_init_hook': 'pre_init_hook',
+    'post_init_hook': 'post_init_hook',
+    'uninstall_hook': 'uninstall_hook',
+    'author': 'Odoo S.A.',
     'license': 'LGPL-3',
 }

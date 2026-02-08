@@ -1,27 +1,29 @@
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
 
 {
-    'name': 'Adyen Payment Acquirer',
+    'name': 'Payment Provider: Adyen',
     'version': '2.0',
-    'category': 'Accounting/Payment Acquirers',
-    'sequence': 340,
-    'summary': 'Payment Acquirer: Adyen Implementation',
+    'category': 'Accounting/Payment Providers',
+    'sequence': 350,
+    'summary': "A Dutch payment provider covering Europe and the US.",
     'description': " ",  # Non-empty string to avoid loading the README file.
     'depends': ['payment'],
     'data': [
         'views/payment_adyen_templates.xml',
-        'views/payment_views.xml',
-        'data/payment_acquirer_data.xml',  # Depends on views/payment_adyen_templates.xml
+        'views/payment_form_templates.xml',
+        'views/payment_provider_views.xml',
+
+        'data/payment_provider_data.xml',  # Depends on views/payment_adyen_templates.xml
+
+        'wizards/payment_capture_wizard_views.xml',
     ],
-    'application': True,
+    'post_init_hook': 'post_init_hook',
     'uninstall_hook': 'uninstall_hook',
     'assets': {
         'web.assets_frontend': [
-            'https://checkoutshopper-live.adyen.com/checkoutshopper/sdk/4.7.3/adyen.css',
-            'https://checkoutshopper-live.adyen.com/checkoutshopper/sdk/4.7.3/adyen.js',
-            'payment_adyen/static/src/js/payment_form.js',
-            'payment_adyen/static/src/scss/dropin.scss',
+            'payment_adyen/static/src/interactions/payment_form.js',
         ],
     },
+    'author': 'Odoo S.A.',
     'license': 'LGPL-3',
 }

@@ -3,7 +3,7 @@
 
 {
     'name': 'Event Attendees SMS Marketing',
-    'category': 'Hidden',
+    'category': 'Marketing/Email Marketing',
     'version': '1.0',
     'description':
         """
@@ -19,8 +19,7 @@ Bridge module adding UX requirements to ease SMS marketing o, event attendees.
         'mass_mailing_sms',
         'sms',
     ],
-    'data': [
-    ],
     'auto_install': True,
+    'author': 'Odoo S.A.',
     'license': 'LGPL-3',
 }

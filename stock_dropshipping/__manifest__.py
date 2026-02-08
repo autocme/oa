@@ -4,7 +4,7 @@
 {
     'name': 'Drop Shipping',
     'version': '1.0',
-    'category': 'Inventory/Inventory',
+    'category': 'Supply Chain/Inventory',
     'summary': 'Drop Shipping',
     'description': """
 Manage drop shipping orders
@@ -24,9 +24,14 @@ internal transfer document is needed.
     'data': [
         'data/stock_data.xml',
         'views/sale_order_views.xml',
+        'views/stock_picking_views.xml',
         'views/purchase_order_views.xml'
     ],
+    'demo': [
+        'data/stock_dropshipping_demo.xml',
+    ],
+    'uninstall_hook': "uninstall_hook",
     'installable': True,
-    'auto_install': False,
+    'author': 'Odoo S.A.',
     'license': 'LGPL-3',
 }

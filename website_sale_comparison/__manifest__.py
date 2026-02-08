@@ -1,5 +1,5 @@
-# -*- coding: utf-8 -*-
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
+
 {
     'name': 'Product Comparison',
     'summary': 'Allow shoppers to compare products based on their attributes',
@@ -10,7 +10,6 @@ To configure product attributes, activate *Attributes & Variants* in the Website
 
 Finally, the module comes with an option to display an attribute summary table in product web pages (available in Customize menu).
     """,
-    'author': 'Odoo SA',
     'category': 'Website/Website',
     'version': '1.0',
     'depends': ['website_sale'],
@@ -26,12 +25,19 @@ Finally, the module comes with an option to display an attribute summary table i
     'installable': True,
     'assets': {
         'web.assets_frontend': [
+            'website_sale_comparison/static/src/interactions/**/*',
+            'website_sale_comparison/static/src/scss/website_sale_comparison.options.scss',
             'website_sale_comparison/static/src/scss/website_sale_comparison.scss',
-            'website_sale_comparison/static/src/js/website_sale_comparison.js',
+            'website_sale_comparison/static/src/js/**/*',
         ],
         'web.assets_tests': [
             'website_sale_comparison/static/tests/**/*',
         ],
+        'website.website_builder_assets': [
+            'website_sale_comparison/static/src/website_builder/**/*',
+        ],
     },
+    'auto_install': True,
+    'author': 'Odoo S.A.',
     'license': 'LGPL-3',
 }

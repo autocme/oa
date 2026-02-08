@@ -1,8 +1,50 @@
-# -*- coding: utf-8 -*-
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
 
+from odoo.tests import TransactionCase
+
+from odoo.addons.base.tests.common import BaseCommon
 from odoo.addons.mail.tests.common import mail_new_test_user
-from odoo.tests.common import TransactionCase
+
+
+class SalesTeamCommon(BaseCommon):
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+
+        cls.group_sale_salesman = cls.env.ref('sales_team.group_sale_salesman')
+        cls.group_sale_manager = cls.env.ref('sales_team.group_sale_manager')
+
+        cls.sale_user = cls.env['res.users'].create({
+            'name': 'Test Salesman',
+            'login': 'salesman',
+            'password': 'salesman',
+            'email': 'default_user_salesman@example.com',
+            'signature': '--\nMark',
+            'notification_type': 'email',
+            'group_ids': [(6, 0, cls.group_sale_salesman.ids)],
+        })
+        cls.sale_manager = cls.env['res.users'].create({
+            'name': 'Test Sales Manager',
+            'login': 'salesmanager',
+            'password': 'salesmanager',
+            'email': 'default_user_salesmanager@example.com',
+            'signature': '--\nDamien',
+            'notification_type': 'email',
+            'group_ids': [(6, 0, cls.group_sale_manager.ids)],
+        })
+        cls.sale_team = cls.env['crm.team'].create({
+            'name': 'Test Sales Team',
+        })
+        # Disable other teams (demo data/existing data)
+        cls.env['crm.team'].search([
+            ('id', '!=', cls.sale_team.id),
+        ]).action_archive()
+
+    @classmethod
+    def get_default_groups(cls):
+        groups = super().get_default_groups()
+        return groups | cls.quick_ref('sales_team.group_sale_manager')
 
 
 class TestSalesCommon(TransactionCase):
@@ -50,7 +92,6 @@ class TestSalesCommon(TransactionCase):
             notification_type='inbox',
             groups='sales_team.group_sale_salesman',
         )
-        cls.user_admin = cls.env.ref('base.user_admin')
 
         cls.env['crm.team'].search([]).write({'sequence': 9999})
         cls.sales_team_1 = cls.env['crm.team'].create({

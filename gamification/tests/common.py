@@ -13,7 +13,8 @@ class HttpCaseGamification(HttpCaseWithUserDemo):
 
 class TransactionCaseGamification(TransactionCaseWithUserDemo):
 
-    def setUp(self):
-        super().setUp()
-        if not self.user_demo.karma:
-            self.user_demo.karma = 2500
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        if not cls.user_demo.karma:
+            cls.user_demo.karma = 2500

@@ -1,12 +1,7 @@
-/** @odoo-module **/
-
-import { browser } from "../browser/browser";
 import { registry } from "../registry";
 import { NotificationContainer } from "./notification_container";
 
-const { EventBus } = owl.core;
-
-const AUTOCLOSE_DELAY = 4000;
+import { reactive } from "@odoo/owl";
 
 /**
  * @typedef {Object} NotificationButton
@@ -17,6 +12,7 @@ const AUTOCLOSE_DELAY = 4000;
  *
  * @typedef {Object} NotificationOptions
  * @property {string} [title]
+ * @property {number} [autocloseDelay=4000]
  * @property {"warning" | "danger" | "success" | "info"} [type]
  * @property {boolean} [sticky=false]
  * @property {string} [className]
@@ -25,15 +21,20 @@ const AUTOCLOSE_DELAY = 4000;
  */
 
 export const notificationService = {
+    notificationContainer: NotificationContainer,
+
     start() {
         let notifId = 0;
-        let notifications = [];
-        const bus = new EventBus();
+        const notifications = reactive({});
 
-        registry.category("main_components").add("NotificationContainer", {
-            Component: NotificationContainer,
-            props: { bus, notifications },
-        });
+        registry.category("main_components").add(
+            this.notificationContainer.name,
+            {
+                Component: this.notificationContainer,
+                props: { notifications },
+            },
+            { sequence: 100 }
+        );
 
         /**
          * @param {string} message
@@ -41,28 +42,25 @@ export const notificationService = {
          */
         function add(message, options = {}) {
             const id = ++notifId;
-            const props = Object.assign({}, options, { message });
-            const sticky = props.sticky;
-            delete props.sticky;
             const closeFn = () => close(id);
+            const props = Object.assign({}, options, { message, close: closeFn });
+            delete props.onClose;
             const notification = {
                 id,
                 props,
-                close: closeFn,
+                onClose: options.onClose,
             };
-            notifications.push(notification);
-            bus.trigger("UPDATE");
-            if (!sticky) {
-                browser.setTimeout(closeFn, AUTOCLOSE_DELAY);
-            }
+            notifications[id] = notification;
             return closeFn;
         }
 
         function close(id) {
-            const index = notifications.findIndex((n) => n.id === id);
-            if (index > -1) {
-                notifications.splice(index, 1);
-                bus.trigger("UPDATE");
+            if (notifications[id]) {
+                const notification = notifications[id];
+                if (notification.onClose) {
+                    notification.onClose();
+                }
+                delete notifications[id];
             }
         }
 

@@ -12,11 +12,21 @@
         'iap',
         'mail',
     ],
-    'application': False,
     'installable': True,
     'auto_install': True,
     'data': [
         'data/mail_templates.xml',
+        'views/iap_views.xml',
     ],
+    'assets': {
+        'web.assets_backend': [
+            'iap_mail/static/src/js/**/*',
+            'iap_mail/static/src/scss/iap_mail.scss',
+        ],
+        "web.dark_mode_assets_backend": [
+            'iap_mail/static/src/scss/iap_mail.dark.scss',
+        ],
+    },
+    'author': 'Odoo S.A.',
     'license': 'LGPL-3',
 }

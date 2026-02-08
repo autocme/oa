@@ -1,11 +1,11 @@
-# -*- coding: utf-8 -*-
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
 
 from odoo import exceptions
+from odoo.tests.common import TransactionCase, users
+from odoo.tools import mute_logger
+
 from odoo.addons.mail.tests.common import mail_new_test_user
 from odoo.addons.sales_team.tests.common import TestSalesMC
-from odoo.tests.common import users, TransactionCase
-from odoo.tools import mute_logger
 
 
 class TestCornerCases(TransactionCase):
@@ -38,7 +38,7 @@ class TestCornerCases(TransactionCase):
         })
 
         sales_team_1_m1.write({'active': False})
-        sales_team_1_m1.flush()
+        sales_team_1_m1.flush_recordset()
 
         sales_team_1_m2 = self.env['crm.team.member'].create({
             'user_id': self.user_sales_leads.id,

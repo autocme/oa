@@ -1,264 +1,140 @@
-/** @odoo-module */
-
-import { onDestroyed, useEffect } from "@web/core/utils/hooks";
-import { throttleForAnimation } from "../utils/timing";
-
-const { core, hooks } = owl;
-const { useComponent, useExternalListener, useRef, useSubEnv, onWillUnmount } = hooks;
-const { EventBus } = core;
-
-/**
- * @typedef {{
- *  popper?: string;
- *  container?: HTMLElement;
- *  margin?: number;
- *  position?: Position;
- * }} Options
- *
- * @typedef {{
- *  directions: (DirectionsDataKey)[];
- *  variants: (VariantsDataKey)[];
- *  get: (d?: DirectionsDataKey, v?: VariantsDataKey, containerRestricted?: boolean) => PositioningSolution | null;
- * }} Positioning
- *
- * @typedef {keyof DirectionsData} DirectionsDataKey
- * @typedef {{
- *  t: number;
- *  b: number;
- *  l: number;
- *  r: number;
- * }} DirectionsData
- *
- * @typedef {keyof VariantsData} VariantsDataKey
- * @typedef {{
- *  vs: number;
- *  vm: number;
- *  ve: number;
- *  hs: number;
- *  hm: number;
- *  he: number;
- * }} VariantsData
- *
- * @typedef {"top" | "left" | "bottom" | "right"} Direction
- * @typedef {"start" | "middle" | "end"} Variant
- *
- * @typedef {{[direction in Direction]: string}} DirectionFlipOrder
- *  values are successive DirectionsDataKey represented as a single string
- *
- * @typedef {{[variant in Variant]: string}} VariantFlipOrder
- *  values are successive VariantsDataKey represented as a single string
- *
- * @typedef {Direction
- *  | "top-start" | "top-middle" | "top-end"
- *  | "left-start" | "left-middle" | "left-end"
- *  | "right-start" | "right-middle" | "right-end"
- *  | "bottom-start" | "bottom-middle" | "bottom-end"} Position
- *
- * @typedef {{ className: string, top: number, left: number }} PositioningSolution
- */
-
-const POPPER_CLASS = "o-popper-position";
-/** @type DirectionFlipOrder */
-const DIRECTION_FLIP_ORDER = { top: "tbrl", right: "rltb", bottom: "btrl", left: "lrbt" };
-/** @type VariantFlipOrder */
-const VARIANT_FLIP_ORDER = { start: "sme", middle: "mse", end: "ems" };
-
-/** @type {Options} */
-export const DEFAULTS = {
-    margin: 0,
-    position: "bottom",
-};
+import { reposition } from "@web/core/position/utils";
+import { omit } from "@web/core/utils/objects";
+import { useThrottleForAnimation } from "@web/core/utils/timing";
+import {
+    EventBus,
+    onWillDestroy,
+    useChildSubEnv,
+    useComponent,
+    useEffect,
+    useRef,
+} from "@odoo/owl";
 
 /**
- * Computes positioning data used to determine each possible position
- * based on the reference, popper, and container sizes.
- * Particularly, a popper must not overflow the container in any direction,
- * it should actually stay at `margin` distance from the border to look good.
+ * @typedef {import("@web/core/position/utils").ComputePositionOptions} ComputePositionOptions
+ * @typedef {import("@web/core/position/utils").PositioningSolution} PositioningSolution
  *
- * @param {HTMLElement} reference
- * @param {HTMLElement} popper
- * @param {Options} options
- * @returns {Positioning} a positioning object containing:
- *  - ascendingly sorted directions and variants
- *  - a method returning style to apply to the popper for a given direction and variant
+ * @typedef {Object} UsePositionOptionsExtensionType
+ * @property {(popperElement: HTMLElement, solution: PositioningSolution) => void} [onPositioned]
+ *  callback called when the positioning is done.
+ * @typedef {ComputePositionOptions & UsePositionOptionsExtensionType} UsePositionOptions
+ *
+ * @typedef PositioningControl
+ * @property {() => void} lock prevents further positioning updates
+ * @property {() => void} unlock allows further positioning updates (triggers an update right away)
  */
-export function computePositioning(reference, popper, options) {
-    const { container, margin, position } = options;
 
-    // Retrieve directions and variants
-    const [directionKey, variantKey = "middle"] = position.split("-");
-    const directions = DIRECTION_FLIP_ORDER[directionKey];
-    const variants = VARIANT_FLIP_ORDER[variantKey];
-
-    // Boxes
-    const popBox = popper.getBoundingClientRect();
-    const refBox = reference.getBoundingClientRect();
-    const contBox = container.getBoundingClientRect();
-
-    const containerIsHTMLNode = container === document.firstElementChild;
-
-    // Compute positioning data
-    /** @type {DirectionsData} */
-    const directionsData = {
-        t: refBox.top - popBox.height - margin,
-        b: refBox.bottom + margin,
-        r: refBox.right + margin,
-        l: refBox.left - popBox.width - margin,
-    };
-    /** @type {VariantsData} */
-    const variantsData = {
-        vs: refBox.left,
-        vm: refBox.left + refBox.width / 2 + -popBox.width / 2,
-        ve: refBox.right - popBox.width,
-        hs: refBox.top,
-        hm: refBox.top + refBox.height / 2 + -popBox.height / 2,
-        he: refBox.bottom - popBox.height,
-    };
-
-    function get(d = directions[0], v = variants[0], containerRestricted = false) {
-        const vertical = ["t", "b"].includes(d);
-        const variantPrefix = vertical ? "v" : "h";
-        const directionValue = directionsData[d];
-        const variantValue = variantsData[variantPrefix + v];
-
-        if (containerRestricted) {
-            const [directionSize, variantSize] = vertical
-                ? [popBox.height + margin, popBox.width]
-                : [popBox.width, popBox.height + margin];
-            let [directionMin, directionMax] = vertical
-                ? [contBox.top, contBox.bottom]
-                : [contBox.left, contBox.right];
-            let [variantMin, variantMax] = vertical
-                ? [contBox.left, contBox.right]
-                : [contBox.top, contBox.bottom];
-
-            if (containerIsHTMLNode) {
-                if (vertical) {
-                    directionMin += container.scrollTop;
-                    directionMax += container.scrollTop;
-                } else {
-                    variantMin += container.scrollTop;
-                    variantMax += container.scrollTop;
-                }
-            }
-
-            // Abort if outside container boundaries
-            const directionOverflow =
-                directionValue < directionMin || directionValue + directionSize > directionMax;
-            const variantOverflow =
-                variantValue < variantMin || variantValue + variantSize > variantMax;
-            if (directionOverflow || variantOverflow) {
-                return null;
-            }
-        }
-
-        const positioning = vertical
-            ? {
-                  top: directionValue,
-                  left: variantValue,
-              }
-            : {
-                  top: variantValue,
-                  left: directionValue,
-              };
-        return { ...positioning, className: `${POPPER_CLASS}--${d}${v}` };
-    }
-
-    return {
-        directions,
-        variants,
-        get,
-    };
-}
-
-/**
- * This method will try to position the popper as requested (according to options).
- * If the requested position does not fit the container, other positions will be
- * tried in different direction and variant flip orders (depending on the requested position).
- * If no position is found that fits the container, the requested position stays used.
- *
- * When the final position is applied, a corresponding CSS class is also added to the popper.
- * This could be used to further styling.
- *
- * @param {HTMLElement} reference
- * @param {HTMLElement} popper
- * @param {Options} options
- */
-function reposition(reference, popper, options) {
-    options = {
-        container: document.documentElement,
-        ...DEFAULTS,
-        ...options,
-    };
-
-    // Reset all existing popper classes and only leave it as standalone
-    for (const popperClass of popper.classList) {
-        if (popperClass.startsWith(POPPER_CLASS)) {
-            popper.classList.remove(popperClass);
-        }
-    }
-    popper.classList.add(POPPER_CLASS);
-
-    // Compute positioning and find first match
-    const positioning = computePositioning(reference, popper, options);
-    for (const d of positioning.directions) {
-        for (const v of positioning.variants) {
-            const posData = positioning.get(d, v, true);
-            if (!posData) {
-                continue;
-            }
-
-            // From now, a position match have been found.
-            // Apply styles
-            const { className, top, left } = posData;
-            popper.classList.add(className);
-            popper.style.top = `${top}px`;
-            popper.style.left = `${left}px`;
-            return;
-        }
-    }
-
-    // use the given `position` because no position fits
-    const { className, top, left } = positioning.get();
-    popper.classList.add(className);
-    popper.style.top = `${top}px`;
-    popper.style.left = `${left}px`;
-}
-
-const POSITION_BUS = Symbol("position-bus");
+export const POSITION_BUS = Symbol("position-bus");
 
 /**
  * Makes sure that the `popper` element is always
- * placed at `position` from the `reference` element.
+ * placed at `position` from the `target` element.
  * If doing so the `popper` element is clipped off `container`,
  * sensible fallback positions are tried.
  * If all of fallback positions are also clipped off `container`,
  * the original position is used.
  *
- * @param {HTMLElement | (()=>HTMLElement)} reference
- * @param {Options} options
+ * Note: The popper element should be indicated in your template
+ *       with a t-ref reference matching the refName argument.
+ *
+ * @param {string} refName
+ *  name of the reference to the popper element in the template.
+ * @param {() => HTMLElement} getTarget
+ * @param {UsePositionOptions} [options={}] the options to be used for positioning
+ * @returns {PositioningControl}
+ *  control object to lock/unlock the positioning.
  */
-export function usePosition(reference, options) {
-    options = { ...DEFAULTS, ...options };
-    const { popper } = options;
-    const popperRef = popper ? useRef(popper) : useComponent();
-    const getReference = typeof reference === "function" ? reference : () => reference;
+export function usePosition(refName, getTarget, options = {}) {
+    const ref = useRef(refName);
+    let lock = false;
     const update = () => {
-        const ref = getReference();
-        if (popperRef.el && ref) {
-            reposition(ref, popperRef.el, options);
+        const targetEl = getTarget();
+        if (!ref.el || !targetEl?.isConnected || lock) {
+            // No compute needed
+            return;
         }
+        const repositionOptions = omit(options, "onPositioned");
+        const solution = reposition(ref.el, targetEl, repositionOptions);
+        options.position = `${solution.direction}-${solution.variant}`; // memorize last position
+        options.onPositioned?.(ref.el, solution);
     };
+
     const component = useComponent();
     const bus = component.env[POSITION_BUS] || new EventBus();
-    bus.on("update", component, update);
-    onDestroyed(() => bus.off("update", component));
-    useEffect(() => bus.trigger("update"));
-    if (!(POSITION_BUS in component.env)) {
-        useSubEnv({ [POSITION_BUS]: bus });
-        const throttledUpdate = throttleForAnimation(() => bus.trigger("update"));
-        useExternalListener(document, "scroll", throttledUpdate, { capture: true });
-        useExternalListener(window, "resize", throttledUpdate);
-        onWillUnmount(throttledUpdate.cancel);
+
+    let executingUpdate = false;
+    const batchedUpdate = async () => {
+        // not same as batch, here we're executing once and then awaiting
+        if (!executingUpdate) {
+            executingUpdate = true;
+            update();
+            await Promise.resolve();
+            executingUpdate = false;
+        }
+    };
+    bus.addEventListener("update", batchedUpdate);
+    onWillDestroy(() => bus.removeEventListener("update", batchedUpdate));
+
+    const isTopmost = !(POSITION_BUS in component.env);
+    if (isTopmost) {
+        useChildSubEnv({ [POSITION_BUS]: bus });
     }
+
+    const throttledUpdate = useThrottleForAnimation(() => bus.trigger("update"));
+    useEffect(() => {
+        // Reposition
+        bus.trigger("update");
+
+        if (isTopmost) {
+            // Attach listeners to keep the positioning up to date
+            const scrollListener = (e) => {
+                if (ref.el?.contains(e.target)) {
+                    // In case the scroll event occurs inside the popper, do not reposition
+                    return;
+                }
+                throttledUpdate();
+            };
+            // Get the ownerDocument of the target, and the topmost document
+            // if the target is inside an iframe of same-origin
+            // (c.f. html_builder), to handle scroll events at these 2 levels.
+            const documents = [];
+            const targetDocument = getTarget()?.ownerDocument;
+            if (targetDocument) {
+                documents.push(targetDocument);
+                if (
+                    targetDocument.defaultView &&
+                    targetDocument.defaultView.top !== targetDocument.defaultView
+                ) {
+                    try {
+                        documents.push(targetDocument.defaultView.top.document);
+                    } catch {
+                        // Don't access the top document if it is not allowed.
+                        // (i.e. iframe origin or sandbox restriction)
+                    }
+                }
+            }
+            for (const document of documents) {
+                document.addEventListener("scroll", scrollListener, { capture: true });
+                document.addEventListener("load", throttledUpdate, { capture: true });
+            }
+            window.addEventListener("resize", throttledUpdate);
+            return () => {
+                for (const document of documents) {
+                    document.removeEventListener("scroll", scrollListener, { capture: true });
+                    document.removeEventListener("load", throttledUpdate, { capture: true });
+                }
+                window.removeEventListener("resize", throttledUpdate);
+            };
+        }
+    });
+
+    return {
+        lock: () => {
+            lock = true;
+        },
+        unlock: () => {
+            lock = false;
+            bus.trigger("update");
+        },
+    };
 }

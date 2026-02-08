@@ -1,254 +1,726 @@
 # Translation of Odoo Server.
 # This file contains the translation of the following modules:
 # 	* sale_project
-# 
-# Translators:
-# Martin Trigaux, 2022
-# Linas Versada <linaskrisiukenas@gmail.com>, 2022
-# Jonas Zinkevicius <jozi@odoo.com>, 2022
-# Ramunė ViaLaurea <ramune.vialaurea@gmail.com>, 2022
-# 
+#
 msgid ""
 msgstr ""
-"Project-Id-Version: Odoo Server 15.0\n"
+"Project-Id-Version: Odoo Server 18.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-08-14 15:43+0000\n"
-"PO-Revision-Date: 2021-09-14 12:26+0000\n"
-"Last-Translator: Ramunė ViaLaurea <ramune.vialaurea@gmail.com>, 2022\n"
-"Language-Team: Lithuanian (https://app.transifex.com/odoo/teams/41243/lt/)\n"
+"POT-Creation-Date: 2026-01-25 18:37+0000\n"
+"PO-Revision-Date: 2024-09-26 08:56+0000\n"
+"Last-Translator: \n"
+"Language-Team: \n"
+"Language: \n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: \n"
-"Language: lt\n"
-"Plural-Forms: nplurals=4; plural=(n % 10 == 1 && (n % 100 > 19 || n % 100 < 11) ? 0 : (n % 10 >= 2 && n % 10 <=9) && (n % 100 > 19 || n % 100 < 11) ? 1 : n % 1 != 0 ? 2: 3);\n"
+"Plural-Forms: \n"
+
+#. module: sale_project
+#. odoo-python
+#: code:addons/sale_project/models/sale_order.py:0
+msgid ""
+"\n"
+"                <p class=\"o_view_nocontent_smiling_face\">\n"
+"                    No milestones found. Let's create one!\n"
+"                </p><p>\n"
+"                    Track major progress points that must be reached to "
+"achieve success.\n"
+"                </p>\n"
+"            "
+msgstr ""
+
+#. module: sale_project
+#. odoo-python
+#: code:addons/sale_project/models/project_project.py:0
+msgid "%(name)s's %(action_name)s"
+msgstr ""
+
+#. module: sale_project
+#. odoo-python
+#: code:addons/sale_project/models/project_project.py:0
+msgid "%(name)s's Sales Order Items"
+msgstr ""
 
 #. module: sale_project
 #: model_terms:ir.ui.view,arch_db:sale_project.view_edit_project_inherit_form
-msgid "Create Invoice"
-msgstr "Sukurti sąskaitą-faktūrą"
+msgid ""
+"<span class=\"fa fa-exclamation-triangle text-warning\" title=\"The sales "
+"order associated with this project has been cancelled. We recommend either "
+"updating the sales order item or cancelling this project in alignment with "
+"the cancellation of the sales order.\" invisible=\"sale_order_state != "
+"'cancel'\"/>"
+msgstr ""
+
+#. module: sale_project
+#: model_terms:ir.ui.view,arch_db:sale_project.view_sale_project_inherit_form
+msgid ""
+"<span class=\"fa fa-exclamation-triangle text-warning\" title=\"The sales "
+"order associated with this task has been cancelled. We recommend either "
+"updating the sales order item or cancelling this task in alignment with the "
+"cancellation of the sales order.\" invisible=\"sale_order_state != "
+"'cancel'\"/>"
+msgstr ""
+
+#. module: sale_project
+#: model_terms:ir.ui.view,arch_db:sale_project.view_edit_project_inherit_form
+msgid ""
+"<span class=\"o_stat_text\">\n"
+"                            <span class=\"o_stat_value\">0</span> Sales "
+"Order\n"
+"                        </span>\n"
+"                        <span class=\"o_stat_text\">\n"
+"                            Make Billable\n"
+"                        </span>"
+msgstr ""
+
+#. module: sale_project
+#: model_terms:ir.ui.view,arch_db:sale_project.view_edit_project_inherit_form
+msgid ""
+"<span class=\"o_stat_text\">\n"
+"                            Sales Orders\n"
+"                        </span>"
+msgstr ""
+
+#. module: sale_project
+#: model_terms:ir.ui.view,arch_db:sale_project.view_order_form_inherit_sale_project
+msgid "<span class=\"o_stat_text\"> Projects</span>"
+msgstr ""
+
+#. module: sale_project
+#: model_terms:ir.ui.view,arch_db:sale_project.view_order_form_inherit_sale_project
+msgid "<span class=\"o_stat_text\"> Tasks</span>"
+msgstr ""
+
+#. module: sale_project
+#: model_terms:ir.ui.view,arch_db:sale_project.view_edit_project_inherit_form
+msgid "<span class=\"o_stat_text\">Preview</span>"
+msgstr ""
+
+#. module: sale_project
+#: model_terms:ir.ui.view,arch_db:sale_project.project_milestone_view_form
+#: model_terms:ir.ui.view,arch_db:sale_project.project_sharing_inherit_project_task_view_form
+#: model_terms:ir.ui.view,arch_db:sale_project.view_sale_project_inherit_form
+msgid "<span class=\"o_stat_text\">Sales Order</span>"
+msgstr ""
+
+#. module: sale_project
+#: model_terms:ir.ui.view,arch_db:sale_project.task_type_edit_inherit_sale_project
+msgid ""
+"<span name=\"rating_status_helper\">\n"
+"                    <span invisible=\"rating_status == 'periodic'\">A rating "
+"request will be sent as soon as a task reaches this stage, provided the "
+"project is billable.</span>\n"
+"                    <span invisible=\"rating_status == 'stage'\">Rating "
+"requests will be sent as long as the task remains in this stage, provided "
+"the project is billable.</span>\n"
+"                </span>"
+msgstr ""
+
+#. module: sale_project
+#: model_terms:ir.ui.view,arch_db:sale_project.project_milestone_view_form
+msgid "<span>)</span>"
+msgstr ""
+
+#. module: sale_project
+#. odoo-python
+#: code:addons/sale_project/models/sale_order_line.py:0
+msgid ""
+"A project must be defined on the quotation %(order)s or on the form of "
+"products creating a task on order.\n"
+"The following product need a project in which to put its task: %"
+"(product_name)s"
+msgstr ""
+
+#. module: sale_project
+#: model:ir.model.fields,help:sale_project.field_sale_order__project_id
+msgid ""
+"A task will be created for the project upon sales order confirmation. The "
+"analytic distribution of this project will also serve as a reference for "
+"newly created sales order items."
+msgstr ""
+
+#. module: sale_project
+#: model:ir.model.fields,help:sale_project.field_sale_order_line__qty_delivered_method
+msgid ""
+"According to product configuration, the delivered quantity can be "
+"automatically computed by mechanism:\n"
+"  - Manual: the quantity is set manually on the line\n"
+"  - Analytic From expenses: the quantity is the quantity sum from posted "
+"expenses\n"
+"  - Timesheet: the quantity is the sum of hours recorded on tasks linked to "
+"this sale line\n"
+"  - Stock Moves: the quantity comes from confirmed pickings\n"
+msgstr ""
+
+#. module: sale_project
+#. odoo-python
+#: code:addons/sale_project/models/product_template.py:0
+msgid "Based on Delivered Quantity (Manual)"
+msgstr ""
+
+#. module: sale_project
+#. odoo-python
+#: code:addons/sale_project/models/product_template.py:0
+msgid "Based on Milestones"
+msgstr ""
+
+#. module: sale_project
+#: model:ir.model.fields,field_description:sale_project.field_project_project__allow_billable
+#: model:ir.model.fields,field_description:sale_project.field_project_task__allow_billable
+#: model:ir.model.fields,field_description:sale_project.field_project_template_create_wizard__allow_billable
+msgid "Billable"
+msgstr ""
+
+#. module: sale_project
+#. odoo-python
+#: code:addons/sale_project/models/sale_order_line.py:0
+msgid "Cancelled"
+msgstr ""
+
+#. module: sale_project
+#: model_terms:ir.ui.view,arch_db:sale_project.view_order_simple_form
+msgid "Confirm & Close"
+msgstr ""
+
+#. module: sale_project
+#. odoo-python
+#: code:addons/sale_project/models/project_project.py:0
+msgid ""
+"Converting this template to a regular project will unlink it from its "
+"associated products."
+msgstr ""
+
+#. module: sale_project
+#. odoo-python
+#: code:addons/sale_project/models/project_project.py:0
+msgid "Cost of Goods Sold"
+msgstr ""
+
+#. module: sale_project
+#. odoo-python
+#: code:addons/sale_project/models/project_project.py:0
+msgid "Cost of Goods Sold Items"
+msgstr ""
+
+#. module: sale_project
+#: model:ir.actions.server,name:sale_project.model_sale_order_action_create_project
+msgid "Create Project"
+msgstr ""
+
+#. module: sale_project
+#. odoo-javascript
+#: code:addons/sale_project/static/src/components/so_line_create_button/so_line_create_button.xml:0
+msgid "Create Sales Order"
+msgstr ""
+
+#. module: sale_project
+#. odoo-python
+#: code:addons/sale_project/models/sale_order.py:0
+msgid "Create a Project"
+msgstr ""
+
+#. module: sale_project
+#: model:ir.model,website_form_label:sale_project.model_project_task
+msgid "Create a Task"
+msgstr ""
+
+#. module: sale_project
+#. odoo-python
+#: code:addons/sale_project/models/project_project.py:0
+msgid "Create a customer invoice"
+msgstr ""
+
+#. module: sale_project
+#. odoo-python
+#: code:addons/sale_project/models/product_template.py:0
+msgid ""
+"Create a project for the order with a task for each sales order line to "
+"track the time spent."
+msgstr ""
+
+#. module: sale_project
+#. odoo-python
+#: code:addons/sale_project/models/product_template.py:0
+msgid "Create a task in an existing project to track the time spent."
+msgstr ""
+
+#. module: sale_project
+#. odoo-python
+#: code:addons/sale_project/models/project_project.py:0
+msgid "Create a vendor bill"
+msgstr ""
+
+#. module: sale_project
+#. odoo-python
+#: code:addons/sale_project/models/product_template.py:0
+msgid "Create an empty project for the order to track the time spent."
+msgstr ""
+
+#. module: sale_project
+#. odoo-python
+#: code:addons/sale_project/models/project_project.py:0
+msgid ""
+"Create invoices, register payments and keep track of the discussions with "
+"your customers."
+msgstr ""
+
+#. module: sale_project
+#. odoo-python
+#: code:addons/sale_project/models/project_project.py:0
+msgid ""
+"Create invoices, register payments and keep track of the discussions with "
+"your vendors."
+msgstr ""
 
 #. module: sale_project
 #: model:ir.model.fields,field_description:sale_project.field_product_product__service_tracking
 #: model:ir.model.fields,field_description:sale_project.field_product_template__service_tracking
 msgid "Create on Order"
-msgstr "Sukurti užsakymą"
-
-#. module: sale_project
-#: model:ir.model.fields,field_description:sale_project.field_sale_order__visible_project
-msgid "Display project"
-msgstr "Atvaizduoti projektą"
-
-#. module: sale_project
-#: model:ir.model.fields,field_description:sale_project.field_sale_order_line__project_id
-msgid "Generated Project"
-msgstr "Sugeneruotas projektas"
-
-#. module: sale_project
-#: model:ir.model.fields,field_description:sale_project.field_sale_order_line__task_id
-msgid "Generated Task"
-msgstr "Sugeneruota užduotis"
-
-#. module: sale_project
-#: model:ir.model.fields,field_description:sale_project.field_project_project__has_any_so_to_invoice
-msgid "Has SO to Invoice"
 msgstr ""
 
 #. module: sale_project
-#: code:addons/sale_project/models/product.py:0
-#, python-format
+#. odoo-python
+#: code:addons/sale_project/models/product_template.py:0
 msgid ""
-"Invoice as soon as this service is sold, and create a task in an existing "
-"project to track the time spent."
+"Create projects or tasks later, and link them to order to track the time "
+"spent."
 msgstr ""
 
 #. module: sale_project
-#: code:addons/sale_project/models/product.py:0
-#, python-format
+#: model:ir.model.fields,field_description:sale_project.field_project_project__partner_id
+#: model:ir.model.fields,field_description:sale_project.field_project_task__partner_id
+#: model_terms:ir.ui.view,arch_db:sale_project.project_project_view_form_simplified_template
+msgid "Customer"
+msgstr ""
+
+#. module: sale_project
+#. odoo-python
+#: code:addons/sale_project/models/project_project.py:0
+msgid "Customer Invoices"
+msgstr ""
+
+#. module: sale_project
+#: model_terms:ir.ui.view,arch_db:sale_project.product_template_form_view_invoice_policy_inherit_sale_project
+msgid "Defined on quotation"
+msgstr ""
+
+#. module: sale_project
+#. odoo-javascript
+#: code:addons/sale_project/static/src/components/project_right_side_panel/components/project_profitability_section.xml:0
+#: model_terms:ir.ui.view,arch_db:sale_project.project_update_default_description
+msgid "Delivered"
+msgstr ""
+
+#. module: sale_project
+#: model:product.template,name:sale_project.product_service_create_project_only_product_template
+msgid "Digital Marketing Campaign (project)"
+msgstr ""
+
+#. module: sale_project
+#: model_terms:ir.ui.view,arch_db:sale_project.view_order_simple_form
+msgid "Discard"
+msgstr ""
+
+#. module: sale_project
+#: model:ir.model.fields,field_description:sale_project.field_account_move__display_name
+#: model:ir.model.fields,field_description:sale_project.field_account_move_line__display_name
+#: model:ir.model.fields,field_description:sale_project.field_product_product__display_name
+#: model:ir.model.fields,field_description:sale_project.field_product_template__display_name
+#: model:ir.model.fields,field_description:sale_project.field_project_milestone__display_name
+#: model:ir.model.fields,field_description:sale_project.field_project_project__display_name
+#: model:ir.model.fields,field_description:sale_project.field_project_task__display_name
+#: model:ir.model.fields,field_description:sale_project.field_project_task_recurrence__display_name
+#: model:ir.model.fields,field_description:sale_project.field_project_task_type__display_name
+#: model:ir.model.fields,field_description:sale_project.field_project_template_create_wizard__display_name
+#: model:ir.model.fields,field_description:sale_project.field_project_update__display_name
+#: model:ir.model.fields,field_description:sale_project.field_report_project_task_user__display_name
+#: model:ir.model.fields,field_description:sale_project.field_sale_order__display_name
+#: model:ir.model.fields,field_description:sale_project.field_sale_order_line__display_name
+#: model:ir.model.fields,field_description:sale_project.field_sale_order_template_line__display_name
+#: model:ir.model.fields,field_description:sale_project.field_sale_report__display_name
+msgid "Display Name"
+msgstr ""
+
+#. module: sale_project
+#: model:ir.model.fields,field_description:sale_project.field_project_task__display_sale_order_button
+msgid "Display Sales Order"
+msgstr ""
+
+#. module: sale_project
+#. odoo-python
+#: code:addons/sale_project/models/sale_order_line.py:0
+msgid "Done"
+msgstr ""
+
+#. module: sale_project
+#. odoo-python
+#: code:addons/sale_project/models/project_project.py:0
+msgid "Down Payments"
+msgstr ""
+
+#. module: sale_project
+#: model_terms:ir.ui.view,arch_db:sale_project.product_template_form_view_invoice_policy_inherit_sale_project
+msgid "Empty project"
+msgstr ""
+
+#. module: sale_project
+#: model:product.template,name:sale_project.product_product_flooring_product_template
+msgid "Flooring Services"
+msgstr ""
+
+#. module: sale_project
+#: model:ir.model.fields,field_description:sale_project.field_account_move__id
+#: model:ir.model.fields,field_description:sale_project.field_account_move_line__id
+#: model:ir.model.fields,field_description:sale_project.field_product_product__id
+#: model:ir.model.fields,field_description:sale_project.field_product_template__id
+#: model:ir.model.fields,field_description:sale_project.field_project_milestone__id
+#: model:ir.model.fields,field_description:sale_project.field_project_project__id
+#: model:ir.model.fields,field_description:sale_project.field_project_task__id
+#: model:ir.model.fields,field_description:sale_project.field_project_task_recurrence__id
+#: model:ir.model.fields,field_description:sale_project.field_project_task_type__id
+#: model:ir.model.fields,field_description:sale_project.field_project_template_create_wizard__id
+#: model:ir.model.fields,field_description:sale_project.field_project_update__id
+#: model:ir.model.fields,field_description:sale_project.field_report_project_task_user__id
+#: model:ir.model.fields,field_description:sale_project.field_sale_order__id
+#: model:ir.model.fields,field_description:sale_project.field_sale_order_line__id
+#: model:ir.model.fields,field_description:sale_project.field_sale_order_template_line__id
+#: model:ir.model.fields,field_description:sale_project.field_sale_report__id
+msgid "ID"
+msgstr ""
+
+#. module: sale_project
+#. odoo-python
+#: code:addons/sale_project/models/sale_order_line.py:0
+msgid "In Progress"
+msgstr ""
+
+#. module: sale_project
+#. odoo-javascript
+#: code:addons/sale_project/static/src/components/project_right_side_panel/components/project_profitability_section.xml:0
+msgid "Internal link"
+msgstr ""
+
+#. module: sale_project
+#. odoo-python
+#: code:addons/sale_project/models/product_template.py:0
+msgid "Invoice your milestones when they are reached."
+msgstr ""
+
+#. module: sale_project
+#: model_terms:ir.ui.view,arch_db:sale_project.project_project_view_form_simplified_inherit
+#: model_terms:ir.ui.view,arch_db:sale_project.view_edit_project_inherit_form
+msgid "Invoice your time and material to customers"
+msgstr ""
+
+#. module: sale_project
+#. odoo-javascript
+#: code:addons/sale_project/static/src/components/project_right_side_panel/components/project_profitability_section.xml:0
+#: model_terms:ir.ui.view,arch_db:sale_project.project_update_default_description
+msgid "Invoiced"
+msgstr ""
+
+#. module: sale_project
+#. odoo-python
+#: code:addons/sale_project/models/project_project.py:0
+#: model:ir.embedded.actions,name:sale_project.project_embedded_action_invoices
+#: model:ir.embedded.actions,name:sale_project.project_embedded_action_invoices_dashboard
+msgid "Invoices"
+msgstr ""
+
+#. module: sale_project
+#: model_terms:ir.ui.view,arch_db:sale_project.product_template_form_view_invoice_policy_inherit_sale_project
+msgid "Invoicing Policy"
+msgstr ""
+
+#. module: sale_project
+#: model:ir.model,name:sale_project.model_account_move
+msgid "Journal Entry"
+msgstr ""
+
+#. module: sale_project
+#: model:ir.model,name:sale_project.model_account_move_line
+msgid "Journal Item"
+msgstr ""
+
+#. module: sale_project
+#. odoo-javascript
+#: code:addons/sale_project/static/src/components/project_right_side_panel/components/project_profitability_section.xml:0
+msgid "Load more"
+msgstr ""
+
+#. module: sale_project
+#: model:ir.model.fields,help:sale_project.field_product_product__service_type
+#: model:ir.model.fields,help:sale_project.field_product_template__service_type
 msgid ""
-"Invoice ordered quantities as soon as this service is sold, and create a "
-"project for the order with a task for each sales order line to track the "
-"time spent."
+"Manually set quantities on order: Invoice based on the manually entered "
+"quantity, without creating an analytic account.\n"
+"Timesheets on contract: Invoice based on the tracked hours on the related "
+"timesheet.\n"
+"Create a task and track hours: Create a task on the sales order validation "
+"and track the work hours."
 msgstr ""
 
 #. module: sale_project
-#: code:addons/sale_project/models/product.py:0
-#, python-format
-msgid ""
-"Invoice ordered quantities as soon as this service is sold, and create an "
-"empty project for the order to track the time spent."
+#. odoo-python
+#: code:addons/sale_project/models/project_project.py:0
+msgid "Materials"
 msgstr ""
 
 #. module: sale_project
-#: code:addons/sale_project/models/product.py:0
-#, python-format
-msgid "Invoice ordered quantities as soon as this service is sold."
+#: model:ir.model.fields,field_description:sale_project.field_sale_order_line__qty_delivered_method
+msgid "Method to update delivered qty"
 msgstr ""
-"Jūs galite išduoti sąskaitą faktūrą vos tik įvykdžius šios paslaugos "
-"pardavimą."
 
 #. module: sale_project
-#: model:ir.model.fields,field_description:sale_project.field_sale_order_line__is_service
-msgid "Is a Service"
-msgstr "Yra paslauga"
-
-#. module: sale_project
+#. odoo-python
 #: code:addons/sale_project/models/sale_order.py:0
-#, python-format
-msgid "New"
-msgstr "Naujas"
+#: model:ir.model.fields.selection,name:sale_project.selection__sale_order_line__qty_delivered_method__milestones
+#: model_terms:ir.ui.view,arch_db:sale_project.view_order_form_inherit_sale_project
+msgid "Milestones"
+msgstr ""
+
+#. module: sale_project
+#. odoo-python
+#: code:addons/sale_project/models/sale_order_line.py:0
+msgid "New Sales Order Item"
+msgstr ""
+
+#. module: sale_project
+#: model_terms:ir.ui.view,arch_db:sale_project.sale_project_view_form_simplified_template
+msgid "New project"
+msgstr ""
+
+#. module: sale_project
+#: model_terms:ir.ui.view,arch_db:sale_project.project_milestone_view_form
+#: model_terms:ir.ui.view,arch_db:sale_project.project_milestone_view_tree
+#: model_terms:ir.ui.view,arch_db:sale_project.view_sale_project_inherit_form
+msgid "Non-billable"
+msgstr ""
 
 #. module: sale_project
 #: model_terms:ir.ui.view,arch_db:sale_project.portal_tasks_list_inherit
-msgid "None"
-msgstr "Nieko"
-
-#. module: sale_project
-#: model:ir.model.fields.selection,name:sale_project.selection__product_template__service_tracking__no
-msgid "Nothing"
-msgstr "Niekas(-o)"
-
-#. module: sale_project
-#: model:ir.model.fields,field_description:sale_project.field_sale_order__project_count
-msgid "Number of Projects"
-msgstr "Projektų kiekis"
-
-#. module: sale_project
-#: model:ir.model.fields,field_description:sale_project.field_project_task__invoice_count
-msgid "Number of invoices"
+msgid "Not Billed"
 msgstr ""
 
 #. module: sale_project
-#: model:ir.model.fields,help:sale_project.field_product_product__service_tracking
-#: model:ir.model.fields,help:sale_project.field_product_template__service_tracking
+#: model:product.template,name:sale_project.product_service_create_task_only_product_template
+msgid "Office Furniture Set (task)"
+msgstr ""
+
+#. module: sale_project
+#. odoo-python
+#: code:addons/sale_project/models/project_project.py:0
+msgid "Other Services"
+msgstr ""
+
+#. module: sale_project
+#: model:product.template,name:sale_project.product_product_painting_product_template
+msgid "Painting"
+msgstr ""
+
+#. module: sale_project
+#: model:ir.model.fields,field_description:sale_project.field_project_template_create_wizard__partner_id
+msgid "Partner"
+msgstr ""
+
+#. module: sale_project
+#: model:ir.model.fields,help:sale_project.field_project_milestone__quantity_percentage
 msgid ""
-"On Sales order confirmation, this product can generate a project and/or task.         From those, you can track the service you are selling.\n"
-"         'In sale order's project': Will use the sale order's configured project if defined or fallback to         creating a new project based on the selected template."
+"Percentage of the ordered quantity that will automatically be delivered once "
+"the milestone is reached."
+msgstr ""
+
+#. module: sale_project
+#: model:product.template,name:sale_project.product_product_plumbing_product_template
+msgid "Plumbing Services"
+msgstr ""
+
+#. module: sale_project
+#. odoo-python
+#: code:addons/sale_project/models/project_task.py:0
+msgid "Portal Sale Order"
+msgstr ""
+
+#. module: sale_project
+#. odoo-python
+#: code:addons/sale_project/models/product_template.py:0
+msgid "Prepaid/Fixed Price"
+msgstr ""
+
+#. module: sale_project
+#: model:ir.model,name:sale_project.model_product_template
+msgid "Product"
 msgstr ""
 
 #. module: sale_project
 #: model:ir.model,name:sale_project.model_product_product
-msgid "Product"
-msgstr "Produktas"
+msgid "Product Variant"
+msgstr ""
 
 #. module: sale_project
-#: model:ir.model,name:sale_project.model_product_template
-msgid "Product Template"
-msgstr "Produkto šablonas"
+#: model:ir.model.fields,help:sale_project.field_project_project__reinvoiced_sale_order_id
+msgid ""
+"Products added to stock pickings, whose operation type is configured to "
+"generate analytic costs, will be re-invoiced in this sales order if they are "
+"set up for it."
+msgstr ""
 
 #. module: sale_project
 #: model:ir.model,name:sale_project.model_project_project
 #: model:ir.model.fields,field_description:sale_project.field_product_product__project_id
 #: model:ir.model.fields,field_description:sale_project.field_product_template__project_id
 #: model:ir.model.fields,field_description:sale_project.field_sale_order__project_id
+#: model:ir.model.fields,field_description:sale_project.field_sale_report__project_id
 #: model:ir.model.fields.selection,name:sale_project.selection__product_template__service_tracking__project_only
 msgid "Project"
-msgstr "Projektas"
+msgstr ""
 
 #. module: sale_project
 #: model:ir.model.fields.selection,name:sale_project.selection__product_template__service_tracking__task_in_project
 msgid "Project & Task"
-msgstr "Projektai ir užduotys"
+msgstr ""
+
+#. module: sale_project
+#: model:ir.model.fields,field_description:sale_project.field_sale_order__project_account_id
+msgid "Project Account"
+msgstr ""
+
+#. module: sale_project
+#: model:ir.model,name:sale_project.model_project_milestone
+msgid "Project Milestone"
+msgstr ""
+
+#. module: sale_project
+#: model:ir.model.fields.selection,name:sale_project.selection__product_template__service_type__milestones
+msgid "Project Milestones"
+msgstr ""
 
 #. module: sale_project
 #: model:ir.model.fields,field_description:sale_project.field_product_product__project_template_id
 #: model:ir.model.fields,field_description:sale_project.field_product_template__project_template_id
+#: model_terms:ir.ui.view,arch_db:sale_project.sale_project_view_form_simplified_template
 msgid "Project Template"
-msgstr "Projekto šablonas"
+msgstr ""
 
 #. module: sale_project
-#: model:ir.model.fields,help:sale_project.field_sale_order_line__project_id
-msgid "Project generated by the sales order item"
-msgstr "Projektas, sugeneruotas pardavimo užsakymo įrašo"
+#: model:ir.model,name:sale_project.model_project_template_create_wizard
+msgid "Project Template create Wizard"
+msgstr ""
+
+#. module: sale_project
+#: model:ir.model,name:sale_project.model_project_update
+msgid "Project Update"
+msgstr ""
 
 #. module: sale_project
 #: model:ir.model.fields,field_description:sale_project.field_project_task__project_sale_order_id
 msgid "Project's sale order"
-msgstr "Projekto pard.užsakymas"
-
-#. module: sale_project
-#: code:addons/sale_project/models/sale_order.py:0
-#: model:ir.model.fields,field_description:sale_project.field_sale_order__project_ids
-#: model_terms:ir.ui.view,arch_db:sale_project.view_order_form_inherit_sale_project
-#, python-format
-msgid "Projects"
-msgstr "Projektai"
-
-#. module: sale_project
-#: model:ir.model.fields,help:sale_project.field_sale_order__project_ids
-msgid "Projects used in this sales order."
-msgstr "Projektai, panaudoti šiame pardavimų užsakyme."
-
-#. module: sale_project
-#: model_terms:ir.ui.view,arch_db:sale_project.project_sharing_inherit_project_task_view_search
-#: model_terms:ir.ui.view,arch_db:sale_project.project_task_view_search
-msgid "Sale Order"
-msgstr "Pardavimo užsakymas"
-
-#. module: sale_project
-#: code:addons/sale_project/controllers/portal.py:0
-#: code:addons/sale_project/models/project.py:0
-#: model:ir.model,name:sale_project.model_sale_order
-#: model:ir.model.fields,field_description:sale_project.field_project_project__sale_order_id
-#: model:ir.model.fields,field_description:sale_project.field_project_task__sale_order_id
-#: model:ir.model.fields,field_description:sale_project.field_report_project_task_user__sale_order_id
-#: model_terms:ir.ui.view,arch_db:sale_project.project_sharing_inherit_project_task_view_form
-#: model_terms:ir.ui.view,arch_db:sale_project.project_task_view_search
-#: model_terms:ir.ui.view,arch_db:sale_project.view_edit_project_inherit_form
-#: model_terms:ir.ui.view,arch_db:sale_project.view_sale_project_inherit_form
-#, python-format
-msgid "Sales Order"
-msgstr "Pardavimo užsakymas"
-
-#. module: sale_project
-#: model_terms:ir.ui.view,arch_db:sale_project.project_sharing_inherit_project_task_view_search
-msgid "Sales Order Id"
 msgstr ""
 
 #. module: sale_project
+#: model:ir.model.fields,field_description:sale_project.field_project_milestone__product_uom_qty
+msgid "Quantity"
+msgstr ""
+
+#. module: sale_project
+#: model:ir.model.fields,field_description:sale_project.field_project_milestone__quantity_percentage
+#: model_terms:ir.ui.view,arch_db:sale_project.project_milestone_view_tree
+msgid "Quantity (%)"
+msgstr ""
+
+#. module: sale_project
+#: model:ir.model,name:sale_project.model_sale_order_template_line
+msgid "Quotation Template Line"
+msgstr ""
+
+#. module: sale_project
+#: model:ir.model.fields,field_description:sale_project.field_project_template_create_wizard__role_to_users_ids
+msgid "Role To Users"
+msgstr ""
+
+#. module: sale_project
+#: model_terms:ir.ui.view,arch_db:sale_project.view_edit_project_inherit_form
+msgid "Sales & Invoicing"
+msgstr ""
+
+#. module: sale_project
+#: model:ir.model,name:sale_project.model_sale_report
+msgid "Sales Analysis Report"
+msgstr ""
+
+#. module: sale_project
+#. odoo-python
+#: code:addons/sale_project/models/project_milestone.py:0
+#: code:addons/sale_project/models/project_task.py:0
+#: model:ir.model,name:sale_project.model_sale_order
+#: model:ir.model.fields,field_description:sale_project.field_project_project__reinvoiced_sale_order_id
+#: model:ir.model.fields,field_description:sale_project.field_project_task__sale_order_id
+#: model:ir.model.fields,field_description:sale_project.field_report_project_task_user__sale_order_id
+#: model:project.project,name:sale_project.so_template_project
+msgid "Sales Order"
+msgstr ""
+
+#. module: sale_project
+#. odoo-python
 #: code:addons/sale_project/controllers/portal.py:0
+#: model:ir.model.fields,field_description:sale_project.field_project_milestone__sale_line_id
 #: model:ir.model.fields,field_description:sale_project.field_project_project__sale_line_id
 #: model:ir.model.fields,field_description:sale_project.field_project_task__sale_line_id
+#: model:ir.model.fields,field_description:sale_project.field_report_project_task_user__sale_line_id
 #: model_terms:ir.ui.view,arch_db:sale_project.project_sharing_inherit_project_task_view_form
-#: model_terms:ir.ui.view,arch_db:sale_project.project_task_view_search
 #: model_terms:ir.ui.view,arch_db:sale_project.view_sale_project_inherit_form
-#, python-format
 msgid "Sales Order Item"
-msgstr "Pardavimų užsakymo įrašas"
+msgstr ""
+
+#. module: sale_project
+#: model:ir.model.fields,help:sale_project.field_project_milestone__sale_line_id
+msgid "Sales Order Item that will be updated once the milestone is reached."
+msgstr ""
 
 #. module: sale_project
 #: model:ir.model.fields,help:sale_project.field_project_task__sale_line_id
 msgid ""
-"Sales Order Item to which the time spent on this task will be added, in "
-"order to be invoiced to your customer."
+"Sales Order Item to which the time spent on this task will be added in order "
+"to be invoiced to your customer.\n"
+"By default the sales order item set on the project will be selected. In the "
+"absence of one, the last prepaid sales order item that has time remaining "
+"will be used.\n"
+"Remove the sales order item in order to make this task non billable. You can "
+"also change or remove the sales order item of each timesheet entry "
+"individually."
+msgstr ""
+
+#. module: sale_project
+#. odoo-javascript
+#. odoo-python
+#: code:addons/sale_project/models/project_project.py:0
+#: code:addons/sale_project/static/src/components/project_right_side_panel/components/project_profitability_section.xml:0
+#: model_terms:ir.ui.view,arch_db:sale_project.project_update_default_description
+msgid "Sales Order Items"
 msgstr ""
 
 #. module: sale_project
 #: model:ir.model,name:sale_project.model_sale_order_line
 msgid "Sales Order Line"
-msgstr "Pardavimo užsakymo eilutė"
+msgstr ""
 
 #. module: sale_project
-#: model:ir.model.fields,help:sale_project.field_sale_order_line__is_service
-msgid ""
-"Sales Order item should generate a task and/or a project, depending on the "
-"product settings."
+#. odoo-python
+#: code:addons/sale_project/models/project_project.py:0
+#: model:ir.embedded.actions,name:sale_project.project_embedded_action_sales_orders
+#: model:ir.embedded.actions,name:sale_project.project_embedded_action_sales_orders_dashboard
+msgid "Sales Orders"
 msgstr ""
-"Pardavimų užsakymo įrašas turėtų sugeneruoti projektą ir/ar užduotį, "
-"priklausomai nuo produkto nustatymų."
 
 #. module: sale_project
 #: model:ir.model.fields,help:sale_project.field_project_project__sale_line_id
 msgid ""
-"Sales order item to which the project is linked. Link the timesheet entry to"
-" the sales order item defined on the project. Only applies on tasks without "
-"sale order item defined, and if the employee is not in the 'Employee/Sales "
-"Order Item Mapping' of the project."
-msgstr ""
-
-#. module: sale_project
-#: model:ir.model.fields,help:sale_project.field_project_project__sale_order_id
-#: model:ir.model.fields,help:sale_project.field_project_task__project_sale_order_id
-msgid "Sales order to which the project is linked."
+"Sales order item that will be selected by default on the tasks and "
+"timesheets of this project, except if the employee set on the timesheets is "
+"explicitely linked to another sales order item on the project.\n"
+"It can be modified on each task and timesheet entry individually if "
+"necessary."
 msgstr ""
 
 #. module: sale_project
@@ -257,58 +729,57 @@ msgid "Sales order to which the task is linked."
 msgstr ""
 
 #. module: sale_project
+#: model:product.template,name:sale_project.product_product_screw_driver_product_template
+msgid "Screw Driver"
+msgstr ""
+
+#. module: sale_project
+#. odoo-python
 #: code:addons/sale_project/controllers/portal.py:0
-#, python-format
 msgid "Search in Invoice"
-msgstr "Ieškoti pagal S/F"
+msgstr ""
 
 #. module: sale_project
+#. odoo-python
 #: code:addons/sale_project/controllers/portal.py:0
-#, python-format
-msgid "Search in Sales Order"
-msgstr "Ieškoti pagal pardavimo užsakymą"
-
-#. module: sale_project
-#: code:addons/sale_project/controllers/portal.py:0
-#, python-format
 msgid "Search in Sales Order Item"
-msgstr "Ieškoti pagal pardavimo užsakymo produktus"
-
-#. module: sale_project
-#: model:ir.model.fields,help:sale_project.field_product_product__project_id
-#: model:ir.model.fields,help:sale_project.field_product_template__project_id
-msgid ""
-"Select a billable project on which tasks can be created. This setting must "
-"be set for each company."
 msgstr ""
 
 #. module: sale_project
-#: model:ir.model.fields,help:sale_project.field_product_product__project_template_id
-#: model:ir.model.fields,help:sale_project.field_product_template__project_template_id
-msgid ""
-"Select a billable project to be the skeleton of the new created project when"
-" selling the current product. Its stages and tasks will be duplicated."
+#: model_terms:ir.ui.view,arch_db:sale_project.project_project_view_form_simplified_inherit
+#: model_terms:ir.ui.view,arch_db:sale_project.project_project_view_form_simplified_template
+msgid "Select who to bill..."
 msgstr ""
 
 #. module: sale_project
-#: model:ir.model.fields,help:sale_project.field_sale_order__project_id
-msgid "Select a non billable project on which tasks can be created."
+#: model:ir.model.fields,field_description:sale_project.field_product_product__service_policy
+#: model:ir.model.fields,field_description:sale_project.field_product_template__service_policy
+msgid "Service Invoicing Policy"
+msgstr ""
+
+#. module: sale_project
+#. odoo-javascript
+#: code:addons/sale_project/static/src/components/project_right_side_panel/components/project_profitability_section.xml:0
+#: model_terms:ir.ui.view,arch_db:sale_project.project_update_default_description
+msgid "Sold"
+msgstr ""
+
+#. module: sale_project
+#: model:ir.model.fields,field_description:sale_project.field_project_task__sale_order_state
+msgid "Status"
 msgstr ""
 
 #. module: sale_project
 #: model:ir.model,name:sale_project.model_project_task
 #: model:ir.model.fields.selection,name:sale_project.selection__product_template__service_tracking__task_global_project
 msgid "Task"
-msgstr "Užduotis"
+msgstr ""
 
 #. module: sale_project
-#: code:addons/sale_project/models/sale_order.py:0
-#, python-format
-msgid ""
-"Task Created (%s): <a href=# data-oe-model=project.task data-oe-id=%d>%s</a>"
+#. odoo-python
+#: code:addons/sale_project/models/sale_order_line.py:0
+msgid "Task Created (%(name)s): %(link)s"
 msgstr ""
-"Užduotis sukurta (%s): <a href=# data-oe-model=project.task data-oe-"
-"id=%d>%s</a>"
 
 #. module: sale_project
 #: model:ir.model,name:sale_project.model_project_task_recurrence
@@ -316,100 +787,148 @@ msgid "Task Recurrence"
 msgstr ""
 
 #. module: sale_project
-#: model:ir.model.fields,help:sale_project.field_sale_order_line__task_id
-msgid "Task generated by the sales order item"
-msgstr "Užduotis, sugeneruota pardavimų užsakymo įrašo"
+#: model:ir.model,name:sale_project.model_project_task_type
+msgid "Task Stage"
+msgstr ""
 
 #. module: sale_project
-#: model:ir.model.fields,field_description:sale_project.field_sale_order__tasks_count
-#: model_terms:ir.ui.view,arch_db:sale_project.view_order_form_inherit_sale_project
+#: model:ir.model.fields,field_description:sale_project.field_product_product__task_template_id
+#: model:ir.model.fields,field_description:sale_project.field_product_template__task_template_id
+msgid "Task Template"
+msgstr ""
+
+#. module: sale_project
+#: model:project.project,label_tasks:sale_project.so_template_project
 msgid "Tasks"
-msgstr "Užduotys"
+msgstr ""
 
 #. module: sale_project
 #: model:ir.model,name:sale_project.model_report_project_task_user
 msgid "Tasks Analysis"
-msgstr "Užduočių analizė"
+msgstr ""
 
 #. module: sale_project
-#: model:ir.model.fields,field_description:sale_project.field_sale_order__tasks_ids
-msgid "Tasks associated to this sale"
-msgstr "Užduotys, susijusios su šiuo pardavimu"
+#. odoo-python
+#: code:addons/sale_project/models/sale_order.py:0
+msgid "The Sales Order must contain at least one service product."
+msgstr ""
 
 #. module: sale_project
-#: code:addons/sale_project/models/product.py:0
-#, python-format
+#. odoo-python
+#: code:addons/sale_project/models/product_template.py:0
 msgid ""
 "The product %s should not have a global project since it will generate a "
 "project."
 msgstr ""
-"Produktas %s neturėtų turėti globalaus projekto, kadangi jis sugeneruos "
-"projektą."
 
 #. module: sale_project
-#: code:addons/sale_project/models/product.py:0
-#, python-format
+#. odoo-python
+#: code:addons/sale_project/models/product_template.py:0
 msgid ""
 "The product %s should not have a project nor a project template since it "
 "will not generate project."
 msgstr ""
-"Produktas %s neturėtų turėti nei projekto, nei projekto šablono, kadangi jis"
-" nesugeneruos projekto."
 
 #. module: sale_project
-#: code:addons/sale_project/models/product.py:0
-#, python-format
+#. odoo-python
+#: code:addons/sale_project/models/product_template.py:0
 msgid ""
 "The product %s should not have a project template since it will generate a "
 "task in a global project."
 msgstr ""
-"Produktas %s neturėtų turėti projekto šablono, kadangi jus sugeneruos "
-"užduotį globaliame projekte."
 
 #. module: sale_project
-#: code:addons/sale_project/models/project.py:0
-#, python-format
-msgid "There is nothing to invoice in this project."
-msgstr ""
-
-#. module: sale_project
+#. odoo-python
 #: code:addons/sale_project/models/sale_order.py:0
-#, python-format
 msgid ""
-"This task has been created from: <a href=# data-oe-model=sale.order data-oe-"
-"id=%d>%s</a> (%s)"
+"The project couldn't be created as the Sales Order must be confirmed or is "
+"already linked to a project."
 msgstr ""
-"Ši užduotis buvo sukurta iš: <a href=# data-oe-model=sale.order data-oe-"
-"id=%d>%s</a> (%s)"
+
+#. module: sale_project
+#. odoo-python
+#: code:addons/sale_project/models/sale_order_line.py:0
+msgid "This task has been created from: %(order_link)s (%(product_name)s)"
+msgstr ""
+
+#. module: sale_project
+#. odoo-python
+#: code:addons/sale_project/models/sale_order_line.py:0
+msgid "To Do"
+msgstr ""
 
 #. module: sale_project
 #: model:ir.model.fields,field_description:sale_project.field_project_task__task_to_invoice
 msgid "To invoice"
-msgstr "Sąskaitos pateikimui"
+msgstr ""
 
 #. module: sale_project
-#: code:addons/sale_project/models/project.py:0
-#, python-format
+#: model:ir.model.fields,field_description:sale_project.field_product_product__service_type
+#: model:ir.model.fields,field_description:sale_project.field_product_template__service_type
+msgid "Track Service"
+msgstr ""
+
+#. module: sale_project
+#: model:ir.model.fields,help:sale_project.field_project_task__display_name
+msgid ""
+"Use these keywords in the title to set new tasks:\n"
+"\n"
+"        30h Allocate 30 hours to the task\n"
+"        #tags Set tags on the task\n"
+"        @user Assign the task to a user\n"
+"        ! Set the task a medium priority\n"
+"        !! Set the task a high priority\n"
+"        !!! Set the task a urgent priority\n"
+"\n"
+"        Make sure to use the right format and order e.g. Improve the "
+"configuration screen 5h #feature #v16 @Mitchell !"
+msgstr ""
+
+#. module: sale_project
+#. odoo-python
+#: code:addons/sale_project/models/project_project.py:0
+#: model:ir.embedded.actions,name:sale_project.project_embedded_action_vendor_bills
+#: model:ir.embedded.actions,name:sale_project.project_embedded_action_vendor_bills_dashboard
+msgid "Vendor Bills"
+msgstr ""
+
+#. module: sale_project
+#: model_terms:ir.ui.view,arch_db:sale_project.project_milestone_view_tree
+msgid "View Sales Order"
+msgstr ""
+
+#. module: sale_project
+#: model:product.template,name:sale_project.product_service_create_project_and_task_product_template
+msgid "Website Redesign Service (project & task)"
+msgstr ""
+
+#. module: sale_project
+#: model:product.template,name:sale_project.product_product_wiring_product_template
+msgid "Wiring Services"
+msgstr ""
+
+#. module: sale_project
+#. odoo-python
+#: code:addons/sale_project/models/project_task.py:0
 msgid ""
 "You cannot link the order item %(order_id)s - %(product_id)s to this task "
 "because it is a re-invoiced expense."
 msgstr ""
 
 #. module: sale_project
-#: code:addons/sale_project/models/project.py:0
-#, python-format
-msgid ""
-"You have to unlink the task from the sale order item in order to delete it."
-msgstr ""
-"Norėdami ištrinti užsakymą, turite atsieti užduotį nuo pardavimų užsakymo "
-"įrašo."
-
-#. module: sale_project
-#: model_terms:ir.ui.view,arch_db:sale_project.portal_tasks_list_inherit
-msgid "for sale order item:"
+#. odoo-python
+#: code:addons/sale_project/models/sale_order.py:0
+msgid "[Project] %(task_name)s"
 msgstr ""
 
 #. module: sale_project
-#: model_terms:ir.ui.view,arch_db:sale_project.portal_tasks_list_inherit
-msgid "for sale order:"
+#. odoo-python
+#: code:addons/sale_project/models/product_template.py:0
+msgid "delivered_manual"
+msgstr ""
+
+#. module: sale_project
+#. odoo-python
+#: code:addons/sale_project/models/sale_order.py:0
+msgid "sale_line_id"
 msgstr ""

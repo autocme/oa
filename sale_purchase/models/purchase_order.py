@@ -11,11 +11,23 @@ class PurchaseOrder(models.Model):
         "Number of Source Sale",
         compute='_compute_sale_order_count',
         groups='sales_team.group_sale_salesman')
+    has_sale_order = fields.Boolean(
+        "Technical field for whether the purchase order has associated sale orders",
+        compute='_compute_sale_order_count',
+        groups='sales_team.group_sale_salesman')
 
     @api.depends('order_line.sale_order_id')
     def _compute_sale_order_count(self):
         for purchase in self:
             purchase.sale_order_count = len(purchase._get_sale_orders())
+            purchase.has_sale_order = bool(purchase.sale_order_count)
+
+    @api.depends('order_line.sale_order_id.partner_shipping_id')
+    def _compute_dest_address_id(self):
+        super()._compute_dest_address_id()
+        po_with_address = self.filtered(lambda po: po.dest_address_id and len(po._get_sale_orders().partner_shipping_id) == 1)
+        for order in po_with_address:
+            order.dest_address_id = order._get_sale_orders().partner_shipping_id
 
     def action_view_sale_orders(self):
         self.ensure_one()
@@ -33,7 +45,7 @@ class PurchaseOrder(models.Model):
             action.update({
                 'name': _('Sources Sale Orders %s', self.name),
                 'domain': [('id', 'in', sale_order_ids)],
-                'view_mode': 'tree,form',
+                'view_mode': 'list,form',
             })
         return action
 
@@ -70,5 +82,5 @@ class PurchaseOrder(models.Model):
 class PurchaseOrderLine(models.Model):
     _inherit = 'purchase.order.line'
 
-    sale_order_id = fields.Many2one(related='sale_line_id.order_id', string="Sale Order", store=True, readonly=True)
-    sale_line_id = fields.Many2one('sale.order.line', string="Origin Sale Item", index=True, copy=False)
+    sale_order_id = fields.Many2one(related='sale_line_id.order_id', string="Sale Order")
+    sale_line_id = fields.Many2one('sale.order.line', string="Origin Sale Item", index='btree_not_null', copy=False)

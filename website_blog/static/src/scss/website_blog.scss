@@ -45,17 +45,6 @@ $o-wblog-loader-size: 50px;
 // Website Blog
 //------------------------------------------------------------------------------
 .website_blog {
-    .css_website_mail {
-        .o_has_error {
-            border-color: red;
-        }
-        .css_nav_month {
-            display: none;
-            &:first-of-type {
-                display: block;
-            }
-        }
-    }
 
     .o_wblog_page_cards_bg {
         // To be applied to the main container when 'card design' option is
@@ -74,23 +63,8 @@ $o-wblog-loader-size: 50px;
     // menu. The aim is to be able to write simple articles on the fly,
     // achieving a good design without being forced to use snippets.
     .o_wblog_read_text {
-        font-size: 18px;
-        line-height: 28px;
+        @include font-size(18px);
         font-weight: 300;
-
-        p, ul, ol {
-            margin-bottom: 1.55em;
-        }
-
-        li {
-            margin-bottom: 1em;
-        }
-
-        .lead {
-            font-size: 26px;
-            line-height: 34px;
-            margin-bottom: 40px;
-        }
     }
 
     .o_wblog_author_avatar {
@@ -110,9 +84,10 @@ $o-wblog-loader-size: 50px;
     }
 
     .o_wblog_social_links > a {
-        @include size(3em);
+        width: 3em;
+        height: 3em;
         > i {
-            font-size: 1.3em;
+            @include font-size(1.3em);
         }
     }
 
@@ -129,6 +104,20 @@ $o-wblog-loader-size: 50px;
         }
     }
 
+    #o_wblog_post_content, .blog_header {
+        // Remove the '/' separators from breadcrumbs on small devices, as only
+        // the blog category is displayed on small screens.
+        @include media-breakpoint-down(lg) {
+            > nav.breadcrumb .breadcrumb-item {
+                padding-left: 0;
+
+                &::before {
+                    content: "";
+                }
+            }
+        }
+    }
+
     #o_wblog_post_comments {
         .o_portal_chatter > hr {
             display: none;
@@ -138,6 +127,10 @@ $o-wblog-loader-size: 50px;
     // Blog Post Page Cover
     // ==============================================
     .o_wblog_post_page_cover {
+        // "Latest Blog" Tag
+        .o_wblog_post_title > .h4 {
+            color: var(--o-cc3-btn-secondary-text);
+        }
 
         // Cover sizes
         // ==============================================
@@ -190,14 +183,14 @@ $o-wblog-loader-size: 50px;
     // Blog Post Specific
     // ==============================================
     .o_wblog_post_title {
-        #o_wblog_post_name {
-            font-weight: $display4-weight;
+        .o_wblog_post_name {
+            font-weight: $display-font-weight;
             line-height: $display-line-height;
             // Default font-size.
-            @include font-size($display4-size);
+            @include font-size(map-get($display-font-sizes, 4));
         }
 
-        #o_wblog_post_subtitle {
+        .o_wblog_post_subtitle {
             font-weight: $lead-font-weight;
             // Default font-size.
             @include font-size($lead-font-size);
@@ -205,7 +198,7 @@ $o-wblog-loader-size: 50px;
     }
 
     // Refine multi-lines titles when using 'regular' cover
-    .o_wblog_regular_cover_container #o_wblog_post_name {
+    .o_wblog_regular_cover_container .o_wblog_post_name {
         line-height: 1;
         padding-bottom: 0.5rem;
     }
@@ -220,11 +213,16 @@ $o-wblog-loader-size: 50px;
         background-color: $body-bg;
         cursor: pointer;
 
+        .o_wblog_next_button:focus-visible {
+            outline: revert;
+        }
+
         .o_wblog_next_loader {
             transform: translateZ(1px);
 
             div {
-                @include size($o-wblog-loader-size);
+                width: $o-wblog-loader-size;
+                height: $o-wblog-loader-size;
                 background: rgba(black, 0.15);
                 animation: o-wblog-loader 2.4s cubic-bezier(0, 0.2, 0.8, 1) infinite;
             }
@@ -239,11 +237,6 @@ $o-wblog-loader-size: 50px;
         animation: o-wblog-fade-In 1s cubic-bezier(.02, .01, .47, 1);
     }
 
-    // "Read next article" (with "Regular Cover")
-    #o_wblog_post_footer a.w-25 {
-        flex: 0 0 auto;
-    }
-
     // Blog Index Pages
     // ==============================================
     #o_wblog_posts_loop {
@@ -252,7 +245,7 @@ $o-wblog-loader-size: 50px;
 
             padding-top: 33%;
             height: auto!important;
-            // This is mandatory as we do not want the CoverProperties 
+            // This is mandatory as we do not want the CoverProperties
             // sizing classes to be applied here
             min-height: auto!important;
 
@@ -263,7 +256,7 @@ $o-wblog-loader-size: 50px;
 
         .o_wblog_normalize_font {
             // normalize fonts
-            font-size: 13px;
+            @include font-size(13px);
             line-height: 1.45;
         }
 
@@ -278,8 +271,24 @@ $o-wblog-loader-size: 50px;
             .o_wblog_post_cover_nocard .o_record_cover_container {
                 padding-top: 33%;
             }
+
+            @include media-breakpoint-down(md) {
+                > .row {
+                    margin-left: 0;
+                    margin-right: 0;
+                }
+            }
         }
 
+    }
+
+    > nav > .container {
+        // If the navbar contains at least 10 items (random choice), the search
+        // input is placed at the top to avoid being centered in a multi-line
+        // navbar, which wouldn’t look good.
+        &:has(> ul.navbar-nav .nav-item:nth-child(10)) .o_searchbar_form {
+            align-self: start;
+        }
     }
 
     //  Editor Helpers
@@ -295,12 +304,18 @@ $o-wblog-loader-size: 50px;
         #o_wblog_sidebar .oe_structure:empty {
             display: none;
         }
+
+        // Prevent users from using the select in the sidebar during edit.
+        .o_wblog_sidebar_block select[name="archive"] {
+            pointer-events: none;
+        }
     }
 }
 
 #o_wblog_post_content_jump {
     @extend .o_scroll_button;
-    @include size($o-wblog-loader-size);
+    width: $o-wblog-loader-size;
+    height: $o-wblog-loader-size;
     background-color: rgba(black, 0.5);
 
     &:hover {

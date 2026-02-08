@@ -1,10 +1,7 @@
-/** @odoo-module **/
-
-import publicWidget from 'web.public.widget';
-import core from 'web.core';
-
-var QWeb = core.qweb;
-var _t = core._t;
+import publicWidget from '@web/legacy/js/public/public_widget';
+import { _t } from "@web/core/l10n/translation";
+import { renderToElement } from "@web/core/utils/render";
+import { rpc } from "@web/core/network/rpc";
 
 /**
  * This Widget is responsible of displaying the question inputs when adding a new question or when updating an
@@ -13,7 +10,6 @@ var _t = core._t;
  */
 var QuestionFormWidget = publicWidget.Widget.extend({
     template: 'slide.quiz.question.input',
-    xmlDependencies: ['/website_slides/static/src/xml/slide_quiz_create.xml'],
     events: {
         'click .o_wslides_js_quiz_validate_question': '_validateQuestion',
         'click .o_wslides_js_quiz_cancel_question': '_cancelValidation',
@@ -90,7 +86,7 @@ var QuestionFormWidget = publicWidget.Widget.extend({
      * @private
      */
     _addAnswerLine: function (ev) {
-        $(ev.currentTarget).closest('.o_wslides_js_quiz_answer').after(QWeb.render('slide.quiz.answer.line'));
+        $(ev.currentTarget).closest('.o_wslides_js_quiz_answer').after(renderToElement('slide.quiz.answer.line'));
     },
 
     /**
@@ -148,34 +144,37 @@ var QuestionFormWidget = publicWidget.Widget.extend({
      * @param options
      * @private
      */
-    _createOrUpdateQuestion: function (options) {
-        var self = this;
+    _createOrUpdateQuestion: async function (options) {
         var $form = this.$('form');
+
         if (this._isValidForm($form)) {
             var values = this._serializeForm($form);
-            this._rpc({
-                route: '/slides/slide/quiz/question_add_or_update',
-                params: values
-            }).then(function (renderedQuestion) {
-                if (options.update) {
-                    self.trigger_up('display_updated_question', {
-                        newQuestionRenderedTemplate: renderedQuestion,
-                        $editedQuestion: self.$editedQuestion,
-                        questionFormWidget: self,
-                    });
-                } else {
-                    self.trigger_up('display_created_question', {
-                        newQuestionRenderedTemplate: renderedQuestion,
-                        questionFormWidget: self
-                    });
-                }
-            });
+            var renderedQuestion = await rpc('/slides/slide/quiz/question_add_or_update', values);
+
+            if (typeof renderedQuestion === 'object' && renderedQuestion.error) {
+                this.$('.o_wslides_js_quiz_validation_error')
+                    .removeClass('d-none')
+                    .find('.o_wslides_js_quiz_validation_error_text')
+                    .text(renderedQuestion.error);
+            } else if (options.update) {
+                this.$('.o_wslides_js_quiz_validation_error').addClass('d-none');
+                this.trigger_up('display_updated_question', {
+                    newQuestionRenderedTemplate: renderedQuestion,
+                    $editedQuestion: this.$editedQuestion,
+                    questionFormWidget: this,
+                });
+            } else {
+                this.$('.o_wslides_js_quiz_validation_error').addClass('d-none');
+                this.trigger_up('display_created_question', {
+                    newQuestionRenderedTemplate: renderedQuestion,
+                    questionFormWidget: this
+                });
+            }
         } else {
-            this.displayNotification({
-                type: 'warning',
-                message: _t('Please fill in the question'),
-                sticky: true
-            });
+            this.$('.o_wslides_js_quiz_validation_error')
+                .removeClass('d-none')
+                .find('.o_wslides_js_quiz_validation_error_text')
+                .text(_t('Please fill in the question'));
             this.$('.o_wslides_quiz_question input').focus();
         }
     },
@@ -207,7 +206,7 @@ var QuestionFormWidget = publicWidget.Widget.extend({
                     'sequence': sequence++,
                     'text_value': value,
                     'is_correct': $(this).find('input[type=radio]').prop('checked') === true,
-                    'comment': $(this).find('.o_wslides_js_quiz_answer_comment > input[type=text]').val().trim()
+                    'comment': $(this).find('.o_wslides_js_quiz_answer_comment input[type=text]').val().trim()
                 };
                 answers.push(answer);
             }

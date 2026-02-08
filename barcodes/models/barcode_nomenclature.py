@@ -1,6 +1,8 @@
 import re
 
-from odoo import models, fields, api
+from odoo import models, fields, api, _
+from odoo.exceptions import UserError
+from odoo.tools.barcode import check_barcode_encoding, get_barcode_check_digit
 
 
 UPC_EAN_CONVERSIONS = [
@@ -15,21 +17,11 @@ class BarcodeNomenclature(models.Model):
     _name = 'barcode.nomenclature'
     _description = 'Barcode Nomenclature'
 
-    name = fields.Char(string='Barcode Nomenclature', size=32, required=True, help='An internal identification of the barcode nomenclature')
+    name = fields.Char(string='Barcode Nomenclature', required=True, help='An internal identification of the barcode nomenclature')
     rule_ids = fields.One2many('barcode.rule', 'barcode_nomenclature_id', string='Rules', help='The list of barcode rules')
     upc_ean_conv = fields.Selection(
         UPC_EAN_CONVERSIONS, string='UPC/EAN Conversion', required=True, default='always',
         help="UPC Codes can be converted to EAN by prefixing them with a zero. This setting determines if a UPC/EAN barcode should be automatically converted in one way or another when trying to match a rule with the other encoding.")
-
-    @api.model
-    def get_barcode_check_digit(self, numeric_barcode):
-        # todo master: remove this method
-        return self.env['ir.actions.report'].get_barcode_check_digit(numeric_barcode)
-
-    @api.model
-    def check_encoding(self, barcode, encoding):
-        # todo master: remove this method
-        return self.env['ir.actions.report'].check_barcode_encoding(barcode, encoding)
 
     @api.model
     def sanitize_ean(self, ean):
@@ -38,7 +30,7 @@ class BarcodeNomenclature(models.Model):
         :type ean: str
         """
         ean = ean[0:13].zfill(13)
-        return ean[0:-1] + str(self.get_barcode_check_digit(ean))
+        return ean[0:-1] + str(get_barcode_check_digit(ean))
 
     @api.model
     def sanitize_upc(self, upc):
@@ -81,27 +73,34 @@ class BarcodeNomenclature(models.Model):
             decimal_part = "0." + value_string[decimal_part_match.start():decimal_part_match.end() - 1]  # retrieve decimal part
             if whole_part == '':
                 whole_part = '0'
-            match['value'] = int(whole_part) + float(decimal_part)
+            if whole_part.isdigit():
+                match['value'] = int(whole_part) + float(decimal_part)
 
-            match['base_code'] = barcode[:num_start] + (num_end - num_start - 2) * "0" + barcode[num_end - 2:]  # replace numerical content by 0's in barcode
-            match['base_code'] = match['base_code'].replace("\\\\", "\\").replace("\\{", "{").replace("\\}", "}").replace("\\.", ".")
-            pattern = pattern[:num_start] + (num_end - num_start - 2) * "0" + pattern[num_end:]  # replace numerical content by 0's in pattern to match
-
+                match['base_code'] = barcode[:num_start] + (num_end - num_start - 2) * "0" + barcode[num_end - 2:]  # replace numerical content by 0's in barcode
+                match['base_code'] = match['base_code'].replace("\\\\", "\\").replace("\\{", "{").replace("\\}", "}").replace("\\.", ".")
+                pattern = pattern[:num_start] + (num_end - num_start - 2) * "0" + pattern[num_end:]  # replace numerical content by 0's in pattern to match
         match['match'] = re.match(pattern, match['base_code'][:len(pattern)])
 
         return match
 
     def parse_barcode(self, barcode):
+        if re.match(r'^urn:', barcode):
+            return self.parse_uri(barcode)
+        return self.parse_nomenclature_barcode(barcode)
+
+    def parse_nomenclature_barcode(self, barcode):
         """ Attempts to interpret and parse a barcode.
 
         :param barcode:
         :type barcode: str
         :return: A object containing various information about the barcode, like as:
+
             - code: the barcode
             - type: the barcode's type
             - value: if the id encodes a numerical value, it will be put there
             - base_code: the barcode code with all the encoding parts set to
               zero; the one put on the product in the backend
+
         :rtype: dict
         """
         parsed_result = {
@@ -114,12 +113,12 @@ class BarcodeNomenclature(models.Model):
 
         for rule in self.rule_ids:
             cur_barcode = barcode
-            if rule.encoding == 'ean13' and self.check_encoding(barcode, 'upca') and self.upc_ean_conv in ['upc2ean', 'always']:
+            if rule.encoding == 'ean13' and check_barcode_encoding(barcode, 'upca') and self.upc_ean_conv in ['upc2ean', 'always']:
                 cur_barcode = '0' + cur_barcode
-            elif rule.encoding == 'upca' and self.check_encoding(barcode, 'ean13') and barcode[0] == '0' and self.upc_ean_conv in ['ean2upc', 'always']:
+            elif rule.encoding == 'upca' and check_barcode_encoding(barcode, 'ean13') and barcode[0] == '0' and self.upc_ean_conv in ['ean2upc', 'always']:
                 cur_barcode = cur_barcode[1:]
 
-            if not self.check_encoding(barcode, rule.encoding):
+            if not check_barcode_encoding(barcode, rule.encoding):
                 continue
 
             match = self.match_pattern(cur_barcode, rule.pattern)
@@ -141,3 +140,76 @@ class BarcodeNomenclature(models.Model):
                     return parsed_result
 
         return parsed_result
+
+    # RFID/URI stuff.
+    @api.model
+    def parse_uri(self, barcode):
+        """ Convert supported URI format (lgtin, sgtin, sgtin-96, sgtin-198,
+        sscc and ssacc-96) into a GS1 barcode.
+        :param barcode str: the URI as a string.
+        :rtype: str
+        """
+        if not re.match(r'^urn:', barcode):
+            return barcode
+        identifier, data = (bc_part.strip() for bc_part in re.split(':', barcode)[-2:])
+        data = re.split(r'\.', data)
+        match identifier:
+            case 'lgtin' | 'sgtin':
+                barcode = self._convert_uri_gtin_data_into_tracking_number(barcode, data)
+            case 'sgtin-96' | 'sgtin-198':
+                # Same as SGTIN but we have to remove the filter.
+                barcode = self._convert_uri_gtin_data_into_tracking_number(barcode, data[1:])
+            case 'sscc':
+                barcode = self._convert_uri_sscc_data_into_package(barcode, data)
+            case 'sscc-96':
+                # Same as SSCC but we have to remove the filter.
+                barcode = self._convert_uri_sscc_data_into_package(barcode, data[1:])
+        return barcode
+
+    @api.model
+    def _convert_uri_gtin_data_into_tracking_number(self, base_code, data):
+        gs1_company_prefix, item_ref_and_indicator, tracking_number = data
+        indicator = item_ref_and_indicator[0]
+        item_ref = item_ref_and_indicator[1:]
+        product_barcode = indicator + gs1_company_prefix + item_ref
+        product_barcode += str(get_barcode_check_digit(product_barcode + '0'))
+        return [
+            {
+                'base_code': base_code,
+                'code': product_barcode,
+                'encoding': '',
+                'type': 'product',
+                'value': product_barcode,
+            },
+            {
+                'base_code': base_code,
+                'code': tracking_number,
+                'encoding': '',
+                'type': 'lot',
+                'value': tracking_number,
+            },
+        ]
+
+    @api.model
+    def _convert_uri_sscc_data_into_package(self, base_code, data):
+        gs1_company_prefix, serial_reference = data
+        extension = serial_reference[0]
+        serial_ref = serial_reference[1:]
+        sscc = extension + gs1_company_prefix + serial_ref
+        sscc += str(get_barcode_check_digit(sscc + '0'))
+        return [{
+            'base_code': base_code,
+            'code': sscc,
+            'encoding': '',
+            'type': 'package',
+            'value': sscc,
+        }]
+
+    @api.ondelete(at_uninstall=False)
+    def _unlink_except_default(self):
+        default_record = self.env.ref("barcodes.default_barcode_nomenclature", raise_if_not_found=False)
+        if default_record and default_record in self:
+            raise UserError(_(
+                "You cannot delete '%(name)s' because it's the default barcode nomenclature.",
+                name=default_record.display_name
+            ))

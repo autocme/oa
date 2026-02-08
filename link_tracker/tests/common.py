@@ -18,19 +18,20 @@ class MockLinkTracker(common.BaseCase):
             return "Test_TITLE"
 
         link_tracker_title_patch = patch('odoo.addons.link_tracker.models.link_tracker.LinkTracker._get_title_from_url', wraps=_get_title_from_url)
-        link_tracker_title_patch.start()
-        self.addCleanup(link_tracker_title_patch.stop)
+        self.startPatcher(link_tracker_title_patch)
 
     def _get_href_from_anchor_id(self, body, anchor_id):
         """ Parse en html body to find the href of an element given its ID. """
         html = etree.fromstring(body, parser=etree.HTMLParser())
         return html.xpath("//*[@id='%s']" % anchor_id)[0].attrib.get('href')
 
-    def _get_tracker_from_short_url(self, short_url):
-        code = self.env['link.tracker.code'].sudo().search([
+    def _get_code_from_short_url(self, short_url):
+        return self.env['link.tracker.code'].sudo().search([
             ('code', '=', short_url.split('/r/')[-1])
         ])
-        return code.link_id
+
+    def _get_tracker_from_short_url(self, short_url):
+        return self._get_code_from_short_url(short_url).link_id
 
     def assertLinkShortenedHtml(self, body, link_info, link_params=None):
         """ Find shortened links in an HTML content. Usage :

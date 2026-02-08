@@ -10,6 +10,8 @@ class TestPortalWizard(MailCommon):
     def setUp(self):
         super(TestPortalWizard, self).setUp()
 
+        # for those tests, consider user_employee cannot manager partners for acl testse
+        self.user_employee.write({'group_ids': [(3, self.env.ref('base.group_partner_manager').id)]})
         self.partner = self.env['res.partner'].create({
             'name': 'Testing Partner',
             'email': 'testing_partner@example.com',
@@ -45,12 +47,8 @@ class TestPortalWizard(MailCommon):
         with self.assertRaises(AccessError, msg='Standard users should not be able to open the portal wizard'):
             self.env['portal.wizard'].with_context(active_ids=[self.partner.id]).with_user(self.user_employee).create({})
 
-        portal_wizard.invalidate_cache()
-
         with self.assertRaises(AccessError, msg='Standard users should not be able to open the portal wizard'):
             portal_wizard.with_user(self.user_employee).welcome_message
-
-        portal_wizard.user_ids.invalidate_cache()
 
         with self.assertRaises(AccessError, msg='Standard users should not be able to open the portal wizard'):
             portal_wizard.user_ids.with_user(self.user_employee).email
@@ -73,10 +71,10 @@ class TestPortalWizard(MailCommon):
         new_user = portal_user.user_id
 
         self.assertTrue(new_user.id, 'Must create a new user')
-        self.assertTrue(new_user.has_group('base.group_portal'), 'Must add the group to the user')
+        self.assertTrue(new_user._is_portal(), 'Must add the group to the user')
         self.assertEqual(self.partner.email, 'first_email@example.com', 'Must write on the email of the partner')
         self.assertEqual(new_user.email, 'first_email@example.com', 'Must create the user with the right email')
-        self.assertSentEmail(self.env.user.partner_id, [self.partner])
+        self.assertSentEmail(self.company_admin.partner_id, [self.partner])
 
     @users('admin')
     def test_portal_wizard_public_user(self):
@@ -102,17 +100,17 @@ class TestPortalWizard(MailCommon):
         self.assertTrue(portal_user.is_portal)
         self.assertFalse(portal_user.is_internal)
 
-        self.assertTrue(self.public_user.has_group('base.group_portal'), 'Must add the group portal')
-        self.assertFalse(self.public_user.has_group('base.group_public'), 'Must remove the group public')
+        self.assertTrue(self.public_user._is_portal(), 'Must add the group portal')
+        self.assertFalse(self.public_user._is_public(), 'Must remove the group public')
         self.assertEqual(public_partner.email, 'new_email@example.com', 'Must change the email of the partner')
         self.assertEqual(self.public_user.email, 'new_email@example.com', 'Must change the email of the user')
-        self.assertSentEmail(self.env.user.partner_id, [public_partner])
+        self.assertSentEmail(self.company_admin.partner_id, [public_partner])
 
         with self.mock_mail_gateway():
             portal_user.action_revoke_access()
 
         self.assertEqual(portal_user.user_id, self.public_user, 'Must keep the user even if it is archived')
-        self.assertEqual(group_public, portal_user.user_id.groups_id, 'Must add the group public after removing the portal group')
+        self.assertEqual(group_public, portal_user.user_id.group_ids, 'Must add the group public after removing the portal group')
         self.assertFalse(portal_user.user_id.active, 'Must have archived the user')
         self.assertFalse(portal_user.is_portal)
         self.assertFalse(portal_user.is_internal)
@@ -145,22 +143,25 @@ class TestPortalWizard(MailCommon):
         portal_user = portal_wizard.user_ids
 
         self.internal_user.login = 'test_error@example.com'
-        portal_user.email = 'test_error@example.com'
 
+        portal_user.email = 'test_error@example.com'
         with self.assertRaises(UserError, msg='Must detect the already used email.'):
-            portal_user.action_revoke_access()
+            portal_user._assert_user_email_uniqueness()
+        self.assertEqual(portal_user.email_state, 'exist', msg='Must detect the already used email.')
 
         portal_user.email = 'wrong email format'
         with self.assertRaises(UserError, msg='Must detect wrong email format.'):
-            portal_user.action_revoke_access()
+            portal_user._assert_user_email_uniqueness()
+        self.assertEqual(portal_user.email_state, 'ko', msg='Must detect wrong email format.')
 
         portal_wizard = self.env['portal.wizard'].with_context(active_ids=[self.internal_user.partner_id.id]).create({})
+        portal_user = portal_wizard.user_ids
         with self.assertRaises(UserError, msg='Must not be able to change internal user group.'):
             portal_user.action_revoke_access()
 
     def test_portal_wizard_multi_company(self):
-        company_1 = self.env['res.company'].search([], limit=1)
-        company_2 = self.env['res.company'].create({'name': 'Company 2'})
+        company_1 = self.company_admin
+        company_2 = self.company_2
 
         partner_company_2 = self.env['res.partner'].with_company(company_2).create({
             'name': 'Testing Partner',

@@ -1,25 +1,20 @@
-odoo.define("website_event_booth_sale_exhibitor.tour", function (require) {
-    "use strict";
+import { patch } from "@web/core/utils/patch";
+import FinalSteps from "@website_event_booth_exhibitor/../tests/tours/website_event_booth_exhibitor_steps";
+import * as wsTourUtils from '@website_sale/js/tours/tour_utils';
 
-    var FinalSteps = require('website_event_booth_exhibitor.tour_steps');
+patch(FinalSteps.prototype, {
 
-    FinalSteps.include({
-
-        _getSteps: function () {
-            return [{
-                content: 'Confirm your order',
-                trigger: '.btn-primary[href="/shop/confirm_order"]',
-                run: 'click',
-            }, {
-                content: 'Pay your order',
-                trigger: '.btn-primary[name="o_payment_submit_button"]',
-                run: 'click',
-            }, {
-                trigger: 'h3:contains("Please use the following transfer details")',
-                run: function () {},
-            }]
-        }
-
-    });
+    _getSteps: function () {
+        return [
+            {
+                content: "Click on confirm button",
+                trigger: "button.o_wbooth_registration_confirm",
+                run: "click",
+                expectUnloadPage: true,
+            },
+            wsTourUtils.goToCheckout(),
+            ...wsTourUtils.payWithTransfer({ expectUnloadPage: true }),
+        ];
+    }
 
 });

@@ -1,56 +1,121 @@
-odoo.define("website_event.tour", function (require) {
-    "use strict";
+import {
+    insertSnippet,
+    registerWebsitePreviewTour,
+    clickOnEditAndWaitEditMode,
+    clickOnSave,
+} from "@website/js/tours/tour_utils";
+import { editorsWeakMap } from "@html_editor/../tests/tours/helpers/editor";
 
-    const {_t} = require("web.core");
-    const {Markup} = require('web.utils');
-    var tour = require("web_tour.tour");
-    var time = require('web.time');
+function websiteCreateEventTourSteps() {
+    return [
+        {
+            content: "Click here to add new content to your website.",
+            trigger: ".o_menu_systray .o_new_content_container > button",
+            tooltipPosition: "bottom",
+            run: "click",
+        },
+        {
+            trigger: "[data-module-xml-id='base.module_website_event']",
+            content: "Click here to create a new event.",
+            tooltipPosition: "bottom",
+            run: "click",
+        },
+        {
+            trigger: '.modal-dialog .o_field_widget[name="name"] .o_input',
+            content: "Create a name for your new event and click Continue. e.g: Technical Training",
+            run: "edit Technical Training",
+            tooltipPosition: "left",
+        },
+        {
+            trigger: "button[data-field='date_begin']",
+            content: "Set the start date",
+            run: "click",
+        },
+        {
+            trigger: "input[data-field='date_begin']",
+            content: "Set the start date",
+            run: "edit 09/30/2020 08:00:00",
+        },
+        {
+            trigger: "button[data-field='date_end']",
+            content: "Set the start date",
+            run: "click",
+        },
+        {
+            trigger: "input[data-field='date_end']",
+            content: "Set the start date",
+            run: "edit 10/02/2020 23:00:00",
+        },
+        {
+            trigger:
+                ".modal-dialog div[name='event_ticket_ids'] .o_field_x2many_list_row_add a:contains('Add a line')",
+            content: "Click here to add a ticket",
+            tooltipPosition: "bottom",
+            run: "click",
+        },
+        {
+            trigger: ".modal-dialog input[type=text]:not(:value(''))",
+        },
+        {
+            trigger: ".modal-footer button.btn-primary",
+            content: "Click Save to create the event.",
+            tooltipPosition: "right",
+            run: "click",
+        },
+        ...insertSnippet({
+            id: "s_image_text",
+            name: "Image - Text",
+            groupName: "Content",
+        }),
+        ...clickOnSave(),
+        {
+            trigger: ".o_menu_systray_item.o_website_publish_container a",
+            content: "Click to publish your event.",
+            tooltipPosition: "top",
+            run: "click",
+        },
+        {
+            trigger: ".o_website_edit_in_backend > a",
+            content: "Click here to customize your event further.",
+            tooltipPosition: "bottom",
+        },
+    ];
+}
 
-    tour.register("website_event_tour", {
-        test: true,
+function websiteEditEventTourSteps() {
+    return [
+        {
+            content: "Redirect to Event Page",
+            trigger: ":iframe a[title='Back to All Events']",
+            run: "click",
+        },
+        {
+            content: "Wait for events list to load",
+            trigger: ":iframe .opt_events_list_columns",
+        },
+        ...clickOnEditAndWaitEditMode(),
+        {
+            content: "edit the short description of the event",
+            trigger: ":iframe .opt_events_list_columns",
+            run: function () {
+                const descriptionEl = this.anchor.querySelector("[itemprop='description']");
+                descriptionEl.textContent = "new short description";
+                const editor = editorsWeakMap.get(this.anchor.ownerDocument);
+                editor.shared.history.addStep();
+            },
+        },
+        ...clickOnSave(),
+        {
+            content: "is short description updated?",
+            trigger: ":iframe .opt_events_list_columns small:contains('new short description')",
+        },
+    ];
+}
+
+registerWebsitePreviewTour(
+    "website_event_tour",
+    {
         url: "/",
-    }, [{
-        content: _t("Click here to add new content to your website."),
-        trigger: "body:has(#o_new_content_menu_choices.o_hidden) #new-content-menu > a",
-        consumeVisibleOnly: true,
-        position: 'bottom',
-    }, {
-        trigger: "a[data-action=new_event]",
-        content: _t("Click here to create a new event."),
-        position: "bottom",
-    }, {
-        trigger: '.modal-dialog #editor_new_event input[name=name]',
-        content: Markup(_t("Create a name for your new event and click <em>\"Continue\"</em>. e.g: Technical Training")),
-        run: 'text Technical Training',
-        position: "left",
-    }, {
-        trigger: '.modal-dialog #editor_new_event input[name=event_start_end]',
-        content: _t("Pick a Start date for your event"),
-        run: 'text ' + moment().format(time.getLangDatetimeFormat()) + ' - ' + moment().add(1, "d").format(time.getLangDatetimeFormat()),
-    }, {
-        trigger: '.modal-footer button.btn-primary',
-        extra_trigger: '#editor_new_event input[type=text][value!=""]',
-        content: Markup(_t("Click <em>Continue</em> to create the event.")),
-        position: "right",
-    }, {
-        trigger: "#snippet_structure .oe_snippet:eq(2) .oe_snippet_thumbnail",
-        content: _t("Drag this block and drop it in your page."),
-        position: "bottom",
-        run: "drag_and_drop",
-    }, {
-        trigger: "button[data-action=save]",
-        content: _t("Once you click on save, your event is updated."),
-        position: "bottom",
-        extra_trigger: ".o_dirty",
-    }, {
-        trigger: ".js_publish_management .js_publish_btn",
-        extra_trigger: "body:not(.editor_enable)",
-        content: _t("Click to publish your event."),
-        position: "top",
-    }, {
-        trigger: ".css_edit_dynamic",
-        extra_trigger: ".js_publish_management .js_publish_btn .css_unpublish:visible",
-        content: _t("Click here to customize your event further."),
-        position: "bottom",
-    }]);
-});
+    },
+    () => [...websiteCreateEventTourSteps(), ...websiteEditEventTourSteps()]
+);

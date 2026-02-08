@@ -1,61 +1,50 @@
-/** @odoo-module **/
-
 import { Dropdown } from "@web/core/dropdown/dropdown";
 import { DropdownItem } from "@web/core/dropdown/dropdown_item";
-import { useEffect, useService, onDestroyed, useBus } from "@web/core/utils/hooks";
+import { DropdownGroup } from "@web/core/dropdown/dropdown_group";
+import { Transition } from "@web/core/transition";
+import { useService } from "@web/core/utils/hooks";
 import { registry } from "@web/core/registry";
 import { debounce } from "@web/core/utils/timing";
-import { ErrorHandler, NotUpdatable } from "@web/core/utils/components";
+import { ErrorHandler } from "@web/core/utils/components";
 
-const { Component, hooks } = owl;
-const { useExternalListener, useRef, onWillUnmount } = hooks;
+import {
+    Component,
+    onWillDestroy,
+    useExternalListener,
+    useEffect,
+    useRef,
+    useState,
+    onWillUnmount,
+} from "@odoo/owl";
 const systrayRegistry = registry.category("systray");
 
 const getBoundingClientRect = Element.prototype.getBoundingClientRect;
 
-export class MenuDropdown extends Dropdown {
-    setup() {
-        super.setup();
-        useEffect(
-            () => {
-                if (this.props.xmlid) {
-                    this.togglerRef.el.dataset.menuXmlid = this.props.xmlid;
-                }
-            },
-            () => []
-        );
-    }
-}
-MenuDropdown.props.xmlid = {
-    type: String,
-    optional: true,
-};
+const SWIPE_ACTIVATION_THRESHOLD = 100;
 
-export class MenuItem extends DropdownItem {
-    setup() {
-        super.setup();
-        useEffect(
-            () => {
-                if (this.props.payload.id) {
-                    this.el.dataset.section = this.props.payload.id;
-                }
-                if (this.props.payload.xmlid) {
-                    this.el.dataset.menuXmlid = this.props.payload.xmlid;
-                }
-            },
-            () => []
-        );
-    }
-}
+export class MenuDropdown extends Dropdown {}
 
 export class NavBar extends Component {
+    static template = "web.NavBar";
+    static components = {
+        Dropdown,
+        DropdownItem,
+        DropdownGroup,
+        MenuDropdown,
+        ErrorHandler,
+        Transition,
+    };
+    static props = {};
+
     setup() {
         this.currentAppSectionsExtra = [];
         this.actionService = useService("action");
         this.menuService = useService("menu");
+        this.pwa = useService("pwa");
+        this.root = useRef("root");
         this.appSubMenus = useRef("appSubMenus");
         const debouncedAdapt = debounce(this.adapt.bind(this), 250);
-        onDestroyed(() => debouncedAdapt.cancel());
+        onWillDestroy(() => debouncedAdapt.cancel());
         useExternalListener(window, "resize", debouncedAdapt);
 
         let adaptCounter = 0;
@@ -64,17 +53,27 @@ export class NavBar extends Component {
             this.render();
         };
 
-        systrayRegistry.on("UPDATE", this, renderAndAdapt);
-        this.env.bus.on("MENUS:APP-CHANGED", this, renderAndAdapt);
+        systrayRegistry.addEventListener("UPDATE", renderAndAdapt);
+        this.env.bus.addEventListener("MENUS:APP-CHANGED", renderAndAdapt);
 
         onWillUnmount(() => {
-            systrayRegistry.off("UPDATE", this);
-            this.env.bus.off("MENUS:APP-CHANGED", this);
+            systrayRegistry.removeEventListener("UPDATE", renderAndAdapt);
+            this.env.bus.removeEventListener("MENUS:APP-CHANGED", renderAndAdapt);
         });
 
         // We don't want to adapt every time we are patched
         // rather, we adapt only when menus or systrays have changed.
-        useEffect(() => {this.adapt();}, () => [adaptCounter]);
+        useEffect(
+            () => {
+                this.adapt();
+            },
+            () => [adaptCounter]
+        );
+
+        this.state = useState({
+            isAllAppsMenuOpened: false,
+            isAppMenuSidebarOpened: false,
+        });
     }
 
     handleItemError(error, item) {
@@ -96,6 +95,14 @@ export class NavBar extends Component {
         );
     }
 
+    // This dummy setter is only here to prevent conflicts between the
+    // Enterprise NavBar extension and the Website NavBar patch.
+    set currentAppSections(_) {}
+
+    get isScopedApp() {
+        return this.pwa.isScopedApp;
+    }
+
     get systrayItems() {
         return systrayRegistry
             .getEntries()
@@ -103,6 +110,10 @@ export class NavBar extends Component {
             .filter((item) => ("isDisplayed" in item ? item.isDisplayed(this.env) : true))
             .reverse();
     }
+
+    // This dummy setter is only here to prevent conflicts between the
+    // Enterprise NavBar extension and the Website NavBar patch.
+    set systrayItems(_) {}
 
     /**
      * Adapt will check the available width for the app sections to get displayed.
@@ -113,7 +124,8 @@ export class NavBar extends Component {
      *     By the end of this method another render may occur depending on the adaptation result.
      */
     async adapt() {
-        if (!this.el) {
+        if (!this.root.el) {
+            /** @todo do we still need this check? */
             // currently, the promise returned by 'render' is resolved at the end of
             // the rendering even if the component has been destroyed meanwhile, so we
             // may get here and have this.el unset
@@ -146,7 +158,10 @@ export class NavBar extends Component {
         // use getBoundingClientRect to get unrounded values for width in order to avoid rounding problem
         // with offsetWidth.
         const sectionsAvailableWidth = getBoundingClientRect.call(sectionsMenu).width;
-        const sectionsTotalWidth = sections.reduce((sum, s) => sum + getBoundingClientRect.call(s).width, 0);
+        const sectionsTotalWidth = sections.reduce(
+            (sum, s) => sum + getBoundingClientRect.call(s).width,
+            0
+        );
         if (sectionsAvailableWidth < sectionsTotalWidth) {
             // Sections are overflowing
             // Initial width is harcoded to the width the more menu dropdown will take
@@ -186,20 +201,42 @@ export class NavBar extends Component {
         return this.render();
     }
 
-    onNavBarDropdownItemSelection(ev) {
-        const { payload: menu } = ev.detail;
+    onNavBarDropdownItemSelection(menu) {
         if (menu) {
             this.menuService.selectMenu(menu);
         }
     }
 
     getMenuItemHref(payload) {
-        const parts = [`menu_id=${payload.id}`];
-        if (payload.actionID) {
-            parts.push(`action=${payload.actionID}`);
+        return `/odoo/${payload.actionPath || "action-" + payload.actionID}`;
+    }
+
+    _closeAppMenuSidebar() {
+        this.state.isAllAppsMenuOpened = false;
+        this.state.isAppMenuSidebarOpened = false;
+    }
+    _openAppMenuSidebar() {
+        this.state.isAppMenuSidebarOpened = !this.state.isAppMenuSidebarOpened;
+    }
+    onAllAppsBtnClick() {
+        this.state.isAllAppsMenuOpened = !this.state.isAllAppsMenuOpened;
+    }
+    async _onMenuClicked(menu) {
+        await this.menuService.selectMenu(menu);
+        this._closeAppMenuSidebar();
+    }
+    _onSwipeStart(ev) {
+        this.swipeStartX = ev.changedTouches[0].clientX;
+    }
+    _onSwipeEnd(ev) {
+        if (!this.swipeStartX) {
+            return;
         }
-        return "#" + parts.join("&");
+        const deltaX = this.swipeStartX - ev.changedTouches[0].clientX;
+        if (deltaX < SWIPE_ACTIVATION_THRESHOLD) {
+            return;
+        }
+        this._closeAppMenuSidebar();
+        this.swipeStartX = null;
     }
 }
-NavBar.template = "web.NavBar";
-NavBar.components = { MenuDropdown, MenuItem, NotUpdatable, ErrorHandler };

@@ -2,13 +2,13 @@
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
 
 from odoo.addons.sale.tests.common import TestSaleCommon
-
+from odoo import Command
 
 class TestCommonSalePurchaseNoChart(TestSaleCommon):
 
     @classmethod
-    def setUpClass(cls, chart_template_ref=None):
-        super().setUpClass(chart_template_ref=chart_template_ref)
+    def setUpClass(cls):
+        super().setUpClass()
 
         uom_unit = cls.env.ref('uom.product_uom_unit')
         uom_dozen = cls.env.ref('uom.product_uom_dozen')
@@ -24,13 +24,14 @@ class TestCommonSalePurchaseNoChart(TestSaleCommon):
             'email': 'supplier.serv@supercompany.com',
         })
 
+        # Create product
+        # When service_to_purchase is True add the supplier i.e 'seller_ids' on the product to void the Validation error at product creation time
         cls.service_purchase_1 = cls.env['product.product'].create({
             'name': "Out-sourced Service 1",
             'standard_price': 200.0,
             'list_price': 180.0,
             'type': 'service',
             'uom_id': uom_unit.id,
-            'uom_po_id': uom_unit.id,
             'invoice_policy': 'delivery',
             'expense_policy': 'no',
             'default_code': 'SERV_DEL',
@@ -38,6 +39,13 @@ class TestCommonSalePurchaseNoChart(TestSaleCommon):
             'taxes_id': False,
             'categ_id': cls.product_category_purchase.id,
             'service_to_purchase': True,
+            'seller_ids': [Command.create({
+                'product_uom_id': uom_unit.id,
+                'partner_id': cls.partner_vendor_service.id,
+                'price': 100,
+                'delay': 1,
+                'discount': 30,
+            })],
         })
         cls.service_purchase_2 = cls.env['product.product'].create({
             'name': "Out-sourced Service 2",
@@ -45,7 +53,6 @@ class TestCommonSalePurchaseNoChart(TestSaleCommon):
             'list_price': 15.0,
             'type': 'service',
             'uom_id': uom_dozen.id,  # different UoM
-            'uom_po_id': uom_unit.id,
             'invoice_policy': 'order',
             'expense_policy': 'no',
             'default_code': 'SERV_ORD',
@@ -53,17 +60,10 @@ class TestCommonSalePurchaseNoChart(TestSaleCommon):
             'taxes_id': False,
             'categ_id': cls.product_category_purchase.id,
             'service_to_purchase': True,
-        })
-
-        cls.supplierinfo1 = cls.env['product.supplierinfo'].create({
-            'name': cls.partner_vendor_service.id,
-            'price': 100,
-            'product_tmpl_id': cls.service_purchase_1.product_tmpl_id.id,
-            'delay': 1,
-        })
-        cls.supplierinfo2 = cls.env['product.supplierinfo'].create({
-            'name': cls.partner_vendor_service.id,
-            'price': 10,
-            'product_tmpl_id': cls.service_purchase_2.product_tmpl_id.id,
-            'delay': 5,
+            'seller_ids': [Command.create({
+                'product_uom_id': uom_dozen.id,
+                'partner_id': cls.partner_vendor_service.id,
+                'price': 10,
+                'delay': 5,
+            })],
         })

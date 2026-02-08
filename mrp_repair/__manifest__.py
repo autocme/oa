@@ -5,10 +5,14 @@
 {
     'name': 'Mrp Repairs',
     'version': '1.0',
-    'category': 'Inventory/Inventory',
+    'category': 'Supply Chain/Inventory',
     'depends': ['repair', 'mrp'],
+    'data': [
+        'views/production_views.xml',
+        'views/repair_views.xml',
+    ],
     'installable': True,
     'auto_install': True,
-    'application': False,
+    'author': 'Odoo S.A.',
     'license': 'LGPL-3',
 }

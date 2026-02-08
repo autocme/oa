@@ -1,11 +1,11 @@
-/** @odoo-module **/
+import { Component } from "@odoo/owl";
 
-const { Component } = owl;
-
-export class Tooltip extends Component {}
-Tooltip.template = "web.Tooltip";
-Tooltip.props = {
-    tooltip: { type: String, optional: true },
-    template: { type: String, optional: true },
-    info: { optional: true },
-};
+export class Tooltip extends Component {
+    static template = "web.Tooltip";
+    static props = {
+        close: Function,
+        tooltip: { type: String, optional: true },
+        template: { type: String, optional: true },
+        info: { optional: true },
+    };
+}

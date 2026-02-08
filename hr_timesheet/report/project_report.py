@@ -1,34 +1,31 @@
-# -*- coding: utf-8 -*-
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
 
-from odoo import fields, models, api
+from odoo import fields, models
 
 
 class ReportProjectTaskUser(models.Model):
     _inherit = "report.project.task.user"
 
-    hours_planned = fields.Float('Planned Hours', readonly=True)
-    hours_effective = fields.Float('Effective Hours', readonly=True)
-    remaining_hours = fields.Float('Remaining Hours', readonly=True)
-    progress = fields.Float('Progress', group_operator='avg', readonly=True)
+    allocated_hours = fields.Float('Allocated Time', readonly=True, groups="hr_timesheet.group_hr_timesheet_user")
+    effective_hours = fields.Float('Time Spent', readonly=True, groups="hr_timesheet.group_hr_timesheet_user")
+    remaining_hours = fields.Float('Time Remaining', readonly=True, groups="hr_timesheet.group_hr_timesheet_user")
+    remaining_hours_percentage = fields.Float('Time Remaining Percentage', readonly=True, groups="hr_timesheet.group_hr_timesheet_user")
+    progress = fields.Float('Progress', aggregator='avg', readonly=True, groups="hr_timesheet.group_hr_timesheet_user")
+    overtime = fields.Float(readonly=True, groups="hr_timesheet.group_hr_timesheet_user")
 
     def _select(self):
-        return super(ReportProjectTaskUser, self)._select() + """,
-            (t.effective_hours * 100) / NULLIF(t.planned_hours, 0) as progress,
-            t.effective_hours as hours_effective,
-            t.planned_hours - t.effective_hours - t.subtask_effective_hours as remaining_hours,
-            NULLIF(t.planned_hours, 0) as hours_planned"""
+        return super()._select() + """,
+                CASE WHEN COALESCE(t.allocated_hours, 0) = 0 THEN NULL ELSE t.effective_hours * 100 / t.allocated_hours END as progress,
+                NULLIF(t.effective_hours, 0) as effective_hours,
+                CASE WHEN COALESCE(t.allocated_hours, 0) = 0 THEN NULL ELSE t.allocated_hours - t.effective_hours END as remaining_hours,
+                CASE WHEN t.allocated_hours > 0 THEN t.remaining_hours / t.allocated_hours ELSE 0 END as remaining_hours_percentage,
+                NULLIF(t.allocated_hours, 0) as allocated_hours,
+                NULLIF(t.overtime, 0) as overtime
+        """
 
     def _group_by(self):
-        return super(ReportProjectTaskUser, self)._group_by() + """,
-            t.remaining_hours,
-            t.effective_hours,
-            t.planned_hours
-            """
-
-    @api.model
-    def _fields_view_get(self, view_id=None, view_type='form', toolbar=False, submenu=False):
-        result = super(ReportProjectTaskUser, self)._fields_view_get(view_id=view_id, view_type=view_type, toolbar=toolbar, submenu=submenu)
-        if view_type in ['pivot', 'graph'] and self.env.company.timesheet_encode_uom_id == self.env.ref('uom.product_uom_day'):
-            result['arch'] = self.env['account.analytic.line']._apply_time_label(result['arch'], related_model=self._name)
-        return result
+        return super()._group_by() + """,
+                t.effective_hours,
+                t.allocated_hours,
+                t.overtime
+        """

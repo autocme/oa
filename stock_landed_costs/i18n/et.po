@@ -1,59 +1,55 @@
 # Translation of Odoo Server.
 # This file contains the translation of the following modules:
-# 	* stock_landed_costs
-# 
+# * stock_landed_costs
+#
 # Translators:
 # Andre Roomet <andreroomet@gmail.com>, 2022
-# Martin Trigaux, 2022
+# Algo Kärp <algokarp@gmail.com>, 2022
+# Triine Aavik <triine@avalah.ee>, 2022
+# Piia Paurson <piia@avalah.ee>, 2022
+# Egon Raamat <egon@avalah.ee>, 2022
 # Eneli Õigus <enelioigus@gmail.com>, 2022
 # Martin Aavastik <martin@avalah.ee>, 2022
-# Piia Paurson <piia@avalah.ee>, 2022
-# Algo Kärp <algokarp@gmail.com>, 2022
 # Arma Gedonsky <armagedonsky@hot.ee>, 2022
-# Egon Raamat <egon@avalah.ee>, 2022
-# Triine Aavik <triine@avalah.ee>, 2022
 # Rivo Zängov <eraser@eraser.ee>, 2022
+# Martin Trigaux, 2022
 # Leaanika Randmets, 2022
 # JanaAvalah, 2023
-# 
+# Kristina Pešehodko <kristina@avalah.ee>, 2025.
 msgid ""
 msgstr ""
-"Project-Id-Version: Odoo Server 15.0\n"
+"Project-Id-Version: Odoo Server 15.5alpha1\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2022-01-24 08:19+0000\n"
-"PO-Revision-Date: 2021-09-14 12:26+0000\n"
-"Last-Translator: JanaAvalah, 2023\n"
-"Language-Team: Estonian (https://app.transifex.com/odoo/teams/41243/et/)\n"
+"POT-Creation-Date: 2026-01-25 18:36+0000\n"
+"PO-Revision-Date: 2025-11-10 15:47+0000\n"
+"Last-Translator: Kristina Pešehodko <kristina@avalah.ee>\n"
+"Language-Team: Estonian <https://translate.odoo.com/projects/odoo-19/"
+"stock_landed_costs/et/>\n"
+"Language: et\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: \n"
-"Language: et\n"
-"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+"Plural-Forms: nplurals=2; plural=n != 1;\n"
+"X-Generator: Weblate 5.12.2\n"
 
 #. module: stock_landed_costs
-#: code:addons/stock_landed_costs/models/stock_landed_cost.py:0
-#: code:addons/stock_landed_costs/models/stock_landed_cost.py:0
-#: code:addons/stock_landed_costs/models/stock_landed_cost.py:0
-#: code:addons/stock_landed_costs/models/stock_landed_cost.py:0
-#, python-format
-msgid " already out"
-msgstr "juba väljas"
+#. odoo-python
+#: code:addons/stock_landed_costs/models/stock_move.py:0
+msgid "+ %(value)s (Landed Cost: %(landed_cost)s)"
+msgstr "+ %(value)s (Maaletoomise kulu : %(landed_cost)s)"
+
+#. module: stock_landed_costs
+#. odoo-python
+#: code:addons/stock_landed_costs/models/stock_move.py:0
+msgid "+ %(value)s from %(vendor_bill)s (Landed Cost: %(landed_cost)s)"
+msgstr "+ %(value)s %(vendor_bill)s (Maaletoomise kulu: %(landed_cost)s)"
 
 #. module: stock_landed_costs
 #: model_terms:ir.ui.view,arch_db:stock_landed_costs.stock_landed_cost_view_kanban
-msgid "<i class=\"fa fa-clock-o\" title=\"Date\" role=\"img\" aria-label=\"Date\"/>"
-msgstr "<i class=\"fa fa-clock-o\" title=\"Date\" role=\"img\" aria-label=\"Date\"/>"
-
-#. module: stock_landed_costs
-#: model:ir.model.fields,help:stock_landed_costs.field_account_move_line__product_type
 msgid ""
-"A storable product is a product for which you manage stock. The Inventory app has to be installed.\n"
-"A consumable product is a product for which stock is not managed.\n"
-"A service is a non-material product you provide."
+"<i class=\"fa fa-clock-o\" title=\"Date\" role=\"img\" aria-label=\"Date\"/>"
 msgstr ""
-"Ladustatav toode on toode, millel haldate laovarusid. Lao moodul peab olema alla laetud.\n"
-"Tarbitav toode on toode, millel ei hallata laovarusid.\n"
-"Teenus on teiepoolt pakutav mittemateriaalne toode."
+"<i class=\"fa fa-clock-o\" title=\"Date\" role=\"img\" aria-label=\"Date\"/>"
 
 #. module: stock_landed_costs
 #: model:ir.model.fields,field_description:stock_landed_costs.field_stock_landed_cost_lines__account_id
@@ -99,6 +95,14 @@ msgstr "Lisakulud"
 #: model:ir.model.fields,field_description:stock_landed_costs.field_stock_valuation_adjustment_lines__additional_landed_cost
 msgid "Additional Landed Cost"
 msgstr "Täiendav maaletoomise kulu"
+
+#. module: stock_landed_costs
+#. odoo-python
+#: code:addons/stock_landed_costs/models/stock_move.py:0
+msgid ""
+"Additional landed costs:\n"
+"%(landed_cost)s"
+msgstr ""
 
 #. module: stock_landed_costs
 #: model:ir.model.fields,field_description:stock_landed_costs.field_stock_landed_cost__target_model
@@ -155,11 +159,6 @@ msgid "Company"
 msgstr "Ettevõte"
 
 #. module: stock_landed_costs
-#: model:ir.model.fields,help:stock_landed_costs.field_stock_landed_cost__company_id
-msgid "Company related to this journal"
-msgstr "Ettevõte mis on antud registriga seotud"
-
-#. module: stock_landed_costs
 #: model_terms:ir.ui.view,arch_db:stock_landed_costs.view_stock_landed_cost_form
 msgid "Compute"
 msgstr "Arvuta"
@@ -186,8 +185,8 @@ msgid "Cost Lines"
 msgstr "Kuluread"
 
 #. module: stock_landed_costs
+#. odoo-python
 #: code:addons/stock_landed_costs/models/stock_landed_cost.py:0
-#, python-format
 msgid ""
 "Cost and adjustments lines do not match. You should maybe recompute the "
 "landed costs."
@@ -230,7 +229,7 @@ msgstr "Valuuta"
 #: model:ir.model.fields,field_description:stock_landed_costs.field_stock_landed_cost__date
 #: model_terms:ir.ui.view,arch_db:stock_landed_costs.view_stock_landed_cost_search
 msgid "Date"
-msgstr "Date"
+msgstr "Kuupäev"
 
 #. module: stock_landed_costs
 #: model:ir.model.fields,field_description:stock_landed_costs.field_res_config_settings__lc_journal_id
@@ -257,8 +256,15 @@ msgid "Description"
 msgstr "Kirjeldus"
 
 #. module: stock_landed_costs
+#: model:ir.model.fields,field_description:stock_landed_costs.field_account_move__display_name
+#: model:ir.model.fields,field_description:stock_landed_costs.field_account_move_line__display_name
+#: model:ir.model.fields,field_description:stock_landed_costs.field_product_template__display_name
+#: model:ir.model.fields,field_description:stock_landed_costs.field_purchase_order_line__display_name
+#: model:ir.model.fields,field_description:stock_landed_costs.field_res_company__display_name
+#: model:ir.model.fields,field_description:stock_landed_costs.field_res_config_settings__display_name
 #: model:ir.model.fields,field_description:stock_landed_costs.field_stock_landed_cost__display_name
 #: model:ir.model.fields,field_description:stock_landed_costs.field_stock_landed_cost_lines__display_name
+#: model:ir.model.fields,field_description:stock_landed_costs.field_stock_move__display_name
 #: model:ir.model.fields,field_description:stock_landed_costs.field_stock_valuation_adjustment_lines__display_name
 msgid "Display Name"
 msgstr "Näidatav nimi"
@@ -284,17 +290,18 @@ msgstr "Võrdselt"
 #. module: stock_landed_costs
 #: model:ir.model.fields,help:stock_landed_costs.field_stock_landed_cost_lines__split_method
 msgid ""
-"Equal : Cost will be equally divided.\n"
-"By Quantity : Cost will be divided according to product's quantity.\n"
-"By Current cost : Cost will be divided according to product's current cost.\n"
-"By Weight : Cost will be divided depending on its weight.\n"
-"By Volume : Cost will be divided depending on its volume."
+"Equal: Cost will be equally divided.\n"
+"By Quantity: Cost will be divided according to product's quantity.\n"
+"By Current cost: Cost will be divided according to product's current cost.\n"
+"By Weight: Cost will be divided depending on its weight.\n"
+"By Volume: Cost will be divided depending on its volume."
 msgstr ""
-"Equal : Cost will be equally divided.\n"
-"By Quantity : Cost will be divided according to product's quantity.\n"
-"By Current cost : Cost will be divided according to product's current cost.\n"
-"By Weight : Cost will be divided depending on its weight.\n"
-"By Volume : Cost will be divided depending on its volume."
+"Võrdselt: Kulu jaotatakse võrdselt.\n"
+"Koguse järgi: Kulu jaotatakse vastavalt toote kogusele.\n"
+"Praeguse omahinna järgi: Kulu jaotatakse vastavalt toote praegusele "
+"omahinnale.\n"
+"Kaalu järgi: Kulu jaotatakse sõltuvalt toote kaalust.\n"
+"Mahutavuse (ruumala) järgi: Kulu jaotatakse sõltuvalt toote ruumalast."
 
 #. module: stock_landed_costs
 #: model:ir.model.fields,field_description:stock_landed_costs.field_stock_landed_cost__message_follower_ids
@@ -317,9 +324,14 @@ msgid "Future Activities"
 msgstr "Tulevased tegevused"
 
 #. module: stock_landed_costs
-#: model_terms:ir.ui.view,arch_db:stock_landed_costs.view_stock_landed_cost_search
-msgid "Group By"
-msgstr "Grupeeri"
+#: model:ir.model.fields,help:stock_landed_costs.field_account_move_line__product_type
+msgid ""
+"Goods are tangible materials and merchandise you provide.\n"
+"A service is a non-material product you provide."
+msgstr ""
+"Kaupade all mõistetakse käegakatsutavaid materjale ja kaupu, mida Teie "
+"pakute. \n"
+"Teenus on mittefüüsiline toode, mida Teie pakute."
 
 #. module: stock_landed_costs
 #: model:ir.model.fields,field_description:stock_landed_costs.field_stock_landed_cost__has_message
@@ -327,8 +339,15 @@ msgid "Has Message"
 msgstr "On sõnum"
 
 #. module: stock_landed_costs
+#: model:ir.model.fields,field_description:stock_landed_costs.field_account_move__id
+#: model:ir.model.fields,field_description:stock_landed_costs.field_account_move_line__id
+#: model:ir.model.fields,field_description:stock_landed_costs.field_product_template__id
+#: model:ir.model.fields,field_description:stock_landed_costs.field_purchase_order_line__id
+#: model:ir.model.fields,field_description:stock_landed_costs.field_res_company__id
+#: model:ir.model.fields,field_description:stock_landed_costs.field_res_config_settings__id
 #: model:ir.model.fields,field_description:stock_landed_costs.field_stock_landed_cost__id
 #: model:ir.model.fields,field_description:stock_landed_costs.field_stock_landed_cost_lines__id
+#: model:ir.model.fields,field_description:stock_landed_costs.field_stock_move__id
 #: model:ir.model.fields,field_description:stock_landed_costs.field_stock_valuation_adjustment_lines__id
 msgid "ID"
 msgstr "ID"
@@ -341,11 +360,10 @@ msgstr "Ikoon"
 #. module: stock_landed_costs
 #: model:ir.model.fields,help:stock_landed_costs.field_stock_landed_cost__activity_exception_icon
 msgid "Icon to indicate an exception activity."
-msgstr "Ikoon, mis näitab erandi tegevust"
+msgstr "Ikoon, mis näitab erandi tegevust."
 
 #. module: stock_landed_costs
 #: model:ir.model.fields,help:stock_landed_costs.field_stock_landed_cost__message_needaction
-#: model:ir.model.fields,help:stock_landed_costs.field_stock_landed_cost__message_unread
 msgid "If checked, new messages require your attention."
 msgstr "Kui märgitud, siis uued sõnumid nõuavad Su tähelepanu."
 
@@ -358,8 +376,12 @@ msgstr "Kui valitud, on mõningatel sõnumitel saatmiserror."
 #. module: stock_landed_costs
 #: model:ir.model.fields,help:stock_landed_costs.field_product_product__landed_cost_ok
 #: model:ir.model.fields,help:stock_landed_costs.field_product_template__landed_cost_ok
-msgid "Indicates whether the product is a landed cost."
-msgstr "Näitab, kas toode on maaletoomise kulu."
+msgid ""
+"Indicates whether the product is a landed cost: when receiving a vendor "
+"bill, you can allocate this cost on preceding receipts."
+msgstr ""
+"Näitab, kas on tegemist maaletoomise kulu tootega: hankija arve saamisel "
+"saate selle kulu eelnevatele kviitungitele jaotada."
 
 #. module: stock_landed_costs
 #: model:ir.model.fields,field_description:stock_landed_costs.field_stock_landed_cost__message_is_follower
@@ -401,16 +423,16 @@ msgstr "Andmiku kanderida"
 #. module: stock_landed_costs
 #: model:ir.model.fields,field_description:stock_landed_costs.field_stock_landed_cost_lines__cost_id
 #: model:ir.model.fields,field_description:stock_landed_costs.field_stock_valuation_adjustment_lines__cost_id
-#: model:ir.model.fields,field_description:stock_landed_costs.field_stock_valuation_layer__stock_landed_cost_id
 #: model_terms:ir.ui.view,arch_db:stock_landed_costs.view_stock_landed_cost_form
 msgid "Landed Cost"
 msgstr "Maaletoomise kulu"
 
 #. module: stock_landed_costs
+#. odoo-python
+#: code:addons/stock_landed_costs/models/account_move.py:0
 #: model:ir.actions.act_window,name:stock_landed_costs.action_stock_landed_cost
 #: model:ir.model.fields,field_description:stock_landed_costs.field_account_bank_statement_line__landed_costs_ids
 #: model:ir.model.fields,field_description:stock_landed_costs.field_account_move__landed_costs_ids
-#: model:ir.model.fields,field_description:stock_landed_costs.field_account_payment__landed_costs_ids
 #: model:ir.ui.menu,name:stock_landed_costs.menu_stock_landed_cost
 #: model_terms:ir.ui.view,arch_db:stock_landed_costs.account_view_move_form_inherited
 #: model_terms:ir.ui.view,arch_db:stock_landed_costs.view_stock_landed_cost_form
@@ -423,7 +445,6 @@ msgstr "Maaletoomise kulud"
 #. module: stock_landed_costs
 #: model:ir.model.fields,field_description:stock_landed_costs.field_account_bank_statement_line__landed_costs_visible
 #: model:ir.model.fields,field_description:stock_landed_costs.field_account_move__landed_costs_visible
-#: model:ir.model.fields,field_description:stock_landed_costs.field_account_payment__landed_costs_visible
 msgid "Landed Costs Visible"
 msgstr "Maaletoomise kulu nähtav"
 
@@ -433,11 +454,13 @@ msgid "Landed cost validated"
 msgstr "Maaletoomise kulu kinnitatud"
 
 #. module: stock_landed_costs
-#: model:ir.model.fields,field_description:stock_landed_costs.field_stock_landed_cost____last_update
-#: model:ir.model.fields,field_description:stock_landed_costs.field_stock_landed_cost_lines____last_update
-#: model:ir.model.fields,field_description:stock_landed_costs.field_stock_valuation_adjustment_lines____last_update
-msgid "Last Modified on"
-msgstr "Viimati muudetud"
+#: model_terms:ir.actions.act_window,help:stock_landed_costs.action_stock_landed_cost
+msgid ""
+"Landed costs allow you to include additional costs (shipment, insurance, "
+"customs duties, etc) into the cost of the product."
+msgstr ""
+"Maaletoomise kulud annavad Teile võimaluse lisada lisakulud (saatmine, "
+"kindlustus, tollikulud jne) toote omahinnale."
 
 #. module: stock_landed_costs
 #: model:ir.model.fields,field_description:stock_landed_costs.field_stock_landed_cost__write_uid
@@ -464,11 +487,6 @@ msgid "Lc Journal"
 msgstr "Maaletoomise kulu andmik"
 
 #. module: stock_landed_costs
-#: model:ir.model.fields,field_description:stock_landed_costs.field_stock_landed_cost__message_main_attachment_id
-msgid "Main Attachment"
-msgstr "Peamine manus"
-
-#. module: stock_landed_costs
 #: model:ir.model.fields,field_description:stock_landed_costs.field_stock_landed_cost__message_has_error
 msgid "Message Delivery error"
 msgstr "Sõnumi edastamise veateade"
@@ -477,6 +495,11 @@ msgstr "Sõnumi edastamise veateade"
 #: model:ir.model.fields,field_description:stock_landed_costs.field_stock_landed_cost__message_ids
 msgid "Messages"
 msgstr "Sõnumid"
+
+#. module: stock_landed_costs
+#: model_terms:ir.ui.view,arch_db:stock_landed_costs.view_stock_landed_cost_search
+msgid "My Activities"
+msgstr "Minu tegevused"
 
 #. module: stock_landed_costs
 #: model:ir.model.fields,field_description:stock_landed_costs.field_stock_landed_cost__my_activity_date_deadline
@@ -490,10 +513,8 @@ msgid "Name"
 msgstr "Nimi"
 
 #. module: stock_landed_costs
+#. odoo-python
 #: code:addons/stock_landed_costs/models/stock_landed_cost.py:0
-#: code:addons/stock_landed_costs/models/stock_landed_cost.py:0
-#: code:addons/stock_landed_costs/models/stock_landed_cost.py:0
-#, python-format
 msgid "New"
 msgstr "Uus"
 
@@ -534,8 +555,8 @@ msgstr "Veateadete arv"
 
 #. module: stock_landed_costs
 #: model:ir.model.fields,help:stock_landed_costs.field_stock_landed_cost__message_needaction_counter
-msgid "Number of messages which requires an action"
-msgstr "Tegutsemist nõudvate sõnumite arv"
+msgid "Number of messages requiring action"
+msgstr "Tegevust nõudvate sõnumite arv"
 
 #. module: stock_landed_costs
 #: model:ir.model.fields,help:stock_landed_costs.field_stock_landed_cost__message_has_error_counter
@@ -543,13 +564,8 @@ msgid "Number of messages with delivery error"
 msgstr "Kohaletoimetamise veateatega sõnumite arv"
 
 #. module: stock_landed_costs
-#: model:ir.model.fields,help:stock_landed_costs.field_stock_landed_cost__message_unread_counter
-msgid "Number of unread messages"
-msgstr "Lugemata sõnumite arv"
-
-#. module: stock_landed_costs
+#. odoo-python
 #: code:addons/stock_landed_costs/models/stock_landed_cost.py:0
-#, python-format
 msgid "Only draft landed costs can be validated"
 msgstr "Ainult mustand staatuses kulusid saab kinnitada"
 
@@ -564,14 +580,14 @@ msgid "Picking"
 msgstr "Laoleht"
 
 #. module: stock_landed_costs
+#. odoo-python
 #: code:addons/stock_landed_costs/models/stock_landed_cost.py:0
-#, python-format
 msgid "Please configure Stock Expense Account for product: %s."
 msgstr "Palun seadista Lao kulude konto tootele: %s."
 
 #. module: stock_landed_costs
+#. odoo-python
 #: code:addons/stock_landed_costs/models/stock_landed_cost.py:0
-#, python-format
 msgid "Please define %s on which those additional costs should apply."
 msgstr "Pakun määrake %s, millele need lisakulud kehtima peaksid."
 
@@ -581,15 +597,11 @@ msgid "Posted"
 msgstr "Postitatud"
 
 #. module: stock_landed_costs
+#: model:ir.model,name:stock_landed_costs.model_product_template
 #: model:ir.model.fields,field_description:stock_landed_costs.field_stock_landed_cost_lines__product_id
 #: model:ir.model.fields,field_description:stock_landed_costs.field_stock_valuation_adjustment_lines__product_id
 msgid "Product"
 msgstr "Toode"
-
-#. module: stock_landed_costs
-#: model:ir.model,name:stock_landed_costs.model_product_template
-msgid "Product Template"
-msgstr "Toote mall"
 
 #. module: stock_landed_costs
 #: model:ir.model.fields,field_description:stock_landed_costs.field_account_move_line__product_type
@@ -607,6 +619,11 @@ msgid "Quantity"
 msgstr "Tehtud kogused"
 
 #. module: stock_landed_costs
+#: model:ir.model.fields,field_description:stock_landed_costs.field_stock_landed_cost__rating_ids
+msgid "Ratings"
+msgstr "Hinnangud"
+
+#. module: stock_landed_costs
 #: model:ir.model.fields,field_description:stock_landed_costs.field_stock_landed_cost__activity_user_id
 msgid "Responsible User"
 msgstr "Vastutav kasutaja"
@@ -618,9 +635,8 @@ msgstr "Sõnumi kohaletoimetamise veateade"
 
 #. module: stock_landed_costs
 #: model_terms:ir.ui.view,arch_db:stock_landed_costs.view_stock_landed_cost_search
-msgid "Show all records which has next action date is before today"
-msgstr ""
-"Näita kõiki andmeid, mille järgmise tegevuse kuupäev on enne tänast kuupäeva"
+msgid "Show all records whose next activity date is past"
+msgstr "Näita kõiki andmeid, mille järgmise tegevuse kuupäev on möödas"
 
 #. module: stock_landed_costs
 #: model:ir.model.fields,field_description:stock_landed_costs.field_stock_landed_cost_lines__split_method
@@ -648,7 +664,7 @@ msgstr ""
 "Tegevuspõhised staatused\n"
 "Üle aja: Tähtaeg on juba möödas\n"
 "Täna: Tegevuse tähtaeg on täna\n"
-"Planeeritud: Tulevased tegevused"
+"Planeeritud: Tulevased tegevused."
 
 #. module: stock_landed_costs
 #: model:ir.model,name:stock_landed_costs.model_stock_landed_cost
@@ -661,15 +677,10 @@ msgid "Stock Landed Cost Line"
 msgstr "Lao maaletoomise kulurida"
 
 #. module: stock_landed_costs
+#: model:ir.model,name:stock_landed_costs.model_stock_move
 #: model:ir.model.fields,field_description:stock_landed_costs.field_stock_valuation_adjustment_lines__move_id
 msgid "Stock Move"
 msgstr "Laoliikumine"
-
-#. module: stock_landed_costs
-#: model:ir.model,name:stock_landed_costs.model_stock_valuation_layer
-#: model:ir.model.fields,field_description:stock_landed_costs.field_stock_landed_cost__stock_valuation_layer_ids
-msgid "Stock Valuation Layer"
-msgstr "Lao hindamise kiht"
 
 #. module: stock_landed_costs
 #: model_terms:ir.ui.view,arch_db:stock_landed_costs.view_stock_landed_cost_search
@@ -693,34 +704,19 @@ msgid "Type of the exception activity on record."
 msgstr "Kirjel oleva erandtegevuse tüüp."
 
 #. module: stock_landed_costs
-#: model:ir.model.fields,field_description:stock_landed_costs.field_stock_landed_cost__message_unread
-msgid "Unread Messages"
-msgstr "Lugemata sõnumid"
-
-#. module: stock_landed_costs
-#: model:ir.model.fields,field_description:stock_landed_costs.field_stock_landed_cost__message_unread_counter
-msgid "Unread Messages Counter"
-msgstr "Lugemata sõnumite loendur"
-
-#. module: stock_landed_costs
 #: model_terms:ir.ui.view,arch_db:stock_landed_costs.view_stock_landed_cost_form
 msgid "Validate"
 msgstr "Kinnita"
 
 #. module: stock_landed_costs
+#. odoo-python
 #: code:addons/stock_landed_costs/models/stock_landed_cost.py:0
-#, python-format
 msgid ""
 "Validated landed costs cannot be cancelled, but you could create negative "
 "landed costs to reverse them"
 msgstr ""
 "Kinnitatud maaletoomise kulusid ei saa tühistada aga saate luua negatiivse "
 "maaltetoomise kulu selle tühistamiseks"
-
-#. module: stock_landed_costs
-#: model_terms:ir.ui.view,arch_db:stock_landed_costs.view_stock_landed_cost_form
-msgid "Valuation"
-msgstr "Hindamine"
 
 #. module: stock_landed_costs
 #: model:ir.model,name:stock_landed_costs.model_stock_valuation_adjustment_lines
@@ -759,8 +755,8 @@ msgid "Weight"
 msgstr "Kaal"
 
 #. module: stock_landed_costs
+#. odoo-python
 #: code:addons/stock_landed_costs/models/stock_landed_cost.py:0
-#, python-format
 msgid ""
 "You cannot apply landed costs on the chosen %s(s). Landed costs can only be "
 "applied for products with FIFO or average costing method."
@@ -770,11 +766,49 @@ msgstr ""
 "toodetele."
 
 #. module: stock_landed_costs
+#. odoo-python
 #: code:addons/stock_landed_costs/models/product.py:0
-#, python-format
 msgid ""
-"You cannot change the product type or disable landed cost option because the"
-" product is used in an account move line."
+"You cannot change the product type or disable landed cost option because the "
+"product is used in an account move line."
 msgstr ""
 "Te ei saa muuta toote tüüpi ega eemaldada maaletoomise kulu valikut, kuna "
 "toodet kasutatakse konto teisaldamise real."
+
+#~ msgid ""
+#~ "including landed costs:\n"
+#~ "%(landed_cost)s"
+#~ msgstr ""
+#~ "sisaldab maaletoomise kulusid:\n"
+#~ "%(landed_cost)s"
+
+#~ msgid " already out"
+#~ msgstr "juba väljas"
+
+#~ msgid ""
+#~ "A storable product is a product for which you manage stock. The Inventory "
+#~ "app has to be installed.\n"
+#~ "A consumable product is a product for which stock is not managed.\n"
+#~ "A service is a non-material product you provide."
+#~ msgstr ""
+#~ "Ladustatav toode on toode, millel haldate laovarusid. Alla peab olema "
+#~ "laetud Lao moodul.\n"
+#~ "Tarbitav toode on toode, millel ei hallata laovarusid.\n"
+#~ "Teenus on Teie poolt pakutav mittemateriaalne toode."
+
+#~ msgid "Company related to this journal"
+#~ msgstr "Ettevõte mis on antud registriga seotud"
+
+#~ msgid "Group By"
+#~ msgstr "Grupeeri"
+
+#~ msgid "Number of messages which requires an action"
+#~ msgstr "Tegutsemist nõudvate sõnumite arv"
+
+#~ msgid "Show all records which has next action date is before today"
+#~ msgstr ""
+#~ "Näita kõiki andmeid, mille järgmise tegevuse kuupäev on enne tänast "
+#~ "kuupäeva"
+
+#~ msgid "Stock Valuation Layer"
+#~ msgstr "Lao hindamise kiht"

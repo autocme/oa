@@ -2,14 +2,15 @@
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
 
 from odoo import api, fields, models, tools
-from odoo.osv import expression
 from odoo.tools import formatLang
+
 
 class PurchaseBillUnion(models.Model):
     _name = 'purchase.bill.union'
     _auto = False
     _description = 'Purchases & Bills Union'
     _order = "date desc, name desc"
+    _rec_names_search = ['name', 'reference']
 
     name = fields.Char(string='Reference', readonly=True)
     reference = fields.Char(string='Source', readonly=True)
@@ -30,19 +31,20 @@ class PurchaseBillUnion(models.Model):
                     id as vendor_bill_id, NULL as purchase_order_id
                 FROM account_move
                 WHERE
-                    move_type='in_invoice' and state = 'posted'
+                    move_type in ('in_invoice', 'in_refund') and state = 'posted'
             UNION
                 SELECT
                     -id, name, partner_ref as reference, partner_id, date_order::date as date, amount_untaxed as amount, currency_id, company_id,
                     NULL as vendor_bill_id, id as purchase_order_id
                 FROM purchase_order
                 WHERE
-                    state in ('purchase', 'done') AND
+                    state = 'purchase' AND
                     invoice_status in ('to invoice', 'no')
             )""")
 
-    def name_get(self):
-        result = []
+    @api.depends('currency_id', 'reference', 'amount', 'purchase_order_id')
+    @api.depends_context('show_total_amount')
+    def _compute_display_name(self):
         for doc in self:
             name = doc.name or ''
             if doc.reference:
@@ -50,15 +52,5 @@ class PurchaseBillUnion(models.Model):
             amount = doc.amount
             if doc.purchase_order_id and doc.purchase_order_id.invoice_status == 'no':
                 amount = 0.0
-            name += ': ' + formatLang(self.env, amount, monetary=True, currency_obj=doc.currency_id)
-            result.append((doc.id, name))
-        return result
-
-    @api.model
-    def _name_search(self, name, args=None, operator='ilike', limit=100, name_get_uid=None):
-        args = args or []
-        domain = []
-        if name:
-            domain = ['|', ('name', operator, name), ('reference', operator, name)]
-        purchase_bills_union_ids = self._search(expression.AND([domain, args]), limit=limit, access_rights_uid=name_get_uid)
-        return purchase_bills_union_ids
+            name += ': ' + formatLang(self.env, amount, currency_obj=doc.currency_id)
+            doc.display_name = name

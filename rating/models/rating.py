@@ -1,31 +1,19 @@
-# -*- coding: utf-8 -*-
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
+
 import base64
 import uuid
 
 from odoo import api, fields, models
-
-from odoo.modules.module import get_resource_path
-
-RATING_LIMIT_SATISFIED = 5
-RATING_LIMIT_OK = 3
-RATING_LIMIT_MIN = 1
+from odoo.addons.mail.tools.discuss import Store
+from odoo.addons.rating.models import rating_data
+from odoo.tools.misc import file_open
 
 
-class Rating(models.Model):
-    _name = "rating.rating"
+class RatingRating(models.Model):
+    _name = 'rating.rating'
     _description = "Rating"
-    _order = 'write_date desc'
+    _order = 'write_date desc, id desc'
     _rec_name = 'res_name'
-    _sql_constraints = [
-        ('rating_range', 'check(rating >= 0 and rating <= 5)', 'Rating should be between 0 and 5'),
-    ]
-
-    @api.depends('res_model', 'res_id')
-    def _compute_res_name(self):
-        for rating in self:
-            name = self.env[rating.res_model].sudo().browse(rating.res_id).name_get()
-            rating.res_name = name and name[0][1] or ('%s/%s') % (rating.res_model, rating.res_id)
 
     @api.model
     def _default_access_token(self):
@@ -36,10 +24,10 @@ class Rating(models.Model):
         return [(model.model, model.name) for model in self.env['ir.model'].sudo().search([])]
 
     create_date = fields.Datetime(string="Submitted on")
-    res_name = fields.Char(string='Resource name', compute='_compute_res_name', store=True, help="The name of the rated resource.")
-    res_model_id = fields.Many2one('ir.model', 'Related Document Model', index=True, ondelete='cascade', help='Model of the followed resource')
+    res_name = fields.Char(string='Resource name', compute='_compute_res_name', store=True)
+    res_model_id = fields.Many2one('ir.model', 'Related Document Model', index=True, ondelete='cascade')
     res_model = fields.Char(string='Document Model', related='res_model_id.model', store=True, index=True, readonly=True)
-    res_id = fields.Integer(string='Document', required=True, help="Identifier of the rated object", index=True)
+    res_id = fields.Many2oneReference(string='Document', model_field='res_model', required=True, index=True)
     resource_ref = fields.Reference(
         string='Resource Ref', selection='_selection_target_model',
         compute='_compute_resource_ref', readonly=True)
@@ -50,24 +38,38 @@ class Rating(models.Model):
     parent_ref = fields.Reference(
         string='Parent Ref', selection='_selection_target_model',
         compute='_compute_parent_ref', readonly=True)
-    rated_partner_id = fields.Many2one('res.partner', string="Rated Operator", help="Owner of the rated resource")
+    rated_partner_id = fields.Many2one('res.partner', string="Rated Operator")
     rated_partner_name = fields.Char(related="rated_partner_id.name")
-    partner_id = fields.Many2one('res.partner', string='Customer', help="Author of the rating")
-    rating = fields.Float(string="Rating Value", group_operator="avg", default=0, help="Rating value: 0=Unhappy, 5=Happy")
+    partner_id = fields.Many2one('res.partner', string='Customer')
+    rating = fields.Float(string="Rating Value", aggregator="avg", default=0)
     rating_image = fields.Binary('Image', compute='_compute_rating_image')
-    rating_text = fields.Selection([
-        ('top', 'Satisfied'),
-        ('ok', 'Okay'),
-        ('ko', 'Dissatisfied'),
-        ('none', 'No Rating yet')], string='Rating', store=True, compute='_compute_rating_text', readonly=True)
-    feedback = fields.Text('Comment', help="Reason of the rating")
+    rating_image_url = fields.Char('Image URL', compute='_compute_rating_image')
+    rating_text = fields.Selection(rating_data.RATING_TEXT, string='Rating', store=True, compute='_compute_rating_text', readonly=True)
+    feedback = fields.Text('Comment')
     message_id = fields.Many2one(
         'mail.message', string="Message",
-        index=True, ondelete='cascade',
-        help="Associated message when posting a review. Mainly used in website addons.")
+        index=True, ondelete='cascade')
     is_internal = fields.Boolean('Visible Internally Only', readonly=False, related='message_id.is_internal', store=True)
-    access_token = fields.Char('Security Token', default=_default_access_token, help="Access token to set the rating of the value")
-    consumed = fields.Boolean(string="Filled Rating", help="Enabled if the rating has been filled.")
+    access_token = fields.Char('Security Token', default=_default_access_token)
+    consumed = fields.Boolean(string="Filled Rating")
+    rated_on = fields.Datetime(string="Rated On")
+
+    _rating_range = models.Constraint(
+        'check(rating >= 0 and rating <= 5)',
+        'Rating should be between 0 and 5',
+    )
+
+    _consumed_idx = models.Index('(res_model, res_id, write_date) WHERE consumed IS TRUE')
+    _parent_consumed_idx = models.Index('(parent_res_model, parent_res_id, write_date) WHERE consumed IS TRUE')
+
+    @api.depends('res_model', 'res_id')
+    def _compute_res_name(self):
+        for rating in self:
+            if rating.res_model and rating.res_id:
+                name = self.env[rating.res_model].sudo().browse(rating.res_id).display_name
+            else:
+                name = False
+            rating.res_name = name or f'{rating.res_model}/{rating.res_id}'
 
     @api.depends('res_model', 'res_id')
     def _compute_resource_ref(self):
@@ -90,58 +92,56 @@ class Rating(models.Model):
         for rating in self:
             name = False
             if rating.parent_res_model and rating.parent_res_id:
-                name = self.env[rating.parent_res_model].sudo().browse(rating.parent_res_id).name_get()
-                name = name and name[0][1] or ('%s/%s') % (rating.parent_res_model, rating.parent_res_id)
+                name = self.env[rating.parent_res_model].sudo().browse(rating.parent_res_id).display_name
+                name = name or f'{rating.parent_res_model}/{rating.parent_res_id}'
             rating.parent_res_name = name
 
     def _get_rating_image_filename(self):
         self.ensure_one()
-        if self.rating >= RATING_LIMIT_SATISFIED:
-            rating_int = 5
-        elif self.rating >= RATING_LIMIT_OK:
-            rating_int = 3
-        elif self.rating >= RATING_LIMIT_MIN:
-            rating_int = 1
-        else:
-            rating_int = 0
-        return 'rating_%s.png' % rating_int
+        return 'rating_%s.png' % rating_data._rating_to_threshold(self.rating)
 
+    @api.depends('rating')
     def _compute_rating_image(self):
+        self.rating_image_url = False
+        self.rating_image = False
         for rating in self:
+            image_path = f'rating/static/src/img/{rating._get_rating_image_filename()}'
+            rating.rating_image_url = f'/{image_path}'
             try:
-                image_path = get_resource_path('rating', 'static/src/img', rating._get_rating_image_filename())
-                rating.rating_image = base64.b64encode(open(image_path, 'rb').read()) if image_path else False
-            except (IOError, OSError):
+                with file_open(image_path, 'rb', filter_ext=('.png',)) as f:
+                    rating.rating_image = base64.b64encode(f.read())
+            except OSError:
                 rating.rating_image = False
 
     @api.depends('rating')
     def _compute_rating_text(self):
         for rating in self:
-            if rating.rating >= RATING_LIMIT_SATISFIED:
-                rating.rating_text = 'top'
-            elif rating.rating >= RATING_LIMIT_OK:
-                rating.rating_text = 'ok'
-            elif rating.rating >= RATING_LIMIT_MIN:
-                rating.rating_text = 'ko'
-            else:
-                rating.rating_text = 'none'
+            rating.rating_text = rating_data._rating_to_text(rating.rating)
+
+    # ------------------------------------------------------------
+    # CRUD
+    # ------------------------------------------------------------
 
     @api.model_create_multi
     def create(self, vals_list):
         for values in vals_list:
             if values.get('res_model_id') and values.get('res_id'):
                 values.update(self._find_parent_data(values))
+            if 'rating' in values or 'feedback' in values:
+                values['rated_on'] = fields.Datetime.now()
         return super().create(vals_list)
 
-    def write(self, values):
-        if values.get('res_model_id') and values.get('res_id'):
-            values.update(self._find_parent_data(values))
-        return super(Rating, self).write(values)
+    def write(self, vals):
+        if vals.get('res_model_id') and vals.get('res_id'):
+            vals.update(self._find_parent_data(vals))
+        if 'rating' in vals or 'feedback' in vals:
+            vals['rated_on'] = fields.Datetime.now()
+        return super().write(vals)
 
     def unlink(self):
         # OPW-2181568: Delete the chatter message too
         self.env['mail.message'].search([('rating_ids', 'in', self.ids)]).unlink()
-        return super(Rating, self).unlink()
+        return super().unlink()
 
     def _find_parent_data(self, values):
         """ Determine the parent res_model/res_id, based on the values to create or write """
@@ -158,6 +158,10 @@ class Rating(models.Model):
                 data['parent_res_model_id'] = self.env['ir.model']._get(parent_res_model._name).id
                 data['parent_res_id'] = parent_res_model.id
         return data
+
+    # ------------------------------------------------------------
+    # ACTIONS
+    # ------------------------------------------------------------
 
     def reset(self):
         for record in self:
@@ -176,3 +180,33 @@ class Rating(models.Model):
             'res_id': self.res_id,
             'views': [[False, 'form']]
         }
+
+    # ------------------------------------------------------------
+    # TOOLS
+    # ------------------------------------------------------------
+
+    def _classify_by_model(self):
+        """ To ease batch computation of various ratings related methods they
+        are classified by model. Ratings not linked to a valid record through
+        res_model / res_id are ignored.
+
+        :returns: for each model having at least one rating in self, have
+          a sub-dict containing
+            * ratings: ratings related to that model;
+            * record IDs: records linked to the ratings of that model, in same
+              order;
+        :rtype: dict
+        """
+        data_by_model = {}
+        for rating in self.filtered(lambda act: act.res_model and act.res_id):
+            if rating.res_model not in data_by_model:
+                data_by_model[rating.res_model] = {
+                    'ratings': self.env['rating.rating'],
+                    'record_ids': [],
+                }
+            data_by_model[rating.res_model]['ratings'] += rating
+            data_by_model[rating.res_model]['record_ids'].append(rating.res_id)
+        return data_by_model
+
+    def _to_store_defaults(self, target):
+        return ["rating", "rating_image_url", "rating_text"]

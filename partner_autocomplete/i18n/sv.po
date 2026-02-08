@@ -1,40 +1,42 @@
 # Translation of Odoo Server.
 # This file contains the translation of the following modules:
-# 	* partner_autocomplete
-# 
+# * partner_autocomplete
+#
 # Translators:
-# Martin Trigaux, 2021
-# Chrille Hedberg <hedberg.chrille@gmail.com>, 2021
-# Fredrik Arvas <fredrik.arvas@vertel.se>, 2021
-# Anders Wallenquist <anders.wallenquist@vertel.se>, 2024
-# Jakob Krabbe <jakob.krabbe@vertel.se>, 2024
-# 
+# Anders Wallenquist <anders.wallenquist@vertel.se>, 2022
+# Jakob Krabbe <jakob.krabbe@vertel.se>, 2022
+# Simon S, 2022
+# Martin Trigaux, 2022
+# Mikael Åkerberg <mikael.akerberg@mariaakerberg.com>, 2022
+# Chrille Hedberg <hedberg.chrille@gmail.com>, 2022
+# Fredrik Arvas <fredrik.arvas@vertel.se>, 2022
+# "Tiffany Chang (tic)" <tic@odoo.com>, 2025.
 msgid ""
 msgstr ""
-"Project-Id-Version: Odoo Server saas~14.4\n"
+"Project-Id-Version: Odoo Server 16.0beta\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2021-07-12 07:50+0000\n"
-"PO-Revision-Date: 2021-09-14 12:24+0000\n"
-"Last-Translator: Jakob Krabbe <jakob.krabbe@vertel.se>, 2024\n"
-"Language-Team: Swedish (https://app.transifex.com/odoo/teams/41243/sv/)\n"
+"POT-Creation-Date: 2026-01-25 18:36+0000\n"
+"PO-Revision-Date: 2025-09-16 21:29+0000\n"
+"Last-Translator: \"Tiffany Chang (tic)\" <tic@odoo.com>\n"
+"Language-Team: Swedish <https://translate.odoo.com/projects/odoo-19/"
+"partner_autocomplete/sv/>\n"
+"Language: sv\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: \n"
-"Language: sv\n"
-"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+"Plural-Forms: nplurals=2; plural=n != 1;\n"
+"X-Generator: Weblate 5.12.2\n"
 
 #. module: partner_autocomplete
-#: model:ir.model.fields,field_description:partner_autocomplete.field_res_partner__additional_info
-#: model:ir.model.fields,field_description:partner_autocomplete.field_res_users__additional_info
-msgid "Additional info"
-msgstr "Ytterligare information"
+#: model:iap.service,description:partner_autocomplete.iap_service_partner_autocomplete
+msgid "Automatically enrich your contact base with corporate data."
+msgstr "Berika automatiskt din kontaktbas med företagsdata."
 
 #. module: partner_autocomplete
-#. openerp-web
+#. odoo-javascript
 #: code:addons/partner_autocomplete/static/src/xml/partner_autocomplete.xml:0
-#, python-format
 msgid "Buy more credits"
-msgstr "Köp krediter"
+msgstr "Köp fler krediter"
 
 #. module: partner_autocomplete
 #: model:ir.model,name:partner_autocomplete.model_res_company
@@ -42,22 +44,9 @@ msgid "Companies"
 msgstr "Företag"
 
 #. module: partner_autocomplete
-#: code:addons/partner_autocomplete/models/res_company.py:0
-#, python-format
-msgid "Company auto-completed by Odoo Partner Autocomplete Service"
-msgstr "Företag autokompletterat av Odoo Partner Autocomplete Service"
-
-#. module: partner_autocomplete
-#: model:ir.model.fields,field_description:partner_autocomplete.field_res_company__partner_gid
-#: model:ir.model.fields,field_description:partner_autocomplete.field_res_partner__partner_gid
-#: model:ir.model.fields,field_description:partner_autocomplete.field_res_users__partner_gid
-msgid "Company database ID"
-msgstr "Bolagets databasid"
-
-#. module: partner_autocomplete
 #: model:ir.model,name:partner_autocomplete.model_res_config_settings
 msgid "Config Settings"
-msgstr "Konfigurationsinställningar"
+msgstr "Inställningar"
 
 #. module: partner_autocomplete
 #: model:ir.model,name:partner_autocomplete.model_res_partner
@@ -65,17 +54,16 @@ msgid "Contact"
 msgstr "Kontakt"
 
 #. module: partner_autocomplete
-#: model:ir.model.fields,field_description:partner_autocomplete.field_res_partner_autocomplete_sync__create_uid
-msgid "Created by"
-msgstr "Skapad av"
+#: model:ir.model,website_form_label:partner_autocomplete.model_res_partner
+msgid "Create a Customer"
+msgstr ""
 
 #. module: partner_autocomplete
-#: model:ir.model.fields,field_description:partner_autocomplete.field_res_partner_autocomplete_sync__create_date
-msgid "Created on"
-msgstr "Skapad den"
-
-#. module: partner_autocomplete
-#: model:ir.model.fields,field_description:partner_autocomplete.field_res_partner_autocomplete_sync__display_name
+#: model:ir.model.fields,field_description:partner_autocomplete.field_iap_autocomplete_api__display_name
+#: model:ir.model.fields,field_description:partner_autocomplete.field_ir_http__display_name
+#: model:ir.model.fields,field_description:partner_autocomplete.field_res_company__display_name
+#: model:ir.model.fields,field_description:partner_autocomplete.field_res_config_settings__display_name
+#: model:ir.model.fields,field_description:partner_autocomplete.field_res_partner__display_name
 msgid "Display Name"
 msgstr "Visningsnamn"
 
@@ -85,16 +73,20 @@ msgid "Enrich Done"
 msgstr "Berika färdig"
 
 #. module: partner_autocomplete
-#: model:ir.model,name:partner_autocomplete.model_ir_http
-msgid "HTTP Routing"
-msgstr "HTTP-rutt"
+#: model:iap.service,unit_name:partner_autocomplete.iap_service_partner_autocomplete
+msgid "Enrichments"
+msgstr "Anrikningar"
 
 #. module: partner_autocomplete
-#. openerp-web
+#: model:ir.model,name:partner_autocomplete.model_ir_http
+msgid "HTTP Routing"
+msgstr "HTTP-routing"
+
+#. module: partner_autocomplete
+#. odoo-javascript
 #: code:addons/partner_autocomplete/static/src/js/partner_autocomplete_core.js:0
-#, python-format
 msgid "IAP Account Token missing"
-msgstr "IAP Konto-token saknas"
+msgstr "IAP Konto-pollett saknas"
 
 #. module: partner_autocomplete
 #: model:ir.model,name:partner_autocomplete.model_iap_autocomplete_api
@@ -102,7 +94,11 @@ msgid "IAP Partner Autocomplete API"
 msgstr "IAP Partner Autocomplete API"
 
 #. module: partner_autocomplete
-#: model:ir.model.fields,field_description:partner_autocomplete.field_res_partner_autocomplete_sync__id
+#: model:ir.model.fields,field_description:partner_autocomplete.field_iap_autocomplete_api__id
+#: model:ir.model.fields,field_description:partner_autocomplete.field_ir_http__id
+#: model:ir.model.fields,field_description:partner_autocomplete.field_res_company__id
+#: model:ir.model.fields,field_description:partner_autocomplete.field_res_config_settings__id
+#: model:ir.model.fields,field_description:partner_autocomplete.field_res_partner__id
 msgid "ID"
 msgstr "ID"
 
@@ -112,84 +108,71 @@ msgid "Insufficient credit"
 msgstr "Otillräcklig kredit"
 
 #. module: partner_autocomplete
-#: model:ir.model.fields,field_description:partner_autocomplete.field_res_partner_autocomplete_sync__synched
-msgid "Is synched"
-msgstr "Synkroniserad"
-
-#. module: partner_autocomplete
-#: model:ir.model.fields,field_description:partner_autocomplete.field_res_partner_autocomplete_sync____last_update
-msgid "Last Modified on"
-msgstr "Senast redigerad"
-
-#. module: partner_autocomplete
-#: model:ir.model.fields,field_description:partner_autocomplete.field_res_partner_autocomplete_sync__write_uid
-msgid "Last Updated by"
-msgstr "Senast uppdaterad av"
-
-#. module: partner_autocomplete
-#: model:ir.model.fields,field_description:partner_autocomplete.field_res_partner_autocomplete_sync__write_date
-msgid "Last Updated on"
-msgstr "Senast uppdaterad"
-
-#. module: partner_autocomplete
+#. odoo-python
 #: code:addons/partner_autocomplete/models/iap_autocomplete_api.py:0
-#, python-format
 msgid "No account token"
 msgstr "Ingen kontopollett"
 
 #. module: partner_autocomplete
-#. openerp-web
+#. odoo-javascript
 #: code:addons/partner_autocomplete/static/src/js/partner_autocomplete_core.js:0
-#, python-format
 msgid "Not enough credits for Partner Autocomplete"
 msgstr "Inte tillräckligt med krediter för Partner Autocomplete"
 
 #. module: partner_autocomplete
-#: model:ir.model.fields,field_description:partner_autocomplete.field_res_partner_autocomplete_sync__partner_id
-msgid "Partner"
-msgstr "Företag"
-
-#. module: partner_autocomplete
-#: model:ir.actions.server,name:partner_autocomplete.ir_cron_partner_autocomplete_ir_actions_server
-#: model:ir.cron,cron_name:partner_autocomplete.ir_cron_partner_autocomplete
-#: model:ir.cron,name:partner_autocomplete.ir_cron_partner_autocomplete
-msgid "Partner Autocomplete : Sync with remote DB"
+#. odoo-javascript
+#: code:addons/partner_autocomplete/static/src/xml/partner_autocomplete.xml:0
+msgid "Search Worldwide 🌎"
 msgstr ""
 
 #. module: partner_autocomplete
-#: model:ir.model,name:partner_autocomplete.model_res_partner_autocomplete_sync
-msgid "Partner Autocomplete Sync"
-msgstr "Partner Autocomplete Sync"
-
-#. module: partner_autocomplete
-#: code:addons/partner_autocomplete/models/res_partner.py:0
-#, python-format
-msgid "Partner created by Odoo Partner Autocomplete Service"
-msgstr "Partner skapad av Odoo Partner Autocomplete Service"
-
-#. module: partner_autocomplete
-#. openerp-web
-#: code:addons/partner_autocomplete/static/src/xml/partner_autocomplete.xml:0
-#, python-format
-msgid "Placeholder"
-msgstr "Platshållare"
-
-#. module: partner_autocomplete
-#. openerp-web
+#. odoo-javascript
+#: code:addons/partner_autocomplete/static/src/js/partner_autocomplete_fieldchar.js:0
 #: code:addons/partner_autocomplete/static/src/js/partner_autocomplete_many2one.js:0
-#, python-format
 msgid "Searching Autocomplete..."
-msgstr "Söker efter autoslutförande..."
+msgstr "Söker efter Autocomplete..."
 
 #. module: partner_autocomplete
-#. openerp-web
+#. odoo-javascript
 #: code:addons/partner_autocomplete/static/src/xml/partner_autocomplete.xml:0
-#, python-format
 msgid "Set Your Account Token"
 msgstr "Ställ in din kontopollett"
 
 #. module: partner_autocomplete
+#. odoo-python
 #: code:addons/partner_autocomplete/models/iap_autocomplete_api.py:0
-#, python-format
 msgid "Test mode"
 msgstr "Testläge"
+
+#. module: partner_autocomplete
+#. odoo-python
+#: code:addons/partner_autocomplete/models/res_partner.py:0
+msgid "Unable to enrich company (no credit was consumed)."
+msgstr ""
+
+#~ msgid "Additional info"
+#~ msgstr "Ytterligare information"
+
+#~ msgid "Company database ID"
+#~ msgstr "Bolagets databasid"
+
+#~ msgid "Created by"
+#~ msgstr "Skapad av"
+
+#~ msgid "Created on"
+#~ msgstr "Skapad"
+
+#~ msgid "Is synched"
+#~ msgstr "Är synkroniserad"
+
+#~ msgid "Last Updated by"
+#~ msgstr "Senast uppdaterad av"
+
+#~ msgid "Last Updated on"
+#~ msgstr "Senast uppdaterad på"
+
+#~ msgid "Partner"
+#~ msgstr "Partner"
+
+#~ msgid "Placeholder"
+#~ msgstr "Platshållare"

@@ -10,13 +10,14 @@
     ],
     'assets': {
         'web.assets_backend': [
-            'auth_password_policy/static/src/js/password_field.js',
-            'auth_password_policy/static/src/js/change_password.js',
+            'auth_password_policy/static/src/**/*',
+            ('remove', 'auth_password_policy/static/src/css/password_field.css'),
         ],
-        'web.assets_common': [
-            'auth_password_policy/static/src/js/password_gauge.js',
+        'web.assets_frontend': [
             'auth_password_policy/static/src/css/password_field.css',
+            'auth_password_policy/static/src/password_policy.js',
         ],
     },
+    'author': 'Odoo S.A.',
     'license': 'LGPL-3',
 }

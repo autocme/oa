@@ -1,32 +1,38 @@
-/** @odoo-module **/
+import { registry } from "@web/core/registry";
+import { clickOnEditAndWaitEditModeInTranslatedPage } from "@website/js/tours/tour_utils";
 
-import tour from "web_tour.tour";
-
-tour.register('edit_translated_page_redirect', {
-    test: true,
-    url: '/nl/contactus',
-}, [
-    {
-        content: 'click edit master',
-        trigger: 'a[data-action="edit_master"]',
-    },
-    {
-        content: 'check editor dashboard',
-        trigger: '#oe_snippets.o_loaded',
-        run: () => {
-            // After checking the presence of the editor dashboard, we visit a
-            // translated version of the homepage. The homepage is a special
-            // case (there is no trailing slash), so we test it separately.
-            location.href = '/nl';
+registry.category("web_tour.tours").add("edit_translated_page_redirect", {
+    url: "/nl/contactus",
+    steps: () => [
+        {
+            content: "Enter backend",
+            trigger: "a.o_frontend_to_backend_edit_btn",
+            run: "click",
+            expectUnloadPage: true,
         },
-    },
-    {
-        content: 'click edit master',
-        trigger: 'a[data-action="edit_master"]',
-    },
-    {
-        content: 'check editor dashboard',
-        trigger: '#oe_snippets.o_loaded',
-        run: () => {},
-    },
-]);
+        {
+            content: "Check the data-for attribute",
+            trigger: ':iframe main span[data-for="contactus_form"]:not(:visible)',
+        },
+        ...clickOnEditAndWaitEditModeInTranslatedPage(),
+        {
+            content: "Go to /nl",
+            trigger: "body",
+            run: () => {
+                // After checking the presence of the editor dashboard, we visit
+                // a translated version of the homepage. The homepage is a
+                // special case (there is no trailing slash), so we test it
+                // separately.
+                location.href = "/nl";
+            },
+            expectUnloadPage: true,
+        },
+        {
+            content: "Enter backend",
+            trigger: "a.o_frontend_to_backend_edit_btn",
+            run: "click",
+            expectUnloadPage: true,
+        },
+        ...clickOnEditAndWaitEditModeInTranslatedPage(),
+    ],
+});

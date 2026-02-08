@@ -1,12 +1,8 @@
-odoo.define('website_sale_slides.quiz', function (require) {
-"use strict";
+import {websiteSlidesQuizNoFullscreen} from "@website_slides/js/slides_course_quiz";
 
-var sAnimations = require('website.content.snippets.animation');
-var { Quiz } = require('@website_slides/js/slides_course_quiz');
-
-sAnimations.registry.websiteSlidesQuizNoFullscreen.include({
+websiteSlidesQuizNoFullscreen.include({
     _extractChannelData: function (slideData) {
-        return _.extend({}, this._super.apply(this, arguments), {
+        return Object.assign({}, this._super.apply(this, arguments), {
             productId: slideData.productId,
             enroll: slideData.enroll,
             currencyName: slideData.currencyName,
@@ -15,11 +11,4 @@ sAnimations.registry.websiteSlidesQuizNoFullscreen.include({
             hasDiscountedPrice: slideData.hasDiscountedPrice
         });
     }
-});
-
-Quiz.include({
-    xmlDependencies: (Quiz.prototype.xmlDependencies || []).concat(
-        ["/website_sale_slides/static/src/xml/website_sale_slides_quiz.xml"]
-    )
-});
 });

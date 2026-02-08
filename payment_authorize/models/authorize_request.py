@@ -3,11 +3,12 @@
 import json
 import logging
 import pprint
+
 from uuid import uuid4
 
-from odoo.addons.payment import utils as payment_utils
-
 import requests
+
+from odoo.addons.payment import utils as payment_utils
 
 _logger = logging.getLogger(__name__)
 
@@ -24,20 +25,19 @@ class AuthorizeAPI:
 
     AUTH_ERROR_STATUS = '3'
 
-    def __init__(self, acquirer):
-        """Initiate the environment with the acquirer data.
+    def __init__(self, provider):
+        """Initiate the environment with the provider data.
 
-        :param recordset acquirer: payment.acquirer account that will be contacted
+        :param recordset provider: payment.provider account that will be contacted
         """
-        if acquirer.state == 'enabled':
+        if provider.state == 'enabled':
             self.url = 'https://api.authorize.net/xml/v1/request.api'
         else:
             self.url = 'https://apitest.authorize.net/xml/v1/request.api'
 
-        self.state = acquirer.state
-        self.name = acquirer.authorize_login
-        self.transaction_key = acquirer.authorize_transaction_key
-        self.payment_method_type = acquirer.authorize_payment_method_type
+        self.state = provider.state
+        self.name = provider.authorize_login
+        self.transaction_key = provider.authorize_transaction_key
 
     def _make_request(self, operation, data=None):
         request = {
@@ -49,8 +49,9 @@ class AuthorizeAPI:
                 **(data or {})
             }
         }
+        logged_request = {operation: data or {}}
 
-        _logger.info("sending request to %s:\n%s", self.url, pprint.pformat(request))
+        _logger.info("sending request to %s:\n%s", self.url, pprint.pformat(logged_request))
         response = requests.post(self.url, json.dumps(request), timeout=60)
         response.raise_for_status()
         response = json.loads(response.content)
@@ -58,7 +59,7 @@ class AuthorizeAPI:
 
         messages = response.get('messages')
         if messages and messages.get('resultCode') == 'Error':
-            err_msg = messages.get('message')[0].get('text', '')
+            err_msg = messages.get('message')[0]['text']
 
             tx_errors = response.get('transactionResponse', {}).get('errors')
             if tx_errors:
@@ -80,10 +81,12 @@ class AuthorizeAPI:
                 'x_response_reason_text': response.get('err_msg')
             }
         else:
+            tx_response = response.get('transactionResponse', {})
             return {
-                'x_response_code': response.get('transactionResponse', {}).get('responseCode'),
-                'x_trans_id': response.get('transactionResponse', {}).get('transId'),
+                'x_response_code': tx_response.get('responseCode'),
+                'x_trans_id': tx_response.get('transId'),
                 'x_type': operation,
+                'payment_method_code': tx_response.get('accountType'),
             }
 
     # Customer profiles
@@ -117,8 +120,12 @@ class AuthorizeAPI:
 
         if not response.get('customerProfileId'):
             _logger.warning(
-                'Unable to create customer payment profile, data missing from transaction. Transaction_id: %s - Partner_id: %s',
-                transaction_id, partner,
+                "unable to create customer payment profile, data missing from transaction with "
+                "id %(tx_id)s, partner id: %(partner_id)s",
+                {
+                    'tx_id': transaction_id,
+                    'partner_id': partner,
+                },
             )
             return False
 
@@ -133,10 +140,11 @@ class AuthorizeAPI:
         })
 
         payment = response.get('paymentProfile', {}).get('payment', {})
-        if self.payment_method_type == 'credit_card':
-            res['name'] = payment.get('creditCard', {}).get('cardNumber')
+        if 'creditCard' in payment:
+            # Authorize.net pads the card and account numbers with X's.
+            res['payment_details'] = payment.get('creditCard', {}).get('cardNumber')[-4:]
         else:
-            res['name'] = payment.get('bankAccount', {}).get('accountNumber')
+            res['payment_details'] = payment.get('bankAccount', {}).get('accountNumber')[-4:]
         return res
 
     def delete_customer_profile(self, profile_id):
@@ -247,7 +255,7 @@ class AuthorizeAPI:
                 'profile': {
                     'customerProfileId': token.authorize_profile,
                     'paymentProfile': {
-                        'paymentProfileId': token.acquirer_ref,
+                        'paymentProfileId': token.provider_ref,
                     }
                 },
             }
@@ -258,7 +266,7 @@ class AuthorizeAPI:
                 }
             }
 
-    def _get_transaction_details(self, transaction_id):
+    def get_transaction_details(self, transaction_id):
         """ Return detailed information about a specific transaction. Useful to issue refunds.
 
         :param str transaction_id: transaction id
@@ -270,7 +278,7 @@ class AuthorizeAPI:
     def capture(self, transaction_id, amount):
         """Capture a previously authorized payment for the given amount.
 
-        Capture a previsouly authorized payment. Note that the amount is required
+        Capture a previously authorized payment. Note that the amount is required
         even though we do not support partial capture.
 
         :param str transaction_id: id of the authorized transaction in the
@@ -305,29 +313,17 @@ class AuthorizeAPI:
         })
         return self._format_response(response, 'void')
 
-    def refund(self, transaction_id, amount):
+    def refund(self, transaction_id, amount, tx_details):
         """Refund a previously authorized payment. If the transaction is not settled
             yet, it will be voided.
 
         :param str transaction_id: the id of the authorized transaction in the
                                    Authorize.net backend
         :param float amount: transaction amount to refund
+        :param dict tx_details: The transaction details from `get_transaction_details()`.
         :return: a dict containing the response code, transaction id and transaction type
         :rtype: dict
         """
-        tx_details = self._get_transaction_details(transaction_id)
-
-        if tx_details and tx_details.get('err_code'):
-            return {
-                'x_response_code': self.AUTH_ERROR_STATUS,
-                'x_response_reason_text': tx_details.get('err_msg')
-            }
-
-        # Void transaction not yet settled instead of issuing a refund
-        # (spoiler alert: a refund on a non settled transaction will throw an error)
-        if tx_details.get('transaction', {}).get('transactionStatus') in ['authorizedPendingCapture', 'capturedPendingSettlement']:
-            return self.void(transaction_id)
-
         card = tx_details.get('transaction', {}).get('payment', {}).get('creditCard', {}).get('cardNumber')
         response = self._make_request('createTransactionRequest', {
             'transactionRequest': {
@@ -344,7 +340,7 @@ class AuthorizeAPI:
         })
         return self._format_response(response, 'refund')
 
-    # Acquirer configuration: fetch authorize_client_key & currencies
+    # Provider configuration: fetch authorize_client_key & currencies
     def merchant_details(self):
         """ Retrieves the merchant details and generate a new public client key if none exists.
 

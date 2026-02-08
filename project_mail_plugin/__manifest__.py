@@ -12,15 +12,12 @@
         'views/project_task_views.xml'
     ],
     'website': 'https://www.odoo.com/app/project',
-    'web.assets_backend': [
-        'project_mail_plugin/static/src/to_translate/**/*',
-    ],
     'depends': [
         'project',
         'mail_plugin',
     ],
     'installable': True,
-    'application': False,
     'auto_install': True,
+    'author': 'Odoo S.A.',
     'license': 'LGPL-3',
 }

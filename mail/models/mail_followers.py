@@ -5,9 +5,10 @@ from collections import defaultdict
 import itertools
 
 from odoo import api, fields, models, Command
+from odoo.addons.mail.tools.discuss import Store
 
 
-class Followers(models.Model):
+class MailFollowers(models.Model):
     """ mail_followers holds the data related to the follow mechanism inside
     Odoo. Partners can choose to follow documents (records) of any kind
     that inherits from mail.thread. Following documents allow to receive
@@ -17,7 +18,6 @@ class Followers(models.Model):
     :param: res_id: ID of resource (may be 0 for every objects)
     """
     _name = 'mail.followers'
-    _rec_name = 'partner_id'
     _log_access = False
     _description = 'Document Followers'
 
@@ -29,7 +29,7 @@ class Followers(models.Model):
     res_id = fields.Many2oneReference(
         'Related Document ID', index=True, help='Id of the followed resource', model_field='res_model')
     partner_id = fields.Many2one(
-        'res.partner', string='Related Partner', index=True, ondelete='cascade', required=True, domain=[('type', '!=', 'private')])
+        'res.partner', string='Related Partner', index=True, ondelete='cascade', required=True)
     subtype_ids = fields.Many2many(
         'mail.message.subtype', string='Subtype',
         help="Message subtypes followed, meaning subtypes that will be pushed onto the user's Wall.")
@@ -50,118 +50,322 @@ class Followers(models.Model):
 
     @api.model_create_multi
     def create(self, vals_list):
-        res = super(Followers, self).create(vals_list)
+        res = super().create(vals_list)
         res._invalidate_documents(vals_list)
         return res
 
     def write(self, vals):
         if 'res_model' in vals or 'res_id' in vals:
             self._invalidate_documents()
-        res = super(Followers, self).write(vals)
+        res = super().write(vals)
         if any(x in vals for x in ['res_model', 'res_id', 'partner_id']):
             self._invalidate_documents()
         return res
 
     def unlink(self):
         self._invalidate_documents()
-        return super(Followers, self).unlink()
+        return super().unlink()
 
-    _sql_constraints = [
-        ('mail_followers_res_partner_res_model_id_uniq', 'unique(res_model,res_id,partner_id)', 'Error, a partner cannot follow twice the same object.'),
-    ]
+    _mail_followers_res_partner_res_model_id_uniq = models.Constraint(
+        'unique(res_model,res_id,partner_id)',
+        'Error, a partner cannot follow twice the same object.',
+    )
+
+    @api.depends("partner_id")
+    def _compute_display_name(self):
+        for follower in self:
+            # sudo: res.partner - can read partners of accessible followers, in particular allows
+            # by-passing multi-company ACL for portal partners
+            follower.display_name = follower.partner_id.sudo().display_name
 
     # --------------------------------------------------
     # Private tools methods to fetch followers data
     # --------------------------------------------------
+
+    @api.model
+    def _get_mail_doc_to_followers(self, mail_ids):
+        """ Get partner mail recipients that follows the related record of the mails.
+
+        :param list mail_ids: mail_mail ids
+
+        :return: for each (model, document_id): list of partner ids that are followers
+        :rtype: dict
+        """
+        if not mail_ids:
+            return {}
+        self.env['mail.mail'].flush_model(['mail_message_id', 'recipient_ids'])
+        self.env['mail.followers'].flush_model(['partner_id', 'res_model', 'res_id'])
+        self.env['mail.message'].flush_model(['model', 'res_id'])
+        # mail_mail_res_partner_rel is the join table for the m2m recipient_ids field
+        self.env.cr.execute("""
+            SELECT message.model, message.res_id, mail_partner.res_partner_id
+              FROM mail_mail mail
+              JOIN mail_mail_res_partner_rel mail_partner ON mail_partner.mail_mail_id = mail.id
+              JOIN mail_message message ON mail.mail_message_id = message.id
+              JOIN mail_followers follower ON message.model = follower.res_model
+               AND message.res_id = follower.res_id
+               AND mail_partner.res_partner_id = follower.partner_id
+             WHERE mail.id IN %(mail_ids)s
+        """, {'mail_ids': tuple(mail_ids)})
+        res = defaultdict(list)
+        for model, doc_id, partner_id in self.env.cr.fetchall():
+            res[(model, doc_id)].append(partner_id)
+        return res
 
     def _get_recipient_data(self, records, message_type, subtype_id, pids=None):
         """ Private method allowing to fetch recipients data based on a subtype.
         Purpose of this method is to fetch all data necessary to notify recipients
         in a single query. It fetches data from
 
-         * followers (partners and channels) of records that follow the given
-           subtype if records and subtype are set;
+         * followers of records that follow the given subtype if records and
+           subtype are set;
          * partners if pids is given;
 
-        :param records: fetch data from followers of records that follow subtype_id;
-        :param message_type: mail.message.message_type in order to allow custom behavior depending on it (SMS for example);
-        :param subtype_id: mail.message.subtype to check against followers;
-        :param pids: additional set of partner IDs from which to fetch recipient data;
+        :param records: fetch data from followers of ``records`` that follow
+          ``subtype_id``;
+        :param str message_type: mail.message.message_type in order to allow custom
+          behavior depending on it (SMS for example);
+        :param int subtype_id: mail.message.subtype to check against followers;
+        :param pids: additional set of partner IDs from which to fetch recipient
+          data independently from following status;
 
-        :return: list of recipient data which is a tuple containing
-          partner ID ,
-          active value (always True for channels),
-          share status of partner,
-          notification status of partner or channel (email or inbox),
-          user groups of partner,
+        :returns: recipients data based on record.ids if given, else a generic
+          '0' key to keep a dict-like return format. Each item is a dict based on
+          recipients partner ids formatted like {
+            'active': partner.active;
+            'email_normalized': partner.email_normalized;
+            'id': res.partner ID;
+            'is_follower': True if linked to a record and if partner is a follower;
+            'lang': partner.lang;
+            'name': partner.name;
+            'groups': groups of the partner's user (see 'uid'). If several users
+                of the same kind (e.g. several internal users) exist groups are
+                concatenated;
+            'notif': notification type ('inbox' or 'email'). Overrides may change
+                this value (e.g. 'sms' in sms module);
+            'share': if partner is a customer (no user or share user);
+            'ushare': if partner has users, whether all are shared (public or portal);
+            'type': summary of partner 'usage' (a string among 'portal', 'customer',
+                'internal user');
+            'uid': linked 'res.users' ID. If several users exist preference is
+                given to internal user, then share users;
+          }
+        :rtype: dict
         """
-        self.env['mail.followers'].flush(['partner_id', 'subtype_ids'])
-        self.env['mail.message.subtype'].flush(['internal'])
-        self.env['res.users'].flush(['notification_type', 'active', 'partner_id', 'groups_id'])
-        self.env['res.partner'].flush(['active', 'partner_share'])
-        self.env['res.groups'].flush(['users'])
-        if records and subtype_id:
+        self.env['mail.followers'].flush_model(['partner_id', 'subtype_ids'])
+        self.env['mail.message.subtype'].flush_model(['internal'])
+        self.env['res.users'].flush_model(['notification_type', 'active', 'partner_id', 'group_ids'])
+        self.env['res.partner'].flush_model(['active', 'email_normalized', 'name', 'partner_share'])
+        self.env['res.groups'].flush_model(['user_ids'])
+        # if we have records and a subtype: we have to fetch followers, unless being
+        # in user notification mode (contact only pids)
+        if message_type != 'user_notification' and records and subtype_id:
             query = """
-SELECT DISTINCT ON (pid) * FROM (
     WITH sub_followers AS (
-        SELECT fol.partner_id,
-               coalesce(subtype.internal, false) as internal
+        SELECT fol.partner_id AS pid,
+               fol.id AS fid,
+               fol.res_id AS res_id,
+               TRUE as is_follower,
+               COALESCE(subrel.follow, FALSE) AS subtype_follower,
+               COALESCE(subrel.internal, FALSE) AS internal
           FROM mail_followers fol
-          JOIN mail_followers_mail_message_subtype_rel subrel ON subrel.mail_followers_id = fol.id
-          JOIN mail_message_subtype subtype ON subtype.id = subrel.mail_message_subtype_id
-         WHERE subrel.mail_message_subtype_id = %s
-           AND fol.res_model = %s
-           AND fol.res_id IN %s
+     LEFT JOIN LATERAL (
+            SELECT TRUE AS follow,
+                   subtype.internal AS internal
+              FROM mail_followers_mail_message_subtype_rel m
+         LEFT JOIN mail_message_subtype subtype ON subtype.id = m.mail_message_subtype_id
+             WHERE m.mail_followers_id = fol.id AND m.mail_message_subtype_id = %s
+            ) subrel ON TRUE
+         WHERE fol.res_model = %s
+               AND fol.res_id IN %s
 
      UNION ALL
 
-        SELECT id,
-               FALSE
+        SELECT res_partner.id AS pid,
+               0 AS fid,
+               0 AS res_id,
+               FALSE as is_follower,
+               FALSE as subtype_follower,
+               FALSE as internal
           FROM res_partner
-         WHERE id=ANY(%s)
+         WHERE res_partner.id = ANY(%s)
     )
     SELECT partner.id as pid,
            partner.active as active,
+           partner.email_normalized AS email_normalized,
+           partner.lang as lang,
+           partner.name as name,
            partner.partner_share as pshare,
-           users.notification_type AS notif,
-           array_agg(groups_rel.gid) AS groups
+           sub_user.uid as uid,
+           COALESCE(sub_user.share, FALSE) as ushare,
+           COALESCE(sub_user.notification_type, 'email') as notif,
+           sub_user.groups as groups,
+           sub_followers.res_id as res_id,
+           sub_followers.is_follower as _insert_followerslower
       FROM res_partner partner
- LEFT JOIN res_users users ON users.partner_id = partner.id
-                          AND users.active
- LEFT JOIN res_groups_users_rel groups_rel ON groups_rel.uid = users.id
-      JOIN sub_followers ON sub_followers.partner_id = partner.id
-                        AND (NOT sub_followers.internal OR partner.partner_share IS NOT TRUE)
-        GROUP BY partner.id,
-                 users.notification_type
-) AS x
-ORDER BY pid, notif
+      JOIN sub_followers ON sub_followers.pid = partner.id
+                        AND (sub_followers.internal IS NOT TRUE OR partner.partner_share IS NOT TRUE)
+ LEFT JOIN LATERAL (
+        SELECT users.id AS uid,
+               users.share AS share,
+               users.notification_type AS notification_type,
+               ARRAY_AGG(groups_rel.gid) FILTER (WHERE groups_rel.gid IS NOT NULL) AS groups
+          FROM res_users users
+     LEFT JOIN res_groups_users_rel groups_rel ON groups_rel.uid = users.id
+         WHERE users.partner_id = partner.id AND users.active
+      GROUP BY users.id,
+               users.share,
+               users.notification_type
+      ORDER BY users.share ASC NULLS FIRST, users.id ASC
+         FETCH FIRST ROW ONLY
+         ) sub_user ON TRUE
+
+     WHERE sub_followers.subtype_follower OR partner.id = ANY(%s)
 """
-            params = [subtype_id, records._name, tuple(records.ids), list(pids) or []]
+            params = [subtype_id, records._name, tuple(records.ids), list(pids or []), list(pids or [])]
             self.env.cr.execute(query, tuple(params))
             res = self.env.cr.fetchall()
-        elif pids:
+        # partner_ids and records: no sub query for followers but check for follower status
+        elif pids and records:
             params = []
-            query_pid = """
-SELECT partner.id as pid,
-    partner.active as active, partner.partner_share as pshare,
-    users.notification_type AS notif,
-    array_agg(groups_rel.gid) FILTER (WHERE groups_rel.gid IS NOT NULL) AS groups
-FROM res_partner partner
-    LEFT JOIN res_users users ON users.partner_id = partner.id AND users.active
-    LEFT JOIN res_groups_users_rel groups_rel ON groups_rel.uid = users.id
-WHERE partner.id IN %s
-GROUP BY partner.id, users.notification_type"""
-            params.append(tuple(pids))
-            query = 'SELECT DISTINCT ON (pid) * FROM (%s) AS x ORDER BY pid, notif' % query_pid
+            query = """
+    SELECT partner.id as pid,
+           partner.active as active,
+           partner.email_normalized AS email_normalized,
+           partner.lang as lang,
+           partner.name as name,
+           partner.partner_share as pshare,
+           sub_user.uid as uid,
+           COALESCE(sub_user.share, FALSE) as ushare,
+           COALESCE(sub_user.notification_type, 'email') as notif,
+           sub_user.groups as groups,
+           ARRAY_AGG(fol.res_id) FILTER (WHERE fol.res_id IS NOT NULL) AS res_ids
+      FROM res_partner partner
+ LEFT JOIN mail_followers fol ON fol.partner_id = partner.id
+                              AND fol.res_model = %s
+                              AND fol.res_id IN %s
+ LEFT JOIN LATERAL (
+        SELECT users.id AS uid,
+               users.share AS share,
+               users.notification_type AS notification_type,
+               ARRAY_AGG(groups_rel.gid) FILTER (WHERE groups_rel.gid IS NOT NULL) AS groups
+          FROM res_users users
+     LEFT JOIN res_groups_users_rel groups_rel ON groups_rel.uid = users.id
+         WHERE users.partner_id = partner.id AND users.active
+      GROUP BY users.id,
+               users.share,
+               users.notification_type
+      ORDER BY users.share ASC NULLS FIRST, users.id ASC
+         FETCH FIRST ROW ONLY
+         ) sub_user ON TRUE
+
+     WHERE partner.id IN %s
+  GROUP BY partner.id,
+           sub_user.uid,
+           sub_user.share,
+           sub_user.notification_type,
+           sub_user.groups
+"""
+            params = [records._name, tuple(records.ids), tuple(pids)]
+            self.env.cr.execute(query, tuple(params))
+            simplified_res = self.env.cr.fetchall()
+            # simplified query contains res_ids -> flatten it by making it a list
+            # with res_id and add follower status
+            res = []
+            for item in simplified_res:
+                res_ids = item[-1]
+                if not res_ids:  # keep res_ids Falsy (global), set as not follower
+                    flattened = [list(item) + [False]]
+                else:  # generate an entry for each res_id with partner being follower
+                    flattened = [list(item[:-1]) + [res_id, True]
+                                 for res_id in res_ids]
+                res += flattened
+        # only partner ids: no follower status involved, fetch only direct recipients information
+        elif pids:
+            query = """
+    SELECT partner.id as pid,
+           partner.active as active,
+           partner.email_normalized AS email_normalized,
+           partner.lang as lang,
+           partner.name as name,
+           partner.partner_share as pshare,
+           sub_user.uid as uid,
+           COALESCE(sub_user.share, FALSE) as ushare,
+           COALESCE(sub_user.notification_type, 'email') as notif,
+           sub_user.groups as groups,
+           0 as res_id,
+           FALSE as is_follower
+      FROM res_partner partner
+ LEFT JOIN LATERAL (
+        SELECT users.id AS uid,
+               users.share AS share,
+               users.notification_type AS notification_type,
+               ARRAY_AGG(groups_rel.gid) FILTER (WHERE groups_rel.gid IS NOT NULL) AS groups
+          FROM res_users users
+     LEFT JOIN res_groups_users_rel groups_rel ON groups_rel.uid = users.id
+         WHERE users.partner_id = partner.id AND users.active
+      GROUP BY users.id,
+               users.share,
+               users.notification_type
+      ORDER BY users.share ASC NULLS FIRST, users.id ASC
+         FETCH FIRST ROW ONLY
+         ) sub_user ON TRUE
+
+     WHERE partner.id IN %s
+  GROUP BY partner.id,
+           sub_user.uid,
+           sub_user.share,
+           sub_user.notification_type,
+           sub_user.groups
+"""
+            params = [tuple(pids)]
             self.env.cr.execute(query, tuple(params))
             res = self.env.cr.fetchall()
         else:
             res = []
-        return res
+
+        res_ids = records.ids if records else [0]
+        doc_infos = dict((res_id, {}) for res_id in res_ids)
+        for (
+            partner_id, is_active, email_normalized, lang, name,
+            pshare, uid, ushare, notif, groups, res_id, is_follower
+        ) in res:
+            to_update = [res_id] if res_id else res_ids
+            # add transitive closure of implied groups; note that the field
+            # all_implied_ids relies on ormcache'd data, which shouldn't add
+            # more queries
+            groups = self.env['res.groups'].browse(set(groups or [])).all_implied_ids.ids
+            for res_id_to_update in to_update:
+                # avoid updating already existing information, unnecessary dict update
+                if not res_id and partner_id in doc_infos[res_id_to_update]:
+                    continue
+                follower_data = {
+                    'active': is_active,
+                    'email_normalized': email_normalized,
+                    'id': partner_id,
+                    'is_follower': is_follower,
+                    'lang': lang,
+                    'name': name,
+                    'groups': set(groups or []),
+                    'notif': notif,
+                    'share': pshare,
+                    'uid': uid,
+                    'ushare': ushare,
+                }
+                # additional information
+                if follower_data['ushare']:  # any type of share user
+                    follower_data['type'] = 'portal'
+                elif follower_data['share']:  # no user, is share -> customer (partner only)
+                    follower_data['type'] = 'customer'
+                else:  # has a user not share -> internal user
+                    follower_data['type'] = 'user'
+                doc_infos[res_id_to_update][partner_id] = follower_data
+
+        return doc_infos
 
     def _get_subscription_data(self, doc_data, pids, include_pshare=False, include_active=False):
         """ Private method allowing to fetch follower data from several documents of a given model.
-        Followers can be filtered given partner IDs and channel IDs.
+        MailFollowers can be filtered given partner IDs and channel IDs.
 
         :param doc_data: list of pair (res_model, res_ids) that are the documents from which we
           want to have subscription data;
@@ -177,8 +381,8 @@ GROUP BY partner.id, users.notification_type"""
           share status of partner (returned only if include_pshare is True)
           active flag status of partner (returned only if include_active is True)
         """
-        self.env['mail.followers'].flush(['partner_id', 'res_id', 'res_model', 'subtype_ids'])
-        self.env['res.partner'].flush(['active', 'partner_share'])
+        self.env['mail.followers'].flush_model(['partner_id', 'res_id', 'res_model', 'subtype_ids'])
+        self.env['res.partner'].flush_model(['active', 'partner_share'])
         # base query: fetch followers of given documents
         where_clause = ' OR '.join(['fol.res_model = %s AND fol.res_id IN %s'] * len(doc_data))
         where_params = list(itertools.chain.from_iterable((rm, tuple(rids)) for rm, rids in doc_data))
@@ -288,14 +492,11 @@ GROUP BY fol.id%s%s""" % (
         :param subtypes: optional subtypes for new partner followers. This
           is a dict whose keys are partner IDs and value subtype IDs for that
           partner.
-        :param channel_subtypes: optional subtypes for new channel followers. This
-          is a dict whose keys are channel IDs and value subtype IDs for that
-          channel.
         :param check_existing: if True, check for existing followers for given
           documents and handle them according to existing_policy parameter.
           Setting to False allows to save some computation if caller is sure
           there are no conflict for followers;
-        :param existing policy: if check_existing, tells what to do with already
+        :param existing_policy: if check_existing, tells what to do with already
           existing followers:
 
           * skip: simply skip existing followers, do not touch them;
@@ -338,3 +539,19 @@ GROUP BY fol.id%s%s""" % (
                         update[fol_id] = {'subtype_ids': update_cmd}
 
         return new, update
+
+    # --------------------------------------------------
+    # Misc discuss
+    # --------------------------------------------------
+
+    def _to_store_defaults(self, target):
+        return [
+            "display_name",
+            "email",
+            "is_active",
+            "name",
+            # sudo: res.partner - can read partners of found followers, in particular allows
+            # by-passing multi-company ACL for portal partners
+            Store.One("partner_id", sudo=True),
+            Store.One("thread", [], as_thread=True),
+        ]

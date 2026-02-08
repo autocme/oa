@@ -10,8 +10,8 @@ from odoo.tests import tagged
 class TestAccessRights(TestCommonSalePurchaseNoChart):
 
     @classmethod
-    def setUpClass(cls, chart_template_ref=None):
-        super().setUpClass(chart_template_ref=chart_template_ref)
+    def setUpClass(cls):
+        super().setUpClass()
 
         # Create a users
         group_sale_user = cls.env.ref('sales_team.group_sale_salesman')
@@ -20,13 +20,13 @@ class TestAccessRights(TestCommonSalePurchaseNoChart):
             'name': 'Le Grand Jojo User',
             'login': 'grand.jojo',
             'email': 'grand.jojo@chansonbelge.com',
-            'groups_id': [(6, 0, [group_sale_user.id])]
+            'group_ids': [(6, 0, [group_sale_user.id])]
         })
         cls.user_purchaseperson = cls.env['res.users'].with_context(no_reset_password=True).create({
             'name': 'Jean-Luc Fonck',
             'login': 'jl.fonck',
             'email': 'jl.fonck@chansonbelge.com',
-            'groups_id': [(6, 0, [group_purchase_user.id])]
+            'group_ids': [(6, 0, [group_purchase_user.id])]
         })
 
     def test_access_saleperson(self):
@@ -39,18 +39,15 @@ class TestAccessRights(TestCommonSalePurchaseNoChart):
         })
 
         sol_service_purchase = self.env['sale.order.line'].with_user(self.user_salesperson).create({
-            'name': self.service_purchase_1.name,
             'product_id': self.service_purchase_1.id,
             'product_uom_qty': 4,
-            'product_uom': self.service_purchase_1.uom_id.id,
-            'price_unit': self.service_purchase_1.list_price,
             'order_id': sale_order.id,
-            'tax_id': False,
+            'tax_ids': False,
         })
 
         # confirming SO will create the PO even if you don't have the rights
         sale_order.action_confirm()
-        sale_order.action_cancel()
+        sale_order._action_cancel()
 
         self.assertTrue(sale_order.name, "Saleperson can read its own SO")
 

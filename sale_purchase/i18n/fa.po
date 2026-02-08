@@ -1,27 +1,26 @@
 # Translation of Odoo Server.
 # This file contains the translation of the following modules:
 # 	* sale_purchase
-# 
+#
 # Translators:
-# Farid Hariri <fhari1234@gmail.com>, 2022
-# Hamid Darabi, 2022
-# Hamed Mohammadi <hamed@dehongi.com>, 2022
-# Faraz Sadri Alamdari <ifarazir@gmail.com>, 2022
-# Martin Trigaux, 2022
-# Hanna Kheradroosta, 2022
-# 
+# Martin Trigaux, 2023
+# Hamid Darabi, 2023
+# Hanna Kheradroosta, 2023
+# Farid Hariri <fhari1234@gmail.com>, 2023
+# Hamed Mohammadi <hamed@dehongi.com>, 2023
+#
 msgid ""
 msgstr ""
-"Project-Id-Version: Odoo Server saas~14.5\n"
+"Project-Id-Version: Odoo Server 15.5alpha1\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2021-09-14 10:29+0000\n"
-"PO-Revision-Date: 2021-09-14 12:26+0000\n"
-"Last-Translator: Hanna Kheradroosta, 2022\n"
+"POT-Creation-Date: 2026-01-25 18:37+0000\n"
+"PO-Revision-Date: 2022-09-22 05:55+0000\n"
+"Last-Translator: Hamed Mohammadi <hamed@dehongi.com>, 2023\n"
 "Language-Team: Persian (https://app.transifex.com/odoo/teams/41243/fa/)\n"
+"Language: fa\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: \n"
-"Language: fa\n"
 "Plural-Forms: nplurals=2; plural=(n > 1);\n"
 
 #. module: sale_purchase
@@ -32,17 +31,21 @@ msgid ""
 "            Manual actions may be needed."
 msgstr ""
 ".\n"
-"            ممکن است عملیات دستی نیاز باشد."
-
-#. module: sale_purchase
-#: model_terms:ir.ui.view,arch_db:sale_purchase.sale_order_inherited_form_purchase
-msgid "<span class=\"o_stat_text\">Purchase</span>"
-msgstr ""
+"             ممکن است اقدامات دستی مورد نیاز باشد."
 
 #. module: sale_purchase
 #: model_terms:ir.ui.view,arch_db:sale_purchase.purchase_order_inherited_form_sale
 msgid "<span class=\"o_stat_text\">Sale</span>"
 msgstr "<span class=\"o_stat_text\">فروش</span>"
+
+#. module: sale_purchase
+#: model:ir.model.fields,field_description:sale_purchase.field_product_template__display_name
+#: model:ir.model.fields,field_description:sale_purchase.field_purchase_order__display_name
+#: model:ir.model.fields,field_description:sale_purchase.field_purchase_order_line__display_name
+#: model:ir.model.fields,field_description:sale_purchase.field_sale_order__display_name
+#: model:ir.model.fields,field_description:sale_purchase.field_sale_order_line__display_name
+msgid "Display Name"
+msgstr ""
 
 #. module: sale_purchase
 #: model_terms:ir.ui.view,arch_db:sale_purchase.exception_sale_on_purchase_cancellation
@@ -66,6 +69,15 @@ msgstr "استثنا(ها):"
 #: model:ir.model.fields,field_description:sale_purchase.field_sale_order_line__purchase_line_ids
 msgid "Generated Purchase Lines"
 msgstr "سطرهای خرید ایجادشده"
+
+#. module: sale_purchase
+#: model:ir.model.fields,field_description:sale_purchase.field_product_template__id
+#: model:ir.model.fields,field_description:sale_purchase.field_purchase_order__id
+#: model:ir.model.fields,field_description:sale_purchase.field_purchase_order_line__id
+#: model:ir.model.fields,field_description:sale_purchase.field_sale_order__id
+#: model:ir.model.fields,field_description:sale_purchase.field_sale_order_line__id
+msgid "ID"
+msgstr ""
 
 #. module: sale_purchase
 #: model:ir.model.fields,help:sale_purchase.field_product_product__service_to_purchase
@@ -100,8 +112,8 @@ msgid "Number of generated purchase items"
 msgstr "تعداد اقلام خرید ایجاد شده"
 
 #. module: sale_purchase
-#: code:addons/sale_purchase/models/sale_order.py:0
-#, python-format
+#. odoo-python
+#: code:addons/sale_purchase/models/sale_order_line.py:0
 msgid "Ordered quantity decreased!"
 msgstr "تعداد سفارش کاهش یافت!"
 
@@ -111,14 +123,28 @@ msgid "Origin Sale Item"
 msgstr "کالای اصلی فروش"
 
 #. module: sale_purchase
-#: model:ir.model,name:sale_purchase.model_product_template
-msgid "Product Template"
-msgstr "قالب محصول"
+#. odoo-python
+#: code:addons/sale_purchase/models/product_template.py:0
+msgid ""
+"Please define the vendor from whom you would like to purchase this service "
+"automatically."
+msgstr ""
 
 #. module: sale_purchase
-#: model:ir.model.constraint,message:sale_purchase.constraint_product_template_service_to_purchase
+#: model:ir.model,name:sale_purchase.model_product_template
+msgid "Product"
+msgstr "محصول"
+
+#. module: sale_purchase
+#. odoo-python
+#: code:addons/sale_purchase/models/product_template.py:0
 msgid "Product that is not a service can not create RFQ."
 msgstr "محصولی که سرویس نیست نمی تواند پیش‌فاکتور ایجاد کند."
+
+#. module: sale_purchase
+#: model_terms:ir.ui.view,arch_db:sale_purchase.sale_order_inherited_form_purchase
+msgid "Purchase"
+msgstr ""
 
 #. module: sale_purchase
 #: model:ir.model,name:sale_purchase.model_purchase_order
@@ -131,8 +157,8 @@ msgid "Purchase Order Line"
 msgstr "سطر سفارش خرید"
 
 #. module: sale_purchase
+#. odoo-python
 #: code:addons/sale_purchase/models/sale_order.py:0
-#, python-format
 msgid "Purchase Order generated from %s"
 msgstr "سفارش خرید از %s ایجاد شد"
 
@@ -166,8 +192,8 @@ msgid "Sales Order Line"
 msgstr "سطر سفارش‌فروش"
 
 #. module: sale_purchase
+#. odoo-python
 #: code:addons/sale_purchase/models/purchase_order.py:0
-#, python-format
 msgid "Sources Sale Orders %s"
 msgstr "منابع سفارشات فروش %s"
 
@@ -178,8 +204,14 @@ msgid "Subcontract Service"
 msgstr "خدمات پیمانکاری"
 
 #. module: sale_purchase
-#: code:addons/sale_purchase/models/sale_order.py:0
-#, python-format
+#: model:ir.model.fields,field_description:sale_purchase.field_purchase_order__has_sale_order
+msgid ""
+"Technical field for whether the purchase order has associated sale orders"
+msgstr ""
+
+#. module: sale_purchase
+#. odoo-python
+#: code:addons/sale_purchase/models/sale_order_line.py:0
 msgid ""
 "There is no vendor associated to the product %s. Please define a vendor for "
 "this product."
@@ -188,14 +220,14 @@ msgstr ""
 "کنید."
 
 #. module: sale_purchase
-#: code:addons/sale_purchase/models/sale_order.py:0
-#, python-format
+#. odoo-python
+#: code:addons/sale_purchase/models/sale_order_line.py:0
 msgid ""
 "You are decreasing the ordered quantity! Do not forget to manually update "
 "the purchase order if needed."
 msgstr ""
-"شما تعداد سفارش را کم می کنید! فراموش نکنید که در صورت نیاز سفارش خرید را به"
-" صورت دستی بروز کنید."
+"شما تعداد سفارش را کم می کنید! فراموش نکنید که در صورت نیاز سفارش خرید را به "
+"صورت دستی بروز کنید."
 
 #. module: sale_purchase
 #: model_terms:ir.ui.view,arch_db:sale_purchase.exception_purchase_on_sale_cancellation
@@ -214,3 +246,6 @@ msgstr "از"
 #: model_terms:ir.ui.view,arch_db:sale_purchase.exception_purchase_on_sale_quantity_decreased
 msgid "ordered instead of"
 msgstr "سفارش داده شده به جای"
+
+#~ msgid "Sales Order Cancel"
+#~ msgstr "لغو سفارش فروش"

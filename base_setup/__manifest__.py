@@ -17,20 +17,14 @@ Shows you a list of applications features to install from.
         'views/res_config_settings_views.xml',
         'views/res_partner_views.xml',
         ],
-    'demo': [],
-    'installable': True,
-    'auto_install': False,
-
     'assets': {
         'web.assets_backend': [
-            'base_setup/static/src/scss/settings.scss',
-            'base_setup/static/src/js/res_config_dev_tool.js',
-            'base_setup/static/src/js/res_config_edition.js',
-            'base_setup/static/src/js/res_config_invite_users.js',
-        ],
-        'web.assets_qweb': [
-            'base_setup/static/src/xml/**/*',
+            'base_setup/static/src/views/**/*',
         ],
     },
+    'auto_install': True,
+    'installable': True,
+
+    'author': 'Odoo S.A.',
     'license': 'LGPL-3',
 }

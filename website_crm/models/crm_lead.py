@@ -1,10 +1,10 @@
 # -*- coding: utf-8 -*-
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
 
-from odoo import api, fields, models, SUPERUSER_ID
+from odoo import api, fields, models
 
 
-class Lead(models.Model):
+class CrmLead(models.Model):
     _inherit = 'crm.lead'
 
     visitor_ids = fields.Many2many('website.visitor', string="Web Visitors")
@@ -14,13 +14,14 @@ class Lead(models.Model):
     def _compute_visitor_page_count(self):
         mapped_data = {}
         if self.ids:
-            self.flush(['visitor_ids'])
+            self.flush_model(['visitor_ids'])
+            self.env['website.track'].flush_model(['visitor_id'])
             sql = """ SELECT l.id as lead_id, count(*) as page_view_count
                         FROM crm_lead l
                         JOIN crm_lead_website_visitor_rel lv ON l.id = lv.crm_lead_id
                         JOIN website_visitor v ON v.id = lv.website_visitor_id
                         JOIN website_track p ON p.visitor_id = v.id
-                        WHERE l.id in %s AND v.active = TRUE
+                        WHERE l.id in %s
                         GROUP BY l.id"""
             self.env.cr.execute(sql, (tuple(self.ids),))
             page_data = self.env.cr.dictfetchall()
@@ -38,22 +39,24 @@ class Lead(models.Model):
         return action
 
     def _merge_get_fields_specific(self):
-        fields_info = super(Lead, self)._merge_get_fields_specific()
+        fields_info = super()._merge_get_fields_specific()
         # add all the visitors from all lead to merge
         fields_info['visitor_ids'] = lambda fname, leads: [(6, 0, leads.visitor_ids.ids)]
         return fields_info
 
     def website_form_input_filter(self, request, values):
         values['medium_id'] = values.get('medium_id') or \
-                              self.default_get(['medium_id']).get('medium_id') or \
-                              self.sudo().env.ref('utm.utm_medium_website').id
+                              self.sudo().default_get(['medium_id']).get('medium_id') or \
+                              self.env['utm.medium']._fetch_or_create_utm_medium('website').id
         values['team_id'] = values.get('team_id') or \
                             request.website.crm_default_team_id.id
         values['user_id'] = values.get('user_id') or \
                             request.website.crm_default_user_id.id
+        if not values['user_id'] and values['team_id'] and not self._is_rule_based_assignment_activated():
+            values['user_id'] = self.env['crm.team'].sudo().browse([values['team_id']]).user_id.id
         if values.get('team_id'):
             values['type'] = 'lead' if self.env['crm.team'].sudo().browse(values['team_id']).use_leads else 'opportunity'
         else:
-            values['type'] = 'lead' if self.with_user(SUPERUSER_ID).env['res.users'].has_group('crm.group_use_lead') else 'opportunity'
+            values['type'] = 'lead' if self.env.user.has_group('crm.group_use_lead') else 'opportunity'
 
         return values

@@ -4,7 +4,7 @@
 {
     'name': "Events Booths",
     'category': 'Marketing/Events',
-    'version': '1.0',
+    'version': '1.1',
     'summary': "Manage event booths",
     'description': """
 Create booths for your favorite event.
@@ -19,12 +19,13 @@ Create booths for your favorite event.
         'views/event_event_views.xml',
         'views/event_menus.xml',
         'data/event_booth_category_data.xml',
-        'data/mail_data.xml',
+        'data/mail_message_subtype_data.xml',
         'data/mail_templates.xml',
     ],
     'demo': [
         'data/event_booth_demo.xml',
         'data/event_type_demo.xml',
     ],
+    'author': 'Odoo S.A.',
     'license': 'LGPL-3',
 }

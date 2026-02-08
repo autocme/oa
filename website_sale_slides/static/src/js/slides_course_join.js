@@ -1,13 +1,8 @@
-odoo.define('website_sale_slides.course.join.widget', function (require) {
-"use strict";
+import CourseJoin from "@website_slides/js/slides_course_join";
 
-var CourseJoinWidget = require('@website_slides/js/slides_course_join')[Symbol.for("default")].courseJoinWidget;
-const wUtils = require('website.utils');
+const CourseJoinWidget = CourseJoin.courseJoinWidget;
 
 CourseJoinWidget.include({
-    xmlDependencies: (CourseJoinWidget.prototype.xmlDependencies || []).concat(
-        ["/website_sale_slides/static/src/xml/slide_course_join.xml"]
-    ),
     init: function (parent, options) {
         this._super.apply(this, arguments);
         this.productId = options.channel.productId || false;
@@ -31,10 +26,18 @@ CourseJoinWidget.include({
         if (this.channel.channelEnroll === 'payment' && !this.publicUser) {
             const self = this;
             this.beforeJoin().then(function () {
-                wUtils.sendRequest('/shop/cart/update', {
-                    product_id: self.productId,
-                    express: 1,
-                });
+                self.call('cart', 'add',
+                    {
+                        // TODO VCR Ensure productTemplateId is always provided to `addToCart`.
+                        // Currently, this works because the product configurator check is bypassed
+                        // when the `isBuyNow` option is `True`.
+                        productTemplateId: false,
+                        productId: self.productId,
+                    },
+                    {
+                        isBuyNow: true,
+                    },
+                );
             });
         } else {
             this._super.apply(this, arguments);
@@ -42,6 +45,4 @@ CourseJoinWidget.include({
     },
 });
 
-return CourseJoinWidget;
-
-});
+export default CourseJoinWidget;

@@ -1,24 +1,25 @@
-/** @odoo-module **/
-
-    import publicWidget from 'web.public.widget';
-    import Dialog from 'web.Dialog';
-    import  { qweb as QWeb, _t } from 'web.core';
-    import session from 'web.session';
-    import { Markup } from 'web.utils';
+    import publicWidget from '@web/legacy/js/public/public_widget';
+    import { ConfirmationDialog } from "@web/core/confirmation_dialog/confirmation_dialog";
+    import { renderToElement } from "@web/core/utils/render";
+    import { session } from "@web/session";
     import CourseJoin from '@website_slides/js/slides_course_join';
     import QuestionFormWidget from '@website_slides/js/slides_course_quiz_question_form';
-    import SlideQuizFinishModal from '@website_slides/js/slides_course_quiz_finish';
+    import { SlideCoursePage } from '@website_slides/js/slides_course_page';
+    import { rpc } from "@web/core/network/rpc";
+    import { SlideQuizFinishDialog } from "@website_slides/js/public/components/slide_quiz_finish_dialog/slide_quiz_finish_dialog";
+    import { user } from "@web/core/user";
 
-    import SlideEnroll from '@website_slides/js/slides_course_enroll_email';
+    import { _t } from "@web/core/l10n/translation";
+
+    import { markup } from "@odoo/owl";
 
     const CourseJoinWidget = CourseJoin.courseJoinWidget;
-    const SlideEnrollDialog = SlideEnroll.slideEnrollDialog;
 
     /**
      * This widget is responsible of displaying quiz questions and propositions. Submitting the quiz will fetch the
      * correction and decorate the answers according to the result. Error message or modal can be displayed.
      *
-     * This widget can be attached to DOM rendered server-side by `website_slides.slide_type_quiz` or
+     * This widget can be attached to DOM rendered server-side by `website_slides.slide_category_quiz` or
      * used client side (Fullscreen).
      *
      * Triggered events are :
@@ -27,20 +28,14 @@
      */
     var Quiz = publicWidget.Widget.extend({
         template: 'slide.slide.quiz',
-        xmlDependencies: [
-            '/website_slides/static/src/xml/slide_quiz.xml',
-            '/website_slides/static/src/xml/slide_course_join.xml'
-        ],
         events: {
             "click .o_wslides_quiz_answer": '_onAnswerClick',
             "click .o_wslides_js_lesson_quiz_submit": '_submitQuiz',
-            "click .o_wslides_quiz_modal_btn": '_onClickNext',
             "click .o_wslides_quiz_continue": '_onClickNext',
             "click .o_wslides_js_lesson_quiz_reset": '_onClickReset',
             'click .o_wslides_js_quiz_add': '_onCreateQuizClick',
             'click .o_wslides_js_quiz_edit_question': '_onEditQuestionClick',
             'click .o_wslides_js_quiz_delete_question': '_onDeleteQuestionClick',
-            'click .o_wslides_js_channel_enroll': '_onSendRequestToResponsibleClick',
         },
 
         custom_events: {
@@ -58,22 +53,26 @@
         */
         init: function (parent, slide_data, channel_data, quiz_data) {
             this._super.apply(this, arguments);
-            this.slide = _.defaults(slide_data, {
+            this.slide = Object.assign({
                 id: 0,
                 name: '',
                 hasNext: false,
                 completed: false,
                 isMember: false,
-            });
+                isMemberOrInvited: false,
+            }, slide_data);
             this.quiz = quiz_data || false;
             if (this.quiz) {
                 this.quiz.questionsCount = quiz_data.questions.length;
             }
             this.isMember = slide_data.isMember || false;
+            this.isMemberOrInvited = slide_data.isMemberOrInvited || false;
             this.publicUser = session.is_website_user;
-            this.userId = session.user_id;
+            this.userId = user.userId;
             this.redirectURL = encodeURIComponent(document.URL);
             this.channel = channel_data;
+
+            this.orm = this.bindService("orm");
         },
 
         /**
@@ -91,7 +90,7 @@
          * Overridden to add custom rendering behavior upon start of the widget.
          *
          * If the user has answered the quiz before having joined the course, we check
-         * his answers (saved into his session) here as well.
+         * their answers (saved into their session) here as well.
          *
          * @override
          */
@@ -110,25 +109,34 @@
             });
         },
 
+        destroy() {
+            this._unbindSortable();
+            return this._super(...arguments);
+        },
+
         //--------------------------------------------------------------------------
         // Private
         //--------------------------------------------------------------------------
 
-        _alertShow: function (alertCode) {
+        _showErrorMessage: function (errorCode) {
             var message = _t('There was an error validating this quiz.');
-            if (alertCode === 'slide_quiz_incomplete') {
-                message = _t('All questions must be answered !');
-            } else if (alertCode === 'slide_quiz_done') {
+            if (errorCode === 'slide_quiz_incomplete') {
+                message = _t('All questions must be answered!');
+            } else if (errorCode === 'slide_quiz_done') {
                 message = _t('This quiz is already done. Retaking it is not possible.');
-            } else if (alertCode === 'public_user') {
+            } else if (errorCode === 'public_user') {
                 message = _t('You must be logged to submit the quiz.');
             }
 
-            this.displayNotification({
-                type: 'warning',
-                message: message,
-                sticky: true
-            });
+            this.$('.o_wslides_js_quiz_submit_error')
+                .removeClass('d-none')
+                .find('.o_wslides_js_quiz_submit_error_text')
+                .text(message);
+        },
+
+        _hideErrorMessage: function () {
+            this.$('.o_wslides_js_quiz_submit_error')
+                .addClass('d-none');
         },
 
         /**
@@ -136,12 +144,23 @@
          * @private
          */
         _bindSortable: function () {
-            this.$el.sortable({
-                handle: '.o_wslides_js_quiz_sequence_handler',
-                items: '.o_wslides_js_lesson_quiz_question',
-                stop: this._reorderQuestions.bind(this),
-                placeholder: 'o_wslides_js_quiz_sequence_highlight position-relative my-3'
-            });
+            this.bindedSortable = this.call(
+                "sortable",
+                "create",
+                {
+                    ref: { el: this.el },
+                    handle: ".o_wslides_js_quiz_sequence_handler",
+                    elements: ".o_wslides_js_lesson_quiz_question",
+                    onDrop: this._reorderQuestions.bind(this),
+                    clone: false,
+                    placeholderClasses: ['o_wslides_js_quiz_sequence_highlight', 'position-relative', 'my-3'],
+                    applyChangeOnDrop: true
+                },
+            ).enable();
+        },
+
+        _unbindSortable: function () {
+            this.bindedSortable?.cleanup();
         },
 
         /**
@@ -173,13 +192,9 @@
          * @private
          */
         _reorderQuestions: function () {
-            this._rpc({
-                route: '/web/dataset/resequence',
-                params: {
-                    model: "slide.question",
-                    ids: this._getQuestionsIds()
-                }
-            }).then(this._modifyQuestionsSequence.bind(this))
+            this.orm
+                .webResequence("slide.question", this._getQuestionsIds())
+                .then(this._modifyQuestionsSequence.bind(this))
         },
         /*
          * @private
@@ -187,18 +202,18 @@
          */
         _fetchQuiz: function () {
             var self = this;
-            return self._rpc({
-                route:'/slides/slide/quiz/get',
-                params: {
-                    'slide_id': self.slide.id,
-                }
+            return rpc('/slides/slide/quiz/get', {
+                'slide_id': self.slide.id,
             }).then(function (quiz_data) {
+                self.slide.sessionAnswers = quiz_data.session_answers;
                 self.quiz = {
+                    description_safe: quiz_data.slide_description ? markup(quiz_data.slide_description) : '',
                     questions: quiz_data.slide_questions || [],
                     questionsCount: quiz_data.slide_questions.length,
                     quizAttemptsCount: quiz_data.quiz_attempts_count || 0,
                     quizKarmaGain: quiz_data.quiz_karma_gain || 0,
                     quizKarmaWon: quiz_data.quiz_karma_won || 0,
+                    slideResources: quiz_data.slide_resource_ids || [],
                 };
             });
         },
@@ -276,7 +291,7 @@
                 $question.find('a.o_wslides_quiz_answer').each(function () {
                     var $answer = $(this);
                     if (!$answer.find('input[type=radio]')[0].checked &&
-                        _.contains(self.slide.sessionAnswers, $answer.data('answerId'))) {
+                        self.slide.sessionAnswers.includes($answer.data('answerId'))) {
                         $answer.find('input[type=radio]').prop('checked', true);
                     }
                 });
@@ -292,11 +307,20 @@
          */
         _renderValidationInfo: function () {
             var $validationElem = this.$('.o_wslides_js_lesson_quiz_validation');
-            $validationElem.html(
-                QWeb.render('slide.slide.quiz.validation', {'widget': this})
+            $validationElem.empty().append(
+                renderToElement('slide.slide.quiz.validation', {'widget': this})
             );
         },
-
+        /*
+        * Toggle additional resource info box
+        *
+        * @private
+        * @param {Boolean} show - Whether show or hide the information
+        */
+        _toggleAdditionalResourceInfo: function(show) {
+            const resourceInfo = document.getElementsByClassName('o_wslides_js_lesson_quiz_resource_info')[0];
+            resourceInfo && (show ? resourceInfo.classList.remove('d-none') : resourceInfo.classList.add('d-none'));
+        },
         /**
          * Renders the button to join a course.
          * If the user is logged in, the course is public, and the user has previously tried to
@@ -311,6 +335,7 @@
                     isQuiz: true,
                     channel: this.channel,
                     isMember: this.isMember,
+                    isMemberOrInvited: this.isMemberOrInvited,
                     publicUser: this.publicUser,
                     beforeJoin: this._saveQuizAnswersToSession.bind(this),
                     afterJoin: this._afterJoin.bind(this),
@@ -342,38 +367,45 @@
          * @private
          */
          async _submitQuiz() {
-            const data = await this._rpc({
-                route: '/slides/slide/quiz/submit',
-                params: {
-                    slide_id: this.slide.id,
-                    answer_ids: this._getQuizAnswers(),
-                }
+            const data = await rpc('/slides/slide/quiz/submit', {
+                slide_id: this.slide.id,
+                answer_ids: this._getQuizAnswers(),
             });
             if (data.error) {
-                this._alertShow(data.error);
+                this._showErrorMessage(data.error);
                 return;
+            } else {
+                this._hideErrorMessage();
             }
             Object.assign(this.quiz, data);
             const {rankProgress, completed, channel_completion: completion} = this.quiz;
-            // two of the rankProgress properties are HTML messages, mark if set
+            // three of the rankProgress properties are HTML messages, mark if set
             if ('description' in rankProgress) {
-                rankProgress['description'] = Markup(rankProgress['description'] || '');
+                rankProgress['description'] = markup(rankProgress['description'] || '');
                 rankProgress['previous_rank']['motivational'] =
-                    Markup(rankProgress['previous_rank']['motivational'] || '');
+                    markup(rankProgress['previous_rank']['motivational'] || '');
+                rankProgress['new_rank']['motivational'] =
+                    markup(rankProgress['new_rank']['motivational'] || '');
             }
             if (completed) {
                 this._disableAnswers();
-                new SlideQuizFinishModal(this, {
+                this.call("dialog", "add", SlideQuizFinishDialog, {
                     quiz: this.quiz,
                     hasNext: this.slide.hasNext,
-                    userId: this.userId
-                }).open();
+                    onClickNext: (ev) => this._onClickNext(ev),
+                    userId: this.userId,
+                });
                 this.slide.completed = true;
-                this.trigger_up('slide_completed', {slide: this.slide, completion});
+                this.trigger_up('slide_completed', {
+                    slideId: this.slide.id,
+                    channelCompletion: completion,
+                    completed: true,
+                });
             }
             this._hideEditOptions();
             this._renderAnswersHighlightingAndComments();
             this._renderValidationInfo();
+            this._toggleAdditionalResourceInfo(!completed);
         },
 
         /**
@@ -407,7 +439,7 @@
          * @private
          */
         _checkLocationHref: function () {
-            if (window.location.href.includes('quiz_quick_create')) {
+            if (window.location.href.includes('quiz_quick_create') && this.quiz.questionsCount === 0) {
                 this._onCreateQuizClick();
             }
         },
@@ -448,11 +480,8 @@
          * @private
          */
         _onClickReset: function () {
-            this._rpc({
-                route: '/slides/slide/quiz/reset',
-                params: {
-                    slide_id: this.slide.id
-                }
+            rpc('/slides/slide/quiz/reset', {
+                slide_id: this.slide.id
             }).then(function () {
                 window.location.reload();
             });
@@ -464,31 +493,22 @@
          * @private
          */
         _saveQuizAnswersToSession: function () {
-            var quizAnswers = this._getQuizAnswers();
-            if (quizAnswers.length === this.quiz.questions.length) {
-                return this._rpc({
-                    route: '/slides/slide/quiz/save_to_session',
-                    params: {
-                        'quiz_answers': {'slide_id': this.slide.id, 'slide_answers': quizAnswers},
-                    }
-                });
-            } else {
-                this._alertShow('slide_quiz_incomplete');
-                return Promise.reject('The quiz is incomplete');
-            }
+            this._hideErrorMessage();
+
+            return rpc('/slides/slide/quiz/save_to_session', {
+                'quiz_answers': {'slide_id': this.slide.id, 'slide_answers': this._getQuizAnswers()},
+            });
         },
         /**
-        * After joining the course, we immediately submit the quiz and get the correction.
-        * This allows a smooth onboarding when the user is logged in and the course is public.
+        * After joining the course, we save the questions in the session
+        * and reload the page to update the view.
         *
         * @private
         */
        _afterJoin: function () {
-            this.isMember = true;
-            this.trigger_up('join_course');
-            this._renderValidationInfo();
-            this._applySessionAnswers();
-            this._submitQuiz();
+            this._saveQuizAnswersToSession().then(() => {
+                window.location.reload();
+            });
        },
 
         /**
@@ -527,31 +547,29 @@
         },
 
         /**
-         * When clicking on the delete button of a question it
-         * toggles a modal to confirm the deletion
+         * When clicking on the delete button of a question it toggles a modal
+         * to confirm the deletion. When confirming it sends an RPC request to
+         * delete the Question and triggers an event to delete it from the UI.
          * @param ev
          * @private
          */
         _onDeleteQuestionClick: function (ev) {
-            var question = $(ev.currentTarget).closest('.o_wslides_js_lesson_quiz_question');
-            new ConfirmationDialog(this, {
-                questionId: question.data('questionId'),
-                questionTitle: question.data('title')
-            }).open();
-        },
-
-        /**
-         * Handler for the contact responsible link below a Quiz
-         * @param ev
-         * @private
-         */
-        _onSendRequestToResponsibleClick: function(ev) {
-            ev.preventDefault();
-            var channelId = $(ev.currentTarget).data('channelId');
-            new SlideEnrollDialog(this, {
-                channelId: channelId,
-                $element: $(ev.currentTarget).closest('.alert.alert-info')
-            }).open();
+            const question = ev.currentTarget.closest('.o_wslides_js_lesson_quiz_question');
+            const questionId = parseInt(question.dataset.questionId);
+            this.call('dialog', 'add', ConfirmationDialog, {
+                title: _t('Delete Question'),
+                body: _t('Are you sure you want to delete this question "%(title)s"?', {
+                    title: markup`<strong>${question.dataset.title}</strong>`,
+                }),
+                cancel: () => {
+                },
+                cancelLabel: _t('No'),
+                confirm: async () => {
+                    await this.orm.unlink('slide.question', [questionId]);
+                    this.trigger_up('delete_question', { questionId });
+                },
+                confirmLabel: _t('Yes'),
+            });
         },
 
         /**
@@ -630,60 +648,11 @@
         },
     });
 
-    /**
-     * Dialog box shown when clicking the deletion button on a Question.
-     * When confirming it sends a RPC request to delete the Question.
-     */
-    var ConfirmationDialog = Dialog.extend({
-        template: 'slide.quiz.confirm.deletion',
-        xmlDependencies: Dialog.prototype.xmlDependencies.concat(
-            ['/website_slides/static/src/xml/slide_quiz_create.xml']
-        ),
-
-        /**
-         * @override
-         * @param parent
-         * @param options
-         */
-        init: function (parent, options) {
-            options = _.defaults(options || {}, {
-                title: _t('Delete Question'),
-                buttons: [
-                    { text: _t('Yes'), classes: 'btn-primary', click: this._onConfirmClick },
-                    { text: _t('No'), close: true}
-                ],
-                size: 'medium'
-            });
-            this.questionId = options.questionId;
-            this.questionTitle = options.questionTitle;
-            this._super.apply(this, arguments);
-        },
-
-        /**
-         * Handler when the user confirm the deletion by clicking on 'Yes'
-         * it sends a RPC request to the server and triggers an event to
-         * visually delete the question.
-         * @private
-         */
-        _onConfirmClick: function () {
-            var self = this;
-            this._rpc({
-                model: 'slide.question',
-                method: 'unlink',
-                args: [this.questionId],
-            }).then(function () {
-                self.trigger_up('delete_question', { questionId: self.questionId });
-                self.close();
-            });
-        }
-    });
-
-    publicWidget.registry.websiteSlidesQuizNoFullscreen = publicWidget.Widget.extend({
+    publicWidget.registry.websiteSlidesQuizNoFullscreen = SlideCoursePage.extend({
         selector: '.o_wslides_lesson_main', // selector of complete page, as we need slide content and aside content table
-        custom_events: {
+        custom_events: Object.assign({}, SlideCoursePage.prototype.custom_events, {
             slide_go_next: '_onQuizNextSlide',
-            slide_completed: '_onQuizCompleted',
-        },
+        }),
 
         //----------------------------------------------------------------------
         // Public
@@ -694,36 +663,32 @@
          * @param {Object} parent
          */
         start: function () {
-            var self = this;
-            this.quizWidgets = [];
-            var defs = [this._super.apply(this, arguments)];
-            this.$('.o_wslides_js_lesson_quiz').each(function () {
-                var slideData = $(this).data();
-                var channelData = self._extractChannelData(slideData);
+            const ret = this._super(...arguments);
+
+            const $quiz = this.$('.o_wslides_js_lesson_quiz');
+            if ($quiz.length) {
+                const slideData = $quiz.data();
+                const channelData = this._extractChannelData(slideData);
                 slideData.quizData = {
-                    questions: self._extractQuestionsAndAnswers(),
+                    questions: this._extractQuestionsAndAnswers(),
                     sessionAnswers: slideData.sessionAnswers || [],
                     quizKarmaMax: slideData.quizKarmaMax,
                     quizKarmaWon: slideData.quizKarmaWon || 0,
                     quizKarmaGain: slideData.quizKarmaGain,
                     quizAttemptsCount: slideData.quizAttemptsCount,
                 };
-                defs.push(new Quiz(self, slideData, channelData, slideData.quizData).attachTo($(this)));
-            });
-            return Promise.all(defs);
+
+                this.quiz = new Quiz(this, slideData, channelData, slideData.quizData);
+                this.quiz.attachTo($quiz);
+            } else {
+                this.quiz = null;
+            }
+            return ret;
         },
 
         //----------------------------------------------------------------------
         // Handlers
         //---------------------------------------------------------------------
-        _onQuizCompleted: function (ev) {
-            var slide = ev.data.slide;
-            var completion = ev.data.completion;
-            this.$('#o_wslides_lesson_aside_slide_check_' + slide.id).addClass('text-success fa-check').removeClass('text-600 fa-circle-o');
-            // need to use global selector as progress bar is outside this animation widget scope
-            $('.o_wslides_lesson_header .progress-bar').css('width', completion + "%");
-            $('.o_wslides_lesson_header .progress span').text(_.str.sprintf("%s %%", completion));
-        },
         _onQuizNextSlide: function () {
             var url = this.$('.o_wslides_js_lesson_quiz').data('next-slide-url');
             window.location.replace(url);
@@ -732,6 +697,63 @@
         //----------------------------------------------------------------------
         // Private
         //---------------------------------------------------------------------
+
+        /**
+         * Get the slide data from the elements in the DOM.
+         *
+         * We need this overwrite because a documentation in non-fullscreen view
+         * doesn't have the standard "done" button and so in that case the slide
+         * data can not be retrieved.
+         *
+         * @override
+         * @param {Integer} slideId
+         */
+        _getSlide: function (slideId) {
+            const slide = this._super(...arguments);
+            if (slide) {
+                return slide;
+            }
+            // A quiz in a documentation on non fullscreen view
+            return $(`.o_wslides_js_lesson_quiz[data-id="${slideId}"]`).data();
+        },
+
+        /**
+         * After a slide has been marked as completed / uncompleted, update the state
+         * of this widget and reload the slide if needed (e.g. to re-show the questions
+         * of a quiz).
+         *
+         * @override
+         * @param {Object} slide
+         * @param {Boolean} completed
+         */
+        toggleCompletionButton: function (slide, completed = true) {
+            this._super(...arguments);
+
+            if (this.quiz && this.quiz.slide.id === slide.id && !completed && this.quiz.quiz.questionsCount) {
+                // The quiz has been marked as "Not Done", re-load the questions
+                this.quiz.quiz.answers = null;
+                this.quiz.quiz.sessionAnswers = null;
+                this.quiz.slide.completed = false;
+                this.quiz._fetchQuiz().then(() => {
+                    this.quiz.renderElement();
+                    this.quiz._renderValidationInfo();
+                });
+
+            }
+
+            // The quiz has been submitted in a documentation and in non fullscreen view,
+            // should update the button "Mark Done" to "Mark To Do"
+            const $doneButton = $('.o_wslides_done_button');
+            if ($doneButton.length && completed) {
+                $doneButton
+                    .removeClass('o_wslides_done_button disabled btn-primary text-white')
+                    .addClass('o_wslides_undone_button btn-light')
+                    .text(_t('Mark To Do'))
+                    .removeAttr('title')
+                    .removeAttr('aria-disabled')
+                    .attr('href', `/slides/slide/${encodeURIComponent(slide.id)}/set_uncompleted`);
+            }
+        },
 
         _extractChannelData: function (slideData) {
             return {
@@ -772,5 +794,4 @@
     });
 
     export var Quiz = Quiz;
-    export var ConfirmationDialog = ConfirmationDialog;
-    export const websiteSlidesQuizNoFullscree = publicWidget.registry.websiteSlidesQuizNoFullscreen;
+    export const websiteSlidesQuizNoFullscreen = publicWidget.registry.websiteSlidesQuizNoFullscreen;

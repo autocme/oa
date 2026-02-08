@@ -22,8 +22,8 @@ class BarcodeRule(models.Model):
             ('package', 'Package'),
             ('use_date', 'Best before Date'),
             ('expiration_date', 'Expiration Date'),
-            ('package_type', 'Packaging Type'),
-            ('packaging_date', 'Packaging Date'),
+            ('package_type', 'Package Type'),
+            ('pack_date', 'Pack Date'),
         ], ondelete={
             'quantity': 'set default',
             'location': 'set default',
@@ -33,7 +33,7 @@ class BarcodeRule(models.Model):
             'use_date': 'set default',
             'expiration_date': 'set default',
             'package_type': 'set default',
-            'packaging_date': 'set default',
+            'pack_date': 'set default',
         })
     is_gs1_nomenclature = fields.Boolean(related="barcode_nomenclature_id.is_gs1_nomenclature")
     gs1_content_type = fields.Selection([
@@ -44,10 +44,10 @@ class BarcodeRule(models.Model):
     ], string="GS1 Content Type",
         help="The GS1 content type defines what kind of data the rule will process the barcode as:\
         * Date: the barcode will be converted into a Odoo datetime;\
-        * Measure: the barcode's value is related to a specific UoM;\
+        * Measure: the barcode's value is related to a specific unit;\
         * Numeric Identifier: fixed length barcode following a specific encoding;\
         * Alpha-Numeric Name: variable length barcode.")
-    gs1_decimal_usage = fields.Boolean('Decimal', help="If True, use the last digit of AI to dertermine where the first decimal is")
+    gs1_decimal_usage = fields.Boolean('Decimal', help="If True, use the last digit of AI to determine where the first decimal is")
     associated_uom_id = fields.Many2one('uom.uom')
 
     @api.constrains('pattern')
@@ -57,7 +57,7 @@ class BarcodeRule(models.Model):
             try:
                 re.compile(rule.pattern)
             except re.error as error:
-                raise ValidationError(_("The rule pattern \"%s\" is not a valid Regex: ", rule.name) + str(error))
+                raise ValidationError(_("The rule pattern '%(rule)s' is not a valid Regex: %(error)s", rule=rule.name, error=error))
             groups = re.findall(r'\([^)]*\)', rule.pattern)
             if len(groups) != 2:
                 raise ValidationError(_(

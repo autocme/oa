@@ -1,5 +1,3 @@
-/** @odoo-module **/
-
 import { parseArgs } from "./py_parser";
 
 // -----------------------------------------------------------------------------
@@ -111,7 +109,7 @@ function ord2ymd(n) {
         };
     }
 
-    let leapyear = n1 === 3 && (n4 !== 24 || n100 == 3);
+    const leapyear = n1 === 3 && (n4 !== 24 || n100 == 3);
     assert(leapyear == isLeap(year));
     let month = (n + 50) >> 5;
     let preceding = DAYS_BEFORE_MONTH[month] + (month > 2 && leapyear ? 1 : 0);
@@ -176,7 +174,7 @@ function tmxxx(year, month, day, hour, minute, second, microsecond) {
     // for a datetime object, but we don't care about that here).
     // If day is out of bounds, what to do is arguable, but at least the
     // method here is principled and explainable.
-    let dim = daysInMonth(year, month);
+    const dim = daysInMonth(year, month);
     if (day < 1 || day > dim) {
         // Move day-1 days from the first of the month.  First try to
         // get off cheap if we're only one day out of range (adjustments
@@ -198,7 +196,7 @@ function tmxxx(year, month, day, hour, minute, second, microsecond) {
                 ++year;
             }
         } else {
-            let r = ord2ymd(ymd2ord(year, month, 1) + (day - 1));
+            const r = ord2ymd(ymd2ord(year, month, 1) + (day - 1));
             year = r.year;
             month = r.month;
             day = r.day;
@@ -308,7 +306,7 @@ export class PyDate {
         if (other instanceof PyDate) {
             return PyTimeDelta.create(this.toordinal() - other.toordinal());
         }
-        throw NotSupportedError();
+        throw new NotSupportedError();
     }
 
     /**
@@ -489,7 +487,14 @@ export class PyDateTime {
      * @returns {PyDateTime}
      */
     to_utc() {
-        const d = new Date(this.year, this.month -1, this.day, this.hour, this.minute, this.second);
+        const d = new Date(
+            this.year,
+            this.month - 1,
+            this.day,
+            this.hour,
+            this.minute,
+            this.second
+        );
         const timedelta = PyTimeDelta.create({ minutes: d.getTimezoneOffset() });
         return this.add(timedelta);
     }
@@ -561,9 +566,8 @@ const PERIODS = ["year", "month", "day", ...TIME_PERIODS];
 const RELATIVE_KEYS = "years months weeks days hours minutes seconds microseconds leapdays".split(
     " "
 );
-const ABSOLUTE_KEYS = "year month day hour minute second microsecond weekday nlyearday yearday".split(
-    " "
-);
+const ABSOLUTE_KEYS =
+    "year month day hour minute second microsecond weekday nlyearday yearday".split(" ");
 
 const argsSpec = ["dt1", "dt2"]; // all other arguments are kwargs
 export class PyRelativeDelta {
@@ -625,7 +629,7 @@ export class PyRelativeDelta {
      */
     static add(date, delta) {
         if (!(date instanceof PyDate || date instanceof PyDateTime)) {
-            throw NotSupportedError();
+            throw new NotSupportedError();
         }
 
         // First pass: we want to determine which is our target year and if we will apply leap days

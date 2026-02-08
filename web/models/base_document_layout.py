@@ -1,19 +1,11 @@
-# -*- coding: utf-8 -*-
-import markupsafe
 from markupsafe import Markup
+from math import ceil
 
-from odoo import api, fields, models, tools
-
+from odoo import api, fields, models
+from odoo.addons.base.models.assetsbundle import ScssStylesheetAsset
 from odoo.addons.base.models.ir_qweb_fields import nl2br
-from odoo.modules import get_resource_path
-from odoo.tools import is_html_empty
+from odoo.tools import html2plaintext, is_html_empty, image as tools
 
-try:
-    import sass as libsass
-except ImportError:
-    # If the `sass` python library isn't found, we fallback on the
-    # `sassc` executable in the path.
-    libsass = None
 try:
     from PIL.Image import Resampling
 except ImportError:
@@ -46,7 +38,7 @@ class BaseDocumentLayout(models.TransientModel):
         if 'company_name' not in address_format:
             address_format = '%(company_name)s\n' + address_format
             company_data['company_name'] = company_data['company_name'] or company.name
-        return Markup(nl2br(address_format)) % company_data
+        return nl2br(address_format) % company_data
 
     def _clean_address_format(self, address_format, company_data):
         missing_company_data = [k for k, v in company_data.items() if not v]
@@ -63,6 +55,7 @@ class BaseDocumentLayout(models.TransientModel):
     report_header = fields.Html(related='company_id.report_header', readonly=False)
     report_footer = fields.Html(related='company_id.report_footer', readonly=False, default=_default_report_footer)
     company_details = fields.Html(related='company_id.company_details', readonly=False, default=_default_company_details)
+    is_company_details_empty = fields.Boolean(compute='_compute_empty_company_details')
 
     # The paper format changes won't be reflected in the preview.
     paperformat_id = fields.Many2one(related='company_id.paperformat_id', readonly=False)
@@ -111,7 +104,7 @@ class BaseDocumentLayout(models.TransientModel):
     @api.depends('logo')
     def _compute_logo_colors(self):
         for wizard in self:
-            if wizard._context.get('bin_size'):
+            if wizard.env.context.get('bin_size'):
                 wizard_for_image = wizard.with_context(bin_size=False)
             else:
                 wizard_for_image = wizard
@@ -124,21 +117,28 @@ class BaseDocumentLayout(models.TransientModel):
 
         for wizard in self:
             if wizard.report_layout_id:
-                # guarantees that bin_size is always set to False,
-                # so the logo always contains the bin data instead of the binary size
                 if wizard.env.context.get('bin_size'):
-                    wizard_with_logo = wizard.with_context(bin_size=False)
-                else:
-                    wizard_with_logo = wizard
-                preview_css = markupsafe.Markup(self._get_css_for_preview(styles, wizard_with_logo.id))
-                ir_ui_view = wizard_with_logo.env['ir.ui.view']
-                wizard.preview = ir_ui_view._render_template('web.report_invoice_wizard_preview', {
-                    'company': wizard_with_logo,
-                    'preview_css': preview_css,
-                    'is_html_empty': is_html_empty,
-                })
+                    # guarantees that bin_size is always set to False,
+                    # so the logo always contains the bin data instead of the binary size
+                    wizard = wizard.with_context(bin_size=False)
+                wizard.preview = wizard.env['ir.ui.view']._render_template(
+                    wizard._get_preview_template(),
+                    wizard._get_render_information(styles),
+                )
             else:
                 wizard.preview = False
+
+    def _get_preview_template(self):
+        return 'web.report_invoice_wizard_preview'
+
+    def _get_render_information(self, styles):
+        self.ensure_one()
+        preview_css = self._get_css_for_preview(styles, self.id)
+        return {
+            'company': self,
+            'preview_css': preview_css,
+            'is_html_empty': is_html_empty,
+        }
 
     @api.onchange('company_id')
     def _onchange_company_id(self):
@@ -202,7 +202,7 @@ class BaseDocumentLayout(models.TransientModel):
         :param white_threshold: arbitrary value defining the maximum value a color can reach
         :param mitigate: arbitrary value defining the maximum value a band can reach
 
-        :return colors: hex values of primary and secondary colors
+        :return: a 2-value tuple with hex values of primary and secondary colors
         """
         if not logo:
             return False, False
@@ -215,7 +215,7 @@ class BaseDocumentLayout(models.TransientModel):
             return False, False
 
         base_w, base_h = image.size
-        w = int(50 * base_w / base_h)
+        w = ceil(50 * base_w / base_h)
         h = 50
 
         # Converts to RGBA (if already RGBA, this is a noop)
@@ -249,14 +249,6 @@ class BaseDocumentLayout(models.TransientModel):
 
         return tools.rgb_to_hex(primary), tools.rgb_to_hex(secondary)
 
-    @api.model
-    def action_open_base_document_layout(self, action_ref=None):
-        if not action_ref:
-            action_ref = 'web.action_base_document_layout_configurator'
-        res = self.env["ir.actions.actions"]._for_xml_id(action_ref)
-        self.env[res["res_model"]].check_access_rights('write')
-        return res
-
     def document_layout_save(self):
         # meant to be overridden
         return self.env.context.get('report_action') or {'type': 'ir.actions.act_window_close'}
@@ -268,13 +260,9 @@ class BaseDocumentLayout(models.TransientModel):
         '_get_css_for_preview' processing later.
         :return:
         """
-        template_style = self.env.ref('web.styles_company_report', raise_if_not_found=False)
-        if not template_style:
-            return b''
-
-        company_styles = template_style._render({
+        company_styles = self.env['ir.qweb']._render('web.styles_company_report', {
             'company_ids': self,
-        })
+        }, raise_if_not_found=False)
 
         return company_styles
 
@@ -283,33 +271,15 @@ class BaseDocumentLayout(models.TransientModel):
         """
         Compile the scss into css.
         """
-        css_code = self._compile_scss(scss)
-        return css_code
-
-    @api.model
-    def _compile_scss(self, scss_source):
-        """
-        This code will compile valid scss into css.
-        Parameters are the same from odoo/addons/base/models/assetsbundle.py
-        Simply copied and adapted slightly
-        """
-
-        # No scss ? still valid, returns empty css
-        if not scss_source.strip():
+        if not scss.strip():
             return ""
+        asset = ScssStylesheetAsset(None, inline='// css_for_preview')
+        css_code = asset.compile(scss)
+        return Markup(css_code) if isinstance(scss, Markup) else css_code
 
-        precision = 8
-        output_style = 'expanded'
-        bootstrap_path = get_resource_path('web', 'static', 'lib', 'bootstrap', 'scss')
-
-        try:
-            return libsass.compile(
-                string=scss_source,
-                include_paths=[
-                    bootstrap_path,
-                ],
-                output_style=output_style,
-                precision=precision,
-            )
-        except libsass.CompileError as e:
-            raise libsass.CompileError(e.args[0])
+    @api.depends('company_details')
+    def _compute_empty_company_details(self):
+        # In recent change when an html field is empty a <p> balise remains with a <br> in it,
+        # but when company details is empty we want to put the info of the company
+        for record in self:
+            record.is_company_details_empty = not html2plaintext(record.company_details or '')

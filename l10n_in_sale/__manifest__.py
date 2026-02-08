@@ -3,7 +3,6 @@
 
 {
     'name': 'Indian - Sale Report(GST)',
-    'icon': '/l10n_in/static/description/icon.png',
     'version': '1.0',
     'description': """GST Sale Report""",
     'category': 'Accounting/Localizations/Sale',
@@ -12,15 +11,13 @@
         'sale',
     ],
     'data': [
-        'views/report_sale_order.xml',
-        'views/sale_views.xml',
-        'views/res_partner_views.xml',
+        'views/sale_order_views.xml',
     ],
     'demo': [
         'data/product_demo.xml',
     ],
     'installable': True,
-    'application': False,
     'auto_install': True,
+    'author': 'Odoo S.A.',
     'license': 'LGPL-3',
 }

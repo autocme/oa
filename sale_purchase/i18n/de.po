@@ -1,24 +1,29 @@
 # Translation of Odoo Server.
 # This file contains the translation of the following modules:
-# 	* sale_purchase
-# 
+# * sale_purchase
+#
 # Translators:
-# Martin Trigaux, 2023
+# Martin Trigaux, 2022
+# Michael Hofer, 2022
 # Larissa Manderfeld, 2023
-# 
+#
+# "Dylan Kiss (dyki)" <dyki@odoo.com>, 2025.
+# "Larissa Manderfeld (lman)" <lman@odoo.com>, 2025.
 msgid ""
 msgstr ""
-"Project-Id-Version: Odoo Server saas~14.5\n"
+"Project-Id-Version: Odoo Server 15.5alpha1\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2021-09-14 10:29+0000\n"
-"PO-Revision-Date: 2021-09-14 12:26+0000\n"
-"Last-Translator: Larissa Manderfeld, 2023\n"
-"Language-Team: German (https://app.transifex.com/odoo/teams/41243/de/)\n"
+"POT-Creation-Date: 2026-01-25 18:37+0000\n"
+"PO-Revision-Date: 2025-11-28 10:55+0000\n"
+"Last-Translator: \"Larissa Manderfeld (lman)\" <lman@odoo.com>\n"
+"Language-Team: German <https://translate.odoo.com/projects/odoo-19/"
+"sale_purchase/de/>\n"
+"Language: de\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: \n"
-"Language: de\n"
-"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+"Plural-Forms: nplurals=2; plural=n != 1;\n"
+"X-Generator: Weblate 5.14.3\n"
 
 #. module: sale_purchase
 #: model_terms:ir.ui.view,arch_db:sale_purchase.exception_purchase_on_sale_cancellation
@@ -31,14 +36,18 @@ msgstr ""
 "         Manuelle Aktionen können erforderlich sein."
 
 #. module: sale_purchase
-#: model_terms:ir.ui.view,arch_db:sale_purchase.sale_order_inherited_form_purchase
-msgid "<span class=\"o_stat_text\">Purchase</span>"
-msgstr "<span class=\"o_stat_text\">Einkauf</span>"
-
-#. module: sale_purchase
 #: model_terms:ir.ui.view,arch_db:sale_purchase.purchase_order_inherited_form_sale
 msgid "<span class=\"o_stat_text\">Sale</span>"
 msgstr "<span class=\"o_stat_text\">Verkauf</span>"
+
+#. module: sale_purchase
+#: model:ir.model.fields,field_description:sale_purchase.field_product_template__display_name
+#: model:ir.model.fields,field_description:sale_purchase.field_purchase_order__display_name
+#: model:ir.model.fields,field_description:sale_purchase.field_purchase_order_line__display_name
+#: model:ir.model.fields,field_description:sale_purchase.field_sale_order__display_name
+#: model:ir.model.fields,field_description:sale_purchase.field_sale_order_line__display_name
+msgid "Display Name"
+msgstr "Anzeigename"
 
 #. module: sale_purchase
 #: model_terms:ir.ui.view,arch_db:sale_purchase.exception_sale_on_purchase_cancellation
@@ -62,6 +71,15 @@ msgstr "Ausnahme(n):"
 #: model:ir.model.fields,field_description:sale_purchase.field_sale_order_line__purchase_line_ids
 msgid "Generated Purchase Lines"
 msgstr "Generierte Einkaufspositionen"
+
+#. module: sale_purchase
+#: model:ir.model.fields,field_description:sale_purchase.field_product_template__id
+#: model:ir.model.fields,field_description:sale_purchase.field_purchase_order__id
+#: model:ir.model.fields,field_description:sale_purchase.field_purchase_order_line__id
+#: model:ir.model.fields,field_description:sale_purchase.field_sale_order__id
+#: model:ir.model.fields,field_description:sale_purchase.field_sale_order_line__id
+msgid "ID"
+msgstr "ID"
 
 #. module: sale_purchase
 #: model:ir.model.fields,help:sale_purchase.field_product_product__service_to_purchase
@@ -97,8 +115,8 @@ msgid "Number of generated purchase items"
 msgstr "Anzahl der generierten Kaufgegenstände"
 
 #. module: sale_purchase
-#: code:addons/sale_purchase/models/sale_order.py:0
-#, python-format
+#. odoo-python
+#: code:addons/sale_purchase/models/sale_order_line.py:0
 msgid "Ordered quantity decreased!"
 msgstr "Bestellte Menge verringert!"
 
@@ -108,15 +126,31 @@ msgid "Origin Sale Item"
 msgstr "Ursprung Verkaufsgegenstand"
 
 #. module: sale_purchase
-#: model:ir.model,name:sale_purchase.model_product_template
-msgid "Product Template"
-msgstr "Produktvorlage"
+#. odoo-python
+#: code:addons/sale_purchase/models/product_template.py:0
+msgid ""
+"Please define the vendor from whom you would like to purchase this service "
+"automatically."
+msgstr ""
+"Bitte geben Sie den Lieferanten an, von dem Sie diese Dienstleistung "
+"automatisch beziehen möchten."
 
 #. module: sale_purchase
-#: model:ir.model.constraint,message:sale_purchase.constraint_product_template_service_to_purchase
+#: model:ir.model,name:sale_purchase.model_product_template
+msgid "Product"
+msgstr "Produkt"
+
+#. module: sale_purchase
+#. odoo-python
+#: code:addons/sale_purchase/models/product_template.py:0
 msgid "Product that is not a service can not create RFQ."
 msgstr ""
 "Produkt, das keine Dienstleistung ist, kann keine Angebotsanfrage erstellen."
+
+#. module: sale_purchase
+#: model_terms:ir.ui.view,arch_db:sale_purchase.sale_order_inherited_form_purchase
+msgid "Purchase"
+msgstr "Einkauf"
 
 #. module: sale_purchase
 #: model:ir.model,name:sale_purchase.model_purchase_order
@@ -129,8 +163,8 @@ msgid "Purchase Order Line"
 msgstr "Bestellzeile"
 
 #. module: sale_purchase
+#. odoo-python
 #: code:addons/sale_purchase/models/sale_order.py:0
-#, python-format
 msgid "Purchase Order generated from %s"
 msgstr "Bestellung generiert aus %s"
 
@@ -140,8 +174,8 @@ msgid ""
 "Purchase line generated by this Sales item on order confirmation, or when "
 "the quantity was increased."
 msgstr ""
-"Einkaufsposition, die von dieser Verkaufsposition bei der "
-"Auftragsbestätigung oder bei der Erhöhung der Menge erzeugt wird."
+"Bestellposition, die von dieser Verkaufsposition bei der Auftragsbestätigung "
+"oder bei der Erhöhung der Menge erzeugt wird."
 
 #. module: sale_purchase
 #: model_terms:ir.ui.view,arch_db:sale_purchase.product_template_form_view_inherit
@@ -164,8 +198,8 @@ msgid "Sales Order Line"
 msgstr "Verkaufsauftragszeile"
 
 #. module: sale_purchase
+#. odoo-python
 #: code:addons/sale_purchase/models/purchase_order.py:0
-#, python-format
 msgid "Sources Sale Orders %s"
 msgstr "Referenz-Verkaufsaufträge von %s"
 
@@ -176,8 +210,16 @@ msgid "Subcontract Service"
 msgstr "Subunternehmer-Service"
 
 #. module: sale_purchase
-#: code:addons/sale_purchase/models/sale_order.py:0
-#, python-format
+#: model:ir.model.fields,field_description:sale_purchase.field_purchase_order__has_sale_order
+msgid ""
+"Technical field for whether the purchase order has associated sale orders"
+msgstr ""
+"Technisches Feld für den Fall, ob die Bestellung mit einem Verkaufsauftrag "
+"verbunden ist"
+
+#. module: sale_purchase
+#. odoo-python
+#: code:addons/sale_purchase/models/sale_order_line.py:0
 msgid ""
 "There is no vendor associated to the product %s. Please define a vendor for "
 "this product."
@@ -186,8 +228,8 @@ msgstr ""
 "Lieferanten für dieses Produkt."
 
 #. module: sale_purchase
-#: code:addons/sale_purchase/models/sale_order.py:0
-#, python-format
+#. odoo-python
+#: code:addons/sale_purchase/models/sale_order_line.py:0
 msgid ""
 "You are decreasing the ordered quantity! Do not forget to manually update "
 "the purchase order if needed."
@@ -212,3 +254,38 @@ msgstr "von"
 #: model_terms:ir.ui.view,arch_db:sale_purchase.exception_purchase_on_sale_quantity_decreased
 msgid "ordered instead of"
 msgstr "bestellt statt"
+
+#~ msgid ""
+#~ "<span class=\"fa fa-lg fa-building-o fa-fw\" title=\"Service to "
+#~ "Purchase\"/>"
+#~ msgstr ""
+#~ "<span class=\"fa fa-lg fa-building-o fa-fw\" title=\"Service to "
+#~ "Purchase\"/>"
+
+#~ msgid "<span class=\"o_stat_text\">Purchase</span>"
+#~ msgstr "<span class=\"o_stat_text\">Kaufen</span>"
+
+#~ msgid ""
+#~ "<span id=\"display_invoice_alert\" position=\"after\">\n"
+#~ "                <span id=\"display_purchase_orders_alert\" "
+#~ "attrs=\"{'invisible': [('display_purchase_orders_alert', '=', False)]}"
+#~ "\">\n"
+#~ "                    There are active purchase orders linked to this sale "
+#~ "order that are not cancelled automatically! <br/>\n"
+#~ "                </span>\n"
+#~ "            </span>"
+#~ msgstr ""
+#~ "<span id=\"display_invoice_alert\" position=\"after\">\n"
+#~ "                <span id=\"display_purchase_orders_alert\" "
+#~ "attrs=\"{'invisible': [('display_purchase_orders_alert', '=', False)]}"
+#~ "\">\n"
+#~ "                    Es gibt aktive Kaufaufträge im Zusammenhang mit "
+#~ "diesem Verkaufsauftrag, die nicht automatisch storniert werden! <br/>\n"
+#~ "                </span>\n"
+#~ "            </span>"
+
+#~ msgid "Purchase Order Alert"
+#~ msgstr "Kaufauftragsalarm"
+
+#~ msgid "Sales Order Cancel"
+#~ msgstr "Kundenauftrag stornieren"

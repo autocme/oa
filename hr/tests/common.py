@@ -7,7 +7,28 @@ from odoo.tests import common
 
 class TestHrCommon(common.TransactionCase):
 
-    def setUp(self):
-        super(TestHrCommon, self).setUp()
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
 
-        self.res_users_hr_officer = mail_new_test_user(self.env, login='hro', groups='base.group_user,hr.group_hr_user', name='HR Officer', email='hro@example.com')
+        cls.res_users_hr_officer = mail_new_test_user(
+            cls.env,
+            email='hro@example.com',
+            login='hro',
+            groups='base.group_user,hr.group_hr_user,base.group_partner_manager',
+            name='HR Officer',
+        )
+
+        cls.res_users_hr_manager = mail_new_test_user(
+            cls.env,
+            email='manager@example.com',
+            login='manager',
+            groups='base.group_user,hr.group_hr_manager,base.group_partner_manager',
+            name='HR Admin',
+        )
+
+        cls.employee = cls.env['hr.employee'].create({
+            'name': 'Richard',
+            'sex': 'male',
+            'country_id': cls.env.ref('base.be').id,
+        })

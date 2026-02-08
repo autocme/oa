@@ -3,9 +3,9 @@
 
 
 {
-    'name': 'pos_sale',
+    'name': 'POS - Sales',
     'version': '1.1',
-    'category': 'Hidden',
+    'category': 'Sales/Point of Sale',
     'sequence': 6,
     'summary': 'Link module between Point of Sale and Sales',
     'description': """
@@ -21,30 +21,23 @@ This module adds a custom Sales Team for the Point of Sale. This enables you to 
         'views/sale_order_views.xml',
         'views/pos_order_views.xml',
         'views/sales_team_views.xml',
-        'views/pos_config_views.xml',
+        'views/res_config_settings_views.xml',
         'views/stock_template.xml',
     ],
     'installable': True,
     'auto_install': True,
     'assets': {
-        'point_of_sale.assets': [
-            'pos_sale/static/src/css/pos_sale.css',
-            'pos_sale/static/src/js/models.js',
-            'pos_sale/static/src/js/SetSaleOrderButton.js',
-            'pos_sale/static/src/js/OrderManagementScreen/MobileSaleOrderManagementScreen.js',
-            'pos_sale/static/src/js/OrderManagementScreen/SaleOrderFetcher.js',
-            'pos_sale/static/src/js/OrderManagementScreen/SaleOrderList.js',
-            'pos_sale/static/src/js/OrderManagementScreen/SaleOrderManagementControlPanel.js',
-            'pos_sale/static/src/js/OrderManagementScreen/SaleOrderManagementScreen.js',
-            'pos_sale/static/src/js/OrderManagementScreen/SaleOrderRow.js',
-            'pos_sale/static/src/js/ProductScreen.js',
-        ],
-        'web.assets_qweb': [
-            'pos_sale/static/src/xml/**/*',
+        'point_of_sale._assets_pos': [
+            'pos_sale/static/src/**/*',
         ],
         'web.assets_tests': [
-            'pos_sale/static/tests/**/*',
+            'pos_sale/static/tests/tours/**/*',
+        ],
+        'web.assets_unit_tests': [
+            'pos_sale/static/tests/unit/**/*',
         ],
     },
+    'post_init_hook': '_pos_sale_post_init',
+    'author': 'Odoo S.A.',
     'license': 'LGPL-3',
 }

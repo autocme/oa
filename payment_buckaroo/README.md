@@ -16,6 +16,11 @@ submission provided by the `payment` module.
 
 - Webhook notifications
 
+## Module history
+
+- `15.2`
+  - The support for webhook notifications is added. odoo/odoo#82922
+
 ## Testing instructions
 
 Buckaroo's hosted payment page allows to simulate payments and select the outcome without any

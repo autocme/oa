@@ -1,13 +1,19 @@
-/** @odoo-module **/
-
-import { makeEnv, startServices } from "./env";
-import { legacySetupProm } from "./legacy/legacy_setup";
-import { mapLegacyEnvToWowlEnv } from "./legacy/utils";
-import { processTemplates } from "./core/assets";
+import { mountComponent } from "./env";
+import { localization } from "@web/core/l10n/localization";
 import { session } from "@web/session";
+import { hasTouch } from "@web/core/browser/feature_detection";
+import { user } from "@web/core/user";
+import { Component, whenReady } from "@odoo/owl";
+import { rpc } from "./core/network/rpc";
+import { RPCCache } from "./core/network/rpc_cache";
 
-const { mount, utils } = owl;
-const { whenReady } = utils;
+// Chrome iOS wraps some text nodes (like measures, email...)
+// with a `<chrome_annotation>` tag, which breaks OWL rendering.
+// This meta tag allows to disable this behavior.
+const chromeMetaTag = document.createElement("meta");
+chromeMetaTag.setAttribute("name", "chrome");
+chromeMetaTag.setAttribute("content", "nointentdetection");
+document.head.appendChild(chromeMetaTag);
 
 /**
  * Function to start a webclient.
@@ -15,7 +21,7 @@ const { whenReady } = utils;
  * It's meant to be webclient flexible so we can have a subclass of
  * webclient in enterprise with added features.
  *
- * @param {owl.Component} Webclient
+ * @param {Component} Webclient
  */
 export async function startWebClient(Webclient) {
     odoo.info = {
@@ -26,31 +32,28 @@ export async function startWebClient(Webclient) {
     };
     odoo.isReady = false;
 
-    // setup environment
-    const env = makeEnv();
-    const [, templates] = await Promise.all([
-        startServices(env),
-        odoo.loadTemplatesPromise.then(processTemplates),
-    ]);
-    env.qweb.addTemplates(templates);
+    if (window.isSecureContext && session.browser_cache_secret) {
+        rpc.setCache(new RPCCache("rpc", session.registry_hash, session.browser_cache_secret));
+    }
 
-    // start web client
     await whenReady();
-    const legacyEnv = await legacySetupProm;
-    mapLegacyEnvToWowlEnv(legacyEnv, env);
-    const root = await mount(Webclient, { env, target: document.body, position: "self" });
-    // delete odoo.debug; // FIXME: some legacy code rely on this
-    odoo.__WOWL_DEBUG__ = { root };
-    odoo.isReady = true;
+    const app = await mountComponent(Webclient, document.body, { name: "Odoo Web Client" });
+    const { env } = app;
+    Component.env = env;
 
-    // Update Favicons
-    const favicon = `/web/image/res.company/${env.services.company.currentCompany.id}/favicon`;
-    const icons = document.querySelectorAll("link[rel*='icon']");
-    const msIcon = document.querySelector("meta[name='msapplication-TileImage']");
-    for (const icon of icons) {
-        icon.href = favicon;
+    const classList = document.body.classList;
+    if (localization.direction === "rtl") {
+        classList.add("o_rtl");
     }
-    if (msIcon) {
-        msIcon.content = favicon;
+    if (user.userId === 1) {
+        classList.add("o_is_superuser");
     }
+    if (env.debug) {
+        classList.add("o_debug");
+    }
+    if (hasTouch()) {
+        classList.add("o_touch_device");
+    }
+    // delete odoo.debug; // FIXME: some legacy code rely on this
+    odoo.isReady = true;
 }

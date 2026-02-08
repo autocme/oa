@@ -5,22 +5,23 @@
     'name': "Mail Group",
     'summary': "Manage your mailing lists",
     'description': """
-        Manage your mailing lists from Odoo.
+Manage your mailing lists from Odoo.
     """,
-    'version': '1.0',
+    'version': '1.1',
     'depends': [
         'mail',
         'portal',
     ],
-    'auto_install': False,
     'data': [
         'data/ir_cron_data.xml',
         'data/mail_templates.xml',
         'data/mail_template_data.xml',
+        'data/mail_template_email_layouts.xml',
         'data/res_groups.xml',
         'security/ir.model.access.csv',
         'security/mail_group_security.xml',
         'wizard/mail_group_message_reject_views.xml',
+        'views/mail_compose_message_views.xml',
         'views/mail_group_member_views.xml',
         'views/mail_group_message_views.xml',
         'views/mail_group_moderation_views.xml',
@@ -34,11 +35,12 @@
     'assets': {
         'web.assets_frontend': [
             'mail_group/static/src/css/mail_group.scss',
-            'mail_group/static/src/js/*',
+            'mail_group/static/src/interactions/*',
         ],
         'web.assets_backend': [
             'mail_group/static/src/css/mail_group_backend.scss',
         ],
     },
+    'author': 'Odoo S.A.',
     'license': 'LGPL-3',
 }

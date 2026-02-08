@@ -17,21 +17,21 @@ according to the enabled options.
 
         <div groups="website.group_website_designer" t-if="state_info and (state_info['published'] > 0 and state_info['unpublished'] > 0)">
             <div class="bg-200 py-2 mb-4 alert alert-dismissable">
-                <button type="button" class="close" data-dismiss="alert" aria-label="Close">&#215;</button>
-                <span class="mr-1">Show:</span>
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                <span class="me-1">Show:</span>
                 <div class="btn-group btn-group-sm">
                     <a t-attf-class="btn #{state == 'published' and 'btn-success' or 'btn-default bg-white border'}"
                        t-attf-href="#{state == 'published' and blog_url(state='') or blog_url(state='published')}">
-                        <i t-attf-class="fa mr-1 #{state == 'published' and 'fa-check-square-o' or 'fa-square-o'}"/>
-                        Published (<t t-esc="state_info['published']" />)
+                        <i t-attf-class="fa me-1 #{state == 'published' and 'fa-check-square-o' or 'fa-square-o'}"/>
+                        Published (<t t-out="state_info['published']" />)
                     </a>
                     <a t-attf-class="btn #{state == 'unpublished' and 'btn-success' or 'btn-default bg-white border'}"
                        t-attf-href="#{state == 'unpublished' and blog_url(state='') or blog_url(state='unpublished')}">
-                        <i t-attf-class="fa mr-1 #{state == 'unpublished' and 'fa-check-square-o' or 'fa-square-o'}"/>
-                        Unpublished (<t t-esc="state_info['unpublished']" />)
+                        <i t-attf-class="fa me-1 #{state == 'unpublished' and 'fa-check-square-o' or 'fa-square-o'}"/>
+                        Unpublished (<t t-out="state_info['unpublished']" />)
                     </a>
                 </div>
-                <div class="pt-1 font-italic small">This box will not be visible to your visitors</div>
+                <div class="pt-1 fst-italic small">This box will not be visible to your visitors</div>
             </div>
         </div>
 
@@ -39,24 +39,13 @@ according to the enabled options.
             <!-- Filters -->
             <div t-if="tag or date_begin or search" class="col-12 mb-3">
                 <div t-if="posts" class="h4 mb-3">
-                    <t t-esc="search_count"/>
+                    <t t-out="search_count"/>
                     <t t-if="search_count &lt; 2">Article</t>
                     <t t-else="">Articles</t>
                 </div>
-                <!-- TODO: in master, remove the next useless lines. They have
-                    to be kept in the stable versions in case of a potential
-                    customization that would do a 'xpath' on them.-->
-                <t t-set="posts_save" t-value="posts"/>
-                <t t-set="posts" t-value="False"/>
-                <div t-if="posts" class="h4 mb-3">
-                    <t t-esc="len(posts)"/>
-                    <t t-if="len(posts) &lt; 2">Article</t>
-                    <t t-else="">Articles</t>
-                </div>
-                <t t-set="posts" t-value="posts_save"/>
-                <span t-if="search" class="align-items-baseline border d-inline-flex pl-2 rounded mb-2">
-                    <i class="fa fa-search mr-2 text-muted"/>
-                    <t t-esc="search"/>
+                <span t-if="search" class="align-items-baseline border d-inline-flex ps-2 rounded mb-2">
+                    <i class="fa fa-search me-2 text-muted"/>
+                    <t t-out="search"/>
                     <a t-att-href="blog_url(search=False, tag=tag)" class="btn border-0 py-1 post_link">&#215;</a>
                 </span>
                 <t t-if="tag">
@@ -74,9 +63,9 @@ according to the enabled options.
                         <t t-set='dismissibleBtn' t-value="True"/>
                     </t>
                 </t>
-                <span t-if="date_begin" class="align-items-baseline border d-inline-flex pl-2 rounded mb-2">
-                    <i class="fa fa-calendar-o mr-2 text-muted"/>
-                    <t t-esc="date_begin" t-options="{'widget': 'date', 'format': 'MMM yyyy'}"></t>
+                <span t-if="date_begin" class="align-items-baseline border d-inline-flex ps-2 rounded mb-2">
+                    <i class="fa fa-calendar-o me-2 text-muted"/>
+                    <t t-out="date_begin" t-options="{'widget': 'date', 'format': 'MMM yyyy'}"></t>
                     <a t-attf-href="#{blog_url(date_begin=False, date_end=False, tag=tag)}" class="btn border-0 py-1">&#215;</a>
                 </span>
                 <hr class="mt-2"/>
@@ -85,7 +74,7 @@ according to the enabled options.
             <!-- No blog post yet -->
             <div t-if="not posts" class="col">
                 <t t-set="no_results_str">No results for "%s".</t>
-                <h2 t-if="search" t-esc="no_results_str % search" class="font-weight-bold"/>
+                <h2 t-if="search" t-out="no_results_str % search" class="fw-bold"/>
                 <h2 t-else="">No blog post yet.</h2>
                 <div class="alert alert-info" groups="website.group_website_designer">
                     Click on "<b>New</b>" in the top-right corner to write your first blog post.
@@ -125,12 +114,12 @@ according to the enabled options.
                             <div t-if="is_view_active('website_blog.opt_posts_loop_show_teaser')" t-att-class="opt_blog_cards_design and 'card-body pt-0'">
                                 <t t-call="website_blog.post_teaser"/>
                             </div>
-                            <div t-if="opt_blog_cards_design" t-attf-class="opt_blog_cards_design and 'card-body pt-0 pb-2'}">
+                            <div t-if="opt_blog_cards_design" t-att-class="opt_blog_cards_design and 'card-body pt-0 pb-2'">
                                 <t t-call="website_blog.post_info"></t>
                             </div>
                             <div t-else="" class="mt-3">
                                 <a t-attf-href="/blog/#{slug(blog_post.blog_id)}/#{slug(blog_post)}" class="btn btn-primary">
-                                    Read more <i class="fa fa-chevron-right ml-2"/>
+                                    Read more <i class="oi oi-chevron-right ms-2"/>
                                 </a>
                             </div>
                         </t>
@@ -143,7 +132,7 @@ according to the enabled options.
                                     <t t-call="website_blog.post_teaser"/>
                                 </div>
                             </div>
-                            <div t-attf-class="o_wblog_normalize_font #{'card-footer px-2 pb-2' if opt_blog_cards_design else 'pr-2 pb-2'}">
+                            <div t-attf-class="o_wblog_normalize_font #{'card-footer px-2 pb-2' if opt_blog_cards_design else 'pe-2 pb-2'}">
                                 <t t-call="website_blog.post_info"></t>
                             </div>
                         </t>
@@ -176,10 +165,10 @@ according to the enabled options.
 <template id="post_info">
     <div class="d-flex small flex-wrap mb-1 w-100">
         <div t-attf-class="d-flex flex-wrap align-items-center justify-content-between mx-n2 #{opt_blog_list_view and 'flex-grow-0 w-auto mw-100' or 'flex-grow-1' }">
-            <time t-field="blog_post.post_date" class="text-nowrap font-weight-bold px-2" t-options='{"format": "MMM d, yyyy"}'/>
+            <time t-field="blog_post.post_date" class="text-nowrap fw-bold px-2" t-options="{'widget': 'datetime', 'date_only': 'true', 'format': 'medium'}"/>
             <div t-if="is_view_active('website_blog.opt_posts_loop_show_stats')" class="px-2">
-                <b class="text-nowrap" title="Comments"><i class="fa fa-comment text-muted mr-1"/><t t-esc="len(blog_post.message_ids)"/></b>
-                <b class="text-nowrap pl-2" title="Views"><i class="fa fa-binoculars text-muted mr-1"/><t t-esc="blog_post.visits"/></b>
+                <b class="text-nowrap" title="Comments"><i class="fa fa-comment text-muted me-1"/><t t-out="len(blog_post.message_ids)"/></b>
+                <b class="text-nowrap ps-2" title="Views"><i class="fa fa-eye text-muted me-1"/><t t-out="blog_post.visits"/></b>
             </div>
             <b t-if="posts_list_show_parent_blog" class="text-nowrap text-truncate px-2">
                 <i class="fa fa-folder-open text-muted"/>
@@ -221,9 +210,9 @@ according to the enabled options.
     <div t-if="len(blog_post.tag_ids)" class="o_wblog_post_short_tag_section d-flex align-items-center flex-wrap pt-2">
         <t t-foreach="blog_post.tag_ids" t-as="one_tag">
             <a t-attf-href="#{blog_url(tag=tags_list(active_tag_ids, one_tag.id))}"
-               t-attf-class="badge mb-2 mr-1 text-truncate #{one_tag.id in active_tag_ids and 'badge-primary' or 'border'} post_link"
+               t-attf-class="badge mb-2 me-1 text-truncate o_tag o_color_#{one_tag.color} post_link"
                t-att-rel="len(active_tag_ids) and 'nofollow'"
-               t-esc="one_tag.name"/>
+               t-out="one_tag.name"/>
         </t>
     </div>
 </template>
@@ -232,15 +221,15 @@ according to the enabled options.
 <!--   ======================      OPTIONS      ===========================  -->
 <!--   ====================================================================  -->
 <!-- (Option) Posts List: Show Covers -->
-<template id="opt_posts_loop_show_cover" name="Cover" inherit_id="website_blog.posts_loop" active="True" customize_show="True"/>
+<template id="opt_posts_loop_show_cover" name="Cover" inherit_id="website_blog.posts_loop" active="True"/>
 
 <!-- (Option) Posts List: Show Author -->
-<template id="opt_posts_loop_show_author" name="Author" inherit_id="website_blog.posts_loop" active="True" customize_show="True"/>
+<template id="opt_posts_loop_show_author" name="Author" inherit_id="website_blog.posts_loop" active="True"/>
 
 <!-- (Option) Posts List: Show Post Stats -->
-<template id="opt_posts_loop_show_stats" name="Comments/Views Stats" inherit_id="website_blog.posts_loop" active="False" customize_show="True"/>
+<template id="opt_posts_loop_show_stats" name="Comments/Views Stats" inherit_id="website_blog.posts_loop" active="False"/>
 
 <!-- (Option) Posts List: Show Post Teaser -->
-<template id="opt_posts_loop_show_teaser" name="Teaser &amp; Tags" inherit_id="website_blog.posts_loop" active="True" customize_show="True"/>
+<template id="opt_posts_loop_show_teaser" name="Teaser &amp; Tags" inherit_id="website_blog.posts_loop" active="True"/>
 
 </odoo>

@@ -15,6 +15,7 @@
             <field name="is_attempts_limited" eval="True" />
             <field name="attempts_limit">3</field>
             <field name="description">&lt;p&gt;Test your furniture knowledge!&lt;/p&gt;</field>
+            <field name="lang_ids" eval="False"/>
         </record>
         <!-- Page 1 -->
         <record model="survey.question" id="furniture_certification_page_1">
@@ -22,6 +23,7 @@
             <field name="survey_id" ref="furniture_certification" />
             <field name="sequence">1</field>
             <field name="is_page" eval="True"/>
+            <field name="question_type" eval="False"/>
             <field name="description">&lt;p&gt;Test your furniture knowledge!&lt;/p&gt;</field>
         </record>
         <!-- Question and predefined answer 1 -->
@@ -60,7 +62,6 @@
             <field name="sequence">3</field>
             <field name="title">Select all the furniture shown in the video</field>
             <field name="question_type">multiple_choice</field>
-            <field name="column_nb">4</field>
         </record>
         <record model="survey.question.answer" id="furniture_certification_page_1_question_2_choice_1">
             <field name="question_id" ref="furniture_certification_page_1_question_2"/>

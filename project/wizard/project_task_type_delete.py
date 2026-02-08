@@ -2,19 +2,17 @@
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
 
 from odoo import api, fields, models, _
-from odoo.exceptions import ValidationError
-
-import ast
+from ast import literal_eval
 
 
-class ProjectTaskTypeDelete(models.TransientModel):
+class ProjectTaskTypeDeleteWizard(models.TransientModel):
     _name = 'project.task.type.delete.wizard'
-    _description = 'Project Stage Delete Wizard'
+    _description = 'Project Task Stage Delete Wizard'
 
-    project_ids = fields.Many2many('project.project', domain="['|', ('active', '=', False), ('active', '=', True)]", string='Projects', ondelete='cascade')
-    stage_ids = fields.Many2many('project.task.type', string='Stages To Delete', ondelete='cascade')
-    tasks_count = fields.Integer('Number of Tasks', compute='_compute_tasks_count')
-    stages_active = fields.Boolean(compute='_compute_stages_active')
+    project_ids = fields.Many2many('project.project', domain="['|', ('active', '=', False), ('active', '=', True)]", string='Projects', ondelete='cascade', export_string_translation=False)
+    stage_ids = fields.Many2many('project.task.type', string='Stages To Delete', ondelete='cascade', export_string_translation=False)
+    tasks_count = fields.Integer('Number of Tasks', compute='_compute_tasks_count', export_string_translation=False)
+    stages_active = fields.Boolean(compute='_compute_stages_active', export_string_translation=False)
 
     @api.depends('project_ids')
     def _compute_tasks_count(self):
@@ -41,6 +39,11 @@ class ProjectTaskTypeDelete(models.TransientModel):
             'context': self.env.context,
         }
 
+    def action_unarchive_task(self):
+        inactive_tasks = self.env['project.task'].with_context(active_test=False).search(
+            [('active', '=', False), ('stage_id', 'in', self.stage_ids.ids)])
+        inactive_tasks.action_unarchive()
+
     def action_confirm(self):
         tasks = self.with_context(active_test=False).env['project.task'].search([('stage_id', 'in', self.stage_ids.ids)])
         tasks.write({'active': False})
@@ -64,9 +67,11 @@ class ProjectTaskTypeDelete(models.TransientModel):
         elif self.env.context.get('stage_view'):
             action = self.env["ir.actions.actions"]._for_xml_id("project.open_task_type_form")
         else:
-            action = self.env["ir.actions.actions"]._for_xml_id("project.action_view_all_task")
+            action = self.env["ir.actions.actions"]._for_xml_id("project.action_view_my_task")
 
-        context = dict(ast.literal_eval(action.get('context')), active_test=True)
+        context = action.get('context', '{}')
+        context = context.replace('uid', str(self.env.uid))
+        context = dict(literal_eval(context), active_test=True)
         action['context'] = context
         action['target'] = 'main'
         return action

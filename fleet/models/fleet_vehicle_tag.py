@@ -9,6 +9,9 @@ class FleetVehicleTag(models.Model):
     _description = 'Vehicle Tag'
 
     name = fields.Char('Tag Name', required=True, translate=True)
-    color = fields.Integer('Color Index')
+    color = fields.Integer('Color')
 
-    _sql_constraints = [('name_uniq', 'unique (name)', "Tag name already exists !")]
+    _name_uniq = models.Constraint(
+        'unique (name)',
+        'Tag name already exists!',
+    )

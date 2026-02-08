@@ -1,25 +1,167 @@
-# -*- coding: utf-8 -*-
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
 
-import base64
-from unittest.mock import patch
+import contextlib
 
-from odoo.addons.mail.tests.common import mail_new_test_user
-from odoo.addons.test_mail.tests.common import TestMailCommon
-from odoo.addons.test_mail.models.test_mail_models import MailTestSimple
-from odoo.exceptions import AccessError, UserError
+from markupsafe import Markup
+
+from odoo.addons.base.models.ir_mail_server import MailDeliveryException
+from odoo.addons.mail.tests.common import mail_new_test_user, MailCommon
+from odoo.addons.mail.tools.discuss import Store
+from odoo.exceptions import UserError
+from odoo.tests.common import tagged, users, HttpCase
 from odoo.tools import is_html_empty, mute_logger, formataddr
-from odoo.tests import tagged, users
 
 
-@tagged('mail_message')
-class TestMessageValues(TestMailCommon):
+@tagged('mail_message', 'mail_controller', 'post_install', '-at_install')
+class TestMessageHelpersRobustness(MailCommon, HttpCase):
+    """ Test message helpers robustness, currently mainly linked to records
+    being removed from DB due to cascading deletion, which let side records
+    alive in DB. """
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+
+        cls.user_employee_2 = mail_new_test_user(
+            cls.env,
+            email='eglantine@example.com',
+            groups='base.group_user',
+            login='employee2',
+            notification_type='email',
+            name='Eglantine Employee',
+        )
+        cls.partner_employee_2 = cls.user_employee_2.partner_id
+
+        cls.test_records_simple, _partners = cls._create_records_for_batch(
+            'mail.test.simple', 3,
+        )
+
+    def setUp(self):
+        super().setUp()
+        # cleanup db
+        self.env['mail.notification'].search([('author_id', '=', self.partner_employee.id)]).unlink()
+
+        # handy shortcut variables
+        self.deleted_record = self.test_records_simple[2]
+
+        # generate crashed notifications
+        with mute_logger('odoo.addons.mail.models.mail_mail'), self.mock_mail_gateway():
+            def _send_email(*args, **kwargs):
+                raise MailDeliveryException("Some exception")
+            self.send_email_mocked.side_effect = _send_email
+
+            for record in self.test_records_simple.with_user(self.user_employee):
+                record.message_post(
+                    body="Setup",
+                    message_type='comment',
+                    partner_ids=self.partner_employee_2.ids,
+                    subtype_id=self.env.ref('mail.mt_comment').id,
+                )
+
+        # In the mean time, some FK deletes the record where the message is
+        # # scheduled, skipping its unlink() override
+        self.env.cr.execute(
+            f"DELETE FROM {self.test_records_simple._table} WHERE id = %s", (self.deleted_record.id,)
+        )
+        self.env.invalidate_all()
+
+    def test_assert_initial_values(self):
+        notifs_by_employee = self.env['mail.notification'].search([('author_id', '=', self.partner_employee.id)])
+        self.assertEqual(
+            set(notifs_by_employee.mapped('mail_message_id.res_id')),
+            set(self.test_records_simple.ids)
+        )
+        self.assertEqual(len(notifs_by_employee), 3)
+        self.assertTrue(all(notif.notification_status == 'exception' for notif in notifs_by_employee))
+        self.assertTrue(all(notif.res_partner_id == self.partner_employee_2 for notif in notifs_by_employee))
+
+    def test_load_message_failures(self):
+        self.authenticate(self.user_employee.login, self.user_employee.login)
+        with contextlib.suppress(Exception), mute_logger('odoo.http', 'odoo.sql_db'):  # suppress logged error due to readonly route doing an update
+            result = self.make_jsonrpc_request("/mail/data", {"fetch_params": ["failures"]})
+        self.assertEqual(sorted(r['thread']['id'] for r in result['mail.message']), sorted(self.test_records_simple[:2].ids))
+        self.assertEqual(
+            sorted(self.env['mail.notification'].search([('author_id', '=', self.partner_employee.id)]).mapped('mail_message_id.res_id')),
+            sorted((self.test_records_simple - self.deleted_record).ids),
+            'Should have cleaned notifications linked to unexisting records'
+        )
+
+    def test_load_message_failures_use_display_name(self):
+        test_record = self.env['mail.test.simple.unnamed'].create({'description': 'Some description'})
+        test_record.message_subscribe(partner_ids=self.partner_employee_2.ids)
+
+        self.authenticate(self.user_employee.login, self.user_employee.password)
+        msg = test_record.message_post(body='Some body', author_id=self.partner_employee.id)
+        # simulate failure
+        self.env['mail.notification'].create({
+            'author_id': msg.author_id.id,
+            'mail_message_id': msg.id,
+            'res_partner_id': self.partner_employee_2.id,
+            'notification_type': 'email',
+            'notification_status': 'exception',
+            'failure_type': 'mail_email_invalid',
+        })
+        with contextlib.suppress(Exception), mute_logger('odoo.http', 'odoo.sql_db'):  # suppress logged error due to readonly route doing an update
+            res = self.make_jsonrpc_request("/mail/data", {"fetch_params": ["failures"]})
+            self.assertEqual(
+                sorted(t["name"] for t in res["mail.thread"]),
+                sorted(['Some description'] + (self.test_records_simple - self.deleted_record).mapped('display_name'))
+            )
+
+    def test_message_fetch(self):
+        # set notifications to unread, so that we can simulate inbox usage
+        p2_notifications = self.env['mail.notification'].search([('res_partner_id', '=', self.partner_employee_2.id)])
+        p2_notifications.is_read = False
+
+        self.authenticate(self.user_employee_2.login, self.user_employee_2.login)
+        result = self.make_jsonrpc_request("/mail/inbox/messages", {})['data']
+        self.assertEqual(
+            {r['thread']['id'] if r['thread'] else False for r in result['mail.message']},
+            set((self.test_records_simple - self.deleted_record).ids + [False]),
+            'Currently reading message on missing record, crash avoided, void thread for missing record'
+        )
+        p2_notifications.with_user(self.user_employee_2).mail_message_id.set_message_done()
+
+        result = self.make_jsonrpc_request("/mail/history/messages", {})['data']
+        self.assertEqual(
+            {r['thread']['id'] if r['thread'] else False for r in result['mail.message']},
+            set((self.test_records_simple - self.deleted_record).ids + [False]),
+            'Currently reading message on missing record, crash avoided'
+        )
+
+    def test_message_link_by_employee(self):
+        record = self.test_records_simple[0]
+        thread_message = record.message_post(body='Thread Message', message_type='comment')
+        deleted_message = record.message_post(body='', message_type='comment')
+        self.authenticate(self.user_employee.login, self.user_employee.login)
+        with self.subTest(thread_message=thread_message):
+            expected_url = self.base_url() + f'/odoo/{thread_message.model}/{thread_message.res_id}?highlight_message_id={thread_message.id}'
+            res = self.url_open(f'/mail/message/{thread_message.id}')
+            self.assertEqual(res.url, expected_url)
+        with self.subTest(deleted_message=deleted_message):
+            res = self.url_open(f'/mail/message/{deleted_message.id}')
+
+    def test_notify_cancel_by_type(self):
+        """ Test canceling notifications, notably when having missing records. """
+        self.env.invalidate_all()
+        notifs_by_employee = self.env['mail.notification'].search([('author_id', '=', self.partner_employee.id)])
+
+        # do not crash even if removed record
+        self.test_records_simple.with_user(self.user_employee).notify_cancel_by_type('email')
+        self.env.invalidate_all()
+
+        notifs_by_employee = notifs_by_employee.exists()
+        self.assertEqual(len(notifs_by_employee), 3, 'Currently keep notifications for missing records')
+        self.assertTrue(all(notif.notification_status == 'canceled' for notif in notifs_by_employee))
+
+
+@tagged("mail_message", "post_install", "-at_install")
+class TestMessageValues(MailCommon):
 
     @classmethod
     def setUpClass(cls):
         super(TestMessageValues, cls).setUpClass()
 
-        cls._init_mail_gateway()
         cls.alias_record = cls.env['mail.test.container'].with_context(cls._test_context).create({
             'name': 'Pigs',
             'alias_name': 'pigs',
@@ -66,24 +208,28 @@ class TestMessageValues(TestMailCommon):
         self.assertFalse(message.sudo().tracking_value_ids)
 
         # Reset body case
-        message._update_content('<p><br /></p>', attachment_ids=message.attachment_ids.ids)
+        record._message_update_content(
+            message,
+            body=Markup("<p><br /></p>"),
+            attachment_ids=message.attachment_ids.ids,
+        )
         self.assertTrue(is_html_empty(message.body))
         self.assertFalse(message.sudo()._filter_empty(), 'Still having attachments')
 
         # Subtype content
-        note_subtype.write({'description': 'Very important discussions'})
-        message._update_content('', None)
+        note_subtype.sudo().write({'description': 'Very important discussions'})
+        record._message_update_content(message, body="", attachment_ids=[])
         self.assertFalse(message.attachment_ids)
         self.assertEqual(message.notified_partner_ids, self.partner_admin)
         self.assertEqual(message.starred_partner_ids, self.partner_admin)
         self.assertFalse(message.sudo()._filter_empty(), 'Subtype with description')
 
-        # Completely void now
-        note_subtype.write({'description': ''})
+        # Completely emptied now
+        note_subtype.sudo().write({'description': ''})
         self.assertEqual(message.sudo()._filter_empty(), message)
-        message._update_content('', None)
-        self.assertFalse(message.notified_partner_ids)
-        self.assertFalse(message.starred_partner_ids)
+        record._message_update_content(message.sudo(), body="", attachment_ids=[])
+        self.assertEqual(message.notified_partner_ids, self.partner_admin)  # message still notified (albeit content is removed)
+        self.assertEqual(message.starred_partner_ids, self.partner_admin)  # starred messages stay (albeit content is removed)
 
         # test tracking values
         record.write({'user_id': self.user_admin.id})
@@ -94,27 +240,13 @@ class TestMessageValues(TestMailCommon):
         self.assertFalse(tracking_message.subtype_id.description)
         self.assertFalse(tracking_message.sudo()._filter_empty(), 'Has tracking values')
         with self.assertRaises(UserError, msg='Tracking values prevent from updating content'):
-            tracking_message._update_content('', None)
+            record._message_update_content(tracking_message, body="", attachment_ids=[])
 
     @mute_logger('odoo.models.unlink')
-    def test_mail_message_format(self):
-        record1 = self.env['mail.test.simple'].create({'name': 'Test1'})
-        message = self.env['mail.message'].create([{
-            'model': 'mail.test.simple',
-            'res_id': record1.id,
-        }])
-        res = message.message_format()
-        self.assertEqual(res[0].get('record_name'), 'Test1')
-
-        record1.write({"name": "Test2"})
-        res = message.message_format()
-        self.assertEqual(res[0].get('record_name'), 'Test2')
-
-    @mute_logger('odoo.models.unlink')
-    def test_mail_message_format_access(self):
+    def test_mail_message_to_store_access(self):
         """
         User that doesn't have access to a record should still be able to fetch
-        the record_name inside message_format.
+        the record_name inside message _to_store.
         """
         company_2 = self.env['res.company'].create({'name': 'Second Test Company'})
         record1 = self.env['mail.test.multi.company'].create({
@@ -124,11 +256,67 @@ class TestMessageValues(TestMailCommon):
         message = record1.message_post(body='', partner_ids=[self.user_employee.partner_id.id])
         # We need to flush and invalidate the ORM cache since the record_name
         # is already cached from the creation. Otherwise it will leak inside
-        # message_format.
-        message.flush()
-        message.invalidate_cache()
-        res = message.with_user(self.user_employee).message_format()
-        self.assertEqual(res[0].get('record_name'), 'Test1')
+        # message _to_store.
+        self.env.flush_all()
+        self.env.invalidate_all()
+        res = Store().add(message.with_user(self.user_employee)).get_result()
+        self.assertEqual(res["mail.message"][0].get("record_name"), "Test1")
+
+        record1.write({"name": "Test2"})
+        self.env.flush_all()
+        self.env.invalidate_all()
+        res = Store().add(message.with_user(self.user_employee)).get_result()
+        self.assertEqual(res["mail.message"][0].get('record_name'), 'Test2')
+
+        # check model not inheriting from mail.thread -> should not crash
+        record_nothread = self.env['mail.test.nothread'].create({'name': 'NoThread'})
+        message = self.env['mail.message'].create({
+            'model': record_nothread._name,
+            'res_id': record_nothread.id,
+        })
+        formatted = Store().add(message).get_result()["mail.message"][0]
+        self.assertEqual(formatted['record_name'], record_nothread.name)
+
+    def test_records_by_message(self):
+        record1 = self.env["mail.test.simple"].create({"name": "Test1"})
+        record2 = self.env["mail.test.simple"].create({"name": "Test1"})
+        record3 = self.env["mail.test.nothread"].create({"name": "Test2"})
+        messages = self.env["mail.message"].create(
+            [
+                {
+                    "model": record._name,
+                    "res_id": record.id,
+                }
+                for record in [record1, record2, record3]
+            ]
+        )
+        # methods called on batch of message
+        records_by_model_name = messages._records_by_model_name()
+        test_simple_records = records_by_model_name["mail.test.simple"]
+        self.assertEqual(test_simple_records, record1 + record2)
+        self.assertEqual(test_simple_records._prefetch_ids, tuple((record1 + record2).ids))
+        test_no_thread_records = records_by_model_name["mail.test.nothread"]
+        self.assertEqual(test_no_thread_records, record3)
+        self.assertEqual(test_no_thread_records._prefetch_ids, tuple(record3.ids))
+        record_by_message = messages._record_by_message()
+        m0_records = record_by_message[messages[0]]
+        self.assertEqual(m0_records, record1)
+        self.assertEqual(m0_records._prefetch_ids, tuple((record1 + record2).ids))
+        m1_records = record_by_message[messages[1]]
+        self.assertEqual(m1_records, record2)
+        self.assertEqual(m1_records._prefetch_ids, tuple((record1 + record2).ids))
+        m2_records = record_by_message[messages[2]]
+        self.assertEqual(m2_records, record3)
+        self.assertEqual(m2_records._prefetch_ids, tuple(record3.ids))
+        # methods called on individual message from a batch: prefetch from batch is kept
+        records_by_model_name = next(iter(messages))._records_by_model_name()
+        test_simple_records = records_by_model_name["mail.test.simple"]
+        self.assertEqual(test_simple_records, record1)
+        self.assertEqual(test_simple_records._prefetch_ids, tuple((record1 + record2).ids))
+        record_by_message = next(iter(messages))._record_by_message()
+        m0_records = record_by_message[messages[0]]
+        self.assertEqual(m0_records, record1)
+        self.assertEqual(m0_records._prefetch_ids, tuple((record1 + record2).ids))
 
     def test_mail_message_values_body_base64_image(self):
         msg = self.env['mail.message'].with_user(self.user_employee).create({
@@ -150,7 +338,7 @@ class TestMessageValues(TestMailCommon):
         + commit linked to this test). """
         # name would make it blow up: keep only email
         test_record = self.env['mail.test.container'].browse(self.alias_record.ids)
-        test_record.write({
+        self.user_employee.write({
             'name': 'Super Long Name That People May Enter "Even with an internal quoting of stuff"'
         })
         msg = self.env['mail.message'].create({
@@ -161,40 +349,11 @@ class TestMessageValues(TestMailCommon):
         self.assertEqual(msg.reply_to, reply_to_email,
                          'Reply-To: use only email when formataddr > 68 chars')
 
-        # name + company_name would make it blow up: keep record_name in formatting
-        self.company_admin.name = "Company name being about 33 chars"
-        test_record.write({'name': 'Name that would be more than 68 with company name'})
-        msg = self.env['mail.message'].create({
-            'model': test_record._name,
-            'res_id': test_record.id
-        })
-        self.assertEqual(msg.reply_to, formataddr((test_record.name, reply_to_email)),
-                         'Reply-To: use recordname as name in format if recordname + company > 68 chars')
-
-        # no record_name: keep company_name in formatting if ok
-        test_record.write({'name': ''})
-        msg = self.env['mail.message'].create({
-            'model': test_record._name,
-            'res_id': test_record.id
-        })
-        self.assertEqual(msg.reply_to, formataddr((self.env.user.company_id.name, reply_to_email)),
-                         'Reply-To: use company as name in format when no record name and still < 68 chars')
-
-        # no record_name and company_name make it blow up: keep only email
-        self.env.user.company_id.write({'name': 'Super Long Name That People May Enter "Even with an internal quoting of stuff"'})
-        msg = self.env['mail.message'].create({
-            'model': test_record._name,
-            'res_id': test_record.id
-        })
-        self.assertEqual(msg.reply_to, reply_to_email,
-                         'Reply-To: use only email when formataddr > 68 chars')
-
         # whatever the record and company names, email is too long: keep only email
         test_record.write({
             'alias_name': 'Waaaay too long alias name that should make any reply-to blow the 68 characters limit',
             'name': 'Short',
         })
-        self.env.user.company_id.write({'name': 'Comp'})
         sanitized_alias_name = 'waaaay-too-long-alias-name-that-should-make-any-reply-to-blow-the-68-characters-limit'
         msg = self.env['mail.message'].create({
             'model': test_record._name,
@@ -203,6 +362,7 @@ class TestMessageValues(TestMailCommon):
         self.assertEqual(msg.reply_to, f"{sanitized_alias_name}@{self.alias_domain}",
                          'Reply-To: even a long email is ok as only formataddr is problematic')
 
+    @users('employee')
     @mute_logger('odoo.models.unlink')
     def test_mail_message_values_fromto_no_document_values(self):
         msg = self.Message.create({
@@ -213,32 +373,26 @@ class TestMessageValues(TestMailCommon):
         self.assertEqual(msg.reply_to, 'test.reply@example.com')
         self.assertEqual(msg.email_from, 'test.from@example.com')
 
+    @users('employee')
     @mute_logger('odoo.models.unlink')
     def test_mail_message_values_fromto_no_document(self):
         msg = self.Message.create({})
         self.assertIn('-private', msg.message_id.split('@')[0], 'mail_message: message_id for a void message should be a "private" one')
-        reply_to_name = self.env.user.company_id.name
+        reply_to_name = self.user_employee.name
         reply_to_email = '%s@%s' % (self.alias_catchall, self.alias_domain)
         self.assertEqual(msg.reply_to, formataddr((reply_to_name, reply_to_email)))
         self.assertEqual(msg.email_from, formataddr((self.user_employee.name, self.user_employee.email)))
 
         # no alias domain -> author
-        self.env['ir.config_parameter'].search([('key', '=', 'mail.catchall.domain')]).unlink()
+        self.env.company.sudo().alias_domain_id = False
+        self.assertFalse(self.env.company.catchall_email)
 
         msg = self.Message.create({})
         self.assertIn('-private', msg.message_id.split('@')[0], 'mail_message: message_id for a void message should be a "private" one')
         self.assertEqual(msg.reply_to, formataddr((self.user_employee.name, self.user_employee.email)))
         self.assertEqual(msg.email_from, formataddr((self.user_employee.name, self.user_employee.email)))
 
-        # no alias catchall, no alias -> author
-        self.env['ir.config_parameter'].set_param('mail.catchall.domain', self.alias_domain)
-        self.env['ir.config_parameter'].search([('key', '=', 'mail.catchall.alias')]).unlink()
-
-        msg = self.Message.create({})
-        self.assertIn('-private', msg.message_id.split('@')[0], 'mail_message: message_id for a void message should be a "private" one')
-        self.assertEqual(msg.reply_to, formataddr((self.user_employee.name, self.user_employee.email)))
-        self.assertEqual(msg.email_from, formataddr((self.user_employee.name, self.user_employee.email)))
-
+    @users('employee')
     @mute_logger('odoo.models.unlink')
     def test_mail_message_values_fromto_document_alias(self):
         msg = self.Message.create({
@@ -246,13 +400,15 @@ class TestMessageValues(TestMailCommon):
             'res_id': self.alias_record.id
         })
         self.assertIn('-openerp-%d-mail.test' % self.alias_record.id, msg.message_id.split('@')[0])
-        reply_to_name = '%s %s' % (self.env.user.company_id.name, self.alias_record.name)
+        reply_to_name = self.user_employee.name
         reply_to_email = '%s@%s' % (self.alias_record.alias_name, self.alias_domain)
         self.assertEqual(msg.reply_to, formataddr((reply_to_name, reply_to_email)))
         self.assertEqual(msg.email_from, formataddr((self.user_employee.name, self.user_employee.email)))
 
-        # no alias domain -> author
-        self.env['ir.config_parameter'].search([('key', '=', 'mail.catchall.domain')]).unlink()
+        # no alias domain, no company catchall -> author
+        self.alias_record.alias_domain_id = False
+        self.env.company.sudo().alias_domain_id = False
+        self.assertFalse(self.env.company.catchall_email)
 
         msg = self.Message.create({
             'model': 'mail.test.container',
@@ -262,20 +418,18 @@ class TestMessageValues(TestMailCommon):
         self.assertEqual(msg.reply_to, formataddr((self.user_employee.name, self.user_employee.email)))
         self.assertEqual(msg.email_from, formataddr((self.user_employee.name, self.user_employee.email)))
 
-        # no catchall -> don't care, alias
-        self.env['ir.config_parameter'].set_param('mail.catchall.domain', self.alias_domain)
-        self.env['ir.config_parameter'].search([('key', '=', 'mail.catchall.alias')]).unlink()
+        # alias wins over company, hence no catchall is not an issue
+        self.alias_record.alias_domain_id = self.mail_alias_domain
 
         msg = self.Message.create({
             'model': 'mail.test.container',
             'res_id': self.alias_record.id
         })
         self.assertIn('-openerp-%d-mail.test' % self.alias_record.id, msg.message_id.split('@')[0])
-        reply_to_name = '%s %s' % (self.env.company.name, self.alias_record.name)
-        reply_to_email = '%s@%s' % (self.alias_record.alias_name, self.alias_domain)
         self.assertEqual(msg.reply_to, formataddr((reply_to_name, reply_to_email)))
         self.assertEqual(msg.email_from, formataddr((self.user_employee.name, self.user_employee.email)))
 
+    @users('employee')
     @mute_logger('odoo.models.unlink')
     def test_mail_message_values_fromto_document_no_alias(self):
         test_record = self.env['mail.test.simple'].create({'name': 'Test', 'email_from': 'ignasse@example.com'})
@@ -285,17 +439,17 @@ class TestMessageValues(TestMailCommon):
             'res_id': test_record.id
         })
         self.assertIn('-openerp-%d-mail.test.simple' % test_record.id, msg.message_id.split('@')[0])
-        reply_to_name = '%s %s' % (self.env.user.company_id.name, test_record.name)
+        reply_to_name = self.user_employee.name
         reply_to_email = '%s@%s' % (self.alias_catchall, self.alias_domain)
         self.assertEqual(msg.reply_to, formataddr((reply_to_name, reply_to_email)))
         self.assertEqual(msg.email_from, formataddr((self.user_employee.name, self.user_employee.email)))
 
+    @users('employee')
     @mute_logger('odoo.models.unlink')
     def test_mail_message_values_fromto_document_manual_alias(self):
         test_record = self.env['mail.test.simple'].create({'name': 'Test', 'email_from': 'ignasse@example.com'})
-        alias = self.env['mail.alias'].create({
+        alias = self.env['mail.alias'].sudo().create({
             'alias_name': 'MegaLias',
-            'alias_user_id': False,
             'alias_model_id': self.env['ir.model']._get('mail.test.simple').id,
             'alias_parent_model_id': self.env['ir.model']._get('mail.test.simple').id,
             'alias_parent_thread_id': test_record.id,
@@ -307,11 +461,12 @@ class TestMessageValues(TestMailCommon):
         })
 
         self.assertIn('-openerp-%d-mail.test.simple' % test_record.id, msg.message_id.split('@')[0])
-        reply_to_name = '%s %s' % (self.env.user.company_id.name, test_record.name)
+        reply_to_name = self.user_employee.name
         reply_to_email = '%s@%s' % (alias.alias_name, self.alias_domain)
         self.assertEqual(msg.reply_to, formataddr((reply_to_name, reply_to_email)))
         self.assertEqual(msg.email_from, formataddr((self.user_employee.name, self.user_employee.email)))
 
+    @users('employee')
     def test_mail_message_values_fromto_reply_to_force_new(self):
         msg = self.Message.create({
             'model': 'mail.test.container',
@@ -322,204 +477,7 @@ class TestMessageValues(TestMailCommon):
         self.assertNotIn('mail.test.container', msg.message_id.split('@')[0])
         self.assertNotIn('-%d-' % self.alias_record.id, msg.message_id.split('@')[0])
 
-
-@tagged('mail_message')
-class TestMessageAccess(TestMailCommon):
-
-    @classmethod
-    def setUpClass(cls):
-        super(TestMessageAccess, cls).setUpClass()
-
-        cls.user_public = mail_new_test_user(cls.env, login='bert', groups='base.group_public', name='Bert Tartignole')
-        cls.user_portal = mail_new_test_user(cls.env, login='chell', groups='base.group_portal', name='Chell Gladys')
-
-        Channel = cls.env['mail.channel'].with_context(cls._test_context)
-        # Pigs: base group for tests
-        cls.group_pigs = Channel.create({
-            'name': 'Pigs',
-            'public': 'groups',
-            'group_public_id': cls.env.ref('base.group_user').id})
-        # Jobs: public group
-        cls.group_public = Channel.create({
-            'name': 'Jobs',
-            'description': 'NotFalse',
-            'public': 'public'})
-        # Private: private gtroup
-        cls.group_private = Channel.create({
-            'name': 'Private',
-            'public': 'private'})
-        cls.message = cls.env['mail.message'].create({
-            'body': 'My Body',
-            'model': 'mail.channel',
-            'res_id': cls.group_private.id,
-        })
-
-    @mute_logger('odoo.addons.mail.models.mail_mail')
-    def test_mail_message_access_search(self):
-        # Data: various author_ids, partner_ids, documents
-        msg1 = self.env['mail.message'].create({
-            'subject': '_ZTest', 'body': 'A', 'subtype_id': self.ref('mail.mt_comment')})
-        msg2 = self.env['mail.message'].create({
-            'subject': '_ZTest', 'body': 'A+B', 'subtype_id': self.ref('mail.mt_comment'),
-            'partner_ids': [(6, 0, [self.user_public.partner_id.id])]})
-        msg3 = self.env['mail.message'].create({
-            'subject': '_ZTest', 'body': 'A Pigs', 'subtype_id': False,
-            'model': 'mail.channel', 'res_id': self.group_pigs.id})
-        msg4 = self.env['mail.message'].create({
-            'subject': '_ZTest', 'body': 'A+P Pigs', 'subtype_id': self.ref('mail.mt_comment'),
-            'model': 'mail.channel', 'res_id': self.group_pigs.id,
-            'partner_ids': [(6, 0, [self.user_public.partner_id.id])]})
-        msg5 = self.env['mail.message'].create({
-            'subject': '_ZTest', 'body': 'A+E Pigs', 'subtype_id': self.ref('mail.mt_comment'),
-            'model': 'mail.channel', 'res_id': self.group_pigs.id,
-            'partner_ids': [(6, 0, [self.user_employee.partner_id.id])]})
-        msg6 = self.env['mail.message'].create({
-            'subject': '_ZTest', 'body': 'A Birds', 'subtype_id': self.ref('mail.mt_comment'),
-            'model': 'mail.channel', 'res_id': self.group_private.id})
-        msg7 = self.env['mail.message'].with_user(self.user_employee).create({
-            'subject': '_ZTest', 'body': 'B', 'subtype_id': self.ref('mail.mt_comment')})
-        msg8 = self.env['mail.message'].with_user(self.user_employee).create({
-            'subject': '_ZTest', 'body': 'B+E', 'subtype_id': self.ref('mail.mt_comment'),
-            'partner_ids': [(6, 0, [self.user_employee.partner_id.id])]})
-
-        # Test: Public: 2 messages (recipient)
-        messages = self.env['mail.message'].with_user(self.user_public).search([('subject', 'like', '_ZTest')])
-        self.assertEqual(messages, msg2 | msg4)
-
-        # Test: Employee: 3 messages on Pigs Raoul can read (employee can read group with default values)
-        messages = self.env['mail.message'].with_user(self.user_employee).search([('subject', 'like', '_ZTest'), ('body', 'ilike', 'A')])
-        self.assertEqual(messages, msg3 | msg4 | msg5)
-
-        # Test: Raoul: 3 messages on Pigs Raoul can read (employee can read group with default values), 0 on Birds (private group) + 2 messages as author
-        messages = self.env['mail.message'].with_user(self.user_employee).search([('subject', 'like', '_ZTest')])
-        self.assertEqual(messages, msg3 | msg4 | msg5 | msg7 | msg8)
-
-        # Test: Admin: all messages
-        messages = self.env['mail.message'].search([('subject', 'like', '_ZTest')])
-        self.assertEqual(messages, msg1 | msg2 | msg3 | msg4 | msg5 | msg6 | msg7 | msg8)
-
-        # Test: Portal: 0 (no access to groups, not recipient)
-        messages = self.env['mail.message'].with_user(self.user_portal).search([('subject', 'like', '_ZTest')])
-        self.assertFalse(messages)
-
-        # Test: Portal: 2 messages (public group with a subtype)
-        self.group_pigs.write({'public': 'public'})
-        messages = self.env['mail.message'].with_user(self.user_portal).search([('subject', 'like', '_ZTest')])
-        self.assertEqual(messages, msg4 | msg5)
-
-    # --------------------------------------------------
-    # READ
-    # --------------------------------------------------
-
-    @mute_logger('odoo.addons.base.models.ir_model', 'odoo.models')
-    def test_mail_message_access_read_crash(self):
-        with self.assertRaises(AccessError):
-            self.message.with_user(self.user_employee).read()
-
-    @mute_logger('odoo.models')
-    def test_mail_message_access_read_crash_portal(self):
-        with self.assertRaises(AccessError):
-            self.message.with_user(self.user_portal).read(['body', 'message_type', 'subtype_id'])
-
-    def test_mail_message_access_read_ok_portal(self):
-        self.message.write({'subtype_id': self.ref('mail.mt_comment'), 'res_id': self.group_public.id})
-        self.message.with_user(self.user_portal).read(['body', 'message_type', 'subtype_id'])
-
-    def test_mail_message_access_read_notification(self):
-        attachment = self.env['ir.attachment'].create({
-            'datas': base64.b64encode(b'My attachment'),
-            'name': 'doc.txt',
-            'res_model': self.message._name,
-            'res_id': self.message.id})
-        # attach the attachment to the message
-        self.message.write({'attachment_ids': [(4, attachment.id)]})
-        self.message.write({'partner_ids': [(4, self.user_employee.partner_id.id)]})
-        self.message.with_user(self.user_employee).read()
-        # Test: Bert has access to attachment, ok because he can read message
-        attachment.with_user(self.user_employee).read(['name', 'datas'])
-
-    def test_mail_message_access_read_author(self):
-        self.message.write({'author_id': self.user_employee.partner_id.id})
-        self.message.with_user(self.user_employee).read()
-
-    def test_mail_message_access_read_doc(self):
-        self.message.write({'model': 'mail.channel', 'res_id': self.group_public.id})
-        # Test: Bert reads the message, ok because linked to a doc he is allowed to read
-        self.message.with_user(self.user_employee).read()
-
-    # --------------------------------------------------
-    # CREATE
-    # --------------------------------------------------
-
-    @mute_logger('odoo.addons.base.models.ir_model')
-    def test_mail_message_access_create_crash_public(self):
-        # Do: Bert creates a message on Pigs -> ko, no creation rights
-        with self.assertRaises(AccessError):
-            self.env['mail.message'].with_user(self.user_public).create({'model': 'mail.channel', 'res_id': self.group_pigs.id, 'body': 'Test'})
-
-        # Do: Bert create a message on Jobs -> ko, no creation rights
-        with self.assertRaises(AccessError):
-            self.env['mail.message'].with_user(self.user_public).create({'model': 'mail.channel', 'res_id': self.group_public.id, 'body': 'Test'})
-
-    @mute_logger('odoo.models')
-    def test_mail_message_access_create_crash(self):
-        # Do: Bert create a private message -> ko, no creation rights
-        with self.assertRaises(AccessError):
-            self.env['mail.message'].with_user(self.user_employee).create({'model': 'mail.channel', 'res_id': self.group_private.id, 'body': 'Test'})
-
-    @mute_logger('odoo.models')
-    def test_mail_message_access_create_doc(self):
-        Message = self.env['mail.message'].with_user(self.user_employee)
-        # Do: Raoul creates a message on Jobs -> ok, write access to the related document
-        Message.create({'model': 'mail.channel', 'res_id': self.group_public.id, 'body': 'Test'})
-        # Do: Raoul creates a message on Priv -> ko, no write access to the related document
-        with self.assertRaises(AccessError):
-            Message.create({'model': 'mail.channel', 'res_id': self.group_private.id, 'body': 'Test'})
-
-    def test_mail_message_access_create_private(self):
-        self.env['mail.message'].with_user(self.user_employee).create({'body': 'Test'})
-
-    def test_mail_message_access_create_reply(self):
-        # TDE FIXME: should it really work ? not sure - catchall makes crash (aka, post will crash also)
-        self.env['ir.config_parameter'].set_param('mail.catchall.domain', False)
-        self.message.write({'partner_ids': [(4, self.user_employee.partner_id.id)]})
-        self.env['mail.message'].with_user(self.user_employee).create({'model': 'mail.channel', 'res_id': self.group_private.id, 'body': 'Test', 'parent_id': self.message.id})
-
-    def test_mail_message_access_create_wo_parent_access(self):
-        """ Purpose is to test posting a message on a record whose first message / parent
-        is not accessible by current user. """
-        test_record = self.env['mail.test.simple'].with_context(self._test_context).create({'name': 'Test', 'email_from': 'ignasse@example.com'})
-        partner_1 = self.env['res.partner'].create({
-            'name': 'Jitendra Prajapati (jpr-odoo)',
-            'email': 'jpr@odoo.com',
-        })
-        test_record.message_subscribe((partner_1 | self.user_admin.partner_id).ids)
-
-        message = test_record.message_post(
-            body='<p>This is First Message</p>', subject='Subject',
-            message_type='comment', subtype_xmlid='mail.mt_note')
-        # portal user have no rights to read the message
-        with self.assertRaises(AccessError):
-            message.with_user(self.user_portal).read(['subject, body'])
-
-        with patch.object(MailTestSimple, 'check_access_rights', return_value=True):
-            with self.assertRaises(AccessError):
-                message.with_user(self.user_portal).read(['subject, body'])
-
-            # parent message is accessible to references notification mail values
-            # for _notify method and portal user have no rights to send the message for this model
-            new_msg = test_record.with_user(self.user_portal).message_post(
-                body='<p>This is Second Message</p>',
-                subject='Subject',
-                parent_id=message.id,
-                message_type='comment',
-                subtype_xmlid='mail.mt_comment',
-                mail_auto_delete=False)
-
-        new_mail = self.env['mail.mail'].sudo().search([
-            ('mail_message_id', '=', new_msg.id),
-            ('references', '=', f'{message.message_id} {new_msg.message_id}'),
-        ])
-
-        self.assertTrue(new_mail)
-        self.assertEqual(new_msg.parent_id, message)
+    def test_mail_message_values_misc(self):
+        """ Test various values on mail.message, notably default values """
+        msg = self.env['mail.message'].create({'model': self.alias_record._name, 'res_id': self.alias_record.id})
+        self.assertEqual(msg.message_type, 'comment', 'Message should be comments by default')

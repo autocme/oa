@@ -10,19 +10,18 @@ by external providers and will automatically generate purchase orders directed t
     """,
     'version': '1.0',
     'website': 'https://www.odoo.com/',
-    'category': 'Hidden',
+    'category': 'Sales/Sales',
     'depends': [
         'sale',
         'purchase',
     ],
     'data': [
-        'data/mail_data.xml',
+        'data/mail_templates.xml',
         'views/product_views.xml',
         'views/sale_order_views.xml',
         'views/purchase_order_views.xml',
     ],
-    'demo': [
-    ],
     'auto_install': True,
+    'author': 'Odoo S.A.',
     'license': 'LGPL-3',
 }

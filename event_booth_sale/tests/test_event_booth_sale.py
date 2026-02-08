@@ -1,18 +1,28 @@
 # -*- coding: utf-8 -*-
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
 
-from odoo import Command
+from datetime import datetime, timedelta
+
+from odoo import Command, fields
 from odoo.addons.event_booth_sale.tests.common import TestEventBoothSaleCommon
-from odoo.addons.sale.tests.common import TestSaleCommon
+from odoo.addons.sales_team.tests.common import TestSalesCommon
+from odoo.addons.account.tests.common import AccountTestInvoicingCommon
 from odoo.tests.common import tagged, users
 from odoo.tools import float_compare
 
 
-class TestEventBoothSaleWData(TestEventBoothSaleCommon):
+class TestEventBoothSaleWData(TestEventBoothSaleCommon, TestSalesCommon):
 
     @classmethod
     def setUpClass(cls):
         super(TestEventBoothSaleWData, cls).setUpClass()
+
+        cls.event_0 = cls.env['event.event'].create({
+            'name': 'TestEvent',
+            'date_begin': fields.Datetime.to_string(datetime.today() + timedelta(days=1)),
+            'date_end': fields.Datetime.to_string(datetime.today() + timedelta(days=15)),
+            'date_tz': 'Europe/Brussels',
+        })
 
         cls.booth_1, cls.booth_2, cls.booth_3 = cls.env['event.booth'].create([
             {
@@ -61,7 +71,7 @@ class TestEventBoothSale(TestEventBoothSaleWData):
                          "Total amount should be the sum of the booths prices with 10% taxes ($40.0 + $4.0)")
 
         self.event_booth_category_1.write({'price': 100.0})
-        sale_order.update_prices()
+        sale_order._recompute_prices()
 
         self.assertNotEqual(self.booth_1.price, self.event_booth_product.list_price,
                             "Booth price should be different from product price.")
@@ -72,6 +82,14 @@ class TestEventBoothSale(TestEventBoothSaleWData):
                          "Untaxed amount should be the sum of the booths prices ($200.0).")
         self.assertEqual(float_compare(sale_order.amount_total, 220.0, precision_rounding=0.1), 0,
                          "Total amount should be the sum of the booths prices with 10% taxes ($200.0 + $20.0).")
+
+        sale_order.pricelist_id = self.test_pricelist_with_discount_included
+        sale_order._recompute_prices()
+
+        self.assertEqual(float_compare(sale_order.amount_untaxed, 180.0, precision_rounding=0.1), 0,
+                         "Untaxed amount should be the sum of the booths prices with discount 10% ($180.0).")
+        self.assertEqual(float_compare(sale_order.amount_total, 198.0, precision_rounding=0.1), 0,
+                         "Total amount should be the sum of the booths prices with 10% taxes ($180.0 + $18.0).")
 
         # Confirm the SO.
         sale_order.action_confirm()
@@ -92,9 +110,6 @@ class TestEventBoothSale(TestEventBoothSaleWData):
             self.assertEqual(
                 booth.contact_name, self.event_customer.name,
                 "Booth contact name should be the same as sale order customer name.")
-            self.assertEqual(
-                booth.contact_mobile, self.event_customer.mobile,
-                "Booth contact mobile should be the same as sale order customer mobile.")
             self.assertEqual(
                 booth.contact_phone, self.event_customer.phone,
                 "Booth contact phone should be the same as sale order customer phone.")
@@ -118,10 +133,6 @@ class TestEventBoothSale(TestEventBoothSaleWData):
             ]
         })
 
-        # Confirm the SO.
-        sale_order.action_confirm()
-        self.assertEqual(sale_order.event_booth_count, 2,
-                         "Event Booth Count should be equal to 2.")
         self.assertEqual(sale_order.order_line.event_booth_registration_ids.event_booth_id.ids,
                          (self.booth_1 + self.booth_2).ids,
                          "Booths not correctly linked with event_booth_registration.")
@@ -130,7 +141,7 @@ class TestEventBoothSale(TestEventBoothSaleWData):
         sale_order.write({
             'order_line': [
                 Command.update(sale_order.order_line.id, {
-                    'event_booth_pending_ids':[Command.set((self.booth_2 + self.booth_3).ids)]
+                    'event_booth_pending_ids': [Command.set((self.booth_2 + self.booth_3).ids)]
                 })
             ]
         })
@@ -144,14 +155,14 @@ class TestEventBoothSale(TestEventBoothSaleWData):
                          "Booths not correctly linked with event_booth_registration.")
 
 @tagged('post_install', '-at_install')
-class TestEventBoothSaleInvoice(TestSaleCommon, TestEventBoothSaleWData):
+class TestEventBoothSaleInvoice(AccountTestInvoicingCommon, TestEventBoothSaleWData):
 
     @classmethod
     def setUpClass(cls):
-        super(TestEventBoothSaleInvoice, cls).setUpClass()
+        super().setUpClass()
 
         # Add group `group_account_invoice` to user_sales_salesman to allow to pay the invoice
-        cls.user_sales_salesman.groups_id += cls.env.ref('account.group_account_invoice')
+        cls.user_sales_salesman.group_ids += cls.env.ref('account.group_account_invoice')
 
     @users('user_sales_salesman')
     def test_event_booth_with_invoice(self):
@@ -182,12 +193,8 @@ class TestEventBoothSaleInvoice(TestSaleCommon, TestEventBoothSaleWData):
         self.assertEqual(
             sale_order.invoice_status, 'invoiced',
             f"Order is in '{sale_order.invoice_status}' status while it should be 'invoiced'.")
-        # Pay the invoice.
-        journal = self.env['account.journal'].search([('type', '=', 'cash'), ('company_id', '=', sale_order.company_id.id)], limit=1)
 
-        register_payments = self.env['account.payment.register'].with_context(active_model='account.move', active_ids=invoice.ids).create({
-            'journal_id': journal.id,
-        })
+        register_payments = self.env['account.payment.register'].with_context(active_model='account.move', active_ids=invoice.ids).create({})
         register_payments._create_payments()
 
         # Check the invoice payment state after paying the invoice
@@ -196,4 +203,8 @@ class TestEventBoothSaleInvoice(TestSaleCommon, TestEventBoothSaleWData):
             f"Invoice payment is in '{invoice.payment_state}' status while it should be '{in_payment_state}'.")
 
         self.assertEqual(booth.state, 'unavailable')
+        # When running without enterprise the payments get reconciled immediately.
+        is_paid = self.env['account.move']._get_invoice_in_payment_state() == 'paid'
+        self.assertEqual(is_paid, booth.is_paid)
+        invoice._invoice_paid_hook()
         self.assertTrue(booth.is_paid)

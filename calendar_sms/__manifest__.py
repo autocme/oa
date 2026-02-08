@@ -6,14 +6,13 @@
     'version': "1.1",
     'summary': 'Send text messages as event reminders',
     'description': "Send text messages as event reminders",
-    'category': 'Hidden',
+    'category': 'Productivity/Calendar',
     'depends': ['calendar', 'sms'],
     'data': [
-        'security/sms_security.xml',
         'data/sms_data.xml',
         'views/calendar_views.xml',
     ],
-    'application': False,
     'auto_install': True,
+    'author': 'Odoo S.A.',
     'license': 'LGPL-3',
 }

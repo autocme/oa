@@ -1,33 +1,49 @@
-# -*- encoding: utf-8 -*-
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
 {
     'name': 'Saudi Arabia - Accounting',
-    'version': '2.0',
-    'author': 'DVIT.ME',
+    'icon': '/account/static/description/l10n.png',
+    'countries': ['sa'],
+    'version': '2.2',
+    'author': 'Odoo S.A.',
     'category': 'Accounting/Localizations/Account Charts',
+    'website': 'https://www.odoo.com/documentation/latest/applications/finance/fiscal_localizations/saudi_arabia.html',
     'description': """
-Odoo Arabic localization for most arabic countries and Saudi Arabia.
+Saudi Arabia Accounting Module
+===========================================================
+Saudi Arabia Accounting Basic Charts and Localization
 
-This initially includes chart of accounts of USA translated to Arabic.
+Activates:
 
-In future this module will include some payroll rules for ME .
+- Chart of Accounts
+- Taxes
+- VAT Return
+- Withholding Return
+- Fiscal Positions
 """,
-    'website': 'http://www.dvit.me',
-    'depends': ['account', 'l10n_multilang'],
+    'depends': [
+        'l10n_gcc_invoice',
+        'account',
+        'account_debit_note',
+    ],
+    'auto_install': ['account'],
     'data': [
         'data/account_data.xml',
-        'data/account_chart_template_data.xml',
-        'data/account.account.template.csv',
-        'data/account_tax_group.xml',
-        'data/l10n_sa_chart_data.xml',
         'data/account_tax_report_data.xml',
-        'data/account_tax_template_data.xml',
-        'data/account_fiscal_position_template_data.xml',
-        'data/account_chart_template_configure_data.xml',
+        'data/account_tax_report_withholding_data.xml',
+        'data/report_paperformat_data.xml',
+        'views/account_move_views.xml',
+        'views/report_invoice.xml',
+        'wizard/account_debit_note.xml',
+        'wizard/account_move_reversal_views.xml',
+        'views/report_templates_views.xml',
     ],
     'demo': [
         'demo/demo_company.xml',
     ],
-    'post_init_hook': 'load_translations',
     'license': 'LGPL-3',
+    "assets": {
+        "web.report_assets_common": [
+            "l10n_sa/static/src/scss/styles.scss",
+        ],
+    },
 }

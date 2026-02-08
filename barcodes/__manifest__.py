@@ -1,7 +1,7 @@
 {
     'name': 'Barcode',
     'version': '2.0',
-    'category': 'Hidden',
+    'category': 'Supply Chain/Inventory',
     'summary': 'Scan and Parse Barcodes',
     'depends': ['web'],
     'data': [
@@ -10,19 +10,16 @@
         'security/ir.model.access.csv',
         ],
     'installable': True,
-    'auto_install': False,
     'post_init_hook': '_assign_default_nomeclature_id',
     'assets': {
         'web.assets_backend': [
             'barcodes/static/src/**/*',
         ],
-        'web.qunit_suite_tests': [
-            'barcodes/static/tests/barcode_tests.js',
-            'barcodes/static/tests/barcode_parser_tests.js',
-        ],
-        'web.qunit_mobile_suite_tests': [
-            'barcodes/static/tests/barcode_mobile_tests.js',
+        'web.tests_assets': ['barcodes/static/tests/legacy/helpers.js'],
+        'web.assets_unit_tests': [
+            'barcodes/static/tests/*.test.js',
         ],
     },
+    'author': 'Odoo S.A.',
     'license': 'LGPL-3',
 }

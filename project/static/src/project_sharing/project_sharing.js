@@ -1,62 +1,69 @@
-/** @odoo-module **/
-
-import { useBus, useEffect, useService } from '@web/core/utils/hooks';
-import { ActionContainer } from '@web/webclient/actions/action_container';
+import { browser } from "@web/core/browser/browser";
+import { useBus, useService } from "@web/core/utils/hooks";
 import { MainComponentsContainer } from "@web/core/main_components_container";
 import { useOwnDebugContext } from "@web/core/debug/debug_context";
-import { ErrorHandler, NotUpdatable } from "@web/core/utils/components";
-import { session } from '@web/session';
-
-const { Component } = owl;
+import { ActionContainer } from "@web/webclient/actions/action_container";
+import { Component, onMounted, useExternalListener, useState } from "@odoo/owl";
 
 export class ProjectSharingWebClient extends Component {
+    static props = {};
+    static components = { ActionContainer, MainComponentsContainer };
+    static template = "project.ProjectSharingWebClient";
+
     setup() {
-        window.parent.document.body.style.margin = "0"; // remove the margin in the parent body
-        this.actionService = useService('action');
-        this.user = useService("user");
-        useService("legacy_service_provider");
+        this.actionService = useService("action");
         useOwnDebugContext({ categories: ["default"] });
+        this.state = useState({
+            fullscreen: false,
+        });
         useBus(this.env.bus, "ACTION_MANAGER:UI-UPDATED", (mode) => {
             if (mode !== "new") {
-                this.el.classList.toggle("o_fullscreen", mode === "fullscreen");
+                this.state.fullscreen = mode === "fullscreen";
             }
         });
-        useEffect(
-            () => {
-                this._showView();
-            },
-            () => []
-        );
-    }
-
-    mounted() { }
-
-    handleComponentError(error, C) {
-        // remove the faulty component
-        this.Components.splice(this.Components.indexOf(C), 1);
-        /**
-         * we rethrow the error to notify the user something bad happened.
-         * We do it after a tick to make sure owl can properly finish its
-         * rendering
-         */
-        Promise.resolve().then(() => {
-            throw error;
+        onMounted(() => {
+            this.loadRouterState();
+            // the chat window and dialog services listen to 'web_client_ready' event in
+            // order to initialize themselves:
+            this.env.bus.trigger("WEB_CLIENT_READY");
         });
+        useExternalListener(window, "click", this.onGlobalClick, { capture: true });
     }
 
-    async _showView() {
-        const { action_name, project_id } = session;
-        await this.actionService.doAction(
-            action_name,
-            {
-                clearBreadcrumbs: true,
-                additionalContext: {
-                    active_id: project_id,
+    async loadRouterState() {
+        // ** url-retrocompatibility **
+        const stateLoaded = await this.actionService.loadState();
+
+        // Scroll to anchor after the state is loaded
+        if (stateLoaded) {
+            if (browser.location.hash !== "") {
+                try {
+                    const el = document.querySelector(browser.location.hash);
+                    if (el !== null) {
+                        el.scrollIntoView(true);
+                    }
+                } catch {
+                    // do nothing if the hash is not a correct selector.
                 }
             }
-        );
+        }
+    }
+
+    /**
+     * @param {MouseEvent} ev
+     */
+    onGlobalClick(ev) {
+        // When a ctrl-click occurs inside an <a href/> element
+        // we let the browser do the default behavior and
+        // we do not want any other listener to execute.
+        if (
+            (ev.ctrlKey || ev.metaKey) &&
+            !ev.target.isContentEditable &&
+            ((ev.target instanceof HTMLAnchorElement && ev.target.href) ||
+                (ev.target instanceof HTMLElement && ev.target.closest("a[href]:not([href=''])")))
+        ) {
+            ev.stopImmediatePropagation();
+            return;
+        }
     }
 }
-
-ProjectSharingWebClient.components = { ActionContainer, ErrorHandler, NotUpdatable, MainComponentsContainer };
-ProjectSharingWebClient.template = 'project.ProjectSharingWebClient';

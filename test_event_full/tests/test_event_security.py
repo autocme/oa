@@ -1,30 +1,32 @@
 # -*- coding: utf-8 -*-
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
 
-from datetime import datetime
-from dateutil.relativedelta import relativedelta
+from datetime import datetime, timedelta
 
-from odoo.addons.event.tests.common import TestEventCommon
+from odoo.addons.test_event_full.tests.common import TestEventFullCommon
 from odoo.exceptions import AccessError
+from odoo.fields import Command
+from odoo.tests import tagged
 from odoo.tests.common import users
 from odoo.tools import mute_logger
 
 
-class TestEventSecurity(TestEventCommon):
+@tagged('security')
+class TestEventSecurity(TestEventFullCommon):
 
     @users('user_employee')
     @mute_logger('odoo.models.unlink', 'odoo.addons.base.models.ir_model')
     def test_event_access_employee(self):
         # Event: read ok
-        event = self.event_0.with_user(self.env.user)
+        event = self.test_event.with_user(self.env.user)
         event.read(['name'])
 
         # Event: read only
         with self.assertRaises(AccessError):
             self.env['event.event'].create({
                 'name': 'TestEvent',
-                'date_begin': datetime.now() + relativedelta(days=-1),
-                'date_end': datetime.now() + relativedelta(days=1),
+                'date_begin': datetime.now() + timedelta(days=-1),
+                'date_end': datetime.now() + timedelta(days=1),
                 'seats_limited': True,
                 'seats_max': 10,
             })
@@ -35,9 +37,9 @@ class TestEventSecurity(TestEventCommon):
 
         # Event Type
         with self.assertRaises(AccessError):
-            self.event_type_complex.with_user(self.env.user).read(['name'])
+            self.test_event_type.with_user(self.env.user).read(['name'])
         with self.assertRaises(AccessError):
-            self.event_type_complex.with_user(self.env.user).write({'name': 'Test Write'})
+            self.test_event_type.with_user(self.env.user).write({'name': 'Test Write'})
 
         # Event Stage
         with self.assertRaises(AccessError):
@@ -53,8 +55,8 @@ class TestEventSecurity(TestEventCommon):
     @mute_logger('odoo.models.unlink', 'odoo.addons.base.models.ir_model')
     def test_event_access_event_registration(self):
         # Event: read ok
-        event = self.event_0.with_user(self.env.user)
-        event.read(['name', 'user_id', 'kanban_state_label'])
+        event = self.test_event.with_user(self.env.user)
+        event.read(['name', 'user_id', 'kanban_state'])
 
         # Event: read only
         with self.assertRaises(AccessError):
@@ -64,9 +66,9 @@ class TestEventSecurity(TestEventCommon):
 
         # Event Registration
         registration = self.env['event.registration'].create({
-            'event_id': self.event_0.id,
+            'event_id': event.id,
         })
-        self.assertEqual(registration.event_id.name, self.event_0.name, 'Registration users should be able to read')
+        self.assertEqual(registration.event_id.name, event.name, 'Registration users should be able to read')
         registration.name = 'Test write'
         with self.assertRaises(AccessError):
             registration.unlink()
@@ -75,13 +77,13 @@ class TestEventSecurity(TestEventCommon):
     @mute_logger('odoo.models.unlink', 'odoo.addons.base.models.ir_model')
     def test_event_access_event_user(self):
         # Event
-        event = self.event_0.with_user(self.env.user)
-        event.read(['name', 'user_id', 'kanban_state_label'])
+        event = self.test_event.with_user(self.env.user)
+        event.read(['name', 'user_id', 'kanban_state'])
         event.write({'name': 'New name'})
         self.env['event.event'].create({
             'name': 'Event',
-            'date_begin': datetime.now() + relativedelta(days=-1),
-            'date_end': datetime.now() + relativedelta(days=1),
+            'date_begin': datetime.now() + timedelta(days=-1),
+            'date_end': datetime.now() + timedelta(days=1),
         })
 
         # Event: cannot unlink
@@ -112,8 +114,8 @@ class TestEventSecurity(TestEventCommon):
         # Event
         event = self.env['event.event'].create({
             'name': 'ManagerEvent',
-            'date_begin': datetime.now() + relativedelta(days=-1),
-            'date_end': datetime.now() + relativedelta(days=1),
+            'date_begin': datetime.now() + timedelta(days=-1),
+            'date_end': datetime.now() + timedelta(days=1),
         })
         event.write({'name': 'New Event Name'})
 
@@ -132,7 +134,7 @@ class TestEventSecurity(TestEventCommon):
         event_type.unlink()
 
         # Settings access rights required to enable some features
-        self.user_eventmanager.write({'groups_id': [
+        self.user_eventmanager.write({'group_ids': [
             (3, self.env.ref('base.group_system').id),
             (4, self.env.ref('base.group_erp_manager').id)
         ]})
@@ -140,6 +142,45 @@ class TestEventSecurity(TestEventCommon):
             event_config = self.env['res.config.settings'].with_user(self.user_eventmanager).create({
             })
             event_config.execute()
+
+    def test_event_question_access(self):
+        """ Check that some user groups have access to questions and answers only if they are linked to at
+        least one published event. """
+        question = self.env['event.question'].create({
+            "title": "Question",
+            "event_ids": [Command.create({
+                'name': 'Unpublished Event',
+                'is_published': False,
+            })]
+        })
+        answer = self.env['event.question.answer'].create({
+            "name": "Answer",
+            "question_id": question.id,
+        })
+        restricted_users = [self.user_employee, self.user_portal, self.user_public]
+        unrestricted_users = [self.user_eventmanager, self.user_eventuser]
+
+        for user in restricted_users:
+            with self.assertRaises(AccessError, msg=f'{user.name} should not have access to questions of unpublished events'):
+                question.with_user(user).read(['title'])
+            with self.assertRaises(AccessError, msg=f'{user.name} should not have access to answers of unpublished events'):
+                answer.with_user(user).read(['name'])
+
+        for user in unrestricted_users:
+            question.with_user(user).read(['title'])
+            answer.with_user(user).read(['name'])
+
+        # To check the access of user groups to questions and answers linked to at least one published event.
+        self.env['event.event'].create({
+            'name': 'Published Event',
+            'is_published': True,
+            'question_ids': [Command.set(question.ids)],
+        })
+
+        # Check that all user groups have access to questions and answers linked to at least one published event.
+        for user in restricted_users + unrestricted_users:
+            question.with_user(user).read(['title'])
+            answer.with_user(user).read(['name'])
 
     def test_implied_groups(self):
         """Test that the implied groups are correctly set.
@@ -180,13 +221,13 @@ class TestEventSecurity(TestEventCommon):
         event_company_1, event_company_2 = self.env['event.event'].create([
             {
                 'name': 'Event Company 1',
-                'date_begin': datetime.now() + relativedelta(days=-1),
-                'date_end': datetime.now() + relativedelta(days=1),
+                'date_begin': datetime.now() + timedelta(days=-1),
+                'date_end': datetime.now() + timedelta(days=1),
                 'company_id': company_1.id,
             }, {
                 'name': 'Event Company 2',
-                'date_begin': datetime.now() + relativedelta(days=-1),
-                'date_end': datetime.now() + relativedelta(days=1),
+                'date_begin': datetime.now() + timedelta(days=-1),
+                'date_end': datetime.now() + timedelta(days=1),
                 'company_id': company_2.id,
             }
         ])

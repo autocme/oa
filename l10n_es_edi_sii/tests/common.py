@@ -3,17 +3,21 @@ import base64
 from pytz import timezone
 from datetime import datetime
 
-from odoo.tests import tagged
-from odoo.tools import misc, float_compare
+from odoo.tools import misc
 from odoo.addons.account_edi.tests.common import AccountEdiTestCommon
 
 
-@tagged('post_install_l10n', 'post_install', '-at_install')
+def mocked_l10n_es_edi_call_web_service_sign(edi_format, invoices, info_list):
+    return {inv: {"success": True} for inv in invoices}
+
+
 class TestEsEdiCommon(AccountEdiTestCommon):
 
     @classmethod
-    def setUpClass(cls, chart_template_ref='l10n_es.account_chart_template_full', edi_format_ref='l10n_es_edi_sii.edi_es_sii'):
-        super().setUpClass(chart_template_ref=chart_template_ref, edi_format_ref=edi_format_ref)
+    @AccountEdiTestCommon.setup_edi_format('l10n_es_edi_sii.edi_es_sii')
+    @AccountEdiTestCommon.setup_country('es')
+    def setUpClass(cls):
+        super().setUpClass()
 
         cls.frozen_today = datetime(year=2019, month=1, day=1, hour=0, minute=0, second=0, tzinfo=timezone('utc'))
 
@@ -22,21 +26,27 @@ class TestEsEdiCommon(AccountEdiTestCommon):
 
         # ==== Config ====
 
-        cls.certificate = cls.env['l10n_es_edi.certificate'].create({
-            'content': base64.encodebytes(
-                misc.file_open("l10n_es_edi_sii/demo/certificates/sello_entidad_act.p12", 'rb').read()),
-            'password': 'IZDesa2021',
+        cls.certificate = cls.env['certificate.certificate'].create({
+            'name': 'Test ES certificate',
+            'content': base64.b64encode(
+                misc.file_open("l10n_es_edi_sii/demo/certificates/aeat_1234.p12", 'rb').read()),
+            'pkcs12_password': '1234',
+            'scope': 'sii',
+            'company_id': cls.company_data['company'].id,
         })
 
         cls.company_data['company'].write({
-            'country_id': cls.env.ref('base.es').id,
             'state_id': cls.env.ref('base.state_es_z').id,
-            'l10n_es_edi_certificate_id': cls.certificate.id,
+            'l10n_es_sii_certificate_id': cls.certificate.id,
             'vat': 'ES59962470K',
-            'l10n_es_edi_test_env': True,
-            'l10n_es_edi_tax_agency': 'bizkaia',
+            'l10n_es_sii_test_env': True,
+            'l10n_es_sii_tax_agency': 'bizkaia',
         })
 
+        # To be sure it is put by default on purchase journals as well (tbai module)
+        cls.company_data['default_journal_purchase'].write({
+            'edi_format_ids': [(6, 0, cls.edi_format.ids)],
+        })
         # ==== Business ====
 
         cls.partner_a.write({
@@ -59,7 +69,7 @@ class TestEsEdiCommon(AccountEdiTestCommon):
         :param trailing_xml_id: The trailing tax's xml id.
         :return:                An account.tax record
         """
-        return cls.env.ref(f'l10n_es.{cls.env.company.id}_account_tax_template_{trailing_xml_id}')
+        return cls.env.ref(f'account.{cls.env.company.id}_account_tax_template_{trailing_xml_id}')
 
     @classmethod
     def create_invoice(cls, **kwargs):

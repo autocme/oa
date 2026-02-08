@@ -3,7 +3,6 @@
 from odoo.tests import tagged, common
 
 
-@tagged('post_install', '-at_install')
 class TestMatrixCommon(common.HttpCase):
 
     def setUp(self):
@@ -38,7 +37,6 @@ class TestMatrixCommon(common.HttpCase):
             'name': "Matrix",
             'type': "consu",
             'uom_id': self.ref("uom.product_uom_unit"),
-            'uom_po_id': self.ref("uom.product_uom_unit"),
             'attribute_line_ids': [(0, 0, {
                 'attribute_id': attribute.id,
                 'value_ids': [(6, 0, attribute.value_ids.ids)]

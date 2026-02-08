@@ -1,13 +1,14 @@
 # -*- coding: utf-8 -*-
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
 
-from odoo import fields, models, api
+from odoo import _, fields, models, api
+from odoo.exceptions import UserError
 
 
-class DeliveryCarrierMondialRelay(models.Model):
+class DeliveryCarrier(models.Model):
     _inherit = 'delivery.carrier'
 
-    is_mondialrelay = fields.Boolean(compute='_compute_is_mondialrelay')
+    is_mondialrelay = fields.Boolean(compute='_compute_is_mondialrelay', search='_search_is_mondialrelay')
     mondialrelay_brand = fields.Char(string='Brand Code', default='BDTEST  ')
     mondialrelay_packagetype = fields.Char(default="24R", groups="base.group_system")  # Advanced
 
@@ -16,8 +17,15 @@ class DeliveryCarrierMondialRelay(models.Model):
         for c in self:
             c.is_mondialrelay = c.product_id.default_code == "MR"
 
+    def _search_is_mondialrelay(self, operator, value):
+        if operator != 'in':
+            return NotImplemented
+        return [('product_id.default_code', '=', 'MR')]
+
     def fixed_get_tracking_link(self, picking):
-        return self.base_on_rule_get_tracking_link(picking)
+        if self.is_mondialrelay:
+            return self.base_on_rule_get_tracking_link(picking)
+        return super().fixed_get_tracking_link(picking)
 
     def base_on_rule_get_tracking_link(self, picking):
         if self.is_mondialrelay:

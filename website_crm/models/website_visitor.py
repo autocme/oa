@@ -1,7 +1,7 @@
-# -*- coding: utf-8 -*-
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
 
 from odoo import fields, models, api
+from odoo.fields import Domain
 
 
 class WebsiteVisitor(models.Model):
@@ -15,10 +15,9 @@ class WebsiteVisitor(models.Model):
         for visitor in self:
             visitor.lead_count = len(visitor.lead_ids)
 
-    @api.depends('partner_id.email_normalized', 'partner_id.mobile', 'lead_ids.email_normalized', 'lead_ids.mobile')
+    @api.depends('partner_id.email_normalized', 'partner_id.phone', 'lead_ids.email_normalized', 'lead_ids.phone')
     def _compute_email_phone(self):
         super(WebsiteVisitor, self)._compute_email_phone()
-        self.flush()
 
         left_visitors = self.filtered(lambda visitor: not visitor.email or not visitor.mobile)
         leads = left_visitors.mapped('lead_ids').sorted('create_date', reverse=True)
@@ -29,7 +28,7 @@ class WebsiteVisitor(models.Model):
             if not visitor.email:
                 visitor.email = next((lead.email_normalized for lead in visitor_leads if lead.email_normalized), False)
             if not visitor.mobile:
-                visitor.mobile = next((lead.mobile or lead.phone for lead in visitor_leads if lead.mobile or lead.phone), False)
+                visitor.mobile = next((lead.phone for lead in visitor_leads if lead.phone), False)
 
     def _check_for_message_composer(self):
         check = super(WebsiteVisitor, self)._check_for_message_composer()
@@ -42,6 +41,19 @@ class WebsiteVisitor(models.Model):
                 self.partner_id = main_lead.partner_id.id
             return True
         return check
+
+    def _inactive_visitors_domain(self):
+        """ Visitors tied to leads are considered always active and should not be deleted. """
+        return super()._inactive_visitors_domain() & Domain('lead_ids', '=', False)
+
+    def _merge_visitor(self, target):
+        """ Link the leads to the main visitor to avoid them being lost. """
+        if self.lead_ids:
+            target.write({
+                'lead_ids': [(4, lead.id) for lead in self.lead_ids]
+            })
+
+        return super()._merge_visitor(target)
 
     def _prepare_message_composer_context(self):
         if not self.partner_id and self.lead_ids:

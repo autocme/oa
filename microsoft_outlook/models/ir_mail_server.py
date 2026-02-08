@@ -3,11 +3,11 @@
 
 import base64
 
-from odoo import _, api, models
+from odoo import _, api, fields, models
 from odoo.exceptions import UserError
 
 
-class IrMailServer(models.Model):
+class IrMail_Server(models.Model):
     """Add the Outlook OAuth authentication on the outgoing mail servers."""
 
     _name = 'ir.mail_server'
@@ -15,23 +15,31 @@ class IrMailServer(models.Model):
 
     _OUTLOOK_SCOPE = 'https://outlook.office.com/SMTP.Send'
 
-    @api.constrains('use_microsoft_outlook_service', 'smtp_pass', 'smtp_encryption')
-    def _check_use_microsoft_outlook_service(self):
-        for server in self:
-            if not server.use_microsoft_outlook_service:
-                continue
+    smtp_authentication = fields.Selection(
+        selection_add=[('outlook', 'Outlook OAuth Authentication')],
+        ondelete={'outlook': 'set default'})
 
+    def _compute_smtp_authentication_info(self):
+        outlook_servers = self.filtered(lambda server: server.smtp_authentication == 'outlook')
+        outlook_servers.smtp_authentication_info = _(
+            'Connect your Outlook account with the OAuth Authentication process.  \n'
+            'By default, only a user with a matching email address will be able to use this server. '
+            'To extend its use, you should set a "mail.default.from" system parameter.')
+        super(IrMail_Server, self - outlook_servers)._compute_smtp_authentication_info()
+
+    @api.constrains('smtp_authentication', 'smtp_pass', 'smtp_encryption', 'smtp_user')
+    def _check_use_microsoft_outlook_service(self):
+        outlook_servers = self.filtered(lambda server: server.smtp_authentication == 'outlook')
+        for server in outlook_servers:
             if server.smtp_pass:
                 raise UserError(_(
-                    'Please leave the password field empty for Outlook mail server %r. '
-                    'The OAuth process does not require it')
-                    % server.name)
+                    'Please leave the password field empty for Outlook mail server “%s”. '
+                    'The OAuth process does not require it', server.name))
 
             if server.smtp_encryption != 'starttls':
                 raise UserError(_(
-                    'Incorrect Connection Security for Outlook mail server %r. '
-                    'Please set it to "TLS (STARTTLS)".')
-                    % server.name)
+                    'Incorrect Connection Security for Outlook mail server “%s”. '
+                    'Please set it to "TLS (STARTTLS)".', server.name))
 
             if not server.smtp_user:
                 raise UserError(_(
@@ -43,12 +51,12 @@ class IrMailServer(models.Model):
         """Do not change the SMTP configuration if it's a Outlook server
 
         (e.g. the port which is already set)"""
-        if not self.use_microsoft_outlook_service:
+        if self.smtp_authentication != 'outlook':
             super()._onchange_encryption()
 
-    @api.onchange('use_microsoft_outlook_service')
-    def _onchange_use_microsoft_outlook_service(self):
-        if self.use_microsoft_outlook_service:
+    @api.onchange('smtp_authentication')
+    def _onchange_smtp_authentication_outlook(self):
+        if self.smtp_authentication == 'outlook':
             self.smtp_host = 'smtp.outlook.com'
             self.smtp_encryption = 'starttls'
             self.smtp_port = 587
@@ -57,11 +65,28 @@ class IrMailServer(models.Model):
             self.microsoft_outlook_access_token = False
             self.microsoft_outlook_access_token_expiration = False
 
-    def _smtp_login(self, connection, smtp_user, smtp_password):
-        if len(self) == 1 and self.use_microsoft_outlook_service:
+    @api.onchange('smtp_user', 'smtp_authentication')
+    def _on_change_smtp_user_outlook(self):
+        """The Outlook mail servers can only be used for the user personal email address."""
+        if self.smtp_authentication == 'outlook':
+            self.from_filter = self.smtp_user
+
+    def _smtp_login__(self, connection, smtp_user, smtp_password):  # noqa: PLW3201
+        if len(self) == 1 and self.smtp_authentication == 'outlook':
             auth_string = self._generate_outlook_oauth2_string(smtp_user)
             oauth_param = base64.b64encode(auth_string.encode()).decode()
             connection.ehlo()
-            connection.docmd('AUTH', 'XOAUTH2 %s' % oauth_param)
+            connection.docmd('AUTH', f'XOAUTH2 {oauth_param}')
         else:
-            super()._smtp_login(connection, smtp_user, smtp_password)
+            super()._smtp_login__(connection, smtp_user, smtp_password)
+
+    def _get_personal_mail_servers_limit(self):
+        """Return the number of email we can send in 1 minutes for this outgoing server.
+
+        0 fallbacks to 30 to avoid blocking servers.
+        """
+        if self.smtp_authentication == 'outlook':
+            # Outlook flag way faster email as spam, so we set a lower limit
+            return int(self.env['ir.config_parameter'].sudo()
+                .get_param('mail.server.personal.limit.minutes_outlook')) or 10
+        return super()._get_personal_mail_servers_limit()

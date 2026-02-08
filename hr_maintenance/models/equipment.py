@@ -7,7 +7,7 @@ class MaintenanceEquipment(models.Model):
     _inherit = 'maintenance.equipment'
 
     employee_id = fields.Many2one('hr.employee', compute='_compute_equipment_assign',
-        store=True, readonly=False, string='Assigned Employee', tracking=True)
+        store=True, readonly=False, string='Assigned Employee', tracking=True, index='btree_not_null')
     department_id = fields.Many2one('hr.department', compute='_compute_equipment_assign',
         store=True, readonly=False, string='Assigned Department', tracking=True)
     equipment_assign_to = fields.Selection(
@@ -41,18 +41,20 @@ class MaintenanceEquipment(models.Model):
                 equipment.employee_id = equipment.employee_id
             equipment.assign_date = fields.Date.context_today(self)
 
-    @api.model
-    def create(self, vals):
-        equipment = super(MaintenanceEquipment, self).create(vals)
-        # subscribe employee or department manager when equipment assign to him.
-        partner_ids = []
-        if equipment.employee_id and equipment.employee_id.user_id:
-            partner_ids.append(equipment.employee_id.user_id.partner_id.id)
-        if equipment.department_id and equipment.department_id.manager_id and equipment.department_id.manager_id.user_id:
-            partner_ids.append(equipment.department_id.manager_id.user_id.partner_id.id)
-        if partner_ids:
-            equipment.message_subscribe(partner_ids=partner_ids)
-        return equipment
+    @api.model_create_multi
+    def create(self, vals_list):
+        equipments = super().create(vals_list)
+        for equipment in equipments:
+            # TDE FIXME: check if we can use suggested recipients for employee and department manager
+            # subscribe employee or department manager when equipment assign to him.
+            partner_ids = []
+            if equipment.employee_id and equipment.employee_id.user_id:
+                partner_ids.append(equipment.employee_id.user_id.partner_id.id)
+            if equipment.department_id and equipment.department_id.manager_id and equipment.department_id.manager_id.user_id:
+                partner_ids.append(equipment.department_id.manager_id.user_id.partner_id.id)
+            if partner_ids:
+                equipment.message_subscribe(partner_ids=partner_ids)
+        return equipments
 
     def write(self, vals):
         partner_ids = []
@@ -79,7 +81,6 @@ class MaintenanceEquipment(models.Model):
 class MaintenanceRequest(models.Model):
     _inherit = 'maintenance.request'
 
-    @api.returns('self')
     def _default_employee_get(self):
         return self.env.user.employee_id
 
@@ -95,12 +96,14 @@ class MaintenanceRequest(models.Model):
             else:
                 r.owner_user_id = False
 
-    @api.model
-    def create(self, vals):
-        result = super(MaintenanceRequest, self).create(vals)
-        if result.employee_id.user_id:
-            result.message_subscribe(partner_ids=[result.employee_id.user_id.partner_id.id])
-        return result
+    @api.model_create_multi
+    def create(self, vals_list):
+        requests = super().create(vals_list)
+        for request in requests:
+            # TDE FIXME: check default recipients (master)
+            if request.employee_id.user_id:
+                request.message_subscribe(partner_ids=[request.employee_id.user_id.partner_id.id])
+        return requests
 
     def write(self, vals):
         if vals.get('employee_id'):
@@ -110,17 +113,14 @@ class MaintenanceRequest(models.Model):
         return super(MaintenanceRequest, self).write(vals)
 
     @api.model
-    def message_new(self, msg, custom_values=None):
-        """ Overrides mail_thread message_new that is called by the mailgateway
-            through message_process.
-            This override updates the document according to the email.
-        """
+    def message_new(self, msg_dict, custom_values=None):
         if custom_values is None:
             custom_values = {}
-        email = tools.email_split(msg.get('from')) and tools.email_split(msg.get('from'))[0] or False
-        user = self.env['res.users'].search([('login', '=', email)], limit=1)
+        # TDE FIXME: check author_id, should be set (master-)
+        email = tools.email_normalize(msg_dict.get('from'), strict=False)
+        user = self.env['res.users'].search([('login', '=', email)], limit=1) if email else self.env['res.users']
         if user:
             employee = self.env.user.employee_id
             if employee:
                 custom_values['employee_id'] = employee and employee[0].id
-        return super(MaintenanceRequest, self).message_new(msg, custom_values=custom_values)
+        return super().message_new(msg_dict, custom_values=custom_values)

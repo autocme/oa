@@ -15,15 +15,17 @@ installed.""",
         'website_blog',
         'website_event_sale',
         'website_slides',
-    ],
-    'data': [
+        'website_livechat',
+        'website_crm_iap_reveal',
+        'website_sale_comparison',
+        'website_sale_wishlist',
     ],
     'installable': True,
-    'application': False,
     'assets': {
         'web.assets_tests': [
             'test_website_modules/static/tests/**/*',
         ],
     },
+    'author': 'Odoo S.A.',
     'license': 'LGPL-3',
 }

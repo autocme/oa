@@ -6,21 +6,10 @@
         <field name="model">hr.leave.type</field>
         <field name="inherit_id" ref="hr_holidays.edit_holiday_status_form"/>
         <field name="arch" type="xml">
-            <xpath expr="//group[@id='payroll']" position="inside">
-                <h2>Payroll</h2>
-                <field name="work_entry_type_id"/>
-            </xpath>
-        </field>
-    </record>
-
-    <record id="hr_leave_view_tree_inherit_work_entry" model="ir.ui.view">
-        <field name="name">hr.holidays.view.tree.inherit.work.entry</field>
-        <field name="model">hr.leave</field>
-        <field name="inherit_id" ref="hr_holidays.hr_leave_view_tree"/>
-        <field name="mode">primary</field>
-        <field name="arch" type="xml">
-            <xpath expr="//tree" position="attributes">
-                <attribute name="default_order">date_from</attribute>
+            <xpath expr="//group[@name='negative_cap']" position="after">
+                    <group name="payroll" string="Payroll" colspan="2">
+                        <field name="work_entry_type_id"/>
+                    </group>
             </xpath>
         </field>
     </record>

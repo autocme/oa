@@ -1,21 +1,30 @@
 $-editor-messages-margin-x: 2%;
 %o-editor-messages {
-    width: 100% - $-editor-messages-margin-x * 2; // Need to be forced here to avoid flickering
-    margin: 20px $-editor-messages-margin-x;
-    border: 2px dashed #999999;
-    padding: 12px 0px;
+    background: $o-we-dropzone-bg-color;
     text-align: center;
-    color: #999999;
+    color: #fff;
+    outline: $o-we-dropzone-border-width dashed $o-we-dropzone-accent-color;
+    outline-offset: -$o-we-dropzone-border-width;
 
     &:before {
         content: attr(data-editor-message);
         display: block;
         font-size: 20px;
-        line-height: 50px; // Useful for the "wizz" animation on snippet click to be more visible
+    }
+    // Show the default editor message only for "empty" elements
+    &:not(:empty) {
+        &[data-editor-message-default]:before {
+            content: none;
+        }
     }
     &:after {
         content: attr(data-editor-sub-message);
         display: block;
+    }
+}
+%o-disable-iframes {
+    iframe {
+        pointer-events: none;
     }
 }
 .o_we_snippet_area_animation {
@@ -27,18 +36,12 @@ $-editor-messages-margin-x: 2%;
     }
 }
 
-.oe_structure_not_nearest .oe_drop_zone {
-    &:before {
-        opacity: 0.5;
-        line-height: 35px !important;
-    }
-}
-
 .o_editable {
     &:not(:empty), &[data-oe-type] {
         &:not([data-oe-model="ir.ui.view"]):not([data-oe-type="html"]):not(.o_editable_no_shadow):not([data-oe-type="image"]):hover,
         &.o_editable_date_field_linked {
-            box-shadow: $o-brand-odoo 0 0 5px 2px inset;
+            outline: $o-we-handle-border-width solid $o-we-handles-accent-color;
+            outline-offset: $o-we-handle-border-width;
         }
         &[data-oe-type="image"]:not(.o_editable_no_shadow):hover {
             position: relative;
@@ -48,7 +51,8 @@ $-editor-messages-margin-x: 2%;
                 pointer-events: none;
                 @include o-position-absolute(0, 0, 0, 0);
                 z-index: 1;
-                box-shadow: $o-brand-odoo 0 0 5px 2px inset;
+                outline: $o-we-handle-border-width solid $o-we-handles-accent-color;
+                outline-offset: $o-we-handle-border-width;
             }
         }
     }
@@ -74,25 +78,61 @@ $-editor-messages-margin-x: 2%;
         cursor: text!important;
     }
     /* Summernote not Support for placeholder text https://github.com/summernote/summernote/issues/581 */
-    &[placeholder]:empty:not(:focus):before {
-        content: attr(placeholder);
-        opacity: 0.3;
-        pointer-events: none;
+    &[placeholder]:not(:focus) {
+        &:empty:before,
+        &:has(br:only-child):before,
+        &[data-oe-zws-empty-inline]:before {
+            content: attr(placeholder);
+            opacity: 0.3;
+            pointer-events: none;
+        }
     }
 
+    // This style block is about the "editor message" which highlights the areas
+    // where the user can drag & drop snippets.
     &.oe_structure.oe_empty, &[data-oe-type=html], .oe_structure.oe_empty {
-        &#wrap:empty, &#wrap > .oe_drop_zone.oe_insert:not(.oe_vertical):only-child {
-            @extend %o-editor-messages;
-            padding: 112px 0px;
-        }
-        > .oe_drop_zone.oe_insert:not(.oe_vertical):only-child {
+        // Base case (website.page (#wrap), t-field (product description), ..)
+        > .oe_drop_zone.oe_insert:not(.oe_vertical) {
             @extend %o-editor-messages;
             height: auto;
-            color: $o-brand-odoo;
+
+            // Empty editable element during drag & drop
+            &:only-child {
+                margin: 20px $-editor-messages-margin-x;
+                width: 100% - $-editor-messages-margin-x * 2;
+                padding: 12px 0px;
+            }
+
+            &:not(:only-child) {
+                &::before {
+                    font-size: 16px;
+                }
+                &[data-editor-message-default]::before {
+                    content: none;
+                }
+            }
         }
+
+        // Exception 1: empty wrap NOT during drag & drop
+        &#wrap:empty {
+            @extend %o-editor-messages;
+            padding: 112px 0px;
+            margin: 20px $-editor-messages-margin-x;
+            border-radius: $border-radius-lg;
+        }
+
+        // Exception 2: empty wrap during drag & drop (override of base case)
+        &#wrap > .oe_drop_zone.oe_insert:not(.oe_vertical):only-child {
+            padding: 112px 0px;
+            text-shadow: none;
+        }
+
         > p:empty:only-child {
             color: #aaa;
         }
+    }
+    &[data-oe-type=html].oe_empty:empty {
+        @extend %o-editor-messages;
     }
 }
 .editor_enable [data-oe-readonly]:hover {
@@ -127,13 +167,6 @@ $-editor-messages-margin-x: 2%;
     height: 16px!important;
 }
 
-// EDITOR BAR
-table.editorbar-panel {
-    cursor: pointer;
-    width: 100%;
-    td { border: 1px solid #aaa}
-    td.selected { background-color: #b1c9d9}
-}
 .link-style {
     .dropdown > .btn {
         min-width: 160px;
@@ -174,35 +207,15 @@ table.editorbar-panel {
 
 // Facebook Page
 .editor_enable .o_facebook_page:not(.o_facebook_preview) {
-    iframe {
-        pointer-events: none;
-    }
+    @extend %o-disable-iframes;
     .o_facebook_alert .o_add_facebook_page {
         cursor: pointer;
     }
 }
 
-body.editor_enable.editor_has_snippets {
-    padding-top: 0 !important;
-
-    .s_popup .modal {
-        // s_popup in edit mode
-        background-color: transparent;
-
-        &.fade .modal-dialog {
-            transform: none;
-        }
-    }
-
-    #oe_main_menu_navbar + #wrapwrap .o_header_affixed {
-        top: 0;
-    }
-}
-
-.editor_has_snippets {
-    .o_header_affixed {
-        right: $o-we-sidebar-width !important;
-    }
+// Prevent Instagram block to open Instagram in edit mode.
+.editor_enable .s_instagram_page {
+    @extend %o-disable-iframes;
 }
 
 // s_countdown preview classes
@@ -256,8 +269,65 @@ body.editor_enable {
         }
     }
     .s_website_form {
-        [data-toggle="datetimepicker"], textarea:not(.o_translatable_attribute):not(.o_translatable_text) {
+        textarea:not(.o_translatable_attribute):not(.o_translatable_text) {
             pointer-events: none;
         }
+    }
+
+    // Some dropdown links are not deactivated in edit, so we prevent clicks.
+    #o_logout,
+    .js_change_lang {
+        pointer-events: none;
+    }
+}
+.o_homepage_editor_welcome_message {
+    padding-top: 128px;
+    padding-bottom: 128px;
+    font-family: $o-font-family-sans-serif;
+}
+// offcanvas backdrop
+body.editor_enable {
+    // We prevent selection to avoid the powerbox hint from being added to the
+    // backdrop by clicking on it in edit mode.
+    .offcanvas-backdrop {
+        user-select: none;
+    }
+}
+// edit link popover
+$o-we-popover-bg: white;
+body.editor_enable {
+    .o_edit_menu_popover {
+        background-color: $o-we-popover-bg;
+        font-family: $o-we-font-family;
+
+        a {
+            color: $o-brand-primary;
+
+            &.text-muted {
+                color: rgba(0, 0, 0, 0.65) !important;
+            }
+        }
+        i:not(.js_edit_menu > i) {
+            color: rgba(0, 0, 0, 0.9);
+        }
+        &.bs-popover-auto[data-popper-placement^=top] > .popover-arrow::after {
+            border-top-color: $o-we-popover-bg;
+        }
+        &.bs-popover-auto[data-popper-placement^=right] > .popover-arrow::after {
+            border-right-color: $o-we-popover-bg;
+        }
+        &.bs-popover-auto[data-popper-placement^=bottom] > .popover-arrow::after {
+            border-bottom-color: $o-we-popover-bg;
+        }
+        &.bs-popover-auto[data-popper-placement^=left] > .popover-arrow::after {
+            border-left-color: $o-we-popover-bg;
+        }
+    }
+}
+
+// tooltip
+body.editor_enable {
+     .tooltip .tooltip-inner {
+        color: white !important;
     }
 }

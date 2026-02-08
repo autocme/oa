@@ -1,35 +1,54 @@
 # Translation of Odoo Server.
 # This file contains the translation of the following modules:
-# 	* mail_group
-# 
-# Translators:
-# Martin Trigaux, 2021
-# JH CHOI <hwangtog@gmail.com>, 2021
-# Linkup <link-up@naver.com>, 2021
-# Seongseok Shin <shinss61@hotmail.com>, 2021
-# Sarah Park, 2023
-# Daye Jeong, 2024
-# 
+# * mail_group
+#
+# "Dylan Kiss (dyki)" <dyki@odoo.com>, 2025.
+# "Kwanghee Park (kwpa)" <kwpa@odoo.com>, 2025, 2026.
 msgid ""
 msgstr ""
-"Project-Id-Version: Odoo Server 15.0\n"
+"Project-Id-Version: Odoo Server 18.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-08-14 15:43+0000\n"
-"PO-Revision-Date: 2021-09-14 12:23+0000\n"
-"Last-Translator: Daye Jeong, 2024\n"
-"Language-Team: Korean (https://app.transifex.com/odoo/teams/41243/ko/)\n"
+"POT-Creation-Date: 2026-01-25 18:36+0000\n"
+"PO-Revision-Date: 2026-01-23 07:37+0000\n"
+"Last-Translator: \"Kwanghee Park (kwpa)\" <kwpa@odoo.com>\n"
+"Language-Team: Korean <https://translate.odoo.com/projects/odoo-19/"
+"mail_group/ko/>\n"
+"Language: ko\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: \n"
-"Language: ko\n"
 "Plural-Forms: nplurals=1; plural=0;\n"
+"X-Generator: Weblate 5.14.3\n"
+
+#. module: mail_group
+#: model_terms:ir.ui.view,arch_db:mail_group.mail_group_view_list
+msgid "#Members"
+msgstr "회원 수"
+
+#. module: mail_group
+#: model_terms:ir.ui.view,arch_db:mail_group.mail_group_view_list
+msgid "#Messages"
+msgstr "메시지 수"
+
+#. module: mail_group
+#: model_terms:ir.ui.view,arch_db:mail_group.mail_group_view_list
+msgid "#To Review"
+msgstr "검토 대기 수"
 
 #. module: mail_group
 #: model_terms:ir.ui.view,arch_db:mail_group.mail_group_message_reject_form
-msgid ""
-") <span attrs=\"{'invisible': [('send_email', '=', False)]}\">and send him "
-"an email</span>."
+msgid ") <span invisible=\"not send_email\">and send them an email</span>."
 msgstr ""
+") <span invisible=\"not send_email\">을 클릭하고 이메일을 전송합니다</span>."
+
+#. module: mail_group
+#: model_terms:ir.ui.view,arch_db:mail_group.messages_short
+msgid ""
+"<br/>\n"
+"                    Get the conversation started by sending an email to"
+msgstr ""
+"<br/>\n"
+"                    다음 주소로 이메일을 보내서 대화를 시작하세요"
 
 #. module: mail_group
 #: model_terms:ir.ui.view,arch_db:mail_group.confirmation_subscription
@@ -41,108 +60,107 @@ msgstr "<br/> 새로운 콘텐츠가 게시되는 즉시 알림을 받게됩니�
 msgid ""
 "<div style=\"margin: 0px; padding: 0px;\">\n"
 "                Hello,<br/><br/>\n"
-"                You have requested to be subscribed to the mailing list <strong t-out=\"object.name or ''\"/>.\n"
+"                You have requested to be subscribed to the mailing list "
+"<strong t-out=\"object.name or ''\"/>.\n"
 "                <br/><br/>\n"
-"                To confirm, please visit the following link: <strong t-if=\"ctx.get('token_url')\"><a t-att-href=\"ctx['token_url']\"><t t-out=\"ctx['token_url'] or ''\"/></a></strong>\n"
+"                To confirm, please visit the following link: <strong t-"
+"if=\"ctx.get('token_url')\"><a t-att-href=\"ctx['token_url']\"><t t-"
+"out=\"ctx['token_url'] or ''\"/></a></strong>\n"
 "                <br/><br/>\n"
-"                If this was a mistake or you did not requested this action, please ignore this message.\n"
+"                If this was a mistake or you did not requested this action, "
+"please ignore this message.\n"
 "            </div>\n"
 "        "
 msgstr ""
+"<div style=\"margin: 0px; padding: 0px;\">\n"
+"                안녕하세요,<br/><br/>\n"
+"                메일링 리스트 구독을 신청하셨습니다<strong t-"
+"out=\"object.name or ''\"/>.\n"
+"                <br/><br/>\n"
+"                확인하려면 다음 링크를 눌러주세요: <strong t-"
+"if=\"ctx.get('token_url')\"><a t-att-href=\"ctx['token_url']\"><t t-"
+"out=\"ctx['token_url'] or ''\"/></a></strong>\n"
+"                <br/><br/>\n"
+"                구독을 요청하지 않으셨거나 실수로 누르신 경우 이 메시지는 무"
+"시하셔도 됩니다.\n"
+"            </div>\n"
+"        "
 
 #. module: mail_group
 #: model:mail.template,body_html:mail_group.mail_template_list_unsubscribe
 msgid ""
 "<div style=\"margin: 0px; padding: 0px;\">\n"
 "                Hello,<br/><br/>\n"
-"                You have requested to be unsubscribed to the mailing list <strong t-out=\"object.name or ''\"/>.\n"
+"                You have requested to be unsubscribed to the mailing list "
+"<strong t-out=\"object.name or ''\"/>.\n"
 "                <br/><br/>\n"
-"                To confirm, please visit the following link: <strong t-if=\"ctx.get('token_url')\"><a t-att-href=\"ctx['token_url']\"><t t-out=\"ctx['token_url'] or ''\"/></a></strong>.\n"
+"                To confirm, please visit the following link: <strong t-"
+"if=\"ctx.get('token_url')\"><a t-att-href=\"ctx['token_url']\"><t t-"
+"out=\"ctx['token_url'] or ''\"/></a></strong>.\n"
 "                <br/><br/>\n"
-"                If this was a mistake or you did not requested this action, please ignore this message.\n"
+"                If this was a mistake or you did not requested this action, "
+"please ignore this message.\n"
 "            </div>\n"
 "        "
 msgstr ""
+"<div style=\"margin: 0px; padding: 0px;\">\n"
+"                안녕하세요,<br/><br/>\n"
+"                메일링 리스트 구독 해지를 신청하셨습니다<strong t-"
+"out=\"object.name or ''\"/>.\n"
+"                <br/><br/>\n"
+"                확인하려면 다음 링크를 눌러주세요: <strong t-"
+"if=\"ctx.get('token_url')\"><a t-att-href=\"ctx['token_url']\"><t t-"
+"out=\"ctx['token_url'] or ''\"/></a></strong>.\n"
+"                <br/><br/>\n"
+"                구독 취소를 요청하지 않으셨거나 실수로 누르신 경우 이 메시지"
+"는 무시하셔도 됩니다.\n"
+"            </div>\n"
+"        "
 
 #. module: mail_group
 #: model:mail.template,body_html:mail_group.mail_template_guidelines
 msgid ""
 "<div>\n"
 "                <p>Hello <t t-out=\"object.partner_id.name or ''\"/>,</p>\n"
-"                <p>Please find below the guidelines of the <t t-out=\"object.mail_group_id.name\"/> mailing list.</p>\n"
-"                <p><t t-out=\"object.mail_group_id.moderation_guidelines_msg or ''\"/></p>\n"
+"                <p>Please find below the guidelines of the <t t-"
+"out=\"object.mail_group_id.name\"/> mailing list.</p>\n"
+"                <p><t t-out=\"object.mail_group_id.moderation_guidelines_msg "
+"or ''\"/></p>\n"
 "            </div>\n"
 "        "
 msgstr ""
 
 #. module: mail_group
-#: model_terms:ir.ui.view,arch_db:mail_group.group_message
-msgid ""
-"<i class=\"fa fa-arrow-left\" role=\"img\" aria-label=\"Previous message\" "
-"title=\"Previous message\"/>"
-msgstr ""
-"<i class=\"fa fa-arrow-left\" role=\"img\" aria-label=\"Previous message\" "
-"title=\"Previous message\"/>"
-
-#. module: mail_group
-#: model_terms:ir.ui.view,arch_db:mail_group.group_message
-msgid ""
-"<i class=\"fa fa-arrow-right\" role=\"img\" aria-label=\"Next message\" "
-"title=\"Next message\"/>"
-msgstr ""
-"<i class=\"fa fa-arrow-right\" role=\"img\" aria-label=\"Next message\" "
-"title=\"Next message\"/>"
-
-#. module: mail_group
 #: model_terms:ir.ui.view,arch_db:mail_group.message_footer
-msgid "<i class=\"fa fa-calendar\" role=\"img\" aria-label=\"Date\" title=\"Date\"/>"
-msgstr "<i class=\"fa fa-calendar\" role=\"img\" aria-label=\"Date\" title=\"Date\"/>"
-
-#. module: mail_group
-#: model_terms:ir.ui.view,arch_db:mail_group.message_attachments
 msgid ""
-"<i class=\"fa fa-chevron-down\" role=\"img\" aria-label=\"Show attachments\""
-" title=\"Show attachments\"/>"
+"<i class=\"fa fa-calendar\" role=\"img\" aria-label=\"Date\" title=\"Date\"/>"
 msgstr ""
-"<i class=\"fa fa-chevron-down\" role=\"img\" aria-label=\"Show attachments\""
-" title=\"Show attachments\"/>"
-
-#. module: mail_group
-#: model_terms:ir.ui.view,arch_db:mail_group.messages_short
-msgid ""
-"<i class=\"fa fa-chevron-down\" role=\"img\" aria-label=\"Show replies\" "
-"title=\"Show replies\"/>"
-msgstr ""
-"<i class=\"fa fa-chevron-down\" role=\"img\" aria-label=\"Show replies\" "
-"title=\"Show replies\"/>"
-
-#. module: mail_group
-#: model_terms:ir.ui.view,arch_db:mail_group.message_attachments
-msgid ""
-"<i class=\"fa fa-chevron-right\" role=\"img\" aria-label=\"Hide "
-"attachments\" title=\"Hide attachments\"/>"
-msgstr ""
-"<i class=\"fa fa-chevron-right\" role=\"img\" aria-label=\"Hide "
-"attachments\" title=\"Hide attachments\"/>"
-
-#. module: mail_group
-#: model_terms:ir.ui.view,arch_db:mail_group.messages_short
-msgid ""
-"<i class=\"fa fa-chevron-right\" role=\"img\" aria-label=\"Hide replies\" "
-"title=\"Hide replies\"/>"
-msgstr ""
-"<i class=\"fa fa-chevron-right\" role=\"img\" aria-label=\"Hide replies\" "
-"title=\"Hide replies\"/>"
+"<i class=\"fa fa-calendar\" role=\"img\" aria-label=\"Date\" title=\"Date\"/>"
 
 #. module: mail_group
 #: model_terms:ir.ui.view,arch_db:mail_group.mail_groups
-msgid "<i class=\"fa fa-envelope-o mr-1\" role=\"img\" aria-label=\"Alias\" title=\"Alias\"/>"
+msgid ""
+"<i class=\"fa fa-envelope-o me-1\" role=\"img\" aria-label=\"Alias\" "
+"title=\"Alias\"/>"
 msgstr ""
+"<i class=\"fa fa-envelope-o me-1\" role=\"img\" aria-label=\"Alias\" "
+"title=\"Alias\"/>"
 
 #. module: mail_group
 #: model_terms:ir.ui.view,arch_db:mail_group.group_name
-msgid "<i class=\"fa fa-envelope-o\" role=\"img\" aria-label=\"Alias\" title=\"Alias\"/>"
-msgstr "<i class=\"fa fa-envelope-o\" role=\"img\" aria-label=\"Alias\" title=\"Alias\"/>"
+msgid ""
+"<i class=\"fa fa-envelope-o\" role=\"img\" aria-label=\"Alias\" "
+"title=\"Alias\"/>"
+msgstr ""
+"<i class=\"fa fa-envelope-o\" role=\"img\" aria-label=\"Alias\" "
+"title=\"Alias\"/>"
+
+#. module: mail_group
+#: model_terms:ir.ui.view,arch_db:mail_group.mail_groups
+msgid ""
+"<i class=\"fa fa-fw fa-envelope-o\" role=\"img\" aria-label=\"Traffic\" "
+"title=\"Traffic\"/>"
+msgstr ""
 
 #. module: mail_group
 #: model_terms:ir.ui.view,arch_db:mail_group.mail_groups
@@ -152,6 +170,60 @@ msgid ""
 msgstr ""
 "<i class=\"fa fa-fw fa-user\" role=\"img\" aria-label=\"Recipients\" "
 "title=\"Recipients\"/>"
+
+#. module: mail_group
+#: model_terms:ir.ui.view,arch_db:mail_group.group_message
+msgid ""
+"<i class=\"oi oi-arrow-left\" role=\"img\" aria-label=\"Previous message\" "
+"title=\"Previous message\"/>"
+msgstr ""
+"<i class=\"oi oi-arrow-left\" role=\"img\" aria-label=\"이전 메시지\" "
+"title=\"이전 메시지\"/>"
+
+#. module: mail_group
+#: model_terms:ir.ui.view,arch_db:mail_group.group_message
+msgid ""
+"<i class=\"oi oi-arrow-right\" role=\"img\" aria-label=\"Next message\" "
+"title=\"Next message\"/>"
+msgstr ""
+"<i class=\"oi oi-arrow-right\" role=\"img\" aria-label=\"다음 메시지\" "
+"title=\"다음 메시지\"/>"
+
+#. module: mail_group
+#: model_terms:ir.ui.view,arch_db:mail_group.message_attachments
+msgid ""
+"<i class=\"oi oi-chevron-down\" role=\"img\" aria-label=\"Show attachments\" "
+"title=\"Show attachments\"/>"
+msgstr ""
+"<i class=\"oi oi-chevron-down\" role=\"img\" aria-label=\"첨부 파일 보기\" "
+"title=\"첨부 파일 보기\"/>"
+
+#. module: mail_group
+#: model_terms:ir.ui.view,arch_db:mail_group.messages_short
+msgid ""
+"<i class=\"oi oi-chevron-down\" role=\"img\" aria-label=\"Show replies\" "
+"title=\"Show replies\"/>"
+msgstr ""
+"<i class=\"oi oi-chevron-down\" role=\"img\" aria-label=\"답장 보기\" "
+"title=\"답장 보기\"/>"
+
+#. module: mail_group
+#: model_terms:ir.ui.view,arch_db:mail_group.message_attachments
+msgid ""
+"<i class=\"oi oi-chevron-right\" role=\"img\" aria-label=\"Hide "
+"attachments\" title=\"Hide attachments\"/>"
+msgstr ""
+"<i class=\"oi oi-chevron-right\" role=\"img\" aria-label=\"첨부 파일 숨기기"
+"\" title=\"첨부 파일 숨기기\"/>"
+
+#. module: mail_group
+#: model_terms:ir.ui.view,arch_db:mail_group.messages_short
+msgid ""
+"<i class=\"oi oi-chevron-right\" role=\"img\" aria-label=\"Hide replies\" "
+"title=\"Hide replies\"/>"
+msgstr ""
+"<i class=\"oi oi-chevron-right\" role=\"img\" aria-label=\"답장 숨기기\" "
+"title=\"답장 숨기기\"/>"
 
 #. module: mail_group
 #: model_terms:ir.ui.view,arch_db:mail_group.messages_short
@@ -159,16 +231,22 @@ msgid "<span class=\"bg-warning\">Pending</span>"
 msgstr "<span class=\"bg-warning\">대기 중</span>"
 
 #. module: mail_group
+#: model_terms:ir.ui.view,arch_db:mail_group.mail_group_message_view_form
+msgid ""
+"<span class=\"ms-2 badge text-bg-success\" invisible=\"author_moderation != "
+"'allow'\">Whitelisted</span>\n"
+"                            <span class=\"ms-2 badge text-bg-danger\" "
+"invisible=\"author_moderation != 'ban'\">Banned</span>"
+msgstr ""
+"<span class=\"ms-2 badge text-bg-success\" invisible=\"author_moderation != "
+"'allow'\">화이트리스트에 추가됨</span>\n"
+"                            <span class=\"ms-2 badge text-bg-danger\" "
+"invisible=\"author_moderation != 'ban'\">금지됨</span>"
+
+#. module: mail_group
 #: model_terms:ir.ui.view,arch_db:mail_group.message_footer
 msgid "<span class=\"mx-2\">-</span>"
 msgstr "<span class=\"mx-2\">-</span>"
-
-#. module: mail_group
-#: model_terms:ir.ui.view,arch_db:mail_group.mail_group_message_view_form
-msgid ""
-"<span class=\"oe_read_only ml-2 badge badge-success\" attrs=\"{'invisible': [('author_moderation', '!=', 'allow')]}\">Whitelisted</span>\n"
-"                            <span class=\"oe_read_only ml-2 badge badge-danger\" attrs=\"{'invisible': [('author_moderation', '!=', 'ban')]}\">Banned</span>"
-msgstr ""
 
 #. module: mail_group
 #: model_terms:ir.ui.view,arch_db:mail_group.group_archive_menu
@@ -189,7 +267,9 @@ msgstr ""
 msgid ""
 "A Python dictionary that will be evaluated to provide default values when "
 "creating new records for this alias."
-msgstr "이 별칭에 대한 새 레코드를 만들 때 기본값을 제공하도록 평가되는 Python 사전입니다."
+msgstr ""
+"이 별칭에 대한 새 레코드를 만들 때 기본값을 제공하도록 평가되는 Python 사전입"
+"니다."
 
 #. module: mail_group
 #: model_terms:ir.ui.view,arch_db:mail_group.mail_group_message_view_form
@@ -211,7 +291,7 @@ msgstr "추가 작업"
 #. module: mail_group
 #: model:ir.model.fields,field_description:mail_group.field_mail_group__active
 msgid "Active"
-msgstr "활성"
+msgstr "활성화"
 
 #. module: mail_group
 #: model_terms:ir.ui.view,arch_db:mail_group.mail_group_message_view_form
@@ -219,11 +299,12 @@ msgstr "활성"
 msgid ""
 "Add this email address to white list of people and accept all pending "
 "messages from the same author."
-msgstr "이 이메일 주소를 화이트리스트에 추가하고 동일한 작성자가 보낸 모든 대기 중 메시지를 수락하세요."
+msgstr ""
+"이 이메일 주소를 화이트리스트에 추가하고 동일한 작성자가 보낸 모든 대기 중 메"
+"시지를 수락하세요."
 
 #. module: mail_group
 #: model:ir.model.fields,field_description:mail_group.field_mail_group__alias_id
-#: model_terms:ir.ui.view,arch_db:mail_group.mail_group_view_list
 msgid "Alias"
 msgstr "별칭"
 
@@ -233,9 +314,19 @@ msgid "Alias Contact Security"
 msgstr "별칭 연락처 보안"
 
 #. module: mail_group
-#: model:ir.model.fields,field_description:mail_group.field_mail_group__alias_fullname
-msgid "Alias Full Name"
-msgstr "별칭 이름"
+#: model:ir.model.fields,field_description:mail_group.field_mail_group__alias_domain_id
+msgid "Alias Domain"
+msgstr "별칭 도메인"
+
+#. module: mail_group
+#: model:ir.model.fields,field_description:mail_group.field_mail_group__alias_domain
+msgid "Alias Domain Name"
+msgstr "별칭 도메인 이름"
+
+#. module: mail_group
+#: model:ir.model.fields,field_description:mail_group.field_mail_group__alias_full_name
+msgid "Alias Email"
+msgstr "이메일 별칭"
 
 #. module: mail_group
 #: model:ir.model.fields,field_description:mail_group.field_mail_group__alias_name
@@ -243,9 +334,14 @@ msgid "Alias Name"
 msgstr "별칭 이름"
 
 #. module: mail_group
-#: model:ir.model.fields,field_description:mail_group.field_mail_group__alias_domain
-msgid "Alias domain"
-msgstr "별칭 도메인"
+#: model:ir.model.fields,field_description:mail_group.field_mail_group__alias_status
+msgid "Alias Status"
+msgstr "별칭 상태"
+
+#. module: mail_group
+#: model:ir.model.fields,help:mail_group.field_mail_group__alias_status
+msgid "Alias status assessed on the last message received."
+msgstr "최근 받은메일에서 확인한 별칭 상태입니다."
 
 #. module: mail_group
 #: model:ir.model.fields,field_description:mail_group.field_mail_group__alias_model_id
@@ -273,9 +369,8 @@ msgid "Always Allow"
 msgstr "항상 허용"
 
 #. module: mail_group
-#. openerp-web
-#: code:addons/mail_group/static/src/js/mail_group.js:0
-#, python-format
+#. odoo-javascript
+#: code:addons/mail_group/static/src/interactions/mail_group.js:0
 msgid "An email with instructions has been sent."
 msgstr "지침이 담긴 이메일이 전송되었습니다."
 
@@ -295,13 +390,6 @@ msgid "Attachments"
 msgstr "첨부 파일"
 
 #. module: mail_group
-#: model:ir.model.fields,help:mail_group.field_mail_group_message__attachment_ids
-msgid ""
-"Attachments are linked to a document through model / res_id and to the "
-"message through this field."
-msgstr "첨부 파일은 model / res_id를 통해 문서에 연결되고 이 필드를 통해 메시지에 연결됩니다."
-
-#. module: mail_group
 #: model:ir.model.fields,field_description:mail_group.field_mail_group_message__author_id
 msgid "Author"
 msgstr "작성자"
@@ -314,9 +402,11 @@ msgstr "작성자 검토 상태"
 #. module: mail_group
 #: model:ir.model.fields,help:mail_group.field_mail_group_message__author_id
 msgid ""
-"Author of the message. If not set, email_from may hold an email address that"
-" did not match any partner."
-msgstr "메시지 작성자. 설정하지 않으면 이메일_보낸사람에 파트너와 일치하지 않는 이메일 주소가 있을 수 있습니다."
+"Author of the message. If not set, email_from may hold an email address that "
+"did not match any partner."
+msgstr ""
+"메시지 작성자입니다. 설정하지 않으면 이메일의 보낸 사람 항목에 해당 협력사가 "
+"아닌 다른 이메일 주소가 선택될 수 있습니다."
 
 #. module: mail_group
 #: model:ir.model.fields,field_description:mail_group.field_mail_group__access_group_id
@@ -347,7 +437,9 @@ msgstr "메시지 작성자 차단 ("
 msgid ""
 "Ban this email address and reject all pending messages from the same author "
 "and send an email to the author"
-msgstr "이 이메일 주소를 차단하고 동일한 작성자가 보낸 모든 대기 중 메시지를 거부한 후, 작성자에게 이메일을 전송합니다."
+msgstr ""
+"이 이메일 주소를 차단하고 동일한 작성자가 보낸 모든 대기 중 메시지를 거부한 "
+"후, 작성자에게 이메일을 전송합니다."
 
 #. module: mail_group
 #: model:ir.model.fields.selection,name:mail_group.selection__mail_group_message__author_moderation__ban
@@ -376,13 +468,27 @@ msgstr "멤버 관리 가능"
 
 #. module: mail_group
 #: model:ir.model.fields,field_description:mail_group.field_mail_group_message__group_message_child_ids
-msgid "Childs"
-msgstr ""
+msgid "Children"
+msgstr "하위"
 
 #. module: mail_group
 #: model_terms:ir.ui.view,arch_db:mail_group.mail_group_view_form
-msgid "Configure a custom domain"
-msgstr "사용자 지정 도메인 구성"
+msgid "Choose or configure a custom domain"
+msgstr "사용자 지정 도메인 선택 또는 환경설정"
+
+#. module: mail_group
+#: model_terms:ir.ui.view,arch_db:mail_group.group_name
+#: model_terms:ir.ui.view,arch_db:mail_group.mail_group_view_form
+#: model_terms:ir.ui.view,arch_db:mail_group.mail_group_view_kanban
+#: model_terms:ir.ui.view,arch_db:mail_group.mail_groups
+msgid "Closed"
+msgstr "종료"
+
+#. module: mail_group
+#: model:ir.model.fields,help:mail_group.field_mail_group__is_closed
+msgid ""
+"Closed groups might still be accessed, but emails sent to it will bounce"
+msgstr ""
 
 #. module: mail_group
 #: model:mail.template,subject:mail_group.mail_template_list_subscribe
@@ -398,7 +504,7 @@ msgstr "{{ object.name }} 구독 취소 확인"
 #: model:ir.model.fields,field_description:mail_group.field_mail_group_message__body
 #: model:ir.model.fields,field_description:mail_group.field_mail_group_message_reject__body
 msgid "Contents"
-msgstr "컨텐츠"
+msgstr "콘텐츠"
 
 #. module: mail_group
 #: model_terms:ir.actions.act_window,help:mail_group.mail_group_action
@@ -422,7 +528,6 @@ msgstr "작성자"
 #. module: mail_group
 #: model:ir.model.fields,field_description:mail_group.field_mail_group__create_date
 #: model:ir.model.fields,field_description:mail_group.field_mail_group_member__create_date
-#: model:ir.model.fields,field_description:mail_group.field_mail_group_message__create_date
 #: model:ir.model.fields,field_description:mail_group.field_mail_group_message_reject__create_date
 #: model:ir.model.fields,field_description:mail_group.field_mail_group_moderation__create_date
 msgid "Created on"
@@ -439,11 +544,6 @@ msgid "Custom Bounced Message"
 msgstr "고객 반송 메시지"
 
 #. module: mail_group
-#: model_terms:ir.ui.view,arch_db:mail_group.mail_group_message_view_list
-msgid "Date"
-msgstr "일자"
-
-#. module: mail_group
 #: model:ir.model.fields,field_description:mail_group.field_mail_group__alias_defaults
 msgid "Default Values"
 msgstr "기본값"
@@ -456,7 +556,7 @@ msgstr "설명"
 #. module: mail_group
 #: model_terms:ir.ui.view,arch_db:mail_group.mail_group_message_reject_form
 msgid "Discard"
-msgstr "작성 취소"
+msgstr "취소"
 
 #. module: mail_group
 #: model:ir.model.fields,field_description:mail_group.field_mail_group__display_name
@@ -470,16 +570,18 @@ msgstr "표시명"
 #. module: mail_group
 #: model:ir.model.fields,field_description:mail_group.field_mail_group_member__email
 #: model:ir.model.fields,field_description:mail_group.field_mail_group_moderation__email
+#: model_terms:ir.ui.view,arch_db:mail_group.mail_group_member_view_tree
 msgid "Email"
 msgstr "이메일"
 
 #. module: mail_group
+#. odoo-python
 #: code:addons/mail_group/models/mail_group.py:0
-#, python-format
 msgid "Email %s is invalid"
-msgstr "이메일%s이 유효하지 않습니다 "
+msgstr "이메일%s이 유효하지 않습니다"
 
 #. module: mail_group
+#: model:ir.model.fields,field_description:mail_group.field_mail_group__alias_email
 #: model_terms:ir.ui.view,arch_db:mail_group.mail_group_view_form
 msgid "Email Alias"
 msgstr "이메일 별칭"
@@ -494,7 +596,14 @@ msgstr "이메일 보낸 사람"
 msgid ""
 "Email address of the sender. This field is set when no matching partner is "
 "found and replaces the author_id field in the chatter."
-msgstr "보낸 사람의 이메일 주소. 이 필드는 수신 메일에서 일치하는 파트너를 찾을 수 없을 때 설정합니다."
+msgstr ""
+"보낸 사람의 이메일 주소입니다. 이 필드는 일치하는 협력사가 없는 경우에 설정되"
+"어 메시지 창에서 작성자 필드를 대체합니다."
+
+#. module: mail_group
+#: model:ir.model.fields,help:mail_group.field_mail_group__alias_domain
+msgid "Email domain e.g. 'example.com' in 'odoo@example.com'"
+msgstr "이메일 도메인 예: 'odoo@example.com'의 'example.com'"
 
 #. module: mail_group
 #: model_terms:ir.ui.view,arch_db:mail_group.mail_group_view_form
@@ -520,7 +629,7 @@ msgstr "후속 조치"
 #: model:ir.model.fields,field_description:mail_group.field_mail_group_message__email_from
 #: model_terms:ir.ui.view,arch_db:mail_group.mail_group_message_view_form
 msgid "From"
-msgstr "출발"
+msgstr "발신인"
 
 #. module: mail_group
 #: model:ir.model.fields,field_description:mail_group.field_mail_group_member__mail_group_id
@@ -530,12 +639,6 @@ msgstr "출발"
 #: model_terms:ir.ui.view,arch_db:mail_group.mail_groups
 msgid "Group"
 msgstr "그룹"
-
-#. module: mail_group
-#: model_terms:ir.ui.view,arch_db:mail_group.mail_group_message_view_search
-#: model_terms:ir.ui.view,arch_db:mail_group.mail_group_view_search
-msgid "Group By"
-msgstr "그룹별"
 
 #. module: mail_group
 #: model_terms:ir.ui.view,arch_db:mail_group.mail_group_message_view_form
@@ -548,10 +651,16 @@ msgid "Group Name"
 msgstr "그룹명"
 
 #. module: mail_group
+#. odoo-python
 #: code:addons/mail_group/models/mail_group_message.py:0
-#, python-format
 msgid "Group message can only be linked to mail group. Current model is %s."
 msgstr "그룹 메시지는 메일 그룹에만 연결이 가능합니다. 현재 모델은 %s입니다."
+
+#. module: mail_group
+#. odoo-python
+#: code:addons/mail_group/controllers/portal.py:0
+msgid "Groups"
+msgstr "그룹"
 
 #. module: mail_group
 #: model:ir.model.fields,field_description:mail_group.field_mail_group__moderation_guidelines_msg
@@ -567,7 +676,18 @@ msgstr "{{ object.mail_group_id.name }} 그룹의 가이드라인"
 #. module: mail_group
 #: model_terms:ir.ui.view,arch_db:mail_group.mail_group_notify_moderation
 msgid "Hello"
-msgstr "안녕"
+msgstr "안녕하세요"
+
+#. module: mail_group
+#: model_terms:ir.ui.view,arch_db:mail_group.email_template_mail_group_closed
+msgid ""
+"Hello there,\n"
+"    <br/><br/>\n"
+"    The mailing list you are trying to reach has been closed, and will not "
+"accept new messages.\n"
+"    <br/><br/>\n"
+"    Kind Regards,"
+msgstr ""
 
 #. module: mail_group
 #: model:ir.model.fields,field_description:mail_group.field_mail_group__id
@@ -581,16 +701,19 @@ msgstr "ID"
 #. module: mail_group
 #: model:ir.model.fields,help:mail_group.field_mail_group__alias_parent_thread_id
 msgid ""
-"ID of the parent record holding the alias (example: project holding the task"
-" creation alias)"
-msgstr "별칭을 담고 있는 상위 레코드의 ID (예 : 별칭을 생성한 작업을 담고 있는 프로젝트)"
+"ID of the parent record holding the alias (example: project holding the task "
+"creation alias)"
+msgstr ""
+"별칭을 담고 있는 상위 레코드의 ID (예: 별칭을 생성한 작업을 담고 있는 프로젝"
+"트)"
 
 #. module: mail_group
 #: model:ir.model.fields,help:mail_group.field_mail_group__alias_bounced_content
 msgid ""
 "If set, this content will automatically be sent out to unauthorized users "
 "instead of the default message."
-msgstr "설정하면, 권한이 없는 사용자에게 기본 메시지 대신 이 내용을 전송합니다. "
+msgstr ""
+"설정할 경우, 권한이 없는 사용자에게 기본 메시지 대신 이 내용을 전송합니다."
 
 #. module: mail_group
 #: model:ir.model.fields,field_description:mail_group.field_mail_group__image_128
@@ -598,18 +721,16 @@ msgid "Image"
 msgstr "이미지"
 
 #. module: mail_group
+#. odoo-python
 #: code:addons/mail_group/models/mail_group.py:0
-#: code:addons/mail_group/models/mail_group.py:0
-#, python-format
 msgid "Invalid action for URL generation (%s)"
 msgstr "URL 생성에 대한 잘못된 작업 (%s)"
 
 #. module: mail_group
+#. odoo-python
 #: code:addons/mail_group/models/mail_group_moderation.py:0
-#: code:addons/mail_group/models/mail_group_moderation.py:0
-#, python-format
-msgid "Invalid email address %r"
-msgstr "잘못된 이메일 주소 %r"
+msgid "Invalid email address “%s”"
+msgstr "잘못된 이메일 주소입니다. “%s”"
 
 #. module: mail_group
 #: model_terms:ir.ui.view,arch_db:mail_group.invalid_token_subscription
@@ -627,6 +748,11 @@ msgid "Is Banned"
 msgstr "금지 대상 여부"
 
 #. module: mail_group
+#: model:ir.model.fields,field_description:mail_group.field_mail_group__is_closed
+msgid "Is Closed"
+msgstr "마감됨"
+
+#. module: mail_group
 #: model:ir.model.fields,field_description:mail_group.field_mail_group_message__is_group_moderated
 msgid "Is Group Moderated"
 msgstr "그룹이 조정됨"
@@ -641,15 +767,6 @@ msgstr "회원 여부"
 #: model_terms:ir.ui.view,arch_db:mail_group.mail_group_view_kanban
 msgid "Join"
 msgstr "참여"
-
-#. module: mail_group
-#: model:ir.model.fields,field_description:mail_group.field_mail_group____last_update
-#: model:ir.model.fields,field_description:mail_group.field_mail_group_member____last_update
-#: model:ir.model.fields,field_description:mail_group.field_mail_group_message____last_update
-#: model:ir.model.fields,field_description:mail_group.field_mail_group_message_reject____last_update
-#: model:ir.model.fields,field_description:mail_group.field_mail_group_moderation____last_update
-msgid "Last Modified on"
-msgstr "최근 수정일"
 
 #. module: mail_group
 #: model:ir.model.fields,field_description:mail_group.field_mail_group__write_uid
@@ -681,6 +798,11 @@ msgid "Let people subscribe to your list online or manually add them here."
 msgstr "온라인으로 목록을 구독하거나 여기에서 직접 추가할 수 있도록 합니다."
 
 #. module: mail_group
+#: model:ir.model.fields,field_description:mail_group.field_mail_group__alias_incoming_local
+msgid "Local-part based incoming detection"
+msgstr "로컬 부품 기반 입고 감지"
+
+#. module: mail_group
 #: model:ir.model,name:mail_group.model_mail_group
 #: model_terms:ir.ui.view,arch_db:mail_group.mail_group_view_form
 msgid "Mail Group"
@@ -693,13 +815,13 @@ msgstr "메일 그룹 관리자"
 
 #. module: mail_group
 #: model:mail.template,name:mail_group.mail_template_list_subscribe
-msgid "Mail Group: Mailing list subscription"
-msgstr ""
+msgid "Mail Group: Mailing List Subscription"
+msgstr "메일 그룹: 메일링 리스트 구독"
 
 #. module: mail_group
 #: model:mail.template,name:mail_group.mail_template_list_unsubscribe
-msgid "Mail Group: Mailing list unsubscription"
-msgstr ""
+msgid "Mail Group: Mailing List Unsubscription"
+msgstr "메일 그룹: 메일링 리스트 구독 취소"
 
 #. module: mail_group
 #: model:mail.template,name:mail_group.mail_template_guidelines
@@ -715,8 +837,6 @@ msgstr "메일 그룹"
 
 #. module: mail_group
 #: model:ir.actions.server,name:mail_group.ir_cron_mail_notify_group_moderators_ir_actions_server
-#: model:ir.cron,cron_name:mail_group.ir_cron_mail_notify_group_moderators
-#: model:ir.cron,name:mail_group.ir_cron_mail_notify_group_moderators
 msgid "Mail List: Notify group moderators"
 msgstr "메일 리스트: 그룹 관리자 알림"
 
@@ -750,7 +870,8 @@ msgstr "메일보내기 목록"
 msgid ""
 "Mailing groups are communities that like to discuss a specific topic "
 "together."
-msgstr "메일 그룹은 특정 주제에 대해 함께 토론하는 것을 좋아하는 커뮤니티입니다."
+msgstr ""
+"메일 그룹은 특정 주제에 대해 함께 토론하는 것을 좋아하는 커뮤니티입니다."
 
 #. module: mail_group
 #: model_terms:ir.ui.view,arch_db:mail_group.mail_group_footer
@@ -758,16 +879,9 @@ msgid "Mailing-List:"
 msgstr "메일링 리스트:"
 
 #. module: mail_group
-#: model_terms:ir.ui.view,arch_db:mail_group.mail_group_view_kanban
-msgid "Member"
-msgstr "회원"
-
-#. module: mail_group
 #: model:ir.actions.act_window,name:mail_group.mail_group_member_action
 #: model:ir.model.fields,field_description:mail_group.field_mail_group__member_ids
 #: model_terms:ir.ui.view,arch_db:mail_group.mail_group_view_form
-#: model_terms:ir.ui.view,arch_db:mail_group.mail_group_view_kanban
-#: model_terms:ir.ui.view,arch_db:mail_group.mail_group_view_list
 msgid "Members"
 msgstr "회원"
 
@@ -812,8 +926,8 @@ msgid "Messages Per Month"
 msgstr "월별 메시지"
 
 #. module: mail_group
+#. odoo-python
 #: code:addons/mail_group/models/mail_group.py:0
-#, python-format
 msgid "Messages are pending moderation"
 msgstr "메시지가 검토 대기 중입니다."
 
@@ -823,17 +937,16 @@ msgid "Messages that need an action"
 msgstr "조치가 필요한 메시지"
 
 #. module: mail_group
+#: model:ir.model.fields,field_description:mail_group.field_mail_group__moderation
+msgid "Moderate"
+msgstr "보통"
+
+#. module: mail_group
 #: model_terms:ir.ui.view,arch_db:mail_group.mail_group_notify_moderation
 msgid "Moderate Messages"
 msgstr "메시지 중재하기"
 
 #. module: mail_group
-#: model:ir.model.fields,field_description:mail_group.field_mail_group__moderation
-msgid "Moderate this group"
-msgstr "이 그룹 중재하기"
-
-#. module: mail_group
-#: model_terms:ir.ui.view,arch_db:mail_group.mail_group_view_list
 #: model_terms:ir.ui.view,arch_db:mail_group.mail_group_view_search
 msgid "Moderated"
 msgstr "중재됨"
@@ -859,8 +972,8 @@ msgid "Moderated emails in this group"
 msgstr "이 그룹에서 검토된 이메일"
 
 #. module: mail_group
+#. odoo-python
 #: code:addons/mail_group/models/mail_group.py:0
-#, python-format
 msgid "Moderated group must have moderators."
 msgstr "중재 그룹에는 중재자가 있어야 합니다."
 
@@ -897,8 +1010,8 @@ msgid "Moderators"
 msgstr "중재자"
 
 #. module: mail_group
+#. odoo-python
 #: code:addons/mail_group/models/mail_group.py:0
-#, python-format
 msgid "Moderators must have an email address."
 msgstr "중재자는 이메일 주소가 있어야 합니다."
 
@@ -915,9 +1028,11 @@ msgstr "이름"
 #. module: mail_group
 #: model_terms:ir.ui.view,arch_db:mail_group.mail_groups
 msgid ""
-"Need to unsubscribe? <br/>It's right here! <span class=\"fa fa-2x fa-arrow-"
-"down float-right\" role=\"img\" aria-label=\"\" title=\"Read this !\"/>"
+"Need to unsubscribe? <br/>It's right here! <span class=\"oi fa-2x oi-arrow-"
+"down float-end\" role=\"img\" aria-label=\"\" title=\"Read this !\"/>"
 msgstr ""
+"구독 취소하시겠습니까? <br/>여기를 눌러주세요. <span class=\"oi fa-2x oi-"
+"arrow-down float-end\" role=\"img\" aria-label=\"\" title=\"Read this !\"/>"
 
 #. module: mail_group
 #: model:ir.model.fields,help:mail_group.field_mail_group__moderation_guidelines
@@ -961,23 +1076,28 @@ msgid "Number of message in this group"
 msgstr "그룹 내 메시지 수"
 
 #. module: mail_group
+#. odoo-python
 #: code:addons/mail_group/models/mail_group.py:0
-#, python-format
 msgid ""
 "Only an administrator or a moderator can send guidelines to group members."
 msgstr "관리자나 중재자만 그룹 회원에게 가이드라인을 전송할 수 있습니다."
 
 #. module: mail_group
+#. odoo-python
 #: code:addons/mail_group/models/mail_group.py:0
-#, python-format
 msgid "Only members can send email to the mailing list."
 msgstr "회원만 메일링 리스트에 이메일을 전송할 수 있습니다."
 
 #. module: mail_group
+#. odoo-python
 #: code:addons/mail_group/models/mail_group.py:0
-#, python-format
 msgid "Only selected groups of users can send email to the mailing list."
 msgstr "선택한 사용자 그룹만 메일링 리스트에 이메일을 보낼 수 있습니다."
+
+#. module: mail_group
+#: model_terms:ir.ui.view,arch_db:mail_group.messages_short
+msgid "Oops, there are no messages here."
+msgstr ""
 
 #. module: mail_group
 #: model:ir.model.fields,help:mail_group.field_mail_group__alias_force_thread_id
@@ -986,12 +1106,8 @@ msgid ""
 "attached, even if they did not reply to it. If set, this will disable the "
 "creation of new records completely."
 msgstr ""
-"회신하지 않은 것까지 모든 받는 메시지를 첨부할 스레드(레코드)의 선택사항 ID. 설정하면 완벽하게 새로운 레코드의 생성을 억제합니다."
-
-#. module: mail_group
-#: model:ir.model.fields,field_description:mail_group.field_mail_group__alias_user_id
-msgid "Owner"
-msgstr "소유자"
+"회신하지 않은 것까지 모든 받는 메시지를 첨부할 스레드(레코드)의 선택사항 ID. "
+"설정하면 완벽하게 새로운 레코드의 생성을 억제합니다."
 
 #. module: mail_group
 #: model:ir.model.fields,field_description:mail_group.field_mail_group_message__group_message_parent_id
@@ -1011,17 +1127,18 @@ msgstr "상위 레코드 스레드 ID"
 #. module: mail_group
 #: model:ir.model.fields,help:mail_group.field_mail_group__alias_parent_model_id
 msgid ""
-"Parent model holding the alias. The model holding the alias reference is not"
-" necessarily the model given by alias_model_id (example: project "
+"Parent model holding the alias. The model holding the alias reference is not "
+"necessarily the model given by alias_model_id (example: project "
 "(parent_model) and task (model))"
 msgstr ""
-"별칭이 있는 상위 모델입니다. 별칭 참조를 포함하는 모델은 반드시 alias_model_id(예 : 프로젝트(parent_model) 및"
-" 태스크(model)에서 제공하는 모델일 필요는 없습니다.)"
+"별칭이 있는 상위 모델입니다. 별칭 참조를 포함하는 모델은 반드시 "
+"alias_model_id(예: 프로젝트(parent_model) 및 태스크(model)에서 제공하는 모델"
+"일 필요는 없습니다.)"
 
 #. module: mail_group
 #: model:ir.model.fields,field_description:mail_group.field_mail_group_member__partner_id
 msgid "Partner"
-msgstr "파트너"
+msgstr "협력사"
 
 #. module: mail_group
 #: model:ir.model.fields,field_description:mail_group.field_mail_group__member_partner_ids
@@ -1041,7 +1158,7 @@ msgstr "보류 메시지 수"
 #. module: mail_group
 #: model:ir.model.fields.selection,name:mail_group.selection__mail_group_message__moderation_status__pending_moderation
 msgid "Pending Moderation"
-msgstr "중재를 위해 대기중"
+msgstr "중재를 위해 대기 중"
 
 #. module: mail_group
 #: model:ir.model.fields,help:mail_group.field_mail_group__moderation_notify
@@ -1061,17 +1178,24 @@ msgid ""
 "Policy to post a message on the document using the mailgateway.\n"
 "- everyone: everyone can post\n"
 "- partners: only authenticated partners\n"
-"- followers: only followers of the related document or members of following channels\n"
+"- followers: only followers of the related document or members of following "
+"channels\n"
 msgstr ""
 "Mailgateway를 사용하여 문서에 메시지를 게시하는 정책.\n"
-"- 모두 : 모든 사용자가 게시할 수 있습니다\n"
-"- 파트너 : 인증 된 파트너만 게시할 수 있습니다\n"
-"- 팔로워 : 관련 문서의 팔로워 또는 관련 채널의 참여자 만 게시할 수 있습니다\n"
+"- 모든 사용자: 모든 사용자가 게시할 수 있습니다\n"
+"- 협력사: 인증된 협력사만 게시할 수 있습니다\n"
+"- 팔로워: 관련 문서의 팔로워 또는 팔로잉 중인 채널의 사용자만 게시할 수 있습"
+"니다\n"
 
 #. module: mail_group
 #: model_terms:ir.ui.view,arch_db:mail_group.mail_group_footer
 msgid "Post to:"
 msgstr "게시 대상:"
+
+#. module: mail_group
+#: model:ir.model.fields,field_description:mail_group.field_mail_group_message__create_date
+msgid "Posted"
+msgstr "발행 완료"
 
 #. module: mail_group
 #: model:ir.model.fields,field_description:mail_group.field_mail_group__access_mode
@@ -1085,8 +1209,8 @@ msgid "Public Mailing List"
 msgstr "공개 메일링 리스트"
 
 #. module: mail_group
+#. odoo-python
 #: code:addons/mail_group/wizard/mail_group_message_reject.py:0
-#, python-format
 msgid "Re: %s"
 msgstr "회신 : %s"
 
@@ -1115,6 +1239,11 @@ msgstr "그룹 메시지 수신 거부"
 
 #. module: mail_group
 #: model_terms:ir.ui.view,arch_db:mail_group.mail_group_message_reject_form
+msgid "Reject Silently"
+msgstr "알림 거부"
+
+#. module: mail_group
+#: model_terms:ir.ui.view,arch_db:mail_group.mail_group_message_reject_form
 msgid "Reject the message"
 msgstr "메시지 수신 거부"
 
@@ -1132,8 +1261,8 @@ msgstr "설명이 있는 메시지 제거"
 
 #. module: mail_group
 #: model_terms:ir.ui.view,arch_db:mail_group.mail_group_view_form
-msgid "Responsible Users"
-msgstr "담당 사용자"
+msgid "Responsibles"
+msgstr "담당자"
 
 #. module: mail_group
 #: model_terms:ir.ui.view,arch_db:mail_group.mail_group_message_view_search
@@ -1154,6 +1283,11 @@ msgstr "메일 그룹 검색"
 #: model_terms:ir.ui.view,arch_db:mail_group.mail_group_moderation_view_search
 msgid "Search Moderation List"
 msgstr "중재중인 목록 검색"
+
+#. module: mail_group
+#: model_terms:ir.ui.view,arch_db:mail_group.mail_group_view_form
+msgid "Select users"
+msgstr "사용자 선택"
 
 #. module: mail_group
 #: model:ir.model.fields.selection,name:mail_group.selection__mail_group__access_mode__groups
@@ -1182,19 +1316,29 @@ msgid "Send Email"
 msgstr "이메일 보내기"
 
 #. module: mail_group
-#: model_terms:ir.ui.view,arch_db:mail_group.mail_group_view_form
-msgid "Send Guidelines"
-msgstr "가이드라인 전송"
-
-#. module: mail_group
 #: model:ir.model.fields,help:mail_group.field_mail_group_message_reject__send_email
 msgid "Send an email to the author of the message"
 msgstr "메시지 작성자에게 이메일 보내기"
 
 #. module: mail_group
+#: model:ir.actions.act_window,name:mail_group.mail_compose_message_action_mail_group
+msgid "Send email"
+msgstr "이메일 전송"
+
+#. module: mail_group
 #: model:ir.model.fields,field_description:mail_group.field_mail_group__moderation_guidelines
-msgid "Send guidelines to new subscribers"
-msgstr "신규 구독자에게 지침 보내기"
+msgid "Send guidelines to new members"
+msgstr ""
+
+#. module: mail_group
+#: model:mail.template,description:mail_group.mail_template_guidelines
+msgid "Sent to people who subscribed to a mailing group with group guidelines"
+msgstr "가이드라인이 포함된 메일링 그룹 회원에게 전송됩니다"
+
+#. module: mail_group
+#: model:mail.template,description:mail_group.mail_template_list_unsubscribe
+msgid "Sent to people who unsubscribed from a mailing group"
+msgstr "메일링 그룹 구독을 취소한 사람에게 전송됩니다"
 
 #. module: mail_group
 #: model:ir.model.fields,field_description:mail_group.field_mail_group_message__moderation_status
@@ -1215,23 +1359,24 @@ msgid "Subject"
 msgstr "제목"
 
 #. module: mail_group
-#. openerp-web
-#: code:addons/mail_group/static/src/js/mail_group.js:0
-#: code:addons/mail_group/static/src/js/mail_group.js:0
 #: model_terms:ir.ui.view,arch_db:mail_group.mail_groups
-#, python-format
 msgid "Subscribe"
 msgstr "구독"
 
 #. module: mail_group
+#: model:mail.template,description:mail_group.mail_template_list_subscribe
+msgid "Subscription confirmation to a mailing group"
+msgstr "메일링 그룹에 대한 구독 확인"
+
+#. module: mail_group
+#. odoo-python
 #: code:addons/mail_group/models/mail_group.py:0
-#, python-format
 msgid ""
-"Template \"mail_group.mail_template_guidelines\" was not found. No email has"
-" been sent. Please contact an administrator to fix this issue."
+"Template \"mail_group.mail_template_guidelines\" was not found. No email has "
+"been sent. Please contact an administrator to fix this issue."
 msgstr ""
-"\"mail_group.mail_template_guidelines\" 서식을 찾을 수 없습니다. 이메일이 전송되지 않았습니다. 이 "
-"문제를 해결하려면 관리자에게 문의하십시오."
+"\"mail_group.mail_template_guidelines\" 서식을 찾을 수 없습니다. 이메일이 전"
+"송되지 않았습니다. 이 문제를 해결하려면 관리자에게 문의하십시오."
 
 #. module: mail_group
 #: model_terms:ir.ui.view,arch_db:mail_group.mail_group_notify_moderation
@@ -1239,8 +1384,8 @@ msgid "Thank you!"
 msgstr "감사합니다!"
 
 #. module: mail_group
+#. odoo-python
 #: code:addons/mail_group/models/mail_group.py:0
-#, python-format
 msgid "The \"Authorized Group\" is missing."
 msgstr "\"인증된 그룹\"이 없습니다."
 
@@ -1250,92 +1395,81 @@ msgid "The email"
 msgstr "이메일"
 
 #. module: mail_group
+#. odoo-python
 #: code:addons/mail_group/models/mail_group_message.py:0
-#, python-format
 msgid "The email \"%s\" is not valid."
 msgstr "이메일\"%s\" 이 올바르지 않습니다."
 
 #. module: mail_group
+#. odoo-python
 #: code:addons/mail_group/models/mail_group.py:0
-#, python-format
 msgid "The group of the message do not match."
 msgstr "메시지 그룹이 일치하지 않습니다."
 
 #. module: mail_group
+#. odoo-python
 #: code:addons/mail_group/models/mail_group.py:0
-#, python-format
 msgid "The guidelines description is empty."
 msgstr "가이드라인 설명이 비어 있습니다."
 
 #. module: mail_group
+#. odoo-python
 #: code:addons/mail_group/models/mail_group.py:0
-#, python-format
 msgid "The guidelines description is missing."
 msgstr "가이드라인 설명이 없습니다."
 
 #. module: mail_group
 #: model:ir.model.fields,help:mail_group.field_mail_group__alias_model_id
 msgid ""
-"The model (Odoo Document Kind) to which this alias corresponds. Any incoming"
-" email that does not reply to an existing record will cause the creation of "
-"a new record of this model (e.g. a Project Task)"
+"The model (Odoo Document Kind) to which this alias corresponds. Any incoming "
+"email that does not reply to an existing record will cause the creation of a "
+"new record of this model (e.g. a Project Task)"
 msgstr ""
-"이 별칭에 해당하는 모델(Odoo 문서 종류)입니다. 모든 받는 메일은 기존 레코드로 기록되지 않고 이 모델의 새 레코드로 작성됩니다. "
-"(예. 프로젝트 작업)"
+"이 별칭에 해당하는 모델(Odoo 문서 종류)입니다. 모든 받는 메일은 기존 레코드"
+"로 기록되지 않고 이 모델의 새 레코드로 작성됩니다. (예. 프로젝트 작업)"
 
 #. module: mail_group
 #: model:ir.model.fields,help:mail_group.field_mail_group__alias_name
 msgid ""
 "The name of the email alias, e.g. 'jobs' if you want to catch emails for "
 "<jobs@example.odoo.com>"
-msgstr "이메일 별칭 이름. <jobs@example.odoo.com>에 대한 이메일을 수신하도록 하려면 'jobs'라고 적습니다."
+msgstr ""
+"<jobs@example.odoo.com>에 대한 이메일을 수신하도록 하려면 이메일의 별칭 이름"
+"을 적어주세요. 예: 'jobs'"
 
 #. module: mail_group
+#. odoo-python
 #: code:addons/mail_group/models/mail_group.py:0
-#, python-format
 msgid "The notification message is missing."
 msgstr "알림 메시지가 없습니다."
 
 #. module: mail_group
-#: model:ir.model.fields,help:mail_group.field_mail_group__alias_user_id
-msgid ""
-"The owner of records created upon receiving emails on this alias. If this "
-"field is not set the system will attempt to find the right owner based on "
-"the sender (From) address, or will use the Administrator account if no "
-"system user is found for that address."
-msgstr ""
-"이 별칭으로 이메일을 받을 때 생성되는 레코드의 소유자. 이 필드를 시스템에 설정하지 않으면 보낸 사람 주소를 기준으로 올바른 소유자를 "
-"찾기 위해 시도하거나 주소에서 해당하는 사용자를 찾지 못한 경우 관리자 계정을 사용합니다."
-
-#. module: mail_group
+#. odoo-python
 #: code:addons/mail_group/models/mail_group.py:0
-#, python-format
 msgid "The partner can not be found."
 msgstr "협력사를 찾을 수 없습니다."
 
 #. module: mail_group
+#. odoo-python
 #: code:addons/mail_group/models/mail_group_message.py:0
-#, python-format
 msgid "The record of the message should be the group."
 msgstr "메시지의 레코드는 그룹이어야 합니다."
 
 #. module: mail_group
-#. openerp-web
-#: code:addons/mail_group/static/src/js/mail_group.js:0
-#, python-format
+#. odoo-javascript
+#: code:addons/mail_group/static/src/interactions/mail_group.js:0
 msgid "This email is already subscribed."
 msgstr "이미 구독 중인 이메일입니다."
 
 #. module: mail_group
-#. openerp-web
-#: code:addons/mail_group/static/src/js/mail_group.js:0
-#, python-format
+#. odoo-javascript
+#: code:addons/mail_group/static/src/interactions/mail_group.js:0
 msgid "This email is not subscribed."
 msgstr "구독하지 않은 이메일입니다."
 
 #. module: mail_group
+#. odoo-python
 #: code:addons/mail_group/models/mail_group_message.py:0
-#, python-format
 msgid "This message can not be moderated"
 msgstr "이 메시지는 중재할 수 없습니다"
 
@@ -1345,8 +1479,8 @@ msgid "This partner is already subscribed to the group"
 msgstr "이 협력사는 이미 그룹에 가입되어 있습니다"
 
 #. module: mail_group
+#. odoo-python
 #: code:addons/mail_group/models/mail_group_message.py:0
-#, python-format
 msgid "Those messages can not be moderated: %s."
 msgstr "다음 메시지들은 중재할 수 없습니다: %s."
 
@@ -1356,11 +1490,7 @@ msgid "To Review"
 msgstr "검토하기"
 
 #. module: mail_group
-#. openerp-web
-#: code:addons/mail_group/static/src/js/mail_group.js:0
-#: code:addons/mail_group/static/src/js/mail_group.js:0
 #: model_terms:ir.ui.view,arch_db:mail_group.mail_groups
-#, python-format
 msgid "Unsubscribe"
 msgstr "구독 취소"
 
@@ -1387,8 +1517,8 @@ msgid "Whitelisted"
 msgstr "화이트리스트에 추가됨"
 
 #. module: mail_group
+#. odoo-python
 #: code:addons/mail_group/models/mail_group_message.py:0
-#, python-format
 msgid "Wrong status (%s)"
 msgstr "상태 오류 (%s)"
 
@@ -1396,6 +1526,18 @@ msgstr "상태 오류 (%s)"
 #: model:ir.model.constraint,message:mail_group.constraint_mail_group_moderation_mail_group_email_uniq
 msgid "You can create only one rule for a given email address in a group."
 msgstr "그룹 내 지정된 이메일 주소에 대해 하나의 규칙만 생성할 수 있습니다."
+
+#. module: mail_group
+#. odoo-python
+#: code:addons/mail_group/models/mail_group.py:0
+msgid "You can not join a closed group."
+msgstr ""
+
+#. module: mail_group
+#. odoo-python
+#: code:addons/mail_group/models/mail_group.py:0
+msgid "You can not send guidelines for a closed group."
+msgstr ""
 
 #. module: mail_group
 #: model_terms:ir.ui.view,arch_db:mail_group.mail_group_notify_moderation
@@ -1406,6 +1548,11 @@ msgstr "중재한 메시지가 있습니다. 절차를 진행하십시오."
 #: model_terms:ir.ui.view,arch_db:mail_group.mail_group_footer
 msgid "_______________________________________________"
 msgstr "_______________________________________________"
+
+#. module: mail_group
+#: model_terms:ir.ui.view,arch_db:mail_group.mail_group_view_form
+msgid "alias"
+msgstr "별칭"
 
 #. module: mail_group
 #: model_terms:ir.ui.view,arch_db:mail_group.mail_group_message_reject_form
@@ -1428,6 +1575,21 @@ msgid "e.g. \"Newsletter\""
 msgstr "예. \"뉴스레터\""
 
 #. module: mail_group
+#: model_terms:ir.ui.view,arch_db:mail_group.mail_group_view_form
+msgid "e.g. \"This group is about ...\""
+msgstr ""
+
+#. module: mail_group
+#: model_terms:ir.ui.view,arch_db:mail_group.mail_group_view_form
+msgid "e.g. mycompany.com"
+msgstr "예: mycompany.com"
+
+#. module: mail_group
+#: model_terms:ir.ui.view,arch_db:mail_group.mail_group_view_form
+msgid "e.g.\"Please be polite and ...\""
+msgstr ""
+
+#. module: mail_group
 #: model_terms:ir.ui.view,arch_db:mail_group.mail_group_message_view_search
 msgid "group"
 msgstr "그룹"
@@ -1439,17 +1601,18 @@ msgstr "해왔음"
 
 #. module: mail_group
 #: model_terms:ir.ui.view,arch_db:mail_group.mail_groups
-msgid ""
-"members<br/>\n"
-"                        <i class=\"fa fa-fw fa-envelope-o\" role=\"img\" aria-label=\"Traffic\" title=\"Traffic\"/>"
-msgstr ""
-"멤버<br/>\n"
-"                        <i class=\"fa fa-fw fa-envelope-o\" role=\"img\" aria-label=\"Traffic\" title=\"Traffic\"/>"
+msgid "members<br/>"
+msgstr "회원<br/>"
 
 #. module: mail_group
 #: model_terms:ir.ui.view,arch_db:mail_group.mail_groups
 msgid "messages / month"
 msgstr "메시지 / 월"
+
+#. module: mail_group
+#: model_terms:ir.ui.view,arch_db:mail_group.mail_group_view_kanban
+msgid "messages to review"
+msgstr "검토할 메시지"
 
 #. module: mail_group
 #: model_terms:ir.ui.view,arch_db:mail_group.messages_short
@@ -1480,3 +1643,6 @@ msgstr "구독 취소"
 #: model_terms:ir.ui.view,arch_db:mail_group.mail_groups
 msgid "your email..."
 msgstr "귀하의 이메일..."
+
+#~ msgid "Group By"
+#~ msgstr "그룹별"

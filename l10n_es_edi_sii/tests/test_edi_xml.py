@@ -1,16 +1,13 @@
 # coding: utf-8
-from .common import TestEsEdiCommon
+from .common import TestEsEdiCommon, mocked_l10n_es_edi_call_web_service_sign
 
 import json
 
 from freezegun import freeze_time
 from unittest.mock import patch
 
+from odoo import Command
 from odoo.tests import tagged
-
-
-def mocked_l10n_es_edi_call_web_service_sign(edi_format, invoices, info_list):
-    return {inv: {'success': True} for inv in invoices}
 
 
 @tagged('post_install_l10n', 'post_install', '-at_install')
@@ -19,6 +16,8 @@ class TestEdiXmls(TestEsEdiCommon):
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
+        cls.other_currency = cls.setup_other_currency('USD')
+
         cls.certificate.write({
             'date_start': '2019-01-01 01:00:00',
             'date_end': '2021-01-01 01:00:00',
@@ -159,11 +158,15 @@ class TestEdiXmls(TestEsEdiCommon):
                 invoice_line_ids=[
                     {
                         'price_unit': 100.0,
-                        'tax_ids': [(6, 0, (self._get_tax_by_xml_id('s_iva10b') + self._get_tax_by_xml_id('s_req014')).ids)],
+                        'tax_ids': [Command.set((self._get_tax_by_xml_id('s_iva10b') + self._get_tax_by_xml_id('s_req014')).ids)],
+                    },
+                    {
+                        'price_unit': 50.0,
+                        'tax_ids': [Command.set((self._get_tax_by_xml_id('s_iva10b') + self._get_tax_by_xml_id('s_req014')).ids)],
                     },
                     {
                         'price_unit': 200.0,
-                        'tax_ids': [(6, 0, (self._get_tax_by_xml_id('s_iva21s') + self._get_tax_by_xml_id('s_req52')).ids)],
+                        'tax_ids': [Command.set((self._get_tax_by_xml_id('s_iva21s') + self._get_tax_by_xml_id('s_req52')).ids)],
                     },
                 ],
             )
@@ -212,9 +215,9 @@ class TestEdiXmls(TestEsEdiCommon):
                                             'DetalleIVA': [
                                                 {
                                                     'TipoImpositivo': 10.0,
-                                                    'BaseImponible': 100.0,
-                                                    'CuotaRepercutida': 10.0,
-                                                    'CuotaRecargoEquivalencia': 1.4,
+                                                    'BaseImponible': 150.0,
+                                                    'CuotaRepercutida': 15.0,
+                                                    'CuotaRecargoEquivalencia': 2.1,
                                                     'TipoRecargoEquivalencia': 1.4
                                                 }
                                             ]
@@ -224,7 +227,7 @@ class TestEdiXmls(TestEsEdiCommon):
                             }
                         }
                     },
-                    'ImporteTotal': 363.8,
+                    'ImporteTotal': 419.5,
                     'Contraparte': {
                         'IDOtro': {'ID': 'BE0477472701', 'IDType': '02'},
                         'NombreRazon': 'partner_a',
@@ -308,7 +311,7 @@ class TestEdiXmls(TestEsEdiCommon):
                 },
             })
 
-    def test_050_out_invoice_s_iva0_sp_i_s_iva0_ic(self):
+    def test_050_out_invoice_s_iva0_sp_i_s_iva0_g_i(self):
         """An intra-community sale needs to be reported as exempt and intra-community services as no sujeto por reglas de localizacion (no_sujeto_loc)"""
         with freeze_time(self.frozen_today), \
              patch('odoo.addons.l10n_es_edi_sii.models.account_edi_format.AccountEdiFormat._l10n_es_edi_call_web_service_sign',
@@ -317,7 +320,7 @@ class TestEdiXmls(TestEsEdiCommon):
                 partner_id=self.partner_a.id,
                 invoice_line_ids=[
                     {'price_unit': 100.0, 'tax_ids': [(6, 0, self._get_tax_by_xml_id('s_iva0_sp_i').ids)]},
-                    {'price_unit': 200.0, 'tax_ids': [(6, 0, self._get_tax_by_xml_id('s_iva0_ic').ids)]},
+                    {'price_unit': 200.0, 'tax_ids': [(6, 0, self._get_tax_by_xml_id('s_iva0_g_i').ids)]},
                 ],
             )
             invoice.action_post()
@@ -366,7 +369,7 @@ class TestEdiXmls(TestEsEdiCommon):
                 },
             })
 
-    def test_060_out_refund_s_iva0_sp_i_s_iva0_ic(self):
+    def test_060_out_refund_s_iva0_sp_i_s_iva0_g_i(self):
         """ Intra-community refund of service and good"""
         with freeze_time(self.frozen_today), \
              patch('odoo.addons.l10n_es_edi_sii.models.account_edi_format.AccountEdiFormat._l10n_es_edi_call_web_service_sign',
@@ -376,7 +379,7 @@ class TestEdiXmls(TestEsEdiCommon):
                 partner_id=self.partner_a.id,
                 invoice_line_ids=[
                     {'price_unit': 100.0, 'tax_ids': [(6, 0, self._get_tax_by_xml_id('s_iva0_sp_i').ids)]},
-                    {'price_unit': 200.0, 'tax_ids': [(6, 0, self._get_tax_by_xml_id('s_iva0_ic').ids)]},
+                    {'price_unit': 200.0, 'tax_ids': [(6, 0, self._get_tax_by_xml_id('s_iva0_g_i').ids)]},
                 ],
             )
             invoice.action_post()
@@ -426,7 +429,7 @@ class TestEdiXmls(TestEsEdiCommon):
                 },
             })
 
-    def test_070_out_invoice_s_iva_e_s_iva0_e(self):
+    def test_070_out_invoice_s_iva_e_s_iva0_g_e(self):
         """ Export of service (no sujeto por reglas de localization) and export of goods (exempt)"""
         with freeze_time(self.frozen_today), \
              patch('odoo.addons.l10n_es_edi_sii.models.account_edi_format.AccountEdiFormat._l10n_es_edi_call_web_service_sign',
@@ -435,7 +438,7 @@ class TestEdiXmls(TestEsEdiCommon):
                 partner_id=self.partner_a.id,
                 invoice_line_ids=[
                     {'price_unit': 100.0, 'tax_ids': [(6, 0, self._get_tax_by_xml_id('s_iva_e').ids)]},
-                    {'price_unit': 200.0, 'tax_ids': [(6, 0, self._get_tax_by_xml_id('s_iva0_e').ids)]},
+                    {'price_unit': 200.0, 'tax_ids': [(6, 0, self._get_tax_by_xml_id('s_iva0_g_e').ids)]},
                 ],
             )
             invoice.action_post()
@@ -453,13 +456,13 @@ class TestEdiXmls(TestEsEdiCommon):
                 'PeriodoLiquidacion': {'Ejercicio': '2019', 'Periodo': '01'},
                 'FacturaExpedida': {
                     'TipoFactura': 'F1',
-                    'ClaveRegimenEspecialOTrascendencia': '01',
+                    'ClaveRegimenEspecialOTrascendencia': '02',
                     'DescripcionOperacion': 'manual',
                     'TipoDesglose': {
                         'DesgloseTipoOperacion': {
                             'PrestacionServicios': {
                                 'NoSujeta': {
-                                    'ImportePorArticulos7_14_Otros': 100.0,
+                                    'ImporteTAIReglasLocalizacion': 100.0,
                                 },
                             },
                             'Entrega': {
@@ -484,7 +487,7 @@ class TestEdiXmls(TestEsEdiCommon):
                 },
             })
 
-    def test_080_out_refund_s_iva0_sp_i_s_iva0_ic(self):
+    def test_080_out_refund_s_iva0_sp_i_s_iva0_g_i(self):
         """Customer refund of an intracom good and service"""
         with freeze_time(self.frozen_today), \
              patch('odoo.addons.l10n_es_edi_sii.models.account_edi_format.AccountEdiFormat._l10n_es_edi_call_web_service_sign',
@@ -494,7 +497,7 @@ class TestEdiXmls(TestEsEdiCommon):
                 partner_id=self.partner_a.id,
                 invoice_line_ids=[
                     {'price_unit': 100.0, 'tax_ids': [(6, 0, self._get_tax_by_xml_id('s_iva0_sp_i').ids)]},
-                    {'price_unit': 200.0, 'tax_ids': [(6, 0, self._get_tax_by_xml_id('s_iva0_ic').ids)]},
+                    {'price_unit': 200.0, 'tax_ids': [(6, 0, self._get_tax_by_xml_id('s_iva0_g_i').ids)]},
                 ],
             )
             invoice.action_post()
@@ -544,7 +547,7 @@ class TestEdiXmls(TestEsEdiCommon):
                 },
             })
 
-    def test_085_out_refund_s_iva0_sp_i_s_iva0_ic_multi_currency(self):
+    def test_085_out_refund_s_iva0_sp_i_s_iva0_g_i_multi_currency(self):
         """ Same as test_080 but in multi-currency"""
         with freeze_time(self.frozen_today), \
              patch('odoo.addons.l10n_es_edi_sii.models.account_edi_format.AccountEdiFormat._l10n_es_edi_call_web_service_sign',
@@ -552,10 +555,10 @@ class TestEdiXmls(TestEsEdiCommon):
             invoice = self.create_invoice(
                 move_type='out_refund',
                 partner_id=self.partner_a.id,
-                currency_id=self.currency_data['currency'].id,
+                currency_id=self.other_currency.id,
                 invoice_line_ids=[
                     {'price_unit': 200.0, 'tax_ids': [(6, 0, self._get_tax_by_xml_id('s_iva0_sp_i').ids)]},
-                    {'price_unit': 400.0, 'tax_ids': [(6, 0, self._get_tax_by_xml_id('s_iva0_ic').ids)]},
+                    {'price_unit': 400.0, 'tax_ids': [(6, 0, self._get_tax_by_xml_id('s_iva0_g_i').ids)]},
                 ],
             )
             invoice.action_post()
@@ -638,7 +641,7 @@ class TestEdiXmls(TestEsEdiCommon):
                 'IDFactura': {
                     'FechaExpedicionFacturaEmisor': '01-01-2019',
                     'NumSerieFacturaEmisor': 'sup0001',
-                    'IDEmisorFactura': {'NIF': 'F35999705'}
+                    'IDEmisorFactura': {'NIF': 'F35999705', 'NombreRazon': 'partner_b'}
                 },
                 'FacturaRecibida': {
                     'TipoFactura': 'F1',
@@ -682,7 +685,7 @@ class TestEdiXmls(TestEsEdiCommon):
                 'IDFactura': {
                     'FechaExpedicionFacturaEmisor': '01-01-2019',
                     'NumSerieFacturaEmisor': 'sup0001',
-                    'IDEmisorFactura': {'NIF': 'F35999705'},
+                    'IDEmisorFactura': {'NIF': 'F35999705', 'NombreRazon': 'partner_b'},
                 },
                 'FacturaRecibida': {
                     'TipoFactura': 'R4',
@@ -735,7 +738,7 @@ class TestEdiXmls(TestEsEdiCommon):
                 'IDFactura': {
                     'FechaExpedicionFacturaEmisor': '01-01-2019',
                     'NumSerieFacturaEmisor': 'sup0001',
-                    'IDEmisorFactura': {'NIF': 'F35999705'},
+                    'IDEmisorFactura': {'NIF': 'F35999705', 'NombreRazon': 'partner_b'},
                 },
                 'FacturaRecibida': {
                     'TipoFactura': 'F1',
@@ -791,7 +794,7 @@ class TestEdiXmls(TestEsEdiCommon):
                 'IDFactura': {
                     'FechaExpedicionFacturaEmisor': '01-01-2019',
                     'NumSerieFacturaEmisor': 'sup0001',
-                    'IDEmisorFactura': {'NIF': 'F35999705'},
+                    'IDEmisorFactura': {'NIF': 'F35999705', 'NombreRazon': 'partner_b'},
                 },
                 'FacturaRecibida': {
                     'TipoFactura': 'F1',
@@ -839,7 +842,7 @@ class TestEdiXmls(TestEsEdiCommon):
                 'IDFactura': {
                     'FechaExpedicionFacturaEmisor': '01-01-2019',
                     'NumSerieFacturaEmisor': 'sup0001',
-                    'IDEmisorFactura': {'NIF': 'F35999705'},
+                    'IDEmisorFactura': {'NIF': 'F35999705', 'NombreRazon': 'partner_b'},
                 },
                 'FacturaRecibida': {
                     'TipoFactura': 'F1',
@@ -943,7 +946,7 @@ class TestEdiXmls(TestEsEdiCommon):
                 'IDFactura': {
                     'FechaExpedicionFacturaEmisor': '01-01-2019',
                     'NumSerieFacturaEmisor': 'sup0001',
-                    'IDEmisorFactura': {'NIF': 'F35999705'},
+                    'IDEmisorFactura': {'NIF': 'F35999705', 'NombreRazon': 'partner_b'},
                 },
                 'FacturaRecibida': {
                     'TipoFactura': 'F1',
@@ -995,7 +998,7 @@ class TestEdiXmls(TestEsEdiCommon):
                 'IDFactura': {
                     'FechaExpedicionFacturaEmisor': '01-01-2019',
                     'NumSerieFacturaEmisor': 'sup0001',
-                    'IDEmisorFactura': {'NIF': 'F35999705'},
+                    'IDEmisorFactura': {'NIF': 'F35999705', 'NombreRazon': 'partner_b'},
                 },
                 'FacturaRecibida': {
                     'TipoFactura': 'R4',
@@ -1030,7 +1033,7 @@ class TestEdiXmls(TestEsEdiCommon):
                 move_type='in_refund',
                 ref='sup0001',
                 partner_id=self.partner_b.id,
-                currency_id=self.currency_data['currency'].id,
+                currency_id=self.other_currency.id,
                 l10n_es_registration_date='2019-01-02',
                 invoice_line_ids=[
                     {
@@ -1049,7 +1052,7 @@ class TestEdiXmls(TestEsEdiCommon):
                 'IDFactura': {
                     'FechaExpedicionFacturaEmisor': '01-01-2019',
                     'NumSerieFacturaEmisor': 'sup0001',
-                    'IDEmisorFactura': {'NIF': 'F35999705'},
+                    'IDEmisorFactura': {'NIF': 'F35999705', 'NombreRazon': 'partner_b'},
                 },
                 'FacturaRecibida': {
                     'TipoFactura': 'R4',
@@ -1074,6 +1077,53 @@ class TestEdiXmls(TestEsEdiCommon):
                 },
                 'PeriodoLiquidacion': {'Periodo': '01', 'Ejercicio': '2019'},
             })
+
+    def test_170_in_invoice_dua(self):
+        """DUA invoice.  The TipoFactura needs to change as well as the importetotal needs to include the base. """
+        with freeze_time(self.frozen_today), patch(
+                'odoo.addons.l10n_es_edi_sii.models.account_edi_format.AccountEdiFormat._l10n_es_edi_call_web_service_sign',
+                new=mocked_l10n_es_edi_call_web_service_sign
+        ):
+            invoice = self.create_invoice(
+                move_type='in_invoice',
+                ref='fakedua',
+                partner_id=self.partner_b.id,
+                currency_id=self.other_currency.id,
+                l10n_es_registration_date='2019-01-02',
+                invoice_line_ids=[
+                    {
+                        'tax_ids': [(6, 0, (self._get_tax_by_xml_id('p_iva21_ibc_group').ids))],
+                    },
+                ],
+            )
+            invoice.action_post()
+
+            generated_files = self._process_documents_web_services(invoice, {'es_sii'})
+            self.assertTrue(generated_files)
+
+            json_file = json.loads(generated_files[0].decode())[0]
+            self.assertEqual(json_file, {
+                'PeriodoLiquidacion': {'Ejercicio': '2019', 'Periodo': '01'},
+                'IDFactura': {
+                    'FechaExpedicionFacturaEmisor': '01-01-2019',
+                    'IDEmisorFactura': {'NIF': '59962470K',
+                                        'NombreRazon': 'partner_b'},
+                    'NumSerieFacturaEmisor': 'fakedua'
+                },
+                'FacturaRecibida': {
+                    'DescripcionOperacion': 'manual',
+                    'Contraparte': {'NIF': '59962470K', 'NombreRazon': 'partner_b'},
+                    'FechaRegContable': '02-01-2019',
+                    'ClaveRegimenEspecialOTrascendencia': '01',
+                    'TipoFactura': 'F5',
+                    'DesgloseFactura': {
+                        'DesgloseIVA': {
+                            'DetalleIVA': [{'BaseImponible': 500.0, 'TipoImpositivo': 21.0, 'CuotaSoportada': 105.0}]
+                        }
+                    },
+                    'ImporteTotal': 605.0,
+                    'CuotaDeducible': 105.0
+                }})
 
     def test_180_in_invoice_iva21_sp_in_iva21_ic_bc(self):
         """ For intra-community purchase of services and goods, the -100 needs to be taken into account in the importe total.
@@ -1107,7 +1157,7 @@ class TestEdiXmls(TestEsEdiCommon):
                 'IDFactura': {
                     'FechaExpedicionFacturaEmisor': '01-01-2019',
                     'NumSerieFacturaEmisor': 'sup0001',
-                    'IDEmisorFactura': {'IDOtro': {'IDType': '02', 'ID': 'BE0477472701'}}
+                    'IDEmisorFactura': {'IDOtro': {'IDType': '02', 'ID': 'BE0477472701'}, 'NombreRazon': 'partner_a'}
                 },
                 'FacturaRecibida': {
                     'TipoFactura': 'F1',
@@ -1160,7 +1210,7 @@ class TestEdiXmls(TestEsEdiCommon):
                 'IDFactura': {
                     'FechaExpedicionFacturaEmisor': '01-01-2019',
                     'NumSerieFacturaEmisor': 'sup0001',
-                    'IDEmisorFactura': {'IDOtro': {'IDType': '02', 'ID': 'BE0477472701'}}
+                    'IDEmisorFactura': {'IDOtro': {'IDType': '02', 'ID': 'BE0477472701'}, 'NombreRazon': 'partner_a'}
                 },
                 'FacturaRecibida': {
                     'TipoFactura': 'R4',
@@ -1178,6 +1228,55 @@ class TestEdiXmls(TestEsEdiCommon):
                         }
                     },
                     'CuotaDeducible': -63.0
+                },
+                'PeriodoLiquidacion': {'Periodo': '01', 'Ejercicio': '2019'}
+            })
+
+    def test_200_in_invoice_p_iva12_agr(self):
+        """ For bills with the 12% agricuture tax the Clave Regime Special should be E2
+        """
+        with freeze_time(self.frozen_today), \
+             patch('odoo.addons.l10n_es_edi_sii.models.account_edi_format.AccountEdiFormat._l10n_es_edi_call_web_service_sign',
+                   new=mocked_l10n_es_edi_call_web_service_sign):
+            invoice = self.create_invoice(
+                move_type='in_invoice',
+                ref='sup0001',
+                partner_id=self.partner_a.id,
+                l10n_es_registration_date='2019-01-02',
+                invoice_line_ids=[
+                    {
+                        'price_unit': 200.0,
+                        'tax_ids': [(6, 0, self._get_tax_by_xml_id('p_iva12_agr').ids)],
+                    },
+                ],
+            )
+            invoice.action_post()
+
+            generated_files = self._process_documents_web_services(invoice, {'es_sii'})
+            self.assertTrue(generated_files)
+
+            json_file = json.loads(generated_files[0].decode())[0]
+            self.assertEqual(json_file, {
+                'IDFactura': {
+                    'FechaExpedicionFacturaEmisor': '01-01-2019',
+                    'NumSerieFacturaEmisor': 'sup0001',
+                    'IDEmisorFactura': {'IDOtro': {'IDType': '02', 'ID': 'BE0477472701'}, 'NombreRazon': 'partner_a'}
+                },
+                'FacturaRecibida': {
+                    'TipoFactura': 'F6',
+                    'Contraparte': {'IDOtro': {'IDType': '02', 'ID': 'BE0477472701'}, 'NombreRazon': 'partner_a'},
+                    'DescripcionOperacion': 'manual',
+                    'ClaveRegimenEspecialOTrascendencia': '02',
+                    'ImporteTotal': 224.0,
+                    'FechaRegContable': '02-01-2019',
+                    'DesgloseFactura': {
+                        'DesgloseIVA': {
+                            'DetalleIVA': [
+                                {'BaseImponible': 200.0, 'ImporteCompensacionREAGYP': 24.0, 'PorcentCompensacionREAGYP': 12.0},
+                            ]
+                        }
+                    },
+                    'CuotaDeducible': 0.0
                 },
                 'PeriodoLiquidacion': {'Periodo': '01', 'Ejercicio': '2019'}
             })

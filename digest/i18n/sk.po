@@ -1,29 +1,31 @@
 # Translation of Odoo Server.
 # This file contains the translation of the following modules:
-# 	* digest
-# 
+# * digest
+#
 # Translators:
 # SAKodoo <sak@odoo.com>, 2022
 # Martin Trigaux, 2022
-# Dávid Kováč, 2023
-# 
+# Weblate <noreply-mt-weblate@weblate.org>, 2025.
 msgid ""
 msgstr ""
-"Project-Id-Version: Odoo Server 15.0\n"
+"Project-Id-Version: Odoo Server 15.5alpha1\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2022-01-24 08:19+0000\n"
-"PO-Revision-Date: 2021-09-14 12:21+0000\n"
-"Last-Translator: Dávid Kováč, 2023\n"
-"Language-Team: Slovak (https://app.transifex.com/odoo/teams/41243/sk/)\n"
+"POT-Creation-Date: 2026-01-25 18:36+0000\n"
+"PO-Revision-Date: 2025-11-16 15:34+0000\n"
+"Last-Translator: Weblate <noreply-mt-weblate@weblate.org>\n"
+"Language-Team: Slovak <https://translate.odoo.com/projects/odoo-19/digest/sk/"
+">\n"
+"Language: sk\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: \n"
-"Language: sk\n"
-"Plural-Forms: nplurals=4; plural=(n % 1 == 0 && n == 1 ? 0 : n % 1 == 0 && n >= 2 && n <= 4 ? 1 : n % 1 != 0 ? 2: 3);\n"
+"Plural-Forms: nplurals=4; plural=(n % 1 == 0 && n == 1 ? 0 : n % 1 == 0 && n "
+">= 2 && n <= 4 ? 1 : n % 1 != 0 ? 2: 3);\n"
+"X-Generator: Weblate 5.12.2\n"
 
 #. module: digest
 #: model_terms:ir.ui.view,arch_db:digest.digest_mail_main
-msgid "<span class=\"button\" id=\"button_open_report\">Open Report</span>"
+msgid "<span class=\"button\" id=\"button_open_report\">➔ Open Report</span>"
 msgstr ""
 
 #. module: digest
@@ -33,7 +35,7 @@ msgstr ""
 
 #. module: digest
 #: model_terms:ir.ui.view,arch_db:digest.digest_mail_main
-msgid "<span style=\"color: #8f8f8f;\">Unsubscribe</span>"
+msgid "<span style=\"color: #878d97;\">Unsubscribe</span>"
 msgstr ""
 
 #. module: digest
@@ -43,6 +45,7 @@ msgstr "Aktivovať"
 
 #. module: digest
 #: model:ir.model.fields.selection,name:digest.selection__digest_digest__state__activated
+#: model_terms:ir.ui.view,arch_db:digest.digest_digest_view_search
 msgid "Activated"
 msgstr "Aktivovaný"
 
@@ -62,10 +65,20 @@ msgid "Available Fields"
 msgstr "Dostupné polia"
 
 #. module: digest
+#: model_terms:ir.ui.view,arch_db:digest.digest_digest_view_form
+msgid "Check our Documentation"
+msgstr ""
+
+#. module: digest
+#. odoo-python
 #: code:addons/digest/models/digest.py:0
-#, python-format
 msgid "Choose the metrics you care about"
-msgstr "Vyberte si ukazatele ktoré vás zaujímajú"
+msgstr ""
+
+#. module: digest
+#: model_terms:digest.tip,tip_description:digest.digest_tip_digest_6
+msgid "Click and hold on a Menu Item to reorder your Apps to your liking."
+msgstr ""
 
 #. module: digest
 #: model:ir.model.fields,field_description:digest.field_digest_digest__company_id
@@ -83,8 +96,8 @@ msgid "Configure Digest Emails"
 msgstr "Nakonfigurovať maily s výberom"
 
 #. module: digest
+#. odoo-python
 #: code:addons/digest/models/digest.py:0
-#, python-format
 msgid "Connect"
 msgstr "Pripojte sa"
 
@@ -92,13 +105,6 @@ msgstr "Pripojte sa"
 #: model:ir.model.fields,field_description:digest.field_digest_digest__kpi_res_users_connected
 msgid "Connected Users"
 msgstr "Pripojení užívatelia"
-
-#. module: digest
-#: model_terms:ir.ui.view,arch_db:digest.digest_digest_view_form
-msgid ""
-"Create or edit the mail template: you may get computed KPI's value using "
-"these fields:"
-msgstr ""
 
 #. module: digest
 #: model:ir.model.fields,field_description:digest.field_digest_digest__create_uid
@@ -118,17 +124,23 @@ msgid "Currency"
 msgstr "Mena"
 
 #. module: digest
+#: model_terms:ir.ui.view,arch_db:digest.digest_digest_view_form
+msgid "Custom"
+msgstr "Vlastné"
+
+#. module: digest
 #: model:ir.model.fields.selection,name:digest.selection__digest_digest__periodicity__daily
 msgid "Daily"
 msgstr "Denne"
 
 #. module: digest
 #: model_terms:ir.ui.view,arch_db:digest.digest_digest_view_form
-msgid "Deactivate for everyone"
-msgstr "Deaktivovať pre každého"
+msgid "Deactivate"
+msgstr ""
 
 #. module: digest
 #: model:ir.model.fields.selection,name:digest.selection__digest_digest__state__deactivated
+#: model_terms:ir.ui.view,arch_db:digest.digest_digest_view_search
 msgid "Deactivated"
 msgstr "Deaktivované"
 
@@ -146,17 +158,10 @@ msgstr "Mail s prehľadom"
 #. module: digest
 #: model:ir.actions.act_window,name:digest.digest_digest_action
 #: model:ir.actions.server,name:digest.ir_cron_digest_scheduler_action_ir_actions_server
-#: model:ir.cron,cron_name:digest.ir_cron_digest_scheduler_action
-#: model:ir.cron,name:digest.ir_cron_digest_scheduler_action
 #: model:ir.model.fields,field_description:digest.field_res_config_settings__digest_emails
 #: model:ir.ui.menu,name:digest.digest_menu
 msgid "Digest Emails"
 msgstr "Maily s prehľadom"
-
-#. module: digest
-#: model_terms:ir.ui.view,arch_db:digest.digest_digest_view_form
-msgid "Digest Name"
-msgstr ""
 
 #. module: digest
 #: model_terms:ir.ui.view,arch_db:digest.portal_digest_unsubscribed
@@ -171,10 +176,27 @@ msgid "Digest Tips"
 msgstr "Tipy prehľadu"
 
 #. module: digest
+#: model_terms:ir.ui.view,arch_db:digest.digest_digest_view_form
+msgid "Digest Title"
+msgstr ""
+
+#. module: digest
 #: model:ir.model.fields,field_description:digest.field_digest_digest__display_name
 #: model:ir.model.fields,field_description:digest.field_digest_tip__display_name
+#: model:ir.model.fields,field_description:digest.field_res_config_settings__display_name
+#: model:ir.model.fields,field_description:digest.field_res_users__display_name
 msgid "Display Name"
 msgstr "Zobrazovaný názov"
+
+#. module: digest
+#: model_terms:ir.ui.view,arch_db:digest.digest_digest_view_form
+msgid "Email Address"
+msgstr "Emailová adresa"
+
+#. module: digest
+#: model_terms:digest.tip,tip_description:digest.digest_tip_digest_5
+msgid "Feeling eye strain? Give your eyes a break by switching to Dark Mode."
+msgstr ""
 
 #. module: digest
 #: model_terms:ir.ui.view,arch_db:digest.digest_digest_view_form
@@ -182,39 +204,25 @@ msgid "General"
 msgstr "Všeobecné"
 
 #. module: digest
-#: model_terms:ir.ui.view,arch_db:digest.digest_digest_view_search
-msgid "Group by"
-msgstr "Zoskupiť podľa"
-
-#. module: digest
 #: model_terms:digest.tip,tip_description:digest.digest_tip_digest_1
 msgid ""
-"Have a question about a document? Click on the responsible user's picture to"
-" start a conversation. If his avatar has a green dot, he is online."
+"Have a question about a document? Click on the responsible user's picture to "
+"start a conversation. If his avatar has a green dot, he is online."
 msgstr ""
-
-#. module: digest
-#: model_terms:ir.ui.view,arch_db:digest.digest_digest_view_form
-msgid "How to customize your digest?"
-msgstr "Ako prispôsobiť svoj prehľad?"
 
 #. module: digest
 #: model:ir.model.fields,field_description:digest.field_digest_digest__id
 #: model:ir.model.fields,field_description:digest.field_digest_tip__id
+#: model:ir.model.fields,field_description:digest.field_res_config_settings__id
+#: model:ir.model.fields,field_description:digest.field_res_users__id
 msgid "ID"
 msgstr "ID"
 
 #. module: digest
-#: model_terms:ir.ui.view,arch_db:digest.digest_digest_view_form
-msgid "In order to build your customized digest, follow these steps:"
-msgstr ""
-"Pre vybudovanie prispôsobeného prehľadu postupujte podľa týchto krokov:"
-
-#. module: digest
+#. odoo-python
 #: code:addons/digest/controllers/portal.py:0
-#, python-format
 msgid "Invalid periodicity set on digest"
-msgstr "Je zvolená nesprávna periodicita na prehľade"
+msgstr ""
 
 #. module: digest
 #: model:ir.model.fields,field_description:digest.field_digest_digest__is_subscribed
@@ -253,28 +261,22 @@ msgid "Kpi Res Users Connected Value"
 msgstr "Hodnota pripojená používateľmi KPI Res"
 
 #. module: digest
+#. odoo-python
 #: code:addons/digest/models/digest.py:0
-#, python-format
 msgid "Last 24 hours"
-msgstr "Posledných 24h"
+msgstr ""
 
 #. module: digest
+#. odoo-python
 #: code:addons/digest/models/digest.py:0
-#, python-format
 msgid "Last 30 Days"
 msgstr "Posledných 30 dní"
 
 #. module: digest
+#. odoo-python
 #: code:addons/digest/models/digest.py:0
-#, python-format
 msgid "Last 7 Days"
 msgstr "Posledných 7 dní"
-
-#. module: digest
-#: model:ir.model.fields,field_description:digest.field_digest_digest____last_update
-#: model:ir.model.fields,field_description:digest.field_digest_tip____last_update
-msgid "Last Modified on"
-msgstr "Posledná úprava"
 
 #. module: digest
 #: model:ir.model.fields,field_description:digest.field_digest_digest__write_uid
@@ -290,8 +292,8 @@ msgstr "Naposledy upravované"
 
 #. module: digest
 #: model:ir.model.fields,field_description:digest.field_digest_digest__kpi_mail_message_total
-msgid "Messages"
-msgstr "Správy"
+msgid "Messages Sent"
+msgstr ""
 
 #. module: digest
 #: model:ir.model.fields.selection,name:digest.selection__digest_digest__periodicity__monthly
@@ -307,20 +309,19 @@ msgstr "Meno"
 #. module: digest
 #: model_terms:ir.ui.view,arch_db:digest.res_config_settings_view_form
 msgid ""
-"New users are automatically added as recipient of the following digest "
-"email."
+"New users are automatically added as recipient of the following digest email."
 msgstr ""
 "Noví užívatelia budú automaticky prihlásení na odber nasledovného výberu:"
 
 #. module: digest
 #: model:ir.model.fields,field_description:digest.field_digest_digest__next_run_date
-msgid "Next Send Date"
-msgstr "Dátum ďalšieho zaslania"
+msgid "Next Mailing Date"
+msgstr ""
 
 #. module: digest
 #: model_terms:ir.ui.view,arch_db:digest.digest_section_mobile
 msgid "Odoo Mobile"
-msgstr "Mobilné Odoo"
+msgstr ""
 
 #. module: digest
 #: model:ir.model.fields,field_description:digest.field_digest_digest__periodicity
@@ -334,9 +335,9 @@ msgid "Powered by"
 msgstr "Prinášané"
 
 #. module: digest
+#. odoo-python
 #: code:addons/digest/models/digest.py:0
-#, python-format
-msgid "Prefer a broader overview ?"
+msgid "Prefer a broader overview?"
 msgstr ""
 
 #. module: digest
@@ -365,18 +366,13 @@ msgstr ""
 
 #. module: digest
 #: model_terms:ir.ui.view,arch_db:digest.digest_digest_view_form
-msgid "Select your KPIs in the KPI's tab."
-msgstr "Na karte KPI vyberte svoje KPI."
-
-#. module: digest
-#: model_terms:ir.ui.view,arch_db:digest.digest_digest_view_form
 msgid "Send Now"
 msgstr "Odoslať teraz"
 
 #. module: digest
 #: model_terms:ir.ui.view,arch_db:digest.digest_mail_main
 msgid "Sent by"
-msgstr "Poslané "
+msgstr "Poslané"
 
 #. module: digest
 #: model:ir.model.fields,field_description:digest.field_digest_tip__sequence
@@ -384,25 +380,15 @@ msgid "Sequence"
 msgstr "Postupnosť"
 
 #. module: digest
-#: model_terms:ir.ui.view,arch_db:digest.res_config_settings_view_form
-msgid "Statistics"
-msgstr "Štatistiky"
-
-#. module: digest
 #: model:ir.model.fields,field_description:digest.field_digest_digest__state
 msgid "Status"
 msgstr "Stav"
 
 #. module: digest
-#: model_terms:ir.ui.view,arch_db:digest.digest_digest_view_form
-msgid "Subscribe"
-msgstr "Odoberať"
-
-#. module: digest
+#. odoo-python
 #: code:addons/digest/models/digest.py:0
-#, python-format
 msgid "Switch to weekly Digests"
-msgstr "Zmeniť na týždenné prehľady"
+msgstr ""
 
 #. module: digest
 #: model:ir.model.fields,field_description:digest.field_digest_tip__tip_description
@@ -425,8 +411,20 @@ msgid "Tip: How to ping users in internal notes?"
 msgstr ""
 
 #. module: digest
+#: model:digest.tip,name:digest.digest_tip_digest_5
+#: model_terms:digest.tip,tip_description:digest.digest_tip_digest_5
+msgid "Tip: Join the Dark Side"
+msgstr ""
+
+#. module: digest
 #: model_terms:digest.tip,tip_description:digest.digest_tip_digest_4
 msgid "Tip: Knowledge is power"
+msgstr ""
+
+#. module: digest
+#: model:digest.tip,name:digest.digest_tip_digest_6
+#: model_terms:digest.tip,tip_description:digest.digest_tip_digest_6
+msgid "Tip: Personalize your Home Menu"
 msgstr ""
 
 #. module: digest
@@ -460,16 +458,16 @@ msgid "Tip: Speed up your workflow with shortcuts"
 msgstr ""
 
 #. module: digest
+#: model_terms:ir.ui.view,arch_db:digest.digest_digest_view_tree
+msgid "Title"
+msgstr "Titul"
+
+#. module: digest
 #: model_terms:digest.tip,tip_description:digest.digest_tip_digest_3
 msgid ""
 "Type \"@\" to notify someone in a message, or \"#\" to link to a channel. "
 "Try to notify @OdooBot to test the feature."
 msgstr ""
-
-#. module: digest
-#: model_terms:ir.ui.view,arch_db:digest.digest_digest_view_form
-msgid "Unsubscribe me"
-msgstr "Odhlásiť sa z odberu"
 
 #. module: digest
 #: model:ir.model.fields,help:digest.field_digest_tip__sequence
@@ -478,8 +476,8 @@ msgstr ""
 
 #. module: digest
 #: model:ir.model,name:digest.model_res_users
-msgid "Users"
-msgstr "Užívatelia"
+msgid "User"
+msgstr "Užívateľ"
 
 #. module: digest
 #: model:ir.model.fields,help:digest.field_digest_tip__user_ids
@@ -487,14 +485,19 @@ msgid "Users having already received this tip"
 msgstr "Užívatelia ktorí už dostali tento tip"
 
 #. module: digest
-#: code:addons/digest/models/digest.py:0
-#, python-format
-msgid "Want to customize this email?"
-msgstr "Chcete upraviť tento email?"
+#: model_terms:ir.ui.view,arch_db:digest.digest_digest_view_form
+msgid "Want to add your own KPIs?<br/>"
+msgstr ""
 
 #. module: digest
+#. odoo-python
 #: code:addons/digest/models/digest.py:0
-#, python-format
+msgid "Want to customize this email?"
+msgstr ""
+
+#. module: digest
+#. odoo-python
+#: code:addons/digest/models/digest.py:0
 msgid ""
 "We have noticed you did not connect these last few days. We have "
 "automatically switched your preference to %(new_perioridicy_str)s Digests."
@@ -516,69 +519,47 @@ msgstr ""
 #. module: digest
 #: model_terms:digest.tip,tip_description:digest.digest_tip_digest_4
 msgid ""
-"When following documents, use the pencil icon to fine-tune the information you want to receive.\n"
-"Follow a project / sales team to keep track of this project's tasks / this team's opportunities."
+"When following documents, use the pencil icon to fine-tune the information "
+"you want to receive.\n"
+"Follow a project / sales team to keep track of this project's tasks / this "
+"team's opportunities."
 msgstr ""
 
 #. module: digest
 #: model_terms:ir.ui.view,arch_db:digest.portal_digest_unsubscribed
-msgid "You have been successfully unsubscribed from"
-msgstr "Boli ste úspešne odhlásený z"
-
-#. module: digest
-#: model_terms:ir.ui.view,arch_db:digest.digest_digest_view_form
-msgid "You may want to add new computed fields with Odoo Studio:"
+msgid "You have been successfully unsubscribed from:<br/>"
 msgstr ""
-"Možno budete chcieť pridať nové vypočítané polia v aplikácii Odoo Studio:"
 
 #. module: digest
 #: model:digest.digest,name:digest.digest_digest_default
 msgid "Your Odoo Periodic Digest"
-msgstr "Váš pravidelný prehľad Odoo"
+msgstr ""
 
 #. module: digest
 #: model_terms:ir.ui.view,arch_db:digest.digest_digest_view_form
 msgid "e.g. Your Weekly Digest"
-msgstr "napr. Váš týždenný prehľad"
-
-#. module: digest
-#: model_terms:ir.ui.view,arch_db:digest.digest_digest_view_form
-msgid ""
-"first create a boolean field called\n"
-"                                                <code>kpi_myfield</code>\n"
-"                                                and display it in the KPI's tab;"
 msgstr ""
 
 #. module: digest
+#. odoo-python
 #: code:addons/digest/models/digest.py:0
-#, python-format
 msgid "monthly"
 msgstr "mesačne"
 
 #. module: digest
+#. odoo-python
 #: code:addons/digest/models/digest.py:0
-#, python-format
 msgid "quarterly"
 msgstr "štvrťročne"
 
 #. module: digest
-#: model_terms:ir.ui.view,arch_db:digest.digest_digest_view_form
-msgid ""
-"then create a computed field called\n"
-"                                                <code>kpi_myfield_value</code>\n"
-"                                                that will compute your customized KPI."
-msgstr ""
-
-#. module: digest
+#. odoo-python
 #: code:addons/digest/models/digest.py:0
-#, python-format
 msgid "weekly"
-msgstr "týždenne"
-
-#. module: digest
-#: model_terms:ir.ui.view,arch_db:digest.digest_digest_view_form
-msgid ""
-"you must create 2 fields on the\n"
-"                                                <code>digest</code>\n"
-"                                                object:"
 msgstr ""
+
+#~ msgid "Group by"
+#~ msgstr "Zoskupiť podľa"
+
+#~ msgid "Statistics"
+#~ msgstr "Štatistiky"

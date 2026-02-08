@@ -3,7 +3,7 @@
 
 {
     'name': 'Sales Timesheet',
-    'category': 'Hidden',
+    'category': 'Sales/Sales',
     'summary': 'Sell based on timesheets',
     'description': """
 Allows to sell timesheets in your sales order
@@ -22,15 +22,14 @@ have real delivered quantities in sales orders.
         'views/sale_order_views.xml',
         'views/product_views.xml',
         'views/project_task_views.xml',
-        'views/project_update_templates.xml',
         'views/hr_timesheet_views.xml',
         'views/res_config_settings_views.xml',
         'views/sale_timesheet_portal_templates.xml',
         'views/project_sharing_views.xml',
-        'report/project_profitability_report_analysis_views.xml',
-        'data/sale_timesheet_filters.xml',
-        'wizard/project_create_sale_order_views.xml',
-        'wizard/project_create_invoice_views.xml',
+        'views/project_portal_templates.xml',
+        'report/timesheets_analysis_views.xml',
+        'report/report_timesheet_templates.xml',
+        'report/project_report_view.xml',
         'wizard/sale_make_invoice_advance_views.xml',
     ],
     'demo': [
@@ -43,14 +42,20 @@ have real delivered quantities in sales orders.
             'sale_timesheet/static/src/scss/sale_timesheet_portal.scss',
         ],
         'web.assets_backend': [
-            'sale_timesheet/static/src/js/so_line_one2many.js',
+            'sale_timesheet/static/src/components/**/*',
         ],
         'web.assets_tests': [
+            'sale_timesheet/static/tests/tours/**/*',
+        ],
+        'web.assets_unit_tests': [
             'sale_timesheet/static/tests/**/*',
+            ('remove', 'sale_timesheet/static/tests/tours/**/*'),
         ],
-        'web.assets_qweb': [
-            'sale_timesheet/static/src/xml/**/*',
-        ],
+        'project.webclient': [
+            'sale_timesheet/static/src/components/so_line_field/*',
+        ]
     },
+    'author': 'Odoo S.A.',
     'license': 'LGPL-3',
+    'post_init_hook': '_sale_timesheet_post_init',
 }

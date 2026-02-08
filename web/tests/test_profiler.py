@@ -19,12 +19,11 @@ class ProfilingHttpCase(HttpCase):
         # its actual cursor), which prevents the profiling data from being
         # committed for real.
         cls.patcher = patch('odoo.sql_db.db_connect', return_value=cls.registry)
-        cls.patcher.start()
-        cls.addClassCleanup(cls.patcher.stop)
+        cls.startClassPatcher(cls.patcher)
 
     def profile_rpc(self, params=None):
         params = params or {}
-        return self.url_open(
+        req = self.url_open(
             '/web/dataset/call_kw/ir.profile/set_profiling', # use model and method in route has web client does
             headers={'Content-Type': 'application/json'},
             data=json.dumps({'params':{
@@ -33,12 +32,12 @@ class ProfilingHttpCase(HttpCase):
                 'args': [],
                 'kwargs': params,
             }})
-        ).json()
-
+        )
+        req.raise_for_status()
+        return req.json()
 
 @tagged('post_install', '-at_install', 'profiling')
 class TestProfilingWeb(ProfilingHttpCase):
-    @mute_logger('odoo.http')
     def test_profiling_enabled(self):
         # since profiling will use a direct connection to the database patch 'db_connect' to ensure we are using the test cursor
         self.authenticate('admin', 'admin')
@@ -56,15 +55,25 @@ class TestProfilingWeb(ProfilingHttpCase):
         self.assertTrue(res['result']['session'])
         self.assertEqual(last_profile, self.env['ir.profile'].search([], limit=1, order='id desc'), "profiling route shouldn't have been profiled")
         # Profile a page
-        res = self.url_open('/web/speedscope')  # profile a light route
+        res = self.url_open(f'/web/login')  # profile a light route
         new_profile = self.env['ir.profile'].search([], limit=1, order='id desc')
         self.assertNotEqual(last_profile, new_profile, "A new profile should have been created")
-        self.assertEqual(new_profile.name, '/web/speedscope?')
+        self.assertEqual(new_profile.name, f'/web/login?')
+
+    def test_profile_test_tool(self):
+        with self.profile():
+            self.url_open('/web')
+
+        descriptions = self.env['ir.profile'].search([], order='id desc', limit=3).mapped('name')
+        self.assertEqual(descriptions, [
+            f'test_profile_test_tool uid:{self.env.uid} warm ',
+            f'test_profile_test_tool uid:{self.env.uid} warm /web/login?redirect=%2Fweb%3F',
+            f'test_profile_test_tool uid:{self.env.uid} warm /web?',
+        ])
 
 
 @tagged('post_install', '-at_install', 'profiling')
 class TestProfilingModes(ProfilingHttpCase):
-    @mute_logger('odoo.http')
     def test_profile_collectors(self):
         expiration = datetime.datetime.now() + datetime.timedelta(seconds=50)
         self.env['ir.config_parameter'].set_param('base.profiling_enabled_until', expiration)

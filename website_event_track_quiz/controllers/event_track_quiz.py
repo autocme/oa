@@ -13,13 +13,12 @@ class WebsiteEventTrackQuiz(EventTrackController):
     # QUIZZES IN PAGE
     # ----------------------------------------------------------
 
-    @http.route('/event_track/quiz/submit', type="json", auth="public", website=True)
+    @http.route('/event_track/quiz/submit', type="jsonrpc", auth="public", website=True)
     def event_track_quiz_submit(self, event_id, track_id, answer_ids):
         track = self._fetch_track(track_id)
         track_sudo = track.sudo()
 
         event_track_visitor = track._get_event_track_visitors(force_create=True)
-        visitor_sudo = event_track_visitor.visitor_id
         if event_track_visitor.quiz_completed:
             return {'error': 'track_quiz_done'}
 
@@ -45,11 +44,9 @@ class WebsiteEventTrackQuiz(EventTrackController):
             'quiz_completed': event_track_visitor.quiz_completed,
             'quiz_points': answers_details['points']
         }
-        if visitor_sudo and request.httprequest.cookies.get('visitor_uuid', '') != visitor_sudo.access_token:
-            result['visitor_uuid'] = visitor_sudo.access_token
         return result
 
-    @http.route('/event_track/quiz/reset', type="json", auth="public", website=True)
+    @http.route('/event_track/quiz/reset', type="jsonrpc", auth="public", website=True)
     def quiz_reset(self, event_id, track_id):
         track = self._fetch_track(track_id)
         # When the 'unlimited tries' option is disabled and the user is not

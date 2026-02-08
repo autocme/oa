@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
 from datetime import datetime
 
@@ -33,7 +32,7 @@ class TestCalendarController(HttpCase):
         res = self.url_open(url)
 
         self.assertEqual(res.status_code, 200, "Response should = OK")
-        attendee.invalidate_cache()
+        self.env.invalidate_all()
         self.assertEqual(attendee.state, "accepted", "Attendee should have accepted")
 
     def test_accept_meeting_authenticated(self):
@@ -45,5 +44,5 @@ class TestCalendarController(HttpCase):
         res = self.url_open(url)
 
         self.assertEqual(res.status_code, 200, "Response should = OK")
-        attendee.invalidate_cache()
+        self.env.invalidate_all()
         self.assertEqual(attendee.state, "accepted", "Attendee should have accepted")

@@ -1,35 +1,34 @@
-# -*- coding: utf-8 -*-
-from odoo import fields, Command
-from odoo.addons.account.tests.common import AccountTestInvoicingCommon
-from odoo.tests import tagged, Form
+# Part of Odoo. See LICENSE file for full copyright and licensing details.
+
+from odoo import fields
 from odoo.exceptions import UserError
+from odoo.fields import Command
+from odoo.tests import Form, tagged
+
+from odoo.addons.sale.tests.common import TestSaleCommon
 
 
 @tagged('post_install', '-at_install')
-class TestAccruedStockSaleOrders(AccountTestInvoicingCommon):
+class TestAccruedStockSaleOrders(TestSaleCommon):
 
     @classmethod
-    def setUpClass(cls, chart_template_ref=None):
-        super().setUpClass(chart_template_ref=chart_template_ref)
-        uom_unit = cls.env.ref('uom.product_uom_unit')
-        cls.product_order = cls.env['product.product'].create({
+    def setUpClass(cls):
+        super().setUpClass()
+
+        product = cls.env['product.product'].create({
             'name': "Product",
             'list_price': 30.0,
             'type': 'consu',
-            'uom_id': uom_unit.id,
-            'uom_po_id': uom_unit.id,
+            'uom_id': cls.uom_unit.id,
             'invoice_policy': 'delivery',
         })
         cls.sale_order = cls.env['sale.order'].with_context(tracking_disable=True).create({
             'partner_id': cls.partner_a.id,
             'order_line': [
                 Command.create({
-                    'name': cls.product_order.name,
-                    'product_id': cls.product_order.id,
+                    'product_id': product.id,
                     'product_uom_qty': 10.0,
-                    'product_uom': cls.product_order.uom_id.id,
-                    'price_unit': cls.product_order.list_price,
-                    'tax_id': False,
+                    'tax_ids': False,
                 })
             ]
         })
@@ -40,18 +39,17 @@ class TestAccruedStockSaleOrders(AccountTestInvoicingCommon):
     def test_sale_stock_accruals(self):
         # deliver 2 on 2020-01-02
         pick = self.sale_order.picking_ids
-        pick.move_lines.write({'quantity_done': 2})
+        pick.move_ids.write({'quantity': 2, 'picked': True})
         pick.button_validate()
         wiz_act = pick.button_validate()
-        wiz = Form(self.env[wiz_act['res_model']].with_context(wiz_act['context'])).save()
-        wiz.process()
-        pick.move_lines.write({'date': fields.Date.to_date('2020-01-02')})
+        Form.from_action(self.env, wiz_act).save().process()
+        pick.move_ids.write({'date': fields.Date.to_date('2020-01-02')})
 
         # deliver 3 on 2020-01-06
         pick = pick.copy()
-        pick.move_lines.write({'quantity_done': 3})
-        wiz_act = pick.button_validate()
-        pick.move_lines.write({'date': fields.Date.to_date('2020-01-06')})
+        pick.move_ids.write({'quantity': 3, 'picked': True})
+        pick.button_validate()
+        pick.move_ids.write({'date': fields.Date.to_date('2020-01-06')})
 
         wizard = self.env['account.accrued.orders.wizard'].with_context({
             'active_model': 'sale.order',
@@ -89,12 +87,10 @@ class TestAccruedStockSaleOrders(AccountTestInvoicingCommon):
     def test_sale_stock_invoiced_accrued_entries(self):
         # deliver 2 on 2020-01-02
         pick = self.sale_order.picking_ids
-        pick.move_lines.write({'quantity_done': 2})
+        pick.move_ids.write({'quantity': 2, 'picked': True})
         pick.button_validate()
-        wiz_act = pick.button_validate()
-        wiz = Form(self.env[wiz_act['res_model']].with_context(wiz_act['context'])).save()
-        wiz.process()
-        pick.move_lines.write({'date': fields.Date.to_date('2020-01-02')})
+        Form.from_action(self.env, pick.button_validate()).save().process()
+        pick.move_ids.write({'date': fields.Date.to_date('2020-01-02')})
 
         # invoice on 2020-01-04
         inv = self.sale_order._create_invoices()
@@ -103,9 +99,9 @@ class TestAccruedStockSaleOrders(AccountTestInvoicingCommon):
 
         # deliver 3 on 2020-01-06
         pick = pick.copy()
-        pick.move_lines.write({'quantity_done': 3})
-        wiz_act = pick.button_validate()
-        pick.move_lines.write({'date': fields.Date.to_date('2020-01-06')})
+        pick.move_ids.write({'quantity': 3, 'picked': True})
+        pick.button_validate()
+        pick.move_ids.write({'date': fields.Date.to_date('2020-01-06')})
 
         # invoice on 2020-01-08
         inv = self.sale_order._create_invoices()
