@@ -1,24 +1,24 @@
-odoo.define('website.s_countdown', function (require) {
-'use strict';
+/** @odoo-module **/
 
-const {ColorpickerWidget} = require('web.Colorpicker');
-const core = require('web.core');
-const publicWidget = require('web.public.widget');
-const weUtils = require('web_editor.utils');
-
-const qweb = core.qweb;
-const _t = core._t;
+import publicWidget from "@web/legacy/js/public/public_widget";
+import weUtils from "@web_editor/js/common/utils";
+import { isCSSColor } from '@web/core/utils/colors';
+import { _t } from "@web/core/l10n/translation";
+import { renderToElement } from "@web/core/utils/render";
 
 const CountdownWidget = publicWidget.Widget.extend({
     selector: '.s_countdown',
-    xmlDependencies: ['/website/static/src/snippets/s_countdown/000.xml'],
     disabledInEditableMode: false,
-    defaultColor: 'rgba(0, 0, 0, 255)',
 
     /**
      * @override
      */
     start: function () {
+        // Remove SVG previews (used to simulated canvas)
+        this.$el[0].querySelectorAll('svg').forEach(el => {
+            el.parentNode.remove();
+        });
+
         this.$wrapper = this.$('.s_countdown_canvas_wrapper');
         this.$wrapper.addClass('d-flex justify-content-center');
         this.hereBeforeTimerEnds = false;
@@ -26,7 +26,19 @@ const CountdownWidget = publicWidget.Widget.extend({
         this.endTime = parseInt(this.el.dataset.endTime);
         this.size = parseInt(this.el.dataset.size);
         this.display = this.el.dataset.display;
+        if (!this.display && this.el.dataset.bsDisplay) {
+            // With the BS5 upgrade script of 16.0, countdowns' data-display may
+            // have been converted to data-bs-display by mistake. This will fix
+            // the DOM for good measures, maybe even allowing to remove this
+            // code in a few years as hopefully all current countdowns will have
+            // been removed or edited (or when a proper upgrade script in a
+            // future version of Odoo will be made, if necessary). TODO.
+            this.display = this.el.dataset.bsDisplay;
+            delete this.el.dataset.bsDisplay;
+            this.el.dataset.display = this.display;
+        }
 
+        this.defaultColor = "rgba(0, 0, 0, 0)";
         this.layout = this.el.dataset.layout;
         this.layoutBackground = this.el.dataset.layoutBackground;
         this.progressBarStyle = this.el.dataset.progressBarStyle;
@@ -59,6 +71,7 @@ const CountdownWidget = publicWidget.Widget.extend({
         this.$('.s_countdown_canvas_flex').remove();
 
         clearInterval(this.setInterval);
+        window.removeEventListener("resize", this._onResize);
         this._super(...arguments);
     },
 
@@ -75,7 +88,7 @@ const CountdownWidget = publicWidget.Widget.extend({
      * @returns {string}
      */
     _ensureCssColor: function (color) {
-        if (ColorpickerWidget.isCSSColor(color)) {
+        if (isCSSColor(color)) {
             return color;
         }
         return weUtils.getCSSVariableValue(color) || this.defaultColor;
@@ -105,7 +118,7 @@ const CountdownWidget = publicWidget.Widget.extend({
                 if (!this.$('.s_countdown_end_redirect_message').length) {
                     const $container = this.$('> .container, > .container-fluid, > .o_container_small');
                     $container.append(
-                        $(qweb.render('website.s_countdown.end_redirect_message', {
+                        $(renderToElement('website.s_countdown.end_redirect_message', {
                             redirectUrl: redirectUrl,
                         }))
                     );
@@ -193,7 +206,7 @@ const CountdownWidget = publicWidget.Widget.extend({
                 });
                 this.$textWrapper.text(_t("Countdown ends in"));
                 this.$textWrapper.append($('<span/>').attr({
-                    class: 's_countdown_text ml-1',
+                    class: 's_countdown_text ms-1',
                 }));
                 this.$textWrapper.appendTo(this.$wrapper);
             }
@@ -206,8 +219,10 @@ const CountdownWidget = publicWidget.Widget.extend({
             for (const val of this.diff) {
                 const canvas = val.canvas.querySelector('canvas');
                 const ctx = canvas.getContext("2d");
-                ctx.canvas.width = this.width;
-                ctx.canvas.height = this.size;
+                const dpr = window.devicePixelRatio || 1;
+                ctx.canvas.width = this.width * dpr;
+                ctx.canvas.height = this.size * dpr;
+                ctx.scale(dpr, dpr);
                 this._clearCanvas(ctx);
 
                 $(canvas).toggleClass('d-none', hideCountdown);
@@ -234,6 +249,11 @@ const CountdownWidget = publicWidget.Widget.extend({
             clearInterval(this.setInterval);
             if (!this.editableMode) {
                 this._handleEndCountdownAction();
+            }
+            // Re-render on resize when the countdown is finished.
+            if (!this._onResize) {
+                this._onResize = () => this._render();
+                window.addEventListener("resize", this._onResize);
             }
         }
     },
@@ -283,16 +303,17 @@ const CountdownWidget = publicWidget.Widget.extend({
      */
     _drawText: function (canvas, textNb, textUnit, full = false) {
         const ctx = canvas.getContext("2d");
+        const dpr = window.devicePixelRatio || 1;
         const nbSize = this.size / 4;
         ctx.font = `${nbSize}px Arial`;
         ctx.fillStyle = this.textColor;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText(textNb, canvas.width / 2, canvas.height / 2);
+        ctx.fillText(textNb, (canvas.width / dpr) / 2, (canvas.height / dpr) / 2);
 
         const unitSize = this.size / 12;
         ctx.font = `${unitSize}px Arial`;
-        ctx.fillText(textUnit, canvas.width / 2, canvas.height / 2 + nbSize / 1.5, this.width);
+        ctx.fillText(textUnit, (canvas.width / dpr) / 2, (canvas.height / dpr) / 2 + nbSize / 1.5, this.width);
 
         if (this.layout === 'boxes' && this.layoutBackground !== 'none' && this.progressBarStyle === 'none') {
             let barWidth = this.size / (this.progressBarWeight === 'thin' ? 31 : 10);
@@ -420,5 +441,4 @@ const CountdownWidget = publicWidget.Widget.extend({
 
 publicWidget.registry.countdown = CountdownWidget;
 
-return CountdownWidget;
-});
+export default CountdownWidget;

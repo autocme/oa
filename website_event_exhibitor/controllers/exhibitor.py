@@ -4,9 +4,9 @@
 from ast import literal_eval
 from collections import OrderedDict
 from random import randint, sample
-from werkzeug.exceptions import NotFound, Forbidden
+from werkzeug.exceptions import Forbidden
 
-from odoo import exceptions, http
+from odoo import http
 from odoo.addons.website_event.controllers.main import WebsiteEventController
 from odoo.http import request
 from odoo.osv import expression
@@ -73,7 +73,7 @@ class ExhibitorController(WebsiteEventController):
 
         # fetch data to display; use sudo to allow reading partner info, be sure domain is correct
         event = event.with_context(tz=event.date_tz or 'UTC')
-        sponsors = request.env['event.sponsor'].sudo().search(
+        sorted_sponsors = request.env['event.sponsor'].sudo().search(
             search_domain
         ).sorted(lambda sponsor: (sponsor.sponsor_type_id.sequence, sponsor.sequence))
         sponsors_all = request.env['event.sponsor'].sudo().search(search_domain_base)
@@ -83,7 +83,7 @@ class ExhibitorController(WebsiteEventController):
         sponsor_categories_dict = OrderedDict()
         sponsor_categories = []
         is_event_user = request.env.user.has_group('event.group_event_registration_desk')
-        for sponsor in sponsors:
+        for sponsor in sorted_sponsors:
             if not sponsor_categories_dict.get(sponsor.sponsor_type_id):
                 sponsor_categories_dict[sponsor.sponsor_type_id] = request.env['event.sponsor'].sudo()
             sponsor_categories_dict[sponsor.sponsor_type_id] |= sponsor
@@ -110,6 +110,7 @@ class ExhibitorController(WebsiteEventController):
             'hide_sponsors': True,
             # search information
             'searches': searches,
+            'search_count': len(sorted_sponsors),
             'search_key': searches['search'],
             'search_countries': search_countries,
             'search_sponsorships': search_sponsorships,
@@ -127,9 +128,7 @@ class ExhibitorController(WebsiteEventController):
     @http.route(['''/event/<model("event.event", "[('exhibitor_menu', '=', True)]"):event>/exhibitor/<model("event.sponsor", "[('event_id', '=', event.id)]"):sponsor>'''],
                 type='http', auth="public", website=True, sitemap=True)
     def event_exhibitor(self, event, sponsor, **options):
-        try:
-            sponsor.check_access_rule('read')
-        except exceptions.AccessError:
+        if not sponsor.has_access('read'):
             raise Forbidden()
         sponsor = sponsor.sudo()
 
@@ -199,12 +198,10 @@ class ExhibitorController(WebsiteEventController):
         else:
             sponsor_data['country_name'] = False
             sponsor_data['country_id'] = False
-        if sponsor.sponsor_type_id:
-            sponsor_data['sponsor_type_name'] = sponsor.sponsor_type_id.name
-            sponsor_data['sponsor_type_id'] = sponsor.sponsor_type_id.id
-        else:
-            sponsor_data['sponsor_type_name'] = False
-            sponsor_data['sponsor_type_id'] = False
+        # needs sudo access as public users can't read the model
+        sponsor_type_sudo = sponsor.sponsor_type_id.sudo()
+        sponsor_data['sponsor_type_name'] = sponsor_type_sudo.name
+        sponsor_data['sponsor_type_id'] = sponsor_type_sudo.id
         sponsor_data['event_name'] = sponsor.event_id.name
         sponsor_data['event_is_ongoing'] = sponsor.event_id.is_ongoing
         sponsor_data['event_is_done'] = sponsor.event_id.is_done

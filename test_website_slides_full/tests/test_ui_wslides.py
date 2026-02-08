@@ -15,10 +15,9 @@ class TestUi(AccountTestInvoicingCommon, TestUICommon):
         user_demo = self.user_demo
         self.user_demo.write({
             'company_id': self.env.company.id,
-            'company_ids': [(4, self.env.company.id)],
+            'company_ids': [(6, 0, self.env.company.ids)],
         })
         self.user_demo.sudo().partner_id.company_id = self.env.company
-        user_demo.flush()
         # Avoid Billing/Shipping address page
         user_demo.write({
             'groups_id': [(5, 0), (4, self.env.ref('base.group_user').id)],
@@ -33,37 +32,30 @@ class TestUi(AccountTestInvoicingCommon, TestUICommon):
 
         # Specify Accounting Data
         cash_journal = self.env['account.journal'].create({'name': 'Cash - Test', 'type': 'cash', 'code': 'CASH - Test'})
-        self.env['payment.acquirer'].create({
-            'name': 'Test',
-            'sequence': 40,
-            'provider': 'test',
-            'module_id': self.env.ref('base.module_payment_test').id,
-            'inline_form_view_id': self.env.ref('payment_test.inline_form').id,
-            'support_authorization': False,
-            'support_fees_computation': False,
-            'support_refund': False,
-            'support_tokenization': True,
-            'allow_tokenization': True,
+        self.env.ref('website.default_website').company_id = self.env.company
+        self.env['payment.provider'].sudo().search([('code', '=', 'demo')]).write({
             'journal_id': cash_journal.id,
             'state': 'test',
+            'website_id': self.env.ref('website.default_website').id,
+            'company_id': self.env.company.id,
         })
-        self.env.ref('website.default_website').company_id = self.env.company
+        cash_journal.inbound_payment_method_line_ids.filtered(lambda l: l.code == 'demo').payment_account_id = self.env['account.chart.template'].ref('account_journal_payment_debit_account_id')
         a_recv = self.env['account.account'].create({
             'code': 'X1012',
             'name': 'Debtors - (test)',
             'reconcile': True,
-            'user_type_id': self.env.ref('account.data_account_type_receivable').id,
+            'account_type': 'asset_receivable',
         })
         a_pay = self.env['account.account'].create({
             'code': 'X1111',
             'name': 'Creditors - (test)',
-            'user_type_id': self.env.ref('account.data_account_type_payable').id,
+            'account_type': 'liability_payable',
             'reconcile': True,
         })
 
-        Property = self.env['ir.property']
-        Property._set_default('property_account_receivable_id', 'res.partner', a_recv, self.env.company)
-        Property._set_default('property_account_payable_id', 'res.partner', a_pay, self.env.company)
+        IrDefault = self.env['ir.default']
+        IrDefault.set('res.partner', 'property_account_receivable_id', a_recv.id, company_id=self.env.company.id)
+        IrDefault.set('res.partner', 'property_account_payable_id', a_pay.id, company_id=self.env.company.id)
 
         product_course_channel_6 = self.env['product.product'].create({
             'name': 'DIY Furniture Course',
@@ -76,6 +68,7 @@ class TestUi(AccountTestInvoicingCommon, TestUICommon):
             'title': 'Furniture Creation Certification',
             'access_token': '5632a4d7-48cf-aaaa-8c52-2174d58cf50b',
             'access_mode': 'public',
+            'questions_layout': 'one_page',
             'users_can_go_back': True,
             'users_login_required': True,
             'scoring_type': 'scoring_with_answers',
@@ -89,6 +82,7 @@ class TestUi(AccountTestInvoicingCommon, TestUICommon):
                     'title': 'Furniture',
                     'sequence': 1,
                     'is_page': True,
+                    'question_type': False,
                     'description': "&lt;p&gt;Test your furniture knowledge!&lt;/p&gt",
                 }), (0, 0, {
                     'title': 'What type of wood is the best for furniture?',
@@ -116,7 +110,6 @@ class TestUi(AccountTestInvoicingCommon, TestUICommon):
                     'title': 'Select all the furniture shown in the video',
                     'sequence': 3,
                     'question_type': 'multiple_choice',
-                    'column_nb': '4',
                     'suggested_answer_ids': [
                         (0, 0, {
                             'value': 'Chair',
@@ -166,7 +159,7 @@ class TestUi(AccountTestInvoicingCommon, TestUICommon):
                 (0, 0, {
                     'name': 'DIY Furniture Certification',
                     'sequence': 1,
-                    'slide_type': 'certification',
+                    'slide_category': 'certification',
                     'category_id': False,
                     'is_published': True,
                     'is_preview': False,
@@ -176,8 +169,4 @@ class TestUi(AccountTestInvoicingCommon, TestUICommon):
             ]
         })
 
-        self.browser_js(
-            '/slides',
-            'odoo.__DEBUG__.services["web_tour.tour"].run("certification_member")',
-            'odoo.__DEBUG__.services["web_tour.tour"].tours.certification_member.ready',
-            login=user_demo.login)
+        self.start_tour('/slides', 'certification_member', login=user_demo.login, timeout=90)

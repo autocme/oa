@@ -1,7 +1,6 @@
-odoo.define('website.s_table_of_content_options', function (require) {
-'use strict';
+/** @odoo-module **/
 
-const options = require('web_editor.snippets.options');
+import options from "@web_editor/js/editor/snippets.options";
 
 options.registry.TableOfContent = options.Class.extend({
     /**
@@ -9,6 +8,8 @@ options.registry.TableOfContent = options.Class.extend({
      */
     start: function () {
         this.targetedElements = 'h1, h2';
+        this.oldHeadingsEls = [];
+        this.oldHeadingsDesktopVisible = [];
         const $headings = this.$target.find(this.targetedElements);
         if ($headings.length > 0) {
             this._generateNav();
@@ -34,6 +35,14 @@ options.registry.TableOfContent = options.Class.extend({
     /**
      * @override
      */
+    onRemove() {
+        this._disposeScrollSpy();
+        const exception = (tocEl) => tocEl === this.$target[0];
+        this._activateScrollSpy(exception);
+    },
+    /**
+     * @override
+     */
     onClone: function () {
         this._generateNav();
     },
@@ -43,13 +52,38 @@ options.registry.TableOfContent = options.Class.extend({
     //--------------------------------------------------------------------------
 
     /**
+     * @param  {Function} exception
+     */
+    _activateScrollSpy(exception) {
+        for (const tocEl of this.ownerDocument.querySelectorAll('#wrapwrap .s_table_of_content')) {
+            if (exception(tocEl)) {
+                continue;
+            }
+            this.trigger_up('widgets_start_request', {
+                $target: $(tocEl),
+                editableMode: true,
+            });
+        }
+    },
+    /**
+     * @private
+     */
+    _disposeScrollSpy() {
+        const scrollingEl = $().getScrollingElement(this.ownerDocument)[0];
+        const scrollSpyInstance =
+            this.$target[0].ownerDocument.defaultView.ScrollSpy.getInstance(scrollingEl);
+        if (scrollSpyInstance) {
+            scrollSpyInstance.dispose();
+        }
+    },
+    /**
      * Returns the TOC id and the heading id from a header element.
      *
      * @param {HTMLElement} headingEl - A header element of the TOC.
      * @returns {Object}
      */
     _getTocAndHeadingId(headingEl) {
-        const match = /^table_of_content_heading_(\d+)_(\d+)$/.exec(headingEl.getAttribute("id"));
+        const match = /^table_of_content_heading_(\d+)_(\d+)$/.exec(headingEl && headingEl.getAttribute("id"));
         if (match) {
             return { tocId: parseInt(match[1]), headingId: parseInt(match[2]) };
         }
@@ -59,15 +93,50 @@ options.registry.TableOfContent = options.Class.extend({
      * @private
      */
     _generateNav: function (ev) {
+        const blockTextContent = this.$target[0].textContent.replaceAll('\n', '').trim();
+        if (blockTextContent === '') {
+            // destroy public widget and remove the ToC since there are no more
+            // child elements, before doing so the observer needs to be
+            // disconnected else observer observe mutation and _generateNav
+            // gets called even after there's no more ToC.
+            this.observer.disconnect();
+            this.trigger_up('remove_snippet', {$snippet: this.$target});
+            return;
+        }
         this.options.wysiwyg && this.options.wysiwyg.odooEditor.unbreakableStepUnactive();
-        const firstHeadingEl = this.$target[0].querySelector(this.targetedElements);
+        const navEl = this.$target[0].querySelector('.s_table_of_content_navbar');
+        const headingsEls = this.$target.find(this.targetedElements).toArray();
+        const areHeadingsEqual = this.oldHeadingsEls.length === headingsEls.length
+            && this.oldHeadingsEls.every((el, i) =>
+                el.isEqualNode(headingsEls[i])
+                && this.oldHeadingsDesktopVisible[i] === !headingsEls[i].closest(".o_snippet_desktop_invisible")
+            );
+        const areVisibilityIdsEqual = headingsEls.every((headingEl) => {
+            const visibilityId = headingEl.closest('section').getAttribute('data-visibility-id');
+            const matchingLinkEl = navEl.querySelector(`a[href="#${headingEl.getAttribute('id')}"]`);
+            const matchingLinkVisibilityId = matchingLinkEl ? matchingLinkEl.getAttribute('data-visibility-id') : null;
+            // Check if visibilityId matches matchingLinkVisibilityId or both
+            // are null/undefined
+            return visibilityId === matchingLinkVisibilityId;
+        });
+        if (areHeadingsEqual && areVisibilityIdsEqual) {
+            // If the content of the navbar before the change of the DOM is
+            // equal to the content of the navbar after the change of the DOM,
+            // then there is no need to regenerate the navbar.
+            // This is especially important as to regenerate it, we also have
+            // to restart scrollSpy, which is done by restarting widgets. But
+            // restarting all widgets inside the ToC would certainly lead to
+            // DOM changes... which would then regenerate the navbar and lead to
+            // an infinite loop.
+            return;
+        }
+        // We dispose the scrollSpy because the navbar will be updated.
+        this._disposeScrollSpy();
+
+        const firstHeadingEl = headingsEls[0];
         let tocId = firstHeadingEl ? this._getTocAndHeadingId(firstHeadingEl).tocId : 0;
         const tocEls = this.$target[0].ownerDocument.body.querySelectorAll("[data-snippet='s_table_of_content']");
-        const otherTocEls = [...tocEls].filter(tocEl =>
-            tocEl !== this.$target[0]
-            // TODO In next version do not exclude droppable snippet.
-            && !tocEl.closest("#oe_snippets")
-        );
+        const otherTocEls = [...tocEls].filter(tocEl => tocEl !== this.$target[0]);
         const otherTocIds = otherTocEls.map(tocEl => {
             const firstHeadingEl = tocEl.querySelector(this.targetedElements);
             return this._getTocAndHeadingId(firstHeadingEl).tocId;
@@ -75,13 +144,12 @@ options.registry.TableOfContent = options.Class.extend({
         if (!tocId || otherTocIds.includes(tocId)) {
             tocId = 1 + Math.max(0, ...otherTocIds);
         }
-        const $nav = this.$target.find('.s_table_of_content_navbar');
-        const $headings = this.$target.find(this.targetedElements);
-        const headingIds = [...$headings].map(headingEl => this._getTocAndHeadingId(headingEl).headingId);
+        const headingIds = headingsEls.map(headingEl => this._getTocAndHeadingId(headingEl).headingId);
         let maxHeadingIds = Math.max(0, ...headingIds);
-        $nav.empty();
+
+        navEl.innerHTML = '';
         const uniqueHeadingIds = new Set();
-        _.each($headings, el => {
+        headingsEls.forEach((el) => {
             const $el = $(el);
             let headingId = this._getTocAndHeadingId(el).headingId;
             if (headingId) {
@@ -99,22 +167,21 @@ options.registry.TableOfContent = options.Class.extend({
             // Generate stable ids so that external links to heading anchors do
             // not get broken next time the navigation links are re-generated.
             const id = `table_of_content_heading_${tocId}_${headingId}`;
-            const visibilityId = $el.closest('[data-visibility-id]').data('visibility-id');
-            $('<a>').attr({ 'href': "#" + id, 'data-visibility-id': visibilityId })
-                    .addClass('table_of_content_link list-group-item list-group-item-action py-2 border-0 rounded-0')
-                    .text($el.text())
-                    .appendTo($nav);
             $el.attr('id', id);
-            $el[0].dataset.anchor = 'true';
+            if (!el.closest('.o_snippet_desktop_invisible')) {
+                // Generate navigation entry only for desktop.
+                const visibilityId = $el.closest('section').attr('data-visibility-id');
+                $('<a>').attr({ 'href': "#" + id, 'data-visibility-id': visibilityId })
+                        .addClass('table_of_content_link list-group-item list-group-item-action py-2 border-0 rounded-0')
+                        .text($el.text())
+                        .appendTo(navEl);
+                $el[0].dataset.anchor = 'true';
+            }
         });
-        const tocAnchorEl = this.$target[0].querySelector('a.table_of_content_link');
-        if (!tocAnchorEl) {
-            // destroy public widget and remove the ToC since there are no more
-            // child elements.
-            this.trigger_up('remove_snippet', {$snippet: this.$target});
-        } else {
-            $nav.find('a:first').addClass('active');
-        }
+        const exception = (tocEl) => !tocEl.querySelector('.s_table_of_content_navbar a');
+        this._activateScrollSpy(exception);
+        this.oldHeadingsEls = [...headingsEls.map(el => el.cloneNode(true))];
+        this.oldHeadingsDesktopVisible = [...headingsEls.map(el => !el.closest('.o_snippet_desktop_invisible'))];
     },
 });
 
@@ -175,5 +242,4 @@ options.registry.TableOfContentNavbar = options.Class.extend({
 
 options.registry.TableOfContentMainColumns = options.Class.extend({
     forceNoDeleteButton: true,
-});
 });

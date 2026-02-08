@@ -1,63 +1,72 @@
 # Translation of Odoo Server.
 # This file contains the translation of the following modules:
 # 	* account_edi
-# 
+#
 # Translators:
-# Martin Trigaux, 2022
-# Rasareeyar Lappiam, 2024
 # Wil Odoo, 2024
-# 
+# Rasareeyar Lappiam, 2024
+#
 msgid ""
 msgstr ""
-"Project-Id-Version: Odoo Server 15.0\n"
+"Project-Id-Version: Odoo Server 18.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-08-14 15:43+0000\n"
-"PO-Revision-Date: 2021-09-14 12:19+0000\n"
-"Last-Translator: Wil Odoo, 2024\n"
+"POT-Creation-Date: 2025-12-29 18:37+0000\n"
+"PO-Revision-Date: 2024-09-25 09:41+0000\n"
+"Last-Translator: Rasareeyar Lappiam, 2024\n"
 "Language-Team: Thai (https://app.transifex.com/odoo/teams/41243/th/)\n"
+"Language: th\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: \n"
-"Language: th\n"
 "Plural-Forms: nplurals=1; plural=0;\n"
 
 #. module: account_edi
+#. odoo-python
 #: code:addons/account_edi/models/account_move.py:0
-#, python-format
-msgid " Electronic invoicing error(s)"
-msgstr "เกิดข้อผิดพลาดเกี่ยวกับใบแจ้งหนี้อิเล็กทรอนิกส์"
+msgid "%(count)s Electronic invoicing error(s)"
+msgstr "%(count)s ข้อผิดพลาดของใบแจ้งหนี้อิเล็กทรอนิกส์"
 
 #. module: account_edi
+#. odoo-python
 #: code:addons/account_edi/models/account_move.py:0
-#, python-format
-msgid " Electronic invoicing info(s)"
-msgstr "ข้อมูลการออกใบแจ้งหนี้อิเล็กทรอนิกส์"
+msgid "%(count)s Electronic invoicing info(s)"
+msgstr "%(count)s ข้อมูลการออกใบแจ้งหนี้ทางอิเล็กทรอนิกส์"
 
 #. module: account_edi
+#. odoo-python
 #: code:addons/account_edi/models/account_move.py:0
-#, python-format
-msgid " Electronic invoicing warning(s)"
-msgstr "คำเตือนเกี่ยวกับใบแจ้งหนี้อิเล็กทรอนิกส์"
+msgid "%(count)s Electronic invoicing warning(s)"
+msgstr "%(count)s คำเตือนการออกใบแจ้งหนี้ทางอิเล็กทรอนิกส์"
 
 #. module: account_edi
+#. odoo-python
 #: code:addons/account_edi/models/account_move.py:0
-#: code:addons/account_edi/models/account_payment.py:0
-#, python-format
 msgid "A cancellation of the EDI has been requested."
-msgstr "มีการร้องขอให้ยกเลิก EDI"
+msgstr "มีคำขอยกเลิก EDI"
 
 #. module: account_edi
+#. odoo-python
 #: code:addons/account_edi/models/account_move.py:0
-#: code:addons/account_edi/models/account_payment.py:0
-#, python-format
 msgid "A request for cancellation of the EDI has been called off."
 msgstr "คำขอยกเลิก EDI ถูกยกเลิก"
+
+#. module: account_edi
+#: model:ir.model,name:account_edi.model_account_move_send
+msgid "Account Move Send"
+msgstr "ส่งย้ายบัญชี"
+
+#. module: account_edi
+#: model_terms:ir.ui.view,arch_db:account_edi.view_move_form_inherit
+msgid ""
+"Are you sure you want to cancel this invoice without waiting for the EDI "
+"document to be canceled?"
+msgstr "คุณแน่ใจหรือไม่ว่าต้องการยกเลิกใบแจ้งหนี้ฉบับนี้โดยไม่ต้องรอให้เอกสาร EDI ถูกยกเลิก?"
 
 #. module: account_edi
 #: model:ir.model,name:account_edi.model_ir_attachment
 #: model:ir.model.fields,field_description:account_edi.field_account_edi_document__attachment_id
 msgid "Attachment"
-msgstr "แนบ"
+msgstr "การแนบ"
 
 #. module: account_edi
 #: model:ir.model.fields,field_description:account_edi.field_account_edi_document__blocking_level
@@ -67,10 +76,14 @@ msgstr "ระดับการปิดกั้น"
 #. module: account_edi
 #: model:ir.model.fields,help:account_edi.field_account_edi_document__blocking_level
 msgid ""
-"Blocks the current operation of the document depending on the error severity:\n"
-"  * Info: the document is not blocked and everything is working as it should.\n"
-"  * Warning: there is an error that doesn't prevent the current Electronic Invoicing operation to succeed.\n"
-"  * Error: there is an error that blocks the current Electronic Invoicing operation."
+"Blocks the current operation of the document depending on the error "
+"severity:\n"
+"  * Info: the document is not blocked and everything is working as it "
+"should.\n"
+"  * Warning: there is an error that doesn't prevent the current Electronic "
+"Invoicing operation to succeed.\n"
+"  * Error: there is an error that blocks the current Electronic Invoicing "
+"operation."
 msgstr ""
 "ปิดกั้นการดำเนินการปัจจุบันของเอกสารขึ้นอยู่กับความรุนแรงของข้อผิดพลาด:\n"
 "* ข้อมูล: เอกสารไม่ถูกปิดกั้นและทุกอย่างทำงานได้ตามปกติ\n"
@@ -79,7 +92,6 @@ msgstr ""
 
 #. module: account_edi
 #: model_terms:ir.ui.view,arch_db:account_edi.view_move_form_inherit
-#: model_terms:ir.ui.view,arch_db:account_edi.view_payment_form_inherit
 msgid "Call off EDI Cancellation"
 msgstr "ปิดการยกเลิก EDI"
 
@@ -87,22 +99,21 @@ msgstr "ปิดการยกเลิก EDI"
 #: model:ir.model.fields.selection,name:account_edi.selection__account_edi_document__state__cancelled
 #: model:ir.model.fields.selection,name:account_edi.selection__account_move__edi_state__cancelled
 msgid "Cancelled"
-msgstr "ยกเลิกแล้ว"
+msgstr "ยกเลิก"
 
 #. module: account_edi
+#. odoo-python
 #: code:addons/account_edi/models/account_journal.py:0
-#, python-format
 msgid ""
 "Cannot deactivate (%s) on this journal because not all documents are "
 "synchronized"
 msgstr ""
-"ไม่สามารถปิดการใช้งาน (%s) ในสมุดรายวันนี้ได้ "
-"เนื่องจากเอกสารไม่ครบทั้งหมดจะถูกซิงโครไนซ์"
+"ไม่สามารถปิดการใช้งาน (%s) ในสมุดรายวันนี้ได้ เนื่องจากเอกสารไม่ครบทั้งหมดจะถูกซิงโครไนซ์"
 
 #. module: account_edi
 #: model:ir.model.fields,field_description:account_edi.field_account_edi_format__code
 msgid "Code"
-msgstr "รหัส"
+msgstr "โค้ด"
 
 #. module: account_edi
 #: model:ir.model.fields,field_description:account_edi.field_account_journal__compatible_edi_ids
@@ -125,24 +136,15 @@ msgstr "สร้างเมื่อ"
 #: model:ir.model.fields,field_description:account_edi.field_account_edi_document__display_name
 #: model:ir.model.fields,field_description:account_edi.field_account_edi_format__display_name
 msgid "Display Name"
-msgstr "ชื่อที่ใช้แสดง"
+msgstr "แสดงชื่อ"
 
 #. module: account_edi
 #: model_terms:ir.ui.view,arch_db:account_edi.view_move_form_inherit
-#: model_terms:ir.ui.view,arch_db:account_edi.view_payment_form_inherit
 msgid "Download"
 msgstr "ดาวน์โหลด"
 
 #. module: account_edi
-#: model:ir.actions.server,name:account_edi.ir_cron_edi_network_ir_actions_server
-#: model:ir.cron,cron_name:account_edi.ir_cron_edi_network
-#: model:ir.cron,name:account_edi.ir_cron_edi_network
-msgid "EDI : Perform web services operations"
-msgstr ""
-
-#. module: account_edi
 #: model_terms:ir.ui.view,arch_db:account_edi.view_move_form_inherit
-#: model_terms:ir.ui.view,arch_db:account_edi.view_payment_form_inherit
 msgid "EDI Documents"
 msgstr "เอกสาร EDI"
 
@@ -157,9 +159,13 @@ msgid "EDI format that support moves in this journal"
 msgstr "รูปแบบ EDI ที่รองรับการเคลื่อนไหวในสมุดรายวันนี้"
 
 #. module: account_edi
+#: model:ir.actions.server,name:account_edi.ir_cron_edi_network_ir_actions_server
+msgid "EDI: Perform web services operations"
+msgstr "EDI: ดำเนินการให้บริการเว็บ"
+
+#. module: account_edi
 #: model:ir.model.fields,field_description:account_edi.field_account_bank_statement_line__edi_blocking_level
 #: model:ir.model.fields,field_description:account_edi.field_account_move__edi_blocking_level
-#: model:ir.model.fields,field_description:account_edi.field_account_payment__edi_blocking_level
 msgid "Edi Blocking Level"
 msgstr "ระดับการปิดกั้น Edi"
 
@@ -171,21 +177,18 @@ msgstr "เนื้อหา Edi"
 #. module: account_edi
 #: model:ir.model.fields,field_description:account_edi.field_account_bank_statement_line__edi_document_ids
 #: model:ir.model.fields,field_description:account_edi.field_account_move__edi_document_ids
-#: model:ir.model.fields,field_description:account_edi.field_account_payment__edi_document_ids
 msgid "Edi Document"
 msgstr "เอกสาร Edi"
 
 #. module: account_edi
 #: model:ir.model.fields,field_description:account_edi.field_account_bank_statement_line__edi_error_count
 #: model:ir.model.fields,field_description:account_edi.field_account_move__edi_error_count
-#: model:ir.model.fields,field_description:account_edi.field_account_payment__edi_error_count
 msgid "Edi Error Count"
 msgstr "จำนวนข้อผิดพลาดของ Edi"
 
 #. module: account_edi
 #: model:ir.model.fields,field_description:account_edi.field_account_bank_statement_line__edi_error_message
 #: model:ir.model.fields,field_description:account_edi.field_account_move__edi_error_message
-#: model:ir.model.fields,field_description:account_edi.field_account_payment__edi_error_message
 msgid "Edi Error Message"
 msgstr "ข้อความแสดงข้อผิดพลาดของ Edi"
 
@@ -197,28 +200,26 @@ msgstr "รูปแบบ Edi"
 #. module: account_edi
 #: model:ir.model.fields,field_description:account_edi.field_account_bank_statement_line__edi_show_abandon_cancel_button
 #: model:ir.model.fields,field_description:account_edi.field_account_move__edi_show_abandon_cancel_button
-#: model:ir.model.fields,field_description:account_edi.field_account_payment__edi_show_abandon_cancel_button
 msgid "Edi Show Abandon Cancel Button"
 msgstr "Edi แสดงปุ่มยกเลิกที่ถูกละทิ้ง"
 
 #. module: account_edi
 #: model:ir.model.fields,field_description:account_edi.field_account_bank_statement_line__edi_show_cancel_button
 #: model:ir.model.fields,field_description:account_edi.field_account_move__edi_show_cancel_button
-#: model:ir.model.fields,field_description:account_edi.field_account_payment__edi_show_cancel_button
 msgid "Edi Show Cancel Button"
 msgstr "Edi แสดงปุ่มยกเลิก"
 
 #. module: account_edi
-#: model:ir.model.fields,field_description:account_edi.field_account_bank_statement_line__edi_web_services_to_process
-#: model:ir.model.fields,field_description:account_edi.field_account_move__edi_web_services_to_process
-#: model:ir.model.fields,field_description:account_edi.field_account_payment__edi_web_services_to_process
-msgid "Edi Web Services To Process"
-msgstr "Edi บริการเว็บที่จะประมวลผล"
+#: model:ir.model.fields,field_description:account_edi.field_account_bank_statement_line__edi_show_force_cancel_button
+#: model:ir.model.fields,field_description:account_edi.field_account_move__edi_show_force_cancel_button
+msgid "Edi Show Force Cancel Button"
+msgstr "ปุ่มบังคับยกเลิกการแสดง Edi"
 
 #. module: account_edi
-#: model_terms:ir.ui.view,arch_db:account_edi.view_account_journal_form_inherited
-msgid "Electronic Data Interchange"
-msgstr "การแลกเปลี่ยนข้อมูลทางอิเล็กทรอนิกส์"
+#: model:ir.model.fields,field_description:account_edi.field_account_bank_statement_line__edi_web_services_to_process
+#: model:ir.model.fields,field_description:account_edi.field_account_move__edi_web_services_to_process
+msgid "Edi Web Services To Process"
+msgstr "Edi บริการเว็บที่จะประมวลผล"
 
 #. module: account_edi
 #: model:ir.model,name:account_edi.model_account_edi_document
@@ -227,23 +228,21 @@ msgstr "เอกสารอิเล็กทรอนิกส์สำหร
 
 #. module: account_edi
 #: model:ir.actions.act_window,name:account_edi.action_open_edi_documents
-#: model:ir.actions.act_window,name:account_edi.action_open_payment_edi_documents
 #: model:ir.model.fields,field_description:account_edi.field_account_bank_statement_line__edi_state
 #: model:ir.model.fields,field_description:account_edi.field_account_journal__edi_format_ids
 #: model:ir.model.fields,field_description:account_edi.field_account_move__edi_state
-#: model:ir.model.fields,field_description:account_edi.field_account_payment__edi_state
 msgid "Electronic invoicing"
 msgstr "การออกใบแจ้งหนี้อิเล็กทรอนิกส์"
 
 #. module: account_edi
 #: model_terms:ir.ui.view,arch_db:account_edi.view_account_invoice_filter
-msgid "Electronic invoicing state"
-msgstr "สถานะการออกใบแจ้งหนี้อิเล็กทรอนิกส์"
+msgid "Electronic invoicing processing needed"
+msgstr "จำเป็นต้องมีการประมวลผลใบแจ้งหนี้อิเล็กทรอนิกส์"
 
 #. module: account_edi
-#: model:ir.model,name:account_edi.model_mail_template
-msgid "Email Templates"
-msgstr "แม่แบบอีเมล"
+#: model_terms:ir.ui.view,arch_db:account_edi.view_account_invoice_filter
+msgid "Electronic invoicing state"
+msgstr "สถานะการออกใบแจ้งหนี้อิเล็กทรอนิกส์"
 
 #. module: account_edi
 #: model:ir.model.fields,field_description:account_edi.field_account_edi_document__error
@@ -253,6 +252,11 @@ msgid "Error"
 msgstr "ผิดพลาด"
 
 #. module: account_edi
+#: model_terms:ir.ui.view,arch_db:account_edi.view_move_form_inherit
+msgid "Force Cancel"
+msgstr "บังคับยกเลิก"
+
+#. module: account_edi
 #: model:ir.model.fields,field_description:account_edi.field_account_edi_document__edi_format_name
 msgid "Format Name"
 msgstr "ชื่อรูปแบบ"
@@ -260,25 +264,24 @@ msgstr "ชื่อรูปแบบ"
 #. module: account_edi
 #: model:ir.model.fields,help:account_edi.field_account_bank_statement_line__edi_error_count
 #: model:ir.model.fields,help:account_edi.field_account_move__edi_error_count
-#: model:ir.model.fields,help:account_edi.field_account_payment__edi_error_count
-msgid "How many EDIs are in error for this move ?"
-msgstr ""
+msgid "How many EDIs are in error for this move?"
+msgstr "มี EDI กี่ตัวที่เกิดข้อผิดพลาดในการย้ายครั้งนี้?"
 
 #. module: account_edi
 #: model:ir.model.fields,field_description:account_edi.field_account_edi_document__id
 #: model:ir.model.fields,field_description:account_edi.field_account_edi_format__id
 msgid "ID"
-msgstr "รหัส"
+msgstr "ไอดี"
 
 #. module: account_edi
 #: model:ir.model.fields.selection,name:account_edi.selection__account_edi_document__blocking_level__info
 #: model:ir.model.fields.selection,name:account_edi.selection__account_move__edi_blocking_level__info
 msgid "Info"
-msgstr "ข้อมูลรายละเอียด"
+msgstr "ข้อมูล"
 
 #. module: account_edi
+#. odoo-python
 #: code:addons/account_edi/models/account_move.py:0
-#, python-format
 msgid ""
 "Invalid invoice configuration:\n"
 "\n"
@@ -296,35 +299,24 @@ msgstr "สมุดรายวัน"
 #. module: account_edi
 #: model:ir.model,name:account_edi.model_account_move
 msgid "Journal Entry"
-msgstr "รายการบันทึกบัญชี"
-
-#. module: account_edi
-#: model:ir.model,name:account_edi.model_account_move_line
-msgid "Journal Item"
-msgstr "รายการสมุดบัญชีรายวัน"
-
-#. module: account_edi
-#: model:ir.model.fields,field_description:account_edi.field_account_edi_document____last_update
-#: model:ir.model.fields,field_description:account_edi.field_account_edi_format____last_update
-msgid "Last Modified on"
-msgstr "แก้ไขครั้งสุดท้ายเมื่อ"
+msgstr "รายการสมุดรายวัน"
 
 #. module: account_edi
 #: model:ir.model.fields,field_description:account_edi.field_account_edi_document__write_uid
 #: model:ir.model.fields,field_description:account_edi.field_account_edi_format__write_uid
 msgid "Last Updated by"
-msgstr "อัพเดทครั้งสุดท้ายโดย"
+msgstr "อัปเดตครั้งล่าสุดโดย"
 
 #. module: account_edi
 #: model:ir.model.fields,field_description:account_edi.field_account_edi_document__write_date
 #: model:ir.model.fields,field_description:account_edi.field_account_edi_format__write_date
 msgid "Last Updated on"
-msgstr "อัพเดทครั้งสุดท้ายเมื่อ"
+msgstr "อัปเดตครั้งล่าสุดเมื่อ"
 
 #. module: account_edi
 #: model:ir.model.fields,field_description:account_edi.field_account_edi_document__move_id
 msgid "Move"
-msgstr "ย้าย"
+msgstr "การเคลื่อนย้าย"
 
 #. module: account_edi
 #: model:ir.model.fields,field_description:account_edi.field_account_edi_document__name
@@ -338,20 +330,9 @@ msgid "Only one edi document by move by format"
 msgstr "มีเอกสาร edi เพียงฉบับเดียวโดยย้ายตามรูปแบบ"
 
 #. module: account_edi
-#: model:ir.model,name:account_edi.model_account_payment
-msgid "Payments"
-msgstr "การชำระ"
-
-#. module: account_edi
 #: model_terms:ir.ui.view,arch_db:account_edi.view_move_form_inherit
-#: model_terms:ir.ui.view,arch_db:account_edi.view_payment_form_inherit
 msgid "Process now"
-msgstr "ดำเนินการทันที"
-
-#. module: account_edi
-#: model:ir.model,name:account_edi.model_uom_uom
-msgid "Product Unit of Measure"
-msgstr "หน่วยวัดสินค้า"
+msgstr "ดำเนินการตอนนี้"
 
 #. module: account_edi
 #: model:ir.model,name:account_edi.model_account_resequence_wizard
@@ -361,17 +342,15 @@ msgstr "สร้างลำดับของรายการสมุดร
 #. module: account_edi
 #: model:ir.model,name:account_edi.model_ir_actions_report
 msgid "Report Action"
-msgstr "รายงานการดําเนินการ"
+msgstr "การดําเนินการรายงาน"
 
 #. module: account_edi
 #: model_terms:ir.ui.view,arch_db:account_edi.view_move_form_inherit
-#: model_terms:ir.ui.view,arch_db:account_edi.view_payment_form_inherit
 msgid "Request EDI Cancellation"
 msgstr "ขอยกเลิก EDI"
 
 #. module: account_edi
 #: model_terms:ir.ui.view,arch_db:account_edi.view_move_form_inherit
-#: model_terms:ir.ui.view,arch_db:account_edi.view_payment_form_inherit
 msgid "Retry"
 msgstr "ลองใหม่"
 
@@ -392,19 +371,10 @@ msgid "State"
 msgstr "สถานะ"
 
 #. module: account_edi
-#: model:ir.model.fields,help:account_edi.field_account_bank_statement_line__edi_web_services_to_process
-#: model:ir.model.fields,help:account_edi.field_account_move__edi_web_services_to_process
-#: model:ir.model.fields,help:account_edi.field_account_payment__edi_web_services_to_process
-msgid ""
-"Technical field to display the documents that will be processed by the CRON"
-msgstr ""
-
-#. module: account_edi
 #: model:ir.model.fields,help:account_edi.field_account_bank_statement_line__edi_state
 #: model:ir.model.fields,help:account_edi.field_account_move__edi_state
-#: model:ir.model.fields,help:account_edi.field_account_payment__edi_state
 msgid "The aggregated state of all the EDIs with web-service of this move"
-msgstr "สถานะรวมของ EDI ทั้งหมดพร้อมบริการบนเว็บของการย้ายครั้งนี้"
+msgstr "สถานะรวมของ EDI ทั้งหมดพร้อมบริการบนเว็บของการเคลื่อนไหวครั้งนี้"
 
 #. module: account_edi
 #: model:ir.model.fields,help:account_edi.field_account_edi_document__attachment_id
@@ -412,37 +382,25 @@ msgid ""
 "The file generated by edi_format_id when the invoice is posted (and this "
 "document is processed)."
 msgstr ""
-"ไฟล์ที่สร้างโดย edi_format_id เมื่อมีการผ่านรายการใบแจ้งหนี้ "
-"(และเอกสารนี้ได้รับการประมวลผล)"
+"ไฟล์ที่สร้างโดย edi_format_id เมื่อมีการผ่านรายการใบแจ้งหนี้ (และเอกสารนี้ได้รับการประมวลผล)"
 
 #. module: account_edi
+#. odoo-python
 #: code:addons/account_edi/wizard/account_resequence.py:0
-#, python-format
 msgid ""
 "The following documents have already been sent and cannot be resequenced: %s"
 msgstr "เอกสารต่อไปนี้ได้ถูกส่งไปแล้วและไม่สามารถจัดลำดับใหม่ได้:%s"
 
 #. module: account_edi
 #: model_terms:ir.ui.view,arch_db:account_edi.view_move_form_inherit
-msgid ""
-"The invoice will be processed asynchronously by the following E-invoicing "
-"service :"
-msgstr ""
-
-#. module: account_edi
-#: model_terms:ir.ui.view,arch_db:account_edi.view_payment_form_inherit
-msgid ""
-"The payment will be processed asynchronously by the following E-invoicing "
-"service :"
-msgstr ""
+msgid "The invoice will soon be sent to"
+msgstr "ใบแจ้งหนี้จะถูกส่งไปยัง"
 
 #. module: account_edi
 #: model:ir.model.fields,help:account_edi.field_account_edi_document__error
 msgid ""
-"The text of the last error that happened during Electronic Invoice "
-"operation."
-msgstr ""
-"ข้อความของข้อผิดพลาดล่าสุดที่เกิดขึ้นระหว่างการดำเนินการใบแจ้งหนี้อิเล็กทรอนิกส์"
+"The text of the last error that happened during Electronic Invoice operation."
+msgstr "ข้อความของข้อผิดพลาดล่าสุดที่เกิดขึ้นระหว่างการดำเนินการใบแจ้งหนี้อิเล็กทรอนิกส์"
 
 #. module: account_edi
 #: model:ir.model.constraint,message:account_edi.constraint_account_edi_format_unique_code
@@ -450,10 +408,18 @@ msgid "This code already exists"
 msgstr "รหัสนี้มีอยู่แล้ว"
 
 #. module: account_edi
+#. odoo-python
 #: code:addons/account_edi/models/account_edi_document.py:0
-#, python-format
 msgid "This document is being sent by another process already. "
 msgstr "เอกสารนี้กำลังถูกส่งโดยขั้นตอนอื่นอยู่แล้ว"
+
+#. module: account_edi
+#. odoo-python
+#: code:addons/account_edi/models/account_move.py:0
+msgid ""
+"This invoice was canceled while the EDIs %s still had a pending cancellation "
+"request."
+msgstr "ใบแจ้งหนี้นี้ถูกยกเลิกในขณะที่ EDI %s ยังคงมีคำขอการยกเลิกที่รอดำเนินการอยู่"
 
 #. module: account_edi
 #: model:ir.model.fields.selection,name:account_edi.selection__account_edi_document__state__to_cancel
@@ -474,26 +440,24 @@ msgid "Warning"
 msgstr "คำเตือน"
 
 #. module: account_edi
+#. odoo-python
 #: code:addons/account_edi/models/account_move.py:0
-#, python-format
 msgid ""
-"You can't edit the following journal entry %s because an electronic document"
-" has already been sent. Please use the 'Request EDI Cancellation' button "
+"You can't edit the following journal entry %s because an electronic document "
+"has already been sent. Please use the 'Request EDI Cancellation' button "
 "instead."
 msgstr ""
-"คุณไม่สามารถแก้ไขรายการสมุดรายวันต่อไปนี้ %s ได้ "
-"เนื่องจากมีการส่งเอกสารอิเล็กทรอนิกส์ไปแล้ว โปรดใช้ปุ่ม 'ขอยกเลิก EDI' แทน"
+"คุณไม่สามารถแก้ไขรายการสมุดรายวันต่อไปนี้ %s ได้ เนื่องจากมีการส่งเอกสารอิเล็กทรอนิกส์ไปแล้ว "
+"โปรดใช้ปุ่ม 'ขอยกเลิก EDI' แทน"
 
 #. module: account_edi
+#. odoo-python
 #: code:addons/account_edi/models/ir_attachment.py:0
-#, python-format
 msgid ""
 "You can't unlink an attachment being an EDI document sent to the government."
-msgstr ""
-"คุณไม่สามารถยกเลิกการเชื่อมโยงเอกสารแนบที่เป็นเอกสาร EDI ที่ส่งถึงรัฐบาลได้"
+msgstr "คุณไม่สามารถยกเลิกการเชื่อมโยงเอกสารแนบที่เป็นเอกสาร EDI ที่ส่งถึงรัฐบาลได้"
 
 #. module: account_edi
 #: model_terms:ir.ui.view,arch_db:account_edi.view_move_form_inherit
-#: model_terms:ir.ui.view,arch_db:account_edi.view_payment_form_inherit
 msgid "⇒ See errors"
 msgstr "⇒ ดูข้อผิดพลาด"

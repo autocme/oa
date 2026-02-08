@@ -2,6 +2,7 @@
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
 
 from odoo import api, fields, models, tools, _
+from odoo.tools.sql import SQL
 from collections import defaultdict
 
 
@@ -17,7 +18,6 @@ class ContractHistory(models.Model):
     # to the employee. That's why we will use this id (employee_id) as the id of the hr.contract.history.
     contract_id = fields.Many2one('hr.contract', readonly=True)
 
-    display_name = fields.Char(compute='_compute_display_name')
     name = fields.Char('Contract Name', readonly=True)
     date_hired = fields.Date('Hire Date', readonly=True)
     date_start = fields.Date('Start Date', readonly=True)
@@ -36,13 +36,13 @@ class ContractHistory(models.Model):
         ('cancel', 'Cancelled')
     ], string='Status', readonly=True)
     resource_calendar_id = fields.Many2one('resource.calendar', string="Working Schedule", readonly=True)
-    wage = fields.Monetary('Wage', help="Employee's monthly gross wage.", readonly=True, group_operator="avg")
+    wage = fields.Monetary('Wage', help="Employee's monthly gross wage.", readonly=True, aggregator="avg")
     company_id = fields.Many2one('res.company', string='Company', readonly=True)
     company_country_id = fields.Many2one('res.country', string="Company country", related='company_id.country_id', readonly=True)
-    country_code = fields.Char(related='company_country_id.code', readonly=True)
+    country_code = fields.Char(related='company_country_id.code', depends=['company_country_id'], readonly=True)
     currency_id = fields.Many2one(string='Currency', related='company_id.currency_id', readonly=True)
     contract_type_id = fields.Many2one('hr.contract.type', 'Contract Type', readonly=True)
-    contract_ids = fields.One2many('hr.contract', string='Contracts', compute='_compute_contract_ids', readonly=True)
+    contract_ids = fields.One2many('hr.contract', string='Contracts', compute='_compute_contract_ids', readonly=True, compute_sudo=True)
     contract_count = fields.Integer(compute='_compute_contract_count', string="# Contracts")
     under_contract_state = fields.Selection([
         ('done', 'Under Contract'),
@@ -72,6 +72,25 @@ class ContractHistory(models.Model):
                         and field.type not in ['many2many', 'one2many', 'related']
                         and field.name not in ['id', 'contract_id', 'employee_id', 'date_hired', 'is_under_contract', 'active_employee'])
 
+    def _read_group_groupby(self, groupby_spec, query):
+        if groupby_spec != 'activity_state':
+            return super()._read_group_groupby(groupby_spec, query)
+
+        Contract = self.env['hr.contract']
+        # we use Contract._table as the JOIN alias, because that's the one used
+        # by the call to Contract._read_group_groupby() below
+        query.add_join('LEFT JOIN', Contract._table, Contract._table, SQL(
+            "%s = %s",
+            self._field_to_sql(self._table, 'contract_id', query),
+            SQL.identifier(Contract._table, 'id'),
+        ))
+        activity_state_sql = Contract._read_group_groupby(groupby_spec, query)
+        # Change the kind of JOIN -> JOIN LEFT because
+        # LEFT JOIN follow by JOIN doesn't have the same semantic
+        __, table, condition = query._joins['hr_contract__last_activity_state']
+        query._joins['hr_contract__last_activity_state'] = (SQL('LEFT JOIN'), table, condition)
+        return activity_state_sql
+
     def init(self):
         tools.drop_view_if_exists(self.env.cr, self._table)
         # Reference contract is the one with the latest start_date.
@@ -85,8 +104,7 @@ class ContractHistory(models.Model):
                                     WHEN state='draft' AND kanban_state='done' THEN 1
                                     ELSE 0 END) OVER w_partition AS is_under_contract
                 FROM   hr_contract AS contract
-                WHERE  contract.state <> 'cancel'
-                AND contract.active = true
+                WHERE  contract.active = true
                 WINDOW w_partition AS (
                     PARTITION BY contract.employee_id, contract.company_id
                     ORDER BY
@@ -94,18 +112,19 @@ class ContractHistory(models.Model):
                             WHEN contract.state = 'open' THEN 0
                             WHEN contract.state = 'draft' THEN 1
                             WHEN contract.state = 'close' THEN 2
-                            ELSE 3 END,
+                            WHEN contract.state = 'cancel' THEN 3
+                            ELSE 4 END,
                         contract.date_start DESC
                     RANGE BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING
                 )
             )
-            SELECT     employee.id AS id,
-                       employee.id AS employee_id,
-                       employee.active AS active_employee,
-                       contract.id AS contract_id,
-                       contract_information.is_under_contract::bool AS is_under_contract,
-                       employee.first_contract_date AS date_hired,
-                       %s
+            SELECT DISTINCT employee.id AS id,
+                            employee.id AS employee_id,
+                            employee.active AS active_employee,
+                            contract.id AS contract_id,
+                            contract_information.is_under_contract::bool AS is_under_contract,
+                            employee.first_contract_date AS date_hired,
+                            %s
             FROM       hr_contract AS contract
             INNER JOIN contract_information ON contract.id = contract_information.id
             RIGHT JOIN hr_employee AS employee
@@ -120,8 +139,7 @@ class ContractHistory(models.Model):
 
         mapped_employee_contracts = defaultdict(lambda: self.env['hr.contract'])
         for contract in sorted_contracts:
-            if contract.state != 'cancel':
-                mapped_employee_contracts[contract.employee_id] |= contract
+            mapped_employee_contracts[contract.employee_id] |= contract
 
         for history in self:
             history.contract_ids = mapped_employee_contracts[history.employee_id]

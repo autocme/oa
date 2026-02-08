@@ -6,15 +6,14 @@
     'category': 'Sales/Point of Sale',
     'sequence': 6,
     'summary': 'Integrate your POS with an Adyen payment terminal',
-    'description': '',
     'data': [
-        'views/pos_config_views.xml',
+        'views/res_config_settings_views.xml',
         'views/pos_payment_method_views.xml',
     ],
     'depends': ['point_of_sale'],
     'installable': True,
     'assets': {
-        'point_of_sale.assets': [
+        'point_of_sale._assets_pos': [
             'pos_adyen/static/**/*',
         ],
     },

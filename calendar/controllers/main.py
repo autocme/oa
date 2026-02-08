@@ -68,8 +68,8 @@ class CalendarController(http.Controller):
 
         # If user is internal and logged, redirect to form view of event
         # otherwise, display the simplifyed web page with event informations
-        if request.session.uid and request.env['res.users'].browse(request.session.uid).user_has_groups('base.group_user'):
-            return request.redirect('/web?db=%s#id=%s&view_type=form&model=calendar.event' % (request.env.cr.dbname, id))
+        if request.env.user._is_internal():
+            return request.redirect('/odoo/calendar.event/%s?db=%s' % (id, request.env.cr.dbname))
 
         # NOTE : we don't use request.render() since:
         # - we need a template rendering which is not lazy, to render before cursor closing
@@ -101,3 +101,20 @@ class CalendarController(http.Controller):
     @http.route('/calendar/notify_ack', type='json', auth="user")
     def notify_ack(self):
         return request.env['res.partner'].sudo()._set_calendar_last_notif_ack()
+
+    @http.route('/calendar/join_videocall/<string:access_token>', type='http', auth='public')
+    def calendar_join_videocall(self, access_token):
+        event = request.env['calendar.event'].sudo().search([('access_token', '=', access_token)])
+        if not event:
+            return request.not_found()
+
+        # if channel doesn't exist
+        if not event.videocall_channel_id:
+            event._create_videocall_channel()
+
+        return request.redirect(event.videocall_channel_id.invitation_url)
+
+    @http.route('/calendar/check_credentials', type='json', auth='user')
+    def check_calendar_credentials(self):
+        # method should be overwritten by sync providers
+        return request.env['res.users'].check_calendar_credentials()

@@ -51,7 +51,7 @@ class testAttachmentAccess(TransactionCase):
         letter = self.env['snailmail.letter'].create({'attachment_id': attachment.id, **self.letter_defaults})
 
         # As user, ensure the attachment itself cannot be read
-        attachment.invalidate_cache()
+        self.env.invalidate_all()
         with self.assertRaises(AccessError):
             attachment.with_user(self.user).datas
         # But, as user, the content of the attachment can be read through the letter
@@ -63,7 +63,7 @@ class testAttachmentAccess(TransactionCase):
         letter.write({'attachment_id': attachment.id})
 
         # As user ensure the attachment itself cannot be read
-        attachment.invalidate_cache()
+        self.env.invalidate_all()
         with self.assertRaises(AccessError):
             self.assertEqual(base64.b64decode(attachment.with_user(self.user).datas), b'bar')
         # But, as user, the content of the attachment can be read through the letter
@@ -72,13 +72,13 @@ class testAttachmentAccess(TransactionCase):
     def test_user_read_unallowed_attachment(self):
         """Test a user cannot access an attachment he is not supposed to through a snailmail.letter"""
         # As admin, create an attachment for which you require the settings group to access
-        base_module = self.env.ref('base.module_base')
+        autovacuum_job = self.env.ref('base.autovacuum_job')
         attachment_forbidden = self.env['ir.attachment'].create({
             'name': 'foo', 'datas': base64.b64encode(b'foo'),
-            'res_model': base_module._name, 'res_id': base_module.id,
+            'res_model': autovacuum_job._name, 'res_id': autovacuum_job.id,
         })
         # As user, make sure this is indeed not possible to access that attachment data directly
-        attachment_forbidden.invalidate_cache()
+        self.env.invalidate_all()
         with self.assertRaises(AccessError):
             attachment_forbidden.with_user(self.user).datas
         # As user, create a letter pointing to that attachment

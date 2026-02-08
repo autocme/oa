@@ -33,7 +33,7 @@ class PurchaseOrder(models.Model):
             action.update({
                 'name': _('Sources Sale Orders %s', self.name),
                 'domain': [('id', 'in', sale_order_ids)],
-                'view_mode': 'tree,form',
+                'view_mode': 'list,form',
             })
         return action
 
@@ -71,4 +71,4 @@ class PurchaseOrderLine(models.Model):
     _inherit = 'purchase.order.line'
 
     sale_order_id = fields.Many2one(related='sale_line_id.order_id', string="Sale Order", store=True, readonly=True)
-    sale_line_id = fields.Many2one('sale.order.line', string="Origin Sale Item", index=True, copy=False)
+    sale_line_id = fields.Many2one('sale.order.line', string="Origin Sale Item", index='btree_not_null', copy=False)

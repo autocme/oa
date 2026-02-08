@@ -11,6 +11,7 @@ import babel
 import babel.dates
 import base64
 import json
+import operator
 import pytz
 
 from odoo import exceptions, http, fields, tools, _
@@ -57,7 +58,7 @@ class EventTrackController(http.Controller):
     @http.route([
         '''/event/<model("event.event"):event>/track''',
         '''/event/<model("event.event"):event>/track/tag/<model("event.track.tag"):tag>'''
-    ], type='http', auth="public", website=True, sitemap=False)
+    ], type='http', auth="public", website=True, sitemap=False, readonly=True)
     def event_tracks(self, event, tag=None, **searches):
         """ Main route
 
@@ -68,6 +69,18 @@ class EventTrackController(http.Controller):
           * 'search': search string;
           * 'tags': list of tag IDs for filtering;
         """
+
+        if searches.get('tags', '[]').count(',') > 0 and request.httprequest.method == 'GET' and not searches.get('prevent_redirect'):
+            # Previously, the tags were searched using GET, which caused issues with crawlers (too many hits)
+            # We replaced those with POST to avoid that, but it's not sufficient as bots "remember" crawled pages for a while
+            # This permanent redirect is placed to instruct the bots that this page is no longer valid
+            # Note: We allow a single tag to be GET, to keep crawlers & indexes on those pages
+            # What we really want to avoid is combinatorial explosions
+            # (Tags are formed as a JSON array, so we count ',' to keep it simple)
+            # TODO: remove in a few stable versions (v19?), including the "prevent_redirect" param in templates
+            slug = request.env['ir.http']._slug
+            return request.redirect(f'/event/{slug(event)}/track', code=301)
+
         return request.render(
             "website_event_track.tracks_session",
             self._event_tracks_get_values(event, tag=tag, **searches)
@@ -157,6 +170,7 @@ class EventTrackController(http.Controller):
             'today_tz': today_tz,
             # search information
             'searches': searches,
+            'search_count': len(tracks_sudo),
             'search_key': searches['search'],
             'search_wishlist': searches['search_wishlist'],
             'search_tags': search_tags,
@@ -203,7 +217,7 @@ class EventTrackController(http.Controller):
         tracks_sudo = request.env['event.track'].sudo().search(base_track_domain)
 
         locations = list(set(track.location_id for track in tracks_sudo))
-        locations.sort(key=lambda x: x.id)
+        locations.sort(key=operator.itemgetter('sequence', 'id'))
 
         # First split day by day (based on start time)
         time_slots_by_tracks = {track: self._split_track_by_days(track, local_tz) for track in tracks_sudo}
@@ -260,7 +274,7 @@ class EventTrackController(http.Controller):
                 locations_by_days[track_day].append(track.location_id)
 
         for used_locations in locations_by_days.values():
-            used_locations.sort(key=lambda location: location.id if location else 0)
+            used_locations.sort(key=operator.itemgetter('sequence', 'id'))
 
         return {
             'days': days,
@@ -341,7 +355,7 @@ class EventTrackController(http.Controller):
     # ------------------------------------------------------------
 
     @http.route('''/event/<model("event.event", "[('website_track', '=', True)]"):event>/track/<model("event.track", "[('event_id', '=', event.id)]"):track>''',
-                type='http', auth="public", website=True, sitemap=True)
+                type='http', auth="public", website=True, sitemap=True, readonly=True)
     def event_track_page(self, event, track, **options):
         track = self._fetch_track(track.id, allow_sudo=False)
 
@@ -392,7 +406,6 @@ class EventTrackController(http.Controller):
         track = self._fetch_track(track_id, allow_sudo=True)
         force_create = set_reminder_on or track.wishlisted_by_default
         event_track_partner = track._get_event_track_visitors(force_create=force_create)
-        visitor_sudo = event_track_partner.visitor_id
 
         if not track.wishlisted_by_default:
             if not event_track_partner or event_track_partner.is_wishlisted == set_reminder_on:  # ignore if new state = old state
@@ -404,8 +417,6 @@ class EventTrackController(http.Controller):
             event_track_partner.is_blacklisted = not set_reminder_on
 
         result = {'reminderOn': set_reminder_on}
-        if request.httprequest.cookies.get('visitor_uuid', '') != visitor_sudo.access_token:
-            result['visitor_uuid'] = visitor_sudo.access_token
 
         return result
 
@@ -490,10 +501,7 @@ class EventTrackController(http.Controller):
         track = request.env['event.track'].browse(track_id).exists()
         if not track:
             raise NotFound()
-        try:
-            track.check_access_rights('read')
-            track.check_access_rule('read')
-        except exceptions.AccessError:
+        if not track.has_access('read'):
             if not allow_sudo:
                 raise Forbidden()
             track = track.sudo()
@@ -502,10 +510,7 @@ class EventTrackController(http.Controller):
         # JSON RPC have no website in requests
         if hasattr(request, 'website_id') and not event.can_access_from_current_website():
             raise NotFound()
-        try:
-            event.check_access_rights('read')
-            event.check_access_rule('read')
-        except exceptions.AccessError:
+        if not event.has_access('read'):
             raise Forbidden()
 
         return track

@@ -4,7 +4,7 @@
 from datetime import datetime
 
 from odoo import fields
-from odoo.tests.common import TransactionCase, Form
+from odoo.tests import Form, TransactionCase
 from odoo.tools import DEFAULT_SERVER_DATETIME_FORMAT
 
 
@@ -13,34 +13,40 @@ class TestOnchangeProductId(TransactionCase):
     subtracted to the price of the product.
     """
 
-    def setUp(self):
-        super(TestOnchangeProductId, self).setUp()
-        self.env.company.country_id = self.env.ref('base.us')
-        self.fiscal_position_model = self.env['account.fiscal.position']
-        self.fiscal_position_tax_model = self.env['account.fiscal.position.tax']
-        self.tax_model = self.env['account.tax']
-        self.po_model = self.env['purchase.order']
-        self.po_line_model = self.env['purchase.order.line']
-        self.res_partner_model = self.env['res.partner']
-        self.product_tmpl_model = self.env['product.template']
-        self.product_model = self.env['product.product']
-        self.product_uom_model = self.env['uom.uom']
-        self.supplierinfo_model = self.env["product.supplierinfo"]
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.env.company.country_id = cls.env.ref('base.us')
+        cls.fiscal_position_model = cls.env['account.fiscal.position']
+        cls.fiscal_position_tax_model = cls.env['account.fiscal.position.tax']
+        cls.tax_model = cls.env['account.tax']
+        cls.po_model = cls.env['purchase.order']
+        cls.po_line_model = cls.env['purchase.order.line']
+        cls.res_partner_model = cls.env['res.partner']
+        cls.product_tmpl_model = cls.env['product.template']
+        cls.product_model = cls.env['product.product']
+        cls.product_uom_model = cls.env['uom.uom']
+        cls.supplierinfo_model = cls.env["product.supplierinfo"]
+        cls.env['account.tax.group'].create(
+            {'name': 'Test Account Tax Group', 'company_id': cls.env.company.id}
+        )
 
     def test_onchange_product_id(self):
+        # Required for `product_uom` to be visible in the view
+        self.env.user.groups_id += self.env.ref('uom.group_uom')
 
         uom_id = self.product_uom_model.search([('name', '=', 'Units')])[0]
 
         partner_id = self.res_partner_model.create(dict(name="George"))
         tax_include_id = self.tax_model.create(dict(name="Include tax",
                                                     amount='21.00',
-                                                    price_include=True,
+                                                    price_include_override='tax_included',
                                                     type_tax_use='purchase'))
         tax_exclude_id = self.tax_model.create(dict(name="Exclude tax",
                                                     amount='0.00',
                                                     type_tax_use='purchase'))
         supplierinfo_vals = {
-            'name': partner_id.id,
+            'partner_id': partner_id.id,
             'price': 121.0,
         }
 
@@ -78,11 +84,9 @@ class TestOnchangeProductId(TransactionCase):
 
         supplierinfo.write({'min_qty': 24})
         po_line.write({'product_qty': 20})
-        po_line._onchange_quantity()
         self.assertEqual(0, po_line.price_unit, "Unit price should be reset to 0 since the supplier supplies minimum of 24 quantities")
 
         po_line.write({'product_qty': 3, 'product_uom': self.ref("uom.product_uom_dozen")})
-        po_line._onchange_quantity()
         self.assertEqual(1200, po_line.price_unit, "Unit price should be 1200 for one Dozen")
         ipad_uom = self.env['uom.category'].create({'name': 'Ipad Unit'})
         ipad_lot = self.env['uom.uom'].create({

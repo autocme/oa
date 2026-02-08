@@ -7,8 +7,11 @@
     'version': '1.0',
     'category': 'Inventory/Inventory',
     'depends': ['repair', 'mrp'],
+    'data': [
+        'views/production_views.xml',
+        'views/repair_views.xml',
+    ],
     'installable': True,
     'auto_install': True,
-    'application': False,
     'license': 'LGPL-3',
 }

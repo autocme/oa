@@ -11,7 +11,7 @@ class StockPicking(models.Model):
         "Number of subcontracting PO Source", compute='_compute_subcontracting_source_purchase_count',
         help="Number of subcontracting Purchase Order Source")
 
-    @api.depends('move_lines.move_dest_ids.raw_material_production_id')
+    @api.depends('move_ids.move_dest_ids.raw_material_production_id')
     def _compute_subcontracting_source_purchase_count(self):
         for picking in self:
             picking.subcontracting_source_purchase_count = len(picking._get_subcontracting_source_purchase())
@@ -31,10 +31,10 @@ class StockPicking(models.Model):
             action.update({
                 'name': _("Source PO of %s", self.name),
                 'domain': [('id', 'in', purchase_order_ids)],
-                'view_mode': 'tree,form',
+                'view_mode': 'list,form',
             })
         return action
 
     def _get_subcontracting_source_purchase(self):
-        moves_subcontracted = self.move_lines.move_dest_ids.raw_material_production_id.move_finished_ids.move_dest_ids.filtered(lambda m: m.is_subcontract)
+        moves_subcontracted = self.move_ids.move_dest_ids.raw_material_production_id.move_finished_ids.move_dest_ids.filtered(lambda m: m.is_subcontract)
         return moves_subcontracted.purchase_line_id.order_id

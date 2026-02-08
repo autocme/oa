@@ -1,55 +1,83 @@
 # Translation of Odoo Server.
 # This file contains the translation of the following modules:
 # 	* website_sale_stock_wishlist
-# 
+#
 # Translators:
-# e2f <projects@e2f.com>, 2021
-# Martin Trigaux, 2021
-# liAnGjiA <liangjia@qq.com>, 2021
-# 山西清水欧度(QQ:54773801) <54773801@qq.com>, 2022
-# 
+# Wil Odoo, 2024
+# 何彬 <vnsoft.he@gmail.com>, 2024
+# Chloe Wang, 2025
+#
 msgid ""
 msgstr ""
-"Project-Id-Version: Odoo Server saas~14.5\n"
+"Project-Id-Version: Odoo Server 17.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2021-09-14 10:29+0000\n"
-"PO-Revision-Date: 2021-09-14 12:29+0000\n"
-"Last-Translator: 山西清水欧度(QQ:54773801) <54773801@qq.com>, 2022\n"
-"Language-Team: Chinese (China) (https://app.transifex.com/odoo/teams/41243/zh_CN/)\n"
+"POT-Creation-Date: 2025-12-29 18:38+0000\n"
+"PO-Revision-Date: 2024-09-25 09:42+0000\n"
+"Last-Translator: Chloe Wang, 2025\n"
+"Language-Team: Chinese (China) (https://app.transifex.com/odoo/teams/41243/"
+"zh_CN/)\n"
+"Language: zh_CN\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: \n"
-"Language: zh_CN\n"
 "Plural-Forms: nplurals=1; plural=0;\n"
 
 #. module: website_sale_stock_wishlist
-#. openerp-web
-#: code:addons/website_sale_stock_wishlist/static/src/xml/product_availability.xml:0
-#, python-format
+#: model_terms:ir.ui.view,arch_db:website_sale_stock_wishlist.product_wishlist
 msgid ""
-"Add the item to your wishlist to be notified when the product is back in "
-"stock."
-msgstr "将商品添加到您的愿望清单中，以便在商品有货时收到通知。"
+"<i class=\"fa fa-bell\"/>\n"
+"                        We'll notify you once the product is back in stock."
+msgstr ""
+"<i class=\"fa fa-bell\"/>\n"
+"                        一旦产品恢复库存，我们将立即通知您。"
 
 #. module: website_sale_stock_wishlist
 #: model_terms:ir.ui.view,arch_db:website_sale_stock_wishlist.product_wishlist
-msgid "Be notified when back in stock"
-msgstr "到货时收到通知"
+msgid ""
+"<i class=\"fa fa-times text-danger\"/>\n"
+"                                Invalid email"
+msgstr ""
+"<i class=\"fa fa-times text-danger\"/>\n"
+"                        无效的电子邮件"
 
 #. module: website_sale_stock_wishlist
-#: model_terms:ir.ui.view,arch_db:website_sale_stock_wishlist.availability_email_body
-msgid "Dear Customer,"
-msgstr "尊敬的顾客，"
+#: model_terms:ir.ui.view,arch_db:website_sale_stock_wishlist.product_wishlist
+msgid ""
+"<small>\n"
+"                            <i class=\"fa fa-envelope-o\"/>\n"
+"                            Get notified when back in stock\n"
+"                        </small>"
+msgstr ""
+"<small>\n"
+"                        <i class=\"fa fa-envelope-o\"/>\n"
+"                          库存恢复时得到通知\n"
+"                        </small>"
 
 #. module: website_sale_stock_wishlist
-#: model_terms:ir.ui.view,arch_db:website_sale_stock_wishlist.availability_email_body
-msgid "Order Now"
-msgstr "立即订购"
+#: model_terms:ir.ui.view,arch_db:website_sale_stock_wishlist.product_wishlist
+msgid ""
+"<span class=\"fa fa-fw fa-shopping-cart\"/>\n"
+"                <span class=\"d-none d-md-inline\">Add</span>"
+msgstr ""
+"<span class=\"fa fa-fw fa-shopping-cart\"/>\n"
+"                <span class=\"d-none d-md-inline\">添加</span>"
+
+#. module: website_sale_stock_wishlist
+#. odoo-javascript
+#: code:addons/website_sale_stock_wishlist/static/src/xml/product_availability.xml:0
+msgid "Add to wishlist"
+msgstr "添加到心愿单"
+
+#. module: website_sale_stock_wishlist
+#. odoo-javascript
+#: code:addons/website_sale_stock_wishlist/static/src/xml/product_availability.xml:0
+msgid "Added to your wishlist"
+msgstr "添加到您的心愿单"
 
 #. module: website_sale_stock_wishlist
 #: model:ir.model,name:website_sale_stock_wishlist.model_product_template
-msgid "Product Template"
-msgstr "产品模板"
+msgid "Product"
+msgstr "产品"
 
 #. module: website_sale_stock_wishlist
 #: model:ir.model,name:website_sale_stock_wishlist.model_product_wishlist
@@ -57,9 +85,10 @@ msgid "Product Wishlist"
 msgstr "商品需求清单"
 
 #. module: website_sale_stock_wishlist
-#: model_terms:ir.ui.view,arch_db:website_sale_stock_wishlist.availability_email_body
-msgid "Regards,"
-msgstr "祝愿"
+#. odoo-javascript
+#: code:addons/website_sale_stock_wishlist/static/src/xml/product_availability.xml:0
+msgid "Save for later"
+msgstr "保存备用"
 
 #. module: website_sale_stock_wishlist
 #: model:ir.model.fields,field_description:website_sale_stock_wishlist.field_product_wishlist__stock_notification
@@ -72,25 +101,6 @@ msgid "Temporarily out of stock"
 msgstr "暂时缺货"
 
 #. module: website_sale_stock_wishlist
-#: model_terms:ir.ui.view,arch_db:website_sale_stock_wishlist.availability_email_body
-msgid "The following product is now available."
-msgstr "以下产品现已上市。"
-
-#. module: website_sale_stock_wishlist
-#: code:addons/website_sale_stock_wishlist/models/product_wishlist.py:0
-#, python-format
-msgid "The product '%(product_name)s' is now available"
-msgstr "产品“%(product_name)s”现已上市"
-
-#. module: website_sale_stock_wishlist
-#: code:addons/website_sale_stock_wishlist/models/product_wishlist.py:0
-#, python-format
-msgid "Wishlist"
-msgstr "愿望清单"
-
-#. module: website_sale_stock_wishlist
-#: model:ir.actions.server,name:website_sale_stock_wishlist.ir_cron_send_availability_email_ir_actions_server
-#: model:ir.cron,cron_name:website_sale_stock_wishlist.ir_cron_send_availability_email
-#: model:ir.cron,name:website_sale_stock_wishlist.ir_cron_send_availability_email
-msgid "Wishlist: send email regarding products availability"
-msgstr "愿望清单：发送有关产品可用性的电子邮件"
+#: model_terms:ir.ui.view,arch_db:website_sale_stock_wishlist.product_wishlist
+msgid "youremail@gmail.com"
+msgstr "youremail@gmail.com"

@@ -33,33 +33,38 @@ class Mailing(models.Model):
     # otherwise 'sms_subject' will get the old helper from 'mass_mailing' module.
     # overriding 'subject' field helper in this model is not working, since the helper will keep the new value
     # even when 'mass_mailing_sms' removed (see 'mailing_mailing_view_form_sms' for more details).
-    sms_subject = fields.Char('Title', help='For an email, the subject your recipients will see in their inbox.\n'
-                              'For an SMS, the internal title of the message.',
-                              related='subject', translate=False, readonly=False)
+    sms_subject = fields.Char(
+        'Title', related='subject',
+        readonly=False, translate=False,
+        help='For an email, the subject your recipients will see in their inbox.\n'
+             'For an SMS, the internal title of the message.')
     # sms options
-    body_plaintext = fields.Text('SMS Body', compute='_compute_body_plaintext', store=True, readonly=False)
+    body_plaintext = fields.Text(
+        'SMS Body', compute='_compute_body_plaintext',
+        store=True, readonly=False)
     sms_template_id = fields.Many2one('sms.template', string='SMS Template', ondelete='set null')
     sms_has_insufficient_credit = fields.Boolean(
-        'Insufficient IAP credits', compute='_compute_sms_has_iap_failure',
-        help='UX Field to propose to buy IAP credits')
+        'Insufficient IAP credits', compute='_compute_sms_has_iap_failure') # used to propose buying IAP credits
     sms_has_unregistered_account = fields.Boolean(
-        'Unregistered IAP account', compute='_compute_sms_has_iap_failure',
-        help='UX Field to propose to Register the SMS IAP account')
+        'Unregistered IAP account', compute='_compute_sms_has_iap_failure') # used to propose to Register the SMS IAP account
     sms_force_send = fields.Boolean(
         'Send Directly', help='Immediately send the SMS Mailing instead of queuing up. Use at your own risk.')
     # opt_out_link
     sms_allow_unsubscribe = fields.Boolean('Include opt-out link', default=False)
     # A/B Testing
-    ab_testing_sms_winner_selection = fields.Selection(related="campaign_id.ab_testing_sms_winner_selection", default="clicks_ratio", readonly=False, copy=True)
+    ab_testing_sms_winner_selection = fields.Selection(
+        related="campaign_id.ab_testing_sms_winner_selection",
+        default="clicks_ratio", readonly=False, copy=True)
+    ab_testing_mailings_sms_count = fields.Integer(related="campaign_id.ab_testing_mailings_sms_count")
 
     @api.depends('mailing_type')
     def _compute_medium_id(self):
         super(Mailing, self)._compute_medium_id()
         for mailing in self:
-            if mailing.mailing_type == 'sms' and (not mailing.medium_id or mailing.medium_id == self.env.ref('utm.utm_medium_email')):
-                mailing.medium_id = self.env.ref('mass_mailing_sms.utm_medium_sms').id
-            elif mailing.mailing_type == 'mail' and (not mailing.medium_id or mailing.medium_id == self.env.ref('mass_mailing_sms.utm_medium_sms')):
-                mailing.medium_id = self.env.ref('utm.utm_medium_email').id
+            if mailing.mailing_type == 'sms' and (not mailing.medium_id or mailing.medium_id == self.env['utm.medium']._fetch_or_create_utm_medium('email')):
+                mailing.medium_id = self.env['utm.medium']._fetch_or_create_utm_medium("sms", module="mass_mailing_sms").id
+            elif mailing.mailing_type == 'mail' and (not mailing.medium_id or mailing.medium_id == self.env['utm.medium']._fetch_or_create_utm_medium("sms", module="mass_mailing_sms")):
+                mailing.medium_id = self.env['utm.medium']._fetch_or_create_utm_medium('email').id
 
     @api.depends('sms_template_id', 'mailing_type')
     def _compute_body_plaintext(self):
@@ -69,34 +74,31 @@ class Mailing(models.Model):
 
     @api.depends('mailing_trace_ids.failure_type')
     def _compute_sms_has_iap_failure(self):
-        failures = ['sms_acc', 'sms_credit']
-        if not self.ids:
-            self.sms_has_insufficient_credit = self.sms_has_unregistered_account = False
-        else:
-            traces = self.env['mailing.trace'].sudo().read_group([
-                        ('mass_mailing_id', 'in', self.ids),
-                        ('trace_type', '=', 'sms'),
-                        ('failure_type', 'in', failures)
-            ], ['mass_mailing_id', 'failure_type'], ['mass_mailing_id', 'failure_type'], lazy=False)
+        self.sms_has_insufficient_credit = self.sms_has_unregistered_account = False
+        traces = self.env['mailing.trace'].sudo()._read_group([
+                    ('mass_mailing_id', 'in', self.ids),
+                    ('trace_type', '=', 'sms'),
+                    ('failure_type', 'in', ['sms_acc', 'sms_credit'])
+        ], ['mass_mailing_id', 'failure_type'])
 
-            trace_dict = dict.fromkeys(self.ids, {key: False for key in failures})
-            for t in traces:
-                trace_dict[t['mass_mailing_id'][0]][t['failure_type']] =  t['__count'] and True or False
-
-            for mail in self:
-                mail.sms_has_insufficient_credit = trace_dict[mail.id]['sms_credit']
-                mail.sms_has_unregistered_account = trace_dict[mail.id]['sms_acc']
+        for mass_mailing, failure_type in traces:
+            if failure_type == 'sms_credit':
+                mass_mailing.sms_has_insufficient_credit = True
+            elif failure_type == 'sms_acc':
+                mass_mailing.sms_has_unregistered_account = True
 
     # --------------------------------------------------
     # ORM OVERRIDES
     # --------------------------------------------------
 
-    @api.model
-    def create(self, values):
-        # Get subject from "sms_subject" field when SMS installed (used to build the name of record in the super 'create' method)
-        if values.get('mailing_type') == 'sms' and values.get('sms_subject'):
-            values['subject'] = values['sms_subject']
-        return super(Mailing, self).create(values)
+    @api.model_create_multi
+    def create(self, vals_list):
+        for vals in vals_list:
+            # Get subject from "sms_subject" field when SMS installed (used to
+            # build the name of record in the super 'create' method)
+            if vals.get('mailing_type') == 'sms' and vals.get('sms_subject'):
+                vals['subject'] = vals['sms_subject']
+        return super().create(vals_list)
 
     # --------------------------------------------------
     # BUSINESS / VIEWS ACTIONS
@@ -119,9 +121,9 @@ class Mailing(models.Model):
 
     def action_test(self):
         if self.mailing_type == 'sms':
-            ctx = dict(self.env.context, default_mailing_id=self.id)
+            ctx = dict(self.env.context, default_mailing_id=self.id, dialog_size='medium')
             return {
-                'name': _('Test SMS marketing'),
+                'name': _('Test Mailing'),
                 'type': 'ir.actions.act_window',
                 'view_mode': 'form',
                 'res_model': 'mailing.sms.test',
@@ -133,7 +135,7 @@ class Mailing(models.Model):
     def _action_view_traces_filtered(self, view_filter):
         action = super(Mailing, self)._action_view_traces_filtered(view_filter)
         if self.mailing_type == 'sms':
-            action['views'] = [(self.env.ref('mass_mailing_sms.mailing_trace_view_tree_sms').id, 'tree'),
+            action['views'] = [(self.env.ref('mass_mailing_sms.mailing_trace_view_tree_sms').id, 'list'),
                                (self.env.ref('mass_mailing_sms.mailing_trace_view_form_sms').id, 'form')]
         return action
 
@@ -172,18 +174,12 @@ class Mailing(models.Model):
         partner_fields = []
         if isinstance(target, self.pool['mail.thread.phone']):
             phone_fields = ['phone_sanitized']
-        elif isinstance(target, self.pool['mail.thread']):
+        else:
             phone_fields = [
-                fname for fname in target._sms_get_number_fields()
+                fname for fname in target._phone_get_number_fields()
                 if fname in target._fields and target._fields[fname].store
             ]
-            partner_fields = target._sms_get_partner_fields()
-        else:
-            phone_fields = []
-            if 'mobile' in target._fields and target._fields['mobile'].store:
-                phone_fields.append('mobile')
-            if 'phone' in target._fields and target._fields['phone'].store:
-                phone_fields.append('phone')
+            partner_fields = target._mail_get_partner_fields()
         partner_field = next(
             (fname for fname in partner_fields if target._fields[fname].store and target._fields[fname].type == 'many2one'),
             False
@@ -241,11 +237,11 @@ class Mailing(models.Model):
             'mass_sms_allow_unsubscribe': self.sms_allow_unsubscribe,
         }
 
-    def action_send_mail(self, res_ids=None):
+    def _action_send_mail(self, res_ids=None):
         mass_sms = self.filtered(lambda m: m.mailing_type == 'sms')
         if mass_sms:
             mass_sms.action_send_sms(res_ids=res_ids)
-        return super(Mailing, self - mass_sms).action_send_mail(res_ids=res_ids)
+        return super(Mailing, self - mass_sms)._action_send_mail(res_ids=res_ids)
 
     def action_send_sms(self, res_ids=None):
         for mailing in self:
@@ -254,12 +250,6 @@ class Mailing(models.Model):
             if res_ids:
                 composer = self.env['sms.composer'].with_context(active_id=False).create(mailing._send_sms_get_composer_values(res_ids))
                 composer._action_send_sms()
-
-            mailing.write({
-                'state': 'done',
-                'sent_date': fields.Datetime.now(),
-                'kpi_mail_required': not mailing.sent_date,
-                })
         return True
 
     # ------------------------------------------------------
@@ -339,7 +329,7 @@ class Mailing(models.Model):
         if self:
             self.ensure_one()
 
-        self.check_access_rights('write')
+        self.check_access('write')
 
         max_sms = self.env['sms.sms'].sudo().search_read([], ['id'], order='id desc', limit=1)
         sms_id_length = max(len(str(max_sms[0]['id'])), 5) if max_sms else 5  # Assumes a mailing won't be more than 10⁵ sms at once
@@ -372,6 +362,7 @@ class Mailing(models.Model):
         values = super()._get_ab_testing_description_values()
         if self.mailing_type == 'sms':
             values.update({
+                'ab_testing_count': self.ab_testing_mailings_sms_count,
                 'ab_testing_winner_selection': self.ab_testing_sms_winner_selection,
             })
         return values

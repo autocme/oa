@@ -1,71 +1,86 @@
 # -*- coding: utf-8 -*-
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
 
-from odoo import http, _
+from collections import defaultdict
+from odoo.http import request, route
+
 from odoo.addons.website_event.controllers.main import WebsiteEventController
-from odoo.http import request
 
 
 class WebsiteEventSaleController(WebsiteEventController):
 
-    @http.route()
-    def event_register(self, event, **post):
-        event = event.with_context(pricelist=request.website.id)
-        if not request.context.get('pricelist'):
-            pricelist = request.website.get_current_pricelist()
-            if pricelist:
-                event = event.with_context(pricelist=pricelist.id)
-        return super(WebsiteEventSaleController, self).event_register(event, **post)
-
     def _process_tickets_form(self, event, form_details):
         """ Add price information on ticket order """
-        res = super(WebsiteEventSaleController, self)._process_tickets_form(event, form_details)
+        res = super()._process_tickets_form(event, form_details)
         for item in res:
             item['price'] = item['ticket']['price'] if item['ticket'] else 0
         return res
 
     def _create_attendees_from_registration_post(self, event, registration_data):
         # we have at least one registration linked to a ticket -> sale mode activate
-        if any(info.get('event_ticket_id') for info in registration_data):
-            order = request.website.sale_get_order(force_create=1)
+        if not any(info.get('event_ticket_id') for info in registration_data):
+            return super()._create_attendees_from_registration_post(event, registration_data)
 
-        for info in [r for r in registration_data if r.get('event_ticket_id')]:
-            ticket = request.env['event.event.ticket'].sudo().browse(info['event_ticket_id'])
-            cart_values = order.with_context(event_ticket_id=ticket.id, fixed_price=True)._cart_update(product_id=ticket.product_id.id, add_qty=1)
-            info['sale_order_id'] = order.id
-            info['sale_order_line_id'] = cart_values.get('line_id')
+        event_ticket_ids = [registration['event_ticket_id'] for registration in registration_data if registration.get('event_ticket_id')]
+        event_ticket_by_id = {
+            event_ticket.id: event_ticket
+            for event_ticket in request.env['event.event.ticket'].sudo().browse(event_ticket_ids)
+        }
 
-        return super(WebsiteEventSaleController, self)._create_attendees_from_registration_post(event, registration_data)
+        if all(event_ticket.price == 0 for event_ticket in event_ticket_by_id.values()) and not request.website.sale_get_order().id:
+            # all chosen tickets are free AND no existing SO -> skip SO and payment process
+            return super()._create_attendees_from_registration_post(event, registration_data)
 
-    @http.route()
+        order_sudo = request.website.sale_get_order(force_create=True)
+        if order_sudo.state != 'draft':
+            request.website.sale_reset()
+            order_sudo = request.website.sale_get_order(force_create=True)
+
+        tickets_data = defaultdict(int)
+        for data in registration_data:
+            event_ticket_id = data.get('event_ticket_id')
+            if event_ticket_id:
+                tickets_data[event_ticket_id] += 1
+
+        cart_data = {}
+        for ticket_id, count in tickets_data.items():
+            ticket_sudo = event_ticket_by_id.get(ticket_id)
+            cart_values = order_sudo._cart_update(
+                product_id=ticket_sudo.product_id.id,
+                add_qty=count,
+                event_ticket_id=ticket_id,
+            )
+            cart_data[ticket_id] = cart_values['line_id']
+
+        for data in registration_data:
+            event_ticket_id = data.get('event_ticket_id')
+            event_ticket = event_ticket_by_id.get(event_ticket_id)
+            if event_ticket:
+                data['sale_order_id'] = order_sudo.id
+                data['sale_order_line_id'] = cart_data[event_ticket_id]
+
+        request.session['website_sale_cart_quantity'] = order_sudo.cart_quantity
+
+        return super()._create_attendees_from_registration_post(event, registration_data)
+
+    @route()
     def registration_confirm(self, event, **post):
-        res = super(WebsiteEventSaleController, self).registration_confirm(event, **post)
+        res = super().registration_confirm(event, **post)
 
         registrations = self._process_attendees_form(event, post)
+        order_sudo = request.website.sale_get_order()
+        if not order_sudo.id:
+            # order does not contain any lines related to the event, meaning we are confirming only free tickets of this event
+            return res
 
         # we have at least one registration linked to a ticket -> sale mode activate
         if any(info['event_ticket_id'] for info in registrations):
-            order = request.website.sale_get_order(force_create=False)
-            if order.amount_total:
+            if order_sudo.amount_total:
+                request.session['sale_last_order_id'] = order_sudo.id
                 return request.redirect("/shop/checkout")
             # free tickets -> order with amount = 0: auto-confirm, no checkout
-            elif order:
-                order.action_confirm()  # tde notsure: email sending ?
+            elif order_sudo:
+                order_sudo.action_confirm()  # tde notsure: email sending ?
                 request.website.sale_reset()
 
         return res
-
-    def _prepare_event_values(self, name, event_start, event_end, address_values=None):
-        values = super(WebsiteEventSaleController, self)._prepare_event_values(name, event_start, event_end, address_values)
-        product = request.env.ref('event_sale.product_product_event', raise_if_not_found=False)
-        if product:
-            values.update({
-                'event_ticket_ids': [[0, 0, {
-                    'name': _('Registration'),
-                    'product_id': product.id,
-                    'end_sale_datetime': False,
-                    'seats_max': 1000,
-                    'price': 0,
-                }]]
-            })
-        return values

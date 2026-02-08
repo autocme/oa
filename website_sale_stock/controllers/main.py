@@ -1,32 +1,29 @@
-# -*- coding: utf-8 -*-
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
 
-from odoo.addons.website_sale.controllers import main as website_sale_controller
+from werkzeug.exceptions import BadRequest
 
-from odoo import http, _
-from odoo.http import request
-from odoo.exceptions import ValidationError
+from odoo import _
+from odoo.http import Controller, request, route
+from odoo.tools.mail import email_re
 
 
-class PaymentPortal(website_sale_controller.PaymentPortal):
+class WebsiteSaleStock(Controller):
 
-    @http.route()
-    def shop_payment_transaction(self, *args, **kwargs):
-        """ Payment transaction override to double check cart quantities before
-        placing the order
-        """
-        order = request.website.sale_get_order()
-        values = []
-        for line in order.order_line:
-            if line.product_id.type == 'product' and not line.product_id.allow_out_of_stock_order:
-                cart_qty = sum(order.order_line.filtered(lambda p: p.product_id.id == line.product_id.id).mapped('product_uom_qty'))
-                avl_qty = line.product_id.with_context(warehouse=order.warehouse_id.id).free_qty
-                if cart_qty > avl_qty:
-                    values.append(_(
-                        'You ask for %(quantity)s products but only %(available_qty)s is available',
-                        quantity=cart_qty,
-                        available_qty=avl_qty if avl_qty > 0 else 0
-                    ))
-        if values:
-            raise ValidationError('. '.join(values) + '.')
-        return super().shop_payment_transaction(*args, **kwargs)
+    @route('/shop/add/stock_notification', type='json', auth='public', website=True)
+    def add_stock_email_notification(self, email, product_id):
+        if not email_re.match(email):
+            raise BadRequest(_("Invalid Email"))
+
+        product = request.env['product.product'].browse(int(product_id))
+        partners = request.env['res.partner'].sudo()._mail_find_partner_from_emails([email], force_create=True)
+        partner = partners[0]
+
+        if not product._has_stock_notification(partner):
+            product.sudo().stock_notification_partner_ids += partner
+
+        if request.website.is_public_user():
+            request.session['product_with_stock_notification_enabled'] = list(
+                set(request.session.get('product_with_stock_notification_enabled', []))
+                | {product_id}
+            )
+            request.session['stock_notification_email'] = email

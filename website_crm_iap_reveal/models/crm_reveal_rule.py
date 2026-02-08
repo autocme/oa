@@ -67,10 +67,10 @@ class CRMRevealRule(models.Model):
     ]
 
     def _compute_lead_count(self):
-        leads = self.env['crm.lead'].read_group([
+        leads = self.env['crm.lead']._read_group([
             ('reveal_rule_id', 'in', self.ids)
-        ], fields=['reveal_rule_id', 'type'], groupby=['reveal_rule_id', 'type'], lazy=False)
-        mapping = {(lead['reveal_rule_id'][0], lead['type']): lead['__count'] for lead in leads}
+        ], groupby=['reveal_rule_id', 'type'], aggregates=['__count'])
+        mapping = {(reveal_rule.id, type_crm): count for reveal_rule, type_crm, count in leads}
         for rule in self:
             rule.lead_count = mapping.get((rule.id, 'lead'), 0)
             rule.opportunity_count = mapping.get((rule.id, 'opportunity'), 0)
@@ -83,21 +83,9 @@ class CRMRevealRule(models.Model):
         except Exception:
             raise ValidationError(_('Enter Valid Regex.'))
 
-    @api.model
-    def _assert_geoip(self):
-        if not odoo._geoip_resolver:
-            message = _('Lead Generation requires a GeoIP resolver which could not be found on your system. Please consult https://pypi.org/project/GeoIP/.')
-            self.env['bus.bus']._sendone(self.env.user.partner_id, 'simple_notification', {
-                'title': _('Missing Library'),
-                'message': message,
-                'sticky': True,
-                'warning': True,
-            })
-
     @api.model_create_multi
     def create(self, vals_list):
-        self.clear_caches() # Clear the cache in order to recompute _get_active_rules
-        self._assert_geoip()
+        self.env.registry.clear_cache() # Clear the cache in order to recompute _get_active_rules
         return super().create(vals_list)
 
     def write(self, vals):
@@ -105,12 +93,11 @@ class CRMRevealRule(models.Model):
             'country_ids', 'regex_url', 'active'
         }
         if set(vals.keys()) & fields_set:
-            self.clear_caches() # Clear the cache in order to recompute _get_active_rules
-        self._assert_geoip()
+            self.env.registry.clear_cache() # Clear the cache in order to recompute _get_active_rules
         return super(CRMRevealRule, self).write(vals)
 
     def unlink(self):
-        self.clear_caches() # Clear the cache in order to recompute _get_active_rules
+        self.env.registry.clear_cache() # Clear the cache in order to recompute _get_active_rules
         return super(CRMRevealRule, self).unlink()
 
     def action_get_lead_tree_view(self):
@@ -344,10 +331,10 @@ class CRMRevealRule(models.Model):
             else:
                 views = self.env['crm.reveal.view'].search([('reveal_ip', '=', res['ip'])])
                 views.write({'reveal_state': 'not_found'})
-                views.flush()
+                views.flush_recordset()
 
         if result.get('credit_error'):
-            self.env['crm.iap.lead.helpers'].notify_no_more_credit('reveal', self._name, 'reveal.already_notified')
+            self.env['crm.iap.lead.helpers']._notify_no_more_credit('reveal', self._name, 'reveal.already_notified')
             return False
         else:
             # avoid loops if IAP return result is broken: otherwise some IP may create loops
@@ -355,7 +342,7 @@ class CRMRevealRule(models.Model):
                 ('reveal_ip', 'in', [ip for ip in all_ips if ip not in done_ips])
             ])
             views.write({'reveal_state': 'not_found'})
-            views.flush()
+            views.flush_recordset()
             # reset notified parameter to re-send credit notice if appears again
             self.env['ir.config_parameter'].sudo().set_param('reveal.already_notified', False)
         return True
@@ -375,7 +362,7 @@ class CRMRevealRule(models.Model):
             return False
         if not result['clearbit_id']:
             return False
-        already_created_lead = self.env['crm.lead'].search([('reveal_id', '=', result['clearbit_id'])])
+        already_created_lead = self.env['crm.lead'].search_count([('reveal_id', '=', result['clearbit_id'])], limit=1)
         if already_created_lead:
             _logger.info('Existing lead for this clearbit_id [%s]', result['clearbit_id'])
             # Does not create a lead if the reveal_id is already known
@@ -389,10 +376,10 @@ class CRMRevealRule(models.Model):
             'flavor_text': _("Opportunity created by Odoo Lead Generation"),
             'people_data': result.get('people_data'),
         })
-        lead.message_post_with_view(
+        lead.message_post_with_source(
             'iap_mail.enrich_company',
-            values=template_values,
-            subtype_id=self.env.ref('mail.mt_note').id
+            render_values=template_values,
+            subtype_xmlid='mail.mt_note',
         )
 
         return lead

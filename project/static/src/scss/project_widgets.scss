@@ -20,6 +20,9 @@
     &.o_color_bubble_23 {
         background-color: $o-danger;
     }
+    &.o_color_bubble_24 {
+        background-color: $primary;
+    }
 }
 
 .o_status_with_color {
@@ -37,74 +40,6 @@
     cursor: pointer;
 }
 
-.o_kanban_view.o_pupdate_kanban {
-    overflow: auto;
-    &.o_kanban_ungrouped {
-        padding:0px;
-        .o_pupdate_kanban_card {
-            width: 100%;
-            margin: 0px;
-            border-right: 0px;
-            border-top: 0px;
-            overflow: hidden;
-            .o_kanban_detail_ungrouped {
-                padding-left: $o-horizontal-padding - $o-kanban-color-border-width - $o-kanban-record-margin;
-                > div {
-                    display: grid;
-                    align-items: center;
-                }
-                .o_pupdate_kanban_image {
-                    width: 56px;
-                    height: 56px;
-                    top: 0px;
-                    position: absolute;
-                }
-                .o_pupdate_name {
-                    overflow-wrap: break-word;
-                }
-                .o_pupdate_kanban_actions_ungrouped {
-                    button {
-                        float: right;
-                        margin: 4px;
-                    }
-                }
-                .o_country_flag {
-                    margin-right: 8px;
-                }
-            }
-        }
-    }
-
-    .oe_kanban_color_20 {
-        border-left-color: $o-success;
-        &:after {
-            background-color: $o-success;
-        }
-    }
-    .oe_kanban_color_21 {
-        border-left-color: $o-info;
-        &:after {
-            background-color: $o-info;
-        }
-    }
-    .oe_kanban_color_22 {
-        border-left-color: $o-warning;
-        &:after {
-            background-color: $o-warning;
-        }
-    }
-    .oe_kanban_color_23 {
-        border-left-color: $o-danger;
-        &:after {
-            background-color: $o-danger;
-        }
-    }
-}
-
-.o_kanban_project_tasks .o_field_many2manytags, .o_kanban_tags{
-    margin: 0px;
-}
-
 .o_project_m2m_avatar {
     width: 20px;
     height: 20px;
@@ -117,5 +52,20 @@
         height: 20px;
         object-fit: cover;
         margin-right: 4px;
+    }
+}
+
+.o_state_container {
+    width: 20%;
+    @media only screen and (max-width: 650px) {
+        width: 5%;
+    }
+}
+
+.o_field_project_state_selection {
+    .dropdown-toggle .o_status {
+        width: $font-size-base * 1.36;
+        height: $font-size-base * 1.36;
+        text-align: center;
     }
 }

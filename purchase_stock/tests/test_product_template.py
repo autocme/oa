@@ -8,7 +8,7 @@ class TestProductTemplate(TransactionCase):
       })
 
       seller = self.env['product.supplierinfo'].create({
-        'name': partner.id,
+        'partner_id': partner.id,
         'price': 12.0,
         'delay': 1,
         'product_code': 'VOB2a',
@@ -16,7 +16,7 @@ class TestProductTemplate(TransactionCase):
 
       product_tmpl = self.env['product.template'].create({
         'name': 'Rubber Duck',
-        'type': 'product',
+        'is_storable': True,
         'default_code': 'VOB2A',
         'seller_ids': [seller.id],
         'purchase_ok': True,

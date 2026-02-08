@@ -12,7 +12,8 @@ class FleetVehicleLogServices(models.Model):
     _description = 'Services for vehicles'
 
     active = fields.Boolean(default=True)
-    vehicle_id = fields.Many2one('fleet.vehicle', 'Vehicle', required=True, help='Vehicle concerned by this log')
+    vehicle_id = fields.Many2one('fleet.vehicle', 'Vehicle', required=True)
+    manager_id = fields.Many2one('res.users', 'Fleet Manager', related='vehicle_id.manager_id', store=True)
     amount = fields.Monetary('Cost')
     description = fields.Char('Description')
     odometer_id = fields.Many2one('fleet.vehicle.odometer', 'Odometer', help='Odometer measure of the vehicle at the moment of this log')
@@ -29,14 +30,14 @@ class FleetVehicleLogServices(models.Model):
     notes = fields.Text()
     service_type_id = fields.Many2one(
         'fleet.service.type', 'Service Type', required=True,
-        default=lambda self: self.env.ref('fleet.type_service_service_8', raise_if_not_found=False),
+        default=lambda self: self.env.ref('fleet.type_service_service_7', raise_if_not_found=False),
     )
     state = fields.Selection([
         ('new', 'New'),
         ('running', 'Running'),
         ('done', 'Done'),
         ('cancelled', 'Cancelled'),
-    ], default='new', string='Stage', group_expand='_expand_states')
+    ], default='new', string='Stage', group_expand=True, tracking=True)
 
     def _get_odometer(self):
         self.odometer = 0
@@ -69,6 +70,3 @@ class FleetVehicleLogServices(models.Model):
     def _compute_purchaser_id(self):
         for service in self:
             service.purchaser_id = service.vehicle_id.driver_id
-
-    def _expand_states(self, states, domain, order):
-        return [key for key, dummy in self._fields['state'].selection]

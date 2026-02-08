@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+# pylint: skip-file
 
 from __future__ import print_function
 import base64
@@ -804,7 +805,7 @@ class Escpos:
                     else:
                         encoding = 'cp437'
                         encoded  = b'\xb1'    # could not encode, output error character
-                        break;
+                        break
 
             if encoding != self.encoding:
                 # if the encoding changed, remember it and prefix the character with

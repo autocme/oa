@@ -1,8 +1,10 @@
 # -*- coding: utf-8 -*-
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
 
+from markupsafe import Markup
+from werkzeug.urls import url_join
+
 from odoo import fields, models, _
-from odoo.addons.phone_validation.tools import phone_validation
 
 
 class MassSMSTest(models.TransientModel):
@@ -20,9 +22,9 @@ class MassSMSTest(models.TransientModel):
         self.ensure_one()
 
         numbers = [number.strip() for number in self.numbers.splitlines()]
-        sanitize_res = phone_validation.phone_sanitize_numbers_w_record(numbers, self.env.user)
-        sanitized_numbers = [info['sanitized'] for info in sanitize_res.values() if info['sanitized']]
-        invalid_numbers = [number for number, info in sanitize_res.items() if info['code']]
+        sanitized_numbers = [self.env.user._phone_format(number=number) for number in numbers]
+        valid_numbers = [number for sanitized, number in zip(sanitized_numbers, numbers) if sanitized]
+        invalid_numbers = [number for sanitized, number in zip(sanitized_numbers, numbers) if not sanitized]
 
         record = self.env[self.mailing_id.mailing_model_real].search([], limit=1)
         body = self.mailing_id.body_plaintext
@@ -30,37 +32,39 @@ class MassSMSTest(models.TransientModel):
             # Returns a proper error if there is a syntax error with qweb
             body = self.env['mail.render.mixin']._render_template(body, self.mailing_id.mailing_model_real, record.ids)[record.id]
 
-        # res_id is used to map the result to the number to log notifications as IAP does not return numbers...
-        # TODO: clean IAP to make it return a clean dict with numbers / use custom keys / rename res_id to external_id
-        sent_sms_list = self.env['sms.api']._send_sms_batch([{
-            'res_id': number,
-            'number': number,
+        new_sms_messages_sudo = self.env['sms.sms'].sudo().create([{'body': body, 'number': number} for number in valid_numbers])
+        sms_api = self.env.company._get_sms_api_class()(self.env)
+        sent_sms_list = sms_api._send_sms_batch([{
             'content': body,
-        } for number in sanitized_numbers])
-
-        error_messages = {}
-        if any(sent_sms.get('state') != 'success' for sent_sms in sent_sms_list):
-            error_messages = self.env['sms.api']._get_sms_api_error_messages()
+            'numbers': [{'number': sms_id.number, 'uuid': sms_id.uuid} for sms_id in new_sms_messages_sudo],
+        }], delivery_reports_url=url_join(self[0].get_base_url(), '/sms/status'))
 
         notification_messages = []
         if invalid_numbers:
             notification_messages.append(_('The following numbers are not correctly encoded: %s',
                 ', '.join(invalid_numbers)))
 
-        for sent_sms in sent_sms_list:
-            if sent_sms.get('state') == 'success':
+        for sent_sms, db_sms in zip(sent_sms_list, new_sms_messages_sudo):
+            recipient = db_sms.number or sent_sms.get('res_id')
+            # 'success' and 'sent' IAP/Twilio both resolve to 'pending' SMS state
+            # (= send for Odoo) via IAP_TO_SMS_STATE_SUCCESS
+            if sent_sms.get('state') in ('success', 'sent'):
                 notification_messages.append(
-                    _('Test SMS successfully sent to %s', sent_sms.get('res_id')))
+                    _('Test SMS successfully sent to %s', recipient))
             elif sent_sms.get('state'):
-                notification_messages.append(
-                    _('Test SMS could not be sent to %s:<br>%s',
-                    sent_sms.get('res_id'),
-                    error_messages.get(sent_sms['state'], _("An error occurred.")))
+                failure_explanation = sms_api._get_sms_api_error_messages().get(sent_sms['state'])
+                failure_reason = sent_sms.get('failure_reason')
+                message = _(
+                    "Test SMS could not be sent to %(destination)s: %(failure_reason)s",
+                    destination=recipient,
+                    failure_reason=failure_explanation or failure_reason or _("An error occurred."),
                 )
+                notification_messages.append(message)
 
         if notification_messages:
-            self.mailing_id._message_log(body='<ul>%s</ul>' % ''.join(
-                ['<li>%s</li>' % notification_message for notification_message in notification_messages]
-            ))
+            message_body = Markup(
+                f"<ul>{''.join('<li>%s</li>' for _ in notification_messages)}</ul>"
+            ) % tuple(notification_messages)
+            self.mailing_id._message_log(body=message_body)
 
         return True

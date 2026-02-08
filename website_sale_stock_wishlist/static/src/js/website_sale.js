@@ -1,34 +1,20 @@
 /** @odoo-module **/
 
-import publicWidget from "web.public.widget";
-import "website_sale.website_sale";
-import ajax from "web.ajax";
-import { qweb as QWeb } from "web.core";
+import WebsiteSale from '@website_sale_stock/js/website_sale';
 
-const loadXml = async () => {
-    return ajax.loadXML('/website_sale_stock_wishlist/static/src/xml/product_availability.xml', QWeb);
-};
+WebsiteSale.include({
 
-publicWidget.registry.WebsiteSale.include({
+    events: Object.assign({}, WebsiteSale.prototype.events, {
+        'click #wishlist_stock_notification_message': '_onClickWishlistStockNotificationMessage',
+        'click #wishlist_stock_notification_form_submit_button': '_onClickSubmitWishlistStockNotificationForm',
+    }),
 
-    //--------------------------------------------------------------------------
-    // Private
-    //--------------------------------------------------------------------------
+    _onClickWishlistStockNotificationMessage(ev) {
+        this._handleClickStockNotificationMessage(ev);
+    },
 
-    /**
-     * Displays additional info messages regarding the product's
-     * stock and the wishlist.
-     *
-     * @override
-     */
-    _onChangeCombination: async function (ev, $parent, combination) {
-        this._super(...arguments);
-        loadXml().then(() => {
-            if (this.el.querySelector('.o_add_wishlist_dyn')) {
-                const messageEl = this.el.querySelector('div.availability_messages');
-                if (messageEl)
-                    messageEl.insertAdjacentHTML('beforeend', QWeb.render('website_sale_stock_wishlist.product_availability', combination));
-            }
-        });
+    _onClickSubmitWishlistStockNotificationForm(ev) {
+        const productId = ev.currentTarget.closest('tr').dataset.productId;
+        this._handleClickSubmitStockNotificationForm(ev, productId);
     },
 });

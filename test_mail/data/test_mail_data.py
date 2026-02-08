@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
 
-MAIL_TEMPLATE = """Return-Path: <whatever-2a840@postmaster.twitter.com>
+MAIL_TEMPLATE = """Return-Path: {return_path}
 To: {to}
 cc: {cc}
 Received: by mail1.openerp.com (Postfix, from userid 10002)
@@ -249,7 +249,7 @@ Date: Sun, 26 Mar 2023 05:23:22 +0200
 Message-ID: {msg_id}
 Subject: {subject}
 From: "Sylvie Lelitre" <test.sylvie.lelitre@agrolait.com>
-To: groups@test.com
+To: groups@test.mycompany.com
 Content-Type: multipart/mixed; boundary="000000000000b951de05f7c47a9e"
 
 --000000000000b951de05f7c47a9e
@@ -648,11 +648,11 @@ AAAAACwAAAAAAgACAAAEA3DJFQA7
 --001a11416b9e9b229a05272b7052--
 """
 
-MAIL_EML_ATTACHMENT = """Subject: Re: test attac
+MAIL_EML_ATTACHMENT = """Subject: {subject}
 From: {email_from}
 To: {to}
-References: <f3b9f8f8-28fa-2543-cab2-7aa68f679ebb@odoo.com>
-Message-ID: <cb7eaf62-58dc-2017-148c-305d0c78892f@odoo.com>
+References: {references}
+Message-ID: {msg_id}
 Date: Wed, 14 Mar 2018 14:26:58 +0100
 User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:52.0) Gecko/20100101
  Thunderbird/52.6.0
@@ -1395,6 +1395,7 @@ Date: Fri, 10 Aug 2012 14:16:26 +0000
 
 ------=_Part_4200734_24778174.1344608186754
 Content-Type: {pdf_mime}; name="scan_soraya.lernout_1691652648.pdf"
+Content-Disposition: attachment; filename="scan_soraya.lernout_1691652648.pdf"
 Content-Transfer-Encoding: base64
 
 JVBERi0xLjEKJcKlwrHDqwoKMSAwIG9iagogIDw8IC9UeXBlIC9DYXRhbG9nCiAgICAgL1BhZ2VzIDIgMCBSCiAgPj4KZW5kb2JqCgoyIDAgb2JqCiAgPDwgL1R5cGUgL1BhZ2VzCiAgICAgL0tpZHMgWzMgMCBSXQogICAgIC9Db3VudCAxCiAgICAgL01lZGlhQm94IFswIDAgMzAwIDE0NF0KICA+PgplbmRvYmoKCjMgMCBvYmoKICA8PCAgL1R5cGUgL1BhZ2UKICAgICAgL1BhcmVudCAyIDAgUgogICAgICAvUmVzb3VyY2VzCiAgICAgICA8PCAvRm9udAogICAgICAgICAgIDw8IC9GMQogICAgICAgICAgICAgICA8PCAvVHlwZSAvRm9udAogICAgICAgICAgICAgICAgICAvU3VidHlwZSAvVHlwZTEKICAgICAgICAgICAgICAgICAgL0Jhc2VGb250IC9UaW1lcy1Sb21hbgogICAgICAgICAgICAgICA+PgogICAgICAgICAgID4+CiAgICAgICA+PgogICAgICAvQ29udGVudHMgNCAwIFIKICA+PgplbmRvYmoKCjQgMCBvYmoKICA8PCAvTGVuZ3RoIDU1ID4+CnN0cmVhbQogIEJUCiAgICAvRjEgMTggVGYKICAgIDAgMCBUZAogICAgKEhlbGxvIFdvcmxkKSBUagogIEVUCmVuZHN0cmVhbQplbmRvYmoKCnhyZWYKMCA1CjAwMDAwMDAwMDAgNjU1MzUgZiAKMDAwMDAwMDAxOCAwMDAwMCBuIAowMDAwMDAwMDc3IDAwMDAwIG4gCjAwMDAwMDAxNzggMDAwMDAgbiAKMDAwMDAwMDQ1NyAwMDAwMCBuIAp0cmFpbGVyCiAgPDwgIC9Sb290IDEgMCBSCiAgICAgIC9TaXplIDUKICA+PgpzdGFydHhyZWYKNTY1CiUlRU9GCg==
@@ -1404,7 +1405,8 @@ JVBERi0xLjEKJcKlwrHDqwoKMSAwIG9iagogIDw8IC9UeXBlIC9DYXRhbG9nCiAgICAgL1BhZ2VzIDIg
 
 PDF_PARSED = b'''%PDF-1.1\n%\xc2\xa5\xc2\xb1\xc3\xab\n\n1 0 obj\n  << /Type /Catalog\n     /Pages 2 0 R\n  >>\nendobj\n\n2 0 obj\n  << /Type /Pages\n     /Kids [3 0 R]\n     /Count 1\n     /MediaBox [0 0 300 144]\n  >>\nendobj\n\n3 0 obj\n  <<  /Type /Page\n      /Parent 2 0 R\n      /Resources\n       << /Font\n           << /F1\n               << /Type /Font\n                  /Subtype /Type1\n                  /BaseFont /Times-Roman\n               >>\n           >>\n       >>\n      /Contents 4 0 R\n  >>\nendobj\n\n4 0 obj\n  << /Length 55 >>\nstream\n  BT\n    /F1 18 Tf\n    0 0 Td\n    (Hello World) Tj\n  ET\nendstream\nendobj\n\nxref\n0 5\n0000000000 65535 f \n0000000018 00000 n \n0000000077 00000 n \n0000000178 00000 n \n0000000457 00000 n \ntrailer\n  <<  /Root 1 0 R\n      /Size 5\n  >>\nstartxref\n565\n%%EOF\n'''
 
-THAI_EMAIL_WINDOWS_874='''From: Thai Customer <outlook_windows@outlook.com>
+THAI_EMAIL_WINDOWS_874 = '''\
+From: Thai Customer <outlook_windows@outlook.com>
 To: "Thai Odoo User" <thai-user@odoo.com>
 Subject: =?windows-874?B?4MPX6M2n?=
 Thread-Topic: =?windows-874?B?4MPX6M2n?=

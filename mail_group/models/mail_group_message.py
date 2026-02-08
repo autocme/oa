@@ -3,10 +3,12 @@
 
 import logging
 
+from markupsafe import Markup
+
 from odoo import _, api, fields, models
 from odoo.exceptions import AccessError, UserError
 from odoo.osv import expression
-from odoo.tools import email_normalize, append_content_to_html, ustr
+from odoo.tools.mail import email_normalize, append_content_to_html
 
 _logger = logging.getLogger(__name__)
 
@@ -21,6 +23,7 @@ class MailGroupMessage(models.Model):
     _description = 'Mailing List Message'
     _rec_name = 'subject'
     _order = 'create_date DESC'
+    _primary_email = 'email_from'
 
     # <mail.message> fields, can not be done with inherits because it will impact
     # the performance of the <mail.message> model (different cache, so the ORM will need
@@ -39,7 +42,7 @@ class MailGroupMessage(models.Model):
     # Parent and children
     group_message_parent_id = fields.Many2one(
         'mail.group.message', string='Parent', store=True)
-    group_message_child_ids = fields.One2many('mail.group.message', 'group_message_parent_id', string='Childs')
+    group_message_child_ids = fields.One2many('mail.group.message', 'group_message_parent_id', string='Children')
     # Moderation
     author_moderation = fields.Selection([('ban', 'Banned'), ('allow', 'Whitelisted')], string='Author Moderation Status',
                                          compute='_compute_author_moderation')
@@ -51,6 +54,7 @@ class MailGroupMessage(models.Model):
         string='Status', index=True, copy=False,
         required=True, default='pending_moderation')
     moderator_id = fields.Many2one('res.users', string='Moderated By')
+    create_date = fields.Datetime(string='Posted')
 
     @api.depends('email_from')
     def _compute_email_from_normalized(self):
@@ -94,13 +98,15 @@ class MailGroupMessage(models.Model):
                     field: vals.pop(field)
                     for field in self.env['mail.message']._fields
                     if field in vals
+                    and field in self.env['mail.thread']._get_message_create_valid_field_names()
                 }).id
         return super(MailGroupMessage, self).create(values_list)
 
-    def copy(self, default=None):
-        default = dict(default or {})
-        default['mail_message_id'] = self.mail_message_id.copy().id
-        return super(MailGroupMessage, self).copy(default)
+    def copy_data(self, default=None):
+        vals_list = super().copy_data(default)
+        for message, vals in zip(self, vals_list):
+            vals['mail_message_id'] = message.mail_message_id.copy().id
+        return vals_list
 
     # --------------------------------------------------
     # MODERATION API
@@ -231,7 +237,7 @@ class MailGroupMessage(models.Model):
             if not message.email_from:
                 continue
 
-            body_html = append_content_to_html('<div>%s</div>' % ustr(comment), message.body, plaintext=False)
+            body_html = append_content_to_html(Markup('<div>%s</div>') % comment, message.body, plaintext=False)
             body_html = self.env['mail.render.mixin']._replace_local_links(body_html)
             self.env['mail.mail'].sudo().create({
                 'author_id': self.env.user.partner_id.id,

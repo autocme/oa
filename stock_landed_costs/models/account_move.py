@@ -25,13 +25,14 @@ class AccountMove(models.Model):
         self.ensure_one()
         landed_costs_lines = self.line_ids.filtered(lambda line: line.is_landed_costs_line)
 
-        landed_costs = self.env['stock.landed.cost'].create({
+        sign = -1 if self.move_type in ['in_refund'] else 1
+        landed_costs = self.env['stock.landed.cost'].with_company(self.company_id).create({
             'vendor_bill_id': self.id,
             'cost_lines': [(0, 0, {
                 'product_id': l.product_id.id,
                 'name': l.product_id.name,
                 'account_id': l.product_id.product_tmpl_id.get_product_accounts()['stock_input'].id,
-                'price_unit': l.currency_id._convert(l.price_subtotal, l.company_currency_id, l.company_id, l.move_id.date),
+                'price_unit': sign * l.currency_id._convert(l.price_subtotal, l.company_currency_id, l.company_id, self.invoice_date or fields.Date.context_today(l)),
                 'split_method': l.product_id.split_method_landed_cost or 'equal',
             }) for l in landed_costs_lines],
         })
@@ -43,7 +44,7 @@ class AccountMove(models.Model):
         action = self.env["ir.actions.actions"]._for_xml_id("stock_landed_costs.action_stock_landed_cost")
         domain = [('id', 'in', self.landed_costs_ids.ids)]
         context = dict(self.env.context, default_vendor_bill_id=self.id)
-        views = [(self.env.ref('stock_landed_costs.view_stock_landed_cost_tree2').id, 'tree'), (False, 'form'), (False, 'kanban')]
+        views = [(self.env.ref('stock_landed_costs.view_stock_landed_cost_tree2').id, 'list'), (False, 'form'), (False, 'kanban')]
         return dict(action, domain=domain, context=context, views=views)
 
     def _post(self, soft=True):
@@ -51,32 +52,39 @@ class AccountMove(models.Model):
         posted.sudo().landed_costs_ids.reconcile_landed_cost()
         return posted
 
+    def _update_order_line_info(self, product_id, quantity, **kwargs):
+        price_unit = super()._update_order_line_info(product_id, quantity, **kwargs)
+        move_line = self.line_ids.filtered(lambda line: line.product_id.id == product_id)
+        if move_line:
+            move_line.is_landed_costs_line = move_line.product_id.landed_cost_ok
+        return price_unit
+
 
 class AccountMoveLine(models.Model):
     _inherit = 'account.move.line'
 
-    product_type = fields.Selection(related='product_id.detailed_type', readonly=True)
+    product_type = fields.Selection(related='product_id.type', readonly=True)
     is_landed_costs_line = fields.Boolean()
 
-    @api.onchange('is_landed_costs_line')
-    def _onchange_is_landed_costs_line(self):
-        """Mark an invoice line as a landed cost line and adapt `self.account_id`. The default
-        value can be set according to `self.product_id.landed_cost_ok`."""
-        if self.product_id:
-            accounts = self.product_id.product_tmpl_id._get_product_accounts()
-            aml_account = accounts['expense']
-            if self.product_type != 'service':
-                self.is_landed_costs_line = False
-            elif self.is_landed_costs_line:
-                aml_account = (self.move_id.company_id.anglo_saxon_accounting and accounts['stock_input']) or aml_account
-            self.account_id = aml_account
-
     @api.onchange('product_id')
-    def _onchange_is_landed_costs_line_product(self):
+    def _onchange_product_id_landed_costs(self):
         if self.product_id.landed_cost_ok:
             self.is_landed_costs_line = True
         else:
             self.is_landed_costs_line = False
 
-    def _can_use_stock_accounts(self):
-        return super()._can_use_stock_accounts() or (self.product_id.type == 'service' and self.product_id.landed_cost_ok)
+    @api.onchange('is_landed_costs_line')
+    def _onchange_is_landed_costs_line(self):
+        if self.is_landed_costs_line and self.product_id and self.product_type != 'service':
+            self.is_landed_costs_line = False
+
+    def _get_stock_valuation_layers(self, move):
+        layers = super()._get_stock_valuation_layers(move)
+        return layers.filtered(lambda svl: not svl.stock_landed_cost_id)
+
+    def _eligible_for_cogs(self):
+        return super()._eligible_for_cogs() or (
+            self.product_id.type == "service"
+            and self.product_id.landed_cost_ok
+            and self.product_id.valuation == "real_time"
+        )

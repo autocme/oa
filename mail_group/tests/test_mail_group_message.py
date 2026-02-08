@@ -89,24 +89,24 @@ class TestMailGroupMessage(TestMailListCommon):
 
         # Message pending
         with self.assertRaises(AccessError, msg='Portal should not have access to pending messages'):
-            self.test_group_msg_1_pending.with_user(self.user_portal).check_access_rule('read')
+            self.test_group_msg_1_pending.with_user(self.user_portal).check_access('read')
 
         self.user_portal.groups_id |= user_group
         with self.assertRaises(AccessError, msg='Non moderator should have access to only accepted message'):
-            self.test_group_msg_1_pending.with_user(self.user_portal).check_access_rule('read')
+            self.test_group_msg_1_pending.with_user(self.user_portal).check_access('read')
 
-        self.test_group_msg_1_pending.invalidate_cache()
+        self.test_group_msg_1_pending.invalidate_recordset()
         self.assertEqual(self.test_group_msg_1_pending.with_user(self.user_employee).moderation_status, 'pending_moderation',
                          msg='Moderators should have access to pending message')
 
         # Message accepted
-        self.test_group_msg_2_accepted.invalidate_cache()
+        self.test_group_msg_2_accepted.invalidate_recordset()
         self.assertEqual(self.test_group_msg_2_accepted.with_user(self.user_portal).moderation_status, 'accepted',
                          msg='Portal should have access to accepted messages')
 
         self.user_portal.groups_id -= user_group
         with self.assertRaises(AccessError, msg='User not in the group should not have access to accepted message'):
-            self.test_group_msg_2_accepted.with_user(self.user_portal).check_access_rule('read')
+            self.test_group_msg_2_accepted.with_user(self.user_portal).check_access('read')
 
     @mute_logger('odoo.addons.base.models.ir_rule')
     def test_mail_group_message_security_public(self):
@@ -114,24 +114,24 @@ class TestMailGroupMessage(TestMailListCommon):
 
         # Message pending
         with self.assertRaises(AccessError, msg='Portal should not have access to pending messages'):
-            self.test_group_msg_1_pending.with_user(self.user_portal).check_access_rule('read')
+            self.test_group_msg_1_pending.with_user(self.user_portal).check_access('read')
 
         with self.assertRaises(AccessError, msg='Non moderator should have access to only accepted message'):
-            self.test_group_msg_1_pending.with_user(self.user_employee_2).check_access_rule('read')
+            self.test_group_msg_1_pending.with_user(self.user_employee_2).check_access('read')
 
-        self.test_group_msg_1_pending.invalidate_cache()
+        self.test_group_msg_1_pending.invalidate_recordset()
         self.assertEqual(self.test_group_msg_1_pending.with_user(self.user_employee).moderation_status, 'pending_moderation',
                          msg='Moderators should have access to pending message')
 
         # Message rejected
         with self.assertRaises(AccessError, msg='Portal should not have access to pending messages'):
-            self.test_group_msg_1_pending.with_user(self.user_portal).check_access_rule('read')
+            self.test_group_msg_1_pending.with_user(self.user_portal).check_access('read')
 
         # Message accepted
         self.assertEqual(self.test_group_msg_2_accepted.with_user(self.user_portal).moderation_status, 'accepted',
                          msg='Portal should have access to accepted messages')
 
-        self.test_group_msg_3_rejected.invalidate_cache()
+        self.test_group_msg_3_rejected.invalidate_recordset()
         self.assertEqual(self.test_group_msg_1_pending.with_user(self.user_admin).moderation_status, 'pending_moderation',
                          msg='Mail Group Administrator should have access to all messages')
 

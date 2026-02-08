@@ -31,7 +31,7 @@ class WebsiteSlidesSurvey(WebsiteSlides):
 
     @http.route(['/slides_survey/certification/search_read'], type='json', auth='user', methods=['POST'], website=True)
     def slides_certification_search_read(self, fields):
-        can_create = request.env['survey.survey'].check_access_rights('create', raise_exception=False)
+        can_create = request.env['survey.survey'].has_access('create')
         return {
             'read_results': request.env['survey.survey'].search_read([('certification', '=', True)], fields),
             'can_create': can_create,
@@ -41,14 +41,14 @@ class WebsiteSlidesSurvey(WebsiteSlides):
     # Overrides
     # ------------------------------------------------------------
 
-    @http.route(['/slides/add_slide'], type='json', auth='user', methods=['POST'], website=True)
+    @http.route()
     def create_slide(self, *args, **post):
-        create_new_survey = post['slide_type'] == "certification" and post.get('survey') and not post['survey']['id']
+        create_new_survey = post['slide_category'] == "certification" and post.get('survey') and not post['survey']['id']
         linked_survey_id = int(post.get('survey', {}).get('id') or 0)
 
         if create_new_survey:
             # If user cannot create a new survey, no need to create the slide either.
-            if not request.env['survey.survey'].check_access_rights('create', raise_exception=False):
+            if not request.env['survey.survey'].has_access('create'):
                 return {'error': _('You are not allowed to create a survey.')}
 
             # Create survey first as certification slide needs a survey_id (constraint)
@@ -74,22 +74,19 @@ class WebsiteSlidesSurvey(WebsiteSlides):
         # Then create the slide
         result = super(WebsiteSlidesSurvey, self).create_slide(*args, **post)
 
-        if create_new_survey:
-            # Set the redirect_url used in toaster
-            action_id = request.env.ref('survey.action_survey_form').id
-            result.update({
-                'redirect_url': '/web#id=%s&action=%s&model=survey.survey&view_type=form' % (post['survey_id'], action_id),
-                'redirect_to_certification': True
-            })
+        if post['slide_category'] == "certification":
+            # Set the url to redirect the user to the survey
+            slide = request.env['slide.slide'].browse(result['slide_id'])
+            result['url'] = f'/slides/slide/{request.env["ir.http"]._slug(slide)}?fullscreen=1'
 
         return result
 
     # Utils
     # ---------------------------------------------------
-    def _set_completed_slide(self, slide):
-        if slide.slide_type == 'certification':
+    def _slide_mark_completed(self, slide):
+        if slide.slide_category == 'certification':
             raise werkzeug.exceptions.Forbidden(_("Certification slides are completed when the survey is succeeded."))
-        return super(WebsiteSlidesSurvey, self)._set_completed_slide(slide)
+        return super(WebsiteSlidesSurvey, self)._slide_mark_completed(slide)
 
     def _get_valid_slide_post_values(self):
         result = super(WebsiteSlidesSurvey, self)._get_valid_slide_post_values()

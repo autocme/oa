@@ -9,8 +9,8 @@ from odoo.exceptions import UserError
 class TestAccruedPurchaseStock(AccountTestInvoicingCommon):
 
     @classmethod
-    def setUpClass(cls, chart_template_ref=None):
-        super().setUpClass(chart_template_ref=chart_template_ref)
+    def setUpClass(cls):
+        super().setUpClass()
 
         uom_unit = cls.env.ref('uom.product_uom_unit')
         product = cls.env['product.product'].create({
@@ -21,7 +21,7 @@ class TestAccruedPurchaseStock(AccountTestInvoicingCommon):
             'uom_po_id': uom_unit.id,
         })
 
-        cls.purchase_order = cls.env['purchase.order'].with_context(tracking_disable=True).create({
+        cls.purchase_order = cls.env['purchase.order'].create({
             'partner_id': cls.partner_a.id,
             'order_line': [
                 Command.create({
@@ -41,18 +41,19 @@ class TestAccruedPurchaseStock(AccountTestInvoicingCommon):
     def test_purchase_stock_accruals(self):
         # receive 2 on 2020-01-02
         pick = self.purchase_order.picking_ids
-        pick.move_lines.write({'quantity_done': 2})
+        pick.move_ids.write({
+            'quantity': 2,
+            'picked': True,
+        })
         pick.button_validate()
-        wiz_act = pick.button_validate()
-        wiz = Form(self.env[wiz_act['res_model']].with_context(wiz_act['context'])).save()
-        wiz.process()
-        pick.move_lines.write({'date': fields.Date.to_date('2020-01-02')})
+        Form.from_action(self.env, pick.button_validate()).save().process()
+        pick.move_ids.write({'date': fields.Date.to_date('2020-01-02')})
 
         # receive 3 on 2020-01-06
         pick = pick.copy()
-        pick.move_lines.write({'quantity_done': 3})
-        wiz_act = pick.button_validate()
-        pick.move_lines.write({'date': fields.Date.to_date('2020-01-06')})
+        pick.move_ids.write({'quantity': 3, 'picked': True})
+        pick.button_validate()
+        pick.move_ids.write({'date': fields.Date.to_date('2020-01-06')})
 
         wizard = self.env['account.accrued.orders.wizard'].with_context({
             'active_model': 'purchase.order',
@@ -90,12 +91,10 @@ class TestAccruedPurchaseStock(AccountTestInvoicingCommon):
     def test_purchase_stock_invoiced_accrued_entries(self):
         # deliver 2 on 2020-01-02
         pick = self.purchase_order.picking_ids
-        pick.move_lines.write({'quantity_done': 2})
+        pick.move_ids.write({'quantity': 2, 'picked': True})
         pick.button_validate()
-        wiz_act = pick.button_validate()
-        wiz = Form(self.env[wiz_act['res_model']].with_context(wiz_act['context'])).save()
-        wiz.process()
-        pick.move_lines.write({'date': fields.Date.to_date('2020-01-02')})
+        Form.from_action(self.env, pick.button_validate()).save().process()
+        pick.move_ids.write({'date': fields.Date.to_date('2020-01-02')})
 
         # invoice on 2020-01-04
         move = self.env['account.move'].browse(self.purchase_order.action_create_invoice()['res_id'])
@@ -104,9 +103,9 @@ class TestAccruedPurchaseStock(AccountTestInvoicingCommon):
 
         # deliver 3 on 2020-01-06
         pick = pick.copy()
-        pick.move_lines.write({'quantity_done': 3})
-        wiz_act = pick.button_validate()
-        pick.move_lines.write({'date': fields.Date.to_date('2020-01-06')})
+        pick.move_ids.write({'quantity': 3, 'picked': True})
+        pick.button_validate()
+        pick.move_ids.write({'date': fields.Date.to_date('2020-01-06')})
 
         # invoice on 2020-01-08
         move = self.env['account.move'].browse(self.purchase_order.action_create_invoice()['res_id'])

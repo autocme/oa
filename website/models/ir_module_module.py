@@ -1,13 +1,14 @@
-# -*- coding: utf-8 -*-
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
 
 import logging
-from collections import OrderedDict
+from collections import defaultdict, OrderedDict
 
 from odoo import api, fields, models
 from odoo.addons.base.models.ir_model import MODULE_UNINSTALL_FLAG
 from odoo.exceptions import MissingError
 from odoo.http import request
+from odoo.modules.module import get_manifest
+from odoo.tools import escape_psql, split_every, SQL
 
 _logger = logging.getLogger(__name__)
 
@@ -74,7 +75,7 @@ class IrModuleModule(models.Model):
 
                     -> We want to upgrade every website using this theme.
         """
-        if request and request.context.get('apply_new_theme'):
+        if request and request.db and request.env and request.context.get('apply_new_theme'):
             self = self.with_context(apply_new_theme=True)
 
         for module in self:
@@ -187,14 +188,41 @@ class IrModuleModule(models.Model):
     def _post_copy(self, old_rec, new_rec):
         self.ensure_one()
         translated_fields = self._theme_translated_fields.get(old_rec._name, [])
+        cur_lang = self.env.lang or 'en_US'
+        valid_langs = set(code for code, _ in self.env['res.lang'].get_installed()) | {'en_US'}
+        old_rec.flush_recordset()
         for (src_field, dst_field) in translated_fields:
-            self._cr.execute("""INSERT INTO ir_translation (lang, src, name, res_id, state, value, type, module)
-                                SELECT t.lang, t.src, %s, %s, t.state, t.value, t.type, t.module
-                                FROM ir_translation t
-                                WHERE name = %s
-                                  AND res_id = %s
-                                ON CONFLICT DO NOTHING""",
-                             (dst_field, new_rec.id, src_field, old_rec.id))
+            __, src_fname = src_field.split(',')
+            dst_mname, dst_fname = dst_field.split(',')
+            if dst_mname != new_rec._name:
+                continue
+            old_field = old_rec._fields[src_fname]
+            old_stored_translations = old_field._get_stored_translations(old_rec)
+            if not old_stored_translations:
+                continue
+            if old_field.translate is True:
+                if old_rec[src_fname] != new_rec[dst_fname]:
+                    continue
+                new_rec.update_field_translations(dst_fname, {
+                    k: v for k, v in old_stored_translations.items() if k in valid_langs and k != cur_lang
+                })
+            else:
+                old_translations = {
+                    k: old_stored_translations.get(f'_{k}', v)
+                    for k, v in old_stored_translations.items()
+                    if k in valid_langs
+                }
+                # {from_lang_term: {lang: to_lang_term}
+                translation_dictionary = old_field.get_translation_dictionary(
+                    old_translations.pop(cur_lang, old_translations['en_US']),
+                    old_translations
+                )
+                # {lang: {old_term: new_term}
+                translations = defaultdict(dict)
+                for from_lang_term, to_lang_terms in translation_dictionary.items():
+                    for lang, to_lang_term in to_lang_terms.items():
+                        translations[lang][from_lang_term] = to_lang_term
+                new_rec.with_context(install_filename='dummy').update_field_translations(dst_fname, translations)
 
     def _theme_load(self, website):
         """
@@ -372,19 +400,11 @@ class IrModuleModule(models.Model):
 
         # this will install 'self' if it is not installed yet
         if request:
-            context = dict(request.context)
-            context['apply_new_theme'] = True
-            request.context = context
+            request.update_context(apply_new_theme=True)
         self._theme_upgrade_upstream()
 
-        active_todo = self.env['ir.actions.todo'].search([('state', '=', 'open')], limit=1)
-        result = None
-        if active_todo:
-            result = active_todo.action_launch()
-        else:
-            result = website.button_go_website(mode_edit=True)
-        if result.get('url') and 'enable_editor' in result['url']:
-            result['url'] = result['url'].replace('enable_editor', 'with_loader=1&enable_editor')
+        result = website.button_go_website()
+        result['context']['params']['with_loader'] = True
         return result
 
     def button_remove_theme(self):
@@ -440,6 +460,7 @@ class IrModuleModule(models.Model):
         def get_id(model_id):
             return self.env['ir.model.data']._xmlid_to_res_id(model_id)
         return [
+            ('state', '!=', 'uninstallable'),
             ('category_id', 'not in', [
                 get_id('base.module_category_hidden'),
                 get_id('base.module_category_theme_hidden'),
@@ -458,3 +479,293 @@ class IrModuleModule(models.Model):
                 cow_view = View.browse(view_replay[0])
                 View._load_records_write_on_cow(cow_view, view_replay[1], view_replay[2])
             self.pool.website_views_to_adapt.clear()
+
+    @api.model
+    def _load_module_terms(self, modules, langs, overwrite=False, imported_module=False):
+        """ Add missing website specific translation """
+        res = super()._load_module_terms(modules, langs, overwrite=overwrite, imported_module=imported_module)
+
+        if not langs or langs == ['en_US'] or not modules:
+            return res
+
+        # Add specific view translations
+
+        # use the translation dic of the generic to translate the specific
+        self.env.cr.flush()
+        cache = self.env.cache
+        View = self.env['ir.ui.view']
+        field = self.env['ir.ui.view']._fields['arch_db']
+        batch_size = models.PREFETCH_MAX // 10
+        self.env.cr.execute(""" SELECT generic.arch_db, specific.arch_db, specific.id
+                                          FROM ir_ui_view generic
+                                         INNER JOIN ir_ui_view specific
+                                            ON generic.key = specific.key
+                                         WHERE generic.website_id IS NULL AND generic.type = 'qweb'
+                                         AND specific.website_id IS NOT NULL
+                                         AND generic.arch_db IS NOT NULL
+                                         AND specific.arch_db IS NOT NULL
+                            """)
+        while batch := self.env.cr.fetchmany(batch_size):
+            for generic_arch_db, specific_arch_db, specific_id in batch:
+                langs_update = (langs & generic_arch_db.keys()) - {'en_US'}
+                if not langs_update:
+                    continue
+                # get dictionaries limited to the requested languages
+                generic_arch_db_en = generic_arch_db.get('en_US')
+                specific_arch_db_en = specific_arch_db.get('en_US')
+                generic_arch_db_update = {k: generic_arch_db[k] for k in langs_update}
+                specific_arch_db_update = {k: specific_arch_db.get(k, specific_arch_db_en) for k in langs_update}
+                generic_translation_dictionary = field.get_translation_dictionary(generic_arch_db_en, generic_arch_db_update)
+                specific_translation_dictionary = field.get_translation_dictionary(specific_arch_db_en, specific_arch_db_update)
+                # update specific_translation_dictionary
+                for term_en, specific_term_langs in specific_translation_dictionary.items():
+                    if term_en not in generic_translation_dictionary:
+                        continue
+                    for lang, generic_term_lang in generic_translation_dictionary[term_en].items():
+                        if overwrite or term_en == specific_term_langs[lang]:
+                            specific_term_langs[lang] = generic_term_lang
+                for lang in langs_update:
+                    specific_arch_db[lang] = field.translate(
+                        lambda term: specific_translation_dictionary.get(term, {lang: None})[lang], specific_arch_db_en)
+                cache.update_raw(View.browse(specific_id), field, [specific_arch_db], dirty=True)
+
+        default_menu = self.env.ref('website.main_menu', raise_if_not_found=False)
+        if not default_menu:
+            return res
+
+        lang_value_list = [SQL("%(lang)s, o_menu.name->>%(lang)s", lang=lang) for lang in langs if lang != 'en_US']
+        update_jsonb_list = [SQL('jsonb_build_object(%s)', SQL(', ').join(items)) for items in split_every(50, lang_value_list)]
+        update_jsonb = SQL(' || ').join(update_jsonb_list)
+        o_menu_name = SQL('menu.name || %s' if overwrite else '%s || menu.name', update_jsonb)
+        self.env.cr.execute(SQL(
+            """
+            UPDATE website_menu menu
+               SET name = %(o_menu_name)s
+              FROM website_menu o_menu
+             INNER JOIN website_menu s_menu
+                ON o_menu.name->>'en_US' = s_menu.name->>'en_US' AND o_menu.url = s_menu.url
+             INNER JOIN website_menu root_menu
+                ON s_menu.parent_id = root_menu.id AND root_menu.parent_id IS NULL
+             WHERE o_menu.website_id IS NULL AND o_menu.parent_id = %(default_menu_id)s
+               AND s_menu.website_id IS NOT NULL
+               AND menu.id = s_menu.id
+            """,
+            o_menu_name=o_menu_name,
+            default_menu_id=default_menu.id
+        ))
+
+        return res
+
+    # ----------------------------------------------------------------
+    # New page templates
+    # ----------------------------------------------------------------
+
+    @api.model
+    def _create_model_data(self, views):
+        """ Creates model data records for newly created view records.
+
+            :param views: views for which model data must be created
+        """
+        # The generated templates are set as noupdate in order to avoid that
+        # _process_end deletes them.
+        # In case some of them require an XML definition in the future,
+        # an upgrade script will be needed to temporarily make those
+        # records updatable.
+        self.env['ir.model.data'].create([{
+            'name': view.key.split('.')[1],
+            'module': view.key.split('.')[0],
+            'model': 'ir.ui.view',
+            'res_id': view.id,
+            'noupdate': True,
+        } for view in views])
+
+    def _generate_primary_snippet_templates(self):
+        """ Generates snippet templates hierarchy based on manifest entries for
+            use in the configurator and when creating new pages from templates.
+        """
+        def split_key(snippet_key):
+            """ Snippets xmlid can be written without the module part, meaning
+                it is a shortcut for a website module snippet.
+
+                :param snippet_key: xmlid with or without the module part
+                    'website' is assumed to be the default module
+                :return: module and key extracted from the snippet_key
+            """
+            return snippet_key.split('.') if '.' in snippet_key else ('website', snippet_key)
+
+        def create_missing_views(create_values):
+            """ Creates the snippet primary view records that do not exist yet.
+
+                :param create_values: values of records to create
+                :return: number of created records
+            """
+            # Defensive code (low effort): `if values` should always be set
+            create_values = [values for values in create_values if values]
+
+            keys = [values['key'] for values in create_values]
+            existing_primary_template_keys = self.env['ir.ui.view'].with_context(active_test=False).search_fetch([
+                ('mode', '=', 'primary'), ('key', 'in', keys),
+            ], ['key']).mapped('key')
+            missing_create_values = [values for values in create_values if values['key'] not in existing_primary_template_keys]
+            missing_records = self.env['ir.ui.view'].with_context(no_cow=True).create(missing_create_values)
+            self._create_model_data(missing_records)
+            return len(missing_records)
+
+        def get_create_vals(name, snippet_key, parent_wrap, new_wrap):
+            """ Returns the create values for the new primary template of the
+                snippet having snippet_key as its base key, having a new key
+                formatted with new_wrap, and extending a parent with the key
+                formatted with parent_wrap.
+
+                :param name: name
+                :param snippet_key: xmlid of the base block
+                :param parent_wrap: string pattern used to format the
+                    snippet_key's second part to reach the parent key
+                :param new_wrap: string pattern used to format the
+                    snippet_key's second part to reach the new key
+                :return: create values for the new record
+            """
+            module, xmlid = split_key(snippet_key)
+            parent_key = f'{module}.{parent_wrap % xmlid}'
+            # Equivalent to using an already cached ref, without failing on
+            # missing key - because the parent records have just been created.
+            parent_id = self.env['ir.model.data']._xmlid_to_res_model_res_id(parent_key, False)
+            if not parent_id:
+                _logger.warning("No such snippet template: %r", parent_key)
+                return None
+            return {
+                'name': name,
+                'key': f'{module}.{new_wrap % xmlid}',
+                'inherit_id': parent_id[1],
+                'mode': 'primary',
+                'type': 'qweb',
+                'arch': '<t/>',
+            }
+
+        def get_distinct_snippet_names(structure):
+            """ Returns the distinct leaves of the structure (tree leaf's list
+                elements).
+
+                :param structure: dict or list or snippet names
+                :return: distinct snippet names
+            """
+            items = []
+            for value in structure.values():
+                if isinstance(value, list):
+                    items.extend(value)
+                else:
+                    items.extend(get_distinct_snippet_names(value))
+            return set(items)
+
+        create_count = 0
+        manifest = get_manifest(self.name)
+
+        # ------------------------------------------------------------
+        # Configurator
+        # ------------------------------------------------------------
+
+        configurator_snippets = manifest.get('configurator_snippets', {})
+
+        # Generate general configurator snippet templates
+        create_values = []
+        # Every distinct snippet name across all configurator pages.
+        for snippet_name in get_distinct_snippet_names(configurator_snippets):
+            create_values.append(get_create_vals(
+                f"Snippet {snippet_name!r} for pages generated by the configurator",
+                snippet_name, '%s', 'configurator_%s'
+            ))
+        create_count += create_missing_views(create_values)
+
+        # Generate configurator snippet templates for specific pages
+        create_values = []
+        for page_name in configurator_snippets:
+            for snippet_name in set(configurator_snippets[page_name]):
+                create_values.append(get_create_vals(
+                    f"Snippet {snippet_name!r} for {page_name!r} pages generated by the configurator",
+                    snippet_name, 'configurator_%s', f'configurator_{page_name}_%s'
+                ))
+        create_count += create_missing_views(create_values)
+
+        # ------------------------------------------------------------
+        # New page templates
+        # ------------------------------------------------------------
+
+        templates = manifest.get('new_page_templates', {})
+
+        # Generate general new page snippet templates
+        create_values = []
+        # Every distinct snippet name across all new page templates.
+        for snippet_name in get_distinct_snippet_names(templates):
+            create_values.append(get_create_vals(
+                f"Snippet {snippet_name!r} for new page templates",
+                snippet_name, '%s', 'new_page_template_%s'
+            ))
+        create_count += create_missing_views(create_values)
+
+        # Generate new page snippet templates for new page template groups
+        create_values = []
+        for group in templates:
+            # Every distinct snippet name across all new page templates of group.
+            for snippet_name in get_distinct_snippet_names(templates[group]):
+                create_values.append(get_create_vals(
+                    f"Snippet {snippet_name!r} for new page {group!r} templates",
+                    snippet_name, 'new_page_template_%s', f'new_page_template_{group}_%s'
+                ))
+        create_count += create_missing_views(create_values)
+
+        # Generate new page snippet templates for specific new page templates within groups
+        create_values = []
+        for group in templates:
+            for template_name in templates[group]:
+                for snippet_name in templates[group][template_name]:
+                    create_values.append(get_create_vals(
+                        f"Snippet {snippet_name!r} for new page {group!r} template {template_name!r}",
+                        snippet_name, f'new_page_template_{group}_%s', f'new_page_template_{group}_{template_name}_%s'
+                    ))
+        create_count += create_missing_views(create_values)
+
+        if create_count:
+            _logger.info("Generated %s primary snippet templates for %r", create_count, self.name)
+
+    def _generate_primary_page_templates(self):
+        """ Generates page templates based on manifest entries. """
+        View = self.env['ir.ui.view']
+        manifest = get_manifest(self.name)
+        templates = manifest['new_page_templates']
+
+        # TODO Find a way to create theme and other module's template patches
+        # Create or update template views per group x key
+        create_values = []
+        for group in templates:
+            for template_name in templates[group]:
+                xmlid = f'{self.name}.new_page_template_sections_{group}_{template_name}'
+                wrapper = f'%s.new_page_template_{group}_{template_name}_%s'
+                calls = '\n    '.join([
+                    f'''<t t-snippet-call="{wrapper % (snippet_key.split('.') if '.' in snippet_key else ('website', snippet_key))}"/>'''
+                    for snippet_key in templates[group][template_name]
+                ])
+                create_values.append({
+                    'name': f"New page template: {template_name!r} in {group!r}",
+                    'type': 'qweb',
+                    'key': xmlid,
+                    'arch': f'<div id="wrap">\n    {calls}\n</div>',
+                })
+        keys = [values['key'] for values in create_values]
+        existing_primary_templates = View.search_read([('mode', '=', 'primary'), ('key', 'in', keys)], ['key'])
+        existing_primary_template_keys = {data['key']: data['id'] for data in existing_primary_templates}
+        missing_create_values = []
+        update_count = 0
+        for create_value in create_values:
+            if create_value['key'] in existing_primary_template_keys:
+                View.browse(existing_primary_template_keys[create_value['key']]).with_context(no_cow=True).write({
+                    'arch': create_value['arch'],
+                })
+                update_count += 1
+            else:
+                missing_create_values.append(create_value)
+        if missing_create_values:
+            missing_records = View.create(missing_create_values)
+            self._create_model_data(missing_records)
+            _logger.info('Generated %s primary page templates for %r', len(missing_create_values), self.name)
+        if update_count:
+            _logger.info('Updated %s primary page templates for %r', update_count, self.name)

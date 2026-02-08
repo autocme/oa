@@ -1,16 +1,12 @@
-odoo.define('website_jitsi.chat_room', function (require) {
-'use strict';
+/** @odoo-module **/
 
-const config = require("web.config");
-const core = require('web.core');
-const Dialog = require('web.Dialog');
-const publicWidget = require('web.public.widget');
-const QWeb = core.qweb;
-const _t = core._t;
+import publicWidget from "@web/legacy/js/public/public_widget";
+import { renderToElement } from "@web/core/utils/render";
+import { utils as uiUtils } from "@web/core/ui/ui_service";
+import { rpc } from "@web/core/network/rpc";
 
 publicWidget.registry.ChatRoom = publicWidget.Widget.extend({
     selector: '.o_wjitsi_room_widget',
-    xmlDependencies: ['/website_jitsi/static/src/xml/chat_room_modal.xml'],
     events: {
         'click .o_wjitsi_room_link': '_onChatRoomClick',
     },
@@ -64,12 +60,7 @@ publicWidget.registry.ChatRoom = publicWidget.Widget.extend({
         if (this.checkFull) {
             // maybe we didn't refresh the page for a while and so we might join a room
             // which is full, so we perform a RPC call to verify that we can really join
-            let isChatRoomFull = await this._rpc({
-                route: '/jitsi/is_full',
-                params: {
-                    room_name: this.roomName,
-                },
-            });
+            let isChatRoomFull = await rpc('/jitsi/is_full', { room_name: this.roomName });
 
             if (isChatRoomFull) {
                 window.location.reload();
@@ -93,7 +84,7 @@ publicWidget.registry.ChatRoom = publicWidget.Widget.extend({
             await this._joinJitsiRoom($parentNode);
         } else {
             // create a model and append the Jitsi iframe in it
-            let $jitsiModal = $(QWeb.render('chat_room_modal', {}));
+            let $jitsiModal = $(renderToElement('chat_room_modal', {}));
             $("body").append($jitsiModal);
             $jitsiModal.modal('show');
 
@@ -209,13 +200,10 @@ publicWidget.registry.ChatRoom = publicWidget.Widget.extend({
       * @param {boolean} joined, true if someone joined the room
       */
     _updateParticipantCount: async function (count, joined) {
-        await this._rpc({
-            route: '/jitsi/update_status',
-            params: {
-                room_name: this.roomName,
-                participant_count: count,
-                joined: joined,
-            },
+        await rpc('/jitsi/update_status', {
+            room_name: this.roomName,
+            participant_count: count,
+            joined: joined,
         });
     },
 
@@ -232,9 +220,9 @@ publicWidget.registry.ChatRoom = publicWidget.Widget.extend({
       * @returns {boolean} true is we were redirected to the mobile application
       */
     _openMobileApplication: async function (roomName) {
-        if (config.device.isMobile) {
+        if (uiUtils.isSmall()) {
             // we are on mobile, open the room in the application
-            window.location = `intent://${this.jitsiServer}/${roomName}#Intent;scheme=org.jitsi.meet;package=org.jitsi.meet;end`;
+            window.location = `intent://${this.jitsiServer}/${encodeURIComponent(roomName)}#Intent;scheme=org.jitsi.meet;package=org.jitsi.meet;end`;
             return true;
         }
         return false;
@@ -275,6 +263,4 @@ publicWidget.registry.ChatRoom = publicWidget.Widget.extend({
     },
 });
 
-return publicWidget.registry.ChatRoom;
-
-});
+export default publicWidget.registry.ChatRoom;

@@ -1,15 +1,12 @@
-odoo.define('website.s_chart', function (require) {
-'use strict';
+/** @odoo-module **/
 
-const publicWidget = require('web.public.widget');
-const weUtils = require('web_editor.utils');
+import { loadBundle } from "@web/core/assets";
+import publicWidget from "@web/legacy/js/public/public_widget";
+import weUtils from "@web_editor/js/common/utils";
 
 const ChartWidget = publicWidget.Widget.extend({
     selector: '.s_chart',
     disabledInEditableMode: false,
-    jsLibs: [
-        '/web/static/lib/Chart/Chart.js',
-    ],
 
     /**
      * @override
@@ -37,37 +34,68 @@ const ChartWidget = publicWidget.Widget.extend({
             el.borderWidth = this.el.dataset.borderWidth;
         });
 
+        const radialAxis = {
+            beginAtZero: true,
+        };
+
+        const linearAxis = {
+            type: "linear",
+            stacked: this.el.dataset.stacked === "true",
+            beginAtZero: true,
+            min: parseInt(this.el.dataset.ticksMin),
+            max: parseInt(this.el.dataset.ticksMax),
+        };
+
+        const categoryAxis = {
+            type: "category",
+            stacked: this.el.dataset.stacked === "true",
+        };
+
         // Make chart data
         const chartData = {
             type: this.el.dataset.type,
             data: data,
             options: {
-                legend: {
-                    display: this.el.dataset.legendPosition !== 'none',
-                    position: this.el.dataset.legendPosition,
+                plugins: {
+                    legend: {
+                        display: this.el.dataset.legendPosition !== 'none',
+                        position: this.el.dataset.legendPosition,
+                    },
+                    tooltip: {
+                        enabled: this.el.dataset.tooltipDisplay === 'true',
+                        position: "custom",
+                    },
+                    title: {
+                        display: !!this.el.dataset.title,
+                        text: this.el.dataset.title,
+                    },
                 },
-                tooltips: {
-                    enabled: this.el.dataset.tooltipDisplay === 'true',
+                scales: {
+                    x: categoryAxis,
+                    y: linearAxis,
                 },
-                title: {
-                    display: !!this.el.dataset.title,
-                    text: this.el.dataset.title,
-                },
+                aspectRatio: 2,
             },
         };
 
         // Add type specific options
         if (this.el.dataset.type === 'radar') {
-            chartData.options.scale = {
-                ticks: {
-                    beginAtZero: true,
-                }
+            chartData.options.scales = {
+                r: radialAxis,
             };
+        } else if (this.el.dataset.type === "horizontalBar") {
+            chartData.type = "bar";
+            chartData.options.scales = {
+                x: linearAxis,
+                y: categoryAxis,
+            };
+            chartData.options.indexAxis = "y";
         } else if (['pie', 'doughnut'].includes(this.el.dataset.type)) {
-            chartData.options.tooltips.callbacks = {
-                label: (tooltipItem, data) => {
-                    const label = data.datasets[tooltipItem.datasetIndex].label;
-                    const secondLabel = data.labels[tooltipItem.index];
+            chartData.options.scales = {};
+            chartData.options.plugins.tooltip.callbacks = {
+                label: (tooltipItem) => {
+                    const label = tooltipItem.label;
+                    const secondLabel = tooltipItem.dataset.label;
                     let final = label;
                     if (label) {
                         if (secondLabel) {
@@ -76,23 +104,8 @@ const ChartWidget = publicWidget.Widget.extend({
                     } else if (secondLabel) {
                         final = secondLabel;
                     }
-                    return final + ':' + data.datasets[tooltipItem.datasetIndex].data[tooltipItem.index];
+                    return final + ':' + tooltipItem.formattedValue;
                 },
-            };
-        } else {
-            chartData.options.scales = {
-                xAxes: [{
-                    stacked: this.el.dataset.stacked === 'true',
-                    ticks: {
-                        beginAtZero: true
-                    },
-                }],
-                yAxes: [{
-                    stacked: this.el.dataset.stacked === 'true',
-                    ticks: {
-                        beginAtZero: true
-                    },
-                }],
             };
         }
 
@@ -104,8 +117,13 @@ const ChartWidget = publicWidget.Widget.extend({
         }
 
         const canvas = this.el.querySelector('canvas');
+        window.Chart.Tooltip.positioners.custom = (elements, eventPosition) => eventPosition;
         this.chart = new window.Chart(canvas, chartData);
         return this._super.apply(this, arguments);
+    },
+
+    willStart: async function () {
+        await loadBundle("web.chartjs_lib");
     },
     /**
      * @override
@@ -138,5 +156,4 @@ const ChartWidget = publicWidget.Widget.extend({
 
 publicWidget.registry.chart = ChartWidget;
 
-return ChartWidget;
-});
+export default ChartWidget;

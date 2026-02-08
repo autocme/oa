@@ -29,11 +29,11 @@ class TestLeadEnrich(TestCrmCommon, MockIAPEnrich):
     def test_enrich_internals(self):
         leads = self.env['crm.lead'].browse(self.leads.ids)
         leads[0].write({'partner_name': 'Already set', 'email_from': 'test@test1'})
-        leads.flush()
+        leads.flush_recordset()
         with self.mockIAPEnrichGateway(email_data={'test1': {'country_code': 'AU', 'state_code': 'NSW'}}):
             leads.iap_enrich()
 
-        leads.flush()
+        leads.flush_recordset()
         self.assertEqual(leads[0].partner_name, 'Already set')
         self.assertEqual(leads[0].country_id, self.env.ref('base.au'))
         self.assertEqual(leads[0].state_id, self.env.ref('base.state_au_2'))
@@ -56,3 +56,16 @@ class TestLeadEnrich(TestCrmCommon, MockIAPEnrich):
 
         for lead in leads:
             self.assertEqual(lead.street, False)
+
+    def test_lead_enrich_auto_setting(self):
+        cron = self.env.ref('crm_iap_enrich.ir_cron_lead_enrichment')
+
+        config = self.env['res.config.settings'].create({
+            'lead_enrich_auto': 'manual',
+        })
+        config.execute()
+        self.assertFalse(cron.active)
+
+        config.write({'lead_enrich_auto': 'auto'})
+        config.execute()
+        self.assertTrue(cron.active)

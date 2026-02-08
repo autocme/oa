@@ -1,11 +1,13 @@
 # -*- coding: utf-8 -*-
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
-
-from odoo.tools import email_normalize, ReadonlyDict
+import json
 import logging
-from typing import Iterator, Mapping
-from collections import abc
 import re
+from collections import abc
+from typing import Iterator, Mapping
+
+from odoo.tools import email_normalize
+from odoo.tools.misc import ReadonlyDict
 
 _logger = logging.getLogger(__name__)
 
@@ -53,7 +55,9 @@ class GoogleEvent(abc.Set):
         except ValueError:
             raise ValueError("Expected singleton: %s" % self)
         event_id = list(self._events.keys())[0]
-        return self._events[event_id].get(name)
+        value = self._events[event_id].get(name)
+        json.dumps(value)
+        return value
 
     def __repr__(self):
         return '%s%s' % (self.__class__.__name__, self.ids)
@@ -65,8 +69,7 @@ class GoogleEvent(abc.Set):
     @property
     def rrule(self):
         if self.recurrence and any('RRULE' in item for item in self.recurrence):
-            rrule = next(item for item in self.recurrence if 'RRULE' in item)
-            return rrule[6:]  # skip "RRULE:" in the rrule string
+            return next(item for item in self.recurrence if 'RRULE' in item)
 
     def odoo_id(self, env):
         self.odoo_ids(env)  # load ids
@@ -121,12 +124,12 @@ class GoogleEvent(abc.Set):
     def owner(self, env):
         # Owner/organizer could be desynchronised between Google and Odoo.
         # Let userA, userB be two new users (never synced to Google before).
-        # UserA creates an event in Odoo (he is the owner) but userB syncs first.
+        # UserA creates an event in Odoo (they are the owner) but userB syncs first.
         # There is no way to insert the event into userA's calendar since we don't have
         # any authentication access. The event is therefore inserted into userB's calendar
-        # (he is the organizer in Google). The "real" owner (in Odoo) is stored as an
+        # (they are the organizer in Google). The "real" owner (in Odoo) is stored as an
         # extended property. There is currently no support to "transfert" ownership when
-        # userA syncs his calendar the first time.
+        # userA syncs their calendar the first time.
         real_owner_id = self.extendedProperties and self.extendedProperties.get('shared', {}).get('%s_owner_id' % env.cr.dbname)
         try:
             # If we create an event without user_id, the event properties will be 'false'
@@ -194,9 +197,17 @@ class GoogleEvent(abc.Set):
         recurringEventId_value = re.match(r'(\w+_)', self.recurringEventId)
         if not id_value or not recurringEventId_value or id_value.group(1) != recurringEventId_value.group(1):
             return None
-        ID_RANGE = re.search(r'\w+_R\d+T\d+', self.recurringEventId).group()
-        TIMESTAMP = re.search(r'\d+T\d+Z', self.id).group()
-        return f"{ID_RANGE}_{TIMESTAMP}"
+        rec_pattern = re.search(r'(\w+_R\d+(?:T\d+)?(?:Z)?)', self.recurringEventId)
+        if not rec_pattern:
+            return None
+        id_range = rec_pattern.group()
+
+        ts_pattern = re.search(r'(\d{8}(?:T\d+Z?)?)$', self.id)
+        if not ts_pattern:
+            return None
+        timestamp = ts_pattern.group()
+
+        return f"{id_range}_{timestamp}"
 
     def cancelled(self):
         return self.filter(lambda e: e.status == 'cancelled')
@@ -225,8 +236,8 @@ class GoogleEvent(abc.Set):
     def get_meeting_url(self):
         if not self.conferenceData:
             return False
-        video_meeting = list(filter(lambda entryPoints: entryPoints['entryPointType'] == 'video', self.conferenceData['entryPoints']))
-        return video_meeting[0]['uri'] if video_meeting else False
+        video_meeting = list(filter(lambda entryPoints: entryPoints.get('entryPointType') == 'video', self.conferenceData.get('entryPoints', [])))
+        return video_meeting[0].get('uri') if video_meeting else False
 
     def is_available(self):
         return self.transparency == 'transparent'

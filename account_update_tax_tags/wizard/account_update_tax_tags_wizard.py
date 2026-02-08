@@ -1,8 +1,6 @@
-# Part of Odoo. See LICENSE file for full copyright and licensing details.
 from datetime import timedelta
 from odoo import _, api, fields, models
 from odoo.exceptions import UserError
-from odoo.tools.sql import column_exists
 
 
 class AccountUpdateTaxTagsWizard(models.TransientModel):
@@ -34,65 +32,6 @@ class AccountUpdateTaxTagsWizard(models.TransientModel):
             wizard.display_lock_date_warning = tax_lock_date and wizard.date_from < tax_lock_date
 
     # ==== Business methods ====
-    def _recompute_tax_audit_string(self, aml_ids):
-        """Taken from #odoo/upgrade account/saas~12.3.1.1/end-20-recompute.py """
-        self.flush()
-        pos_order_condition = """
-            (
-                EXISTS(SELECT id FROM pos_order WHERE pos_order.account_move = aml.move_id)
-                AND move.id IS NULL
-                AND debit > 0
-            )
-        """ if column_exists(self.env.cr, "pos_order", "account_move") else "false"
-        batch_size = 10000
-        for i in range(0, len(aml_ids), batch_size):
-            ids = aml_ids[i:i + batch_size]
-            query = f"""
-                WITH tags AS (
-                    SELECT
-                        aml.id,
-                        TRIM(LEADING FROM to_char((CASE WHEN t.tax_negate THEN -1 ELSE 1 END)
-                                                 *(CASE WHEN move.tax_cash_basis_rec_id IS NULL AND j.type = 'sale' THEN -1 ELSE 1 END)
-                                                 *(CASE WHEN move.tax_cash_basis_rec_id IS NULL AND (move.move_type IN ('in_refund', 'out_refund')
-                                                     OR {pos_order_condition})
-                                                 THEN -1 ELSE 1 END)
-                                                 * aml.balance,
-                                                 '999,999,999,999,999,999,990.99')  -- should be enough, even for IRR
-                         ) AS tag_amount,
-                         cur.symbol AS currency,
-                         cur.position AS cur_pos,
-                         COALESCE(trl.tag_name, t.name) AS name
-                    FROM account_move_line aml
-                    INNER JOIN account_account_tag_account_move_line_rel t_rel ON t_rel.account_move_line_id = aml.id
-                    INNER JOIN account_account_tag t ON t.id = t_rel.account_account_tag_id
-                    INNER JOIN account_journal j ON j.id = aml.journal_id
-                    INNER JOIN account_move move ON move.id = aml.move_id
-                    INNER JOIN res_company c ON aml.company_id = c.id
-                    INNER JOIN res_currency cur ON c.currency_id = cur.id
-                    LEFT JOIN account_tax_report_line_tags_rel tr ON tr.account_account_tag_id = t.id
-                    LEFT JOIN account_tax_report_line trl ON tr.account_tax_report_line_id = trl.id
-                    WHERE aml.id IN %s
-                ),
-                tag_values AS (
-                    SELECT id,
-                        array_to_string(
-                            array_agg(name || ': ' || CASE WHEN cur_pos = 'before' THEN   currency || ' ' || tag_amount
-                                                           ELSE                         tag_amount || ' ' || currency
-                                                           END
-                            ),
-                            '        '
-                       ) AS tax_audit
-                    FROM tags
-                    GROUP BY id
-                )
-                UPDATE account_move_line
-                SET tax_audit = tag_values.tax_audit
-                FROM tag_values
-                WHERE tag_values.id = account_move_line.id
-            """
-            self.env.cr.execute(query, (tuple(ids),))
-        self.invalidate_cache()
-
     def _modify_tag_to_aml_relation(self, company_id, date_from):
         """ Update Journal Items' tax grids to match current taxes' configuration.
         The next query work in 3 steps.
@@ -107,7 +46,7 @@ class AccountUpdateTaxTagsWizard(models.TransientModel):
         :param: int company_id id of company
         :return: list of impacted account.move.line ids
         """
-        self.flush()
+        self.env.flush_all()
         self.env.cr.execute("""
             -- 1.a) Handle base line: relation aml <-> tag, if no relation, tag is NULL
             WITH base_aml_id_rep_tag_to_insert AS (
@@ -133,10 +72,18 @@ class AccountUpdateTaxTagsWizard(models.TransientModel):
                     tax_to_rep_line.repartition_type = 'base'
                     AND (
                         -- invoice type doc
-                        (COALESCE(caba_origin_move.move_type, move.move_type) IN ('in_invoice','out_invoice', 'in_receipt', 'out_receipt') AND tax_to_rep_line.invoice_tax_id = tax.id)
+                            (
+                                COALESCE(caba_origin_move.move_type, move.move_type) IN ('in_invoice','out_invoice', 'in_receipt', 'out_receipt')
+                                AND tax_to_rep_line.document_type = 'invoice'
+                                AND tax_to_rep_line.tax_id = tax.id
+                            )
                         OR
                         -- refund type doc
-                        (COALESCE(caba_origin_move.move_type, move.move_type) IN ('in_refund','out_refund') AND tax_to_rep_line.refund_tax_id = tax.id)
+                            (
+                                COALESCE(caba_origin_move.move_type, move.move_type) IN ('in_refund','out_refund')
+                                AND tax_to_rep_line.document_type = 'refund'
+                                AND tax_to_rep_line.tax_id = tax.id
+                            )
                         OR
                         -- entry type doc: depends on the tax type
                         -- for base line:
@@ -151,16 +98,16 @@ class AccountUpdateTaxTagsWizard(models.TransientModel):
                                 (
                                     COALESCE(parent_tax.type_tax_use, tax.type_tax_use) = 'sale'
                                     AND (
-                                        aml.balance <= 0 AND tax_to_rep_line.invoice_tax_id = tax.id
-                                        OR aml.balance > 0 AND tax_to_rep_line.refund_tax_id = tax.id
+                                        aml.balance <= 0 AND tax_to_rep_line.document_type = 'invoice' AND tax_to_rep_line.tax_id = tax.id
+                                        OR aml.balance > 0 AND tax_to_rep_line.document_type = 'refund' AND tax_to_rep_line.tax_id = tax.id
                                     )
                                 )
                                 OR
                                 (
                                     COALESCE(parent_tax.type_tax_use, tax.type_tax_use) = 'purchase'
                                     AND (
-                                        aml.balance >= 0 AND tax_to_rep_line.invoice_tax_id = tax.id
-                                        OR aml.balance < 0 AND tax_to_rep_line.refund_tax_id = tax.id
+                                        aml.balance >= 0 AND tax_to_rep_line.document_type = 'invoice' AND tax_to_rep_line.tax_id = tax.id
+                                        OR aml.balance < 0 AND tax_to_rep_line.document_type = 'refund' AND tax_to_rep_line.tax_id = tax.id
                                     )
                                 )
                             )
@@ -219,7 +166,7 @@ class AccountUpdateTaxTagsWizard(models.TransientModel):
             'date_from': date_from,
             'company_id': company_id,
         })
-        self.invalidate_cache()
+        self.env.invalidate_all()
         return self.env.cr.fetchone()[0]
 
     def update_amls_tax_tags(self):
@@ -232,6 +179,4 @@ class AccountUpdateTaxTagsWizard(models.TransientModel):
             children_taxes += tax.children_tax_ids.ids
         if len(children_taxes) > len(parent_taxes.children_tax_ids.ids):
             raise UserError(_('Update with children taxes that are child of multiple parents is not supported.'))
-        aml_ids = self._modify_tag_to_aml_relation(self.company_id.id, self.date_from)
-        if aml_ids:
-            self._recompute_tax_audit_string(aml_ids)
+        self._modify_tag_to_aml_relation(self.company_id.id, self.date_from)

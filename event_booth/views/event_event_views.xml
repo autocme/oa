@@ -12,7 +12,7 @@
                         type="action" icon="fa-university">
                     <div class="o_field_widget o_stat_info">
                         <span class="o_stat_value">
-                            <span attrs="{'invisible': [('event_booth_count', '=', 0)]}">
+                            <span invisible="event_booth_count == 0">
                                 <field name="event_booth_count_available"/> /
                             </span>
                             <field name="event_booth_count"/>
@@ -21,16 +21,6 @@
                     </div>
                 </button>
             </div>
-            <page name="tickets" position="after">
-                <page string="Booths" groups="base.group_no_one">
-                    <!-- The booths created from 'event_type_id' won't be saved if invisible attr is set. -->
-                    <field name="event_booth_ids"
-                        context="{
-                            'form_view_ref': 'event_booth.event_booth_view_form_simple_from_event',
-                            'tree_view_ref': 'event_booth.event_booth_view_tree_from_event',
-                        }"/>
-                </page>
-            </page>
         </field>
     </record>
 

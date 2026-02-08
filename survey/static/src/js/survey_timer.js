@@ -1,7 +1,8 @@
-odoo.define('survey.timer', function (require) {
-'use strict';
+/** @odoo-module **/
 
-var publicWidget = require('web.public.widget');
+import { deserializeDateTime } from "@web/core/l10n/dates";
+import publicWidget from "@web/legacy/js/public/public_widget";
+const { DateTime } = luxon;
 
 publicWidget.registry.SurveyTimerWidget = publicWidget.Widget.extend({
     //--------------------------------------------------------------------------
@@ -18,27 +19,31 @@ publicWidget.registry.SurveyTimerWidget = publicWidget.Widget.extend({
         this.surveyTimerInterval = null;
         this.timeDifference = null;
         if (params.serverTime) {
-            this.timeDifference = moment.utc().diff(moment.utc(params.serverTime), 'milliseconds');
+            this.timeDifference = DateTime.utc().diff(
+                deserializeDateTime(params.serverTime)
+            ).milliseconds;
         }
     },
 
 
     /**
-    * Two responsabilities : Validate that time limit is not exceeded and Run timer otherwise.
-    * If end-user's clock OR the system clock  is de-synchronized before the survey is started, we apply the
-    * difference in timer (if time difference is more than 5 seconds) so that we can
-    * display the 'absolute' counter
+    * Two responsibilities: Validate that the time limit is not exceeded and Run timer otherwise.
+    * If the end-user's clock OR the system clock is desynchronized,
+    * we apply the difference in the clocks (if the time difference is more than 500 ms).
+    * This makes the timer fair across users and helps avoid early submissions to the server.
     *
     * @override
     */
     start: function () {
         var self = this;
         return this._super.apply(this, arguments).then(function () {
-            self.countDownDate = moment.utc(self.timer).add(self.timeLimitMinutes, 'minutes');
-            if (Math.abs(self.timeDifference) >= 5000) {
-                self.countDownDate = self.countDownDate.add(self.timeDifference, 'milliseconds');
+            self.countDownDate = DateTime.fromISO(self.timer, { zone: "utc" }).plus({
+                minutes: self.timeLimitMinutes,
+            });
+            if (Math.abs(self.timeDifference) >= 500) {
+                self.countDownDate = self.countDownDate.plus({ milliseconds: self.timeDifference });
             }
-            if (self.timeLimitMinutes <= 0 || self.countDownDate.diff(moment.utc(), 'seconds') < 0) {
+            if (self.timeLimitMinutes <= 0 || self.countDownDate.diff(DateTime.utc()).seconds < 0) {
                 self.trigger_up('time_up');
             } else {
                 self._updateTimer();
@@ -64,7 +69,7 @@ publicWidget.registry.SurveyTimerWidget = publicWidget.Widget.extend({
     * for our use case.
     */
     _updateTimer: function () {
-        var timeLeft = Math.round(this.countDownDate.diff(moment.utc(), 'milliseconds') / 1000);
+        var timeLeft = Math.round(this.countDownDate.diff(DateTime.utc()).milliseconds / 1000);
 
         if (timeLeft >= 0) {
             var timeLeftMinutes = parseInt(timeLeft / 60);
@@ -77,6 +82,4 @@ publicWidget.registry.SurveyTimerWidget = publicWidget.Widget.extend({
     },
 });
 
-return publicWidget.registry.SurveyTimerWidget;
-
-});
+export default publicWidget.registry.SurveyTimerWidget;

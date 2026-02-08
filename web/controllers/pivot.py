@@ -5,21 +5,22 @@ from collections import deque
 import io
 import json
 
+from werkzeug.datastructures import FileStorage
+from werkzeug.exceptions import UnprocessableEntity
+
 from odoo import http, _
 from odoo.http import content_disposition, request
-from odoo.tools import ustr, osutil
+from odoo.tools import osutil
 from odoo.tools.misc import xlsxwriter
 
 
 class TableExporter(http.Controller):
 
-    @http.route('/web/pivot/check_xlsxwriter', type='json', auth='none')
-    def check_xlsxwriter(self):
-        return xlsxwriter is not None
-
-    @http.route('/web/pivot/export_xlsx', type='http', auth="user")
+    @http.route('/web/pivot/export_xlsx', type='http', auth="user", readonly=True)
     def export_xlsx(self, data, **kw):
-        jdata = json.loads(data)
+        jdata = json.load(data) if isinstance(data, FileStorage) else json.loads(data)
+        if not jdata:
+            raise UnprocessableEntity(_('No data to export'))
         output = io.BytesIO()
         workbook = xlsxwriter.Workbook(output, {'in_memory': True})
         worksheet = workbook.add_worksheet(jdata['title'])
@@ -28,8 +29,8 @@ class TableExporter(http.Controller):
         header_plain = workbook.add_format({'pattern': 1, 'bg_color': '#AAAAAA'})
         bold = workbook.add_format({'bold': True})
 
-        measure_count = jdata['measure_count']
-        origin_count = jdata['origin_count']
+        measure_count = min(jdata['measure_count'], 100000)
+        origin_count = min(jdata['origin_count'], 100000)
 
         # Step 1: writing col group headers
         col_group_headers = jdata['col_group_headers']
@@ -48,11 +49,12 @@ class TableExporter(http.Controller):
                     if cell['height'] > 1:
                         carry.append({'x': x, 'height': cell['height'] - 1})
                     x = x + measure_count * (2 * origin_count - 1)
-                for j in range(header['width']):
+                width = min(header['width'], 100000)
+                for j in range(width):
                     worksheet.write(y, x + j, header['title'] if j == 0 else '', header_plain)
                 if header['height'] > 1:
                     carry.append({'x': x, 'height': header['height'] - 1})
-                x = x + header['width']
+                x = x + width
             while (carry and carry[0]['x'] == x):
                 cell = carry.popleft()
                 for j in range(measure_count * (2 * origin_count - 1)):
@@ -91,7 +93,7 @@ class TableExporter(http.Controller):
         # Step 4: writing data
         x = 0
         for row in jdata['rows']:
-            worksheet.write(y, x, row['indent'] * '     ' + ustr(row['title']), header_plain)
+            worksheet.write(y, x, f"{row['indent'] * '     '}{row['title']}", header_plain)
             for cell in row['values']:
                 x = x + 1
                 if cell.get('is_bold', False):

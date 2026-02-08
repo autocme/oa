@@ -27,9 +27,10 @@ have real delivered quantities in sales orders.
         'views/res_config_settings_views.xml',
         'views/sale_timesheet_portal_templates.xml',
         'views/project_sharing_views.xml',
-        'report/project_profitability_report_analysis_views.xml',
-        'data/sale_timesheet_filters.xml',
-        'wizard/project_create_sale_order_views.xml',
+        'views/project_portal_templates.xml',
+        'report/timesheets_analysis_views.xml',
+        'report/report_timesheet_templates.xml',
+        'report/project_report_view.xml',
         'wizard/project_create_invoice_views.xml',
         'wizard/sale_make_invoice_advance_views.xml',
     ],
@@ -43,14 +44,17 @@ have real delivered quantities in sales orders.
             'sale_timesheet/static/src/scss/sale_timesheet_portal.scss',
         ],
         'web.assets_backend': [
-            'sale_timesheet/static/src/js/so_line_one2many.js',
+            'sale_timesheet/static/src/components/**/*',
         ],
         'web.assets_tests': [
-            'sale_timesheet/static/tests/**/*',
+            'sale_timesheet/static/tests/tours/**/*',
+            'web/static/lib/hoot-dom/**/*',
         ],
-        'web.assets_qweb': [
-            'sale_timesheet/static/src/xml/**/*',
+        'web.assets_unit_tests': [
+            'sale_timesheet/static/tests/**/*',
+            ('remove', 'sale_timesheet/static/tests/tours/**/*'),
         ],
     },
     'license': 'LGPL-3',
+    'post_init_hook': '_sale_timesheet_post_init',
 }

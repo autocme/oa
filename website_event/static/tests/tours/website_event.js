@@ -1,56 +1,100 @@
-odoo.define("website_event.tour", function (require) {
-    "use strict";
+/** @odoo-module **/
 
-    const {_t} = require("web.core");
-    const {Markup} = require('web.utils');
-    var tour = require("web_tour.tour");
-    var time = require('web.time');
+import {
+    insertSnippet,
+    registerWebsitePreviewTour,
+    clickOnEditAndWaitEditMode,
+    clickOnSave,
+} from '@website/js/tours/tour_utils';
 
-    tour.register("website_event_tour", {
-        test: true,
+function websiteCreateEventTourSteps() {
+    return [
+        {
+            content: "Click here to add new content to your website.",
+            trigger: ".o_menu_systray .o_new_content_container > a",
+            tooltipPosition: "bottom",
+            run: "click",
+        }, {
+            trigger: "a[data-module-xml-id='base.module_website_event']",
+            content: "Click here to create a new event.",
+            tooltipPosition: "bottom",
+            run: "click",
+        }, {
+            trigger: ".modal-dialog div[name='name'] input",
+            content: "Create a name for your new event and click Continue. e.g: Technical Training",
+            run: "edit Technical Training",
+            tooltipPosition: "left",
+        }, {
+            trigger: ".modal-dialog div[name=date_begin]",
+            content: "Open date range picker. Pick a Start date for your event",
+            run() {
+                const el1 = document.querySelector("input[data-field='date_begin']");
+                el1.value = "09/30/2020 08:00:00";
+                el1.dispatchEvent(new Event("change", {bubbles: true, cancelable: true}));
+                const el2 = document.querySelector("input[data-field='date_end']");
+                el2.value = "10/02/2020 23:00:00";
+                el2.dispatchEvent(new Event("change", {bubbles: true, cancelable: true}));
+                el1.click();
+            }
+        },
+        {
+            trigger: ".modal-dialog input[type=text]:not(:value(''))",
+        },
+        {
+            trigger: '.modal-footer button.btn-primary',
+            content: "Click Continue to create the event.",
+            tooltipPosition: "right",
+            run: "click",
+        },
+        ...insertSnippet({
+            id: "s_image_text",
+            name: "Image - Text",
+            groupName: "Content",
+        }),
+        ...clickOnSave(),
+        {
+            trigger: ".o_menu_systray_item.o_website_publish_container a",
+            content: "Click to publish your event.",
+            tooltipPosition: "top",
+            run: "click",
+        }, {
+            trigger: ".o_website_edit_in_backend > a",
+            content: "Click here to customize your event further.",
+            tooltipPosition: "bottom",
+        },
+    ];
+}
+
+function websiteEditEventTourSteps() {
+    return [
+        {
+            content: "Redirect to Event Page",
+            trigger: ":iframe a[title='Back to All Events']",
+            run: "click",
+        },
+        {
+            content: "Wait for events list to load",
+            trigger: ":iframe .opt_events_list_columns",
+        },
+        ...clickOnEditAndWaitEditMode(),
+        {
+            content: "edit the short description of the event",
+            trigger: ":iframe .opt_events_list_columns small",
+            run: function () {
+                this.anchor.innerHTML = "new short description";
+            }
+        },
+        ...clickOnSave(),
+        {
+            content: "is short description updated?",
+            trigger: ":iframe .opt_events_list_columns small:contains('new short description')",
+        },
+    ];
+}
+
+registerWebsitePreviewTour(
+    "website_event_tour", {
         url: "/",
-    }, [{
-        content: _t("Click here to add new content to your website."),
-        trigger: "body:has(#o_new_content_menu_choices.o_hidden) #new-content-menu > a",
-        consumeVisibleOnly: true,
-        position: 'bottom',
-    }, {
-        trigger: "a[data-action=new_event]",
-        content: _t("Click here to create a new event."),
-        position: "bottom",
-    }, {
-        trigger: '.modal-dialog #editor_new_event input[name=name]',
-        content: Markup(_t("Create a name for your new event and click <em>\"Continue\"</em>. e.g: Technical Training")),
-        run: 'text Technical Training',
-        position: "left",
-    }, {
-        trigger: '.modal-dialog #editor_new_event input[name=event_start_end]',
-        content: _t("Pick a Start date for your event"),
-        run: 'text ' + moment().format(time.getLangDatetimeFormat()) + ' - ' + moment().add(1, "d").format(time.getLangDatetimeFormat()),
-    }, {
-        trigger: '.modal-footer button.btn-primary',
-        extra_trigger: '#editor_new_event input[type=text][value!=""]',
-        content: Markup(_t("Click <em>Continue</em> to create the event.")),
-        position: "right",
-    }, {
-        trigger: "#snippet_structure .oe_snippet:eq(2) .oe_snippet_thumbnail",
-        content: _t("Drag this block and drop it in your page."),
-        position: "bottom",
-        run: "drag_and_drop",
-    }, {
-        trigger: "button[data-action=save]",
-        content: _t("Once you click on save, your event is updated."),
-        position: "bottom",
-        extra_trigger: ".o_dirty",
-    }, {
-        trigger: ".js_publish_management .js_publish_btn",
-        extra_trigger: "body:not(.editor_enable)",
-        content: _t("Click to publish your event."),
-        position: "top",
-    }, {
-        trigger: ".css_edit_dynamic",
-        extra_trigger: ".js_publish_management .js_publish_btn .css_unpublish:visible",
-        content: _t("Click here to customize your event further."),
-        position: "bottom",
-    }]);
-});
+    },
+    () => [...websiteCreateEventTourSteps(), ...websiteEditEventTourSteps()]
+);

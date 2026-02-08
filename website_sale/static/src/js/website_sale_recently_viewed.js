@@ -1,21 +1,23 @@
-odoo.define('website_sale.recently_viewed', function (require) {
+/** @odoo-module **/
 
-var publicWidget = require('web.public.widget');
-var utils = require('web.utils');
+import { debounce } from "@web/core/utils/timing";
+import publicWidget from "@web/legacy/js/public/public_widget";
+import { cookie } from "@web/core/browser/cookie";;
+import { rpc } from "@web/core/network/rpc";
 
 publicWidget.registry.productsRecentlyViewedUpdate = publicWidget.Widget.extend({
     selector: '#product_detail',
     events: {
         'change input.product_id[name="product_id"]': '_onProductChange',
     },
-    debounceValue: 8000,
+    debounceValue: 500,
 
     /**
      * @constructor
      */
     init: function () {
         this._super.apply(this, arguments);
-        this._onProductChange = _.debounce(this._onProductChange, this.debounceValue);
+        this._onProductChange = debounce(this._onProductChange, this.debounceValue);
     },
 
     //--------------------------------------------------------------------------
@@ -33,22 +35,16 @@ publicWidget.registry.productsRecentlyViewedUpdate = publicWidget.Widget.extend(
         if (! parseInt(this.el.dataset.viewTrack, 10)) {
             return; // Is not tracked
         }
-        if (utils.get_cookie(cookieName)) {
+        if (cookie.get(cookieName)) {
             return; // Already tracked in the last 30min
         }
         if ($(this.el).find('.js_product.css_not_available').length) {
             return; // Variant not possible
         }
-        this._rpc({
-            route: '/shop/products/recently_viewed_update',
-            params: {
-                product_id: productId,
-            }
+        rpc('/shop/products/recently_viewed_update', {
+            product_id: productId,
         }).then(function (res) {
-            if (res && res.visitor_uuid) {
-                utils.set_cookie('visitor_uuid', res.visitor_uuid);
-            }
-            utils.set_cookie(cookieName, productId, 30 * 60);
+            cookie.set(cookieName, productId, 30 * 60, 'optional');
         });
     },
 
@@ -64,5 +60,4 @@ publicWidget.registry.productsRecentlyViewedUpdate = publicWidget.Widget.extend(
     _onProductChange: function (ev) {
         this._updateProductView($(ev.currentTarget));
     },
-});
 });

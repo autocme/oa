@@ -3,17 +3,16 @@
 
 from datetime import datetime, timedelta
 import logging
-import subprocess
 import requests
 from threading import Thread
 import time
 import urllib3
 
-from odoo.modules.module import get_resource_path
 from odoo.addons.hw_drivers.main import iot_devices, manager
 from odoo.addons.hw_drivers.tools import helpers
 
 _logger = logging.getLogger(__name__)
+
 
 class ConnectionManager(Thread):
     def __init__(self):
@@ -24,7 +23,7 @@ class ConnectionManager(Thread):
     def run(self):
         if not helpers.get_odoo_server_url() and not helpers.access_point():
             end_time = datetime.now() + timedelta(minutes=5)
-            while (datetime.now() < end_time):
+            while datetime.now() < end_time:
                 self._connect_box()
                 time.sleep(10)
             self.pairing_code = False
@@ -47,22 +46,19 @@ class ConnectionManager(Thread):
             if all(key in result for key in ['pairing_code', 'pairing_uuid']):
                 self.pairing_code = result['pairing_code']
                 self.pairing_uuid = result['pairing_uuid']
+                self._refresh_displays()
             elif all(key in result for key in ['url', 'token', 'db_uuid', 'enterprise_code']):
                 self._connect_to_server(result['url'], result['token'], result['db_uuid'], result['enterprise_code'])
-        except Exception as e:
-            _logger.error('Could not reach iot-proxy.odoo.com')
-            _logger.error('A error encountered : %s ' % e)
+        except Exception:
+            _logger.exception('Could not reach iot-proxy.odoo.com')
 
     def _connect_to_server(self, url, token, db_uuid, enterprise_code):
-        if db_uuid and enterprise_code:
-            helpers.add_credential(db_uuid, enterprise_code)
-
         # Save DB URL and token
-        subprocess.check_call([get_resource_path('point_of_sale', 'tools/posbox/configuration/connect_to_server.sh'), url, '', token, 'noreboot'])
+        helpers.save_conf_server(url, token, db_uuid, enterprise_code)
         # Notify the DB, so that the kanban view already shows the IoT Box
         manager.send_alldevices()
         # Restart to checkout the git branch, get a certificate, load the IoT handlers...
-        subprocess.check_call(["sudo", "service", "odoo", "restart"])
+        helpers.odoo_restart(2)
 
     def _refresh_displays(self):
         """Refresh all displays to hide the pairing code"""
@@ -71,6 +67,7 @@ class ConnectionManager(Thread):
                 iot_devices[d].action({
                     'action': 'display_refresh'
                 })
+
 
 connection_manager = ConnectionManager()
 connection_manager.daemon = True

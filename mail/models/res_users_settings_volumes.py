@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
 
-from odoo import fields, models
+from odoo import api, fields, models
 
 
 class ResUsersSettingsVolumes(models.Model):
@@ -22,16 +22,21 @@ class ResUsersSettingsVolumes(models.Model):
         ("partner_or_guest_exists", "CHECK((partner_id IS NOT NULL AND guest_id IS NULL) OR (partner_id IS NULL AND guest_id IS NOT NULL))", "A volume setting must have a partner or a guest."),
     ]
 
+    @api.depends('user_setting_id', 'partner_id', 'guest_id')
+    def _compute_display_name(self):
+        for rec in self:
+            rec.display_name = f'{rec.user_setting_id.user_id.name} - {rec.partner_id.name or rec.guest_id.name}'
+
     def _discuss_users_settings_volume_format(self):
         return [{
             'id': volume_setting.id,
             'volume': volume_setting.volume,
-            'guest': [('insert-and-replace', {
-                'id': volume_setting.guest_id.id,
-                'name': volume_setting.guest_id.name,
-            })] if volume_setting.guest_id else [('clear',)],
-            'partner': [('insert-and-replace', {
-                'id': volume_setting.partner_id.id,
-                'name': volume_setting.partner_id.name,
-            })] if volume_setting.partner_id else [('clear',)]
+            'persona': {
+                'id': volume_setting.partner_id.id if volume_setting.partner_id else volume_setting.guest_id.id,
+                'name': volume_setting.partner_id.name if volume_setting.partner_id else volume_setting.guest_id.name,
+                'type': "partner" if volume_setting.partner_id else "guest"
+            },
+            'user_setting_id': {
+                'id': volume_setting.user_setting_id.id,
+            },
         } for volume_setting in self]

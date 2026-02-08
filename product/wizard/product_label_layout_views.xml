@@ -14,7 +14,8 @@
                         <field name="print_format" widget="radio"/>
                     </group>
                     <group>
-                        <field name="extra_html" widget="html" attrs="{'invisible': [('print_format', '!=', '2x7xprice')]}"/>
+                        <field name="pricelist_id" groups="product.group_product_pricelist"/>
+                        <field name="extra_html" invisible="print_format != '2x7xprice'"/>
                     </group>
                 </group>
                 <footer>
@@ -23,5 +24,14 @@
                 </footer>
             </form>
         </field>
+    </record>
+
+    <record id="action_open_label_layout" model="ir.actions.act_window">
+        <field name="name">Choose Labels Layout</field>
+        <field name="res_model">product.label.layout</field>
+        <field name="view_ids"
+                eval="[(5, 0, 0),
+                (0, 0, {'view_mode': 'form', 'view_id': ref('product_label_layout_form')})]" />
+        <field name="target">new</field>
     </record>
 </odoo>

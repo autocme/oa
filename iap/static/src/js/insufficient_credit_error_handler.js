@@ -2,14 +2,22 @@
 import { Dialog } from "@web/core/dialog/dialog";
 import { registry } from "@web/core/registry";
 import { useService } from "@web/core/utils/hooks";
+import { _t } from "@web/core/l10n/translation";
+import { Component, onWillStart } from "@odoo/owl";
 
-class InsufficientCreditDialog extends Dialog {
+class InsufficientCreditDialog extends Component {
+    static components = { Dialog };
+    static template = "iap.InsufficientCreditDialog";
+    static props = {
+        errorData: Object,
+        close: Function,
+    };
     setup() {
-        super.setup(...arguments);
         this.orm = useService("orm");
+        onWillStart(this.onWillStart);
     }
 
-    async willStart() {
+    async onWillStart() {
         const { errorData } = this.props;
         this.url = await this.orm.call("iap.account", "get_credits_url", [], {
             base_url: errorData.base_url,
@@ -18,7 +26,6 @@ class InsufficientCreditDialog extends Dialog {
             trial: errorData.trial,
         });
         this.style = errorData.body ? "padding:0;" : "";
-        const { _t } = this.env;
         const { isEnterprise } = odoo.info;
         if (errorData.trial && isEnterprise) {
             this.buttonMessage = _t("Start a Trial at Odoo");
@@ -29,11 +36,9 @@ class InsufficientCreditDialog extends Dialog {
 
     buyCredits() {
         window.open(this.url, "_blank");
-        this.close();
+        this.props.close();
     }
 }
-InsufficientCreditDialog.bodyTemplate = "iap.redirect_to_odoo_credit";
-InsufficientCreditDialog.footerTemplate = "iap.InsufficientCreditFooter";
 
 function insufficientCreditHandler(env, error, originalError) {
     if (!originalError) {

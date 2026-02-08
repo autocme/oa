@@ -1,12 +1,12 @@
 # -*- coding: utf-8 -*-
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
 
-from collections import defaultdict
-import math
+import io
+import zipfile
+from werkzeug.urls import url_encode
 
 from odoo import api, fields, models, _
 from odoo.exceptions import UserError
-from odoo.tools import frozendict
 
 
 class AccountMove(models.Model):
@@ -23,19 +23,21 @@ class AccountMove(models.Model):
         help='The aggregated state of all the EDIs with web-service of this move')
     edi_error_count = fields.Integer(
         compute='_compute_edi_error_count',
-        help='How many EDIs are in error for this move ?')
+        help='How many EDIs are in error for this move?')
     edi_blocking_level = fields.Selection(
         selection=[('info', 'Info'), ('warning', 'Warning'), ('error', 'Error')],
         compute='_compute_edi_error_message')
     edi_error_message = fields.Html(
         compute='_compute_edi_error_message')
+    # Technical field to display the documents that will be processed by the CRON
     edi_web_services_to_process = fields.Text(
-        compute='_compute_edi_web_services_to_process',
-        help="Technical field to display the documents that will be processed by the CRON")
+        compute='_compute_edi_web_services_to_process')
     edi_show_cancel_button = fields.Boolean(
         compute='_compute_edi_show_cancel_button')
     edi_show_abandon_cancel_button = fields.Boolean(
         compute='_compute_edi_show_abandon_cancel_button')
+    edi_show_force_cancel_button = fields.Boolean(
+        compute='_compute_edi_show_force_cancel_button')
 
     @api.depends('edi_document_ids.state')
     def _compute_edi_state(self):
@@ -51,6 +53,11 @@ class AccountMove(models.Model):
                 move.edi_state = 'to_cancel'
             else:
                 move.edi_state = False
+
+    @api.depends('edi_document_ids.state')
+    def _compute_edi_show_force_cancel_button(self):
+        for move in self:
+            move.edi_show_force_cancel_button = move._can_force_cancel()
 
     @api.depends('edi_document_ids.error')
     def _compute_edi_error_count(self):
@@ -69,14 +76,15 @@ class AccountMove(models.Model):
                 move.edi_blocking_level = error_doc.blocking_level
             else:
                 error_levels = set([doc.blocking_level for doc in move.edi_document_ids])
+                count = str(move.edi_error_count)
                 if 'error' in error_levels:
-                    move.edi_error_message = str(move.edi_error_count) + _(" Electronic invoicing error(s)")
+                    move.edi_error_message = _("%(count)s Electronic invoicing error(s)", count=count)
                     move.edi_blocking_level = 'error'
                 elif 'warning' in error_levels:
-                    move.edi_error_message = str(move.edi_error_count) + _(" Electronic invoicing warning(s)")
+                    move.edi_error_message = _("%(count)s Electronic invoicing warning(s)", count=count)
                     move.edi_blocking_level = 'warning'
                 else:
-                    move.edi_error_message = str(move.edi_error_count) + _(" Electronic invoicing info(s)")
+                    move.edi_error_message = _("%(count)s Electronic invoicing info(s)", count=count)
                     move.edi_blocking_level = 'info'
 
     @api.depends(
@@ -91,80 +99,60 @@ class AccountMove(models.Model):
             format_web_services = to_process.edi_format_id.filtered(lambda f: f._needs_web_services())
             move.edi_web_services_to_process = ', '.join(f.name for f in format_web_services)
 
-    @api.depends(
-        'state',
-        'edi_document_ids.state')
+    def _check_edi_documents_for_reset_to_draft(self):
+        self.ensure_one()
+        for doc in self.edi_document_ids:
+            move_applicability = doc.edi_format_id._get_move_applicability(self)
+            if doc.edi_format_id._needs_web_services() \
+                and doc.state in ('sent', 'to_cancel') \
+                and move_applicability \
+                and move_applicability.get('cancel'):
+                return False
+        return True
+
+    @api.depends('edi_document_ids.state')
     def _compute_show_reset_to_draft_button(self):
         # OVERRIDE
         super()._compute_show_reset_to_draft_button()
-
         for move in self:
-            for doc in move.edi_document_ids:
-                if doc.edi_format_id._needs_web_services() \
-                        and doc.state in ('sent', 'to_cancel') \
-                        and move.is_invoice(include_receipts=True) \
-                        and doc.edi_format_id._is_required_for_invoice(move):
-                    move.show_reset_to_draft_button = False
-                    break
+            if not move._check_edi_documents_for_reset_to_draft():
+                move.show_reset_to_draft_button = False
 
-    @api.depends(
-        'state',
-        'edi_document_ids.state')
+    @api.depends('edi_document_ids.state')
     def _compute_edi_show_cancel_button(self):
         for move in self:
             if move.state != 'posted':
                 move.edi_show_cancel_button = False
                 continue
 
-            move.edi_show_cancel_button = any([doc.edi_format_id._needs_web_services()
-                                               and doc.state == 'sent'
-                                               and move.is_invoice(include_receipts=True)
-                                               and doc.edi_format_id._is_required_for_invoice(move)
-                                              for doc in move.edi_document_ids])
+            move.edi_show_cancel_button = False
+            for doc in move.edi_document_ids:
+                move_applicability = doc.edi_format_id._get_move_applicability(move)
+                if doc.edi_format_id._needs_web_services() \
+                    and doc.state == 'sent' \
+                    and move_applicability \
+                    and move_applicability.get('cancel'):
+                    move.edi_show_cancel_button = True
+                    break
 
-    @api.depends(
-        'state',
-        'edi_document_ids.state')
+    @api.depends('edi_document_ids.state')
     def _compute_edi_show_abandon_cancel_button(self):
         for move in self:
-            move.edi_show_abandon_cancel_button = any(doc.edi_format_id._needs_web_services()
-                                                      and doc.state == 'to_cancel'
-                                                      and move.is_invoice(include_receipts=True)
-                                                      and doc.edi_format_id._is_required_for_invoice(move)
-                                                      for doc in move.edi_document_ids)
+            move.edi_show_abandon_cancel_button = False
+            for doc in move.sudo().edi_document_ids:
+                move_applicability = doc.edi_format_id._get_move_applicability(move)
+                if doc.edi_format_id._needs_web_services() \
+                    and doc.state == 'to_cancel' \
+                    and move_applicability \
+                    and move_applicability.get('cancel'):
+                    move.edi_show_abandon_cancel_button = True
+                    break
 
     ####################################################
     # Export Electronic Document
     ####################################################
 
-    @api.model
-    def _add_edi_tax_values(self, results, grouping_key, serialized_grouping_key, tax_values, key_by_tax=None):
-        # Add to global results.
-        results['tax_amount'] += tax_values['tax_amount']
-        results['tax_amount_currency'] += tax_values['tax_amount_currency']
-        # Add to tax details.
-        if serialized_grouping_key not in results['tax_details']:
-            tax_details = results['tax_details'][serialized_grouping_key]
-            tax_details.update(grouping_key)
-            tax_details.update({
-                'base_amount': tax_values['base_amount'],
-                'base_amount_currency': tax_values['base_amount_currency'],
-            })
-        else:
-            tax_details = results['tax_details'][serialized_grouping_key]
-            if key_by_tax:
-                add_to_base_amount = key_by_tax[tax_values['tax_id']] != key_by_tax.get(tax_values['src_line_id'].tax_line_id)
-            else:
-                add_to_base_amount = tax_values['base_line_id'] not in set(x['base_line_id'] for x in tax_details['group_tax_details'])
-            if add_to_base_amount:
-                tax_details['base_amount'] += tax_values['base_amount']
-                tax_details['base_amount_currency'] += tax_values['base_amount_currency']
-        tax_details['tax_amount'] += tax_values['tax_amount']
-        tax_details['tax_amount_currency'] += tax_values['tax_amount_currency']
-        tax_details['exemption_reason'] = tax_values['tax_id'].name
-        tax_details['group_tax_details'].append(tax_values)
-
-    def _prepare_edi_tax_details(self, filter_to_apply=None, filter_invl_to_apply=None, grouping_key_generator=None, compute_mode='tax_details'):
+    def _prepare_edi_tax_details(self, filter_to_apply=None, filter_invl_to_apply=None, grouping_key_generator=None):
         ''' Compute amounts related to taxes for the current invoice.
 
         :param filter_to_apply:         Optional filter to exclude some tax values from the final results.
@@ -193,22 +181,6 @@ class AccountMove(models.Model):
                                         grouping_key to aggregate tax values together. The returned dictionary is added
                                         to each tax details in order to retrieve the full grouping_key later.
 
-        :param compute_mode:            Optional parameter to specify the method used to allocate the tax line amounts
-                                        among the invoice lines:
-                                        'tax_details' (the default) uses the AccountMove._get_query_tax_details method.
-                                        'compute_all' uses the AccountTax._compute_all method.
-
-                                        The 'tax_details' method takes the tax line balance and allocates it among the
-                                        invoice lines to which that tax applies, proportionately to the invoice lines'
-                                        base amounts. This always ensures that the sum of the tax amounts equals the
-                                        tax line's balance, which, depending on the constraints of a particular
-                                        localization, can be more appropriate when 'Round Globally' is set.
-
-                                        The 'compute_all' method returns, for each invoice line, the exact tax amounts
-                                        corresponding to the taxes applied to the invoice line. Depending on the
-                                        constraints of the particular localization, this can be more appropriate when
-                                        'Round per Line' is set.
-
         :return:                        The full tax details for the current invoice and for each invoice line
                                         separately. The returned dictionary is the following:
 
@@ -225,7 +197,7 @@ class AccountMove(models.Model):
                 'tax_amount_currency':      The tax amount in foreign currency for the current group.
                 'group_tax_details':        The list of all tax values aggregated into this group.
 
-            'invoice_line_tax_details': A mapping of each invoice line to a dictionary containing:
+            'tax_details_per_record': A mapping of each invoice line to a dictionary containing:
 
                 'base_amount':          The total tax base amount in company currency for the whole invoice line.
                 'tax_amount':           The total tax amount in company currency for the whole invoice line.
@@ -241,305 +213,11 @@ class AccountMove(models.Model):
                     'group_tax_details':    The list of all tax values aggregated into this group.
 
         '''
-        self.ensure_one()
-
-        def default_grouping_key_generator(tax_values):
-            return {'tax': tax_values['tax_id']}
-
-        def compute_invoice_lines_tax_values_dict_from_tax_details(invoice_lines):
-            invoice_lines_tax_values_dict = defaultdict(list)
-            tax_details_query, tax_details_params = invoice_lines._get_query_tax_details_from_domain([('move_id', '=', self.id)])
-            self._cr.execute(tax_details_query, tax_details_params)
-            for row in self._cr.dictfetchall():
-                invoice_line = invoice_lines.browse(row['base_line_id'])
-                tax_line = invoice_lines.browse(row['tax_line_id'])
-                src_line = invoice_lines.browse(row['src_line_id'])
-                tax = self.env['account.tax'].browse(row['tax_id'])
-                src_tax = self.env['account.tax'].browse(row['group_tax_id']) if row['group_tax_id'] else tax
-
-                invoice_lines_tax_values_dict[invoice_line].append({
-                    'base_line_id': invoice_line,
-                    'tax_line_id': tax_line,
-                    'src_line_id': src_line,
-                    'tax_id': tax,
-                    'src_tax_id': src_tax,
-                    'tax_repartition_line_id': tax_line.tax_repartition_line_id,
-                    'base_amount': row['base_amount'],
-                    'tax_amount': row['tax_amount'],
-                    'base_amount_currency': row['base_amount_currency'],
-                    'tax_amount_currency': row['tax_amount_currency'],
-                })
-            return invoice_lines_tax_values_dict
-
-        def compute_invoice_lines_tax_values_dict_from_compute_all(invoice_lines):
-            invoice_lines_tax_values_dict = {}
-            sign = -1 if self.is_inbound() else 1
-            for invoice_line in invoice_lines:
-                taxes_res = invoice_line.tax_ids.compute_all(
-                    invoice_line.price_unit * (1 - (invoice_line.discount / 100.0)),
-                    currency=invoice_line.currency_id,
-                    quantity=invoice_line.quantity,
-                    product=invoice_line.product_id,
-                    partner=invoice_line.partner_id,
-                    is_refund=invoice_line.move_id.move_type in ('in_refund', 'out_refund'),
-                )
-                invoice_lines_tax_values_dict[invoice_line] = []
-                rate = abs(invoice_line.balance) / abs(invoice_line.amount_currency) if invoice_line.amount_currency else 0.0
-                for tax_res in taxes_res['taxes']:
-                    tax_amount = tax_res['amount'] * rate
-                    if self.company_id.tax_calculation_rounding_method == 'round_per_line':
-                        tax_amount = invoice_line.company_currency_id.round(tax_amount)
-                    invoice_lines_tax_values_dict[invoice_line].append({
-                        'base_line_id': invoice_line,
-                        'tax_id': self.env['account.tax'].browse(tax_res['id']),
-                        'tax_repartition_line_id': self.env['account.tax.repartition.line'].browse(tax_res['tax_repartition_line_id']),
-                        'base_amount': sign * invoice_line.company_currency_id.round(tax_res['base'] * rate),
-                        'tax_amount': sign * tax_amount,
-                        'base_amount_currency': sign * tax_res['base'],
-                        'tax_amount_currency': sign * tax_res['amount'],
-                        'tax_vals': tax_res,
-                    })
-            return invoice_lines_tax_values_dict
-
-        # Compute the taxes values for each invoice line.
-        invoice_lines = self.invoice_line_ids.filtered(lambda line: not line.display_type)
-        if filter_invl_to_apply:
-            invoice_lines = invoice_lines.filtered(filter_invl_to_apply)
-
-        if compute_mode == 'compute_all':
-            invoice_lines_tax_values_dict = compute_invoice_lines_tax_values_dict_from_compute_all(invoice_lines)
-        else:
-            invoice_lines_tax_values_dict = compute_invoice_lines_tax_values_dict_from_tax_details(invoice_lines)
-
-        # For compute_mode 'tax_details' the values in invoice_lines_tax_values_dict are already rounded
-        # (in the SQL query)
-        if compute_mode == 'compute_all' and self.env.company.tax_calculation_rounding_method == 'round_globally':
-            # Aggregate all amounts according the tax lines grouping key.
-            comp_currency = self.env.company.currency_id
-            amount_per_tax_repartition_line_id = defaultdict(lambda: {
-                'tax_amount': 0.0,
-                'tax_amount_currency': 0.0,
-                'tax_values_list': [],
-            })
-            for line, tax_values_list in invoice_lines_tax_values_dict.items():
-                currency = line.currency_id or comp_currency
-                for tax_values in tax_values_list:
-                    grouping_key = frozendict(self._get_tax_grouping_key_from_base_line(line, tax_values['tax_vals']))
-                    total_amounts = amount_per_tax_repartition_line_id[grouping_key]
-                    total_amounts['tax_amount_currency'] += tax_values['tax_amount_currency']
-                    total_amounts['tax_amount'] += tax_values['tax_amount']
-                    total_amounts['tax_values_list'].append(tax_values)
-
-            # Round them like what the creation of tax lines would do.
-            for key, values in amount_per_tax_repartition_line_id.items():
-                currency = self.env['res.currency'].browse(key['currency_id']) or comp_currency
-                values['tax_amount_rounded'] = comp_currency.round(values['tax_amount'])
-                values['tax_amount_currency_rounded'] = currency.round(values['tax_amount_currency'])
-
-            # Dispatch the amount accross the tax values.
-            for key, values in amount_per_tax_repartition_line_id.items():
-                foreign_currency = self.env['res.currency'].browse(key['currency_id']) or comp_currency
-                for currency, amount_field in ((comp_currency, 'tax_amount'), (foreign_currency, 'tax_amount_currency')):
-                    raw_value = values[amount_field]
-                    rounded_value = values[f'{amount_field}_rounded']
-                    diff = rounded_value - raw_value
-                    abs_diff = abs(diff)
-                    diff_sign = -1 if diff < 0 else 1
-                    tax_values_list = values['tax_values_list']
-                    nb_error = math.ceil(abs_diff / currency.rounding)
-                    nb_cents_per_tax_values = math.floor(nb_error / len(tax_values_list))
-                    nb_extra_cent = nb_error % len(tax_values_list)
-
-                    for tax_values in tax_values_list:
-                        if not abs_diff:
-                            break
-
-                        nb_amount_curr_cent = nb_cents_per_tax_values
-                        if nb_extra_cent:
-                            nb_amount_curr_cent += 1
-                            nb_extra_cent -= 1
-
-                        # We can have more than one cent to distribute on a single tax_values.
-                        abs_delta_to_add = min(abs_diff, currency.rounding * nb_amount_curr_cent)
-                        tax_values[amount_field] += diff_sign * abs_delta_to_add
-                        abs_diff -= abs_delta_to_add
-
-        grouping_key_generator = grouping_key_generator or default_grouping_key_generator
-
-        # Apply 'filter_to_apply'.
-
-        if self.move_type in ('out_refund', 'in_refund'):
-            tax_rep_lines_field = 'refund_repartition_line_ids'
-        else:
-            tax_rep_lines_field = 'invoice_repartition_line_ids'
-
-        filtered_invoice_lines_tax_values_dict = {}
-        for invoice_line in invoice_lines:
-            tax_values_list = invoice_lines_tax_values_dict.get(invoice_line, [])
-            filtered_invoice_lines_tax_values_dict[invoice_line] = []
-
-            # Search for unhandled taxes.
-            taxes_set = set(invoice_line.tax_ids.flatten_taxes_hierarchy())
-            for tax_values in tax_values_list:
-                taxes_set.discard(tax_values['tax_id'])
-
-                if not filter_to_apply or filter_to_apply(tax_values):
-                    filtered_invoice_lines_tax_values_dict[invoice_line].append(tax_values)
-
-            # Restore zero-tax tax details.
-            for zero_tax in taxes_set:
-
-                affect_base_amount = 0.0
-                affect_base_amount_currency = 0.0
-                for tax_values in tax_values_list:
-                    if zero_tax in tax_values['tax_line_id'].tax_ids:
-                        affect_base_amount += tax_values['tax_amount']
-                        affect_base_amount_currency += tax_values['tax_amount_currency']
-
-                for tax_rep in zero_tax[tax_rep_lines_field].filtered(lambda x: x.repartition_type == 'tax'):
-                    tax_values = {
-                        'base_line_id': invoice_line,
-                        'tax_line_id': self.env['account.move.line'],
-                        'src_line_id': invoice_line,
-                        'tax_id': zero_tax,
-                        'src_tax_id': zero_tax,
-                        'tax_repartition_line_id': tax_rep,
-                        'base_amount': invoice_line.balance + affect_base_amount,
-                        'tax_amount': 0.0,
-                        'base_amount_currency': invoice_line.amount_currency + affect_base_amount_currency,
-                        'tax_amount_currency': 0.0,
-                    }
-
-                    if not filter_to_apply or filter_to_apply(tax_values):
-                        filtered_invoice_lines_tax_values_dict[invoice_line].append(tax_values)
-
-        # Initialize the results dict.
-
-        invoice_global_tax_details = {
-            'base_amount': 0.0,
-            'tax_amount': 0.0,
-            'base_amount_currency': 0.0,
-            'tax_amount_currency': 0.0,
-            'tax_details': defaultdict(lambda: {
-                'base_amount': 0.0,
-                'tax_amount': 0.0,
-                'base_amount_currency': 0.0,
-                'tax_amount_currency': 0.0,
-                'group_tax_details': [],
-            }),
-            'invoice_line_tax_details': defaultdict(lambda: {
-                'base_amount': 0.0,
-                'tax_amount': 0.0,
-                'base_amount_currency': 0.0,
-                'tax_amount_currency': 0.0,
-                'tax_details': defaultdict(lambda: {
-                    'base_amount': 0.0,
-                    'tax_amount': 0.0,
-                    'base_amount_currency': 0.0,
-                    'tax_amount_currency': 0.0,
-                    'group_tax_details': [],
-                }),
-            }),
-        }
-
-        # Apply 'grouping_key_generator' to 'invoice_lines_tax_values_list' and add all values to the final results.
-
-        for invoice_line in invoice_lines:
-            tax_values_list = filtered_invoice_lines_tax_values_dict[invoice_line]
-
-            key_by_tax = {}
-
-            # Add to invoice global tax amounts.
-            invoice_global_tax_details['base_amount'] += invoice_line.balance
-            invoice_global_tax_details['base_amount_currency'] += invoice_line.amount_currency
-
-            for tax_values in tax_values_list:
-                grouping_key = grouping_key_generator(tax_values)
-                serialized_grouping_key = frozendict(grouping_key)
-                key_by_tax[tax_values['tax_id']] = serialized_grouping_key
-
-                # Add to invoice line global tax amounts.
-                if serialized_grouping_key not in invoice_global_tax_details['invoice_line_tax_details'][invoice_line]:
-                    invoice_line_global_tax_details = invoice_global_tax_details['invoice_line_tax_details'][invoice_line]
-                    invoice_line_global_tax_details.update({
-                        'base_amount': invoice_line.balance,
-                        'base_amount_currency': invoice_line.amount_currency,
-                    })
-                else:
-                    invoice_line_global_tax_details = invoice_global_tax_details['invoice_line_tax_details'][invoice_line]
-
-                self._add_edi_tax_values(invoice_global_tax_details, grouping_key, serialized_grouping_key, tax_values,
-                                         key_by_tax=key_by_tax if compute_mode == 'tax_details' else None)
-                self._add_edi_tax_values(invoice_line_global_tax_details, grouping_key, serialized_grouping_key, tax_values,
-                                         key_by_tax=key_by_tax if compute_mode == 'tax_details' else None)
-
-        return invoice_global_tax_details
-
-    def _prepare_edi_vals_to_export(self):
-        ''' The purpose of this helper is to prepare values in order to export an invoice through the EDI system.
-        This includes the computation of the tax details for each invoice line that could be very difficult to
-        handle regarding the computation of the base amount.
-
-        :return: A python dict containing default pre-processed values.
-        '''
-        self.ensure_one()
-
-        res = {
-            'record': self,
-            'balance_multiplicator': -1 if self.is_inbound() else 1,
-            'invoice_line_vals_list': [],
-        }
-
-        # Invoice lines details.
-        for index, line in enumerate(self.invoice_line_ids.filtered(lambda line: not line.display_type), start=1):
-            line_vals = line._prepare_edi_vals_to_export()
-            line_vals['index'] = index
-            res['invoice_line_vals_list'].append(line_vals)
-
-        # Totals.
-        res.update({
-            'total_price_subtotal_before_discount': sum(x['price_subtotal_before_discount'] for x in res['invoice_line_vals_list']),
-            'total_price_discount': sum(x['price_discount'] for x in res['invoice_line_vals_list']),
-        })
-
-        return res
-
-    def _update_payments_edi_documents(self):
-        ''' Update the edi documents linked to the current journal entries. These journal entries must be linked to an
-        account.payment of an account.bank.statement.line. This additional method is needed because the payment flow is
-        not the same as the invoice one. Indeed, the edi documents must be created when the payment is fully reconciled
-        with invoices.
-        '''
-        payments = self.filtered(lambda move: move.payment_id or move.statement_line_id)
-        edi_document_vals_list = []
-        to_remove = self.env['account.edi.document']
-        for payment in payments:
-            edi_formats = payment._get_reconciled_invoices().journal_id.edi_format_ids | payment.edi_document_ids.edi_format_id
-            for edi_format in edi_formats:
-                # Only recreate document when cancelled before.
-                existing_edi_document = payment.edi_document_ids.filtered(lambda x: x.edi_format_id == edi_format)
-                if existing_edi_document.state == 'sent':
-                    continue
-
-                if edi_format._is_required_for_payment(payment):
-                    if existing_edi_document:
-                        existing_edi_document.write({
-                            'state': 'to_send',
-                            'error': False,
-                            'blocking_level': False,
-                        })
-                    else:
-                        edi_document_vals_list.append({
-                            'edi_format_id': edi_format.id,
-                            'move_id': payment.id,
-                            'state': 'to_send',
-                        })
-                elif existing_edi_document:
-                    to_remove |= existing_edi_document
-
-        to_remove.unlink()
-        self.env['account.edi.document'].create(edi_document_vals_list)
-        payments.edi_document_ids._process_documents_no_web_services()
+        return self._prepare_invoice_aggregated_taxes(
+            filter_invl_to_apply=filter_invl_to_apply,
+            filter_tax_values_to_apply=filter_to_apply,
+            grouping_key_generator=grouping_key_generator,
+        )
 
     def _is_ready_to_be_sent(self):
         # OVERRIDE
@@ -560,16 +238,16 @@ class AccountMove(models.Model):
         edi_document_vals_list = []
         for move in posted:
             for edi_format in move.journal_id.edi_format_ids:
-                is_edi_needed = move.is_invoice(include_receipts=False) and edi_format._is_required_for_invoice(move)
+                move_applicability = edi_format._get_move_applicability(move)
 
-                if is_edi_needed:
+                if move_applicability:
                     errors = edi_format._check_move_configuration(move)
                     if errors:
-                        raise UserError(_("Invalid invoice configuration:\n\n%s") % '\n'.join(errors))
+                        raise UserError(_("Invalid invoice configuration:\n\n%s", '\n'.join(errors)))
 
                     existing_edi_document = move.edi_document_ids.filtered(lambda x: x.edi_format_id == edi_format)
                     if existing_edi_document:
-                        existing_edi_document.write({
+                        existing_edi_document.sudo().write({
                             'state': 'to_send',
                             'attachment_id': False,
                         })
@@ -582,8 +260,17 @@ class AccountMove(models.Model):
 
         self.env['account.edi.document'].create(edi_document_vals_list)
         posted.edi_document_ids._process_documents_no_web_services()
-        self.env.ref('account_edi.ir_cron_edi_network')._trigger()
+        if not self.env.context.get('skip_account_edi_cron_trigger'):
+            self.env.ref('account_edi.ir_cron_edi_network')._trigger()
         return posted
+
+    def button_force_cancel(self):
+        """ Cancel the invoice without waiting for the cancellation request to succeed.
+        """
+        for move in self:
+            to_cancel_edi_documents = move.edi_document_ids.filtered(lambda doc: doc.state == 'to_cancel')
+            move.message_post(body=_("This invoice was canceled while the EDIs %s still had a pending cancellation request.", ", ".join(to_cancel_edi_documents.mapped('edi_format_id.name'))))
+        self.button_cancel()
 
     def button_cancel(self):
         # OVERRIDE
@@ -597,14 +284,18 @@ class AccountMove(models.Model):
 
         return res
 
+    def _edi_allow_button_draft(self):
+        self.ensure_one()
+        return not self.edi_show_cancel_button
+
     def button_draft(self):
         # OVERRIDE
         for move in self:
-            if move.edi_show_cancel_button:
+            if not move._edi_allow_button_draft():
                 raise UserError(_(
                     "You can't edit the following journal entry %s because an electronic document has already been "
-                    "sent. Please use the 'Request EDI Cancellation' button instead."
-                ) % move.display_name)
+                    "sent. Please use the 'Request EDI Cancellation' button instead.",
+                    move.display_name))
 
         res = super().button_draft()
 
@@ -618,14 +309,14 @@ class AccountMove(models.Model):
         '''
         to_cancel_documents = self.env['account.edi.document']
         for move in self:
-            move._check_fiscalyear_lock_date()
+            move._check_fiscal_lock_dates()
             is_move_marked = False
             for doc in move.edi_document_ids:
+                move_applicability = doc.edi_format_id._get_move_applicability(move)
                 if doc.edi_format_id._needs_web_services() \
-                        and doc.attachment_id \
                         and doc.state == 'sent' \
-                        and move.is_invoice(include_receipts=True) \
-                        and doc.edi_format_id._is_required_for_invoice(move):
+                        and move_applicability \
+                        and move_applicability.get('cancel'):
                     to_cancel_documents |= doc
                     is_move_marked = True
             if is_move_marked:
@@ -640,9 +331,8 @@ class AccountMove(models.Model):
         for move in self:
             is_move_marked = False
             for doc in move.edi_document_ids:
-                if doc.state == 'to_cancel' \
-                        and move.is_invoice(include_receipts=True) \
-                        and doc.edi_format_id._is_required_for_invoice(move):
+                move_applicability = doc.edi_format_id._get_move_applicability(move)
+                if doc.state == 'to_cancel' and move_applicability and move_applicability.get('cancel'):
                     documents |= doc
                     is_move_marked = True
             if is_move_marked:
@@ -654,29 +344,20 @@ class AccountMove(models.Model):
         return self.edi_document_ids.filtered(lambda d: d.edi_format_id == edi_format)
 
     def _get_edi_attachment(self, edi_format):
-        return self._get_edi_document(edi_format).attachment_id
+        return self._get_edi_document(edi_format).sudo().attachment_id
 
-    ####################################################
-    # Import Electronic Document
-    ####################################################
-
-    def _get_create_invoice_from_attachment_decoders(self):
-        # OVERRIDE
-        res = super()._get_create_invoice_from_attachment_decoders()
-        res.append((10, self.env['account.edi.format'].search([])._create_invoice_from_attachment))
-        return res
-
-    def _get_update_invoice_from_attachment_decoders(self, invoice):
-        # OVERRIDE
-        res = super()._get_update_invoice_from_attachment_decoders(invoice)
-        res.append((10, self.env['account.edi.format'].search([])._update_invoice_from_attachment))
-        return res
+    # this override is to make sure that the main attachment is not the edi xml otherwise the attachment viewer will not work correctly
+    def _message_set_main_attachment_id(self, attachments, force=False, filter_xml=True):
+        if not force and len(attachments) > 1 and self.message_main_attachment_id in self.edi_document_ids.attachment_id:
+            force = True
+        super()._message_set_main_attachment_id(attachments, force=force, filter_xml=filter_xml)
 
     ####################################################
     # Business operations
     ####################################################
 
     def button_process_edi_web_services(self):
+        self.ensure_one()
         self.action_process_edi_web_services(with_commit=False)
 
     def action_process_edi_web_services(self, with_commit=True):
@@ -694,49 +375,17 @@ class AccountMove(models.Model):
         self.edi_document_ids.write({'error': False, 'blocking_level': False})
         self.action_process_edi_web_services()
 
-
-class AccountMoveLine(models.Model):
-    _inherit = 'account.move.line'
-
     ####################################################
-    # Export Electronic Document
+    # Mailing
     ####################################################
 
-    def _prepare_edi_vals_to_export(self):
-        ''' The purpose of this helper is the same as '_prepare_edi_vals_to_export' but for a single invoice line.
-        This includes the computation of the tax details for each invoice line or the management of the discount.
-        Indeed, in some EDI, we need to provide extra values depending the discount such as:
-        - the discount as an amount instead of a percentage.
-        - the price_unit but after subtraction of the discount.
-
-        :return: A python dict containing default pre-processed values.
-        '''
-        self.ensure_one()
-
-        if self.discount == 100.0:
-            gross_price_subtotal = self.currency_id.round(self.price_unit * self.quantity)
-        else:
-            gross_price_subtotal = self.currency_id.round(self.price_subtotal / (1 - self.discount / 100.0))
-
-        res = {
-            'line': self,
-            'price_unit_after_discount': self.currency_id.round(self.price_unit * (1 - (self.discount / 100.0))),
-            'price_subtotal_before_discount': gross_price_subtotal,
-            'price_subtotal_unit': self.currency_id.round(self.price_subtotal / self.quantity) if self.quantity else 0.0,
-            'price_total_unit': self.currency_id.round(self.price_total / self.quantity) if self.quantity else 0.0,
-            'price_discount': gross_price_subtotal - self.price_subtotal,
-            'price_discount_unit': (gross_price_subtotal - self.price_subtotal) / self.quantity if self.quantity else 0.0,
-            'gross_price_total_unit': self.currency_id.round(gross_price_subtotal / self.quantity) if self.quantity else 0.0,
-            'unece_uom_code': self.product_id.product_tmpl_id.uom_id._get_unece_code(),
-        }
-        return res
-
-    def reconcile(self):
-        # OVERRIDE
-        # In some countries, the payments must be sent to the government under some condition. One of them could be
-        # there is at least one reconciled invoice to the payment. Then, we need to update the state of the edi
-        # documents during the reconciliation.
-        all_lines = self + self.matched_debit_ids.debit_move_id + self.matched_credit_ids.credit_move_id
-        res = super().reconcile()
-        all_lines.move_id._update_payments_edi_documents()
-        return res
+    def _process_attachments_for_template_post(self, mail_template):
+        """ Add Edi attachments to templates. """
+        result = super()._process_attachments_for_template_post(mail_template)
+        for move in self.filtered('edi_document_ids'):
+            move_result = result.setdefault(move.id, {})
+            for edi_doc in move.edi_document_ids:
+                edi_attachments = edi_doc._filter_edi_attachments_for_mailing()
+                move_result.setdefault('attachment_ids', []).extend(edi_attachments.get('attachment_ids', []))
+                move_result.setdefault('attachments', []).extend(edi_attachments.get('attachments', []))
+        return result

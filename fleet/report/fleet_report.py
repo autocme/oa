@@ -1,9 +1,8 @@
 # -*- coding: utf-8 -*-
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
-from psycopg2 import sql
 
-from odoo import tools
-from odoo import api, fields, models
+from odoo import fields, models
+from odoo.tools.sql import drop_view_if_exists, SQL
 
 
 class FleetReport(models.Model):
@@ -94,9 +93,8 @@ contract_costs AS (
         AND date_trunc('month', com.expiration_date) >= date_trunc('month', d)
         AND com.cost_frequency = 'monthly'
     LEFT JOIN fleet_vehicle_log_contract coy ON coy.vehicle_id = ve.id
-        AND date_trunc('month', coy.date) = date_trunc('month', d)
-        AND date_trunc('month', coy.start_date) <= date_trunc('month', d)
-        AND date_trunc('month', coy.expiration_date) >= date_trunc('month', d)
+        AND d BETWEEN coy.start_date and coy.expiration_date
+        AND date_part('month', coy.date) = date_part('month', d)
         AND coy.cost_frequency = 'yearly'
     WHERE
         ve.active
@@ -149,9 +147,5 @@ FROM (
             contract_costs cc)
 ) c
 """
-        tools.drop_view_if_exists(self.env.cr, self._table)
-        self.env.cr.execute(
-            sql.SQL("""CREATE or REPLACE VIEW {} as ({})""").format(
-                sql.Identifier(self._table),
-                sql.SQL(query)
-            ))
+        drop_view_if_exists(self.env.cr, self._table)
+        self.env.cr.execute(SQL("""CREATE or REPLACE VIEW %s as (%s)""", SQL.identifier(self._table), SQL(query)))

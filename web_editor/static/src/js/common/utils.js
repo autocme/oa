@@ -1,7 +1,54 @@
-odoo.define('web_editor.utils', function (require) {
-'use strict';
+/** @odoo-module **/
 
-const {ColorpickerWidget} = require('web.Colorpicker');
+import {SIZES, MEDIAS_BREAKPOINTS} from "@web/core/ui/ui_service";
+import {
+    normalizeCSSColor,
+    isCSSColor,
+} from '@web/core/utils/colors';
+
+let editableWindow = window;
+const _setEditableWindow = (ew) => editableWindow = ew;
+let editableDocument = document;
+const _setEditableDocument = (ed) => editableDocument = ed;
+
+const COLOR_PALETTE_COMPATIBILITY_COLOR_NAMES = ['primary', 'secondary', 'alpha', 'beta', 'gamma', 'delta', 'epsilon', 'success', 'info', 'warning', 'danger'];
+
+/**
+ * These constants are colors that can be edited by the user when using
+ * web_editor in a website context. We keep track of them so that color
+ * palettes and their preview elements can always have the right colors
+ * displayed even if website has redefined the colors during an editing
+ * session.
+ *
+ * @type {string[]}
+ */
+const EDITOR_COLOR_CSS_VARIABLES = [...COLOR_PALETTE_COMPATIBILITY_COLOR_NAMES];
+// o-cc and o-colors
+for (let i = 1; i <= 5; i++) {
+    EDITOR_COLOR_CSS_VARIABLES.push(`o-color-${i}`);
+    EDITOR_COLOR_CSS_VARIABLES.push(`o-cc${i}-bg`);
+    EDITOR_COLOR_CSS_VARIABLES.push(`o-cc${i}-bg-gradient`);
+    EDITOR_COLOR_CSS_VARIABLES.push(`o-cc${i}-headings`);
+    EDITOR_COLOR_CSS_VARIABLES.push(`o-cc${i}-text`);
+    EDITOR_COLOR_CSS_VARIABLES.push(`o-cc${i}-btn-primary`);
+    EDITOR_COLOR_CSS_VARIABLES.push(`o-cc${i}-btn-primary-text`);
+    EDITOR_COLOR_CSS_VARIABLES.push(`o-cc${i}-btn-secondary`);
+    EDITOR_COLOR_CSS_VARIABLES.push(`o-cc${i}-btn-secondary-text`);
+    EDITOR_COLOR_CSS_VARIABLES.push(`o-cc${i}-btn-primary-border`);
+    EDITOR_COLOR_CSS_VARIABLES.push(`o-cc${i}-btn-secondary-border`);
+}
+// Grays
+for (let i = 100; i <= 900; i += 100) {
+    EDITOR_COLOR_CSS_VARIABLES.push(`${i}`);
+}
+
+// Black, white and their opacity variants.
+// These variables are necessary to prevent the colorpicker from being affected
+// by the backend "Dark Mode".
+EDITOR_COLOR_CSS_VARIABLES.push(
+    "black", "black-15", "black-25", "black-50", "black-75",
+    "white", "white-25", "white-50", "white-75", "white-85"
+);
 
 /**
  * window.getComputedStyle cannot work properly with CSS shortcuts (like
@@ -53,6 +100,7 @@ const DEFAULT_PALETTE = {
 const BACKGROUND_IMAGE_ATTRIBUTES = new Set([
     "originalId", "originalSrc", "mimetype", "resizeWidth", "glFilter", "quality", "bgSrc",
     "filterOptions",
+    "mimetypeBeforeConversion",
 ]);
 
 /**
@@ -64,11 +112,11 @@ const BACKGROUND_IMAGE_ATTRIBUTES = new Set([
  *                  - the inverse otherwise
  */
 function _computePxByRem(toRem) {
-    if (_computePxByRem.PX_BY_REM === undefined) {
-        const htmlStyle = window.getComputedStyle(document.documentElement);
-        _computePxByRem.PX_BY_REM = parseFloat(htmlStyle['font-size']);
+    if (editableDocument.PX_BY_REM === undefined) {
+        const htmlStyle = editableWindow.getComputedStyle(editableDocument.documentElement);
+        editableDocument.PX_BY_REM = parseFloat(htmlStyle['font-size']);
     }
-    return toRem ? (1 / _computePxByRem.PX_BY_REM) : _computePxByRem.PX_BY_REM;
+    return toRem ? (1 / editableDocument.PX_BY_REM) : editableDocument.PX_BY_REM;
 }
 /**
  * Converts the given (value + unit) string to a numeric value expressed in
@@ -125,7 +173,7 @@ function _convertNumericToUnit(value, unitFrom, unitTo, cssProp, $target) {
  * @returns {Array|null}
  */
 function _getNumericAndUnit(value) {
-    const m = value.trim().match(/^(-?[0-9.]+)([A-Za-z% -]*)$/);
+    const m = value.trim().match(/^(-?[0-9.]+(?:e[+|-]?[0-9]+)?)\s*([^\s]*)$/);
     if (!m) {
         return null;
     }
@@ -137,13 +185,30 @@ function _getNumericAndUnit(value) {
  * @param {string} value1
  * @param {string} value2
  * @param {string} [cssProp] - the css property on which the unit applies
- * @param {jQuery} [$target] - the jQuery element on which that css property
- *                             may change
+ * @param {Node} [target] - the element on which that css property
  * @returns {boolean}
  */
-function _areCssValuesEqual(value1, value2, cssProp, $target) {
+function _areCssValuesEqual(value1, value2, cssProp, target) {
+    const $target = $(target);
     // String comparison first
     if (value1 === value2) {
+        return true;
+    }
+
+    // In case the values are a size, they might be made of two parts.
+    if (cssProp && cssProp.endsWith('-size')) {
+        // Avoid re-splitting each part during their individual comparison.
+        const pseudoPartProp = cssProp + '-part';
+        const re = /-?[0-9.]+(?:e[+|-]?[0-9]+)?\s*[A-Za-z%-]+|auto/g;
+        const parts1 = value1.match(re);
+        const parts2 = value2.match(re);
+        for (const index of [0, 1]) {
+            const part1 = parts1 && parts1.length > index ? parts1[index] : 'auto';
+            const part2 = parts2 && parts2.length > index ? parts2[index] : 'auto';
+            if (!_areCssValuesEqual(part1, part2, pseudoPartProp, $target)) {
+                return false;
+            }
+        }
         return true;
     }
 
@@ -160,8 +225,8 @@ function _areCssValuesEqual(value1, value2, cssProp, $target) {
     }
 
     // They may be colors, normalize then re-compare the resulting string
-    const color1 = ColorpickerWidget.normalizeCSSColor(value1);
-    const color2 = ColorpickerWidget.normalizeCSSColor(value2);
+    const color1 = normalizeCSSColor(value1);
+    const color2 = normalizeCSSColor(value2);
     if (color1 === color2) {
         return true;
     }
@@ -256,12 +321,12 @@ function _computeColorClasses(colorNames, prefix = 'bg-') {
  */
 function _getCSSVariableValue(key, htmlStyle) {
     if (htmlStyle === undefined) {
-        htmlStyle = window.getComputedStyle(document.documentElement);
+        htmlStyle = editableWindow.getComputedStyle(editableWindow.document.documentElement);
     }
     // Get trimmed value from the HTML element
     let value = htmlStyle.getPropertyValue(`--${key}`).trim();
     // If it is a color value, it needs to be normalized
-    value = ColorpickerWidget.normalizeCSSColor(value);
+    value = normalizeCSSColor(value);
     // Normally scss-string values are "printed" single-quoted. That way no
     // magic conversation is needed when customizing a variable: either save it
     // quoted for strings or non quoted for colors, numbers, etc. However,
@@ -277,7 +342,7 @@ function _getCSSVariableValue(key, htmlStyle) {
  * @returns {string} the normalized color
  */
 function _normalizeColor(color) {
-    if (ColorpickerWidget.isCSSColor(color)) {
+    if (isCSSColor(color)) {
         return color;
     }
     return _getCSSVariableValue(color);
@@ -345,6 +410,15 @@ function _isColorGradient(value) {
     return value && value.includes('-gradient(');
 }
 /**
+ * Generates a string ID.
+ *
+ * @private
+ * @returns {string}
+ */
+function _generateHTMLId() {
+    return `o${Math.random().toString(36).substring(2, 15)}`;
+}
+/**
  * Returns the class of the element that matches the specified prefix.
  *
  * @private
@@ -401,11 +475,88 @@ function _shouldEditableMediaBeEditable(mediaEl) {
         && nonEditableAncestorRootEl.parentElement
         && nonEditableAncestorRootEl.parentElement.isContentEditable;
 }
+/**
+ * Checks if the view of the targeted element is mobile.
+ *
+ * @param {HTMLElement} targetEl - target of the editor
+ * @returns {boolean}
+ */
+function _isMobileView(targetEl) {
+    const mobileViewThreshold = MEDIAS_BREAKPOINTS[SIZES.LG].minWidth;
+    const clientWidth = targetEl.ownerDocument.defaultView?.frameElement?.clientWidth ||
+        targetEl.ownerDocument.documentElement.clientWidth;
+    return clientWidth && clientWidth < mobileViewThreshold;
+}
+/**
+ * Returns the label of a link element.
+ *
+ * @param {HTMLElement} linkEl
+ * @returns {string}
+ */
+function _getLinkLabel(linkEl) {
+    return linkEl.textContent.replaceAll("\u200B", "").replaceAll("\uFEFF", "");
+}
+/**
+ * Forwards an image source to its carousel thumbnail.
+ * @param {HTMLElement} imgEl
+ */
+function _forwardToThumbnail(imgEl) {
+    const carouselEl = imgEl.closest(".carousel");
+    if (carouselEl) {
+        const carouselInnerEl = imgEl.closest(".carousel-inner");
+        const carouselItemEl = imgEl.closest(".carousel-item");
+        if (carouselInnerEl && carouselItemEl) {
+            const imageIndex = [...carouselInnerEl.children].indexOf(carouselItemEl);
+            const miniatureEl = carouselEl.querySelector(`.carousel-indicators [data-bs-slide-to="${imageIndex}"]`);
+            if (miniatureEl && miniatureEl.style.backgroundImage) {
+                miniatureEl.style.backgroundImage = `url(${imgEl.getAttribute("src")})`;
+            }
+        }
+    }
+}
 
-return {
+/**
+ * @param {HTMLImageElement} img
+ * @returns {Promise<Boolean>}
+ */
+async function _isImageCorsProtected(img) {
+    const src = img.getAttribute("src");
+    if (!src) {
+        return false;
+    }
+    let isCorsProtected = false;
+    if (!src.startsWith("/") || /\/web\/image\/\d+-redirect\//.test(src)) {
+        // The `fetch()` used later in the code might fail if the image is
+        // CORS protected. We check upfront if it's the case.
+        // Two possible cases:
+        // 1. the `src` is an absolute URL from another domain.
+        //    For instance, abc.odoo.com vs abc.com which are actually the
+        //    same database behind.
+        // 2. A "attachment-url" which is just a redirect to the real image
+        //    which could be hosted on another website.
+        isCorsProtected = await fetch(src, { method: "HEAD" })
+            .then(() => false)
+            .catch(() => true);
+    }
+    return isCorsProtected;
+}
+
+/**
+ * @param {string} src
+ * @returns {Promise<Boolean>}
+ */
+async function _isSrcCorsProtected(src) {
+    const dummyImg = document.createElement("img");
+    dummyImg.src = src;
+    return _isImageCorsProtected(dummyImg);
+}
+
+export default {
+    COLOR_PALETTE_COMPATIBILITY_COLOR_NAMES: COLOR_PALETTE_COMPATIBILITY_COLOR_NAMES,
     CSS_SHORTHANDS: CSS_SHORTHANDS,
     CSS_UNITS_CONVERSION: CSS_UNITS_CONVERSION,
     DEFAULT_PALETTE: DEFAULT_PALETTE,
+    EDITOR_COLOR_CSS_VARIABLES: EDITOR_COLOR_CSS_VARIABLES,
     computePxByRem: _computePxByRem,
     convertValueToUnit: _convertValueToUnit,
     convertNumericToUnit: _convertNumericToUnit,
@@ -419,9 +570,16 @@ return {
     getBgImageURL: _getBgImageURL,
     backgroundImageCssToParts: _backgroundImageCssToParts,
     backgroundImagePartsToCss: _backgroundImagePartsToCss,
+    generateHTMLId: _generateHTMLId,
     getColorClass: _getColorClass,
+    setEditableWindow: _setEditableWindow,
+    setEditableDocument: _setEditableDocument,
     addBackgroundImageAttributes: _addBackgroundImageAttributes,
     isBackgroundImageAttribute: _isBackgroundImageAttribute,
     shouldEditableMediaBeEditable: _shouldEditableMediaBeEditable,
+    isMobileView: _isMobileView,
+    getLinkLabel: _getLinkLabel,
+    forwardToThumbnail: _forwardToThumbnail,
+    isImageCorsProtected: _isImageCorsProtected,
+    isSrcCorsProtected: _isSrcCorsProtected,
 };
-});

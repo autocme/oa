@@ -10,8 +10,8 @@ class ResCompany(models.Model):
     subcontracting_location_id = fields.Many2one('stock.location')
 
     @api.model
-    def create_missing_subcontracting_location(self):
-        company_without_subcontracting_loc = self.env['res.company'].search(
+    def _create_missing_subcontracting_location(self):
+        company_without_subcontracting_loc = self.env['res.company'].with_context(active_test=False).search(
             [('subcontracting_location_id', '=', False)])
         company_without_subcontracting_loc._create_subcontracting_location()
 
@@ -27,11 +27,12 @@ class ResCompany(models.Model):
                 'usage': 'internal',
                 'location_id': parent_location.id,
                 'company_id': company.id,
+                'is_subcontracting_location': True,
             })
-            self.env['ir.property']._set_default(
-                "property_stock_subcontractor",
+            self.env['ir.default'].set(
                 "res.partner",
-                subcontracting_location,
-                company,
+                "property_stock_subcontractor",
+                subcontracting_location.id,
+                company_id=company.id,
             )
             company.subcontracting_location_id = subcontracting_location

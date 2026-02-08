@@ -1,8 +1,7 @@
-odoo.define('website.post_link', function (require) {
-'use strict';
+/** @odoo-module **/
 
-const publicWidget = require('web.public.widget');
-const wUtils = require('website.utils');
+import publicWidget from "@web/legacy/js/public/public_widget";
+import wUtils from "@website/js/utils";
 
 publicWidget.registry.postLink = publicWidget.Widget.extend({
     selector: '.post_link',
@@ -32,7 +31,7 @@ publicWidget.registry.postLink = publicWidget.Widget.extend({
 
     _onClickPost: function (ev) {
         ev.preventDefault();
-        const url = this.el.dataset.post || this.el.href;
+        const url = this.el.dataset.post || this.el.href || this.el.value;
         let data = {};
         for (let [key, value] of Object.entries(this.el.dataset)) {
             if (key.startsWith('post_')) {
@@ -41,6 +40,4 @@ publicWidget.registry.postLink = publicWidget.Widget.extend({
         }
         wUtils.sendRequest(url, data);
     },
-});
-
 });

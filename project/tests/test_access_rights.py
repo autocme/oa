@@ -61,8 +61,8 @@ class TestCRUDVisibilityFollowers(TestAccessRights):
     @users('Internal user')
     def test_project_allowed_internal_read(self):
         self.project_pigs.message_subscribe(partner_ids=[self.env.user.partner_id.id])
-        self.project_pigs.flush()
-        self.project_pigs.invalidate_cache()
+        self.project_pigs.flush_model()
+        self.project_pigs.invalidate_model()
         self.project_pigs.with_user(self.env.user).name
 
     @users('Internal user', 'Portal user')
@@ -81,8 +81,8 @@ class TestCRUDVisibilityFollowers(TestAccessRights):
     @users('Internal user')
     def test_task_allowed_internal_read(self):
         self.project_pigs.message_subscribe(partner_ids=[self.env.user.partner_id.id])
-        self.task.flush()
-        self.task.invalidate_cache()
+        self.task.flush_model()
+        self.task.invalidate_model()
         self.task.with_user(self.env.user).name
 
     @users('Internal user', 'Portal user')
@@ -117,6 +117,7 @@ class TestCRUDVisibilityPortal(TestAccessRights):
     def setUp(self):
         super().setUp()
         self.project_pigs.privacy_visibility = 'portal'
+        self.env.flush_all()
 
     @users('Portal user')
     def test_task_portal_no_read(self):
@@ -126,14 +127,15 @@ class TestCRUDVisibilityPortal(TestAccessRights):
     @users('Portal user')
     def test_task_allowed_portal_read(self):
         self.project_pigs.message_subscribe(partner_ids=[self.env.user.partner_id.id])
-        self.task.flush()
-        self.task.invalidate_cache()
-        self.task.with_user(self.env.user).name
+        self.task.flush_model()
+        self.task.invalidate_model()
+        with self.assertRaises(AccessError, msg=f"{self.env.user.name} should not be able to read the task"):
+            self.task.with_user(self.env.user).name
 
     @users('Internal user')
     def test_task_internal_read(self):
-        self.task.flush()
-        self.task.invalidate_cache()
+        self.task.flush_model()
+        self.task.invalidate_model()
         self.task.with_user(self.env.user).name
 
 class TestCRUDVisibilityEmployees(TestAccessRights):
@@ -153,8 +155,8 @@ class TestCRUDVisibilityEmployees(TestAccessRights):
 
     @users('Internal user')
     def test_task_allowed_portal_read(self):
-        self.task.flush()
-        self.task.invalidate_cache()
+        self.task.flush_model()
+        self.task.invalidate_model()
         self.task.with_user(self.env.user).name
 
 class TestAllowedUsers(TestAccessRights):
@@ -165,30 +167,38 @@ class TestAllowedUsers(TestAccessRights):
 
     def test_project_permission_added(self):
         self.project_pigs.message_subscribe(partner_ids=[self.user.partner_id.id])
-        self.assertIn(self.user.partner_id, self.task.message_partner_ids)
+        self.assertIn(self.user.partner_id, self.project_pigs.message_partner_ids)
+        # Subscribing to a project should not cause subscription to existing tasks in the project.
+        self.assertNotIn(self.user.partner_id, self.task.message_partner_ids)
 
     def test_project_default_permission(self):
         self.project_pigs.message_subscribe(partner_ids=[self.user.partner_id.id])
-        task = self.create_task("Review the end of the world")
-        self.assertIn(self.user.partner_id, self.task.message_partner_ids)
+        created_task = self.create_task("Review the end of the world")
+        # Subscribing to a project should cause subscription to new tasks in the project.
+        self.assertIn(self.user.partner_id, created_task.message_partner_ids)
 
     def test_project_default_customer_permission(self):
         self.project_pigs.privacy_visibility = 'portal'
         self.project_pigs.message_subscribe(partner_ids=[self.portal.partner_id.id])
-        self.assertIn(self.portal.partner_id, self.task.message_partner_ids)
+        # Subscribing a default customer to a project should not cause its subscription to existing tasks in the project.
+        self.assertNotIn(self.portal.partner_id, self.task.message_partner_ids)
         self.assertIn(self.portal.partner_id, self.project_pigs.message_partner_ids)
 
     def test_project_permission_removed(self):
         self.project_pigs.message_subscribe(partner_ids=[self.user.partner_id.id])
         self.project_pigs.message_unsubscribe(partner_ids=[self.user.partner_id.id])
-        self.assertNotIn(self.user.partner_id, self.task.message_partner_ids)
+        # Unsubscribing to a project should not cause unsubscription of existing tasks in the project.
+        self.assertNotIn(self.user.partner_id, self.project_pigs.message_partner_ids)
 
     def test_project_specific_permission(self):
         self.project_pigs.message_subscribe(partner_ids=[self.user.partner_id.id])
         john = mail_new_test_user(self.env, 'John')
         self.project_pigs.message_subscribe(partner_ids=[john.partner_id.id])
         self.project_pigs.message_unsubscribe(partner_ids=[self.user.partner_id.id])
-        self.assertIn(john.partner_id, self.task.message_partner_ids, "John should still be allowed to read the task")
+        # User specific subscribing to a project should not cause its subscription to existing tasks in the project.
+        self.assertNotIn(john.partner_id, self.task.message_partner_ids, "John should not be allowed to read the task")
+        task = self.create_task("New task")
+        self.assertIn(john.partner_id, task.message_partner_ids, "John should allowed to read the task")
 
     def test_project_specific_remove_mutliple_tasks(self):
         self.project_pigs.message_subscribe(partner_ids=[self.user.partner_id.id])
@@ -198,7 +208,8 @@ class TestAllowedUsers(TestAccessRights):
         self.project_pigs.message_unsubscribe(partner_ids=[self.user.partner_id.id])
         self.assertIn(john.partner_id, self.task.message_partner_ids)
         self.assertNotIn(john.partner_id, task.message_partner_ids)
-        self.assertNotIn(self.user.partner_id, task.message_partner_ids)
+        # Unsubscribing to a project should not cause unsubscription of existing tasks in the project.
+        self.assertIn(self.user.partner_id, task.message_partner_ids)
         self.assertNotIn(self.user.partner_id, self.task.message_partner_ids)
 
     def test_visibility_changed(self):
@@ -212,8 +223,8 @@ class TestAllowedUsers(TestAccessRights):
         self.user.groups_id |= self.env.ref('project.group_project_user')
         self.assertNotIn(self.user.partner_id, self.project_pigs.message_partner_ids)
         self.task.message_subscribe(partner_ids=[self.user.partner_id.id])
-        self.project_pigs.invalidate_cache()
-        self.task.invalidate_cache()
+        self.project_pigs.invalidate_model()
+        self.task.invalidate_model()
         self.task.with_user(self.user).name = "I can edit a task!"
 
     def test_no_write_project(self):
@@ -280,7 +291,6 @@ class TestPortalProject(TestProjectPortalCommon):
     def test_followers_project_access_rights(self):
         pigs = self.project_pigs
         pigs.write({'privacy_visibility': 'followers'})
-        pigs.flush(['privacy_visibility'])
         # Do: Alfred reads project -> ko (employee ko followers)
         self.assertRaises(AccessError, pigs.with_user(self.user_projectuser).read, ['user_id'])
         # Test: no project task visible
@@ -298,7 +308,7 @@ class TestPortalProject(TestProjectPortalCommon):
 
         # Do: Alfred reads project -> ok (follower ok followers)
         donkey = pigs.with_user(self.user_projectuser)
-        donkey.invalidate_cache()
+        donkey.invalidate_model()
         donkey.read(['user_id'])
 
         # Do: Donovan reads project -> ko (public ko follower even if follower)
@@ -329,8 +339,9 @@ class TestAccessRightsPrivateTask(TestAccessRights):
         self.project_user = mail_new_test_user(self.env, 'Project user', groups='project.group_project_user')
 
     def create_private_task(self, name, with_user=None, **kwargs):
-        values = dict(name=name, **kwargs)
-        return self.env['project.task'].with_user(with_user or self.env.user).create(values)
+        user = with_user or self.env.user
+        values = {'name': name, 'user_ids': [Command.set(user.ids)], **kwargs}
+        return self.env['project.task'].with_user(user).create(values)
 
     @users('Internal user', 'Portal user')
     def test_internal_cannot_crud_private_task(self):
@@ -356,9 +367,37 @@ class TestAccessRightsPrivateTask(TestAccessRights):
         self.assertEqual(vals[0]['name'], private_task.name)
 
     @users('Project user')
-    def test_project_user_cannot_create_private_task_for_another_user(self):
-        with self.assertRaises(AccessError):
-            self.create_private_task('test private for another user', self.env.user, user_ids=[Command.set(self.user_projectuser.ids)])
+    def test_project_user_can_create_private_task_for_another_user(self):
+        self.create_private_task('Private task', user_ids=[Command.set(self.user_projectuser.ids)])
+
+    @users('Project user')
+    def test_project_current_user_is_added_in_private_task_assignees(self):
+        task_values = {'name': 'Private task'}
+        my_private_task = self.env['project.task'].create(task_values)
+        self.assertEqual(my_private_task.user_ids, self.env.user, 'When no assignee is set on a private task, the task should be assigned to the current user.')
+        user_projectuser_private_task = self.env['project.task'].create({**task_values, 'user_ids': [Command.set(self.user_projectuser.ids)]})
+        self.assertTrue(self.env.user in user_projectuser_private_task.user_ids, 'When creating a private task for another user, the current user should be added to the assignees.')
+
+    @users('Project user')
+    def test_project_current_user_is_added_in_task_assignees_when_project_id_is_set(self):
+        task_values = {'name': 'Private task', 'project_id': self.project_pigs.id, 'user_ids': [Command.set(self.user_projectuser.ids)]}
+        user_projectuser_task = self.env['project.task'].create(task_values)
+        self.assertFalse(self.env.user in user_projectuser_task.user_ids, "When creating a task that has a project for another user, the current user should not be added to the assignees.")
+
+    @users('Project user')
+    def test_project_current_user_is_set_as_assignee_in_task_when_project_id_is_set_with_no_assignees(self):
+        task = self.env['project.task'].create({'name': 'Private task', 'project_id': self.project_pigs.id})
+        self.assertEqual(task.user_ids, self.env.user, "When creating a task that has a project without assignees, the task will be assigned to the current user if no default_project_id is provided in the context (which is handled in _default_personal_stage_type_id).")
+
+    @users('Project user')
+    def test_project_current_user_is_not_added_in_private_task_assignees_when_default_project_id_is_in_the_context(self):
+        task_values = {'name': 'Private task'}
+        context = {'default_project_id': self.project_pigs.id}
+        ProjectTask_with_default_project_id = self.env['project.task'].with_context(context)
+        task = ProjectTask_with_default_project_id.create(task_values)
+        self.assertNotEqual(task.user_ids, self.env.user, "When creating a task without assignees and providing default_project_id in the context, the task should not be assigned to the current user.")
+        user_projectuser_task = ProjectTask_with_default_project_id.create({**task_values, 'user_ids': [Command.set(self.user_projectuser.ids)]})
+        self.assertFalse(self.env.user in user_projectuser_task.user_ids, "When creating a task for another user and providing default_project_id in the context, the current user should not be added to the assignees.")
 
     @users('Project user')
     def test_project_user_cannot_write_private_task_of_another_user(self):

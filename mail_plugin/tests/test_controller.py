@@ -28,13 +28,13 @@ class TestMailPluginController(TestMailPluginControllerCommon):
 
         company_id = result["company"]["id"]
         company = self.env["res.partner"].browse(company_id)
-        partner.invalidate_cache()
+        partner.invalidate_recordset()
         self.assertEqual(partner.parent_id, company, "Should change the company of the partner")
 
     @mock_auth_method_outlook('employee')
     def test_get_partner_blacklisted_domain(self):
         """Test enrichment on a blacklisted domain, should return an error."""
-        domain = list(iap_tools._MAIL_DOMAIN_BLACKLIST)[0]
+        domain = min(iap_tools._MAIL_PROVIDERS)
 
         data = {
             "id": 0,
@@ -146,12 +146,12 @@ class TestMailPluginController(TestMailPluginControllerCommon):
         self.assertEqual(new_partner_count, partner_count, "Should not have created a new partner")
 
         # now we can't access it
-        def _check_access_rule(record, operation, *args, **kwargs):
+        def _check_access(record, operation):
             if operation == "read" and record == partner:
-                raise AccessError("No Access")
-            return True
+                return record, lambda: AccessError("No Access")
+            return None
 
-        with patch.object(type(partner), 'check_access_rule', _check_access_rule):
+        with patch.object(type(partner), '_check_access', _check_access):
             result = self.mock_plugin_partner_get(
                 "Test", "test@test.example.com",
                 lambda _, domain: {"name": "Name", "email": "test@test.example.com"},
@@ -187,3 +187,22 @@ class TestMailPluginController(TestMailPluginControllerCommon):
         )
         second_company_id = result["partner"]["company"]["id"]
         self.assertEqual(first_company_id, second_company_id, "Should not create a new company")
+
+    def test_get_partner_is_default_from(self):
+        """When the email_from is the server default from address, we return a custom message instead of trying to match a partner record."""
+        self.env['mail.alias.domain'].create({'name': 'example.com', 'default_from': 'notification'})
+        mock_iap_enrich = Mock()
+        result = self.mock_plugin_partner_get("Test partner", "notificaTION@EXAMPLE.COM", mock_iap_enrich)
+        self.assertEqual(
+            result,
+            {
+                'partner': {
+                    'name': 'Notification',
+                    'email': 'notification@example.com',
+                    'enrichment_info': {
+                        'type': 'odoo_custom_error',
+                        'info': 'This is your notification address. Search the Contact manually to link this email to a record.',
+                    },
+                },
+            },
+        )

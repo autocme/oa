@@ -15,11 +15,12 @@ class ResConfigSettings(models.TransientModel):
         related="company_id.l10n_in_edi_ewaybill_password", readonly=False)
 
     def l10n_in_edi_ewaybill_test(self):
+        self.l10n_in_check_gst_number()
         response = self.env["account.edi.format"]._l10n_in_edi_ewaybill_authenticate(self.company_id)
         if response.get("error") or not self.company_id.sudo()._l10n_in_edi_ewaybill_token_is_valid():
             error_message = _("Incorrect username or password, or the GST number on company does not match.")
             if response.get("error"):
-                error_message = "\n".join(["[%s] %s" % (e.get("code"), html_escape(e.get("message"))) for e in response["error"]])
+                error_message = "\n".join([html_escape("[%s] %s" % (e.get("code"), e.get("message"))) for e in response["error"]])
             raise UserError(error_message)
         return {
               'type': 'ir.actions.client',

@@ -1,22 +1,37 @@
-odoo.define('survey.form', function (require) {
-'use strict';
+/** @odoo-module **/
 
-var field_utils = require('web.field_utils');
-var publicWidget = require('web.public.widget');
-var time = require('web.time');
-var core = require('web.core');
-var Dialog = require('web.Dialog');
-var dom = require('web.dom');
-var utils = require('web.utils');
+import publicWidget from "@web/legacy/js/public/public_widget";
+import { _t } from "@web/core/l10n/translation";
+import { rpc } from "@web/core/network/rpc";
+import { cookie } from "@web/core/browser/cookie";
+import { utils as uiUtils } from "@web/core/ui/ui_service";
+import { scrollTo } from "@web_editor/js/common/scrolling";
 
-var _t = core._t;
+import SurveyPreloadImageMixin from "@survey/js/survey_preload_image_mixin";
+import { SurveyImageZoomer } from "@survey/js/survey_image_zoomer";
+import {
+    deserializeDate,
+    deserializeDateTime,
+    parseDateTime,
+    parseDate,
+    serializeDateTime,
+    serializeDate,
+} from "@web/core/l10n/dates";
+import { resizeTextArea } from "@web/core/utils/autoresize";
+const { DateTime } = luxon;
 
-publicWidget.registry.SurveyFormWidget = publicWidget.Widget.extend({
+var isMac = navigator.platform.toUpperCase().includes('MAC');
+
+publicWidget.registry.SurveyFormWidget = publicWidget.Widget.extend(SurveyPreloadImageMixin, {
     selector: '.o_survey_form',
     events: {
         'change .o_survey_form_choice_item': '_onChangeChoiceItem',
         'click .o_survey_matrix_btn': '_onMatrixBtnClick',
+        'click input[type="radio"]': '_onRadioChoiceClick',
         'click button[type="submit"]': '_onSubmit',
+        'click .o_survey_choice_img img': '_onChoiceImgClick',
+        'focusin .form-control': '_updateEnterButtonText',
+        'focusout .form-control': '_updateEnterButtonText'
     },
     custom_events: {
         'breadcrumb_click': '_onBreadcrumbClick',
@@ -33,13 +48,14 @@ publicWidget.registry.SurveyFormWidget = publicWidget.Widget.extend({
         var self = this;
         this.fadeInOutDelay = 400;
         return this._super.apply(this, arguments).then(function () {
-            self.options = self.$target.find('form').data();
+            self.options = self.$('form').data();
             self.readonly = self.options.readonly;
             self.selectedAnswers = self.options.selectedAnswers;
+            self.imgZoomer = false;
 
             // Add Survey cookie to retrieve the survey if you quit the page and restart the survey.
-            if (!utils.get_cookie('survey_' + self.options.surveyToken)) {
-                utils.set_cookie('survey_' + self.options.surveyToken, self.options.answerToken, 60*60*24);
+            if (!cookie.get('survey_' + self.options.surveyToken)) {
+                cookie.set('survey_' + self.options.surveyToken, self.options.answerToken, 60 * 60 * 24, 'optional');
             }
 
             // Init fields
@@ -47,15 +63,13 @@ publicWidget.registry.SurveyFormWidget = publicWidget.Widget.extend({
                 self._initTimer();
                 self._initBreadcrumb();
             }
-            self.$('div.o_survey_form_date').each(function () {
-                self._initDateTimePicker($(this));
-            });
             self._initChoiceItems();
             self._initTextArea();
             self._focusOnFirstInput();
             // Init event listener
             if (!self.readonly) {
-                $(document).on('keydown', self._onKeyDown.bind(self));
+                self.documentKeydownListener = self._onKeyDown.bind(self);
+                $(document).on('keydown', self.documentKeydownListener);
             }
             if (self.options.sessionInProgress &&
                 (self.options.isStartScreen || self.options.hasAnswered || self.options.isPageDescription)) {
@@ -68,6 +82,8 @@ publicWidget.registry.SurveyFormWidget = publicWidget.Widget.extend({
             self.$surveyProgress = $('.o_survey_progress_wrapper');
             self.$surveyNavigation = $('.o_survey_navigation_wrapper');
             self.$surveyNavigation.find('.o_survey_navigation_submit').on('click', self._onSubmit.bind(self));
+
+            self.$('button[type="submit"]').removeClass('disabled');
         });
     },
 
@@ -89,29 +105,43 @@ publicWidget.registry.SurveyFormWidget = publicWidget.Widget.extend({
      */
     _onKeyDown: function (event) {
         var self = this;
-        var keyCode = event.keyCode;
+
+        if (['one_page', 'page_per_section'].includes(self.options.questionsLayout) && !self.options.isStartScreen) {
+            if (this.$("input").is(":focus") && event.key === "Enter") {
+                event.preventDefault();
+            }
+            if (!(event.ctrlKey || event.metaKey) || event.key !== "Enter") {
+                return;
+            }
+        }
 
         // If user is answering a text input, do not handle keydown
-        // CTRL+enter will force submission
+        // CTRL+enter will force submission (meta key for Mac)
         if ((this.$("textarea").is(":focus") || this.$('input').is(':focus')) &&
-            (!event.ctrlKey || keyCode !== 13)) {
+            (!(event.ctrlKey || event.metaKey) || event.key !== "Enter")) {
             return;
         }
         // If in session mode and question already answered, do not handle keydown
         if (this.$('fieldset[disabled="disabled"]').length !== 0) {
             return;
         }
+        // Disable all navigation keys when zoom modal is open, except the ESC.
+        if ((this.imgZoomer && !this.imgZoomer.isDestroyed()) && event.key !== "Escape") {
+            return;
+        }
 
-        var letter = String.fromCharCode(keyCode).toUpperCase();
+        var letter = event.key.toUpperCase();
 
         // Handle Start / Next / Submit
-        if (keyCode === 13 || keyCode === 39) {  // Enter or arrow-right: go Next
+        if (event.key === "Enter" || event.key === "ArrowRight") {  // Enter or arrow-right: go Next
             event.preventDefault();
             if (!this.preventEnterSubmit) {
-                var isFinish = this.$('button[value="finish"]').length !== 0;
-                this._submitForm({isFinish: isFinish});
+                this._submitForm({
+                    isFinish: this.el.querySelectorAll('button[value="finish"]').length !== 0,
+                    nextSkipped: this.el.querySelectorAll('button[value="next_skipped"]').length !== 0 ? event.key === "Enter" : false,
+                });
             }
-        } else if (keyCode === 37) {  // arrow-left: previous (if available)
+        } else if (event.key === "ArrowLeft") {  // arrow-left: previous (if available)
             // It's easier to actually click on the button (if in the DOM) as it contains necessary
             // data that are used in the event handler.
             // Again, global selector necessary since the navigation is outside of the form.
@@ -129,126 +159,60 @@ publicWidget.registry.SurveyFormWidget = publicWidget.Widget.extend({
     },
 
     /**
-    * Checks, if the 'other' choice is checked. Applies only if the comment count as answer.
-    *   If not checked : Clear the comment textarea, hide and disable it
-    *   If checked : enable the comment textarea, show and focus on it
-    *
-    * @private
-    * @param {Event} event
-    */
+     * Handle visibility of comment area and conditional questions
+     * The form (page) is then automatically submitted if:
+     * - Survey is configured with one page per question and participants are allowed to go back,
+     * - It is not the last question of the survey,
+     * - The question is not waiting for a comment (with "Other" answer),
+     *
+     * @param event
+     */
     _onChangeChoiceItem: function (event) {
-        var self = this;
-        var $target = $(event.currentTarget);
-        var $choiceItemGroup = $target.closest('.o_survey_form_choice');
-        var $otherItem = $choiceItemGroup.find('.o_survey_js_form_other_comment');
-        var $commentInput = $choiceItemGroup.find('textarea[type="text"]');
+        const $target = $(event.currentTarget);
+        const $choiceItemGroup = $target.closest('.o_survey_form_choice');
 
-        if ($otherItem.prop('checked') || $commentInput.hasClass('o_survey_comment')) {
-            $commentInput.enable();
-            $commentInput.closest('.o_survey_comment_container').removeClass('d-none');
-            if ($otherItem.prop('checked')) {
-                $commentInput.focus();
-            }
-        } else {
-            $commentInput.val('');
-            $commentInput.closest('.o_survey_comment_container').addClass('d-none');
-            $commentInput.enable(false);
-        }
-
-        var $matrixBtn = $target.closest('.o_survey_matrix_btn');
-        if ($target.attr('type') === 'radio') {
-            var isQuestionComplete = false;
-            if ($matrixBtn.length > 0) {
-                $matrixBtn.closest('tr').find('td').removeClass('o_survey_selected');
-                $matrixBtn.addClass('o_survey_selected');
-                if (this.options.questionsLayout === 'page_per_question') {
-                    var subQuestionsIds = $matrixBtn.closest('table').data('subQuestions');
-                    var completedQuestions = [];
-                    subQuestionsIds.forEach(function (id) {
-                        if (self.$('tr#' + id).find('input:checked').length !== 0) {
-                            completedQuestions.push(id);
-                        }
-                    });
-                    isQuestionComplete = completedQuestions.length === subQuestionsIds.length;
-                }
-            } else {
-                var previouslySelectedAnswer = $choiceItemGroup.find('label.o_survey_selected');
-                previouslySelectedAnswer.removeClass('o_survey_selected');
-
-                var newlySelectedAnswer = $target.closest('label');
-                if (newlySelectedAnswer.find('input').val() !== previouslySelectedAnswer.find('input').val()) {
-                    newlySelectedAnswer.addClass('o_survey_selected');
-                    isQuestionComplete = this.options.questionsLayout === 'page_per_question';
-                }
-
-                // Conditional display
-                if (this.options.questionsLayout !== 'page_per_question') {
-                    var treatedQuestionIds = [];  // Needed to avoid show (1st 'if') then immediately hide (2nd 'if') question during conditional propagation cascade
-                    if (Object.keys(this.options.triggeredQuestionsByAnswer).includes(previouslySelectedAnswer.find('input').val())) {
-                        // Hide and clear depending question
-                        this.options.triggeredQuestionsByAnswer[previouslySelectedAnswer.find('input').val()].forEach(function (questionId) {
-                            var dependingQuestion = $('.js_question-wrapper#' + questionId);
-
-                            dependingQuestion.addClass('d-none');
-                            self._clearQuestionInputs(dependingQuestion);
-
-                            treatedQuestionIds.push(questionId);
-                        });
-                        // Remove answer from selected answer
-                        self.selectedAnswers.splice(self.selectedAnswers.indexOf(parseInt($target.val())), 1);
-                    }
-                    if (Object.keys(this.options.triggeredQuestionsByAnswer).includes($target.val())) {
-                        // Display depending question
-                        const selectedAnswerId = parseInt($target.val());
-                        this.options.triggeredQuestionsByAnswer[$target.val()].forEach(function (questionId) {
-                            if (!treatedQuestionIds.includes(questionId)) {
-                                var dependingQuestion = $('.js_question-wrapper#' + questionId);
-                                dependingQuestion.removeClass('d-none');
-                                if (!self.selectedAnswers.includes(selectedAnswerId)) {
-                                    // Add answer to selected answer
-                                    self.selectedAnswers.push(selectedAnswerId);
-                                }
-                            }
-                        });
-                    }
-                }
-            }
-            // Auto Submit Form
-            var isLastQuestion = this.$('button[value="finish"]').length !== 0;
-            var questionHasComment = $target.closest('.o_survey_form_choice').find('.o_survey_comment').length !== 0
-                                        || $target.hasClass('o_survey_js_form_other_comment');
-            if (!isLastQuestion && this.options.usersCanGoBack && isQuestionComplete && !questionHasComment) {
-                this._submitForm({});
-            }
-        } else {  // $target.attr('type') === 'checkbox'
-            if ($matrixBtn.length > 0) {
-                $matrixBtn.toggleClass('o_survey_selected', !$matrixBtn.hasClass('o_survey_selected'));
-            } else {
-                var $label = $target.closest('label');
-                $label.toggleClass('o_survey_selected', !$label.hasClass('o_survey_selected'));
-
-                // Conditional display
-                if (this.options.questionsLayout !== 'page_per_question' && Object.keys(this.options.triggeredQuestionsByAnswer).includes($target.val())) {
-                    var isInputSelected = $label.hasClass('o_survey_selected');
-                    // Hide and clear or display depending question
-                    this.options.triggeredQuestionsByAnswer[$target.val()].forEach(function (questionId) {
-                        var dependingQuestion = $('.js_question-wrapper#' + questionId);
-                        dependingQuestion.toggleClass('d-none', !isInputSelected);
-                        if (!isInputSelected) {
-                            self._clearQuestionInputs(dependingQuestion);
-                        }
-                    });
-                    // Add/remove answer to/from selected answer
-                    if (!isInputSelected) {
-                        self.selectedAnswers.splice(self.selectedAnswers.indexOf(parseInt($target.val())), 1);
-                    } else {
-                        self.selectedAnswers.push(parseInt($target.val()));
-                    }
+        this._applyCommentAreaVisibility($choiceItemGroup);
+        const isQuestionComplete = this._checkConditionalQuestionsConfiguration($target, $choiceItemGroup);
+        if (isQuestionComplete && this.options.usersCanGoBack) {
+            const isLastQuestion = this.$('button[value="finish"]').length !== 0;
+            if (!isLastQuestion) {
+                const questionHasComment = $target.hasClass('o_survey_js_form_other_comment') || $target
+                    .closest('.o_survey_form_choice')
+                    .find('.o_survey_comment').length !== 0;
+                if (!questionHasComment) {
+                    this._submitForm({'nextSkipped': $choiceItemGroup.data('isSkippedQuestion')});
                 }
             }
         }
     },
 
+    /**
+     * Called when an image on an answer in multi-answers question is clicked.
+     * Starts a widget opening a dialog to display the now zoomable image.
+     * this.imgZoomer is the zoomer widget linked to the survey form, if any.
+     *
+     * @private
+     * @param {Event} ev
+     */
+    _onChoiceImgClick: function (ev) {
+        if (!uiUtils.isSmall()) {
+            // On large screen, it prevents the answer to be selected as the user only want to enlarge the image.
+            // We don't do it on small device as it can be hard to click outside the picture to select the answer.
+            ev.preventDefault();
+        }
+        this.imgZoomer = new SurveyImageZoomer({
+            sourceImage: $(ev.currentTarget).attr('src')
+        });
+        this.imgZoomer.appendTo(document.body);
+    },
+
+    /**
+     * Invert the related input's "checked" property.
+     * This will tick or untick the option (based on the previous state).
+     *
+     * @param {MouseEvent} event
+     * @returns
+     */
     _onMatrixBtnClick: function (event) {
         if (this.readonly) {
             return;
@@ -256,20 +220,48 @@ publicWidget.registry.SurveyFormWidget = publicWidget.Widget.extend({
 
         var $target = $(event.currentTarget);
         var $input = $target.find('input');
-        if ($input.attr('type') === 'radio') {
-            $input.prop("checked", true).trigger('change');
+        $input.prop("checked", !$input.prop("checked")).trigger('change');
+    },
+
+    /**
+     * Base browser behavior when clicking on a radio input is to leave the radio checked if it was
+     * already checked before.
+     * Here for survey we want to be able to un-tick the choice.
+     *
+     * e.g: You select an option but on second thoughts you're unsure it's the right answer, you
+     * want to be able to remove your answer.
+     *
+     * To do so, we use an alternate class "o_survey_form_choice_item_selected" that is added when
+     * the option is ticked and removed when the option is unticked.
+     *
+     * - When it's ticked, we simply add the class (the browser will set the "checked" property
+     *   to true).
+     * - When it's unticked, we manually set the "checked" property of the element to "false".
+     *   We also trigger the 'change' event to go into '_onChangeChoiceItem'.
+     *
+     * @param {MouseEvent} event
+     */
+    _onRadioChoiceClick: function (event) {
+        var $target = $(event.currentTarget);
+        if ($target.hasClass("o_survey_form_choice_item_selected")) {
+            $target.prop("checked", false).removeClass("o_survey_form_choice_item_selected");
+            $target.trigger('change');
         } else {
-            $input.prop("checked", !$input.prop("checked")).trigger('change');
+            this.$(`input:radio[name="${$target.prop("name")}"].o_survey_form_choice_item_selected`)
+                .removeClass("o_survey_form_choice_item_selected");
+            $target.addClass("o_survey_form_choice_item_selected");
         }
     },
 
     _onSubmit: function (event) {
         event.preventDefault();
-        var options = {};
-        var $target = $(event.currentTarget);
-        if ($target.val() === 'previous') {
-            options.previousPageId = $target.data('previousPageId');
-        } else if ($target.val() === 'finish') {
+        const options = {};
+        const target = event.currentTarget;
+        if (target.value === 'previous') {
+            options.previousPageId = parseInt(target.dataset['previousPageId']);
+        } else if (target.value === 'next_skipped') {
+            options.nextSkipped = true;
+        } else if (target.value === 'finish' && !this.options.sessionInProgress) {
             options.isFinish = true;
         }
         this._submitForm(options);
@@ -278,19 +270,30 @@ publicWidget.registry.SurveyFormWidget = publicWidget.Widget.extend({
     // Custom Events
     // -------------------------------------------------------------------------
 
+    /**
+     * Changes the tooltip according to the type of the field.
+     * @param {Event} event
+     */
+    _updateEnterButtonText: function (event) {
+        const $target = event.target;
+        const isTextbox = event.type === "focusin" && $target.tagName.toLowerCase() === 'textarea';
+        let text = _t("or press Enter");
+        if (['one_page', 'page_per_section'].includes(this.options.questionsLayout) || isTextbox) {
+            text = isMac ? _t("or press ⌘+Enter") : _t("or press CTRL+Enter");
+        }
+        $('#enter-tooltip').text(text);
+    },
+
     _onBreadcrumbClick: function (event) {
         this._submitForm({'previousPageId': event.data.previousPageId});
     },
 
     /**
-     * We listen to 'next_question' and 'end_session' events to load the next
-     * page of the survey automatically, based on the host pacing.
-     *
-     * If the trigger is 'next_question', we handle some extra computation to find
-     * a suitable "fadeInOutDelay" based on the delay between the time of the question
-     * change by the host and the time of reception of the event.
-     * This will allow us to account for a little bit of server lag (up to 1 second)
-     * while giving everyone a fair experience on the quiz.
+     * Handle some extra computation to find a suitable "fadeInOutDelay" based
+     * on the delay between the time of the question change by the host and the
+     * time of reception of the event. This will allow us to account for a
+     * little bit of server lag (up to 1 second) while giving everyone a fair
+     * experience on the quiz.
      *
      * e.g 1:
      * - The host switches the question
@@ -303,51 +306,54 @@ publicWidget.registry.SurveyFormWidget = publicWidget.Widget.extend({
      * - -> The fadeInOutDelay will be 200ms (600ms delay + 200ms * 2 fade in fade out)
      *
      * @private
-     * @param {Array[]} notifications structured as specified by the bus feature
+     * @param {object} notification notification of type `next_question` as
+     * specified by the bus.
      */
-    _onNotification: function (notifications) {
-        var nextPageEvent = false;
-        if (notifications && notifications.length !== 0) {
-            notifications.forEach(function (notification) {
-                if (notification.type === 'next_question' ||
-                    notification.type === 'end_session') {
-                    nextPageEvent = notification;
-                }
-            });
+    _onNextQuestionNotification(notification) {
+        let serverDelayMS = (DateTime.now().toSeconds() - notification.question_start) * 1000;
+        if (serverDelayMS < 0) {
+            serverDelayMS = 0;
+        } else if (serverDelayMS > 1000) {
+            serverDelayMS = 1000;
         }
+        this.fadeInOutDelay = (1000 - serverDelayMS) / 2;
+        this._goToNextPage();
+    },
 
-        if (this.options.isStartScreen && nextPageEvent.type === 'end_session') {
+    /**
+     * Handle the `end_session` bus event. This will fade out the current page
+     * and fade in the end screen.
+     *
+     * @private
+     */
+    _onEndSessionNotification() {
+        if (this.options.isStartScreen) {
             // can happen when triggering the same survey session multiple times
             // we received an "old" end_session event that needs to be ignored
             return;
         }
+        this.fadeInOutDelay = 400;
+        this._goToNextPage({ isFinish: true });
+    },
 
-        if (nextPageEvent) {
-            if (nextPageEvent.type === 'next_question') {
-                var serverDelayMS = moment.utc().valueOf() - moment.unix(nextPageEvent.payload.question_start).utc().valueOf();
-                if (serverDelayMS < 0) {
-                    serverDelayMS = 0;
-                } else if (serverDelayMS > 1000) {
-                    serverDelayMS = 1000;
-                }
-                this.fadeInOutDelay = (1000 - serverDelayMS) / 2;
-            } else {
-                this.fadeInOutDelay = 400;
+    /**
+     * Go to the next page of the survey.
+     *
+     * @private
+     * @param {Object} param0
+     * @param {Object} param0.isFinish Wether the survey is done or not
+     */
+    _goToNextPage: function ({ isFinish = false } = {}) {
+        this.$(".o_survey_main_title:visible").fadeOut(400);
+        this.preventEnterSubmit = false;
+        this.readonly = false;
+        this._nextScreen(
+            rpc(`/survey/next_question/${this.options.surveyToken}/${this.options.answerToken}`),
+            {
+                initTimer: true,
+                isFinish,
             }
-
-            this.$('.o_survey_main_title:visible').fadeOut(400);
-
-            this.preventEnterSubmit = false;
-            this.readonly = false;
-            this._nextScreen(
-                this._rpc({
-                    route: `/survey/next_question/${this.options.surveyToken}/${this.options.answerToken}`,
-                }), {
-                    initTimer: true,
-                    isFinish: nextPageEvent.type === 'end_session'
-                }
-            );
-        }
+        );
     },
 
     // SUBMIT
@@ -368,11 +374,13 @@ publicWidget.registry.SurveyFormWidget = publicWidget.Widget.extend({
     * @param {Boolean} [options.isFinish] fades out breadcrumb and timer
     * @private
     */
-    _submitForm: function (options) {
-        var self = this;
+    _submitForm: async function (options) {
         var params = {};
         if (options.previousPageId) {
             params.previous_page_id = options.previousPageId;
+        }
+        if (options.nextSkipped) {
+            params.next_skipped_page_or_question = true;
         }
         var route = "/survey/submit";
 
@@ -406,10 +414,18 @@ publicWidget.registry.SurveyFormWidget = publicWidget.Widget.extend({
             this.readonly = true;
         }
 
-        var submitPromise = self._rpc({
-            route: _.str.sprintf('%s/%s/%s', route, self.options.surveyToken, self.options.answerToken),
-            params: params,
-        });
+        const submitPromise = rpc(
+            `${route}/${this.options.surveyToken}/${this.options.answerToken}`,
+            params
+        );
+
+        if (!this.options.isStartScreen && this.options.scoringType == 'scoring_with_answers_after_page') {
+            const [correctAnswers] = await submitPromise;
+            if (Object.keys(correctAnswers).length && document.querySelector('.js_question-wrapper')) {
+                this._showCorrectAnswers(correctAnswers, submitPromise, options);
+                return;
+            }
+        }
         this._nextScreen(submitPromise, options);
     },
 
@@ -419,36 +435,49 @@ publicWidget.registry.SurveyFormWidget = publicWidget.Widget.extend({
      * @param {Promise} nextScreenPromise
      * @param {Object} options see '_submitForm' for details
      */
-    _nextScreen: function (nextScreenPromise, options) {
-        var self = this;
-
+    _nextScreen: async function (nextScreenPromise, options) {
         var resolveFadeOut;
         var fadeOutPromise = new Promise(function (resolve, reject) {resolveFadeOut = resolve;});
 
         var selectorsToFadeout = ['.o_survey_form_content'];
-        if (options.isFinish) {
+        if (options.isFinish && !this.nextScreenResult?.has_skipped_questions) {
             selectorsToFadeout.push('.breadcrumb', '.o_survey_timer');
-            utils.set_cookie('survey_' + self.options.surveyToken, '', -1);  // delete cookie
+            cookie.delete('survey_' + this.options.surveyToken);
         }
-        self.$(selectorsToFadeout.join(',')).fadeOut(this.fadeInOutDelay, function () {
+        this.$(selectorsToFadeout.join(',')).fadeOut(this.fadeInOutDelay, function () {
             resolveFadeOut();
         });
+        // Background management - Fade in / out on each transition
+        if (this.options.refreshBackground) {
+            $('div.o_survey_background').addClass('o_survey_background_transition');
+        }
 
-        Promise.all([fadeOutPromise, nextScreenPromise]).then(function (results) {
-            return self._onNextScreenDone(results[1], options);
-        });
+        const nextScreenWithBackgroundPromise = (async () => {
+            const [,result] = await nextScreenPromise;
+            this.nextScreenResult = result;
+            // once we have the next question, wait for the preload of the background
+            if (this.options.refreshBackground && result.background_image_url) {
+                return this._preloadBackground(result.background_image_url);
+            } else {
+                return Promise.resolve();
+            }
+        })();
+
+        // Wait for the fade out and the preload of the next background. The next question have already been fetched.
+        await Promise.all([fadeOutPromise, nextScreenWithBackgroundPromise]);
+        return this._onNextScreenDone(options);
     },
 
     /**
      * Handle server side validation and display eventual error messages.
      *
-     * @param {string} result the HTML result of the screen to display
      * @param {Object} options see '_submitForm' for details
      */
-   _onNextScreenDone: function (result, options) {
+    _onNextScreenDone: function (options) {
         var self = this;
+        var result = this.nextScreenResult;
 
-        if (!(options && options.isFinish)
+        if ((!(options && options.isFinish) || result.has_skipped_questions)
             && !this.options.sessionInProgress) {
             this.preventEnterSubmit = false;
         }
@@ -473,9 +502,8 @@ publicWidget.registry.SurveyFormWidget = publicWidget.Widget.extend({
                 options.isFinish = true;
             }
 
-            this.$('div.o_survey_form_date').each(function () {
-                self._initDateTimePicker($(this));
-            });
+            // Start datetime pickers
+            self.trigger_up("widgets_start_request", { $target: this.$el.find('.o_survey_form_date') });
             if (this.options.isStartScreen || (options && options.initTimer)) {
                 this._initTimer();
                 this.options.isStartScreen = false;
@@ -484,7 +512,7 @@ publicWidget.registry.SurveyFormWidget = publicWidget.Widget.extend({
                     this.surveyTimerWidget.destroy();
                 }
             }
-            if (options && options.isFinish) {
+            if (options && options.isFinish && !result.has_skipped_questions) {
                 this._initResultWidget();
                 if (this.surveyBreadcrumbWidget) {
                     this.$('.o_survey_breadcrumb_container').addClass('d-none');
@@ -503,18 +531,25 @@ publicWidget.registry.SurveyFormWidget = publicWidget.Widget.extend({
                 // prevent enter submit if we're on a page description (there is nothing to submit)
                 this.preventEnterSubmit = true;
             }
-
+            // Background management - reset background overlay opacity to 0.7 to discover next background.
+            if (this.options.refreshBackground) {
+                $('div.o_survey_background').css("background-image", "url(" + result.background_image_url + ")");
+                $('div.o_survey_background').removeClass('o_survey_background_transition');
+            }
             this.$('.o_survey_form_content').fadeIn(this.fadeInOutDelay);
             $("html, body").animate({ scrollTop: 0 }, this.fadeInOutDelay);
+
+            this.$('button[type="submit"]').removeClass('disabled');
+
+            this._scrollToFirstError();
             self._focusOnFirstInput();
-        }
-        else if (result && result.fields && result.error === 'validation') {
+        } else if (result && result.fields && result.error === 'validation') {
             this.$('.o_survey_form_content').fadeIn(0);
             this._showErrors(result.fields);
         } else {
             var $errorTarget = this.$('.o_survey_error');
             $errorTarget.removeClass("d-none");
-            this._scrollToError($errorTarget);
+            scrollTo($errorTarget[0]);
         }
     },
 
@@ -597,19 +632,28 @@ publicWidget.registry.SurveyFormWidget = publicWidget.Widget.extend({
                     if (questionRequired && !data[questionId]) {
                         errors[questionId] = constrErrorMsg;
                     } else if (data[questionId]) {
-                        var datetimepickerFormat = $input.data('questionType') === 'datetime' ? time.getLangDatetimeFormat() : time.getLangDateFormat();
-                        var momentDate = moment($input.val(), datetimepickerFormat);
-                        if (!momentDate.isValid()) {
+                        const [parse, deserialize] =
+                            $input.data("questionType") === "date"
+                                ? [parseDate, deserializeDate]
+                                : [parseDateTime, deserializeDateTime];
+                        const date = parse($input.val());
+                        if (!date || !date.isValid) {
                             errors[questionId] = validationDateMsg;
                         } else {
-                            var $dateDiv = $questionWrapper.find('.o_survey_form_date');
-                            var maxDate = $dateDiv.data('maxdate');
-                            var minDate = $dateDiv.data('mindate');
-                            if ((maxDate && momentDate.isAfter(moment(maxDate)))
-                                    || (minDate && momentDate.isBefore(moment(minDate)))) {
+                            const maxDate = deserialize($input.data('max-date'));
+                            const minDate = deserialize($input.data('min-date'));
+                            if (
+                                (maxDate.isValid && date > maxDate) ||
+                                (minDate.isValid && date < minDate)
+                            ) {
                                 errors[questionId] = validationErrorMsg;
                             }
                         }
+                    }
+                    break;
+                case 'scale':
+                    if (questionRequired && !data[questionId]) {
+                        errors[questionId] = constrErrorMsg;
                     }
                     break;
                 case 'simple_choice_radio':
@@ -626,17 +670,20 @@ publicWidget.registry.SurveyFormWidget = publicWidget.Widget.extend({
                     break;
                 case 'matrix':
                     if (questionRequired) {
-                        var subQuestionsIds = $questionWrapper.find('table').data('subQuestions');
-                        subQuestionsIds.forEach(function (id) {
-                            if (!((questionId + '_' + id) in data)) {
+                        const subQuestionsIds = $input.data('subQuestions');
+                        // Highlight unanswered rows' header
+                        const questionBodySelector = `div[id="${questionId}"] > .o_survey_question_matrix > tbody`;
+                        subQuestionsIds.forEach((subQuestionId) => {
+                            if (!(`${questionId}_${subQuestionId}` in data)) {
                                 errors[questionId] = constrErrorMsg;
+                                self.el.querySelector(`${questionBodySelector} > tr[id="${subQuestionId}"] > th`).classList.add('bg-danger');
                             }
                         });
                     }
                     break;
             }
         });
-        if (_.keys(errors).length > 0) {
+        if (Object.keys(errors).length > 0) {
             this._showErrors(errors);
             return false;
         }
@@ -679,15 +726,22 @@ publicWidget.registry.SurveyFormWidget = publicWidget.Widget.extend({
             switch ($(this).data('questionType')) {
                 case 'text_box':
                 case 'char_box':
+                    params[this.name] = this.value;
+                    break;
                 case 'numerical_box':
                     params[this.name] = this.value;
                     break;
                 case 'date':
-                    params = self._prepareSubmitDates(params, this.name, this.value, false);
+                case 'datetime':{
+                    const [parse, serialize] =
+                        $(this).data("questionType") === "date"
+                            ? [parseDate, serializeDate]
+                            : [parseDateTime, serializeDateTime];
+                    const date = parse(this.value);
+                    params[this.name] = date ? serialize(date) : "";
                     break;
-                case 'datetime':
-                    params = self._prepareSubmitDates(params, this.name, this.value, true);
-                    break;
+                }
+                case 'scale':
                 case 'simple_choice_radio':
                 case 'multiple_choice':
                     params = self._prepareSubmitChoices(params, $(this), $(this).data('name'));
@@ -698,19 +752,6 @@ publicWidget.registry.SurveyFormWidget = publicWidget.Widget.extend({
             }
         });
     },
-
-    /**
-    *   Prepare date answer before submitting form.
-    *   Convert date value from client current timezone to UTC Date to correspond to the server format.
-    *   return params = { 'dateQuestionId' : '2019-05-23', 'datetimeQuestionId' : '2019-05-23 14:05:12' }
-    */
-    _prepareSubmitDates: function (params, questionId, value, isDateTime) {
-        var momentDate = isDateTime ? field_utils.parse.datetime(value, null, {timezone: true}) : field_utils.parse.date(value);
-        var formattedDate = momentDate ? momentDate.toJSON() : '';
-        params[questionId] = formattedDate;
-        return params;
-    },
-
     /**
     *   Prepare choice answer before submitting form.
     *   If the answer is not the 'comment selection' (=Other), calls the _prepareSubmitAnswer method to add the answer to the params
@@ -810,7 +851,7 @@ publicWidget.registry.SurveyFormWidget = publicWidget.Widget.extend({
     */
     _initTextArea: function () {
         this.$('textarea').each(function () {
-            dom.autoresize($(this));
+            resizeTextArea(this);
         });
     },
 
@@ -864,18 +905,18 @@ publicWidget.registry.SurveyFormWidget = publicWidget.Widget.extend({
         var self = this;
         if (this.options.surveyToken && this.options.sessionInProgress) {
             this.call('bus_service', 'addChannel', this.options.surveyToken);
-            this.call('bus_service', 'startPolling');
 
-            if (!this._checkIsMasterTab()) {
+            if (!this._checkisOnMainTab()) {
                 this.shouldReloadMasterTab = true;
-                this.masterTabCheckInterval = setInterval(function() {
-                     if (self._checkIsMasterTab()) {
+                this.masterTabCheckInterval = setInterval(function () {
+                     if (self._checkisOnMainTab()) {
                         clearInterval(self.masterTabCheckInterval);
                      }
                 }, 2000);
             }
 
-            this.call('bus_service', 'onNotification', this, this._onNotification);
+            this.call('bus_service', 'subscribe', 'next_question', this._onNextQuestionNotification.bind(this));
+            this.call('bus_service', 'subscribe', 'end_session', this._onEndSessionNotification.bind(this));
         }
     },
 
@@ -912,69 +953,6 @@ publicWidget.registry.SurveyFormWidget = publicWidget.Widget.extend({
         }
     },
 
-    /**
-    * Initialize datetimepicker in correct format and with constraints
-    */
-    _initDateTimePicker: function ($dateGroup) {
-        var disabledDates = [];
-        var questionType = $dateGroup.find('input').data('questionType');
-        var minDateData = $dateGroup.data('mindate');
-        var maxDateData = $dateGroup.data('maxdate');
-
-        var datetimepickerFormat = questionType === 'datetime' ? time.getLangDatetimeFormat() : time.getLangDateFormat();
-
-        var minDate = minDateData
-            ? this._formatDateTime(minDateData, datetimepickerFormat)
-            : moment({ y: 1000 });
-
-        var maxDate = maxDateData
-            ? this._formatDateTime(maxDateData, datetimepickerFormat)
-            : moment().add(200, "y");
-
-        if (questionType === 'date') {
-            // Include min and max date in selectable values
-            maxDate = moment(maxDate).add(1, "d");
-            minDate = moment(minDate).subtract(1, "d");
-            disabledDates = [minDate, maxDate];
-        }
-
-        $dateGroup.datetimepicker({
-            format : datetimepickerFormat,
-            minDate: minDate,
-            maxDate: maxDate,
-            disabledDates: disabledDates,
-            useCurrent: false,
-            viewDate: moment(new Date()).hours(minDate.hours()).minutes(minDate.minutes()).seconds(minDate.seconds()).milliseconds(minDate.milliseconds()),
-            calendarWeeks: true,
-            icons: {
-                time: 'fa fa-clock-o',
-                date: 'fa fa-calendar',
-                next: 'fa fa-chevron-right',
-                previous: 'fa fa-chevron-left',
-                up: 'fa fa-chevron-up',
-                down: 'fa fa-chevron-down',
-            },
-            locale : moment.locale(),
-            allowInputToggle: true,
-        });
-        $dateGroup.on('error.datetimepicker', function (err) {
-            if (err.date) {
-                if (err.date < minDate) {
-                    Dialog.alert(this, _t('The date you selected is lower than the minimum date: ') + minDate.format(datetimepickerFormat));
-                }
-
-                if (err.date > maxDate) {
-                    Dialog.alert(this, _t('The date you selected is greater than the maximum date: ') + maxDate.format(datetimepickerFormat));
-                }
-            }
-            return false;
-        });
-    },
-
-    _formatDateTime: function (datetimeValue, format){
-        return moment(field_utils.format.datetime(moment(datetimeValue), null, {timezone: true}), format);
-    },
-
     _initResultWidget: function () {
         var $result = this.$('.o_survey_result');
         if ($result.length) {
@@ -984,16 +962,45 @@ publicWidget.registry.SurveyFormWidget = publicWidget.Widget.extend({
         }
     },
 
+    // OTHER TOOLS
+    // -------------------------------------------------------------------------
+
+    /**
+    * Checks, if the 'other' choice is checked. Applies only if the comment count as answer.
+    *   If not checked : Clear the comment textarea, hide and disable it
+    *   If checked : enable the comment textarea, show and focus on it
+    *
+    * @param {JQuery<HTMLElement>} $choiceItemGroup
+    */
+    _applyCommentAreaVisibility: function ($choiceItemGroup) {
+        const $otherItem = $choiceItemGroup.find('.o_survey_js_form_other_comment');
+        const $commentInput = $choiceItemGroup.find('textarea[type="text"]');
+
+        if ($otherItem.prop('checked') || $commentInput.hasClass('o_survey_comment')) {
+            $commentInput.each((idx, $input) => $input.disabled = false);
+            $commentInput.closest('.o_survey_comment_container').removeClass('d-none');
+            if ($otherItem.prop('checked')) {
+                $commentInput.focus();
+            }
+        } else {
+            $commentInput.val('');
+            $commentInput.closest('.o_survey_comment_container').addClass('d-none');
+            $commentInput.each((idx, $input) => $input.disabled = true);
+        }
+    },
+
+
    /**
     * Will automatically focus on the first input to allow the user to complete directly the survey,
-    * without having to manually get the focus (only if the input has the right type - can write something inside -)
+    * without having to manually get the focus (only if the input has the right type - can write something inside -
+    * and if the device is not a mobile device to avoid missing information when the soft keyboard is opened)
     */
     _focusOnFirstInput: function () {
         var $firstTextInput = this.$('.js_question-wrapper').first()  // Take first question
                               .find("input[type='text'],input[type='number'],textarea")  // get 'text' inputs
                               .filter('.form-control')  // needed for the auto-resize
                               .not('.o_survey_comment');  // remove inputs for comments that does not count as answers
-        if ($firstTextInput.length > 0) {
+        if ($firstTextInput.length > 0 && !uiUtils.isSmall()) {
             $firstTextInput.focus();
         }
     },
@@ -1005,16 +1012,16 @@ publicWidget.registry.SurveyFormWidget = publicWidget.Widget.extend({
     *
     * @private
     */
-    _checkIsMasterTab: function () {
-        var isMasterTab = this.call('bus_service', 'isMasterTab');
+    _checkisOnMainTab: function () {
+        var isOnMainTab = this.call('multi_tab', 'isOnMainTab');
         var $errorModal = this.$('#MasterTabErrorModal');
-        if (isMasterTab) {
+        if (isOnMainTab) {
             // Force reload the page when survey is ready to be followed, to force restart long polling
             if (this.shouldReloadMasterTab) {
                 window.location.reload();
             }
            return true;
-        } else if (!$errorModal.modal._isShown){
+        } else if (!$errorModal.modal._isShown) {
             $errorModal.find('.text-danger').text(window.location.hostname);
             $errorModal.modal('show');
         }
@@ -1025,20 +1032,121 @@ publicWidget.registry.SurveyFormWidget = publicWidget.Widget.extend({
     // -------------------------------------------------------------------------
 
     /**
-    * Clear / Un-select all the input from the given question
-    * + propagate conditional hierarchy by triggering change on choice inputs.
-    *
-    * @private
-    */
-    _clearQuestionInputs: function (question) {
-        question.find('input').each(function () {
-            if ($(this).attr('type') === 'text' || $(this).attr('type') === 'number') {
-                $(this).val('');
-            } else if ($(this).prop('checked')) {
-                $(this).prop('checked', false).change();
+     * For single and multiple choice questions, propagate questions visibility
+     * based on conditional questions and (de)selected triggers
+     *
+     * @param {JQuery<HTMLElement>} $target
+     * @param {JQuery<HTMLElement>} $choiceItemGroup
+     * @returns {boolean} Whether the question is considered completed
+     */
+    _checkConditionalQuestionsConfiguration: function ($target, $choiceItemGroup) {
+        let isQuestionComplete = false;
+        const $matrixBtn = $target.closest('.o_survey_matrix_btn');
+        if ($target.attr('type') === 'radio') {
+            if ($matrixBtn.length > 0) {
+                $matrixBtn.closest('tr').find('td').removeClass('o_survey_selected');
+                if ($target.is(':checked')) {
+                    $matrixBtn.addClass('o_survey_selected');
+                }
+                if (this.options.questionsLayout === 'page_per_question') {
+                    var subQuestionsIds = $matrixBtn.closest('table').data('subQuestions');
+                    var completedQuestions = [];
+                    subQuestionsIds.forEach((id) => {
+                        if (this.$('tr#' + id).find('input:checked').length !== 0) {
+                            completedQuestions.push(id);
+                        }
+                    });
+                    isQuestionComplete = completedQuestions.length === subQuestionsIds.length;
+                }
+            } else {
+                const previouslySelectedAnswer = $choiceItemGroup.find('label.o_survey_selected');
+                previouslySelectedAnswer.removeClass('o_survey_selected');
+                const previouslySelectedAnswerId = previouslySelectedAnswer.find('input').val();
+                if (previouslySelectedAnswerId && this.options.questionsLayout !== 'page_per_question') {
+                    this.selectedAnswers.splice(this.selectedAnswers.indexOf(parseInt(previouslySelectedAnswerId)), 1);
+                }
+
+                const newlySelectedAnswer = $target.closest('label');
+                const newlySelectedAnswerId = $target.val();
+                const isNewSelection = newlySelectedAnswerId !== previouslySelectedAnswerId;
+                if (isNewSelection) {
+                    newlySelectedAnswer.addClass('o_survey_selected');
+                    isQuestionComplete = this.options.questionsLayout === 'page_per_question';
+                    if (!isQuestionComplete) {
+                        this.selectedAnswers.push(parseInt(newlySelectedAnswerId));
+                    }
+                }
+
+                if (this.options.questionsLayout !== 'page_per_question') {
+                    const conditionalQuestionsToRecomputeVisibility = new Set(
+                        (this.options.triggeredQuestionsByAnswer[previouslySelectedAnswerId] || [])
+                            .concat(this.options.triggeredQuestionsByAnswer[newlySelectedAnswerId] || [])
+                    )
+                    this._applyConditionalQuestionsVisibility(conditionalQuestionsToRecomputeVisibility)
+                }
             }
-        });
-        question.find('textarea').val('');
+        } else {  // $target.attr('type') === 'checkbox'
+            if ($matrixBtn.length > 0) {
+                $matrixBtn.toggleClass('o_survey_selected', !$matrixBtn.hasClass('o_survey_selected'));
+            } else {
+                const $label = $target.closest('label');
+                $label.toggleClass('o_survey_selected', !$label.hasClass('o_survey_selected'));
+                const answerId = $target.val();
+
+                if (this.options.questionsLayout !== 'page_per_question') {
+                    $label.hasClass('o_survey_selected')
+                        ? this.selectedAnswers.push(parseInt(answerId))
+                        : this.selectedAnswers.splice(this.selectedAnswers.indexOf(parseInt(answerId)), 1);
+                    this._applyConditionalQuestionsVisibility(this.options.triggeredQuestionsByAnswer[answerId]);
+                }
+            }
+        }
+        return isQuestionComplete;
+    },
+
+    /**
+     * Apply visibility rules of conditional questions.
+     * When layout is "one_page", hide the empty sections (the ones without description and
+     * which don't have any question to be displayed because of conditional questions).
+     *
+     * @param {Number[] | String[] | Set | undefined} questionIds Conditional questions ids
+     */
+    _applyConditionalQuestionsVisibility: function(questionIds) {
+        if (!questionIds || (!questionIds.length && !questionIds.size)) {
+            return;
+        }
+        // Questions visibility
+        for (const questionId of questionIds) {
+            const dependingQuestion = document.querySelector(`.js_question-wrapper[id="${questionId}"]`);
+            if (!dependingQuestion) {  // Could be on different page
+                continue;
+            }
+            const hasNoSelectedTriggers = !this.options.triggeringAnswersByQuestion[questionId]
+                .some(answerId => this.selectedAnswers.includes(parseInt(answerId)));
+            dependingQuestion.classList.toggle('d-none', hasNoSelectedTriggers);
+            if (hasNoSelectedTriggers) {
+                // Clear / Un-select all the input from the given question
+                // + propagate conditional hierarchy by triggering change on choice inputs.
+                $(dependingQuestion).find('input').each(function () {
+                    if ($(this).attr('type') === 'text' || $(this).attr('type') === 'number') {
+                        $(this).val('');
+                    } else if ($(this).prop('checked')) {
+                        $(this).prop('checked', false).change();
+                    }
+                });
+                $(dependingQuestion).find('textarea').val('');
+            }
+        }
+        // Sections visibility
+        if (this.options.questionsLayout === 'one_page') {
+            const sections = document.querySelectorAll('.js_section_wrapper');
+            for (const section of sections) {
+                if (!section.querySelector('.o_survey_description')) {
+                    const hasVisibleQuestions = Boolean(section.querySelector('.js_question-wrapper:not(.d-none)'));
+                    section.classList.toggle('d-none', !hasVisibleQuestions);
+                }
+            }
+        }
     },
 
     /**
@@ -1048,18 +1156,86 @@ publicWidget.registry.SurveyFormWidget = publicWidget.Widget.extend({
     * @private
     */
     _getInactiveConditionalQuestionIds: function () {
-        var self = this;
-        var inactiveQuestionIds = [];
-        if (this.options.triggeredQuestionsByAnswer) {
-            Object.keys(this.options.triggeredQuestionsByAnswer).forEach(function (answerId) {
-                if (!self.selectedAnswers.includes(parseInt(answerId))) {
-                     self.options.triggeredQuestionsByAnswer[answerId].forEach(function (questionId) {
-                        inactiveQuestionIds.push(questionId);
-                     });
+        const inactiveQuestionIds = [];
+        for (const [questionId, answerIds] of Object.entries(this.options.triggeringAnswersByQuestion || {})) {
+            if (!answerIds.some(answerId => this.selectedAnswers.includes(parseInt(answerId)))) {
+                inactiveQuestionIds.push(parseInt(questionId));
+            }
+        }
+        return inactiveQuestionIds;
+    },
+
+    // ANSWERS TOOLS
+    // -------------------------------------------------------------------------
+
+    _showCorrectAnswers: function(correctAnswers, submitPromise, options) {
+        // Display the correct answers
+        Object.keys(correctAnswers).forEach(questionId => this._showQuestionAnswer(correctAnswers, questionId));
+        // Make the form completely readonly
+        const form = document.querySelector('form');
+        form.querySelectorAll('input, textarea, label, td')?.forEach(node => {
+            node.blur();
+            node.classList.add("pe-none");
+        });
+        // Replace the Submit button by a Next button
+        form.querySelector('button[type="submit"]').classList.add('d-none');
+        const nextPageBtn = form.querySelector('button[id="next_page"]');
+        nextPageBtn.classList.remove('d-none');
+        nextPageBtn.addEventListener('click', () => {
+            this._nextScreen(submitPromise, options);
+        });
+        // Replacing the original onKeyDown listener to block everything except for the
+        // enter or arrow right key down events trigerring the next page display
+        const nextPageKeydownListener = (event) => {
+            if (event.code === 'Enter' || event.code === 'ArrowRight') {
+                // Restore original keydown listener
+                document.removeEventListener('keydown', nextPageKeydownListener);
+                document.addEventListener('keydown', this.documentKeydownListener);
+                this._nextScreen(submitPromise, options);
+            }
+        }
+        document.removeEventListener('keydown', this.documentKeydownListener);
+        document.addEventListener('keydown', nextPageKeydownListener);
+    },
+
+    _showQuestionAnswer: function(correctAnswers, questionId) {
+        const correctAnswer = correctAnswers[questionId];
+        const questionWrapper = document.querySelector(`.js_question-wrapper[id="${questionId}"]`);
+        const answerWrapper = questionWrapper.querySelector('.o_survey_answer_wrapper');
+        const questionType = questionWrapper.querySelector('[data-question-type]').dataset.questionType;
+
+        // Only questions supporting correct answer are present here (ex.: scale question doesn't support it)
+        if (['numerical_box', 'date', 'datetime'].includes(questionType)) {
+            const input = answerWrapper.querySelector('input');
+            let isCorrect;
+            if (questionType == 'numerical_box') {
+                isCorrect = input.valueAsNumber === correctAnswer;
+            } else if (questionType == 'datetime') {
+                const datetime = parseDateTime(input.value);
+                const value = datetime ? datetime.setZone("utc").toFormat("MM/dd/yyyy HH:mm:ss", { numberingSystem: "latn" }) : '';
+                isCorrect = value === correctAnswer;
+            } else {
+                isCorrect = input.value === correctAnswer;
+            }
+            answerWrapper.classList.add(`bg-${isCorrect ? 'success' : 'danger'}`);
+        }
+        else if (['simple_choice_radio', 'multiple_choice'].includes(questionType)) {
+            answerWrapper.querySelectorAll('.o_survey_choice_btn').forEach((button) => {
+                const answerId = button.querySelector('input').value;
+                const isCorrect = correctAnswer.includes(parseInt(answerId));
+                button.classList.add(`bg-${isCorrect ? 'success' : 'danger'}`, 'text-white');
+                // For the user incorrect answers, replace the empty check icon by a crossed check icon
+                if (!isCorrect && button.classList.contains('o_survey_selected')) {
+                    let fromIcon = 'fa-check-circle';
+                    let toIcon = 'fa-times-circle';
+                    if (questionType == 'multiple_choice') {
+                        fromIcon = 'fa-check-square';
+                        toIcon = 'fa-times-rectangle'; // fa-times-square doesn't exist in fontawesome 4.7
+                    }
+                    button.querySelector(`i.${fromIcon}`)?.classList.replace(fromIcon, toIcon);
                 }
             });
         }
-        return inactiveQuestionIds;
     },
 
     // ERRORS TOOLS
@@ -1067,26 +1243,22 @@ publicWidget.registry.SurveyFormWidget = publicWidget.Widget.extend({
 
     _showErrors: function (errors) {
         var self = this;
-        var errorKeys = _.keys(errors);
-        _.each(errorKeys, function (key) {
-            self.$("#" + key + '>.o_survey_question_error').append($('<p>', {text: errors[key]})).addClass("slide_in");
+        var errorKeys = Object.keys(errors || {});
+        errorKeys.forEach(key => {
+            self.$("#" + key + '>.o_survey_question_error').append($('<span>', {text: errors[key]})).addClass("slide_in");
             if (errorKeys[0] === key) {
-                self._scrollToError(self.$('.js_question-wrapper#' + key));
+                scrollTo(self.$('.js_question-wrapper#' + key)[0]);
             }
         });
     },
 
-    _scrollToError: function ($target) {
-        var scrollLocation = $target.offset().top;
-        var navbarHeight = $('.o_main_navbar').height();
-        if (navbarHeight) {
-            // In overflow auto, scrollLocation of target can be negative if target is out of screen (up side)
-            scrollLocation = scrollLocation >= 0 ? scrollLocation - navbarHeight : scrollLocation + navbarHeight;
-        }
-        var scrollinside = $("#wrapwrap").scrollTop();
-        $('#wrapwrap').animate({
-            scrollTop: scrollinside + scrollLocation
-        }, 500);
+    /**
+     * This method is used to scroll to error generated in the backend.
+     * (Those errors are displayed when the user skip mandatory question(s))
+     */
+    _scrollToFirstError: function() {
+        const errorElem = this.el.querySelector('.o_survey_question_error :not(:empty)');
+        errorElem?.scrollIntoView();
     },
 
     /**
@@ -1095,10 +1267,11 @@ publicWidget.registry.SurveyFormWidget = publicWidget.Widget.extend({
     _resetErrors: function () {
         this.$('.o_survey_question_error').empty().removeClass('slide_in');
         this.$('.o_survey_error').addClass('d-none');
+        this.el.querySelectorAll('.o_survey_question_matrix th.bg-danger').forEach((row) => {
+            row.classList.remove('bg-danger');
+        });
     },
 
 });
 
-return publicWidget.registry.SurveyFormWidget;
-
-});
+export default publicWidget.registry.SurveyFormWidget;

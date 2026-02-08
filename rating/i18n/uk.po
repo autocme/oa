@@ -1,24 +1,31 @@
 # Translation of Odoo Server.
 # This file contains the translation of the following modules:
 # 	* rating
-# 
+#
 # Translators:
-# Martin Trigaux, 2021
-# Alina Lisnenko <alina.lisnenko@erp.co.ua>, 2022
-# 
+# Wil Odoo, 2024
+#
 msgid ""
 msgstr ""
-"Project-Id-Version: Odoo Server saas~14.5\n"
+"Project-Id-Version: Odoo Server 18.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2021-09-14 10:29+0000\n"
-"PO-Revision-Date: 2021-09-14 12:26+0000\n"
-"Last-Translator: Alina Lisnenko <alina.lisnenko@erp.co.ua>, 2022\n"
+"POT-Creation-Date: 2025-12-29 18:37+0000\n"
+"PO-Revision-Date: 2024-09-25 09:41+0000\n"
+"Last-Translator: Wil Odoo, 2024\n"
 "Language-Team: Ukrainian (https://app.transifex.com/odoo/teams/41243/uk/)\n"
+"Language: uk\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: \n"
-"Language: uk\n"
-"Plural-Forms: nplurals=4; plural=(n % 1 == 0 && n % 10 == 1 && n % 100 != 11 ? 0 : n % 1 == 0 && n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 12 || n % 100 > 14) ? 1 : n % 1 == 0 && (n % 10 ==0 || (n % 10 >=5 && n % 10 <=9) || (n % 100 >=11 && n % 100 <=14 )) ? 2: 3);\n"
+"Plural-Forms: nplurals=4; plural=(n % 1 == 0 && n % 10 == 1 && n % 100 != "
+"11 ? 0 : n % 1 == 0 && n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 12 || n % "
+"100 > 14) ? 1 : n % 1 == 0 && (n % 10 ==0 || (n % 10 >=5 && n % 10 <=9) || "
+"(n % 100 >=11 && n % 100 <=14 )) ? 2: 3);\n"
+
+#. module: rating
+#: model_terms:ir.ui.view,arch_db:rating.rating_external_page_invalid_partner
+msgid "\" or someone from the same company can give it a rating."
+msgstr ""
 
 #. module: rating
 #: model:ir.model.fields,field_description:rating.field_rating_parent_mixin__rating_count
@@ -26,22 +33,45 @@ msgid "# Ratings"
 msgstr "К-сть оцінювань"
 
 #. module: rating
-#: model:ir.model.fields,help:rating.field_rating_rating__access_token
-msgid "Access token to set the rating of the value"
-msgstr "Токен доступу для встановлення рейтингу значення"
+#: model_terms:ir.ui.view,arch_db:rating.rating_external_page_view
+msgid "<i class=\"fa fa-arrow-left me-1\"/> Back to the Homepage"
+msgstr "<i class=\"fa fa-arrow-left me-1\"/> Повернутися на домашню сторінку"
 
 #. module: rating
-#: model:ir.model.fields,help:rating.field_rating_rating__message_id
-msgid ""
-"Associated message when posting a review. Mainly used in website addons."
-msgstr ""
-"Пов'язане повідомлення під час опублікування відгуку. В основному "
-"використовується в аддонах веб-сайтів."
+#: model_terms:ir.ui.view,arch_db:rating.rating_rating_view_kanban_stars
+msgid "<i class=\"fa fa-clock-o me-2\" aria-label=\"Create date\"/>"
+msgstr "<i class=\"fa fa-clock-o me-2\" aria-label=\"Create date\"/>"
 
 #. module: rating
-#: model:ir.model.fields,help:rating.field_rating_rating__partner_id
-msgid "Author of the rating"
-msgstr "Автор рейтингу"
+#: model_terms:ir.ui.view,arch_db:rating.rating_rating_view_kanban_stars
+msgid "<i class=\"fa fa-folder me-2\" aria-label=\"Open folder\"/>"
+msgstr "<i class=\"fa fa-folder me-2\" aria-label=\"Open folder\"/>"
+
+#. module: rating
+#: model_terms:ir.ui.view,arch_db:rating.rating_rating_view_kanban_stars
+msgid "A star"
+msgstr "Зірка"
+
+#. module: rating
+#: model:ir.model.fields,field_description:rating.field_rating_mixin__message_needaction
+msgid "Action Needed"
+msgstr "Необхідна дія"
+
+#. module: rating
+#: model:ir.model.fields,field_description:rating.field_rating_mixin__message_attachment_count
+msgid "Attachment Count"
+msgstr "Підрахунок прикріплення"
+
+#. module: rating
+#: model:ir.model.fields,field_description:rating.field_rating_mixin__rating_avg
+#: model:ir.model.fields,field_description:rating.field_rating_parent_mixin__rating_avg
+msgid "Average Rating"
+msgstr "Середня оцінка"
+
+#. module: rating
+#: model:ir.model.fields,field_description:rating.field_rating_parent_mixin__rating_avg_percentage
+msgid "Average Rating (%)"
+msgstr "Середня оцінка (%)"
 
 #. module: rating
 #: model:ir.model.fields,field_description:rating.field_rating_rating__feedback
@@ -60,20 +90,20 @@ msgid "Customer"
 msgstr "Клієнт"
 
 #. module: rating
-#: model_terms:ir.ui.view,arch_db:rating.rating_rating_view_search
-msgid "Date"
-msgstr "Дата"
-
-#. module: rating
 #: model:ir.model.fields,field_description:rating.field_rating_rating__display_name
 msgid "Display Name"
-msgstr "Відобразити назву"
+msgstr "Назва для відображення"
 
 #. module: rating
+#. odoo-python
 #: code:addons/rating/controllers/main.py:0
+#: model:ir.model.fields.selection,name:rating.selection__discuss_channel__rating_avg_text__ko
+#: model:ir.model.fields.selection,name:rating.selection__product_template__rating_avg_text__ko
+#: model:ir.model.fields.selection,name:rating.selection__project_task__rating_avg_text__ko
+#: model:ir.model.fields.selection,name:rating.selection__rating_mixin__rating_avg_text__ko
 #: model:ir.model.fields.selection,name:rating.selection__rating_rating__rating_text__ko
+#: model:ir.model.fields.selection,name:rating.selection__slide_channel__rating_avg_text__ko
 #: model_terms:ir.ui.view,arch_db:rating.rating_rating_view_search
-#, python-format
 msgid "Dissatisfied"
 msgstr "Незадоволений"
 
@@ -91,17 +121,12 @@ msgstr "Модель документу"
 #. module: rating
 #: model:ir.model,name:rating.model_mail_thread
 msgid "Email Thread"
-msgstr "Тема електронної пошти"
-
-#. module: rating
-#: model:ir.model.fields,help:rating.field_rating_rating__consumed
-msgid "Enabled if the rating has been filled."
-msgstr "Увімкнено, якщо рейтинг був заповнений."
+msgstr "Ланцюжки повідомлень"
 
 #. module: rating
 #: model_terms:ir.ui.view,arch_db:rating.rating_external_page_submit
-msgid "Feel free to write a feedback on your experience:"
-msgstr "Не соромтеся написати відгук про ваш досвід:"
+msgid "Feel free to share feedback on your experience:"
+msgstr "Не соромтеся поділитися відгуками про свій досвід:"
 
 #. module: rating
 #: model:ir.model.fields,field_description:rating.field_rating_rating__consumed
@@ -109,14 +134,29 @@ msgid "Filled Rating"
 msgstr "Заповнений рейтинг"
 
 #. module: rating
-#: model_terms:ir.ui.view,arch_db:rating.rating_external_page_view
-msgid "Go back to the Homepage"
-msgstr "Повернутися на головну сторінку"
+#: model:ir.model.fields,field_description:rating.field_rating_mixin__message_follower_ids
+msgid "Followers"
+msgstr "Підписники"
+
+#. module: rating
+#: model:ir.model.fields,field_description:rating.field_rating_mixin__message_partner_ids
+msgid "Followers (Partners)"
+msgstr "Підписники (Партнери)"
 
 #. module: rating
 #: model_terms:ir.ui.view,arch_db:rating.rating_rating_view_search
 msgid "Group By"
 msgstr "Групувати за"
+
+#. module: rating
+#: model_terms:ir.ui.view,arch_db:rating.rating_rating_view_kanban_stars
+msgid "Half a star"
+msgstr "Половина зірки"
+
+#. module: rating
+#: model:ir.model.fields,field_description:rating.field_rating_mixin__has_message
+msgid "Has Message"
+msgstr "Є повідомлення"
 
 #. module: rating
 #: model:ir.model.fields,help:rating.field_rating_rating__is_internal
@@ -127,14 +167,24 @@ msgstr ""
 "конфігурації підтипу."
 
 #. module: rating
+#: model_terms:ir.ui.view,arch_db:rating.rating_external_page_invalid_partner
+msgid "Home"
+msgstr "Головна"
+
+#. module: rating
 #: model:ir.model.fields,field_description:rating.field_rating_rating__id
 msgid "ID"
 msgstr "ID"
 
 #. module: rating
-#: model:ir.model.fields,help:rating.field_rating_rating__res_id
-msgid "Identifier of the rated object"
-msgstr "Ідентифікатор оцінювання об'єкта"
+#: model:ir.model.fields,help:rating.field_rating_mixin__message_needaction
+msgid "If checked, new messages require your attention."
+msgstr "Якщо позначено, то нові повідомлення будуть потребувати вашої уваги."
+
+#. module: rating
+#: model:ir.model.fields,help:rating.field_rating_mixin__message_has_error
+msgid "If checked, some messages have a delivery error."
+msgstr "Якщо позначено, деякі повідомлення мають помилку доставки."
 
 #. module: rating
 #: model:ir.model.fields,field_description:rating.field_rating_rating__rating_image
@@ -142,19 +192,41 @@ msgid "Image"
 msgstr "Зображення"
 
 #. module: rating
+#: model:ir.model.fields,field_description:rating.field_rating_rating__rating_image_url
+msgid "Image URL"
+msgstr "URL зображення"
+
+#. module: rating
+#. odoo-python
+#: code:addons/rating/controllers/main.py:0
+msgid "Incorrect rating: should be 1, 3 or 5 (received %d)"
+msgstr "Невірне оцінювання: має бути 1, 3 або 5 (отримано %d)"
+
+#. module: rating
+#. odoo-python
+#: code:addons/rating/models/mail_thread.py:0
+msgid "Invalid token or rating."
+msgstr "Недійсний токен або оцінка."
+
+#. module: rating
+#: model:ir.model.fields,field_description:rating.field_rating_mixin__message_is_follower
+msgid "Is Follower"
+msgstr "Стежить"
+
+#. module: rating
 #: model_terms:ir.ui.view,arch_db:rating.rating_rating_view_search
-msgid "Last 30 days"
+msgid "Last 30 Days"
 msgstr "Останні 30 днів"
 
 #. module: rating
 #: model_terms:ir.ui.view,arch_db:rating.rating_rating_view_search
-msgid "Last 7 days"
-msgstr "Останні 7 днів"
+msgid "Last 365 Days"
+msgstr "Останні 365 днів"
 
 #. module: rating
-#: model:ir.model.fields,field_description:rating.field_rating_rating____last_update
-msgid "Last Modified on"
-msgstr "Останні зміни на"
+#: model_terms:ir.ui.view,arch_db:rating.rating_rating_view_search
+msgid "Last 7 Days"
+msgstr "Останні 7 днів"
 
 #. module: rating
 #: model:ir.model.fields,field_description:rating.field_rating_rating__write_uid
@@ -173,9 +245,14 @@ msgid "Message"
 msgstr "Повідомлення"
 
 #. module: rating
-#: model:ir.model.fields,help:rating.field_rating_rating__res_model_id
-msgid "Model of the followed resource"
-msgstr "Модель наступного ресурсу"
+#: model:ir.model.fields,field_description:rating.field_rating_mixin__message_has_error
+msgid "Message Delivery error"
+msgstr "Помилка доставлення повідомлення"
+
+#. module: rating
+#: model:ir.model.fields,field_description:rating.field_rating_mixin__message_ids
+msgid "Messages"
+msgstr "Повідомлення"
 
 #. module: rating
 #: model_terms:ir.ui.view,arch_db:rating.rating_rating_view_search
@@ -188,27 +265,57 @@ msgid "Name"
 msgstr "Назва"
 
 #. module: rating
+#: model:ir.model.fields.selection,name:rating.selection__discuss_channel__rating_avg_text__none
+#: model:ir.model.fields.selection,name:rating.selection__product_template__rating_avg_text__none
+#: model:ir.model.fields.selection,name:rating.selection__project_task__rating_avg_text__none
+#: model:ir.model.fields.selection,name:rating.selection__rating_mixin__rating_avg_text__none
 #: model:ir.model.fields.selection,name:rating.selection__rating_rating__rating_text__none
+#: model:ir.model.fields.selection,name:rating.selection__slide_channel__rating_avg_text__none
 msgid "No Rating yet"
 msgstr "Ще немає жодного оцінювання"
 
 #. module: rating
-#: model_terms:ir.actions.act_window,help:rating.rating_rating_view
+#: model_terms:ir.actions.act_window,help:rating.rating_rating_action
 msgid "No rating yet"
 msgstr "Ще немає оцінювання"
 
 #. module: rating
+#: model:ir.model.fields,field_description:rating.field_rating_mixin__message_needaction_counter
+msgid "Number of Actions"
+msgstr "Кількість дій"
+
+#. module: rating
+#: model:ir.model.fields,field_description:rating.field_rating_mixin__message_has_error_counter
+msgid "Number of errors"
+msgstr "Кількість помилок"
+
+#. module: rating
+#: model:ir.model.fields,help:rating.field_rating_mixin__message_needaction_counter
+msgid "Number of messages requiring action"
+msgstr "Кількість повідомлень, які вимагають дії"
+
+#. module: rating
+#: model:ir.model.fields,help:rating.field_rating_mixin__message_has_error_counter
+msgid "Number of messages with delivery error"
+msgstr "Кількість повідомлень з помилковою дставкою"
+
+#. module: rating
+#. odoo-python
 #: code:addons/rating/controllers/main.py:0
+#: model:ir.model.fields.selection,name:rating.selection__discuss_channel__rating_avg_text__ok
+#: model:ir.model.fields.selection,name:rating.selection__product_template__rating_avg_text__ok
+#: model:ir.model.fields.selection,name:rating.selection__project_task__rating_avg_text__ok
+#: model:ir.model.fields.selection,name:rating.selection__rating_mixin__rating_avg_text__ok
 #: model:ir.model.fields.selection,name:rating.selection__rating_rating__rating_text__ok
+#: model:ir.model.fields.selection,name:rating.selection__slide_channel__rating_avg_text__ok
 #: model_terms:ir.ui.view,arch_db:rating.rating_rating_view_search
-#, python-format
 msgid "Okay"
 msgstr "Гаразд"
 
 #. module: rating
-#: model:ir.model.fields,help:rating.field_rating_rating__rated_partner_id
-msgid "Owner of the rated resource"
-msgstr "Власник ресурсу оцінювання"
+#: model_terms:ir.ui.view,arch_db:rating.rating_external_page_invalid_partner
+msgid "Only the customer of \""
+msgstr ""
 
 #. module: rating
 #: model:ir.model.fields,field_description:rating.field_rating_rating__parent_res_id
@@ -243,7 +350,7 @@ msgstr "Модель, пов'язана з батьківським докуме
 #. module: rating
 #: model:ir.model.fields,help:rating.field_rating_parent_mixin__rating_percentage_satisfaction
 msgid "Percentage of happy ratings"
-msgstr "Відсоток щасливих оцінювань"
+msgstr "Відсоток щасливих рейтингів"
 
 #. module: rating
 #: model:ir.model.fields,field_description:rating.field_rating_rating__rated_partner_id
@@ -253,31 +360,39 @@ msgstr "Оцінюваний оператор"
 
 #. module: rating
 #: model:ir.model,name:rating.model_rating_rating
-#: model:ir.model.fields,field_description:rating.field_rating_mixin__rating_ids
+#: model:ir.model.fields,field_description:rating.field_mail_mail__rating_id
+#: model:ir.model.fields,field_description:rating.field_mail_message__rating_id
 #: model:ir.model.fields,field_description:rating.field_rating_rating__rating_text
+#: model_terms:ir.ui.view,arch_db:rating.rating_rating_view_form_text
 #: model_terms:ir.ui.view,arch_db:rating.rating_rating_view_search
 msgid "Rating"
 msgstr "Оцінка"
 
 #. module: rating
-#: model:ir.model.fields,field_description:rating.field_rating_mixin__rating_avg
-msgid "Rating Average"
-msgstr "Середнє оцінювання"
+#: model_terms:ir.ui.view,arch_db:rating.rating_rating_view_graph
+#: model_terms:ir.ui.view,arch_db:rating.rating_rating_view_pivot
+msgid "Rating (/5)"
+msgstr "Оцінювання (/5)"
+
+#. module: rating
+#: model:ir.model.fields,field_description:rating.field_rating_mixin__rating_avg_text
+msgid "Rating Avg Text"
+msgstr "Текст середнього оцінювання"
 
 #. module: rating
 #: model:ir.model.fields,field_description:rating.field_rating_mixin__rating_last_feedback
 msgid "Rating Last Feedback"
-msgstr "Останній зворотній зв'язок оцінки"
+msgstr "Останній зворотній зв'язок рейтингу"
 
 #. module: rating
 #: model:ir.model.fields,field_description:rating.field_rating_mixin__rating_last_image
 msgid "Rating Last Image"
-msgstr "Останнє зображення оцінювання"
+msgstr "Останнє зображення рейтингу"
 
 #. module: rating
 #: model:ir.model.fields,field_description:rating.field_rating_mixin__rating_last_value
 msgid "Rating Last Value"
-msgstr "Останнє значення оцінювання"
+msgstr "Останнє значення рейтингу"
 
 #. module: rating
 #: model:ir.model,name:rating.model_rating_mixin
@@ -290,9 +405,15 @@ msgid "Rating Parent Mixin"
 msgstr "Збір батьківського рейтингу"
 
 #. module: rating
+#: model:ir.model.fields,field_description:rating.field_rating_mixin__rating_percentage_satisfaction
 #: model:ir.model.fields,field_description:rating.field_rating_parent_mixin__rating_percentage_satisfaction
 msgid "Rating Satisfaction"
 msgstr "Оцінювання вдоволеності"
+
+#. module: rating
+#: model:ir.model.fields,field_description:rating.field_rating_mixin__rating_last_text
+msgid "Rating Text"
+msgstr "Текст оцінювання"
 
 #. module: rating
 #: model:ir.model.fields,field_description:rating.field_mail_mail__rating_value
@@ -300,12 +421,6 @@ msgstr "Оцінювання вдоволеності"
 #: model:ir.model.fields,field_description:rating.field_rating_rating__rating
 msgid "Rating Value"
 msgstr "Значення оцінювання"
-
-#. module: rating
-#: model_terms:ir.ui.view,arch_db:rating.rating_rating_view_graph
-#: model_terms:ir.ui.view,arch_db:rating.rating_rating_view_pivot
-msgid "Rating Value (/5)"
-msgstr "Значення оцінювання (/5)"
 
 #. module: rating
 #: model:ir.model.fields,field_description:rating.field_rating_mixin__rating_count
@@ -318,13 +433,42 @@ msgid "Rating should be between 0 and 5"
 msgstr "Оцінювання повинне бути між 0 та 5"
 
 #. module: rating
-#: model:ir.model.fields,help:rating.field_rating_rating__rating
-msgid "Rating value: 0=Unhappy, 5=Happy"
-msgstr "Значення оцінювання: 0=Нещасливий, 5=Щасливий"
+#. odoo-javascript
+#: code:addons/rating/static/src/core/web/notification_item_patch.xml:0
+msgid "Rating:"
+msgstr "Оцінювання:"
 
 #. module: rating
-#: model:ir.actions.act_window,name:rating.rating_rating_view
+#: model:ir.actions.act_window,name:rating.rating_rating_action
+#: model:ir.model.fields,field_description:rating.field_account_analytic_account__rating_ids
+#: model:ir.model.fields,field_description:rating.field_calendar_event__rating_ids
+#: model:ir.model.fields,field_description:rating.field_discuss_channel__rating_ids
+#: model:ir.model.fields,field_description:rating.field_fleet_vehicle__rating_ids
+#: model:ir.model.fields,field_description:rating.field_fleet_vehicle_log_contract__rating_ids
+#: model:ir.model.fields,field_description:rating.field_fleet_vehicle_log_services__rating_ids
+#: model:ir.model.fields,field_description:rating.field_fleet_vehicle_model__rating_ids
+#: model:ir.model.fields,field_description:rating.field_gamification_badge__rating_ids
+#: model:ir.model.fields,field_description:rating.field_gamification_challenge__rating_ids
+#: model:ir.model.fields,field_description:rating.field_iap_account__rating_ids
+#: model:ir.model.fields,field_description:rating.field_lunch_supplier__rating_ids
+#: model:ir.model.fields,field_description:rating.field_mail_blacklist__rating_ids
+#: model:ir.model.fields,field_description:rating.field_mail_thread__rating_ids
+#: model:ir.model.fields,field_description:rating.field_mail_thread_blacklist__rating_ids
+#: model:ir.model.fields,field_description:rating.field_mail_thread_cc__rating_ids
+#: model:ir.model.fields,field_description:rating.field_mail_thread_main_attachment__rating_ids
+#: model:ir.model.fields,field_description:rating.field_mail_thread_phone__rating_ids
+#: model:ir.model.fields,field_description:rating.field_maintenance_equipment__rating_ids
+#: model:ir.model.fields,field_description:rating.field_maintenance_equipment_category__rating_ids
+#: model:ir.model.fields,field_description:rating.field_maintenance_request__rating_ids
+#: model:ir.model.fields,field_description:rating.field_phone_blacklist__rating_ids
+#: model:ir.model.fields,field_description:rating.field_product_category__rating_ids
+#: model:ir.model.fields,field_description:rating.field_product_pricelist__rating_ids
+#: model:ir.model.fields,field_description:rating.field_product_product__rating_ids
+#: model:ir.model.fields,field_description:rating.field_product_template__rating_ids
+#: model:ir.model.fields,field_description:rating.field_rating_mixin__rating_ids
 #: model:ir.model.fields,field_description:rating.field_rating_parent_mixin__rating_ids
+#: model:ir.model.fields,field_description:rating.field_res_partner__rating_ids
+#: model:ir.model.fields,field_description:rating.field_res_users__rating_ids
 #: model:ir.ui.menu,name:rating.rating_rating_menu_technical
 #: model_terms:ir.ui.view,arch_db:rating.mail_message_view_form
 #: model_terms:ir.ui.view,arch_db:rating.rating_rating_view_form
@@ -334,12 +478,6 @@ msgstr "Значення оцінювання: 0=Нещасливий, 5=Щас�
 #: model_terms:ir.ui.view,arch_db:rating.rating_rating_view_tree
 msgid "Ratings"
 msgstr "Оцінювання"
-
-#. module: rating
-#: model:ir.model.fields,help:rating.field_rating_mixin__rating_last_feedback
-#: model:ir.model.fields,help:rating.field_rating_rating__feedback
-msgid "Reason of the rating"
-msgstr "Причина оцінювання"
 
 #. module: rating
 #: model:ir.model.fields,field_description:rating.field_rating_rating__res_model_id
@@ -368,10 +506,15 @@ msgid "Resource name"
 msgstr "Назва ресурсу"
 
 #. module: rating
+#. odoo-python
 #: code:addons/rating/controllers/main.py:0
+#: model:ir.model.fields.selection,name:rating.selection__discuss_channel__rating_avg_text__top
+#: model:ir.model.fields.selection,name:rating.selection__product_template__rating_avg_text__top
+#: model:ir.model.fields.selection,name:rating.selection__project_task__rating_avg_text__top
+#: model:ir.model.fields.selection,name:rating.selection__rating_mixin__rating_avg_text__top
 #: model:ir.model.fields.selection,name:rating.selection__rating_rating__rating_text__top
+#: model:ir.model.fields.selection,name:rating.selection__slide_channel__rating_avg_text__top
 #: model_terms:ir.ui.view,arch_db:rating.rating_rating_view_search
-#, python-format
 msgid "Satisfied"
 msgstr "Задоволений"
 
@@ -383,10 +526,11 @@ msgstr "Токен безпеки"
 #. module: rating
 #: model_terms:ir.ui.view,arch_db:rating.rating_external_page_submit
 msgid "Send Feedback"
-msgstr "Зворотній зв'язок"
+msgstr "Відправити Feedback"
 
 #. module: rating
 #: model:ir.model.fields,field_description:rating.field_rating_rating__create_date
+#: model_terms:ir.ui.view,arch_db:rating.rating_rating_view_search
 msgid "Submitted on"
 msgstr "Відправлено на"
 
@@ -397,28 +541,29 @@ msgstr "Дякуємо, що оцінили наші послуги!"
 
 #. module: rating
 #: model_terms:ir.ui.view,arch_db:rating.rating_external_page_view
-msgid "Thank you, we appreciate your feedback!"
-msgstr "Дякуємо, ми цінуємо ваш відгук!"
+msgid "Thank you for your feedback!"
+msgstr "Дякуємо за ваш фідбек!"
 
 #. module: rating
-#: model:ir.model.fields,help:rating.field_rating_rating__res_name
-msgid "The name of the rated resource."
-msgstr "Назва ресурсу оцінювання."
-
-#. module: rating
-#: model_terms:ir.actions.act_window,help:rating.rating_rating_view
+#: model_terms:ir.actions.act_window,help:rating.rating_rating_action
 msgid "There is no rating for this object at the moment."
 msgstr "На даний момент немає жодного оцінювання цього об'єкта."
-
-#. module: rating
-#: model_terms:ir.ui.view,arch_db:rating.rating_rating_view_search
-msgid "Today"
-msgstr "Сьогодні"
 
 #. module: rating
 #: model:ir.model.fields,field_description:rating.field_rating_rating__is_internal
 msgid "Visible Internally Only"
 msgstr "Видимий лише внутрішньо"
+
+#. module: rating
+#. odoo-python
+#: code:addons/rating/models/mail_thread.py:0
+msgid "Wrong rating value. A rate should be between 0 and 5 (received %d)."
+msgstr "Невірне значення оцінювання. Оцінка має бути між 0 та 5 (отримано %d)."
+
+#. module: rating
+#: model_terms:ir.ui.view,arch_db:rating.rating_external_page_invalid_partner
+msgid "You cannot rate this"
+msgstr ""
 
 #. module: rating
 #: model_terms:ir.ui.view,arch_db:rating.rating_rating_view_kanban

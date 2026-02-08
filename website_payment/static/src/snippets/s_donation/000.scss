@@ -34,9 +34,9 @@
             left: 0%;
             margin-top: 28px;
             padding: 0.5rem 1rem;
-            color: color-yiq(o-color('primary'));
-            background: theme-color('primary');
-            font-size: 1.15rem;
+            color: color-contrast(o-color('primary'));
+            background: map-get($theme-colors, 'primary');
+            @include font-size(1.15rem);
             border-radius: 0.3rem;
             transform: translateX(-50%);
     
@@ -47,10 +47,20 @@
                 left: 50%;
                 width: 0;
                 border-style: solid;
-                border-color: theme-color('primary') transparent;
+                border-color: map-get($theme-colors, 'primary') transparent;
                 border-width: 0 5px 5px;
                 margin-left: -5px;
             }
+        }
+    }
+
+    // TODO: Remove in Master. It is necessary to hide the prefilled button when
+    // previewing the donation button while dragging it onto the page from the
+    // snippet menu. In the case where "display options" is not True, they are
+    // removed in "start()" anyway.
+    &:not([data-display-options="true"]) {
+        .s_donation_prefilled_buttons {
+            display: none;
         }
     }
 }

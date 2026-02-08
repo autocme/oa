@@ -1,29 +1,26 @@
-odoo.define('website.tour.specific_website_editor', function (require) {
-'use strict';
+/** @odoo-module **/
 
-var tour = require('web_tour.tour');
+import { registry } from "@web/core/registry";
+import {
+    clickOnEditAndWaitEditMode,
+    registerWebsitePreviewTour
+} from '@website/js/tours/tour_utils';
 
-tour.register('generic_website_editor', {
-    test: true,
-}, [{
-    trigger: 'a[data-action=edit]',
-    content: 'Click edit button',
-}, {
-    trigger: 'body:not([data-hello="world"])',
-    extra_trigger: '#oe_snippets.o_loaded',
+registerWebsitePreviewTour("generic_website_editor", {
+    edition: true,
+}, () => [{
+    trigger: ':iframe body:not([data-hello="world"])',
     content: 'Check that the editor DOM matches its website-generic features',
-    run: function () {}, // Simple check
 }]);
 
-tour.register('specific_website_editor', {
-    test: true,
-}, [{
-    trigger: 'a[data-action=edit]',
-    content: 'Click edit button',
-}, {
-    trigger: 'body[data-hello="world"]',
-    extra_trigger: '#oe_snippets.o_loaded',
+// Good practice would have been to use `registerWebsitePreviewTour`
+// for this tour with `edition: true` and remove the first step to enter edit
+// mode. Unfortunately this breaks the page and therefore the test fails for
+// unknown reason.
+registry.category("web_tour.tours").add('specific_website_editor', {
+    steps: () => [
+    ...clickOnEditAndWaitEditMode(),
+{
+    trigger: ':iframe body[data-hello="world"]',
     content: 'Check that the editor DOM matches its website-specific features',
-    run: function () {}, // Simple check
-}]);
-});
+}]});

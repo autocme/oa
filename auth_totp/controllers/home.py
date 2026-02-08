@@ -1,16 +1,18 @@
 # -*- coding: utf-8 -*-
 import re
 
-import odoo.addons.web.controllers.main
+from datetime import datetime, timedelta
+
 from odoo import http, _
 from odoo.exceptions import AccessDenied
 from odoo.http import request
+from odoo.addons.web.controllers import home as web_home
 
 TRUSTED_DEVICE_COOKIE = 'td_id'
 TRUSTED_DEVICE_AGE = 90*86400 # 90 days expiration
 
 
-class Home(odoo.addons.web.controllers.main.Home):
+class Home(web_home.Home):
     @http.route(
         '/web/login/totp',
         type='http', auth='public', methods=['GET', 'POST'], sitemap=False,
@@ -27,35 +29,44 @@ class Home(odoo.addons.web.controllers.main.Home):
 
         user = request.env['res.users'].browse(request.session.pre_uid)
         if user and request.httprequest.method == 'GET':
-            cookies = request.httprequest.cookies
+            cookies = request.cookies
             key = cookies.get(TRUSTED_DEVICE_COOKIE)
             if key:
-                checked_credentials = request.env['auth_totp.device']._check_credentials(scope="browser", key=key)
-                if checked_credentials == user.id:
-                    request.session.finalize()
+                user_match = request.env['auth_totp.device']._check_credentials_for_uid(
+                    scope="browser", key=key, uid=user.id)
+                if user_match:
+                    request.session.finalize(request.env)
+                    request.update_env(user=request.session.uid)
+                    request.update_context(**request.session.context)
                     return request.redirect(self._login_redirect(request.session.uid, redirect=redirect))
 
         elif user and request.httprequest.method == 'POST' and kwargs.get('totp_token'):
             try:
-                with user._assert_can_auth():
+                with user._assert_can_auth(user=user.id):
                     user._totp_check(int(re.sub(r'\s', '', kwargs['totp_token'])))
             except AccessDenied as e:
                 error = str(e)
             except ValueError:
                 error = _("Invalid authentication code format.")
             else:
-                request.session.finalize()
+                request.session.finalize(request.env)
+                request.update_env(user=request.session.uid)
+                request.update_context(**request.session.context)
                 response = request.redirect(self._login_redirect(request.session.uid, redirect=redirect))
                 if kwargs.get('remember'):
                     name = _("%(browser)s on %(platform)s",
                         browser=request.httprequest.user_agent.browser.capitalize(),
                         platform=request.httprequest.user_agent.platform.capitalize(),
                     )
-                    geoip = request.session.geoip
-                    if geoip:
-                        name += " (%s, %s)" % (geoip['city'], geoip['country_name'])
 
-                    key = request.env['auth_totp.device']._generate("browser", name)
+                    if request.geoip.city.name:
+                        name += f" ({request.geoip.city.name}, {request.geoip.country_name})"
+
+                    key = request.env['auth_totp.device'].sudo()._generate(
+                        "browser",
+                        name,
+                        datetime.now() + timedelta(seconds=TRUSTED_DEVICE_AGE)
+                    )
                     response.set_cookie(
                         key=TRUSTED_DEVICE_COOKIE,
                         value=key,
@@ -63,8 +74,12 @@ class Home(odoo.addons.web.controllers.main.Home):
                         httponly=True,
                         samesite='Lax'
                     )
+                # Crapy workaround for unupdatable Odoo Mobile App iOS (Thanks Apple :@)
+                request.session.touch()
                 return response
 
+        # Crapy workaround for unupdatable Odoo Mobile App iOS (Thanks Apple :@)
+        request.session.touch()
         return request.render('auth_totp.auth_totp_form', {
             'user': user,
             'error': error,

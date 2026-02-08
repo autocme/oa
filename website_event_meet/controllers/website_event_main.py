@@ -15,11 +15,11 @@ class WebsiteEventController(main.WebsiteEventController):
         if "from_room_id" in post and not event.is_ongoing:
             meeting_room = request.env["event.meeting.room"].browse(int(post["from_room_id"])).sudo().exists()
             if meeting_room and meeting_room.is_published:
-                date_begin = format_datetime(event.with_context(tz=event.date_tz).date_begin, format="medium")
+                date_begin = format_datetime(event.date_begin, format="medium", tzinfo=event.date_tz)
 
                 values["toast_message"] = (
-                    _('The event %s starts on %s (%s). \nJoin us there to chat about "%s" !')
-                    % (event.name, date_begin, event.date_tz, meeting_room.name)
+                    _('The event %(name)s starts on %(date_begin)s (%(timezone)s).\nJoin us there to chat about "%(subject)s"!',
+                    name=event.name, date_begin=date_begin, timezone=event.date_tz, subject=meeting_room.name)
                 )
 
         return values

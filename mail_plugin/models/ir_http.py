@@ -5,8 +5,6 @@ from werkzeug.exceptions import BadRequest
 
 from odoo import models
 from odoo.http import request
-from odoo.tools.misc import frozendict
-
 
 class IrHttp(models.AbstractModel):
     _inherit = 'ir.http'
@@ -25,10 +23,7 @@ class IrHttp(models.AbstractModel):
             raise BadRequest('Access token invalid')
 
         # take the identity of the API key user
-        request.uid = user_id
+        request.update_env(user=user_id)
 
         # switch to the user context
-        request.env.context = frozendict({
-            **request.env.context,
-            **request.env.user.sudo().context_get(),
-        })
+        request.update_context(**request.env.user.context_get())

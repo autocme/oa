@@ -1,27 +1,27 @@
 # -*- coding: utf-8 -*-
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
 import stdnum
-from odoo import _, api, fields, models
-from odoo.exceptions import UserError, ValidationError
+from odoo import api, fields, models
 
 
 class ResPartner(models.Model):
     _name = 'res.partner'
     _inherit = 'res.partner'
 
-    _sii_taxpayer_types = [
-        ('1', _('VAT Affected (1st Category)')),
-        ('2', _('Fees Receipt Issuer (2nd category)')),
-        ('3', _('End Consumer')),
-        ('4', _('Foreigner')),
-    ]
-
     l10n_cl_sii_taxpayer_type = fields.Selection(
-        _sii_taxpayer_types, 'Taxpayer Type', index=True,
+        [
+            ('1', 'VAT Affected (1st Category)'),
+            ('2', 'Fees Receipt Issuer (2nd category)'),
+            ('3', 'End Consumer'),
+            ('4', 'Foreigner'),
+        ],
+        string='Taxpayer Type',
+        index='btree_not_null',
         help='1 - VAT Affected (1st Category) (Most of the cases)\n'
              '2 - Fees Receipt Issuer (Applies to suppliers who issue fees receipt)\n'
              '3 - End consumer (only receipts)\n'
              '4 - Foreigner')
+    l10n_cl_activity_description = fields.Char(string='Activity Description', help="Chile: Economic activity.")
 
     @api.model
     def _commercial_fields(self):
@@ -48,11 +48,12 @@ class ResPartner(models.Model):
         n_vat, n_dv = vat_l[0], vat_l[1]
         return '%s-%s' % (format(int(n_vat), ',d').replace(',', '.'), n_dv)
 
-    @api.model
-    def create(self, values):
-        if values.get('vat'):
-            values['vat'] = self._format_vat_cl(values)
-        return super().create(values)
+    @api.model_create_multi
+    def create(self, vals_list):
+        for vals in vals_list:
+            if vals.get('vat'):
+                vals['vat'] = self._format_vat_cl(vals)
+        return super().create(vals_list)
 
     def write(self, values):
         if any(field in values for field in ['vat', 'l10n_latam_identification_type_id', 'country_id']):

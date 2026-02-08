@@ -1,50 +1,73 @@
-$(function() {
+document.addEventListener("DOMContentLoaded", function () {
     // Little eye
-    $('body').on('mousedown', '.o_little_eye', function (ev) {
-        $(ev.target).closest('.input-group').find('.form-control').prop("type",
-            (i, old) => { return old === "text" ? "password" : "text"; }
-        );
-    });
-    // db modal
-    $('body').on('click', '.o_database_action', function (ev) {
-        ev.preventDefault();
-        var db = $(ev.currentTarget).data('db');
-        var target = $(ev.currentTarget).data('target');
-        $(target).find('input[name=name]').val(db);
-        $(target).modal();
-    });
-    // close modal on submit
-    $('.modal').on('submit', 'form', function (ev) {
-        var form = $(this).closest('form')[0];
-        if (form && form.checkValidity && !form.checkValidity()) {
-            return;
-        }
-        var modal = $(this).parentsUntil('body', '.modal');
-        if (modal.hasClass('o_database_backup')) {
-            $(modal).modal('hide');
-            if (!$('.alert-backup-long').length) {
-                $('.list-group').before("<div class='alert alert-info alert-backup-long'>The backup may take some time before being ready</div>");
+    document.body.addEventListener("mousedown", function (ev) {
+        if (ev.target.classList.contains("o_little_eye")) {
+            const closestInputGroup = ev.target.closest(".input-group");
+            if (closestInputGroup) {
+                const formControl = closestInputGroup.querySelector(".form-control");
+                if (formControl) {
+                    formControl.type = formControl.type === "text" ? "password" : "text";
+                }
             }
         }
     });
 
+    // db modal
+    document.body.addEventListener("click", function (ev) {
+        if (ev.target.classList.contains("o_database_action")) {
+            ev.preventDefault();
+            const db = ev.target.getAttribute("data-db");
+            const target = ev.target.getAttribute("data-bs-target");
+            const modal = Modal.getOrCreateInstance(document.querySelector(target));
+            const inputName = modal._element.querySelector("input[name=name]");
+            if (inputName) {
+                inputName.value = db;
+            }
+            modal.show();
+        }
+    });
+
+    // close modal on submit
+    const modals = document.querySelectorAll(".modal");
+    for (const modalEl of modals) {
+        modalEl.addEventListener("submit", function (ev) {
+            const form = ev.target.closest("form");
+            if (form && !form.checkValidity?.()) {
+                return;
+            }
+            const modal = Modal.getOrCreateInstance(modalEl);
+            modal.hide();
+            if (modalEl.classList.contains("o_database_backup")) {
+                if (!document.querySelector(".alert-backup-long")) {
+                    const listGroup = document.querySelector(".list-group");
+                    if (listGroup) {
+                        const alert = document.createElement("div");
+                        alert.className = "alert alert-info alert-backup-long";
+                        alert.textContent =
+                            "The backup is on its way; if your database has a lot of data, you may want to go grab a coffee...";
+                        listGroup.parentNode.insertBefore(alert, listGroup);
+                    }
+                }
+            }
+        });
+    }
     // generate a random master password
     // removed l1O0 to avoid confusions
-    var charset = "abcdefghijkmnpqrstuvwxyz23456789";
-    var password = "";
-    for (var i = 0, n = charset.length; i < 12; ++i) {
-        password += charset.charAt(Math.floor(Math.random() * n));
+    const charset = "abcdefghijkmnpqrstuvwxyz23456789";
+    let password = "";
+    for (let i = 0; i < 12; ++i) {
+        password += charset.charAt(Math.floor(Math.random() * charset.length));
         if (i === 3 || i === 7) {
             password += "-";
         }
     }
-    var master_pwds = document.getElementsByClassName("generated_master_pwd");
-    for (var i=0, len=master_pwds.length|0; i<len; i=i+1|0) {
-        master_pwds[i].innerText = password;
+    const masterPwds = document.getElementsByClassName("generated_master_pwd");
+    for (const pwdElement of masterPwds) {
+        pwdElement.innerText = password;
     }
-    var master_pwd_inputs = document.getElementsByClassName("generated_master_pwd_input");
-    for (var i=0, len=master_pwd_inputs.length|0; i<len; i=i+1|0) {
-        master_pwd_inputs[i].value = password;
-        master_pwd_inputs[i].setAttribute('autocomplete', 'new-password');
+    const masterPwdInputs = document.querySelectorAll(".generated_master_pwd_input");
+    for (const pwdInput of masterPwdInputs) {
+        pwdInput.value = password;
+        pwdInput.setAttribute("autocomplete", "new-password");
     }
 });

@@ -7,14 +7,13 @@
     'category': 'Point of Sale',
     'sequence': 6,
     'summary': 'Adds American style tipping to Adyen',
-    'description': '',
     'depends': ['pos_adyen', 'pos_restaurant', 'payment_adyen'],
     'data': [
         'views/pos_payment_method_views.xml',
         ],
     'auto_install': True,
     'assets': {
-        'point_of_sale.assets': [
+        'point_of_sale._assets_pos': [
             'pos_restaurant_adyen/static/**/*',
         ],
     },

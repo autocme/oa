@@ -1,7 +1,7 @@
-odoo.define('mail_group.mail_group_message', function (require) {
-'use strict';
+/** @odoo-module **/
 
-const publicWidget = require('web.public.widget');
+import { rpc } from "@web/core/network/rpc";
+import publicWidget from "@web/legacy/js/public/public_widget";
 
 publicWidget.registry.MailGroupMessage = publicWidget.Widget.extend({
     selector: '.o_mg_message',
@@ -19,7 +19,7 @@ publicWidget.registry.MailGroupMessage = publicWidget.Widget.extend({
         // And add a button "Read more" to show the mention of the parent email
         const body = this.$el.find('.card-body').first();
         const quoted = body.find('*[data-o-mail-quote]');
-        const readMore = $('<button class="btn btn-light btn-sm ml-1"/>').text('. . .');
+        const readMore = $('<button class="btn btn-light btn-sm ms-1"/>').text('. . .');
         quoted.first().before(readMore);
         readMore.on('click', () => {
             quoted.toggleClass('visible');
@@ -64,11 +64,8 @@ publicWidget.registry.MailGroupMessage = publicWidget.Widget.extend({
      */
      _onReadMoreClick: function (ev) {
         const $link = $(ev.target);
-        this._rpc({
-            route: $link.data('href'),
-            params: {
-                last_displayed_id: $link.data('last-displayed-id'),
-            },
+        rpc($link.data('href'), {
+            last_displayed_id: $link.data('last-displayed-id'),
         }).then(function (data) {
             if (!data) {
                 return;
@@ -85,5 +82,4 @@ publicWidget.registry.MailGroupMessage = publicWidget.Widget.extend({
             $showMore.remove();
         });
      },
-});
 });

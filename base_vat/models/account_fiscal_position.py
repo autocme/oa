@@ -7,10 +7,12 @@ from odoo.exceptions import ValidationError
 class AccountFiscalPosition(models.Model):
     _inherit = 'account.fiscal.position'
 
-    @api.model
-    def create(self, vals):
-        vals = self.adjust_vals_country_id(vals)
-        return super().create(vals)
+    @api.model_create_multi
+    def create(self, vals_list):
+        new_vals = []
+        for vals in vals_list:
+            new_vals.append(self.adjust_vals_country_id(vals))
+        return super().create(new_vals)
 
     def write(self, vals):
         vals = self.adjust_vals_country_id(vals)
@@ -56,3 +58,21 @@ class AccountFiscalPosition(models.Model):
         country_code = country.code.lower() if country else self.country_id.code.lower()
         error_message = self.env['res.partner']._build_vat_error_message(country_code, self.foreign_vat, fp_label)
         raise ValidationError(error_message)
+
+    def _get_vat_valid(self, delivery, company=None):
+        eu_countries = self.env.ref('base.europe').country_ids
+
+        # If VIES validation does not apply to this partner (e.g. they
+        # are in the same country as the partner), then skip.
+        if not (company and delivery.with_company(company).perform_vies_validation):
+            return super()._get_vat_valid(delivery, company)
+
+        # If the company has a fiscal position with a foreign vat in Europe, in the same country as the partner, then the VIES validity applies
+        if self.search_count([
+                *self._check_company_domain(company),
+                ('foreign_vat', '!=', False),
+                ('country_id', '=', delivery.country_id.id),
+        ]) or company.country_id in eu_countries:
+            return super()._get_vat_valid(delivery, company) and delivery.vies_valid
+
+        return super()._get_vat_valid(delivery, company)

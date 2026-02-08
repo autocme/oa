@@ -1,11 +1,11 @@
-/** @odoo-module **/
-
 import { session } from "@web/session";
+import { jsToPyLocale } from "@web/core/l10n/utils";
+import { user } from "@web/core/user";
 import { browser } from "../browser/browser";
 import { registry } from "../registry";
 import { strftimeToLuxonFormat } from "./dates";
 import { localization } from "./localization";
-import { translatedTerms, _t } from "./translation";
+import { translatedTerms, translationLoaded, translationIsReady } from "./translation";
 
 const { Settings } = luxon;
 
@@ -23,14 +23,10 @@ const NUMBERING_SYSTEMS = [
 ];
 
 export const localizationService = {
-    dependencies: ["user"],
-    start: async (env, { user }) => {
-        // add "data-toolip" to the list of translatable attributes in owl templates
-        owl.config.translatableAttributes.push("data-tooltip");
-        const locale = document.documentElement.getAttribute("lang") || "";
+    start: async () => {
         const cacheHashes = session.cache_hashes || {};
         const translationsHash = cacheHashes.translations || new Date().getTime().toString();
-        const lang = user.lang || locale.replace(/-/g, "_");
+        const lang = jsToPyLocale(user.lang || document.documentElement.getAttribute("lang"));
         const translationURL = session.translationURL || "/web/webclient/translations";
         let url = `${translationURL}/${translationsHash}`;
         if (lang) {
@@ -50,39 +46,36 @@ export const localizationService = {
 
         // FIXME We flatten the result of the python route.
         // Eventually, we want a new python route to return directly the good result.
-        let terms = {};
+        const terms = {};
         for (const addon of Object.keys(modules)) {
             for (const message of modules[addon].messages) {
                 terms[message.id] = message.string;
             }
         }
 
-        Object.setPrototypeOf(translatedTerms, terms);
-        env._t = _t;
-        env.qweb.translateFn = _t;
+        Object.assign(translatedTerms, terms);
+        translatedTerms[translationLoaded] = true;
+        translationIsReady.resolve(true);
 
-        if (lang) {
-            // Setup lang inside luxon. The locale codes received from the server contain "_",
-            // whereas the Intl codes use "-" (Unicode BCP 47). There's only one exception, which
-            // is locale "sr@latin", for which we manually fallback to the "sr-Latn-RS" locale.
-            const locale = lang === "sr@latin" ? "sr-Latn-RS" : lang.replace(/_/g, "-");
-            Settings.defaultLocale = locale;
-            for (const [re, numberingSystem] of NUMBERING_SYSTEMS) {
-                if (re.test(locale)) {
-                    Settings.defaultNumberingSystem = numberingSystem;
-                    break;
-                }
+        const locale = user.lang || browser.navigator.language;
+        Settings.defaultLocale = locale;
+        for (const [re, numberingSystem] of NUMBERING_SYSTEMS) {
+            if (re.test(locale)) {
+                Settings.defaultNumberingSystem = numberingSystem;
+                break;
             }
         }
 
         const dateFormat = strftimeToLuxonFormat(userLocalization.date_format);
         const timeFormat = strftimeToLuxonFormat(userLocalization.time_format);
+        const shortTimeFormat = strftimeToLuxonFormat(userLocalization.short_time_format);
         const dateTimeFormat = `${dateFormat} ${timeFormat}`;
         const grouping = JSON.parse(userLocalization.grouping);
 
         Object.assign(localization, {
             dateFormat,
             timeFormat,
+            shortTimeFormat,
             dateTimeFormat,
             decimalPoint: userLocalization.decimal_point,
             direction: userLocalization.direction,
@@ -90,7 +83,9 @@ export const localizationService = {
             multiLang,
             thousandsSep: userLocalization.thousands_sep,
             weekStart: userLocalization.week_start,
+            code: jsToPyLocale(locale),
         });
+        return localization;
     },
 };
 

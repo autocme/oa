@@ -112,7 +112,7 @@ class LunchProduct(models.Model):
 
     def _inverse_is_favorite(self):
         """ Handled in the write() """
-        pass
+        return
 
     def write(self, vals):
         if 'is_favorite' in vals:

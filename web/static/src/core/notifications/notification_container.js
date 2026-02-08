@@ -1,25 +1,24 @@
-/** @odoo-module **/
-
 import { Notification } from "./notification";
+import { Transition } from "@web/core/transition";
 
-const { Component, tags } = owl;
+import { Component, xml, useState } from "@odoo/owl";
 
 export class NotificationContainer extends Component {
+    static props = {
+        notifications: Object,
+    };
+
+    static template = xml`
+        <div class="o_notification_manager">
+            <t t-foreach="notifications" t-as="notification" t-key="notification">
+                <Transition leaveDuration="0" immediate="true" name="'o_notification_fade'" t-slot-scope="transition">
+                    <Notification t-props="notification_value.props" className="(notification_value.props.className || '') + ' ' + transition.className"/>
+                </Transition>
+            </t>
+        </div>`;
+    static components = { Notification, Transition };
+
     setup() {
-        // this works, but then this component cannot be unmounted, then
-        // remounted. would need a destroyed hook different from willunmount
-        this.props.bus.on("UPDATE", this, this.render);
+        this.notifications = useState(this.props.notifications);
     }
 }
-
-NotificationContainer.template = tags.xml`
-    <div class="o_notification_manager">
-        <t t-foreach="props.notifications" t-as="notification" t-key="notification.id">
-            <Notification
-                t-props="notification.props"
-                t-transition="o_notification_fade"
-                t-on-close="notification.close()"
-            />
-        </t>
-    </div>`;
-NotificationContainer.components = { Notification };

@@ -10,20 +10,9 @@
             <div name="button_box" position="inside">
                 <field name="sponsor_id" invisible="1"/>
                 <button name="action_view_sponsor" type="object" class="oe_stat_button"
-                        icon="fa-black-tie" string="Sponsor" attrs="{'invisible': [('sponsor_id', '=', False)]}">
+                        icon="fa-black-tie" string="Sponsor" invisible="not sponsor_id">
                 </button>
             </div>
-        </field>
-    </record>
-
-    <record id="event_booth_view_search" model="ir.ui.view">
-        <field name="name">event.booth.view.search.inherit.website.event.booth.exhibitor</field>
-        <field name="model">event.booth</field>
-        <field name="inherit_id" ref="event_booth.event_booth_view_search"/>
-        <field name="arch" type="xml">
-            <xpath expr="//filter[@name='group_by_booth_category_id']" position="after">
-                <filter string="Sponsor" name="group_by_sponsor_id" context="{'group_by': 'sponsor_id'}"/>
-            </xpath>
         </field>
     </record>
 

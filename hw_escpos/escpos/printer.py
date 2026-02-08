@@ -1,4 +1,5 @@
 #!/usr/bin/python
+# pylint: skip-file
 
 from __future__ import print_function
 import serial
@@ -225,4 +226,3 @@ class Network(Escpos):
     def __del__(self):
         """ Close TCP connection """
         self.device.close()
-

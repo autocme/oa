@@ -60,12 +60,10 @@ class PortalWizard(models.TransientModel):
 
     def _action_open_modal(self):
         """Allow to keep the wizard modal open after executing the action."""
-        self.refresh()
         return {
             'name': _('Portal Access Management'),
             'type': 'ir.actions.act_window',
             'res_model': 'portal.wizard',
-            'view_type': 'form',
             'view_mode': 'form',
             'res_id': self.id,
             'target': 'new',
@@ -88,6 +86,26 @@ class PortalWizardUser(models.TransientModel):
     login_date = fields.Datetime(related='user_id.login_date', string='Latest Authentication')
     is_portal = fields.Boolean('Is Portal', compute='_compute_group_details')
     is_internal = fields.Boolean('Is Internal', compute='_compute_group_details')
+    email_state = fields.Selection([
+        ('ok', 'Valid'),
+        ('ko', 'Invalid'),
+        ('exist', 'Already Registered')],
+        string='Status', compute='_compute_email_state', default='ok')
+
+    @api.depends('email')
+    def _compute_email_state(self):
+        portal_users_with_email = self.filtered(lambda user: email_normalize(user.email))
+        (self - portal_users_with_email).email_state = 'ko'
+
+        existing_users = self.env['res.users'].with_context(active_test=False).sudo().search_read(
+            self._get_similar_users_domain(portal_users_with_email),
+            self._get_similar_users_fields()
+        )
+        for portal_user in portal_users_with_email:
+            if next((user for user in existing_users if self._is_portal_similar_than_user(user, portal_user)), None):
+                portal_user.email_state = 'exist'
+            else:
+                portal_user.email_state = 'ok'
 
     @api.depends('partner_id')
     def _compute_user_id(self):
@@ -100,10 +118,10 @@ class PortalWizardUser(models.TransientModel):
         for portal_wizard_user in self:
             user = portal_wizard_user.user_id
 
-            if user and user.has_group('base.group_user'):
+            if user and user._is_internal():
                 portal_wizard_user.is_internal = True
                 portal_wizard_user.is_portal = False
-            elif user and user.has_group('base.group_portal'):
+            elif user and user._is_portal():
                 portal_wizard_user.is_internal = False
                 portal_wizard_user.is_portal = True
             else:
@@ -127,10 +145,7 @@ class PortalWizardUser(models.TransientModel):
         group_portal = self.env.ref('base.group_portal')
         group_public = self.env.ref('base.group_public')
 
-        # update partner email, if a new one was introduced
-        if self.partner_id.email != self.email:
-            self.partner_id.write({'email': self.email})
-
+        self._update_partner_email()
         user_sudo = self.user_id.sudo()
 
         if not user_sudo:
@@ -145,7 +160,7 @@ class PortalWizardUser(models.TransientModel):
 
         self.with_context(active_test=True)._send_email()
 
-        return self.wizard_id._action_open_modal()
+        return self.action_refresh_modal()
 
     def action_revoke_access(self):
         """Remove the user of the partner from the portal group.
@@ -153,42 +168,41 @@ class PortalWizardUser(models.TransientModel):
         If the user was only in the portal group, we archive it.
         """
         self.ensure_one()
-        self._assert_user_email_uniqueness()
-
         if not self.is_portal:
-            raise UserError(_('The partner "%s" has no portal access.', self.partner_id.name))
+            raise UserError(_('The partner "%s" has no portal access or is internal.', self.partner_id.name))
 
         group_portal = self.env.ref('base.group_portal')
         group_public = self.env.ref('base.group_public')
 
-        # update partner email, if a new one was introduced
-        if self.partner_id.email != self.email:
-            self.partner_id.write({'email': self.email})
+        self._update_partner_email()
 
         # Remove the sign up token, so it can not be used
-        self.partner_id.sudo().signup_token = False
+        self.partner_id.sudo().signup_type = None
 
         user_sudo = self.user_id.sudo()
 
         # remove the user from the portal group
-        if user_sudo and user_sudo.has_group('base.group_portal'):
+        if user_sudo and user_sudo._is_portal():
             user_sudo.write({'groups_id': [(3, group_portal.id), (4, group_public.id)], 'active': False})
 
-        return self.wizard_id._action_open_modal()
+        return self.action_refresh_modal()
 
     def action_invite_again(self):
         """Re-send the invitation email to the partner."""
         self.ensure_one()
+        self._assert_user_email_uniqueness()
 
         if not self.is_portal:
             raise UserError(_('You should first grant the portal access to the partner "%s".', self.partner_id.name))
 
-        # update partner email, if a new one was introduced
-        if self.partner_id.email != self.email:
-            self.partner_id.write({'email': self.email})
-
+        self._update_partner_email()
         self.with_context(active_test=True)._send_email()
 
+        return self.action_refresh_modal()
+
+    def action_refresh_modal(self):
+        """Refresh the portal wizard modal and keep it open. Used as fallback action of email state icon buttons,
+        required as they must be non-disabled buttons to fire mouse events to show tooltips on email state."""
         return self.wizard_id._action_open_modal()
 
     def _create_user(self):
@@ -225,32 +239,32 @@ class PortalWizardUser(models.TransientModel):
     def _assert_user_email_uniqueness(self):
         """Check that the email can be used to create a new user."""
         self.ensure_one()
-
-        email = email_normalize(self.email)
-
-        if not email:
+        if self.email_state == 'ko':
             raise UserError(_('The contact "%s" does not have a valid email.', self.partner_id.name))
+        if self.email_state == 'exist':
+            raise UserError(_('The contact "%s" has the same email as an existing user', self.partner_id.name))
 
-        user = self.env['res.users'].sudo().with_context(active_test=False).search(
-            self._get_similar_user_domain(email),
-            limit=1
-        )
+    def _update_partner_email(self):
+        """Update partner email on portal action, if a new one was introduced and is valid."""
+        email_normalized = email_normalize(self.email)
+        if self.email_state == 'ok' and email_normalize(self.partner_id.email) != email_normalized:
+            self.partner_id.write({'email': email_normalized})
 
-        if user:
-            raise UserError(self._get_same_email_error_message(user.name))
-
-    def _get_similar_user_domain(self, email):
+    def _get_similar_users_domain(self, portal_users_with_email):
         """ Returns the domain needed to find the users that have the same email
-        as the current partner.
-        :param string email: the email of the current partner
+        as portal users.
+        :param portal_users_with_email: portal users that have an email address.
         """
-        return [('id', '!=', self.user_id.id),
-                ('login', '=ilike', email)]
+        normalized_emails = [email_normalize(portal_user.email) for portal_user in portal_users_with_email]
+        return [('login', 'in', normalized_emails)]
 
-    def _get_same_email_error_message(self, user_name):
-        """ Returns the error message in case the current partner has the same
-        email as an existing user.
-        :param string user_name: the name of the user that has the same email
-        as the current partner
+    def _get_similar_users_fields(self):
+        """ Returns a list of field elements to extract from users.
         """
-        return _('The contact "%s" has the same email has an existing user (%s).', self.partner_id.name, user_name)
+        return ['id', 'login']
+
+    def _is_portal_similar_than_user(self, user, portal_user):
+        """ Checks if the credentials of a portal user and a user are the same
+        (users are distinct and their emails are similar).
+        """
+        return user['login'] == email_normalize(portal_user.email) and user['id'] != portal_user.user_id.id

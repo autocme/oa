@@ -3,6 +3,7 @@
 
 from unittest.mock import patch
 
+from odoo import Command
 from odoo.addons.base.models.ir_mail_server import IrMailServer
 from odoo.addons.survey.tests import common
 from odoo.tests import tagged
@@ -85,7 +86,7 @@ class TestCertificationFlow(common.TestSurveyCommon, HttpCase):
 
         # Employee opens start page
         response = self._access_start(certification)
-        self.assertResponse(response, 200, [certification.title, 'Time limit for this survey', '10 minutes'])
+        self.assertResponse(response, 200, [certification.title, 'Time limit for this certification', '10 minutes'])
 
         # -> this should have generated a new user_input with a token
         user_inputs = self.env['survey.user_input'].search([('survey_id', '=', certification.id)])
@@ -110,10 +111,29 @@ class TestCertificationFlow(common.TestSurveyCommon, HttpCase):
             self._answer_question(q04, q04.suggested_answer_ids.ids[0], answer_token, csrf_token)
             self._answer_question(q05, [q05.suggested_answer_ids.ids[0], q05.suggested_answer_ids.ids[1], q05.suggested_answer_ids.ids[3]], answer_token, csrf_token)
 
-        user_inputs.invalidate_cache()
+        user_inputs.invalidate_recordset()
         # Check that certification is successfully passed
         self.assertEqual(user_inputs.scoring_percentage, 87.5)
         self.assertTrue(user_inputs.scoring_success)
+
+        # assert statistics
+        statistics = user_inputs._prepare_statistics()[user_inputs]
+        total_statistics = statistics['totals']
+        self.assertEqual(
+            sorted(
+                total_statistics,
+                key=lambda item: item['text']
+            ),
+            sorted(
+                [
+                    {'text': 'Correct', 'count': 2},
+                    {'text': 'Partially', 'count': 1},
+                    {'text': 'Incorrect', 'count': 0},
+                    {'text': 'Unanswered', 'count': 0},
+                ],
+                key=lambda item: item['text']
+            )
+        )
 
         # Check that the certification is still successful even if scoring_success_min of certification is modified
         certification.write({'scoring_success_min': 90})
@@ -128,7 +148,28 @@ class TestCertificationFlow(common.TestSurveyCommon, HttpCase):
         self.assertIn("User Certification for SO lines", certification_email.subject)
         self.assertIn("employee@example.com", certification_email.email_to)
         self.assertEqual(len(certification_email.attachment_ids), 1)
-        self.assertEqual(certification_email.attachment_ids[0].name, 'Certification Document.html')
+        self.assertEqual(certification_email.attachment_ids[0].name, f'Certification - {certification.title}.html',
+                         'Default certification report print_report_name is "Certification - %s" % (object.survey_id.display_name)')
+
+        # Check that the certification can be printed without access to the participant's company
+        with self.with_user('admin'):
+            new_company = self.env['res.company'].create({
+                'name': 'newB',
+            })
+            user_new_company = self.env['res.users'].create({
+                'name': 'No access right user',
+                'login': 'user_new_company',
+                'password': 'user_new_company',
+                'groups_id': [
+                    Command.set(self.env.ref('base.group_user').ids),
+                    Command.link(self.env.ref('survey.group_survey_user').id),
+                ],
+                'company_id': new_company.id,
+                'company_ids': [new_company.id],
+            })
+            new_company.invalidate_model()  # cache pollution
+        self.env['ir.actions.report'].with_user(user_new_company).with_company(new_company)\
+            ._render_qweb_pdf('survey.certification_report_view', res_ids=user_inputs.ids)
 
     def test_randomized_certification(self):
         # Step: survey user creates the randomized certification
@@ -196,12 +237,22 @@ class TestCertificationFlow(common.TestSurveyCommon, HttpCase):
 
         statistics = user_inputs._prepare_statistics()[user_inputs]
         total_statistics = statistics['totals']
-        self.assertEqual(total_statistics, [
-            {'text': 'Correct', 'count': 1},
-            {'text': 'Partially', 'count': 0},
-            {'text': 'Incorrect', 'count': 0},
-            {'text': 'Unanswered', 'count': 0},
-        ], "With the configured randomization, there should be exactly 1 correctly answered question and none skipped.")
+        self.assertEqual(
+            sorted(
+                total_statistics,
+                key=lambda item: item['text']
+            ),
+            sorted(
+                [
+                    {'text': 'Correct', 'count': 1},
+                    {'text': 'Partially', 'count': 0},
+                    {'text': 'Incorrect', 'count': 0},
+                    {'text': 'Unanswered', 'count': 0},
+                ],
+                key=lambda item: item['text']
+            ),
+            "With the configured randomization, there should be exactly 1 correctly answered question and none skipped."
+        )
 
         section_statistics = statistics['by_section']
         self.assertEqual(section_statistics, {

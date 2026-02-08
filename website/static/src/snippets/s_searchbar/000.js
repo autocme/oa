@@ -1,18 +1,23 @@
 /** @odoo-module **/
 
-import concurrency from 'web.concurrency';
-import publicWidget from 'web.public.widget';
+import { rpc } from "@web/core/network/rpc";
+import { KeepLast } from "@web/core/utils/concurrency";
+import publicWidget from '@web/legacy/js/public/public_widget';
 
-import {qweb} from 'web.core';
-import {Markup} from 'web.utils';
+import { isBrowserSafari } from "@web/core/browser/feature_detection";
+import { renderToElement, renderToString } from "@web/core/utils/render";
+import { debounce } from '@web/core/utils/timing';
+
+import { markup } from "@odoo/owl";
 
 publicWidget.registry.searchBar = publicWidget.Widget.extend({
     selector: '.o_searchbar_form',
-    xmlDependencies: ['/website/static/src/snippets/s_searchbar/000.xml'],
     events: {
         'input .search-query': '_onInput',
         'focusout': '_onFocusOut',
-        'keydown .search-query': '_onKeydown',
+        "mousedown .o_dropdown_menu .dropdown-item": "_onMousedown",
+        "mouseup .o_dropdown_menu .dropdown-item": "_onMouseup",
+        'keydown .search-query, .dropdown-item': '_onKeydown',
         'search .search-query': '_onSearch',
     },
     autocompleteMinWidth: 300,
@@ -23,10 +28,10 @@ publicWidget.registry.searchBar = publicWidget.Widget.extend({
     init: function () {
         this._super.apply(this, arguments);
 
-        this._dp = new concurrency.DropPrevious();
+        this.keepLast = new KeepLast();
 
-        this._onInput = _.debounce(this._onInput, 400);
-        this._onFocusOut = _.debounce(this._onFocusOut, 100);
+        this._onInput = debounce(this._onInput, 400);
+        this._onFocusOut = debounce(this._onFocusOut, 100);
     },
     /**
      * @override
@@ -110,35 +115,19 @@ publicWidget.registry.searchBar = publicWidget.Widget.extend({
      * @private
      */
     async _fetch() {
-        const res = await this._rpc({
-            route: '/website/snippet/autocomplete',
-            params: {
-                'search_type': this.searchType,
-                'term': this.$input.val(),
-                'order': this.order,
-                'limit': this.limit,
-                'max_nb_chars': Math.round(Math.max(this.autocompleteMinWidth, parseInt(this.$el.width())) * 0.22),
-                'options': this.options,
-            },
+        const res = await rpc('/website/snippet/autocomplete', {
+            'search_type': this.searchType,
+            'term': this.$input.val(),
+            'order': this.order,
+            'limit': this.limit,
+            'max_nb_chars': Math.round(Math.max(this.autocompleteMinWidth, parseInt(this.$el.width())) * 0.22),
+            'options': this.options,
         });
-        const fieldNames = [
-            'name',
-            'description',
-            'extra_link',
-            'detail',
-            'detail_strike',
-            'detail_extra',
-        ];
+        const fieldNames = this._getFieldsNames();
         res.results.forEach(record => {
             for (const fieldName of fieldNames) {
                 if (record[fieldName]) {
-                    if (typeof record[fieldName] === "object") {
-                        for (const fieldKey of Object.keys(record[fieldName])) {
-                            record[fieldName][fieldKey] = Markup(record[fieldName][fieldKey]);
-                        }
-                    } else {
-                        record[fieldName] = Markup(record[fieldName]);
-                    }
+                    record[fieldName] = markup(record[fieldName]);
                 }
             }
         });
@@ -157,15 +146,14 @@ publicWidget.registry.searchBar = publicWidget.Widget.extend({
 
         let pageScrollHeight = null;
         const $prevMenu = this.$menu;
-        this.$el.toggleClass('dropdown show', !!res);
         if (res && this.limit) {
             const results = res['results'];
             let template = 'website.s_searchbar.autocomplete';
             const candidate = template + '.' + this.searchType;
-            if (qweb.has_template(candidate)) {
+            if (renderToString.app.getRawTemplate(candidate)) {
                 template = candidate;
             }
-            this.$menu = $(qweb.render(template, {
+            this.$menu = $(renderToElement(template, {
                 results: results,
                 parts: res['parts'],
                 hasMoreResults: results.length < res['results_count'],
@@ -173,17 +161,6 @@ publicWidget.registry.searchBar = publicWidget.Widget.extend({
                 fuzzySearch: res['fuzzy_search'],
                 widget: this,
             }));
-
-            // TODO adapt directly in the template in master
-            const mutedItemTextEl = this.$menu.find('span.dropdown-item-text.text-muted')[0];
-            if (mutedItemTextEl) {
-                const newItemTextEl = document.createElement('span');
-                newItemTextEl.classList.add('dropdown-item-text');
-                mutedItemTextEl.after(newItemTextEl);
-                mutedItemTextEl.classList.remove('dropdown-item-text');
-                newItemTextEl.appendChild(mutedItemTextEl);
-            }
-
             this.$menu.css('min-width', this.autocompleteMinWidth);
 
             // Handle the case where the searchbar is in a mega menu by making
@@ -206,7 +183,7 @@ publicWidget.registry.searchBar = publicWidget.Widget.extend({
                 }
             }
 
-            pageScrollHeight = document.querySelector("#wrapwrap").scrollHeight;
+            pageScrollHeight = document.documentElement.scrollHeight;
             this.$el.append(this.$menu);
 
             this.$el.find('button.extra_link').on('click', function (event) {
@@ -221,25 +198,37 @@ publicWidget.registry.searchBar = publicWidget.Widget.extend({
             });
         }
 
+        this.$el.toggleClass('dropdown show', !!res);
         if ($prevMenu) {
             $prevMenu.remove();
         }
         // Adjust the menu's position based on the scroll height.
         if (res && this.limit) {
             this.el.classList.remove("dropup");
-            const wrapwrapEl = document.querySelector("#wrapwrap");
-            if (wrapwrapEl.scrollHeight > pageScrollHeight) {
+            delete this.$menu[0].dataset.bsPopper;
+            if (document.documentElement.scrollHeight > pageScrollHeight) {
                 // If the menu overflows below the page, we reduce its height.
                 this.$menu[0].style.maxHeight = "40vh";
                 this.$menu[0].style.overflowY = "auto";
                 // We then recheck if the menu still overflows below the page.
-                if (wrapwrapEl.scrollHeight > pageScrollHeight) {
+                if (document.documentElement.scrollHeight > pageScrollHeight) {
                     // If the menu still overflows below the page after its height
                     // has been reduced, we position it above the input.
                     this.el.classList.add("dropup");
+                    this.$menu[0].dataset.bsPopper = "";
                 }
             }
         }
+    },
+    _getFieldsNames() {
+        return [
+            'description',
+            'detail',
+            'detail_extra',
+            'detail_strike',
+            'extra_link',
+            'name',
+        ];
     },
 
     //--------------------------------------------------------------------------
@@ -256,34 +245,53 @@ publicWidget.registry.searchBar = publicWidget.Widget.extend({
         if (this.searchType === 'all' && !this.$input.val().trim().length) {
             this._render();
         } else {
-            this._dp.add(this._fetch()).then(this._render.bind(this));
+            this.keepLast.add(this._fetch()).then(this._render.bind(this));
         }
     },
     /**
      * @private
      */
     _onFocusOut: function () {
-        if (!this.$el.has(document.activeElement).length) {
+        if (!this.linkHasFocus && !this.$el.has(document.activeElement).length) {
             this._render();
+        }
+    },
+    _onMousedown(ev) {
+        // On Safari, links and buttons are not focusable by default. We need
+        // to get around that behavior to avoid _onFocusOut() from triggering
+        // _render(), as this would prevent the click from working.
+        if (isBrowserSafari) {
+            this.linkHasFocus = true;
+        }
+    },
+    _onMouseup(ev) {
+        // See comment in _onMousedown.
+        if (isBrowserSafari) {
+            this.linkHasFocus = false;
         }
     },
     /**
      * @private
      */
     _onKeydown: function (ev) {
-        switch (ev.which) {
-            case $.ui.keyCode.ESCAPE:
+        switch (ev.key) {
+            case "Escape":
                 this._render();
                 break;
-            case $.ui.keyCode.UP:
-            case $.ui.keyCode.DOWN:
+            case "ArrowUp":
+            case "ArrowDown":
                 ev.preventDefault();
                 if (this.$menu) {
-                    let $element = ev.which === $.ui.keyCode.UP ? this.$menu.children().last() : this.$menu.children().first();
-                    $element.focus();
+                    const focusableEls = [this.$input[0], ...this.$menu[0].children];
+                    const focusedEl = document.activeElement;
+                    const currentIndex = focusableEls.indexOf(focusedEl) || 0;
+                    const delta = ev.key === "ArrowUp" ? focusableEls.length - 1 : 1;
+                    const nextIndex = (currentIndex + delta) % focusableEls.length;
+                    const nextFocusedEl = focusableEls[nextIndex];
+                    nextFocusedEl.focus();
                 }
                 break;
-            case $.ui.keyCode.ENTER:
+            case "Enter":
                 this.limit = 0; // prevent autocomplete
                 break;
         }
@@ -297,11 +305,6 @@ publicWidget.registry.searchBar = publicWidget.Widget.extend({
         } else { // clear button clicked
             this._render(); // remove existing suggestions
             ev.preventDefault();
-            if (!this.wasEmpty) {
-                this.limit = 0; // prevent autocomplete
-                const form = this.$('.o_search_order_by').parents('form');
-                form.submit();
-            }
         }
     },
 });

@@ -9,8 +9,8 @@ from odoo.exceptions import AccessError
 class TestPurchaseInvoice(AccountTestInvoicingCommon):
 
     @classmethod
-    def setUpClass(cls, chart_template_ref=None):
-        super().setUpClass(chart_template_ref=chart_template_ref)
+    def setUpClass(cls):
+        super().setUpClass()
 
         # Create a users
         group_purchase_user = cls.env.ref('purchase.group_purchase_user')
@@ -31,11 +31,10 @@ class TestPurchaseInvoice(AccountTestInvoicingCommon):
             'email': 'supplier.serv@supercompany.com',
         })
 
-        user_type_expense = cls.env.ref('account.data_account_type_expenses')
         cls.account_expense_product = cls.env['account.account'].create({
-            'code': 'EXPENSE_PROD111',
+            'code': 'EXPENSE.PROD111',
             'name': 'Expense - Test Account',
-            'user_type_id': user_type_expense.id,
+            'account_type': 'expense',
         })
         # Create category
         cls.product_category = cls.env['product.category'].create({
@@ -97,47 +96,6 @@ class TestPurchaseInvoice(AccountTestInvoicingCommon):
         vendor_bill_user1 = Form(vendor_bill_user2.with_user(self.purchase_user))
         vendor_bill_user1 = vendor_bill_user1.save()
 
-    def test_read_purchase_order_2(self):
-        """ Check that a 2 purchase users with open the vendor bill the same
-        way even with a 'own documents only' record rule. """
-
-        # edit the account.move record rule for purchase user in order to ensure
-        # a user can only see his own invoices
-        rule = self.env.ref('purchase.purchase_user_account_move_rule')
-        rule.domain_force = "['&', ('move_type', 'in', ('in_invoice', 'in_refund', 'in_receipt')), ('invoice_user_id', '=', user.id)]"
-
-        # create a purchase and make a vendor bill from it as purchase user 2
-        purchase_user_2 = self.purchase_user.copy({
-            'name': 'Purchase user 2',
-            'login': 'purchaseUser2',
-            'email': 'pu2@odoo.com',
-        })
-
-        purchase_order_form = Form(self.env['purchase.order'].with_user(purchase_user_2))
-        purchase_order_form.partner_id = self.vendor
-        with purchase_order_form.order_line.new() as line:
-            line.name = self.product.name
-            line.product_id = self.product
-            line.product_qty = 4
-            line.price_unit = 5
-
-        purchase_order_user2 = purchase_order_form.save()
-        purchase_order_user2.button_confirm()
-
-        purchase_order_user2.order_line.qty_received = 4
-        purchase_order_user2.action_create_invoice()
-        vendor_bill_user2 = purchase_order_user2.invoice_ids
-
-        # check user 1 cannot read the invoice
-        with self.assertRaises(AccessError):
-            Form(vendor_bill_user2.with_user(self.purchase_user))
-
-        # Check that calling 'action_view_invoice' return the same action despite the record rule
-        action_user_1 = purchase_order_user2.with_user(self.purchase_user).action_view_invoice()
-        purchase_order_user2.invalidate_cache()
-        action_user_2 = purchase_order_user2.with_user(purchase_user_2).action_view_invoice()
-        self.assertEqual(action_user_1, action_user_2)
-
     def test_double_validation(self):
         """Only purchase managers can approve a purchase order when double
         validation is enabled"""
@@ -167,3 +125,13 @@ class TestPurchaseInvoice(AccountTestInvoicingCommon):
         self.purchase_user.groups_id += group_purchase_manager
         order.with_user(self.purchase_user).button_approve()
         self.assertEqual(order.state, 'purchase')
+
+    def test_create_product_purchase_user(self):
+        uom = self.env.ref('uom.product_uom_gram')
+        self.purchase_user.groups_id += self.env.ref('product.group_product_manager')
+        product = self.env['product.template'].with_user(self.purchase_user).create({
+            'name': 'Test Product UOM Default',
+            'type': 'consu',
+            'uom_id': uom.id,
+        })
+        self.assertTrue(product, "The default purchase UOM should be in the same category as the sale UOM.")

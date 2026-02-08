@@ -1,28 +1,40 @@
-# -*- coding: utf-8 -*-
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
 
-from functools import partial
-
-from odoo import http
-from odoo.tools import formatLang
 from odoo.exceptions import AccessError, MissingError
-from odoo.http import request
+from odoo.http import request, route
+
 from odoo.addons.sale.controllers import portal
 
 
 class CustomerPortal(portal.CustomerPortal):
 
-    @http.route(['/my/orders/<int:order_id>/update_line_dict'], type='json', auth="public", website=True)
-    def update_line_dict(self, line_id, remove=False, unlink=False, order_id=None, access_token=None, input_quantity=False, **kwargs):
+    @route(['/my/orders/<int:order_id>/update_line_dict'], type='json', auth="public", website=True)
+    def portal_quote_option_update(self, order_id, line_id, access_token=None, remove=False, unlink=False, input_quantity=False, **kwargs):
+        """ Update the quantity or Remove an optional SOline from a SO.
+
+        :param int order_id: `sale.order` id
+        :param int line_id: `sale.order.line` id
+        :param str access_token: portal access_token of the specified order
+        :param bool remove: if true, 1 unit will be removed from the line
+        :param bool unlink: if true, the option will be removed from the SO
+        :param float input_quantity: if specified, will be set as new line qty
+        :param dict kwargs: unused parameters
+        """
         try:
             order_sudo = self._document_check_access('sale.order', order_id, access_token=access_token)
         except (AccessError, MissingError):
             return request.redirect('/my')
 
-        if order_sudo.state not in ('draft', 'sent'):
+        # Redundant with can be edited on portal for line, ask sales if can rbe removed
+        if not order_sudo._can_be_edited_on_portal():
             return False
-        order_line = request.env['sale.order.line'].sudo().browse(int(line_id))
-        if order_line.order_id != order_sudo:
+
+        order_line = request.env['sale.order.line'].sudo().browse(int(line_id)).exists()
+        if not order_line or order_line.order_id != order_sudo:
+            return False
+
+        if not order_line._can_be_edited_on_portal():
+            # Do not allow updating non-optional products from a quotation
             return False
 
         if input_quantity is not False:
@@ -33,12 +45,18 @@ class CustomerPortal(portal.CustomerPortal):
 
         if unlink or quantity <= 0:
             order_line.unlink()
-            return
+        else:
+            order_line.product_uom_qty = quantity
 
-        order_line.write({'product_uom_qty': quantity})
+    @route(["/my/orders/<int:order_id>/add_option/<int:option_id>"], type='json', auth="public", website=True)
+    def portal_quote_add_option(self, order_id, option_id, access_token=None, **kwargs):
+        """ Add the specified option to the specified order.
 
-    @http.route(["/my/orders/<int:order_id>/add_option/<int:option_id>"], type='json', auth="public", website=True)
-    def add(self, order_id, option_id, access_token=None, **post):
+        :param int order_id: `sale.order` id
+        :param int option_id: `sale.order.option` id
+        :param str access_token: portal access_token of the specified order
+        :param dict kwargs: unused parameters
+        """
         try:
             order_sudo = self._document_check_access('sale.order', order_id, access_token=access_token)
         except (AccessError, MissingError):

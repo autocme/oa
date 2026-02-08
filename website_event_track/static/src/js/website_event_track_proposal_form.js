@@ -1,17 +1,12 @@
-odoo.define('website_event_track.website_event_track_proposal_form', function (require) {
-'use strict';
+/** @odoo-module **/
 
-var core = require('web.core');
-var publicWidget = require('web.public.widget');
-
-var QWeb = core.qweb;
-var _t = core._t;
+import publicWidget from "@web/legacy/js/public/public_widget";
+import { _t } from "@web/core/l10n/translation";
+import { renderToElement } from "@web/core/utils/render";
+import { scrollTo } from "@web_editor/js/common/scrolling";
 
 publicWidget.registry.websiteEventTrackProposalForm = publicWidget.Widget.extend({
     selector: '.o_website_event_track_proposal_form',
-    xmlDependencies: [
-        '/website_event_track/static/src/xml/event_track_proposal_templates.xml',
-    ],
     events: {
         'click .o_wetrack_add_contact_information_checkbox': '_onAdvancedContactToggle',
         'input input[name="partner_name"]': '_onPartnerNameInput',
@@ -43,17 +38,17 @@ publicWidget.registry.websiteEventTrackProposalForm = publicWidget.Widget.extend
         var formErrors = [];
 
         // 1) Valid Form Inputs
-        this.$('.form-group').each(function (index, field) {
-            var $field = $(field);
-            // Validate current input, if not select2 field.
-            var inputs = $field.find('.form-control').not('.o_wetrack_select2_tags');
+        this.$('.form-control').each(function () {
+            var $formControl = $(this);
+            // Validate current input, if not SelectMenu field.
+            var inputs = $formControl.not(".o_wetrack_select_tags");
             var invalidInputs = inputs.toArray().filter(function (input) {
                 return !input.checkValidity();
             });
 
-            $field.find('.form-control').removeClass('o_wetrack_input_error is-invalid');
+            $formControl.removeClass('o_wetrack_input_error is-invalid');
             if (invalidInputs.length) {
-                $field.find('.form-control').addClass('o_wetrack_input_error is-invalid');
+                $formControl.addClass('o_wetrack_input_error is-invalid');
                 formErrors.push('invalidFormInputs');
             }
         });
@@ -166,7 +161,7 @@ publicWidget.registry.websiteEventTrackProposalForm = publicWidget.Widget.extend
         ev.stopPropagation();
 
         // Prevent further clicking
-        this.$target.find('.o_wetrack_proposal_submit_button')
+        this.$el.find('.o_wetrack_proposal_submit_button')
             .addClass('disabled')
             .attr('disabled', 'disabled');
 
@@ -184,23 +179,21 @@ publicWidget.registry.websiteEventTrackProposalForm = publicWidget.Widget.extend
 
             const jsonResponse = response && JSON.parse(response);
             if (jsonResponse.success) {
-                const offsetTop = ($("#wrapwrap").scrollTop() || 0) + this.$el.offset().top;
-                const floatingMenuHeight = ($('.o_header_standard').height() || 0) +
-                    ($('#oe_main_menu_navbar').height() || 0);
-                this.$el.replaceWith($(QWeb.render('event_track_proposal_success')));
-                $('#wrapwrap').scrollTop(offsetTop - floatingMenuHeight);
+                // TODO we really should not remove the whole widget element
+                // like that + probably restore the widget before edit mode etc.
+                const parentEl = this.el.parentNode;
+                this.$el.replaceWith($(renderToElement('event_track_proposal_success')));
+                scrollTo(parentEl, { extraOffset: 20, duration: 50 });
             } else if (jsonResponse.error) {
                 this._updateErrorDisplay([jsonResponse.error]);
             }
         }
 
         // Restore button
-        this.$target.find('.o_wetrack_proposal_submit_button')
+        this.$el.find('.o_wetrack_proposal_submit_button')
             .removeAttr('disabled')
             .removeClass('disabled');
     },
 });
 
-return publicWidget.registry.websiteEventTrackProposalForm;
-
-});
+export default publicWidget.registry.websiteEventTrackProposalForm;

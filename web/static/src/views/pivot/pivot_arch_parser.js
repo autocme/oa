@@ -1,10 +1,7 @@
-/** @odoo-module **/
+import { exprToBoolean } from "@web/core/utils/strings";
+import { visitXML } from "@web/core/utils/xml";
 
-import { evaluateExpr } from "@web/core/py_js/py";
-import { XMLParser } from "@web/core/utils/xml";
-import { archParseBoolean } from "@web/views/helpers/utils";
-
-export class PivotArchParser extends XMLParser {
+export class PivotArchParser {
     parse(arch) {
         const archInfo = {
             activeMeasures: [], // store the defined active measures
@@ -15,11 +12,11 @@ export class PivotArchParser extends XMLParser {
             widgets: {}, // wigdets defined in the arch
         };
 
-        this.visitXML(arch, (node) => {
+        visitXML(arch, (node) => {
             switch (node.tagName) {
                 case "pivot": {
                     if (node.hasAttribute("disable_linking")) {
-                        archInfo.disableLinking = archParseBoolean(
+                        archInfo.disableLinking = exprToBoolean(
                             node.getAttribute("disable_linking")
                         );
                     }
@@ -30,7 +27,7 @@ export class PivotArchParser extends XMLParser {
                         archInfo.title = node.getAttribute("string");
                     }
                     if (node.hasAttribute("display_quantity")) {
-                        archInfo.displayQuantity = archParseBoolean(
+                        archInfo.displayQuantity = exprToBoolean(
                             node.getAttribute("display_quantity")
                         );
                     }
@@ -43,12 +40,12 @@ export class PivotArchParser extends XMLParser {
                     if (node.hasAttribute("string")) {
                         archInfo.fieldAttrs[fieldName].string = node.getAttribute("string");
                     }
-                    if (node.hasAttribute("invisible")) {
-                        const isInvisible = Boolean(evaluateExpr(node.getAttribute("invisible")));
-                        if (isInvisible) {
-                            archInfo.fieldAttrs[fieldName].isInvisible = true;
-                            break;
-                        }
+                    if (
+                        node.getAttribute("invisible") === "True" ||
+                        node.getAttribute("invisible") === "1"
+                    ) {
+                        archInfo.fieldAttrs[fieldName].isInvisible = true;
+                        break;
                     }
 
                     if (node.hasAttribute("interval")) {

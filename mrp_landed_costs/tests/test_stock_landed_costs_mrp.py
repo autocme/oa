@@ -22,19 +22,19 @@ class TestStockLandedCostsMrp(ValuationReconciliationTestCommon):
         # Create product refrigerator & oven
         cls.product_component1 = cls.env['product.product'].create({
             'name': 'Component1',
-            'type': 'product',
+            'is_storable': True,
             'standard_price': 1.0,
             'categ_id': cls.categ_all.id
         })
         cls.product_component2 = cls.env['product.product'].create({
             'name': 'Component2',
-            'type': 'product',
+            'is_storable': True,
             'standard_price': 2.0,
             'categ_id': cls.categ_all.id
         })
         cls.product_refrigerator = cls.env['product.product'].create({
             'name': 'Refrigerator',
-            'type': 'product',
+            'is_storable': True,
             'categ_id': cls.categ_all.id
         })
         cls.uom_unit = cls.env.ref('uom.product_uom_unit')
@@ -160,6 +160,9 @@ class TestStockLandedCostsMrp(ValuationReconciliationTestCommon):
         man_order = man_order_form.save()
         man_order.action_confirm()
         # produce product
+        # To edit `qty_producing`, the mo must no be draft. It's not thanks to the above `action_confirm()`
+        # but the values of the form do not update automatically, it must be reloaded.
+        man_order_form = Form(man_order)
         man_order_form.qty_producing = 1
         man_order_form.save()
         man_order.button_mark_done()

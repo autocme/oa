@@ -1,124 +1,100 @@
-odoo.define('website_sale_wishlist_admin.tour', function (require) {
-'use strict';
+/** @odoo-module **/
 
-var rpc = require('web.rpc');
-var tour = require("web_tour.tour");
+import {
+    clickOnEditAndWaitEditMode,
+    clickOnSave,
+    registerWebsitePreviewTour,
+} from '@website/js/tours/tour_utils';
 
-tour.register('shop_wishlist_admin', {
-    test: true,
-    url: '/shop',
+registerWebsitePreviewTour('shop_wishlist_admin', {
+    url: '/shop?search=Rock',
 },
-    [
-        {
-            content: "Create a product with always attribute and its values.",
-            trigger: 'body',
-            run: function () {
-                rpc.query({
-                    model: 'product.attribute',
-                    method: 'create',
-                    args: [{
-                        'name': "color",
-                        'display_type': 'color',
-                        'create_variant': 'always'
-                    }],
-                }).then(function (attributeId) {
-                    return rpc.query({
-                        model: 'product.template',
-                        method: 'create',
-                        args: [{
-                            'name': "Rock",
-                            'is_published': true,
-                            'attribute_line_ids': [[0, 0, {
-                                'attribute_id': attributeId,
-                                'value_ids': [
-                                    [0, 0, {
-                                        'name': "red",
-                                        'attribute_id': attributeId,
-                                    }],
-                                    [0, 0, {
-                                        'name': "blue",
-                                        'attribute_id': attributeId,
-                                    }],
-                                    [0, 0, {
-                                        'name': "black",
-                                        'attribute_id': attributeId,
-                                    }],
-                                ]
-                            }]],
-                        }],
-                    });
-                }).then(function () {
-                    window.location.href = '/shop?search=Rock';
-                });
-            },
-        },
+    () => [
         {
             content: "Go to Rock shop page",
-            trigger: 'a:contains("Rock"):first',
+            trigger: ':iframe a:contains("Rock"):first',
+            run: "click",
+        },
+        {
+            trigger: ":iframe #product_details",
         },
         {
             content: "check list view of variants is disabled initially (when on /product page)",
-            trigger: 'body:not(:has(.js_product_change))',
-            extra_trigger: '#product_details',
+            trigger: ':iframe body:not(:has(.js_product_change))',
+            run: "click",
+        },
+        ...clickOnEditAndWaitEditMode(),
+        {
+            content: "open customize tab",
+            trigger: '.o_we_customize_snippet_btn',
+            run: "click",
         },
         {
-            content: "open customize menu",
-            trigger: '#customize-menu > a',
-            extra_trigger: 'body:not(.notReady)',
+            trigger: "#oe_snippets .o_we_customize_panel",
+        },
+        {
+            content: "open 'Variants' selector",
+            trigger: '[data-name="variants_opt"] we-toggler',
+            run: "click",
         },
         {
             content: "click on 'List View of Variants'",
-            trigger: '#customize-menu label:contains(List View of Variants)',
+            trigger: 'we-button[data-name="variants_products_list_opt"]',
+            run: "click",
         },
+        ...clickOnSave(),
         {
             content: "check page loaded after list of variant customization enabled",
-            trigger: '.js_product_change',
+            trigger: ':iframe .js_product_change',
+            run: "click",
         },
         {
             content: "Add red product in wishlist",
-            trigger: '#product_detail .o_add_wishlist_dyn:not(".disabled")',
+            trigger: ":iframe #product_detail .o_add_wishlist_dyn:not(.disabled)",
+            run: "click",
         },
         {
             content: "Check that wishlist contains 1 items",
-            extra_trigger : '#product_detail .o_add_wishlist_dyn:disabled',
-            trigger: '.my_wish_quantity:contains(1)',
-            run: function () {
-                window.location.href = '/shop/wishlist';
+            trigger: ':iframe .my_wish_quantity:contains(1)',
+            run() {
+                window.location.href = '/@/shop/wishlist';
             }
         },
         {
             content: "Check wishlist contains first variant",
-            trigger: '#o_comparelist_table tr:contains("red")',
-            run: function () {
-                window.location.href = '/shop?search=Rock';
+            trigger: ':iframe #o_comparelist_table tr:contains("red")',
+            run() {
+                window.location.href = '/@/shop?search=Rock';
             }
         },
         {
             content: "Go to Rock shop page",
-            trigger: 'a:contains("Rock"):first',
+            trigger: ':iframe a:contains("Rock"):first',
+            run: "click",
         },
         {
             content: "Switch to black Rock",
-            trigger: '.js_product span:contains("black")',
+            trigger: ':iframe .js_product span:contains("black")',
+            run: "click",
         },
         {
-            content: "Switch to black Rock",
-            trigger: '#product_detail .o_add_wishlist_dyn:not(".disabled")',
+            content: "Add black rock to wishlist",
+            trigger: ":iframe #product_detail .o_add_wishlist_dyn:not(.disabled)",
+            run: "click",
         },
         {
             content: "Check that black product was added",
-            extra_trigger : '#product_detail .o_add_wishlist_dyn:disabled',
-            trigger: '.my_wish_quantity:contains(2)',
-            run: function () {
-                window.location.href = '/shop/wishlist';
+            trigger: ':iframe .my_wish_quantity:contains(2)',
+            run() {
+                window.location.href = '/@/shop/wishlist';
             }
         },
         {
+            trigger: ':iframe #o_comparelist_table tr:contains("red")',
+        },
+        {
             content: "Check wishlist contains both variants",
-            extra_trigger: '#o_comparelist_table tr:contains("red")',
-            trigger: '#o_comparelist_table tr:contains("black")',
+            trigger: ':iframe #o_comparelist_table tr:contains("black")',
         },
     ]
 );
-
-});

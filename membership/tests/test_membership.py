@@ -30,7 +30,7 @@ class TestMembership(TestMembershipCommon):
             'membership_date_to': datetime.date.today() + relativedelta(years=-1),
         })
 
-        self.partner_1.create_membership_invoice(self.membership_1, 75.0)
+        invoice = self.partner_1.create_membership_invoice(self.membership_1, 75.0)
         self.assertEqual(
             self.partner_1.membership_state, 'none',
             'membership: outdated non paid subscription should keep in non-member state')
@@ -39,7 +39,6 @@ class TestMembership(TestMembershipCommon):
         self.partner_1.create_membership_invoice(self.membership_1, 75.0)
 
         # checks for invoices
-        invoice = self.env['account.move'].search([('partner_id', '=', self.partner_1.id)], limit=1)
         self.assertEqual(
             invoice.state, 'draft',
             'membership: new subscription should create a draft invoice')
@@ -63,7 +62,7 @@ class TestMembership(TestMembershipCommon):
 
         # payment process
         payment = self.env['account.payment'].create({
-            'destination_account_id': invoice.line_ids.account_id.filtered(lambda account: account.internal_type == 'receivable').id,
+            'destination_account_id': invoice.line_ids.account_id.filtered(lambda account: account.account_type == 'asset_receivable').id,
             'payment_method_line_id': self.inbound_payment_method_line.id,
             'payment_type': 'inbound',
             'partner_type': 'customer',
@@ -73,8 +72,8 @@ class TestMembership(TestMembershipCommon):
             'currency_id': self.env.company.currency_id.id,
         })
         payment.action_post()
-        inv1_receivable = invoice.line_ids.filtered(lambda l: l.account_id.internal_type == 'receivable')
-        pay_receivable = payment.move_id.line_ids.filtered(lambda l: l.account_id.internal_type == 'receivable')
+        inv1_receivable = invoice.line_ids.filtered(lambda l: l.account_id.account_type == 'asset_receivable')
+        pay_receivable = payment.move_id.line_ids.filtered(lambda l: l.account_id.account_type == 'asset_receivable')
 
         (inv1_receivable + pay_receivable).reconcile()
 
@@ -159,23 +158,3 @@ class TestMembership(TestMembershipCommon):
         self.partner_1._compute_membership_state()
         self.assertEqual(invoice.state, 'cancel')
         self.assertEqual(self.partner_1.membership_state, 'canceled')
-
-    def test_apply_payment_term(self):
-        """
-            Check if the payment term defined on the partner is applied to the invoice
-        """
-        pay_term_15_days_after_today = self.env['account.payment.term'].create({
-            'name': '15 days after today',
-            'line_ids': [
-                (0, 0, {
-                    'value': 'balance',
-                    'days': 15,
-                    'option': 'day_after_invoice_date',
-                }),
-            ],
-        })
-        self.partner_1.write({
-            'property_payment_term_id': pay_term_15_days_after_today.id,
-        })
-        invoice = self.partner_1.create_membership_invoice(self.membership_1, 100.0)
-        self.assertEqual(invoice.invoice_payment_term_id, pay_term_15_days_after_today)

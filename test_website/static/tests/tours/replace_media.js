@@ -1,22 +1,24 @@
 /** @odoo-module **/
 
-import tour from 'web_tour.tour';
+import { patch } from "@web/core/utils/patch";
+import { VideoSelector } from '@web_editor/components/media_dialog/video_selector';
+import {
+    changeOption,
+    insertSnippet,
+    registerWebsitePreviewTour,
+} from '@website/js/tours/tour_utils';
 
 const VIDEO_URL = 'https://www.youtube.com/watch?v=Dpq87YCHmJc';
 
 /**
  * The purpose of this tour is to check the media replacement flow.
  */
-tour.register('test_replace_media', {
+registerWebsitePreviewTour('test_replace_media', {
     url: '/',
-    test: true
-}, [
+    edition: true,
+}, () => [
     {
-        content: "enter edit mode",
-        trigger: "a[data-action=edit]"
-    },
-    {
-        trigger: 'body.editor_enable.editor_has_snippets',
+        trigger: "body",
         run: function () {
             // Patch the VideoDialog so that it does not do external calls
             // during the test (note that we don't unpatch but as the patch
@@ -24,131 +26,144 @@ tour.register('test_replace_media', {
             // specific to an URL only, it is acceptable).
             // TODO if we ever give the possibility to upload its own videos,
             // this won't be necessary anymore.
-            odoo.__DEBUG__.services['wysiwyg.widgets.media'].VideoWidget.include({
-                _getVideoURLData: function (src) {
+            patch(VideoSelector.prototype, {
+                async _getVideoURLData(src, options) {
                     if (src === VIDEO_URL || src === 'about:blank') {
-                        return {type: 'youtube', embedURL: 'about:blank'};
+                        return {platform: 'youtube', embed_url: 'about:blank'};
                     }
-                    return this._super(...arguments);
+                    return super._getVideoURLData(...arguments);
                 },
             });
         },
     },
-    {
-        content: "drop picture snippet",
-        trigger: "#oe_snippets .oe_snippet[name='Picture'] .oe_snippet_thumbnail:not(.o_we_already_dragging)",
-        moveTrigger: ".oe_drop_zone",
-        run: "drag_and_drop #wrap",
-    },
+    ...insertSnippet({
+        name: 'Title - Image',
+        id: 's_picture',
+        groupName: "Images",
+    }),
     {
         content: "select image",
-        trigger: "#wrapwrap .s_picture figure img",
+        trigger: ":iframe .s_picture figure img",
+        run: "click",
     },
     {
         content: "ensure image size is displayed",
         trigger: "#oe_snippets we-title:contains('Image') .o_we_image_weight:contains('kb')",
-        run: function () {}, // check
     },
+    changeOption("ImageTools", 'we-select[data-name="shape_img_opt"] we-toggler'),
+    changeOption("ImageTools", "we-button[data-set-img-shape]"),
     {
         content: "replace image",
         trigger: "#oe_snippets we-button[data-replace-media]",
+        run: "click",
     },
     {
-        content: "select gif",
-        trigger: ".o_select_media_dialog img[title='sample.gif']",
+        content: "select svg",
+        trigger: ".o_select_media_dialog img[title='sample.svg']",
+        run: "click",
+    },
+    {
+        content: "ensure the svg doesn't have a shape",
+        trigger: ":iframe .s_picture figure img:not([data-shape])",
     },
     {
         content: "ensure image size is not displayed",
         trigger: "#oe_snippets we-title:contains('Image'):not(:has(.o_we_image_weight:visible))",
-        run: function () {}, // check
     },
     {
         content: "replace image",
         trigger: "#oe_snippets we-button[data-replace-media]",
+        run: "click",
     },
     {
         content: "go to pictogram tab",
-        trigger: ".o_select_media_dialog .nav-link#editor-media-icon-tab",
+        trigger: ".o_select_media_dialog .nav-link:contains('Icons')",
+        run: "click",
     },
     {
         content: "select an icon",
-        trigger: ".o_select_media_dialog .tab-pane#editor-media-icon span.fa-lemon-o",
+        trigger: ".o_select_media_dialog:has(.nav-link.active:contains('Icons')) .tab-content span.fa-lemon-o",
+        run: "click",
     },
     {
         content: "ensure icon block is displayed",
         trigger: "#oe_snippets we-customizeblock-options we-title:contains('Icon')",
-        run: function () {}, // check
     },
     {
         content: "select footer",
-        trigger: "#wrapwrap footer",
+        trigger: ":iframe footer",
+        run: "click",
     },
     {
         content: "select icon",
-        trigger: "#wrapwrap .s_picture figure span.fa-lemon-o",
+        trigger: ":iframe .s_picture figure span.fa-lemon-o",
+        run: "click",
     },
     {
         content: "ensure icon block is still displayed",
         trigger: "#oe_snippets we-customizeblock-options we-title:contains('Icon')",
-        run: function () {}, // check
     },
     {
         content: "replace icon",
         trigger: "#oe_snippets we-button[data-replace-media]",
+        run: "click",
     },
     {
         content: "go to video tab",
-        trigger: ".o_select_media_dialog .nav-link#editor-media-video-tab",
+        trigger: ".o_select_media_dialog .nav-link:contains('Video')",
+        run: "click",
     },
     {
         content: "enter a video URL",
         trigger: ".o_select_media_dialog #o_video_text",
         // Design your first web page.
-        run: `text ${VIDEO_URL}`,
+        run: `edit ${VIDEO_URL}`,
     },
     {
         content: "wait for preview to appear",
         // "about:blank" because the VideoWidget was patched at the start of this tour
-        trigger: ".o_select_media_dialog div.media_iframe_video iframe[src='about:blank']",
-        run: function () {}, // check
+        trigger: ".o_select_media_dialog div.media_iframe_video [src='about:blank']:iframe body",
     },
     {
         content: "confirm selection",
         trigger: ".o_select_media_dialog .modal-footer .btn-primary",
+        run: "click",
     },
     {
         content: "ensure video option block is displayed",
         trigger: "#oe_snippets we-customizeblock-options we-title:contains('Video')",
-        run: function () {}, // check
     },
     {
         content: "replace image",
         trigger: "#oe_snippets we-button[data-replace-media]",
+        run: "click",
     },
     {
         content: "go to pictogram tab",
-        trigger: ".o_select_media_dialog .nav-link#editor-media-icon-tab",
+        trigger: ".o_select_media_dialog .nav-link:contains('Icons')",
+        run: "click",
     },
     {
         content: "select an icon",
-        trigger: ".o_select_media_dialog .tab-pane#editor-media-icon span.fa-lemon-o",
+        trigger: ".o_select_media_dialog:has(.nav-link.active:contains('Icons')) .tab-content span.fa-lemon-o",
+        run: "click",
     },
     {
         content: "ensure icon block is displayed",
         trigger: "#oe_snippets we-customizeblock-options we-title:contains('Icon')",
-        run: function () {}, // check
     },
     {
         content: "select footer",
-        trigger: "#wrapwrap footer",
+        trigger: ":iframe footer",
+        run: "click",
     },
     {
         content: "select icon",
-        trigger: "#wrapwrap .s_picture figure span.fa-lemon-o",
+        trigger: ":iframe .s_picture figure span.fa-lemon-o",
+        run: "click",
     },
     {
         content: "ensure icon block is still displayed",
         trigger: "#oe_snippets we-customizeblock-options we-title:contains('Icon')",
-        run: function () {}, // check
     },
 ]);

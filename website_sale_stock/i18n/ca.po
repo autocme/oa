@@ -1,45 +1,62 @@
 # Translation of Odoo Server.
 # This file contains the translation of the following modules:
-# 	* website_sale_stock
-# 
+# * website_sale_stock
+#
 # Translators:
-# Martin Trigaux, 2021
-# Carles Antoli <carlesantoli@hotmail.com>, 2021
-# Quim - eccit <quim@eccit.com>, 2021
-# Manel Fernandez Ramirez <manelfera@outlook.com>, 2021
-# jabelchi, 2021
-# José Cabrera Lozano <jose.cabrera@edukative.es>, 2021
-# marcescu, 2022
-# 
+# Manel Fernandez Ramirez <manelfera@outlook.com>, 2024
+# Jonatan Gk, 2024
+# Carles Antoli <carlesantoli@hotmail.com>, 2024
+# Quim - coopdevs <quim.rebull@coopdevs.org>, 2024
+# Josep Anton Belchi, 2024
+# José Cabrera Lozano <jose.cabrera@edukative.es>, 2024
+# Óscar Fonseca <tecnico@pyming.com>, 2024
+# Martin Trigaux, 2024
+# marcescu, 2024
+# Ivan Espinola, 2025
+# Noemi Pla, 2025
+# "Noemi Pla Garcia (nopl)" <nopl@odoo.com>, 2025.
+# Weblate <noreply-mt-weblate@weblate.org>, 2025.
 msgid ""
 msgstr ""
-"Project-Id-Version: Odoo Server saas~14.5\n"
+"Project-Id-Version: Odoo Server 18.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2021-09-14 10:29+0000\n"
-"PO-Revision-Date: 2021-09-14 12:29+0000\n"
-"Last-Translator: marcescu, 2022\n"
-"Language-Team: Catalan (https://app.transifex.com/odoo/teams/41243/ca/)\n"
+"POT-Creation-Date: 2025-12-29 18:38+0000\n"
+"PO-Revision-Date: 2025-12-31 16:34+0000\n"
+"Last-Translator: Weblate <noreply-mt-weblate@weblate.org>\n"
+"Language-Team: Catalan <https://translate.odoo.com/projects/odoo-18/"
+"website_sale_stock/ca/>\n"
+"Language: ca\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: \n"
-"Language: ca\n"
-"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+"Plural-Forms: nplurals=2; plural=n != 1;\n"
+"X-Generator: Weblate 5.14.3\n"
 
 #. module: website_sale_stock
-#: model_terms:ir.ui.view,arch_db:website_sale_stock.website_sale_stock_cart_lines
-#: model_terms:ir.ui.view,arch_db:website_sale_stock.website_sale_stock_payment
-msgid "<strong>Warning!</strong>"
-msgstr "<strong>Advertència</strong>"
+#: model_terms:ir.ui.view,arch_db:website_sale_stock.res_config_settings_view_form
+msgid "<span invisible=\"not show_availability\">Units</span>"
+msgstr "<span invisible=\"not show_availability\">Unitats</span>"
 
 #. module: website_sale_stock
-#: model:ir.model.fields,field_description:website_sale_stock.field_product_product__cart_qty
-msgid "Cart Qty"
-msgstr "Qtat cistella"
+#. odoo-javascript
+#: code:addons/website_sale_stock/static/src/js/product_card/product_card.js:0
+msgid "All available quantity selected"
+msgstr "Tota la quantitat disponible seleccionada"
+
+#. module: website_sale_stock
+#: model_terms:ir.ui.view,arch_db:website_sale_stock.res_config_settings_view_form
+msgid "All warehouses"
+msgstr "Tots els magatzems"
+
+#. module: website_sale_stock
+#: model:ir.model.fields,field_description:website_sale_stock.field_product_product__stock_notification_partner_ids
+msgid "Back in stock Notifications"
+msgstr "Torna a les notificacions d'estoc"
 
 #. module: website_sale_stock
 #: model:ir.model,name:website_sale_stock.model_res_config_settings
 msgid "Config Settings"
-msgstr "Ajustos de configuració"
+msgstr "Paràmetres de configuració"
 
 #. module: website_sale_stock
 #: model_terms:ir.ui.view,arch_db:website_sale_stock.product_template_form_view_inherit_website_sale_stock
@@ -53,6 +70,11 @@ msgstr "Continuar venent"
 #: model:ir.model.fields,field_description:website_sale_stock.field_res_config_settings__allow_out_of_stock_order
 msgid "Continue selling when out-of-stock"
 msgstr "Continuar venent quan s'esgoten les existències"
+
+#. module: website_sale_stock
+#: model_terms:ir.ui.view,arch_db:website_sale_stock.availability_email_body
+msgid "Dear Customer,"
+msgstr "Estimat client,"
 
 #. module: website_sale_stock
 #: model_terms:ir.ui.view,arch_db:website_sale_stock.res_config_settings_view_form
@@ -69,23 +91,55 @@ msgid "Default visibility for custom messages."
 msgstr "Visibilitat predeterminada per als missatges personalitzats."
 
 #. module: website_sale_stock
-#: model_terms:ir.ui.view,arch_db:website_sale_stock.res_config_settings_view_form
-msgid "Inventory"
-msgstr "Inventari"
+#. odoo-javascript
+#: code:addons/website_sale_stock/static/src/xml/website_sale_stock_product_availability.xml:0
+msgid "Get notified when back in stock"
+msgstr "Avisa'm quan tornis a l'estoc"
 
 #. module: website_sale_stock
-#. openerp-web
+#: model_terms:ir.ui.view,arch_db:website_sale_stock.res_config_settings_view_form
+msgid "How to display products having low quantities (on hand - reserved)"
+msgstr "Com mostrar productes amb quantitats baixes (a mà - reservat)"
+
+#. module: website_sale_stock
+#. odoo-python
+#: code:addons/website_sale_stock/controllers/main.py:0
+msgid "Invalid Email"
+msgstr "Correu electrònic no vàlid"
+
+#. module: website_sale_stock
+#. odoo-javascript
 #: code:addons/website_sale_stock/static/src/xml/website_sale_stock_product_availability.xml:0
-#, python-format
+msgid "Invalid email"
+msgstr "Correu electrònic no vàlid"
+
+#. module: website_sale_stock
+#: model_terms:ir.ui.view,arch_db:website_sale_stock.res_config_settings_view_form
+msgid "Inventory Defaults"
+msgstr "Valors per defecte de l'inventari"
+
+#. module: website_sale_stock
+#. odoo-javascript
+#: code:addons/website_sale_stock/static/src/xml/website_sale_stock_product_availability.xml:0
 msgid "Only"
 msgstr "Sols"
 
 #. module: website_sale_stock
-#. openerp-web
+#: model_terms:ir.ui.view,arch_db:website_sale_stock.availability_email_body
+msgid "Order Now"
+msgstr "Demanar ara"
+
+#. module: website_sale_stock
+#. odoo-javascript
 #: code:addons/website_sale_stock/static/src/xml/website_sale_stock_product_availability.xml:0
-#, python-format
 msgid "Out of Stock"
 msgstr "No hi ha existències"
+
+#. module: website_sale_stock
+#. odoo-javascript
+#: code:addons/website_sale_stock/static/src/js/product/product.xml:0
+msgid "Out of stock"
+msgstr "Estoc esgotat"
 
 #. module: website_sale_stock
 #: model_terms:ir.ui.view,arch_db:website_sale_stock.product_template_form_view_inherit_website_sale_stock
@@ -100,19 +154,44 @@ msgid "Out-of-Stock Message"
 msgstr "Missatge d'esgotament d'existències"
 
 #. module: website_sale_stock
-#: model:ir.model,name:website_sale_stock.model_product_product
+#. odoo-python
+#: code:addons/website_sale_stock/models/product_product.py:0
+#: model:ir.model,name:website_sale_stock.model_product_template
 msgid "Product"
 msgstr "Producte"
 
 #. module: website_sale_stock
-#: model:ir.model,name:website_sale_stock.model_product_template
-msgid "Product Template"
-msgstr "Plantilla de producte"
+#: model:ir.model,name:website_sale_stock.model_product_combo
+msgid "Product Combo"
+msgstr "Combo de productes"
+
+#. module: website_sale_stock
+#: model:ir.model,name:website_sale_stock.model_product_product
+msgid "Product Variant"
+msgstr "Variant de producte"
+
+#. module: website_sale_stock
+#: model:ir.actions.server,name:website_sale_stock.ir_cron_send_availability_email_ir_actions_server
+msgid "Product: send email regarding products availability"
+msgstr ""
+"Producte: envia un correu electrònic pel que fa a la disponibilitat de "
+"productes"
+
+#. module: website_sale_stock
+#: model_terms:ir.ui.view,arch_db:website_sale_stock.availability_email_body
+msgid "Regards,"
+msgstr "Quant a,"
+
+#. module: website_sale_stock
+#. odoo-javascript
+#: code:addons/website_sale_stock/static/src/js/product_card/product_card.xml:0
+msgid "Requested quantity not available"
+msgstr ""
 
 #. module: website_sale_stock
 #: model:ir.model,name:website_sale_stock.model_sale_order
 msgid "Sales Order"
-msgstr "Comanda de venda"
+msgstr "Comanda"
 
 #. module: website_sale_stock
 #: model:ir.model,name:website_sale_stock.model_sale_order_line
@@ -140,14 +219,37 @@ msgid "Show availability Qty"
 msgstr "Mostra la quantitat de disponibilitat"
 
 #. module: website_sale_stock
+#. odoo-python
 #: code:addons/website_sale_stock/models/sale_order.py:0
-#, python-format
 msgid ""
-"Some products became unavailable and your cart has been updated. We're sorry"
-" for the inconvenience."
+"Some products became unavailable and your cart has been updated. We're sorry "
+"for the inconvenience."
 msgstr ""
 "Alguns productes no estan disponibles i la cistella s'ha actualitzat. "
 "Lamentem les molèsties."
+
+#. module: website_sale_stock
+#: model_terms:ir.ui.view,arch_db:website_sale_stock.availability_email_body
+msgid "The following product is now available."
+msgstr "El producte següent ja està disponible."
+
+#. module: website_sale_stock
+#. odoo-python
+#: code:addons/website_sale_stock/models/sale_order.py:0
+msgid "The item has not been added to your cart since it is not available."
+msgstr ""
+
+#. module: website_sale_stock
+#. odoo-python
+#: code:addons/website_sale_stock/models/product_product.py:0
+msgid "The product '%(product_name)s' is now available"
+msgstr "El producte '%(product_name)s' ja està disponible"
+
+#. module: website_sale_stock
+#. odoo-javascript
+#: code:addons/website_sale_stock/static/src/js/website_sale_reorder.js:0
+msgid "This product is out of stock."
+msgstr "Aquest producte està esgotat."
 
 #. module: website_sale_stock
 #: model:ir.model,name:website_sale_stock.model_stock_picking
@@ -156,7 +258,6 @@ msgstr "Transferència"
 
 #. module: website_sale_stock
 #: model_terms:ir.ui.view,arch_db:website_sale_stock.product_template_form_view_inherit_website_sale_stock
-#: model_terms:ir.ui.view,arch_db:website_sale_stock.res_config_settings_view_form
 msgid "Units"
 msgstr "Unitats"
 
@@ -168,12 +269,10 @@ msgid "Warehouse"
 msgstr "Magatzem"
 
 #. module: website_sale_stock
-#: model:ir.model.fields,field_description:website_sale_stock.field_sale_order__warning_stock
-#: model:ir.model.fields,field_description:website_sale_stock.field_sale_order_line__warning_stock
-#: model_terms:ir.ui.view,arch_db:website_sale_stock.website_sale_stock_cart_lines
-#: model_terms:ir.ui.view,arch_db:website_sale_stock.website_sale_stock_payment
-msgid "Warning"
-msgstr "Avís"
+#. odoo-javascript
+#: code:addons/website_sale_stock/static/src/xml/website_sale_stock_product_availability.xml:0
+msgid "We'll notify you once the product is back in stock."
+msgstr "Us ho notificarem un cop el producte hagi tornat a l'estoc."
 
 #. module: website_sale_stock
 #: model:ir.model,name:website_sale_stock.model_website
@@ -183,49 +282,62 @@ msgstr "Lloc web"
 
 #. module: website_sale_stock
 #: model:ir.model.fields,help:website_sale_stock.field_stock_picking__website_id
-msgid "Website this picking belongs to."
-msgstr "Lloc web al qual pertany aquesta selecció."
+msgid "Website where this order has been placed, for eCommerce orders."
+msgstr "Lloc web on s'ha col·locat aquesta comanda, per a comandes eCommerce."
 
 #. module: website_sale_stock
-#. openerp-web
+#. odoo-javascript
 #: code:addons/website_sale_stock/static/src/xml/website_sale_stock_product_availability.xml:0
-#, python-format
 msgid "You already added"
 msgstr "Ja heu afegit"
 
 #. module: website_sale_stock
-#. openerp-web
+#. odoo-javascript
 #: code:addons/website_sale_stock/static/src/xml/website_sale_stock_product_availability.xml:0
-#, python-format
 msgid "You already added all the available product in your cart."
 msgstr "Ja has afegit tots els productes disponibles en la teva cistella."
 
 #. module: website_sale_stock
-#: code:addons/website_sale_stock/controllers/main.py:0
-#, python-format
+#. odoo-javascript
+#: code:addons/website_sale_stock/static/src/js/website_sale_reorder.js:0
+msgid "You already have %s Units in your cart."
+msgstr "Ja teniu %s unitats a la cistella."
+
+#. module: website_sale_stock
+#. odoo-python
+#: code:addons/website_sale_stock/models/sale_order_line.py:0
 msgid ""
-"You ask for %(quantity)s products but only %(available_qty)s is available"
+"You ask for %(desired_qty)s %(product_name)s but only %(new_qty)s is "
+"available"
 msgstr ""
-"Vostè demana%(quantity)s productes però només %(available_qty)s està "
-"disponible"
+"Has demanat %(desired_qty)s %(product_name)s, però només hi ha %(new_qty)s "
+"disponibles"
 
 #. module: website_sale_stock
+#. odoo-python
 #: code:addons/website_sale_stock/models/sale_order.py:0
-#, python-format
-msgid "You ask for %s products but only %s is available"
-msgstr "Esteu sol·licitant  %s productes però sols n'hi ha %s disponible(s)"
+msgid "You ask for %(desired_qty)s products but only %(new_qty)s is available"
+msgstr ""
+"Heu demanat %(desired_qty)s productes però només hi ha %(new_qty)s "
+"disponibles"
 
 #. module: website_sale_stock
-#. openerp-web
+#. odoo-javascript
+#: code:addons/website_sale_stock/static/src/js/website_sale_reorder.js:0
+msgid "You ask for %(quantity1)s Units but only %(quantity2)s are available."
+msgstr ""
+"Heu demanat %(quantity1)s unitats, però només %(quantity2)s estan "
+"disponibles."
+
+#. module: website_sale_stock
+#. odoo-javascript
 #: code:addons/website_sale_stock/static/src/xml/website_sale_stock_product_availability.xml:0
-#, python-format
 msgid "in your cart."
-msgstr "a la vostra cistella."
+msgstr "a la teva cistella."
 
 #. module: website_sale_stock
-#. openerp-web
+#. odoo-javascript
 #: code:addons/website_sale_stock/static/src/xml/website_sale_stock_product_availability.xml:0
-#, python-format
 msgid "left in stock."
 msgstr "que queden en estoc."
 
@@ -234,3 +346,9 @@ msgstr "que queden en estoc."
 #: model_terms:ir.ui.view,arch_db:website_sale_stock.res_config_settings_view_form
 msgid "only if below"
 msgstr "només si a sota"
+
+#. module: website_sale_stock
+#. odoo-javascript
+#: code:addons/website_sale_stock/static/src/xml/website_sale_stock_product_availability.xml:0
+msgid "youremail@gmail.com"
+msgstr "youremail@gmail.com"

@@ -1,108 +1,98 @@
-/** @odoo-module **/
-
-import { useBus, useService } from "@web/core/utils/hooks";
+import { Component, onWillStart, onWillUpdateProps, toRaw, useSubEnv } from "@odoo/owl";
+import { CallbackRecorder, useSetupAction } from "@web/search/action_hook";
 import { SearchModel } from "@web/search/search_model";
-import { CallbackRecorder, useSetupAction } from "@web/webclient/actions/action_hook";
-
-const { Component, hooks } = owl;
-const { useSubEnv } = hooks;
+import { useBus, useService } from "@web/core/utils/hooks";
 
 export const SEARCH_KEYS = ["comparison", "context", "domain", "groupBy", "orderBy"];
-const OTHER_SEARCH_KEYS = ["irFilters", "searchViewArch", "searchViewFields", "searchViewId"];
 
 export class WithSearch extends Component {
-    setup() {
-        this.Component = this.props.Component;
+    static template = "web.WithSearch";
+    static props = {
+        slots: Object,
+        SearchModel: { type: Function, optional: true },
 
+        resModel: String,
+
+        globalState: { type: Object, optional: true },
+        searchModelArgs: { type: Object, optional: true },
+
+        display: { type: Object, optional: true },
+
+        // search query elements
+        comparison: { type: [Object, { value: null }], optional: true },
+        context: { type: Object, optional: true },
+        domain: { type: Array, element: [String, Array], optional: true },
+        groupBy: { type: Array, element: String, optional: true },
+        orderBy: { type: Array, element: Object, optional: true },
+
+        // search view description
+        searchViewArch: { type: String, optional: true },
+        searchViewFields: { type: Object, optional: true },
+        searchViewId: { type: [Number, Boolean], optional: true },
+
+        irFilters: { type: Array, element: Object, optional: true },
+        loadIrFilters: { type: Boolean, optional: true },
+
+        // extra options
+        activateFavorite: { type: Boolean, optional: true },
+        dynamicFilters: { type: Array, element: Object, optional: true },
+        hideCustomGroupBy: { type: Boolean, optional: true },
+        searchMenuTypes: { type: Array, element: String, optional: true },
+        canOrderByCount: { type: Boolean, optional: true },
+    };
+
+    setup() {
         if (!this.env.__getContext__) {
             useSubEnv({ __getContext__: new CallbackRecorder() });
         }
+        if (!this.env.__getOrderBy__) {
+            useSubEnv({ __getOrderBy__: new CallbackRecorder() });
+        }
 
-        const SearchModelClass = this.Component.SearchModel || SearchModel;
-        this.env.searchModel = new SearchModelClass(this.env, {
-            user: useService("user"),
-            orm: useService("orm"),
-            view: useService("view"),
-        });
+        const SearchModelClass = this.props.SearchModel || SearchModel;
+        this.searchModel = new SearchModelClass(
+            this.env,
+            {
+                orm: useService("orm"),
+                view: useService("view"),
+                field: useService("field"),
+                name: useService("name"),
+                dialog: useService("dialog"),
+            },
+            this.props.searchModelArgs
+        );
 
-        useBus(this.env.searchModel, "update", this.render);
+        const searchPanelState = this.props.globalState?.searchPanel
+            ? JSON.parse(this.props.globalState?.searchPanel)
+            : null;
+        useSubEnv({ searchModel: this.searchModel, searchPanelState });
+
+        useBus(this.searchModel, "update", this.render);
         useSetupAction({
             getGlobalState: () => {
                 return {
-                    searchModel: JSON.stringify(this.env.searchModel.exportState()),
+                    searchModel: JSON.stringify(this.searchModel.exportState()),
                 };
             },
         });
-    }
 
-    async willStart() {
-        const config = { ...this.props };
-        if (config.globalState && config.globalState.searchModel) {
-            config.state = JSON.parse(config.globalState.searchModel);
-            delete config.globalState;
-        }
-        await this.env.searchModel.load(config);
-    }
-
-    async willUpdateProps(nextProps) {
-        const config = {};
-        for (const key of SEARCH_KEYS) {
-            if (nextProps[key] !== undefined) {
-                config[key] = nextProps[key];
+        onWillStart(async () => {
+            const config = { ...toRaw(this.props) };
+            if (config.globalState && config.globalState.searchModel) {
+                config.state = JSON.parse(config.globalState.searchModel);
+                delete config.globalState;
             }
-        }
-        await this.env.searchModel.reload(config);
-    }
+            await this.searchModel.load(config);
+        });
 
-    //-------------------------------------------------------------------------
-    // Getters
-    //-------------------------------------------------------------------------
-
-    get componentProps() {
-        const componentProps = { ...this.props.componentProps };
-        for (const key of SEARCH_KEYS) {
-            componentProps[key] = this.env.searchModel[key];
-        }
-        componentProps.info = componentProps.info || {};
-        for (const key of OTHER_SEARCH_KEYS) {
-            componentProps.info[key] = this.env.searchModel[key];
-        }
-        return componentProps;
+        onWillUpdateProps(async (nextProps) => {
+            const config = {};
+            for (const key of SEARCH_KEYS) {
+                if (nextProps[key] !== undefined) {
+                    config[key] = nextProps[key];
+                }
+            }
+            await this.searchModel.reload(config);
+        });
     }
 }
-
-WithSearch.defaultProps = {
-    componentProps: {},
-};
-WithSearch.props = {
-    Component: Function,
-    componentProps: { type: Object, optional: true },
-
-    resModel: String,
-
-    globalState: { type: Object, optional: true },
-
-    display: { type: Object, optional: true },
-
-    // search query elements
-    comparison: { validate: () => true, optional: true }, // fix problem with validation with type: [Object, null]
-    // Issue OWL: https://github.com/odoo/owl/issues/910
-    context: { type: Object, optional: true },
-    domain: { type: Array, element: [String, Array], optional: true },
-    groupBy: { type: Array, element: String, optional: true },
-    orderBy: { type: Array, element: String, optional: true },
-
-    // search view description
-    searchViewArch: { type: String, optional: true },
-    searchViewFields: { type: Object, optional: true },
-    searchViewId: { type: [Number, false], optional: true },
-
-    irFilters: { type: Array, element: Object, optional: true },
-    loadIrFilters: { type: Boolean, optional: true },
-
-    // extra options
-    activateFavorite: { type: Boolean, optional: true },
-    dynamicFilters: { type: Array, element: Object, optional: true },
-    searchMenuTypes: { type: Array, element: String, optional: true },
-};
-WithSearch.template = "web.WithSearch";

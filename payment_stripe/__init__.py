@@ -3,8 +3,12 @@
 from . import controllers
 from . import models
 
-from odoo.addons.payment import reset_payment_acquirer
+import odoo.addons.payment as payment  # prevent circular import error with payment
 
 
-def uninstall_hook(cr, registry):
-    reset_payment_acquirer(cr, registry, 'stripe')
+def post_init_hook(env):
+    payment.setup_provider(env, 'stripe')
+
+
+def uninstall_hook(env):
+    payment.reset_payment_provider(env, 'stripe')

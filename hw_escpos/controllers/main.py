@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
+# pylint: skip-file
 
 from __future__ import print_function
 import logging
@@ -10,6 +11,7 @@ import subprocess
 import time
 import netifaces as ni
 import traceback
+
 
 escpos = printer = None
 try:
@@ -96,9 +98,9 @@ class EscposDriver(Thread):
             if not self.is_alive():
                 self.daemon = True
                 self.start()
-    
+
     def get_escpos_printer(self):
-  
+
         printers = self.connected_usb_devices()
         if len(printers) > 0:
             try:
@@ -150,9 +152,8 @@ class EscposDriver(Thread):
             return
         while True:
             error = True
+            timestamp, task, data = self.queue.get(True)
             try:
-                timestamp, task, data = self.queue.get(True)
-
                 printer = self.get_escpos_printer()
 
                 if printer == None:
@@ -202,10 +203,10 @@ class EscposDriver(Thread):
 
         def check(string):
             return string != True and bool(string) and string.strip()
-        
+
         def price(amount):
             return ("{0:."+str(receipt['precision']['price'])+"f}").format(amount)
-        
+
         def money(amount):
             return ("{0:."+str(receipt['precision']['money'])+"f}").format(amount)
 
@@ -219,7 +220,7 @@ class EscposDriver(Thread):
             lwidth = int(width * ratio) 
             rwidth = width - lwidth 
             lwidth = lwidth - indent
-            
+
             left = left[:lwidth]
             if len(left) != lwidth:
                 left = left + ' ' * (lwidth - len(left))
@@ -229,7 +230,7 @@ class EscposDriver(Thread):
                 right = ' ' * (rwidth - len(right)) + right
 
             return ' ' * indent + left + right + '\n'
-        
+
         def print_taxes():
             taxes = receipt['tax_details']
             for tax in taxes:
@@ -280,29 +281,28 @@ class EscposDriver(Thread):
         # Subtotal if the taxes are not included
         taxincluded = True
         if money(receipt['subtotal']) != money(receipt['total_with_tax']):
-            eprint.text(printline('','-------'));
+            eprint.text(printline('', '-------'))
             eprint.text(printline(_('Subtotal'),money(receipt['subtotal']),width=40, ratio=0.6))
             print_taxes()
             #eprint.text(printline(_('Taxes'),money(receipt['total_tax']),width=40, ratio=0.6))
             taxincluded = False
 
-
         # Total
-        eprint.text(printline('','-------'));
+        eprint.text(printline('', '-------'))
         eprint.set(align='center',height=2)
         eprint.text(printline(_('         TOTAL'),money(receipt['total_with_tax']),width=40, ratio=0.6))
-        eprint.text('\n\n');
-        
+        eprint.text('\n\n')
+
         # Paymentlines
         eprint.set(align='center')
         for line in receipt['paymentlines']:
             eprint.text(printline(line['journal'], money(line['amount']), ratio=0.6))
 
-        eprint.text('\n');
+        eprint.text('\n')
         eprint.set(align='center',height=2)
         eprint.text(printline(_('        CHANGE'),money(receipt['change']),width=40, ratio=0.6))
         eprint.set(align='center')
-        eprint.text('\n');
+        eprint.text('\n')
 
         # Extra Payment info
         if receipt['total_discount'] != 0:
