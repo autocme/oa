@@ -1,19 +1,20 @@
 /** @odoo-module */
 
-import { click } from "@web/../tests/helpers/utils";
-import { COLORS, hexToRGBA } from "@web/views/graph/colors";
-import { dialogService } from "@web/core/dialog/dialog_service";
-import { getGraphRenderer } from "@web/../tests/views/graph_view_tests";
+import { browser } from "@web/core/browser/browser";
+import { click, getFixture, patchWithCleanup } from "@web/../tests/helpers/utils";
+import { setupControlPanelServiceRegistry, toggleSearchBarMenu, toggleMenuItem, toggleMenuItemOption } from "@web/../tests/search/helpers";
 import { makeView } from "@web/../tests/views/helpers";
 import { registry } from "@web/core/registry";
-import { setupControlPanelServiceRegistry } from "@web/../tests/search/helpers";
+import { makeFakeNotificationService } from "@web/../tests/helpers/mock_services";
+import { getFirstElementForXpath } from './project_test_utils';
 
-const serviceRegistry = registry.category("services");
 QUnit.module("Project", {}, () => {
     QUnit.module("Views", (hooks) => {
-        let serverData;
-        hooks.beforeEach(async () => {
-            serverData = {
+        let makeViewParams;
+        let target;
+        hooks.beforeEach(async (assert) => {
+            target = getFixture();
+            const serverData = {
                 models: {
                     burndown_chart: {
                         fields: {
@@ -43,7 +44,13 @@ QUnit.module("Project", {}, () => {
                             { id: 2, name: "In Progress" },
                             { id: 3, name: "Done" },
                         ],
-                    }
+                    },
+                    "project.task.type": {
+                        fields: {
+                            name: { string: "Name", type: "char" },
+                            sequence: { type: "integer" },
+                        },
+                    },
                 },
                 views: {
                     "burndown_chart,false,graph": `
@@ -53,109 +60,173 @@ QUnit.module("Project", {}, () => {
                             <field name="nb_tasks" type="measure"/>
                         </graph>
                     `,
+                    "burndown_chart,false,search": `
+                        <search/>
+                    `,
                 },
             };
+            makeViewParams = {
+                serverData,
+                resModel: "burndown_chart",
+                type: "burndown_chart",
+            };
             setupControlPanelServiceRegistry();
-            serviceRegistry.add("dialog", dialogService);
+            const notificationMock = () => {
+                assert.step("notification_triggered");
+                return () => {};
+            };
+            registry.category("services").add("notification", makeFakeNotificationService(notificationMock), {
+                force: true,
+            });
         });
 
         QUnit.module("BurndownChart");
 
-        QUnit.test("check if default mode is line chart and line chart is stacked for burndown chart", async function (assert) {
-            assert.expect(5);
-
-            const burndownChart = await makeView({
-                serverData,
-                resModel: "burndown_chart",
-                type: "burndown_chart",
-            });
-
-            assert.strictEqual(burndownChart.model.metaData.mode, "line", "should be in line chart mode.");
-            assert.ok(burndownChart.model.metaData.stacked, "should be stacked by default.");
-
-            assert.ok(getGraphRenderer(burndownChart).getScaleOptions().yAxes.every(y => y.stacked), "the stacked property in y axes should be true when the stacked is enabled in line chart");
-            assert.ok(getGraphRenderer(burndownChart).getElementOptions().line.fill, "The fill property should be true to add backgroundColor in line chart.");
-
-            const actualDatasets = [];
-            const expectedDatasets = [];
-            const keysToEvaluate = ["backgroundColor", "borderColor", "originIndex", "pointBackgroundColor"];
-            const datasets = getGraphRenderer(burndownChart).chart.data.datasets;
-
-            for (let i = 0; i < datasets.length; i++) {
-                const dataset = datasets[i];
-                const actualDataset = {};
-                keysToEvaluate.forEach(key => {
-                    if (dataset.hasOwnProperty(key)) {
-                        actualDataset[key] = dataset[key];
-                    }
-                });
-                actualDatasets.push(actualDataset);
-
-                const expectedColor = COLORS[i];
-                expectedDatasets.push({
-                    backgroundColor: hexToRGBA(expectedColor, 0.4),
-                    borderColor: expectedColor,
-                    originIndex: 0,
-                    pointBackgroundColor: expectedColor,
-                });
-            }
-            assert.deepEqual(actualDatasets, expectedDatasets);
+        QUnit.test("check that the sort buttons are invisible", async function (assert) {
+            await makeView(makeViewParams);
+            assert.containsNone(target, '.o_cp_bottom_left:has(.btn-group[role=toolbar][aria-label="Sort graph"])', "The sort buttons are not rendered.");
         });
 
-        QUnit.test("check if the stacked button is visible in the line chart", async function (assert) {
-            assert.expect(3);
-            const burndownChart = await makeView({
-                serverData,
-                resModel: "burndown_chart",
-                type: "burndown_chart",
+        async function makeBurnDownChartWithSearchView(makeViewOverwriteParams = { }) {
+            patchWithCleanup(browser, {
+                setTimeout: (fn) => fn(),
+                clearTimeout: () => {},
             });
-            assert.ok(burndownChart.model.metaData.stacked, "graph should be a burndown chart.");
-            assert.containsOnce(burndownChart, `button.o_graph_button[data-tooltip="Stacked"]`);
-            const stackButton = burndownChart.el.querySelector(`button.o_graph_button[data-tooltip="Stacked"]`);
-            await click(stackButton);
-            assert.notOk(burndownChart.model.metaData.stacked, "graph should be a classic line chart.");
+            await makeView({
+                ...makeViewParams,
+                searchViewId: false,
+                searchViewArch: `
+                    <search string="Burndown Chart">
+                        <filter string="Date" name="date" context="{'group_by': 'date'}" />
+                        <filter string="Stage" name="stage" context="{'group_by': 'stage_id'}" />
+                    </search>
+                `,
+                searchViewFields: {
+                    date: {
+                        name: "date",
+                        string: "Date",
+                        type: "date",
+                        store: true,
+                        sortable: true,
+                        searchable: true,
+                    },
+                    stage_id: {
+                        name: "stage_id",
+                        string: "Stage",
+                        type: "many2one",
+                        store: true,
+                        sortable: true,
+                        searchable: true,
+                    },
+                },
+                context: { ...makeViewParams.context, 'search_default_date': 1, 'search_default_stage': 1 },
+                ...makeViewOverwriteParams,
+            });
+        }
+
+        async function testBurnDownChartWithSearchView(stepsTriggeringNotification, assert) {
+            await makeBurnDownChartWithSearchView();
+            await stepsTriggeringNotification();
+            assert.verifySteps(['notification_triggered']);
+        }
+
+        async function openGroupByMainMenu(target) {
+            await toggleSearchBarMenu(target);
+        }
+
+        async function openGroupByDateMenu(target) {
+            await openGroupByMainMenu(target);
+            await toggleMenuItem(target, 'Date');
+        }
+
+        async function toggleGroupByStageMenu(target) {
+            await openGroupByMainMenu(target);
+            await toggleMenuItem(target, 'Stage');
+        }
+
+        async function toggleSelectedGroupByDateItem(target) {
+            await openGroupByDateMenu(target);
+            const selectedGroupByDateItemXpath = `//div
+                                                    [contains(@class, 'o_group_by_menu')]
+                                                    //button
+                                                      [contains(@class, 'o_menu_item')]
+                                                      [contains(., 'Date')]
+                                                       /following-sibling::div
+                                                         /span
+                                                          [contains(@class, 'o_item_option')]
+                                                          [contains(@class, 'selected')]`;
+            const selectedGroupByDateItemElement = getFirstElementForXpath(target, selectedGroupByDateItemXpath);
+            await toggleMenuItemOption(target, 'Date', selectedGroupByDateItemElement.innerText);
+        }
+
+        QUnit.test("check that removing the group by 'Date: Month > Stage' in the search bar triggers a notification", async function (assert) {
+
+            const stepsTriggeringNotification = async () => {
+                // There's only one possibility here
+                await click(target, ".o_facet_remove");
+            };
+            await testBurnDownChartWithSearchView(stepsTriggeringNotification, assert);
         });
 
-        QUnit.test("check if it is classic line chart when stacked prop is false in line chart", async function (assert) {
-            assert.expect(4);
+        QUnit.test("check that removing the group by 'Date' triggers a notification", async function (assert) {
+            const stepsTriggeringNotification = async () => {
+                await toggleSelectedGroupByDateItem(target);
+            };
+            await testBurnDownChartWithSearchView(stepsTriggeringNotification, assert);
+        });
 
-            const burndownChart = await makeView({
-                serverData,
-                resModel: "burndown_chart",
-                type: "burndown_chart",
-            });
+        QUnit.test("check that removing the group by 'Stage' triggers a notification", async function (assert) {
+            const stepsTriggeringNotification = async () => {
+                await toggleGroupByStageMenu(target);
+            };
+            await testBurnDownChartWithSearchView(stepsTriggeringNotification, assert);
+        });
 
-            const stackButton = burndownChart.el.querySelector(`button.o_graph_button[data-tooltip="Stacked"]`);
-            await click(stackButton);
-            assert.notOk(burndownChart.model.metaData.stacked, "graph should be a classic line chart.");
+        QUnit.test("check that adding a group by 'Date' actually toggle it", async function (assert) {
+            await makeBurnDownChartWithSearchView();
+            await openGroupByDateMenu(target);
+            const firstNotSelectedGroupByDateItemXpath = `//div
+                                    [contains(@class, 'o_group_by_menu')]
+                                    //button
+                                      [contains(@class, 'o_menu_item')]
+                                      [contains(., 'Date')]
+                                       /following-sibling::div
+                                         /span
+                                          [contains(@class, 'o_item_option')]
+                                          [not(contains(@class, 'selected'))]`;
+            const firstNotSelectedGroupByDateItemElement = getFirstElementForXpath(target, firstNotSelectedGroupByDateItemXpath);
+            await toggleMenuItemOption(target, 'Date', firstNotSelectedGroupByDateItemElement.innerText);
+            const groupByDateSubMenuXpath = `//div
+                                            [contains(@class, 'o_group_by_menu')]
+                                            //button
+                                              [contains(@class, 'o_menu_item')]
+                                              [contains(., 'Date')]
+                                               /following-sibling::div`;
+            const groupByDateSubMenuElement = getFirstElementForXpath(target, groupByDateSubMenuXpath);
+            const selectedGroupByDateItemElements = groupByDateSubMenuElement.querySelectorAll('span.o_item_option.selected');
+            assert.equal(selectedGroupByDateItemElements.length, 1, 'There is only one selected item.');
+            assert.equal(firstNotSelectedGroupByDateItemElement.innerText, selectedGroupByDateItemElements[0].innerText, 'The selected item is the one we clicked on.');
+        });
 
-            assert.notOk(getGraphRenderer(burndownChart).getScaleOptions().yAxes.every(y => y.stacked), "the y axes should have a stacked property set to false since the stacked property in line chart is false.");
-            assert.notOk(getGraphRenderer(burndownChart).getElementOptions().line.fill, "The fill property should be false since the stacked property is false.");
+        function checkGroupByOrder(assert) {
+            const dateSearchFacetXpath = `//div[contains(@class, 'o_searchview_facet')]
+                                            [.//small[@class='o_facet_value']
+                                            [contains(., 'Date: Month')]]`;
+            const dateSearchFacetElement = getFirstElementForXpath(target, dateSearchFacetXpath);
+            const dateSearchFacetParts = dateSearchFacetElement.querySelectorAll('.o_facet_value');
+            assert.equal(dateSearchFacetParts.length, 2);
+            assert.equal(dateSearchFacetParts[0].innerText, 'Date: Month');
+            assert.equal(dateSearchFacetParts[1].innerText, 'Stage');
+        }
 
-            const actualDatasets = [];
-            const expectedDatasets = [];
-            const keysToEvaluate = ["backgroundColor", "borderColor", "originIndex", "pointBackgroundColor"];
-            const datasets = getGraphRenderer(burndownChart).chart.data.datasets;
+        QUnit.test("check that the group by is always sorted 'Date' first, 'Stage' second", async function (assert) {
+            await makeBurnDownChartWithSearchView({context: {...makeViewParams.context, 'search_default_date': 1, 'search_default_stage': 1}});
+            checkGroupByOrder(assert);
+        });
 
-            for (let i = 0; i < datasets.length; i++) {
-                const dataset = datasets[i];
-                const actualDataset = {};
-                keysToEvaluate.forEach(key => {
-                    if (dataset.hasOwnProperty(key)) {
-                        actualDataset[key] = dataset[key];
-                    }
-                });
-                actualDatasets.push(actualDataset);
-
-                const expectedColor = COLORS[i];
-                expectedDatasets.push({
-                    borderColor: expectedColor,
-                    originIndex: 0,
-                    pointBackgroundColor: expectedColor,
-                });
-            }
-
-            assert.deepEqual(actualDatasets, expectedDatasets);
+        QUnit.test("check that the group by is always sorted 'Date' first, 'Stage' second", async function (assert) {
+            await makeBurnDownChartWithSearchView({context: {...makeViewParams.context, 'search_default_stage': 1, 'search_default_date': 1}});
+            checkGroupByOrder(assert);
         });
     });
 });

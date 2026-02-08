@@ -3,8 +3,12 @@
 from . import models
 from . import controllers
 
-from odoo.addons.payment import reset_payment_acquirer
+from odoo.addons.payment import setup_provider, reset_payment_provider
 
 
-def uninstall_hook(cr, registry):
-    reset_payment_acquirer(cr, registry, 'sips')
+def post_init_hook(env):
+    setup_provider(env, 'sips')
+
+
+def uninstall_hook(env):
+    reset_payment_provider(env, 'sips')

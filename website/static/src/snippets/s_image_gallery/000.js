@@ -1,17 +1,23 @@
-odoo.define('website.s_image_gallery', function (require) {
-'use strict';
+/** @odoo-module **/
 
-var core = require('web.core');
-var publicWidget = require('web.public.widget');
+import { uniqueId } from "@web/core/utils/functions";
+import publicWidget from "@web/legacy/js/public/public_widget";
+import { renderToElement } from "@web/core/utils/render";
 
-var qweb = core.qweb;
 
 const GalleryWidget = publicWidget.Widget.extend({
 
     selector: '.s_image_gallery:not(.o_slideshow)',
-    xmlDependencies: ['/website/static/src/snippets/s_image_gallery/000.xml'],
     events: {
         'click img': '_onClickImg',
+    },
+
+    /**
+     * @override
+     */
+    start() {
+        this._super(...arguments);
+        this.originalSources = [...this.el.querySelectorAll("img")].map(img => img.getAttribute("src"));
     },
 
     //--------------------------------------------------------------------------
@@ -26,13 +32,23 @@ const GalleryWidget = publicWidget.Widget.extend({
      * @param {Event} ev
      */
     _onClickImg: function (ev) {
-        if (this.$modal || ev.currentTarget.matches("a > img")) {
+        const clickedEl = ev.currentTarget;
+        if (this.$modal || clickedEl.matches("a > img")) {
             return;
         }
         var self = this;
-        var $cur = $(ev.currentTarget);
 
-        var $images = $cur.closest('.s_image_gallery').find('img');
+        let imageEls = this.el.querySelectorAll("img");
+        const currentImageEl = clickedEl.closest("img");
+        const currentImageIndex = [...imageEls].indexOf(currentImageEl);
+        // We need to reset the images to their original source because it might
+        // have been changed by a mouse event (e.g. "hover effect" animation).
+        imageEls = [...imageEls].map((el, i) => {
+            const cloneEl = el.cloneNode(true);
+            cloneEl.src = this.originalSources[i];
+            return cloneEl;
+        });
+
         var size = 0.8;
         var dimensions = {
             min_width: Math.round(window.innerWidth * size * 0.9),
@@ -43,53 +59,48 @@ const GalleryWidget = publicWidget.Widget.extend({
             height: Math.round(window.innerHeight * size)
         };
 
-        var $img = ($cur.is('img') === true) ? $cur : $cur.closest('img');
-
-        const milliseconds = $cur.closest('.s_image_gallery').data('interval') || false;
-        this.$modal = $(qweb.render('website.gallery.slideshow.lightbox', {
-            images: $images.get(),
-            index: $images.index($img),
+        const milliseconds = this.el.dataset.interval || false;
+        this.$modal = $(renderToElement('website.gallery.slideshow.lightbox', {
+            images: imageEls,
+            index: currentImageIndex,
             dim: dimensions,
             interval: milliseconds || 0,
-            id: _.uniqueId('slideshow_'),
+            id: uniqueId("slideshow_"),
         }));
-        this.$modal.modal({
-            keyboard: true,
-            backdrop: true,
-        });
+        this.__onModalKeydown = this._onModalKeydown.bind(this);
         this.$modal.on('hidden.bs.modal', function () {
             $(this).hide();
             $(this).siblings().filter('.modal-backdrop').remove(); // bootstrap leaves a modal-backdrop
+            this.removeEventListener("keydown", self.__onModalKeydown);
             $(this).remove();
             self.$modal = undefined;
         });
-        this.$modal.find('.modal-content, .modal-body.o_slideshow').css('height', '100%');
-        this.$modal[0].tabIndex = "-1";
-        this.$modal.appendTo(document.body);
-
-        this.__onModalKeydown = this._onModalKeydown.bind(this);
         this.$modal.one('shown.bs.modal', function () {
             self.trigger_up('widgets_start_request', {
                 editableMode: false,
                 $target: self.$modal.find('.modal-body.o_slideshow'),
             });
-            self.$modal[0].addEventListener("keydown", self.__onModalKeydown);
+            this.addEventListener("keydown", self.__onModalKeydown);
         });
-        this.$modal.one("hide.bs.modal", () => {
-            this.$modal[0].removeEventListener("keydown", this.__onModalKeydown);
-        });
+        this.$modal.appendTo(document.body);
+        const modalBS = new Modal(this.$modal[0], {keyboard: true, backdrop: true});
+        modalBS.show();
     },
     _onModalKeydown(ev) {
         if (ev.key === "ArrowLeft" || ev.key === "ArrowRight") {
             const side = ev.key === "ArrowLeft" ? "prev" : "next";
             this.$modal[0].querySelector(`.carousel-control-${side}`).click();
         }
+        if (ev.key === "Escape") {
+            // If the user is connected as an editor, prevent the backend header
+            // from collapsing.
+            ev.stopPropagation();
+        }
     },
 });
 
 const GallerySliderWidget = publicWidget.Widget.extend({
     selector: '.o_slideshow',
-    xmlDependencies: ['/website/static/src/snippets/s_image_gallery/000.xml'],
     disabledInEditableMode: false,
 
     /**
@@ -97,11 +108,11 @@ const GallerySliderWidget = publicWidget.Widget.extend({
      */
     start: function () {
         var self = this;
-        this.$carousel = this.$target.is('.carousel') ? this.$target : this.$target.find('.carousel');
+        this.$carousel = this.$el.is('.carousel') ? this.$el : this.$('.carousel');
         this.$indicator = this.$carousel.find('.carousel-indicators');
         this.$prev = this.$indicator.find('li.o_indicators_left').css('visibility', ''); // force visibility as some databases have it hidden
         this.$next = this.$indicator.find('li.o_indicators_right').css('visibility', '');
-        var $lis = this.$indicator.find('li[data-slide-to]');
+        var $lis = this.$indicator.find('li[data-bs-slide-to]');
         let indicatorWidth = this.$indicator.width();
         if (indicatorWidth === 0) {
             // An ancestor may be hidden so we try to find it and make it
@@ -149,13 +160,16 @@ const GallerySliderWidget = publicWidget.Widget.extend({
         this.$carousel.on('slide.bs.carousel.gallery_slider', function () {
             setTimeout(function () {
                 var $item = self.$carousel.find('.carousel-inner .carousel-item-prev, .carousel-inner .carousel-item-next');
+                if (!$item.length) {
+                    return;
+                }
                 var index = $item.index();
                 $lis.removeClass('active')
-                    .filter('[data-slide-to="' + index + '"]')
+                    .filter('[data-bs-slide-to="' + index + '"]')
                     .addClass('active');
             }, 0);
         });
-        this.$indicator.on('click.gallery_slider', '> li:not([data-slide-to])', function () {
+        this.$indicator.on('click.gallery_slider', '> li:not([data-bs-slide-to])', function () {
             page += ($(this).hasClass('o_indicators_left') ? -1 : 1);
             page = Math.max(0, Math.min(nbPages - 1, page)); // should not be necessary
             self.$carousel.carousel(page * realNbPerPage);
@@ -189,8 +203,7 @@ const GallerySliderWidget = publicWidget.Widget.extend({
 publicWidget.registry.gallery = GalleryWidget;
 publicWidget.registry.gallerySlider = GallerySliderWidget;
 
-return {
+export default {
     GalleryWidget: GalleryWidget,
     GallerySliderWidget: GallerySliderWidget,
 };
-});

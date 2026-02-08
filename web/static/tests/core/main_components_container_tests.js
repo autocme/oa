@@ -2,26 +2,18 @@
 import { MainComponentsContainer } from "@web/core/main_components_container";
 import { registry } from "@web/core/registry";
 import { clearRegistryWithCleanup, makeTestEnv } from "../helpers/mock_env";
-import { patch, unpatch } from "@web/core/utils/patch";
-import { getFixture, nextTick } from "../helpers/utils";
+import { getFixture, mount, nextTick } from "../helpers/utils";
 
-const { mount, Component } = owl;
-const { useState } = owl.hooks;
-const { xml } = owl.tags;
+import { Component, useState, xml } from "@odoo/owl";
+import { registerCleanup } from "../helpers/cleanup";
 const mainComponentsRegistry = registry.category("main_components");
-let container;
+
 let target;
 
 QUnit.module("Components", (hooks) => {
     hooks.beforeEach(async () => {
         target = getFixture();
         clearRegistryWithCleanup(mainComponentsRegistry);
-    });
-    hooks.afterEach(() => {
-        if (container) {
-            container.unmount();
-            container = undefined;
-        }
     });
 
     QUnit.module("MainComponentsContainer");
@@ -37,14 +29,16 @@ QUnit.module("Components", (hooks) => {
 
         mainComponentsRegistry.add("MainComponentA", { Component: MainComponentA, props: {} });
         mainComponentsRegistry.add("MainComponentB", { Component: MainComponentB, props: {} });
-        container = await mount(MainComponentsContainer, { env, target, props: {} });
+        await mount(MainComponentsContainer, target, { env, props: {} });
+        assert.containsOnce(target, "div.o-main-components-container");
         assert.equal(
-            container.el.outerHTML,
-            "<div><span>MainComponentA</span><span>MainComponentB</span></div>"
+            target.querySelector(".o-main-components-container").innerHTML,
+            "<span>MainComponentA</span><span>MainComponentB</span>"
         );
     });
 
     QUnit.test("unmounts erroring main component", async function (assert) {
+        assert.expectErrors();
         const env = await makeTestEnv();
 
         let compA;
@@ -64,32 +58,38 @@ QUnit.module("Components", (hooks) => {
 
         mainComponentsRegistry.add("MainComponentA", { Component: MainComponentA, props: {} });
         mainComponentsRegistry.add("MainComponentB", { Component: MainComponentB, props: {} });
-        container = await mount(MainComponentsContainer, { env, target, props: {} });
+        await mount(MainComponentsContainer, target, { env, props: {} });
+        assert.containsOnce(target, "div.o-main-components-container");
         assert.equal(
-            container.el.outerHTML,
-            "<div><span>MainComponentA</span><span>MainComponentB</span></div>"
+            target.querySelector(".o-main-components-container").innerHTML,
+            "<span>MainComponentA</span><span>MainComponentB</span>"
         );
 
         const handler = (ev) => {
             assert.step(ev.reason.message);
-            // need to preventDefault to remove error from console (so python test pass)
-            ev.preventDefault();
+            assert.step(ev.reason.cause.message);
         };
         window.addEventListener("unhandledrejection", handler);
-        patch(QUnit, "MainComponentsContainer QUnit patch", {
-            onUnhandledRejection: () => {},
+        registerCleanup(() => {
+            window.removeEventListener("unhandledrejection", handler);
         });
         compA.state.shouldThrow = true;
         await nextTick();
-        window.removeEventListener("unhandledrejection", handler);
-        // unpatch QUnit asap so any other errors can be caught by it
-        unpatch(QUnit, "MainComponentsContainer QUnit patch");
-        assert.verifySteps(["BOOM"]);
+        assert.verifySteps([
+            'An error occured in the owl lifecycle (see this Error\'s "cause" property)',
+            "BOOM",
+        ]);
+        assert.verifyErrors(["BOOM"]);
 
-        assert.equal(container.el.outerHTML, "<div><span>MainComponentB</span></div>");
+        assert.equal(
+            target.querySelector(".o-main-components-container").innerHTML,
+            "<span>MainComponentB</span>"
+        );
     });
 
     QUnit.test("unmounts erroring main component: variation", async function (assert) {
+        assert.expectErrors();
+
         const env = await makeTestEnv();
 
         class MainComponentA extends Component {}
@@ -109,28 +109,43 @@ QUnit.module("Components", (hooks) => {
 
         mainComponentsRegistry.add("MainComponentA", { Component: MainComponentA, props: {} });
         mainComponentsRegistry.add("MainComponentB", { Component: MainComponentB, props: {} });
-        container = await mount(MainComponentsContainer, { env, target, props: {} });
+        await mount(MainComponentsContainer, target, { env, props: {} });
+        assert.containsOnce(target, "div.o-main-components-container");
         assert.equal(
-            container.el.outerHTML,
-            "<div><span>MainComponentA</span><span>MainComponentB</span></div>"
+            target.querySelector(".o-main-components-container").innerHTML,
+            "<span>MainComponentA</span><span>MainComponentB</span>"
         );
 
         const handler = (ev) => {
             assert.step(ev.reason.message);
-            // need to preventDefault to remove error from console (so python test pass)
-            ev.preventDefault();
+            assert.step(ev.reason.cause.message);
         };
         window.addEventListener("unhandledrejection", handler);
-        patch(QUnit, "MainComponentsContainer QUnit patch", {
-            onUnhandledRejection: () => {},
+        registerCleanup(() => {
+            window.removeEventListener("unhandledrejection", handler);
         });
         compB.state.shouldThrow = true;
         await nextTick();
-        window.removeEventListener("unhandledrejection", handler);
-        // unpatch QUnit asap so any other errors can be caught by it
-        unpatch(QUnit, "MainComponentsContainer QUnit patch");
-        assert.verifySteps(["BOOM"]);
+        assert.verifySteps([
+            'An error occured in the owl lifecycle (see this Error\'s "cause" property)',
+            "BOOM",
+        ]);
+        assert.verifyErrors(["BOOM"]);
+        assert.equal(
+            target.querySelector(".o-main-components-container").innerHTML,
+            "<span>MainComponentA</span>"
+        );
+    });
 
-        assert.equal(container.el.outerHTML, "<div><span>MainComponentA</span></div>");
+    QUnit.test("MainComponentsContainer re-renders when the registry changes", async (assert) => {
+        const env = await makeTestEnv();
+        await mount(MainComponentsContainer, target, { env, props: {} });
+
+        assert.containsNone(target, ".myMainComponent");
+        class MyMainComponent extends Component {}
+        MyMainComponent.template = xml`<div class="myMainComponent" />`;
+        mainComponentsRegistry.add("myMainComponent", { Component: MyMainComponent });
+        await nextTick();
+        assert.containsOnce(target, ".myMainComponent");
     });
 });

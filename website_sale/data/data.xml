@@ -25,22 +25,30 @@
 
         <record id="website_sale.sale_ribbon" model="product.ribbon">
             <field name="html">Sale</field>
-            <field name="html_class">bg-success o_ribbon_left</field>
+            <field name="html_class">o_ribbon_left</field>
+            <field name="bg_color">rgb(40, 167, 69)</field>
+            <field name="text_color">white</field>
         </record>
 
         <record id="website_sale.sold_out_ribbon" model="product.ribbon">
             <field name="html">Sold out</field>
-            <field name="html_class">bg-danger o_ribbon_left</field>
+            <field name="html_class">o_ribbon_left</field>
+            <field name="bg_color">rgb(220, 53, 69)</field>
+            <field name="text_color">white</field>
         </record>
 
         <record id="website_sale.out_of_stock_ribbon" model="product.ribbon">
             <field name="html">Out of stock</field>
-            <field name="html_class">bg-warning o_ribbon_left</field>
+            <field name="html_class">o_ribbon_left</field>
+            <field name="bg_color">rgb(255, 193, 7)</field>
+            <field name="text_color">black</field>
         </record>
 
         <record id="website_sale.new_ribbon" model="product.ribbon">
             <field name="html">New!</field>
-            <field name="html_class">bg-primary o_ribbon_left</field>
+            <field name="html_class">o_ribbon_left</field>
+            <field name="bg_color">rgb(0, 123, 255)</field>
+            <field name="text_color">white</field>
         </record>
 
         <record id="sales_team.salesteam_website_sales" model="crm.team">
@@ -51,9 +59,8 @@
             <field name="salesteam_id" ref="sales_team.salesteam_website_sales"/>
         </record>
 
-        <record model="product.pricelist" id="product.list0">
-            <field name="selectable" eval="True" />
-            <field name="website_id" eval="False"/>
+        <record id="delivery.free_delivery_carrier" model="delivery.carrier" forcecreate="False">
+            <field name="is_published" eval="True"/>
         </record>
 
     </data>
@@ -110,37 +117,54 @@ model.env.context['product_template_id'] = request.params.get('productTemplateId
 response = DynamicFilter._get_products('recently_sold_with', model.env.context)
             </field>
         </record>
+        <record id="dynamic_snippet_alternative_products" model="ir.actions.server">
+            <field name="name">Alternative Products</field>
+            <field name="model_id" ref="model_product_product"/>
+            <field name="state">code</field>
+            <field name="code">
+DynamicFilter = model.env['website.snippet.filter']
+model.env.context['product_template_id'] = request.params.get('productTemplateId')
+response = DynamicFilter._get_products('alternative_products', model.env.context)
+            </field>
+        </record>
         <!-- Dynamic Filter -->
         <record id="dynamic_filter_newest_products" model="website.snippet.filter">
             <field name="filter_id" ref="website_sale.dynamic_snippet_newest_products_filter"/>
-            <field name="field_names">display_name,description_sale,image_512,price:monetary</field>
+            <field name="field_names">display_name,description_sale,image_512</field>
             <field name="limit" eval="16"/>
             <field name="name">Newest Products</field>
         </record>
         <record id="dynamic_filter_latest_sold_products" model="website.snippet.filter">
             <field name="action_server_id" ref="website_sale.dynamic_snippet_latest_sold_products_action"/>
-            <field name="field_names">display_name,description_sale,image_512,price:monetary</field>
+            <field name="field_names">display_name,description_sale,image_512</field>
             <field name="limit" eval="16"/>
             <field name="name">Recently Sold Products</field>
         </record>
         <record id="dynamic_filter_latest_viewed_products" model="website.snippet.filter">
             <field name="action_server_id" ref="website_sale.dynamic_snippet_latest_viewed_products_action"/>
-            <field name="field_names">display_name,description_sale,image_512,price:monetary</field>
+            <field name="field_names">display_name,description_sale,image_512</field>
             <field name="limit" eval="16"/>
             <field name="name">Recently Viewed Products</field>
         </record>
         <record id="dynamic_filter_cross_selling_accessories" model="website.snippet.filter">
             <field name="action_server_id" ref="website_sale.dynamic_snippet_accessories_action"/>
-            <field name="field_names">display_name,description_sale,image_512,price:monetary</field>
+            <field name="field_names">display_name,description_sale,image_512</field>
             <field name="limit" eval="16"/>
             <field name="name">Accessories for Product</field>
             <field name="product_cross_selling">True</field>
         </record>
         <record id="dynamic_filter_cross_selling_recently_sold_with" model="website.snippet.filter">
             <field name="action_server_id" ref="website_sale.dynamic_snippet_recently_sold_with_action"/>
-            <field name="field_names">display_name,description_sale,image_512,price:monetary</field>
+            <field name="field_names">display_name,description_sale,image_512</field>
             <field name="limit" eval="16"/>
             <field name="name">Products Recently Sold With Product</field>
+            <field name="product_cross_selling">True</field>
+        </record>
+        <record id="dynamic_filter_cross_selling_alternative_products" model="website.snippet.filter">
+            <field name="action_server_id" ref="website_sale.dynamic_snippet_alternative_products"/>
+            <field name="field_names">display_name,description_sale,image_512</field>
+            <field name="limit" eval="16"/>
+            <field name="name">Alternative Products</field>
             <field name="product_cross_selling">True</field>
         </record>
 

@@ -23,11 +23,6 @@
                     <filter string="Reference Working Time" name="group_by_resource_calendar_id" domain="[]" context="{'group_by': 'resource_calendar_id'}"/>
                     <filter string="Salary Structure Type" name="group_by_structure_type_id" domain="[]" context="{'group_by': 'structure_type_id'}"/>
                 </group>
-                <searchpanel>
-                    <field name="company_id" icon="fa-building" enable_counters="1"/>
-                    <field name="department_id" icon="fa-users" enable_counters="1"/>
-                    <field name="state" icon="fa-tasks" enable_counters="1"/>
-                </searchpanel>
             </search>
         </field>
     </record>
@@ -57,13 +52,13 @@
                             <div>
                                 <field name="display_name"/>
                             </div>
-                            <div class="pl-3">
+                            <div class="ps-3">
                                 <field name="under_contract_state" widget="state_selection" readonly="1"/>
                             </div>
                         </div>
                     </h1>
                     <h2>
-                        <field name="employee_id"/>
+                        <field name="employee_id" widget="many2one_avatar_user"/>
                     </h2>
                     <group>
                         <group>
@@ -91,13 +86,13 @@
                                       editable="bottom"
                                       no_open="1"
                                       create="0" delete="0">
-                                    <button name="action_open_contract_form" type="object" icon="fa-external-link"/>
-                                    <field name="id" invisible="1"/>
+                                    <button name="action_open_contract_form" type="object" icon="fa-external-link" title="Open Contract"/>
+                                    <field name="id" column_invisible="True"/>
                                     <field name="name" string="Contract Name"/>
                                     <field name="date_start"/>
                                     <field name="date_end"/>
                                     <field name="resource_calendar_id"/>
-                                    <field name="currency_id" invisible="1"/>
+                                    <field name="currency_id" column_invisible="True"/>
                                     <field name="wage" string="Monthly Wage"/>
                                     <field name="state" widget="badge" decoration-info="state == 'draft'" decoration-warning="state == 'close'" decoration-success="state == 'open'"/>
                                 </tree>
@@ -106,7 +101,7 @@
                         <page string="Employee Information" name="contract_others">
                             <group>
                                 <field name="date_hired"/>
-                                <field name="hr_responsible_id"/>
+                                <field name="hr_responsible_id" widget="many2one_avatar_user"/>
                                 <field name="company_id"/>
                             </group>
                         </page>
@@ -120,7 +115,17 @@
         <field name="res_model">hr.contract.history</field>
         <field name="view_mode">tree,kanban,form</field>
         <field name="search_view_id" ref="hr_contract_history_view_search"/>
-        <field name="context">{'search_default_active_employees': 1}</field>
+        <field name="context">
+            {
+                'search_default_active_employees': 1,
+                'search_default_group_by_state': 1
+            }
+        </field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_empty_folder">
+                No data to display
+            </p>
+        </field>
     </record>
     <record id="hr_contract_history_to_review_view_list_action" model="ir.actions.act_window">
         <field name="name">Contracts to Review</field>
@@ -140,20 +145,21 @@
         <field name="arch" type="xml">
             <tree string="Contracts"
                   default_order = 'is_under_contract, date_start desc'
-                  create="false"
                   edit="false"
                   delete="false"
                   duplicate="false"
-                  import="false">
+                  import="false"
+                  create="false">
                 <field name="employee_id" widget="many2one_avatar_employee"/>
                 <field name="date_hired"/>
-                <field name="is_under_contract" invisible="1"/>
+                <field name="is_under_contract" column_invisible="True"/>
                 <field name="name"/>
                 <field name="date_start"/>
                 <field string="Reference Working Time" name="resource_calendar_id" optional="hide"/>
-                <field name="under_contract_state" widget="state_selection" optional="hide"/>
+                <field name="under_contract_state" widget="state_selection" optional="hide"
+                    options="{'hide_label': False}"/>
                 <field name="structure_type_id" optional="hide"/>
-                <field name="currency_id" invisible="1"/>
+                <field name="currency_id" column_invisible="True"/>
                 <field name="wage" optional="hide"/>
                 <field name="state"
                        widget="badge"
@@ -168,7 +174,7 @@
         <field name="name">hr.contract.history.view.kanban</field>
         <field name="model">hr.contract.history</field>
         <field name="arch" type="xml">
-            <kanban class="o_kanban_small_column" default_order="date_end" sample="1" create="false">
+            <kanban class="o_kanban_small_column" default_order="date_end" sample="1" create="0">
                 <field name="employee_id"/>
                 <field name="activity_state"/>
                 <field name="state"/>
@@ -186,24 +192,16 @@
                                     <field name="job_id"/>
                                 </div>
                                 <div class="oe_kanban_bottom_right">
-                                    <span class="float-right">
+                                    <span class="float-end">
                                         <field name="employee_id" widget="many2one_avatar_employee"/>
                                     </span>
                                 </div>
                             </div>
-                            <div class="oe_clear"></div>
+                            <div class="clearfix"></div>
                         </div>
                     </t>
                 </templates>
             </kanban>
         </field>
     </record>
-
-    <menuitem
-        id="hr_menu_contract_history"
-        action="hr_contract_history_view_list_action"
-        parent="hr.menu_hr_employee_payroll"
-        name="Contracts"
-        sequence="4"
-        groups="hr_contract.group_hr_contract_manager"/>
 </odoo>

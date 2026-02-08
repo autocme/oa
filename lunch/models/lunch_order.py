@@ -11,30 +11,32 @@ class LunchOrder(models.Model):
     _order = 'id desc'
     _display_name = 'product_id'
 
-    name = fields.Char(related='product_id.name', string="Product Name", store=True, readonly=True)
+    name = fields.Char(related='product_id.name', string="Product Name", readonly=True)
     topping_ids_1 = fields.Many2many('lunch.topping', 'lunch_order_topping', 'order_id', 'topping_id', string='Extras 1', domain=[('topping_category', '=', 1)])
     topping_ids_2 = fields.Many2many('lunch.topping', 'lunch_order_topping', 'order_id', 'topping_id', string='Extras 2', domain=[('topping_category', '=', 2)])
     topping_ids_3 = fields.Many2many('lunch.topping', 'lunch_order_topping', 'order_id', 'topping_id', string='Extras 3', domain=[('topping_category', '=', 3)])
     product_id = fields.Many2one('lunch.product', string="Product", required=True)
     category_id = fields.Many2one(
         string='Product Category', related='product_id.category_id', store=True)
-    date = fields.Date('Order Date', required=True, readonly=True,
-                       states={'new': [('readonly', False)]},
+    date = fields.Date('Order Date', required=True, readonly=False,
                        default=fields.Date.context_today)
     supplier_id = fields.Many2one(
         string='Vendor', related='product_id.supplier_id', store=True, index=True)
-    user_id = fields.Many2one('res.users', 'User', readonly=True,
-                              states={'new': [('readonly', False)]},
+    available_today = fields.Boolean(related='supplier_id.available_today')
+    order_deadline_passed = fields.Boolean(related='supplier_id.order_deadline_passed')
+    user_id = fields.Many2one('res.users', 'User', readonly=False,
                               default=lambda self: self.env.uid)
     lunch_location_id = fields.Many2one('lunch.location', default=lambda self: self.env.user.last_lunch_location_id)
     note = fields.Text('Notes')
     price = fields.Monetary('Total Price', compute='_compute_total_price', readonly=True, store=True)
     active = fields.Boolean('Active', default=True)
     state = fields.Selection([('new', 'To Order'),
-                              ('ordered', 'Ordered'),
-                              ('confirmed', 'Received'),
+                              ('ordered', 'Ordered'),       # "Internally" ordered
+                              ('sent', 'Sent'),             # Order sent to the supplier
+                              ('confirmed', 'Received'),    # Order received
                               ('cancelled', 'Cancelled')],
                              'Status', readonly=True, index=True, default='new')
+    notified = fields.Boolean(default=False)
     company_id = fields.Many2one('res.company', default=lambda self: self.env.company.id)
     currency_id = fields.Many2one(related='company_id.currency_id', store=True)
     quantity = fields.Float('Quantity', required=True, default=1)
@@ -74,28 +76,34 @@ class LunchOrder(models.Model):
     def _compute_display_reorder_button(self):
         show_button = self.env.context.get('show_reorder_button')
         for order in self:
-            order.display_reorder_button = show_button and order.state == 'confirmed'
+            order.display_reorder_button = show_button and order.state == 'confirmed' and order.supplier_id.available_today
 
     def init(self):
         self._cr.execute("""CREATE INDEX IF NOT EXISTS lunch_order_user_product_date ON %s (user_id, product_id, date)"""
             % self._table)
 
+    def _get_topping_ids(self, field, values):
+        return list(self._fields[field].convert_to_cache(values, self))
+
     def _extract_toppings(self, values):
         """
             If called in api.multi then it will pop topping_ids_1,2,3 from values
         """
-        if self.ids:
-            # TODO This is not taking into account all the toppings for each individual order, this is usually not a problem
-            # since in the interface you usually don't update more than one order at a time but this is a bug nonetheless
-            topping_1 = values.pop('topping_ids_1')[0][2] if 'topping_ids_1' in values else self[:1].topping_ids_1.ids
-            topping_2 = values.pop('topping_ids_2')[0][2] if 'topping_ids_2' in values else self[:1].topping_ids_2.ids
-            topping_3 = values.pop('topping_ids_3')[0][2] if 'topping_ids_3' in values else self[:1].topping_ids_3.ids
-        else:
-            topping_1 = values['topping_ids_1'][0][2] if 'topping_ids_1' in values else []
-            topping_2 = values['topping_ids_2'][0][2] if 'topping_ids_2' in values else []
-            topping_3 = values['topping_ids_3'][0][2] if 'topping_ids_3' in values else []
+        topping_ids = []
 
-        return topping_1 + topping_2 + topping_3
+        for i in range(1, 4):
+            topping_field = f'topping_ids_{i}'
+            topping_values = values.get(topping_field, False)
+
+            if self.ids:
+                # TODO This is not taking into account all the toppings for each individual order, this is usually not a problem
+                # since in the interface you usually don't update more than one order at a time but this is a bug nonetheless
+                topping_ids += self._get_topping_ids(topping_field, values.pop(topping_field)) \
+                    if topping_values else self[:1][topping_field].ids
+            else:
+                topping_ids += self._get_topping_ids(topping_field, topping_values) if topping_values else []
+
+        return topping_ids
 
     @api.constrains('topping_ids_1', 'topping_ids_2', 'topping_ids_3')
     def _check_topping_quantity(self):
@@ -115,18 +123,22 @@ class LunchOrder(models.Model):
                     if not check:
                         raise ValidationError(errors[quantity] % label)
 
-    @api.model
-    def create(self, values):
-        lines = self._find_matching_lines({
-            **values,
-            'toppings': self._extract_toppings(values),
-        })
-        if lines:
-            # YTI FIXME This will update multiple lines in the case there are multiple
-            # matching lines which should not happen through the interface
-            lines.update_quantity(1)
-            return lines[:1]
-        return super().create(values)
+    @api.model_create_multi
+    def create(self, vals_list):
+        orders = self.env['lunch.order']
+        for vals in vals_list:
+            lines = self._find_matching_lines({
+                **vals,
+                'toppings': self._extract_toppings(vals),
+            })
+            if lines.filtered(lambda l: l.state not in ['sent', 'confirmed']):
+                # YTI FIXME This will update multiple lines in the case there are multiple
+                # matching lines which should not happen through the interface
+                lines.update_quantity(1)
+                orders |= lines[:1]
+            else:
+                orders |= super().create(vals)
+        return orders
 
     def write(self, values):
         merge_needed = 'note' in values or 'topping_ids_1' in values or 'topping_ids_2' in values or 'topping_ids_3' in values
@@ -141,7 +153,7 @@ class LunchOrder(models.Model):
                 # This also forces us to invalidate the cache for topping_ids_2 and topping_ids_3 that
                 # could have changed through topping_ids_1 without the cache knowing about it
                 toppings = self._extract_toppings(values)
-                self.invalidate_cache(['topping_ids_2', 'topping_ids_3'])
+                self.invalidate_model(['topping_ids_2', 'topping_ids_3'])
                 values['topping_ids_1'] = [(6, 0, toppings)]
                 matching_lines = self._find_matching_lines({
                     'user_id': values.get('user_id', line.user_id.id),
@@ -182,7 +194,7 @@ class LunchOrder(models.Model):
             line.display_toppings = ' + '.join(toppings.mapped('name'))
 
     def update_quantity(self, increment):
-        for line in self.filtered(lambda line: line.state != 'confirmed'):
+        for line in self.filtered(lambda line: line.state not in ['sent', 'confirmed']):
             if line.quantity <= -increment:
                 # TODO: maybe unlink the order?
                 line.active = False
@@ -199,7 +211,7 @@ class LunchOrder(models.Model):
         return True
 
     def _check_wallet(self):
-        self.flush()
+        self.env.flush_all()
         for line in self:
             if self.env['lunch.cashmove'].get_wallet_balance(line.user_id) < 0:
                 raise ValidationError(_('Your wallet does not contain enough money to order that. To add some money to your wallet, please contact your lunch manager.'))
@@ -236,3 +248,32 @@ class LunchOrder(models.Model):
 
     def action_reset(self):
         self.write({'state': 'ordered'})
+
+    def action_send(self):
+        self.state = 'sent'
+
+    def action_notify(self):
+        self -= self.filtered('notified')
+        if not self:
+            return
+        notified_users = set()
+        # (company, lang): (subject, body)
+        translate_cache = dict()
+        for order in self:
+            user = order.user_id
+            if user in notified_users:
+                continue
+            _key = (order.company_id, user.lang)
+            if _key not in translate_cache:
+                context = {'lang': user.lang}
+                translate_cache[_key] = (_('Lunch notification'), order.company_id.with_context(lang=user.lang).lunch_notify_message)
+                del context
+            subject, body = translate_cache[_key]
+            user.partner_id.message_notify(
+                subject=subject,
+                body=body,
+                partner_ids=user.partner_id.ids,
+                email_layout_xmlid='mail.mail_notification_light',
+            )
+            notified_users.add(user)
+        self.write({'notified': True})

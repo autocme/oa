@@ -1,74 +1,4 @@
 
-@each $font-name, $font-config in $o-theme-font-configs {
-    $url: map-get($font-config, 'url');
-    @if $url {
-        @import url("https://fonts.googleapis.com/css?family=#{unquote($url)}&display=swap");
-    } @else {
-        $name: map-get($font-config, 'name');
-        $attachment: map-get($font-config, 'attachment');
-        @if $attachment {
-            @import url("/web/content/#{$attachment}/google-font-#{unquote($name)}");
-        }
-    }
-}
-
-:root {
-    // Override css variables to influence the default style of the editor
-    // without duplicating the css.
-    @include print-variable('o-we-toolbar-height', $o-navbar-height);
-
-    // Need the colors, name, menu background color and footer background color of each color palette
-    $o-palette-names: ();
-    $-default-cc: ();
-    $-bg-attrs: 'menu', 'footer';
-    @each $attr in $-bg-attrs {
-        // Since the variables built here are currently only used for theme previews we
-        // decided to keep things simple and we deliberately ignore potential overrides
-        // from #{$-bg-attrs}-custom and #{$-bg-attrs}-gradient.
-        $-default-cc: map-merge($-default-cc, ($attr: map-get($o-base-color-palette, $attr)))
-    }
-
-    @each $-selected-palette-name in $o-selected-color-palettes-names {
-        $-palette: map-get($o-color-palettes, $-selected-palette-name);
-
-        @if $-selected-palette-name != 'user-palette' {
-            @each $key, $value in $-palette {
-                @include print-variable('o-palette-#{$-selected-palette-name}-#{$key}', $value);
-            }
-
-            @each $attr-name, $default-cc-idx in $-default-cc {
-                $-cc-idx: $default-cc-idx;
-                @if map-has-key($-palette, $attr-name) {
-                    $-cc-idx: map-get($-palette, $attr-name);
-                }
-                $-bg: $body-bg;
-                @if $-cc-idx != null {
-                    $-cc: nth($o-color-combinations, $-cc-idx);
-                    $-bg: o-safe-get($-palette, 'o-cc#{$-cc-idx}-bg', map-get($-cc, 'bg'));
-                    @if type-of($-bg) != color {
-                        $-bg: map-get($-palette, $-bg);
-                    }
-                }
-                @include print-variable('o-palette-#{$-selected-palette-name}-#{$attr-name}-bg', $-bg);
-            }
-        }
-    }
-
-    // Need the palette colors used as default menu and footer background color
-    @each $attr-name, $default-cc-idx in $-default-cc {
-        $-cc: nth($o-color-combinations, $default-cc-idx);
-        $-default-bg: map-get($-cc, 'bg');
-        @include print-variable('o-default-#{$attr-name}-bg', $-default-bg);
-    }
-
-    @include print-variable('palette-names', $o-selected-color-palettes-names);
-
-    // Need info about the base grays which are used to compute the final grays
-    @each $name, $color in $o-base-gray-color-palette {
-        @include print-variable('base-#{$name}', $color);
-    }
-}
-
 #oe_snippets {
     top: 0;
     .oe-toolbar {
@@ -78,25 +8,23 @@
     }
 }
 
-// TRANSLATIONS
-.oe_translate_examples li {
-    margin: 10px;
-    padding: 4px;
-}
-
 html[lang] > body.editor_enable [data-oe-translation-state] {
-    &, .o_translation_select_option {
-        background: rgba($o-we-content-to-translate-color, 0.5) !important;
+    &, .o_translation_select_option, &[data-oe-field="mega_menu_content"] * {
+        background-color: rgba($o-we-content-to-translate-color, 0.5) !important;
     }
 
     &[data-oe-translation-state="translated"] {
-        &, .o_translation_select_option {
-            background: rgba($o-we-translated-content-color, 0.5) !important;
+        &, .o_translation_select_option, &[data-oe-field="mega_menu_content"] * {
+            background-color: rgba($o-we-translated-content-color, 0.5) !important;
         }
     }
 
     &.o_dirty, &.oe_translated, .oe_translated {
-        background: rgba($o-we-translated-content-color, 0.25) !important;
+        background-color: rgba($o-we-translated-content-color, 0.25) !important;
+
+        &[data-oe-field="mega_menu_content"] * {
+            background-color: rgba($o-we-translated-content-color, 0.25) !important;
+        }
     }
 }
 
@@ -106,19 +34,38 @@ html[data-edit_translations="1"] {
     }
 }
 
-// SNIPPET PANEL
-$i: 1;
-@each $font-name, $font-config in $o-theme-font-configs {
-    we-toggler.o_we_option_font_#{$i}, we-button.o_we_option_font_#{$i} > div {
-        font-family: o-safe-get($font-config, 'family', $font-family-base);
+.o_snippet_override_invisible {
+    display: block !important;
+    opacity: 70%;
+    position: relative;
 
-        &::before {
-            // Must prevail against the '/' for missing values.
-            content: $font-name !important;
-        }
+    &.d-lg-flex, &.d-md-flex, &.o_half_screen_height, &.o_full_screen_height {
+        // e.g. Useful if "Height" option (50% or 100%) is enabled.
+        display: flex !important;
     }
-    $i: $i + 1;
+    &::before {
+        position: absolute;
+        // Content is 0px wide => use available width.
+        width: -webkit-fill-available;
+        width: -moz-available;
+        right: 20px;
+        z-index: 100;
+        background-color: $o-we-accent;
+        font-size: 0px;
+        pointer-events: none;
+        content: "."; // Content is mandatory.
+    }
+    &.d-md-none::before, &.d-lg-none::before {
+        height: 50px;
+        -webkit-mask: url("/website/static/src/img/snippets_options/desktop_invisible.svg") no-repeat 100% 100%;
+    }
+    &:not(.d-md-none):not(.d-lg-none)::before {
+        height: 30px;
+        -webkit-mask: url("/website/static/src/img/snippets_options/mobile_invisible.svg") no-repeat 100% 100%;
+    }
 }
+
+// SNIPPET PANEL
 .o_we_add_google_font_btn {
     border-top: 1px solid currentColor !important;
 }
@@ -167,7 +114,7 @@ $i: 1;
         }
     }
 
-    we-button.o_we_mobile {
+    we-button.o_we_device {
         > div {
             // FIXME maybe there is some refactoring to do so that all SVG icons
             // can be properly aligned with extra CSS rules...
@@ -175,21 +122,19 @@ $i: 1;
             align-items: center;
 
             svg {
-                width: 15px;
-                fill: $o-we-color-danger;
+                width: 12px;
+                fill: $o-we-sidebar-content-field-clickable-color;
                 margin-bottom: 0;
-                margin-left: -3px;
 
                 &:hover {
-                    fill: darken($o-we-color-danger, 7.5%);
+                    fill: $o-we-sidebar-content-field-pressed-color;
                 }
             }
         }
-        &.active > div > svg {
-            fill: $o-we-sidebar-content-field-color;
-
+        &.active > div svg {
+            fill: $o-we-color-danger;
             &:hover {
-                fill: $o-we-sidebar-content-field-pressed-color;
+                fill: darken($o-we-color-danger, 7.5%);
             }
         }
     }
@@ -204,19 +149,26 @@ $i: 1;
         > we-title {
             display: none
         }
-        .o_we_so_color_palette.o_we_user_value_widget {
+        .o_we_theme_colors_selector_group {
+            flex: 1 0 auto;
+            display: flex;
+            justify-content: flex-start;
+            padding-top: 2em;
 
-            + .o_we_so_color_palette {
-                margin-left: $o-we-item-spacing * .5;
+            > we-title {
+                font-style: italic;
+                white-space: nowrap;
+                position: absolute;
+                margin-top: -2em;
+            }
 
-                &:nth-child(4) {
-                    margin-left: $o-we-item-spacing * 3;
-                }
+            > .o_we_user_value_widget {
+                margin-right: $o-we-sidebar-content-field-multi-spacing;
             }
-            .o_we_color_preview {
-                width: $o-we-sidebar-content-field-colorpicker-size-large;
-                height: $o-we-sidebar-content-field-colorpicker-size-large;
-            }
+        }
+        .o_we_so_color_palette.o_we_user_value_widget .o_we_color_preview {
+            width: $o-we-sidebar-content-field-colorpicker-size-large;
+            height: $o-we-sidebar-content-field-colorpicker-size-large;
         }
         > div, we-select.o_we_theme_colors_select, we-toggler {
             display: flex;
@@ -226,10 +178,8 @@ $i: 1;
             width: 100%;
         }
         we-select.o_we_theme_colors_select {
-            justify-content: flex-end;
-            margin-left: auto;
-
             > div, we-toggler {
+                justify-content: flex-end;
                 height: 100%;
             }
 
@@ -257,11 +207,10 @@ $i: 1;
 
     // CC Edition
     .o_we_cc_preview_wrapper {
-        // Use box-shadow rather than border-bottom in order to
+        // Use box-shadow rather than borders in order to
         // avoid misalignments in the 'Options' tab.
-        border: 1px solid;
-        border-color: rgba($o-we-item-standup-color-light, .2) $o-we-sidebar-content-field-dropdown-border-color transparent;
-        box-shadow: 0 1px 0 $o-we-item-standup-color-dark;
+        border: $o-we-item-border-width solid $o-we-item-border-color;
+        box-shadow: 0 0 0 1px $o-we-sidebar-content-field-dropdown-border-color;
 
         + .o_we_collapse_toggler {
             height: 35px; // FIXME hardcoded...
@@ -279,28 +228,59 @@ $i: 1;
     border-bottom: none !important;
 }
 
-.pac-container { // google map autosuggestion
+.pac-container { // google map autosuggestion (note: their CSS lib is not used)
     z-index: $zindex-modal-backdrop; // > $o-we-zindex
-    width: $o-we-sidebar-width !important;
+    width: ceil($o-we-sidebar-width * 0.9) !important;
     font-size: $o-we-sidebar-font-size;
     margin-left: -$o-we-sidebar-width/2;
+    border: $o-we-sidebar-content-field-border-width solid $o-we-sidebar-content-field-dropdown-border-color;
     border-top: none;
+    border-radius: $o-we-item-border-radius;
+    overflow: hidden;
     background-color: $o-we-sidebar-content-field-dropdown-bg;
     box-shadow: $o-we-sidebar-content-field-dropdown-shadow;
+    margin-top: $o-we-sidebar-content-field-dropdown-spacing;
+    transform: translate(41px);
+
     &:after {
         display: none;
     }
+
     .pac-item {
+        @include o-text-overflow(block);
+        line-height: $o-we-sidebar-content-field-dropdown-item-height;
+        color: $o-we-sidebar-content-field-clickable-color;
+        padding: 0 1em 0 (2 * $o-we-sidebar-content-field-control-item-spacing + $o-we-sidebar-content-field-control-item-size);
         border-top: $o-we-sidebar-content-field-border-width solid lighten($o-we-sidebar-content-field-dropdown-border-color, 15%);
         border-radius: $o-we-sidebar-content-field-border-radius;
         background-color: $o-we-sidebar-content-field-clickable-bg;
         color: $o-we-sidebar-content-field-clickable-color;
-        &:hover {
+        font-size: $o-we-sidebar-font-size;
+
+        &:hover, &:focus, &.pac-item-selected {
             background-color: $o-we-sidebar-content-field-dropdown-item-bg-hover;
             cursor: pointer;
         }
+
+        .pac-icon-marker {
+            position: absolute;
+            margin-left: -1em;
+
+            &::after {
+                content: '\f041';
+                font-family: FontAwesome;
+            }
+        }
+
+        .pac-item-query {
+            margin-right: 0.4em;
+            color: inherit;
+        }
     }
-    .pac-item-query {
-        color: $o-we-sidebar-content-field-clickable-color;
-    }
+}
+
+// Editor UI
+.o_table_ui {
+    // TODO make a proper way to not instantiate table UI in the website.
+    display: none !important;
 }

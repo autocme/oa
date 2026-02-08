@@ -21,15 +21,6 @@ class ResCompany(models.Model):
         ]
 
 
-class ProductProduct(models.Model):
-    _inherit = 'product.product'
-
-    def _populate_factories(self):
-        return super()._populate_factories() + [
-            ('produce_delay', populate.randint(1, 4)),
-        ]
-
-
 class Warehouse(models.Model):
     _inherit = 'stock.warehouse'
 
@@ -75,6 +66,7 @@ class MrpBom(models.Model):
             ('sequence', populate.randint(1, 1000)),
             ('code', populate.constant("R{counter}")),
             ('ready_to_produce', populate.randomize(['all_available', 'asap'])),
+            ('produce_delay', populate.randint(1, 4)),
         ]
 
 
@@ -175,7 +167,7 @@ class MrpWorkcenter(models.Model):
             ('resource_calendar_id', populate.compute(get_resource_calendar_id)),
             ('active', populate.iterate([True, False], [0.9, 0.1])),
             ('code', populate.constant("W/{counter}")),
-            ('capacity', populate.iterate([0.5, 1.0, 2.0, 5.0], [0.2, 0.4, 0.2, 0.2])),
+            ('default_capacity', populate.iterate([0.5, 1.0, 2.0, 5.0], [0.2, 0.4, 0.2, 0.2])),
             ('sequence', populate.randint(1, 1000)),
             ('color', populate.randint(1, 12)),
             ('costs_hour', populate.randint(5, 25)),
@@ -271,22 +263,11 @@ class MrpProduction(models.Model):
     def _populate(self, size):
         productions = super()._populate(size)
 
-        def fill_mo_with_bom_info():
-            productions_with_bom = productions.filtered('bom_id')
-            _logger.info("Create Raw moves of MO(s) with bom (%d)" % len(productions_with_bom))
-            self.env['stock.move'].create(productions_with_bom._get_moves_raw_values())
-            _logger.info("Create Finished moves of MO(s) with bom (%d)" % len(productions_with_bom))
-            self.env['stock.move'].create(productions_with_bom._get_moves_finished_values())
-            _logger.info("Create Workorder moves of MO(s) with bom (%d)" % len(productions_with_bom))
-            productions_with_bom._create_workorder()
-
-        fill_mo_with_bom_info()
-
         def confirm_bom_mo(sample_ratio):
             # Confirm X % of prototype MO
             random = populate.Random('confirm_bom_mo')
             mo_ids = productions.filtered('bom_id').ids
-            mo_to_confirm = self.env['mrp.production'].browse(random.sample(mo_ids, int(len(mo_ids) * 0.8)))
+            mo_to_confirm = self.env['mrp.production'].browse(random.sample(mo_ids, int(len(mo_ids) * sample_ratio)))
             _logger.info("Confirm %d MO with BoM" % len(mo_to_confirm))
             mo_to_confirm.action_confirm()
 
@@ -351,7 +332,7 @@ class MrpProduction(models.Model):
             picking_type = self.env['stock.picking.type'].browse(values['picking_type_id'])
             return picking_type.default_location_dest_id.id
 
-        def get_date_planned_start(values, counter, random):
+        def get_date_start(values, counter, random):
             # 95.45 % of picking scheduled between (-10, 30) days and follow a gauss distribution (only +-15% picking is late)
             delta = random.gauss(10, 10)
             return now + timedelta(days=delta)
@@ -364,7 +345,7 @@ class MrpProduction(models.Model):
             ('product_uom_id', populate.compute(get_product_uom_id)),
             ('product_qty', populate.randint(1, 10)),
             ('picking_type_id', populate.compute(get_picking_type_id)),
-            ('date_planned_start', populate.compute(get_date_planned_start)),
+            ('date_start', populate.compute(get_date_start)),
             ('location_src_id', populate.compute(get_location_src_id)),
             ('location_dest_id', populate.compute(get_location_dest_id)),
             ('priority', populate.iterate(['0', '1'], [0.95, 0.05])),
@@ -383,7 +364,7 @@ class StockMove(models.Model):
             # Confirm X % of prototype MO
             random = populate.Random('confirm_prototype_mo')
             mo_ids = moves.raw_material_production_id.ids
-            mo_to_confirm = self.env['mrp.production'].browse(random.sample(mo_ids, int(len(mo_ids) * 0.8)))
+            mo_to_confirm = self.env['mrp.production'].browse(random.sample(mo_ids, int(len(mo_ids) * sample_ratio)))
             _logger.info("Confirm %d of prototype MO" % len(mo_to_confirm))
             mo_to_confirm.action_confirm()
 
@@ -418,7 +399,7 @@ class StockMove(models.Model):
                     values['location_dest_id'] = production.production_location_id.id
                     values['picking_type_id'] = production.picking_type_id.id
                     values['name'] = production.name
-                    values['date'] = production.date_planned_start
+                    values['date'] = production.date_start
                     values['company_id'] = production.company_id.id
                 yield values
 

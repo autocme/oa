@@ -1,29 +1,44 @@
 # Translation of Odoo Server.
 # This file contains the translation of the following modules:
 # 	* sale_management
-# 
+#
 # Translators:
-# Jumshud Sultanov <cumshud@gmail.com>, 2022
-# erpgo translator <jumshud@erpgo.az>, 2023
-# 
+# Jumshud Sultanov <cumshud@gmail.com>, 2024
+# erpgo translator <jumshud@erpgo.az>, 2024
+# Nurlan Farajov <coolinuxoid@gmail.com>, 2025
+#
 msgid ""
 msgstr ""
-"Project-Id-Version: Odoo Server saas~14.5\n"
+"Project-Id-Version: Odoo Server 17.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2021-09-14 10:27+0000\n"
-"PO-Revision-Date: 2021-09-14 12:26+0000\n"
-"Last-Translator: erpgo translator <jumshud@erpgo.az>, 2023\n"
+"POT-Creation-Date: 2025-12-29 18:36+0000\n"
+"PO-Revision-Date: 2023-10-26 23:09+0000\n"
+"Last-Translator: Nurlan Farajov <coolinuxoid@gmail.com>, 2025\n"
 "Language-Team: Azerbaijani (https://app.transifex.com/odoo/teams/41243/az/)\n"
+"Language: az\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: \n"
-"Language: az\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
 
 #. module: sale_management
-#: model:sale.order.template.line,name:sale_management.sale_order_template_line_1
-msgid "4 Person Desk"
-msgstr "4 nəfərlik iş masası"
+#: model_terms:ir.ui.view,arch_db:sale_management.report_saleorder_document_inherit_sale_management
+msgid "1.5"
+msgstr "1.5"
+
+#. module: sale_management
+#: model_terms:ir.ui.view,arch_db:sale_management.res_config_settings_view_form
+msgid ""
+"<span class=\"fa fa-lg fa-building-o p-2\" title=\"Values set here are "
+"company-specific.\" groups=\"base.group_multi_company\"/>"
+msgstr ""
+"<span class=\"fa fa-lg fa-building-o p-2\" title=\"Values set here are "
+"company-specific.\" groups=\"base.group_multi_company\"/>"
+
+#. module: sale_management
+#: model_terms:ir.ui.view,arch_db:sale_management.sale_order_template_view_form
+msgid "<span invisible=\"not require_payment\">of</span>"
+msgstr "<span invisible=\"not require_payment\"></span>"
 
 #. module: sale_management
 #: model_terms:ir.ui.view,arch_db:sale_management.report_saleorder_document_inherit_sale_management
@@ -78,11 +93,6 @@ msgid "Archived"
 msgstr "Arxivləndi"
 
 #. module: sale_management
-#: model:ir.ui.menu,name:sale_management.menu_product_attribute_action
-msgid "Attributes"
-msgstr "Atributlar"
-
-#. module: sale_management
 #: model:ir.model.fields,field_description:sale_management.field_sale_order_option__product_uom_category_id
 #: model:ir.model.fields,field_description:sale_management.field_sale_order_template_line__product_uom_category_id
 #: model:ir.model.fields,field_description:sale_management.field_sale_order_template_option__product_uom_category_id
@@ -98,6 +108,7 @@ msgstr "Şirkətlər"
 #: model:ir.model.fields,field_description:sale_management.field_sale_order_template__company_id
 #: model:ir.model.fields,field_description:sale_management.field_sale_order_template_line__company_id
 #: model:ir.model.fields,field_description:sale_management.field_sale_order_template_option__company_id
+#: model_terms:ir.ui.view,arch_db:sale_management.sale_order_template_view_search
 msgid "Company"
 msgstr "Şirkət"
 
@@ -105,11 +116,6 @@ msgstr "Şirkət"
 #: model:ir.model,name:sale_management.model_res_config_settings
 msgid "Config Settings"
 msgstr "Parametrləri Konfiqurasiya edin"
-
-#. module: sale_management
-#: model_terms:ir.ui.view,arch_db:sale_management.sale_order_template_view_form
-msgid "Confirmation"
-msgstr ""
 
 #. module: sale_management
 #: model:ir.model.fields,field_description:sale_management.field_sale_order_template__mail_template_id
@@ -164,6 +170,13 @@ msgid "Default Template"
 msgstr "Defolt Şablon"
 
 #. module: sale_management
+#: model_terms:ir.ui.view,arch_db:sale_management.res_config_settings_view_form
+msgid ""
+"Default values will be overwritten by values provided by the quotation "
+"template."
+msgstr ""
+
+#. module: sale_management
 #: model:ir.model.fields,field_description:sale_management.field_sale_order_option__name
 #: model:ir.model.fields,field_description:sale_management.field_sale_order_template_line__name
 #: model:ir.model.fields,field_description:sale_management.field_sale_order_template_option__name
@@ -171,13 +184,6 @@ msgstr "Defolt Şablon"
 #: model_terms:ir.ui.view,arch_db:sale_management.sale_order_template_view_form
 msgid "Description"
 msgstr "Təsvir"
-
-#. module: sale_management
-#: model_terms:ir.ui.view,arch_db:sale_management.res_config_settings_view_form
-msgid ""
-"Design your quotation templates using building blocks<br/>\n"
-"                            <em attrs=\"{'invisible': [('module_sale_quotation_builder','=',False)]}\">Warning: this option will install the Website app.</em>"
-msgstr ""
 
 #. module: sale_management
 #: model:ir.model,name:sale_management.model_digest_digest
@@ -210,6 +216,7 @@ msgid "Display Type"
 msgstr "Ekran Tipi"
 
 #. module: sale_management
+#. odoo-python
 #: code:addons/sale_management/models/digest.py:0
 #, python-format
 msgid "Do not have access, skip this data for user's digest email"
@@ -218,16 +225,16 @@ msgstr ""
 "buraxın"
 
 #. module: sale_management
-#: model_terms:ir.ui.view,arch_db:sale_management.res_config_settings_view_form
-msgid "Documentation"
-msgstr "Sənədləşmə"
+#: model_terms:ir.ui.view,arch_db:sale_management.report_saleorder_document_inherit_sale_management
+msgid "Extra Chips"
+msgstr "Əlavə çiplər"
 
 #. module: sale_management
 #: model:ir.model.constraint,message:sale_management.constraint_sale_order_template_line_non_accountable_fields_null
-msgid ""
-"Forbidden product, unit price, quantity, and UoM on non-accountable sale "
-"quote line"
+msgid "Forbidden product, quantity and UoM on non-accountable sale quote line"
 msgstr ""
+"Qeyri-məsuliyyətli satış təklifi xəttində qadağan olunmuş məhsul, miqdar və "
+"UoM"
 
 #. module: sale_management
 #: model:ir.model.fields,help:sale_management.field_sale_order_option__sequence
@@ -240,12 +247,26 @@ msgid "Gives the sequence order when displaying a list of sale quote lines."
 msgstr "Satış təklifi sətirlərinin siyahısını göstərərkən ardıcıllığı verir."
 
 #. module: sale_management
+#: model_terms:ir.ui.view,arch_db:sale_management.sale_order_template_view_search
+msgid "Group By"
+msgstr "Aşağıdakılara görə Qrupla"
+
+#. module: sale_management
 #: model:ir.model.fields,field_description:sale_management.field_sale_order_option__id
 #: model:ir.model.fields,field_description:sale_management.field_sale_order_template__id
 #: model:ir.model.fields,field_description:sale_management.field_sale_order_template_line__id
 #: model:ir.model.fields,field_description:sale_management.field_sale_order_template_option__id
 msgid "ID"
 msgstr "ID"
+
+#. module: sale_management
+#: model:ir.model.fields,help:sale_management.field_sale_order_template__journal_id
+msgid ""
+"If set, SO with this template will invoice in this journal; otherwise the "
+"sales journal with the lowest sequence is used."
+msgstr ""
+"Əgər təyin edilərsə, bu şablonla SO bu jurnalda faktura verəcək; əks halda "
+"ən aşağı ardıcıllıqla satış jurnalından istifadə edilir."
 
 #. module: sale_management
 #: model:ir.model.fields,help:sale_management.field_sale_order_template__active
@@ -256,17 +277,19 @@ msgstr ""
 "Əgər işarə qoyulmazsa, o, sitat şablonunu silmədən gizlətməyə imkan verəcək."
 
 #. module: sale_management
+#: model:ir.model.fields,field_description:sale_management.field_sale_order_template__journal_id
+msgid "Invoicing Journal"
+msgstr "Faktura jurnalı"
+
+#. module: sale_management
 #: model:ir.model.fields,field_description:sale_management.field_digest_digest__kpi_all_sale_total_value
 msgid "Kpi All Sale Total Value"
 msgstr "Kpi Bütün Satış Ümumi Dəyəri"
 
 #. module: sale_management
-#: model:ir.model.fields,field_description:sale_management.field_sale_order_option____last_update
-#: model:ir.model.fields,field_description:sale_management.field_sale_order_template____last_update
-#: model:ir.model.fields,field_description:sale_management.field_sale_order_template_line____last_update
-#: model:ir.model.fields,field_description:sale_management.field_sale_order_template_option____last_update
-msgid "Last Modified on"
-msgstr "Son Dəyişdirilmə tarixi"
+#: model:sale.order.template.line,name:sale_management.sale_order_template_line_1
+msgid "Large Meeting Table"
+msgstr ""
 
 #. module: sale_management
 #: model:ir.model.fields,field_description:sale_management.field_sale_order_option__write_uid
@@ -298,7 +321,7 @@ msgstr "Sətirlər"
 #. module: sale_management
 #: model:ir.model.constraint,message:sale_management.constraint_sale_order_template_line_accountable_product_id_required
 msgid "Missing required product and UoM on accountable sale quote line."
-msgstr ""
+msgstr "Hesabatlı satış təklifi xəttində tələb olunan məhsul və UoM çatışmır."
 
 #. module: sale_management
 #: model:ir.model.fields.selection,name:sale_management.selection__sale_order_template_line__display_type__line_note
@@ -345,9 +368,21 @@ msgid "Options"
 msgstr "Opsionlar"
 
 #. module: sale_management
+#: model:ir.model.fields,field_description:sale_management.field_sale_order_template__prepayment_percent
+msgid "Prepayment percentage"
+msgstr "İlkin ödəniş faizi"
+
+#. module: sale_management
+#. odoo-python
+#: code:addons/sale_management/models/sale_order_template.py:0
+#, python-format
+msgid "Prepayment percentage must be a valid percentage."
+msgstr "İlkin ödəniş faizi etibarlı faiz olmalıdır."
+
+#. module: sale_management
 #: model:ir.model.fields,field_description:sale_management.field_sale_order_option__is_present
 msgid "Present on Quotation"
-msgstr ""
+msgstr "Təklif üzrə təqdim edin"
 
 #. module: sale_management
 #: model:ir.model.fields,field_description:sale_management.field_sale_order_option__product_id
@@ -368,11 +403,6 @@ msgstr "Miqdar"
 #: model_terms:ir.ui.view,arch_db:sale_management.sale_order_form_quote
 msgid "Quantity:"
 msgstr "Miqdar:"
-
-#. module: sale_management
-#: model:ir.model.fields,field_description:sale_management.field_res_config_settings__module_sale_quotation_builder
-msgid "Quotation Builder"
-msgstr "Qiymət Sorğusunun Tərtibatçısı"
 
 #. module: sale_management
 #: model:ir.model.fields,field_description:sale_management.field_sale_order_template__number_of_days
@@ -420,8 +450,8 @@ msgstr "Təklif Şablonları"
 
 #. module: sale_management
 #: model_terms:ir.ui.view,arch_db:sale_management.sale_order_template_view_form
-msgid "Quotation expires after"
-msgstr "Təklifin müddəti bu tarixdən sonra bitir "
+msgid "Quotation Validity"
+msgstr "Təklifin Etibarlılığı"
 
 #. module: sale_management
 #: model_terms:ir.ui.view,arch_db:sale_management.sale_order_portal_content_inherit_sale_management
@@ -447,8 +477,8 @@ msgid ""
 "Request an online payment to the customer in order to confirm orders "
 "automatically."
 msgstr ""
-"Sifarişləri avtomatik olaraq təsdiqləmək üçün müştəridən onlayn ödəniş tələb"
-" edin."
+"Sifarişləri avtomatik olaraq təsdiqləmək üçün müştəridən onlayn ödəniş tələb "
+"edin."
 
 #. module: sale_management
 #: model:ir.model,name:sale_management.model_sale_order_option
@@ -498,6 +528,9 @@ msgid ""
 "and populate your orders with multiple quantities of each variant. This "
 "feature also exists in the Purchase application."
 msgstr ""
+"Eyni məhsulu müxtəlif ölçülərdə və ya rənglərdə satırsınız? Məhsul "
+"şəbəkəsini sınayın və sifarişlərinizi hər bir variantın çoxlu miqdarı ilə "
+"doldurun. Bu xüsusiyyət Satınalma proqramında da mövcuddur."
 
 #. module: sale_management
 #: model:ir.model.fields,field_description:sale_management.field_sale_order_option__sequence
@@ -512,11 +545,15 @@ msgid ""
 "to help sales configure a product with different options: colors, size, "
 "capacity, etc. Make sale orders encoding easier and error-proof."
 msgstr ""
+"Mürəkkəb bir məhsul kataloqu ilə mübarizə aparırsınız? Satışlara məhsulu "
+"müxtəlif variantlarla konfiqurasiya etməkdə kömək etmək üçün Məhsul "
+"Konfiquratorunu sınayın: rənglər, ölçülər, tutumlar və s. Satış "
+"sifarişlərinin kodlaşdırılmasını asanlaşdırın və səhvsiz edin."
 
 #. module: sale_management
-#: model:ir.model.fields,help:sale_management.field_sale_order_template_line__display_type
-msgid "Technical field for UX purpose."
-msgstr "İstifadəçi Təcrübəsi (UX) məqsədilə texniki sahə."
+#: model_terms:ir.ui.view,arch_db:sale_management.sale_order_template_view_form
+msgid "Terms & Conditions"
+msgstr "Şərtlər və Qaydalar"
 
 #. module: sale_management
 #: model:ir.model.fields,field_description:sale_management.field_sale_order_template__note
@@ -529,6 +566,14 @@ msgid ""
 "The Administrator can set default Terms & Conditions in Sales Settings. "
 "Terms set here will show up instead if you select this quotation template."
 msgstr ""
+"Administrator defolt Şərtlər və Şərtləri Satış Parametrlərində təyin edə "
+"bilər. Bu kotirovka şablonunu seçsəniz, burada təyin edilmiş şərtlər əvəzinə "
+"görünəcək."
+
+#. module: sale_management
+#: model:ir.model.fields,help:sale_management.field_sale_order_template__prepayment_percent
+msgid "The percentage of the amount needed to be paid to confirm quotations."
+msgstr "Kotirovkaları təsdiqləmək üçün ödənilməli olan məbləğin faizi."
 
 #. module: sale_management
 #: model:ir.model.fields,help:sale_management.field_sale_order_template__mail_template_id
@@ -544,7 +589,7 @@ msgstr ""
 msgid ""
 "This field will be checked if the option line's product is already present "
 "in the quotation."
-msgstr ""
+msgstr "Seçim xəttinin məhsulu kotirovkada artıq varsa, bu sahə yoxlanılacaq."
 
 #. module: sale_management
 #: model:digest.tip,name:sale_management.digest_tip_sale1_management_0
@@ -571,15 +616,11 @@ msgid "Unit Price:"
 msgstr "Vahid Qiymət:"
 
 #. module: sale_management
+#: model:ir.model.fields,field_description:sale_management.field_sale_order_option__uom_id
 #: model:ir.model.fields,field_description:sale_management.field_sale_order_template_line__product_uom_id
+#: model:ir.model.fields,field_description:sale_management.field_sale_order_template_option__uom_id
 msgid "Unit of Measure"
 msgstr "Ölçü  Vahidi"
-
-#. module: sale_management
-#: model:ir.model.fields,field_description:sale_management.field_sale_order_option__uom_id
-#: model:ir.model.fields,field_description:sale_management.field_sale_order_template_option__uom_id
-msgid "Unit of Measure "
-msgstr ""
 
 #. module: sale_management
 #: model_terms:ir.ui.view,arch_db:sale_management.sale_order_form_quote
@@ -590,18 +631,27 @@ msgstr "Ölçü Vahidi"
 #: model_terms:ir.actions.act_window,help:sale_management.sale_order_template_action
 msgid ""
 "Use templates to create polished, professional quotes in minutes.\n"
-"                Send these quotes by email and let your customers sign online.\n"
+"                Send these quotes by email and let your customers sign "
+"online.\n"
 "                Use cross-selling and discounts to push and boost your sales."
 msgstr ""
+"Bir neçə dəqiqə ərzində cilalanmış, peşəkar sitatlar yaratmaq üçün "
+"şablonlardan istifadə edin.\n"
+"                Bu sitatları e-poçtla göndərin və müştərilərinizin onlayn "
+"imzalamasına icazə verin.\n"
+"                Satışlarınızı artırmaq və artırmaq üçün çarpaz satış və "
+"endirimlərdən istifadə edin."
 
 #. module: sale_management
-#: code:addons/sale_management/models/sale_order.py:0
+#. odoo-python
+#: code:addons/sale_management/models/sale_order_option.py:0
 #, python-format
 msgid "You cannot add options to a confirmed order."
 msgstr "Siz təsdiq edilmiş sifarişə seçimlər əlavə edə bilməzsiniz."
 
 #. module: sale_management
-#: code:addons/sale_management/models/sale_order_template.py:0
+#. odoo-python
+#: code:addons/sale_management/models/sale_order_template_line.py:0
 #, python-format
 msgid ""
 "You cannot change the type of a sale quote line. Instead you should delete "
@@ -611,26 +661,41 @@ msgstr ""
 "xətti silməli və uyğun növdə yeni bir sətir yaratmalısınız."
 
 #. module: sale_management
+#. odoo-python
 #: code:addons/sale_management/models/sale_order.py:0
 #, python-format
 msgid ""
-"Your quotation contains products from company %(product_company)s whereas your quotation belongs to company %(quote_company)s. \n"
-" Please change the company of your quotation or remove the products from other companies (%(bad_products)s)."
+"Your quotation contains products from company %(product_company)s whereas "
+"your quotation belongs to company %(quote_company)s. \n"
+" Please change the company of your quotation or remove the products from "
+"other companies (%(bad_products)s)."
 msgstr ""
+"Kotirovkanızda %(product_company)s şirkətinin məhsulları var, təklifiniz isə "
+"%(quote_company)s şirkətinə aiddir. \n"
+" Lütfən, təklif etdiyiniz şirkətin adını dəyişin və ya məhsulları digər "
+"şirkətlərdən çıxarın (%(bad_products)s)."
 
 #. module: sale_management
+#. odoo-python
 #: code:addons/sale_management/models/sale_order_template.py:0
 #, python-format
 msgid "Your template cannot contain products from multiple companies."
 msgstr "Şablonunuzda birdən çox şirkətin məhsulu ola bilməz."
 
 #. module: sale_management
+#. odoo-python
 #: code:addons/sale_management/models/sale_order_template.py:0
 #, python-format
 msgid ""
-"Your template contains products from company %(product_company)s whereas your template belongs to company %(template_company)s. \n"
-" Please change the company of your template or remove the products from other companies."
+"Your template contains products from company %(product_company)s whereas "
+"your template belongs to company %(template_company)s. \n"
+" Please change the company of your template or remove the products from "
+"other companies."
 msgstr ""
+"Şablonunuzda %(product_company)s şirkətinin məhsulları var, şablonunuz isə "
+"%(template_company)s şirkətinə aiddir. \n"
+" Lütfən, şablonunuzun şirkətini dəyişdirin və ya məhsulları digər "
+"şirkətlərdən çıxarın."
 
 #. module: sale_management
 #: model_terms:ir.ui.view,arch_db:sale_management.sale_order_template_view_form

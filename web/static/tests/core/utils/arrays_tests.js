@@ -1,6 +1,16 @@
 /** @odoo-module **/
 
-import { cartesian, groupBy, sortBy } from "@web/core/utils/arrays";
+import {
+    cartesian,
+    ensureArray,
+    groupBy,
+    intersection,
+    shallowEqual,
+    sortBy,
+    unique,
+    zip,
+    zipWith,
+} from "@web/core/utils/arrays";
 
 QUnit.module("utils", () => {
     QUnit.module("Arrays");
@@ -153,6 +163,14 @@ QUnit.module("utils", () => {
         ]);
     });
 
+    QUnit.test("intersection of arrays", function (assert) {
+        assert.deepEqual(intersection([], [1, 2]), []);
+        assert.deepEqual(intersection([1, 2], []), []);
+        assert.deepEqual(intersection([1], [2]), []);
+        assert.deepEqual(intersection([1, 2], [2, 3]), [2]);
+        assert.deepEqual(intersection([1, 2, 3], [1, 2, 3]), [1, 2, 3]);
+    });
+
     QUnit.test("cartesian product of zero arrays", function (assert) {
         assert.deepEqual(cartesian(), [undefined], "the unit of the product is a singleton");
     });
@@ -219,5 +237,64 @@ QUnit.module("utils", () => {
 
     QUnit.test("cartesian product of four arrays", function (assert) {
         assert.deepEqual(cartesian([1], [2], [3], [4]), [[1, 2, 3, 4]]);
+    });
+
+    QUnit.test("ensure array", async (assert) => {
+        const arrayRef = [];
+        assert.notEqual(ensureArray(arrayRef), arrayRef, "Should be a different array");
+        assert.deepEqual(ensureArray([]), []);
+        assert.deepEqual(ensureArray(), [undefined]);
+        assert.deepEqual(ensureArray(null), [null]);
+        assert.deepEqual(ensureArray({ a: 1 }), [{ a: 1 }]);
+        assert.deepEqual(ensureArray("foo"), ["foo"]);
+        assert.deepEqual(ensureArray([1, 2, "3"]), [1, 2, "3"]);
+        assert.deepEqual(ensureArray(new Set([1, 2, 3])), [1, 2, 3]);
+    });
+
+    QUnit.test("unique array", function (assert) {
+        assert.deepEqual(unique([1, 2, 3, 2, 4, 3, 1, 4]), [1, 2, 3, 4]);
+        assert.deepEqual(unique("a d c a b c d b".split(" ")), "a d c b".split(" "));
+    });
+
+    QUnit.test("shallowEqual: simple valid cases", function (assert) {
+        assert.ok(shallowEqual([], []));
+        assert.ok(shallowEqual([1], [1]));
+        assert.ok(shallowEqual([1, "a"], [1, "a"]));
+    });
+
+    QUnit.test("shallowEqual: simple invalid cases", function (assert) {
+        assert.notOk(shallowEqual([1], []));
+        assert.notOk(shallowEqual([], [1]));
+        assert.notOk(shallowEqual([1, "b"], [1, "a"]));
+    });
+
+    QUnit.test("shallowEqual: arrays with non primitive values", function (assert) {
+        const obj = { b: 3 };
+        assert.ok(shallowEqual([obj], [obj]));
+        assert.notOk(shallowEqual([{ b: 3 }], [{ b: 3 }]));
+
+        const arr = ["x", "y", "z"];
+        assert.ok(shallowEqual([arr], [arr]));
+        assert.notOk(shallowEqual([["x", "y", "z"]], [["x", "y", "z"]]));
+
+        const fn = () => {};
+        assert.ok(shallowEqual([fn], [fn]));
+        assert.notOk(shallowEqual([() => {}], [() => {}]));
+    });
+
+    QUnit.test("zip", function (assert) {
+        assert.deepEqual(zip([1, 2], []), []);
+        assert.deepEqual(zip([1, 2], ["a"]), [[1, "a"]]);
+        assert.deepEqual(zip([1, 2], ["a", "b"]), [
+            [1, "a"],
+            [2, "b"],
+        ]);
+    });
+
+    QUnit.test("zipWith", function (assert) {
+        assert.deepEqual(
+            zipWith([{ a: 1 }, { b: 2 }], ["a", "b"], (o, k) => o[k]),
+            [1, 2]
+        );
     });
 });

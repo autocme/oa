@@ -11,20 +11,22 @@ class AccountMove(models.Model):
     _inherit = "account.move"
 
     timesheet_ids = fields.One2many('account.analytic.line', 'timesheet_invoice_id', string='Timesheets', readonly=True, copy=False)
-    timesheet_count = fields.Integer("Number of timesheets", compute='_compute_timesheet_count')
+    timesheet_count = fields.Integer("Number of timesheets", compute='_compute_timesheet_count', compute_sudo=True)
     timesheet_encode_uom_id = fields.Many2one('uom.uom', related='company_id.timesheet_encode_uom_id')
-    timesheet_total_duration = fields.Integer("Timesheet Total Duration", compute='_compute_timesheet_total_duration', help="Total recorded duration, expressed in the encoding UoM, and rounded to the unit")
+    timesheet_total_duration = fields.Integer("Timesheet Total Duration",
+        compute='_compute_timesheet_total_duration', compute_sudo=True,
+        help="Total recorded duration, expressed in the encoding UoM, and rounded to the unit")
 
     @api.depends('timesheet_ids', 'company_id.timesheet_encode_uom_id')
     def _compute_timesheet_total_duration(self):
         if not self.user_has_groups('hr_timesheet.group_hr_timesheet_user'):
             self.timesheet_total_duration = 0
             return
-        group_data = self.env['account.analytic.line'].read_group([
+        group_data = self.env['account.analytic.line']._read_group([
             ('timesheet_invoice_id', 'in', self.ids)
-        ], ['timesheet_invoice_id', 'unit_amount'], ['timesheet_invoice_id'])
+        ], ['timesheet_invoice_id'], ['unit_amount:sum'])
         timesheet_unit_amount_dict = defaultdict(float)
-        timesheet_unit_amount_dict.update({data['timesheet_invoice_id'][0]: data['unit_amount'] for data in group_data})
+        timesheet_unit_amount_dict.update({timesheet_invoice.id: amount for timesheet_invoice, amount in group_data})
         for invoice in self:
             total_time = invoice.company_id.project_time_mode_id._compute_quantity(
                 timesheet_unit_amount_dict[invoice.id],
@@ -35,8 +37,8 @@ class AccountMove(models.Model):
 
     @api.depends('timesheet_ids')
     def _compute_timesheet_count(self):
-        timesheet_data = self.env['account.analytic.line'].read_group([('timesheet_invoice_id', 'in', self.ids)], ['timesheet_invoice_id'], ['timesheet_invoice_id'])
-        mapped_data = dict([(t['timesheet_invoice_id'][0], t['timesheet_invoice_id_count']) for t in timesheet_data])
+        timesheet_data = self.env['account.analytic.line']._read_group([('timesheet_invoice_id', 'in', self.ids)], ['timesheet_invoice_id'], ['__count'])
+        mapped_data = {timesheet_invoice.id: count for timesheet_invoice, count in timesheet_data}
         for invoice in self:
             invoice.timesheet_count = mapped_data.get(invoice.id, 0)
 
@@ -85,6 +87,17 @@ class AccountMove(models.Model):
                 timesheets = self.env['account.analytic.line'].sudo().search(domain)
                 timesheets.write({'timesheet_invoice_id': line.move_id.id})
 
+    def action_post(self):
+        result = super().action_post()
+        credit_notes = self.filtered(lambda move: move.move_type == 'out_refund' and move.reversed_entry_id)
+        timesheets_sudo = self.env['account.analytic.line'].sudo().search([
+            ('timesheet_invoice_id', 'in', credit_notes.reversed_entry_id.ids),
+            ('so_line', 'in', credit_notes.invoice_line_ids.sale_line_ids.ids),
+            ('project_id', '!=', False),
+        ])
+        timesheets_sudo.write({'timesheet_invoice_id': False})
+        return result
+
 
 class AccountMoveLine(models.Model):
     _inherit = 'account.move.line'
@@ -100,7 +113,9 @@ class AccountMoveLine(models.Model):
             ('project_id', '!=', False),
             '|', '|',
                 ('timesheet_invoice_id', '=', False),
-                ('timesheet_invoice_id.state', '=', 'cancel'),
+                '&',
+                    ('timesheet_invoice_id.state', '=', 'cancel'),
+                    ('timesheet_invoice_id.payment_state', '!=', 'invoicing_legacy'),
                 ('timesheet_invoice_id.payment_state', '=', 'reversed')
         ]
 
@@ -117,19 +132,17 @@ class AccountMoveLine(models.Model):
         for move_line in move_line_read_group:
             sale_line_ids_per_move[move_line['move_id'][0]] += self.env['sale.order.line'].browse(move_line['sale_line_ids'])
 
-        timesheet_read_group = self.sudo().env['account.analytic.line'].read_group([
+        timesheet_read_group = self.sudo().env['account.analytic.line']._read_group([
             ('timesheet_invoice_id.move_type', '=', 'out_invoice'),
             ('timesheet_invoice_id.state', '=', 'draft'),
-            ('timesheet_invoice_id', 'in', self.move_id.ids)], 
-            ['timesheet_invoice_id', 'so_line', 'ids:array_agg(id)'], 
-            ['timesheet_invoice_id', 'so_line'], 
-            lazy=False)
+            ('timesheet_invoice_id', 'in', self.move_id.ids)],
+            ['timesheet_invoice_id', 'so_line'],
+            ['id:array_agg'])
 
         timesheet_ids = []
-        for timesheet in timesheet_read_group:
-            move_id = timesheet['timesheet_invoice_id'][0]
-            if timesheet['so_line'] and timesheet['so_line'][0] in sale_line_ids_per_move[move_id].ids:
-                timesheet_ids += timesheet['ids']
+        for timesheet_invoice, so_line, ids in timesheet_read_group:
+            if so_line.id in sale_line_ids_per_move[timesheet_invoice.id].ids:
+                timesheet_ids += ids
 
         self.sudo().env['account.analytic.line'].browse(timesheet_ids).write({'timesheet_invoice_id': False})
         return super().unlink()

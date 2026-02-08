@@ -1,6 +1,7 @@
 /** @odoo-module **/
 
 import { registry } from "@web/core/registry";
+import { UPDATE_METHODS } from "@web/core/orm_service";
 
 /**
  * @typedef {Object} IrFilter
@@ -18,11 +19,8 @@ import { registry } from "@web/core/registry";
 /**
  * @typedef {Object} ViewDescription
  * @property {string} arch
- * @property {Object} fields
- * @property {string} model
- * @property {string} [name] is returned by the server ("default" or real name)
- * @property {string} type
- * @property {number} [viewId]
+ * @property {number|false} id
+ * @property {number|null} [custom_view_id]
  * @property {Object} [actionMenus] // for views other than search
  * @property {IrFilter[]} [irFilters] // for search view
  */
@@ -42,16 +40,26 @@ import { registry } from "@web/core/registry";
  */
 
 export const viewService = {
-    name: "view",
     dependencies: ["orm"],
+    async: ["loadViews"],
     start(env, { orm }) {
         let cache = {};
 
-        env.bus.on("CLEAR-CACHES", null, () => {
+        function clearCache() {
             cache = {};
             const processedArchs = registry.category("__processed_archs__");
             processedArchs.content = {};
             processedArchs.trigger("UPDATE");
+        }
+
+        env.bus.addEventListener("CLEAR-CACHES", clearCache);
+        env.bus.addEventListener("RPC:RESPONSE", (ev) => {
+            const { model, method } = ev.detail.data.params;
+            if (["ir.ui.view", "ir.filters"].includes(model)) {
+                if (UPDATE_METHODS.includes(method)) {
+                    clearCache();
+                }
+            }
         });
 
         /**
@@ -59,47 +67,55 @@ export const viewService = {
          * fields of the corresponding model, and optionally the filters.
          *
          * @param {LoadViewsParams} params
-         * @param {LoadViewsOptions} options
+         * @param {LoadViewsOptions} [options={}]
          * @returns {Promise<ViewDescriptions>}
          */
-        async function loadViews(params, options) {
-            const key = JSON.stringify([params.resModel, params.views, params.context, options]);
+        async function loadViews(params, options = {}) {
+            const { context, resModel, views } = params;
+            const loadViewsOptions = {
+                action_id: options.actionId || false,
+                load_filters: options.loadIrFilters || false,
+                toolbar: (!context?.disable_toolbar && options.loadActionMenus) || false,
+            };
+            for (const key in options) {
+                if (!["actionId", "loadIrFilters", "loadActionMenus"].includes(key)) {
+                    loadViewsOptions[key] = options[key];
+                }
+            }
+            if (env.isSmall) {
+                loadViewsOptions.mobile = true;
+            }
+            const filteredContext = Object.fromEntries(
+                Object.entries(context || {}).filter(
+                    ([k, v]) => k == "lang" || k.endsWith("_view_ref")
+                )
+            );
+
+            const key = JSON.stringify([resModel, views, filteredContext, loadViewsOptions]);
             if (!cache[key]) {
                 cache[key] = orm
-                    .call(params.resModel, "load_views", [], {
-                        views: params.views,
-                        options: {
-                            action_id: options.actionId || false,
-                            load_filters: options.loadIrFilters || false,
-                            toolbar: options.loadActionMenus || false,
-                        },
-                        context: params.context,
+                    .call(resModel, "get_views", [], {
+                        context: filteredContext,
+                        views,
+                        options: loadViewsOptions,
                     })
                     .then((result) => {
+                        const { models, views } = result;
                         const viewDescriptions = {
-                            __legacy__: result,
-                        }; // for legacy purpose, keys in result are left in viewDescriptions
-                        for (const [, viewType] of params.views) {
-                            const viewDescription = JSON.parse(
-                                JSON.stringify(result.fields_views[viewType])
-                            );
-                            viewDescription.viewId = viewDescription.view_id;
-                            delete viewDescription.view_id;
-                            if (viewDescription.toolbar) {
-                                viewDescription.actionMenus = viewDescription.toolbar;
-                                delete viewDescription.toolbar;
+                            fields: models[resModel],
+                            relatedModels: models,
+                            views: {},
+                        };
+                        for (const viewType in views) {
+                            const { arch, toolbar, id, filters, custom_view_id } = views[viewType];
+                            const viewDescription = { arch, id, custom_view_id };
+                            if (toolbar) {
+                                viewDescription.actionMenus = toolbar;
                             }
-                            viewDescription.fields = Object.assign(
-                                {},
-                                result.fields,
-                                viewDescription.fields
-                            ); // before a deep freeze was done.
-                            delete viewDescription.base_model; // unused
-                            delete viewDescription.field_parent; // unused
-                            if (viewType === "search" && options.loadIrFilters) {
-                                viewDescription.irFilters = result.filters;
+                            if (filters) {
+                                viewDescription.irFilters = filters;
                             }
-                            viewDescriptions[viewType] = viewDescription;
+                            viewDescriptions.views[viewType] = viewDescription;
                         }
                         return viewDescriptions;
                     })

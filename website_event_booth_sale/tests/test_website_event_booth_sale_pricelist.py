@@ -18,21 +18,22 @@ class TestWebsiteBoothPriceList(TestEventBoothSaleCommon, TestWebsiteEventSaleCo
         cls.WebsiteSaleController = WebsiteSale()
         cls.booth_1 = cls.env['event.booth'].create({
             'booth_category_id': cls.event_booth_category_1.id,
-            'event_id': cls.event_0.id,
+            'event_id': cls.event.id,
             'name': 'Test Booth 1',
         })
 
         cls.booth_2 = cls.env['event.booth'].create({
             'booth_category_id': cls.event_booth_category_1.id,
-            'event_id': cls.event_0.id,
+            'event_id': cls.event.id,
             'name': 'Test Booth 2',
         })
 
     def test_pricelist_different_currency(self):
+        self.env['product.pricelist'].search([('id', '!=', self.pricelist.id)]).action_archive()
         so_line = self.env['sale.order.line'].create({
             'event_booth_category_id': self.event_booth_category_1.id,
             'event_booth_pending_ids': (self.booth_1 + self.booth_2).ids,
-            'event_id': self.event_0.id,
+            'event_id': self.event.id,
             'order_id': self.so.id,
             'product_id': self.event_booth_product.id,
         })
@@ -48,9 +49,9 @@ class TestWebsiteBoothPriceList(TestEventBoothSaleCommon, TestWebsiteEventSaleCo
             'name': 'With Discount Included',
         })
         with MockRequest(self.env, sale_order_id=self.so.id, website=self.current_website):
-            self.WebsiteSaleController.pricelist('With Discount Included')
+            self.WebsiteSaleController.pricelist(promo=None)
             self.so._cart_update(line_id=so_line.id, product_id=self.event_booth_product.id, set_qty=1)
-        self.assertEqual(so_line.price_reduce, 40)
+        self.assertEqual(so_line.price_reduce_taxexcl, 40)
 
         # set pricelist to 10% - without discount
         self.pricelist.write({
@@ -64,9 +65,9 @@ class TestWebsiteBoothPriceList(TestEventBoothSaleCommon, TestWebsiteEventSaleCo
             'name': 'Without Discount Included',
         })
         with MockRequest(self.env, sale_order_id=self.so.id, website=self.current_website):
-            self.WebsiteSaleController.pricelist('Without Discount Included')
+            self.WebsiteSaleController.pricelist(promo=None)
             self.so._cart_update(line_id=so_line.id, product_id=self.event_booth_product.id, set_qty=1)
-        self.assertEqual(so_line.price_reduce, 360, 'Incorrect amount based on the pricelist and its currency.')
+        self.assertEqual(so_line.price_reduce_taxexcl, 360, 'Incorrect amount based on the pricelist "Without Discount" and its currency.')
 
         # set pricelist to 10% - with discount
         self.pricelist.write({
@@ -74,6 +75,6 @@ class TestWebsiteBoothPriceList(TestEventBoothSaleCommon, TestWebsiteEventSaleCo
             'name': 'With Discount Included',
         })
         with MockRequest(self.env, sale_order_id=self.so.id, website=self.current_website):
-            self.WebsiteSaleController.pricelist('With Discount Included')
+            self.WebsiteSaleController.pricelist(promo=None)
             self.so._cart_update(line_id=so_line.id, product_id=self.event_booth_product.id, set_qty=1)
-        self.assertEqual(so_line.price_reduce, 360, 'Incorrect amount based on the pricelist and its currency.')
+        self.assertEqual(so_line.price_reduce_taxexcl, 360, 'Incorrect amount based on the pricelist "With Discount" and its currency.')

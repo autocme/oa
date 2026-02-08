@@ -131,7 +131,9 @@ class WebsiteAccount(CustomerPortal):
 
         if date_begin and date_end:
             domain += [('create_date', '>', date_begin), ('create_date', '<=', date_end)]
-        # pager
+        # pager: bypass activities access rights for search but still apply access rules
+        leads_sudo = CrmLead.sudo()._search(domain)
+        domain = [('id', 'in', leads_sudo)]
         opp_count = CrmLead.search_count(domain)
         pager = request.website.pager(
             url="/my/opportunities",
@@ -171,7 +173,9 @@ class WebsiteAccount(CustomerPortal):
             "website_crm_partner_assign.portal_my_opportunity", {
                 'opportunity': opp,
                 'user_activity': opp.sudo().activity_ids.filtered(lambda activity: activity.user_id == request.env.user)[:1],
-                'stages': request.env['crm.stage'].search([('is_won', '!=', True)], order='sequence desc, name desc, id desc'),
+                'stages': request.env['crm.stage'].search([
+                    ('is_won', '!=', True), '|', ('team_id', '=', False), ('team_id', '=', opp.team_id.id)
+                ], order='sequence desc, name desc, id desc'),
                 'activity_types': request.env['mail.activity.type'].sudo().search(['|', ('res_model', '=', opp._name), ('res_model', '=', False)]),
                 'states': request.env['res.country.state'].sudo().search([]),
                 'countries': request.env['res.country'].sudo().search([]),
@@ -191,15 +195,15 @@ class WebsiteCrmPartnerAssign(WebsitePartnerPage):
             ('grade_id.website_published', '=', True),
             ('grade_id.active', '=', True),
         ]
-        grades = env['res.partner'].sudo().read_group(base_partner_domain, fields=['id', 'grade_id'], groupby='grade_id')
-        for grade in grades:
-            loc = '/partners/grade/%s' % slug(grade['grade_id'])
+        grades = env['res.partner'].sudo()._read_group(base_partner_domain, groupby=['grade_id'])
+        for [grade] in grades:
+            loc = '/partners/grade/%s' % slug(grade)
             if not qs or qs.lower() in loc:
                 yield {'loc': loc}
         country_partner_domain = base_partner_domain + [('country_id', '!=', False)]
-        countries = env['res.partner'].sudo().read_group(country_partner_domain, fields=['id', 'country_id'], groupby='country_id')
-        for country in countries:
-            loc = '/partners/country/%s' % slug(country['country_id'])
+        countries = env['res.partner'].sudo()._read_group(country_partner_domain, groupby=['country_id'])
+        for [country] in countries:
+            loc = '/partners/country/%s' % slug(country)
             if not qs or qs.lower() in loc:
                 yield {'loc': loc}
 
@@ -223,17 +227,32 @@ class WebsiteCrmPartnerAssign(WebsitePartnerPage):
         search = post.get('search', '')
 
         base_partner_domain = [('is_company', '=', True), ('grade_id', '!=', False), ('website_published', '=', True), ('grade_id.active', '=', True)]
-        if not request.env['res.users'].has_group('website.group_website_publisher'):
+        if not request.env['res.users'].has_group('website.group_website_restricted_editor'):
             base_partner_domain += [('grade_id.website_published', '=', True)]
         if search:
             base_partner_domain += ['|', ('name', 'ilike', search), ('website_description', 'ilike', search)]
 
-        # group by grade
-        grade_domain = list(base_partner_domain)
+        # Infer Country
         if not country and not country_all:
-            country_code = request.session['geoip'].get('country_code')
-            if country_code:
-                country = country_obj.search([('code', '=', country_code)], limit=1)
+            if request.geoip.country_code:
+                country = country_obj.search([('code', '=', request.geoip.country_code)], limit=1)
+
+        # Group by country
+        country_domain = list(base_partner_domain)
+        if grade:
+            country_domain += [('grade_id', '=', grade.id)]
+        countries = partner_obj.sudo().read_group(
+            country_domain + [('country_id', '!=', False)],
+            ["id", "country_id"],
+            groupby="country_id", orderby="country_id")
+
+        # Fallback: Show all partners when country has no associates.
+        country_ids = [c['country_id'][0] for c in countries]
+        if country and country.id not in country_ids:
+            country = None
+
+        # Group by grade
+        grade_domain = list(base_partner_domain)
         if country:
             grade_domain += [('country_id', '=', country.id)]
         grades = partner_obj.sudo().read_group(
@@ -249,13 +268,6 @@ class WebsiteCrmPartnerAssign(WebsitePartnerPage):
             'active': bool(grade is None),
         })
 
-        # group by country
-        country_domain = list(base_partner_domain)
-        if grade:
-            country_domain += [('grade_id', '=', grade.id)]
-        countries = partner_obj.sudo().read_group(
-            country_domain, ["id", "country_id"],
-            groupby="country_id", orderby="country_id")
         countries_partners = partner_obj.sudo().search_count(country_domain)
         # flag active country
         for country_dict in countries:
@@ -294,7 +306,7 @@ class WebsiteCrmPartnerAssign(WebsitePartnerPage):
 
         # search partners matching current search parameters
         partner_ids = partner_obj.sudo().search(
-            base_partner_domain, order="grade_sequence ASC, implemented_count DESC, display_name ASC, id ASC",
+            base_partner_domain, order="grade_sequence ASC, implemented_partner_count DESC, complete_name ASC, id ASC",
             offset=pager['offset'], limit=self._references_per_page)
         partners = partner_ids.sudo()
 
@@ -318,7 +330,7 @@ class WebsiteCrmPartnerAssign(WebsitePartnerPage):
 
 
     # Do not use semantic controller due to sudo()
-    @http.route(['/partners/<partner_id>'], type='http', auth="public", website=True)
+    @http.route()
     def partners_detail(self, partner_id, **post):
         current_slug = partner_id
         _, partner_id = unslug(partner_id)
@@ -331,12 +343,13 @@ class WebsiteCrmPartnerAssign(WebsitePartnerPage):
             current_country = request.env['res.country'].browse(int(country_id)).exists()
         if partner_id:
             partner = request.env['res.partner'].sudo().browse(partner_id)
-            is_website_publisher = request.env['res.users'].has_group('website.group_website_publisher')
-            if partner.exists() and (partner.website_published or is_website_publisher):
+            is_website_restricted_editor = request.env['res.users'].has_group('website.group_website_restricted_editor')
+            if partner.exists() and (partner.website_published or is_website_restricted_editor):
                 if slug(partner) != current_slug:
                     return request.redirect('/partners/%s' % slug(partner))
                 values = {
-                    'main_object': partner,
+                    # See REVIEW_CAN_PUBLISH_UNSUDO
+                    'main_object': partner.with_context(can_publish_unsudo_main_object=True),
                     'partner': partner,
                     'current_grade': current_grade,
                     'current_country': current_country

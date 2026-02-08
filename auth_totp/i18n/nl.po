@@ -1,27 +1,27 @@
 # Translation of Odoo Server.
 # This file contains the translation of the following modules:
 # 	* auth_totp
-# 
+#
 # Translators:
-# Martin Trigaux, 2021
-# 04a2cd0fd6ee22172c36ea91f27a38c5_60041bf, 2021
-# Erwin van der Ploeg <erwin@odooexperts.nl>, 2022
-# 
+# Wil Odoo, 2023
+# Jolien De Paepe, 2023
+#
 msgid ""
 msgstr ""
-"Project-Id-Version: Odoo Server saas~14.5\n"
+"Project-Id-Version: Odoo Server 17.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2021-09-14 10:28+0000\n"
-"PO-Revision-Date: 2021-09-14 12:20+0000\n"
-"Last-Translator: Erwin van der Ploeg <erwin@odooexperts.nl>, 2022\n"
+"POT-Creation-Date: 2025-12-29 18:37+0000\n"
+"PO-Revision-Date: 2023-10-26 23:09+0000\n"
+"Last-Translator: Jolien De Paepe, 2023\n"
 "Language-Team: Dutch (https://app.transifex.com/odoo/teams/41243/nl/)\n"
+"Language: nl\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: \n"
-"Language: nl\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
 
 #. module: auth_totp
+#. odoo-python
 #: code:addons/auth_totp/controllers/home.py:0
 #, python-format
 msgid "%(browser)s on %(platform)s"
@@ -30,41 +30,60 @@ msgstr "%(browser)s op %(platform)s"
 #. module: auth_totp
 #: model:ir.model,name:auth_totp.model_auth_totp_wizard
 msgid "2-Factor Setup Wizard"
-msgstr "2-factor installatiewizard"
+msgstr "2-Factor installatiewizard"
 
 #. module: auth_totp
+#. odoo-python
 #: code:addons/auth_totp/wizard/auth_totp_wizard.py:0
 #, python-format
 msgid "2-Factor authentication is now enabled."
 msgstr "2-Factor authenticatie is nu ingeschakeld."
 
 #. module: auth_totp
-#: model_terms:ir.ui.view,arch_db:auth_totp.view_totp_field
 #: model_terms:ir.ui.view,arch_db:auth_totp.view_totp_form
 msgid ""
-"<span attrs=\"{'invisible': [('totp_enabled', '=', False)]}\" class=\"text-"
-"muted\">Your account is protected!</span>"
+"<i title=\"Documentation\" class=\"fa fa-fw o_button_icon fa-info-circle\"/"
+">\n"
+"                                    Learn More"
 msgstr ""
-"<span attrs=\"{'invisible': [('totp_enabled', '=', False)]}\" class=\"text-"
-"muted\">Je account is beveiligd!</span>"
+"<i title=\"Documentatie\" class=\"fa fa-fw o_button_icon fa-info-circle\"/>\n"
+"                                    Meer weten"
+
+#. module: auth_totp
+#: model_terms:ir.ui.view,arch_db:auth_totp.view_totp_field
+msgid ""
+"<i title=\"Documentation\" class=\"fa fa-fw o_button_icon fa-info-circle\"/"
+">\n"
+"                            Learn More"
+msgstr ""
+"<i title=\"Documentatie\" class=\"fa fa-fw o_button_icon fa-info-circle\"/>\n"
+"                            Meer weten"
 
 #. module: auth_totp
 #: model_terms:ir.ui.view,arch_db:auth_totp.view_totp_wizard
 msgid ""
 "<span class=\"d-md-none d-block\">Or install an authenticator app</span>\n"
-"                                        <span class=\"d-none d-md-block\">Install an authenticator app on your mobile device</span>"
+"                                        <span class=\"d-none d-md-"
+"block\">Install an authenticator app on your mobile device</span>"
 msgstr ""
-"<span class=\"d-md-none d-block\">of installeer een authenticator-app</span>\n"
-"                                         <span class=\"d-none d-md-block\">Installeer een authenticator-app op je mobiele apparaat</span>"
+"<span class=\"d-md-none d-block\">of installeer een authenticator-app</"
+"span>\n"
+"                                         <span class=\"d-none d-md-"
+"block\">Installeer een authenticator-app op je mobiele apparaat</span>"
 
 #. module: auth_totp
 #: model_terms:ir.ui.view,arch_db:auth_totp.view_totp_wizard
 msgid ""
-"<span class=\"d-none d-md-block\">When requested to do so, scan the barcode below</span>\n"
-"                                    <span class=\"d-block d-md-none\">When requested to do so, copy the key below</span>"
+"<span class=\"d-none d-md-block\">When requested to do so, scan the barcode "
+"below</span>\n"
+"                                    <span class=\"d-block d-md-none\">When "
+"requested to do so, copy the key below</span>"
 msgstr ""
-"<span class=\"d-none d-md-block\">Scan op verzoek de onderstaande barcode</span>\n"
-"                                    <span class=\"d-block d-md-none\">Kopieer de onderstaande sleutel wanneer je hierom wordt gevraagd:</span>"
+"<span class=\"d-none d-md-block\">Scan op verzoek de onderstaande barcode</"
+"span>\n"
+"                                    <span class=\"d-block d-md-"
+"none\">Kopieer de onderstaande sleutel wanneer je hierom wordt gevraagd:</"
+"span>"
 
 #. module: auth_totp
 #: model_terms:ir.ui.view,arch_db:auth_totp.view_totp_wizard
@@ -77,6 +96,24 @@ msgstr ""
 
 #. module: auth_totp
 #: model_terms:ir.ui.view,arch_db:auth_totp.view_totp_form
+msgid ""
+"<span invisible=\"not totp_enabled\" class=\"text-muted\">This account is "
+"protected!</span>"
+msgstr ""
+"<span invisible=\"not totp_enabled\" class=\"text-muted\">Dit account is "
+"beveiligd!</span>"
+
+#. module: auth_totp
+#: model_terms:ir.ui.view,arch_db:auth_totp.view_totp_field
+msgid ""
+"<span invisible=\"not totp_enabled\" class=\"text-muted\">Your account is "
+"protected!</span>"
+msgstr ""
+"<span invisible=\"not totp_enabled\" class=\"text-muted\">Je account is "
+"beveiligd!</span>"
+
+#. module: auth_totp
+#: model_terms:ir.ui.view,arch_db:auth_totp.view_totp_form
 msgid "Account Security"
 msgstr "Accountveiligheid"
 
@@ -86,6 +123,7 @@ msgid "Activate"
 msgstr "Activeer"
 
 #. module: auth_totp
+#: model_terms:ir.ui.view,arch_db:auth_totp.view_totp_field
 #: model_terms:ir.ui.view,arch_db:auth_totp.view_totp_form
 msgid "Added On"
 msgstr "Toegevoegd op"
@@ -93,11 +131,20 @@ msgstr "Toegevoegd op"
 #. module: auth_totp
 #: model_terms:ir.ui.view,arch_db:auth_totp.view_totp_form
 msgid ""
-"Are you sure? Two-factor authentication will be required again on all your "
+"Are you sure? The user may be asked to enter two-factor codes again on those "
 "devices"
 msgstr ""
-"Weet je zeker dat? Tweestapsverificatie is opnieuw vereist op al je "
-"apparaten"
+"Weet je het zeker? De gebruiker kan worden gevraagd om opnieuw twee-factor "
+"codes in te voeren op deze apparaten."
+
+#. module: auth_totp
+#: model_terms:ir.ui.view,arch_db:auth_totp.view_totp_field
+msgid ""
+"Are you sure? You may be asked to enter two-factor codes again on those "
+"devices"
+msgstr ""
+"Weet je het zeker? Je kan worden gevraagd om opnieuw twee-factor codes in te "
+"voeren op deze apparaten."
 
 #. module: auth_totp
 #: model_terms:ir.ui.view,arch_db:auth_totp.auth_totp_form
@@ -116,7 +163,6 @@ msgstr "Authenticator-app instellen"
 
 #. module: auth_totp
 #: model_terms:ir.ui.view,arch_db:auth_totp.auth_totp_form
-#: model_terms:ir.ui.view,arch_db:auth_totp.view_totp_form
 #: model_terms:ir.ui.view,arch_db:auth_totp.view_totp_wizard
 msgid "Cancel"
 msgstr "Annuleren"
@@ -152,9 +198,10 @@ msgid "Description"
 msgstr "Omschrijving"
 
 #. module: auth_totp
+#: model_terms:ir.ui.view,arch_db:auth_totp.view_totp_field
 #: model_terms:ir.ui.view,arch_db:auth_totp.view_totp_form
-msgid "Device Name"
-msgstr "Apparaat naam"
+msgid "Device"
+msgstr "Apparaat"
 
 #. module: auth_totp
 #: model_terms:ir.ui.view,arch_db:auth_totp.view_totp_field
@@ -201,16 +248,11 @@ msgid "ID"
 msgstr "ID"
 
 #. module: auth_totp
+#. odoo-python
 #: code:addons/auth_totp/controllers/home.py:0
 #, python-format
 msgid "Invalid authentication code format."
 msgstr "Ongeldig formaat verificatiecode"
-
-#. module: auth_totp
-#: model:ir.model.fields,field_description:auth_totp.field_auth_totp_device____last_update
-#: model:ir.model.fields,field_description:auth_totp.field_auth_totp_wizard____last_update
-msgid "Last Modified on"
-msgstr "Laatst gewijzigd op"
 
 #. module: auth_totp
 #: model:ir.model.fields,field_description:auth_totp.field_auth_totp_wizard__write_uid
@@ -231,7 +273,7 @@ msgstr "Leer meer"
 
 #. module: auth_totp
 #: model_terms:ir.ui.view,arch_db:auth_totp.auth_totp_form
-msgid "Login"
+msgid "Log in"
 msgstr "Login"
 
 #. module: auth_totp
@@ -255,11 +297,13 @@ msgid "Qrcode"
 msgstr "QR-code"
 
 #. module: auth_totp
+#: model_terms:ir.ui.view,arch_db:auth_totp.view_totp_field
 #: model_terms:ir.ui.view,arch_db:auth_totp.view_totp_form
 msgid "Revoke"
 msgstr "Intrekken"
 
 #. module: auth_totp
+#: model_terms:ir.ui.view,arch_db:auth_totp.view_totp_field
 #: model_terms:ir.ui.view,arch_db:auth_totp.view_totp_form
 msgid "Revoke All"
 msgstr "Alles intrekken"
@@ -275,6 +319,7 @@ msgid "Secret"
 msgstr "Geheim"
 
 #. module: auth_totp
+#. odoo-python
 #: code:addons/auth_totp/wizard/auth_totp_wizard.py:0
 #, python-format
 msgid "The verification code should only contain numbers"
@@ -283,10 +328,12 @@ msgstr "De verificatie code mag enkel cijfers bevatten"
 #. module: auth_totp
 #: model_terms:ir.ui.view,arch_db:auth_totp.auth_totp_form
 msgid ""
-"To login, enter below the six-digit authentication code provided by your Authenticator app.\n"
+"To login, enter below the six-digit authentication code provided by your "
+"Authenticator app.\n"
 "                        <br/>"
 msgstr ""
-"Om in te loggen, voer je hieronder de zescijferige authenticatiecode in die je van je Authenticator-app hebt gekregen.\n"
+"Om in te loggen, voer je hieronder de zescijferige authenticatiecode in die "
+"je van je Authenticator-app hebt gekregen.\n"
 "                        <br/>"
 
 #. module: auth_totp
@@ -295,17 +342,14 @@ msgid "Totp Secret"
 msgstr "Totp geheim"
 
 #. module: auth_totp
-#: model_terms:ir.ui.view,arch_db:auth_totp.view_totp_form
-msgid "Trusted Device"
-msgstr "Vertrouwd apparaat"
-
-#. module: auth_totp
 #: model:ir.model.fields,field_description:auth_totp.field_res_users__totp_trusted_device_ids
+#: model_terms:ir.ui.view,arch_db:auth_totp.view_totp_field
 #: model_terms:ir.ui.view,arch_db:auth_totp.view_totp_form
 msgid "Trusted Devices"
 msgstr "Vertrouwd apparaten"
 
 #. module: auth_totp
+#. odoo-python
 #: code:addons/auth_totp/models/res_users.py:0
 #, python-format
 msgid "Two-Factor Authentication Activation"
@@ -322,52 +366,63 @@ msgstr "Tweestapsverificatie"
 #: model_terms:ir.ui.view,arch_db:auth_totp.view_totp_form
 msgid ""
 "Two-factor Authentication (\"2FA\") is a system of double authentication.\n"
-"                                The first one is done with your password and the second one with a code you get from a dedicated mobile app.\n"
-"                                Popular ones include Authy, Google Authenticator or the Microsoft Authenticator."
+"                                The first one is done with your password and "
+"the second one with a code you get from a dedicated mobile app.\n"
+"                                Popular ones include Authy, Google "
+"Authenticator or the Microsoft Authenticator."
 msgstr ""
 "Tweestapsverificatie (\"2FA\") is een systeem van dubbele authenticatie.\n"
-"                                De eerste doe je met je wachtwoord en de tweede met een code die je krijgt van een speciale mobiele app.\n"
-"                                Populaire zijn Authy, Google Authenticator of de Microsoft Authenticator."
+"                                De eerste doe je met je wachtwoord en de "
+"tweede met een code die je krijgt van een speciale mobiele app.\n"
+"                                Populaire zijn Authy, Google Authenticator "
+"of de Microsoft Authenticator."
 
 #. module: auth_totp
 #: model_terms:ir.ui.view,arch_db:auth_totp.view_totp_field
 msgid ""
 "Two-factor Authentication (\"2FA\") is a system of double authentication.\n"
-"                            The first one is done with your password and the second one with a code you get from a dedicated mobile app.\n"
-"                            Popular ones include Authy, Google Authenticator or the Microsoft Authenticator."
+"                        The first one is done with your password and the "
+"second one with a code you get from a dedicated mobile app.\n"
+"                        Popular ones include Authy, Google Authenticator or "
+"the Microsoft Authenticator."
 msgstr ""
 "Tweestapsverificatie (\"2FA\") is een systeem van dubbele authenticatie.\n"
-"                            De eerste doe je met je wachtwoord en de tweede met een code die je krijgt van een speciale mobiele app.\n"
-"                            Populaire zijn Authy, Google Authenticator of de Microsoft Authenticator."
+"                        De eerste doe je met je wachtwoord en de tweede met "
+"een code die je krijgt van een speciale mobiele app.\n"
+"                        Populaire keuzes zijn Authy, Google Authenticator of "
+"de Microsoft Authenticator."
 
 #. module: auth_totp
 #: model:ir.model.fields,field_description:auth_totp.field_res_users__totp_enabled
 msgid "Two-factor authentication"
-msgstr "Tweestapsverificatie"
+msgstr "Twee-factor-authenticatie"
 
 #. module: auth_totp
 #: model_terms:ir.ui.view,arch_db:auth_totp.res_users_view_search
 msgid "Two-factor authentication Disabled"
-msgstr "Tweestapsverificatie Uitgeschakeld"
+msgstr "Tweestapsverificatie uitgeschakeld"
 
 #. module: auth_totp
 #: model_terms:ir.ui.view,arch_db:auth_totp.res_users_view_search
 msgid "Two-factor authentication Enabled"
-msgstr "Tweestapsverificatie Ingeschakeld"
+msgstr "Tweestapsverificatie ingeschakeld"
 
 #. module: auth_totp
+#. odoo-python
 #: code:addons/auth_totp/models/res_users.py:0
 #, python-format
 msgid "Two-factor authentication already enabled"
 msgstr "Tweestapsverificatie reeds ingeschakeld"
 
 #. module: auth_totp
+#. odoo-python
 #: code:addons/auth_totp/models/res_users.py:0
 #, python-format
 msgid "Two-factor authentication can only be enabled for yourself"
 msgstr "Tweestapsverificatie kan enkel voor jezelf ingeschakeld worden"
 
 #. module: auth_totp
+#. odoo-python
 #: code:addons/auth_totp/models/res_users.py:0
 #, python-format
 msgid "Two-factor authentication disabled for the following user(s): %s"
@@ -379,23 +434,20 @@ msgid "Url"
 msgstr "Url"
 
 #. module: auth_totp
+#: model:ir.model,name:auth_totp.model_res_users
 #: model:ir.model.fields,field_description:auth_totp.field_auth_totp_device__user_id
 #: model:ir.model.fields,field_description:auth_totp.field_auth_totp_wizard__user_id
 msgid "User"
 msgstr "Gebruiker"
 
 #. module: auth_totp
-#: model:ir.model,name:auth_totp.model_res_users
-msgid "Users"
-msgstr "Gebruikers"
-
-#. module: auth_totp
 #: model:ir.model.fields,field_description:auth_totp.field_auth_totp_wizard__code
 #: model_terms:ir.ui.view,arch_db:auth_totp.view_totp_wizard
 msgid "Verification Code"
-msgstr "Verificatie code"
+msgstr "Verificatiecode"
 
 #. module: auth_totp
+#. odoo-python
 #: code:addons/auth_totp/models/res_users.py:0
 #: code:addons/auth_totp/wizard/auth_totp_wizard.py:0
 #, python-format

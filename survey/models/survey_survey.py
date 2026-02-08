@@ -4,12 +4,14 @@
 import json
 import random
 import uuid
+from collections import defaultdict
+
 import werkzeug
 
 from odoo import api, exceptions, fields, models, _
-from odoo.exceptions import AccessError, UserError
+from odoo.exceptions import AccessError, UserError, ValidationError
 from odoo.osv import expression
-from odoo.tools import clean_context, is_html_empty
+from odoo.tools import is_html_empty
 
 
 class Survey(models.Model):
@@ -17,6 +19,7 @@ class Survey(models.Model):
     and each page can display one or more questions. """
     _name = 'survey.survey'
     _description = 'Survey'
+    _order = 'create_date DESC'
     _rec_name = 'title'
     _inherit = ['mail.thread', 'mail.activity.mixin']
 
@@ -44,35 +47,56 @@ class Survey(models.Model):
 
         return False  # could not generate a code
 
+    @api.model
+    def default_get(self, fields_list):
+        result = super().default_get(fields_list)
+        # allows to propagate the text one write in a many2one widget after
+        # clicking on 'Create and Edit...' to the popup form.
+        if 'title' in fields_list and not result.get('title') and self.env.context.get('default_name'):
+            result['title'] = self.env.context.get('default_name')
+        return result
+
     # description
+    survey_type = fields.Selection([
+        ('survey', 'Survey'),
+        ('live_session', 'Live session'),
+        ('assessment', 'Assessment'),
+        ('custom', 'Custom'),
+    ],
+        string='Survey Type', required=True, default='custom')
     title = fields.Char('Survey Title', required=True, translate=True)
     color = fields.Integer('Color Index', default=0)
     description = fields.Html(
-        "Description", translate=True, sanitize=False,  # TDE FIXME: find a way to authorize videos
+        "Description", translate=True, sanitize=True, sanitize_overridable=True,
         help="The description will be displayed on the home page of the survey. You can use this to give the purpose and guidelines to your candidates before they start it.")
     description_done = fields.Html(
         "End Message", translate=True,
         help="This message will be displayed when survey is completed")
-    background_image = fields.Binary("Background Image")
+    background_image = fields.Image("Background Image")
+    background_image_url = fields.Char('Background Url', compute="_compute_background_image_url")
     active = fields.Boolean("Active", default=True)
-    user_id = fields.Many2one('res.users', string='Responsible', tracking=True, default=lambda self: self.env.user)
+    user_id = fields.Many2one(
+        'res.users', string='Responsible',
+        domain=[('share', '=', False)], tracking=True,
+        default=lambda self: self.env.user)
     # questions
     question_and_page_ids = fields.One2many('survey.question', 'survey_id', string='Sections and Questions', copy=True)
     page_ids = fields.One2many('survey.question', string='Pages', compute="_compute_page_and_question_ids")
     question_ids = fields.One2many('survey.question', string='Questions', compute="_compute_page_and_question_ids")
+    question_count = fields.Integer('# Questions', compute="_compute_page_and_question_ids")
     questions_layout = fields.Selection([
-        ('one_page', 'One page with all the questions'),
+        ('page_per_question', 'One page per question'),
         ('page_per_section', 'One page per section'),
-        ('page_per_question', 'One page per question')],
-        string="Layout", required=True, default='one_page')
+        ('one_page', 'One page with all the questions')],
+        string="Pagination", required=True, default='page_per_question')
     questions_selection = fields.Selection([
         ('all', 'All questions'),
-        ('random', 'Randomized per section')],
-        string="Selection", required=True, default='all',
+        ('random', 'Randomized per Section')],
+        string="Question Selection", required=True, default='all',
         help="If randomized is selected, you can configure the number of random questions by section. This mode is ignored in live session.")
     progression_mode = fields.Selection([
-        ('percent', 'Percentage'),
-        ('number', 'Number')], string='Progression Mode', default='percent',
+        ('percent', 'Percentage left'),
+        ('number', 'Number')], string='Display Progress as', default='percent',
         help="If Number is selected, it will display the number of questions answered on the total number of question to answer.")
     # attendees
     user_input_ids = fields.One2many('survey.user_input', 'survey_id', string='User responses', readonly=True, groups='survey.group_survey_user')
@@ -82,23 +106,25 @@ class Survey(models.Model):
         ('token', 'Invited people only')], string='Access Mode',
         default='public', required=True)
     access_token = fields.Char('Access Token', default=lambda self: self._get_default_access_token(), copy=False)
-    users_login_required = fields.Boolean('Login Required', help="If checked, users have to login before answering even with a valid token.")
+    users_login_required = fields.Boolean('Require Login', help="If checked, users have to login before answering even with a valid token.")
     users_can_go_back = fields.Boolean('Users can go back', help="If checked, users can go back to previous pages.")
     users_can_signup = fields.Boolean('Users can signup', compute='_compute_users_can_signup')
     # statistics
     answer_count = fields.Integer("Registered", compute="_compute_survey_statistic")
     answer_done_count = fields.Integer("Attempts", compute="_compute_survey_statistic")
-    answer_score_avg = fields.Float("Avg Score %", compute="_compute_survey_statistic")
+    answer_score_avg = fields.Float("Avg Score (%)", compute="_compute_survey_statistic")
     answer_duration_avg = fields.Float("Average Duration", compute="_compute_answer_duration_avg", help="Average duration of the survey (in hours)")
     success_count = fields.Integer("Success", compute="_compute_survey_statistic")
-    success_ratio = fields.Integer("Success Ratio", compute="_compute_survey_statistic")
+    success_ratio = fields.Integer("Success Ratio (%)", compute="_compute_survey_statistic")
     # scoring
     scoring_type = fields.Selection([
         ('no_scoring', 'No scoring'),
+        ('scoring_with_answers_after_page', 'Scoring with answers after each page'),
         ('scoring_with_answers', 'Scoring with answers at the end'),
-        ('scoring_without_answers', 'Scoring without answers at the end')],
-        string="Scoring", required=True, default='no_scoring')
-    scoring_success_min = fields.Float('Success %', default=80.0)
+        ('scoring_without_answers', 'Scoring without answers')],
+        string='Scoring', required=True, store=True, readonly=False, compute='_compute_scoring_type', precompute=True)
+    scoring_success_min = fields.Float('Required Score (%)', default=80.0)
+    scoring_max_obtainable = fields.Float('Maximum obtainable score', compute='_compute_scoring_max_obtainable')
     # attendees context: attempts and time limitation
     is_attempts_limited = fields.Boolean('Limited number of attempts', help="Check this option if you want to limit the number of attempts per user",
                                          compute="_compute_is_attempts_limited", store=True, readonly=False)
@@ -107,11 +133,11 @@ class Survey(models.Model):
     time_limit = fields.Float("Time limit (minutes)", default=10)
     # certification
     certification = fields.Boolean('Is a Certification', compute='_compute_certification',
-                                   readonly=False, store=True)
+                                   readonly=False, store=True, precompute=True)
     certification_mail_template_id = fields.Many2one(
-        'mail.template', 'Email Template',
+        'mail.template', 'Certified Email Template',
         domain="[('model', '=', 'survey.user_input')]",
-        help="Automated email sent to the user when he succeeds the certification, containing his certification document.")
+        help="Automated email sent to the user when they succeed the certification, containing their certification document.")
     certification_report_layout = fields.Selection([
         ('modern_purple', 'Modern Purple'),
         ('modern_blue', 'Modern Blue'),
@@ -166,6 +192,25 @@ class Survey(models.Model):
         ('badge_uniq', 'unique (certification_badge_id)', "The badge for each survey should be unique!"),
     ]
 
+    @api.depends('background_image', 'access_token')
+    def _compute_background_image_url(self):
+        self.background_image_url = False
+        for survey in self.filtered(lambda survey: survey.background_image and survey.access_token):
+            survey.background_image_url = "/survey/%s/get_background_image" % survey.access_token
+
+    @api.depends(
+        'question_and_page_ids',
+        'question_and_page_ids.suggested_answer_ids',
+        'question_and_page_ids.suggested_answer_ids.answer_score',
+    )
+    def _compute_scoring_max_obtainable(self):
+        for survey in self:
+            survey.scoring_max_obtainable = sum(
+                question.answer_score
+                or sum(answer.answer_score for answer in question.suggested_answer_ids if answer.answer_score > 0)
+                for question in survey.question_ids
+            )
+
     def _compute_users_can_signup(self):
         signup_allowed = self.env['res.users'].sudo()._get_signup_invitation_scope() == 'b2c'
         for survey in self:
@@ -179,21 +224,21 @@ class Survey(models.Model):
         }
         stat = dict((cid, dict(default_vals, answer_score_avg_total=0.0)) for cid in self.ids)
         UserInput = self.env['survey.user_input']
-        base_domain = ['&', ('survey_id', 'in', self.ids), ('test_entry', '!=', True)]
+        base_domain = [('survey_id', 'in', self.ids)]
 
-        read_group_res = UserInput.read_group(base_domain, ['survey_id', 'state'], ['survey_id', 'state', 'scoring_percentage', 'scoring_success'], lazy=False)
-        for item in read_group_res:
-            stat[item['survey_id'][0]]['answer_count'] += item['__count']
-            stat[item['survey_id'][0]]['answer_score_avg_total'] += item['scoring_percentage']
-            if item['state'] == 'done':
-                stat[item['survey_id'][0]]['answer_done_count'] += item['__count']
-            if item['scoring_success']:
-                stat[item['survey_id'][0]]['success_count'] += item['__count']
+        read_group_res = UserInput._read_group(base_domain, ['survey_id', 'state', 'scoring_percentage', 'scoring_success'], ['__count'])
+        for survey, state, scoring_percentage, scoring_success, count in read_group_res:
+            stat[survey.id]['answer_count'] += count
+            stat[survey.id]['answer_score_avg_total'] += scoring_percentage
+            if state == 'done':
+                stat[survey.id]['answer_done_count'] += count
+            if scoring_success:
+                stat[survey.id]['success_count'] += count
 
         for survey_stats in stat.values():
             avg_total = survey_stats.pop('answer_score_avg_total')
-            survey_stats['answer_score_avg'] = avg_total / (survey_stats['answer_done_count'] or 1)
-            survey_stats['success_ratio'] = (survey_stats['success_count'] / (survey_stats['answer_done_count'] or 1.0))*100
+            survey_stats['answer_score_avg'] = avg_total / (survey_stats['answer_count'] or 1)
+            survey_stats['success_ratio'] = (survey_stats['success_count'] / (survey_stats['answer_count'] or 1.0))*100
 
         for survey in self:
             survey.update(stat.get(survey._origin.id, default_vals))
@@ -218,18 +263,19 @@ class Survey(models.Model):
             # as avg returns None if nothing found, set 0 if it's the case.
             survey.answer_duration_avg = (result_per_survey_id.get(survey.id) or 0) / 3600
 
-
     @api.depends('question_and_page_ids')
     def _compute_page_and_question_ids(self):
         for survey in self:
             survey.page_ids = survey.question_and_page_ids.filtered(lambda question: question.is_page)
             survey.question_ids = survey.question_and_page_ids - survey.page_ids
+            survey.question_count = len(survey.question_ids)
 
-    @api.depends('users_login_required', 'access_mode')
+    @api.depends('question_and_page_ids.triggering_answer_ids', 'users_login_required', 'access_mode')
     def _compute_is_attempts_limited(self):
         for survey in self:
             if not survey.is_attempts_limited or \
-               (survey.access_mode == 'public' and not survey.users_login_required):
+               (survey.access_mode == 'public' and not survey.users_login_required) or \
+               any(question.triggering_answer_ids for question in survey.question_and_page_ids):
                 survey.is_attempts_limited = False
 
     @api.depends('session_start_time', 'user_input_ids')
@@ -239,18 +285,13 @@ class Survey(models.Model):
         context of sessions, so it should not matter too much. """
 
         for survey in self:
-            answer_count = 0
-            input_count = self.env['survey.user_input'].read_group(
+            [answer_count] = self.env['survey.user_input']._read_group(
                 [('survey_id', '=', survey.id),
                  ('is_session_answer', '=', True),
                  ('state', '!=', 'done'),
                  ('create_date', '>=', survey.session_start_time)],
-                ['create_uid:count'],
-                ['survey_id'],
-            )
-            if input_count:
-                answer_count = input_count[0].get('create_uid', 0)
-
+                aggregates=['create_uid:count'],
+            )[0]
             survey.session_answer_count = answer_count
 
     @api.depends('session_question_id', 'session_start_time', 'user_input_ids.user_input_line_ids')
@@ -260,17 +301,12 @@ class Survey(models.Model):
         This field is currently used to display the count about a single survey, in the
         context of sessions, so it should not matter too much. """
         for survey in self:
-            answer_count = 0
-            input_line_count = self.env['survey.user_input.line'].read_group(
+            [answer_count] = self.env['survey.user_input.line']._read_group(
                 [('question_id', '=', survey.session_question_id.id),
                  ('survey_id', '=', survey.id),
                  ('create_date', '>=', survey.session_start_time)],
-                ['user_input_id:count_distinct'],
-                ['question_id'],
-            )
-            if input_line_count:
-                answer_count = input_line_count[0].get('user_input_id', 0)
-
+                aggregates=['user_input_id:count_distinct'],
+            )[0]
             survey.session_question_answer_count = answer_count
 
     @api.depends('session_code')
@@ -291,10 +327,10 @@ class Survey(models.Model):
             survey.session_show_leaderboard = survey.scoring_type != 'no_scoring' and \
                 any(question.save_as_nickname for question in survey.question_and_page_ids)
 
-    @api.depends('question_and_page_ids.is_conditional')
+    @api.depends('question_and_page_ids.triggering_answer_ids')
     def _compute_has_conditional_questions(self):
         for survey in self:
-            survey.has_conditional_questions = any(question.is_conditional for question in survey.question_and_page_ids)
+            survey.has_conditional_questions = any(question.triggering_answer_ids for question in survey.question_and_page_ids)
 
     @api.depends('scoring_type')
     def _compute_certification(self):
@@ -310,25 +346,99 @@ class Survey(models.Model):
                not survey.certification:
                 survey.certification_give_badge = False
 
+    @api.depends('certification')
+    def _compute_scoring_type(self):
+        for survey in self:
+            if survey.certification and \
+                survey.scoring_type not in ['scoring_without_answers', 'scoring_with_answers', 'scoring_with_answers_after_page']:
+                survey.scoring_type = 'scoring_without_answers'
+            elif not survey.scoring_type:
+                survey.scoring_type = 'no_scoring'
+
+    @api.onchange('survey_type')
+    def _onchange_survey_type(self):
+        if self.survey_type == 'survey':
+            self.write({
+                'certification': False,
+                'is_time_limited': False,
+                'scoring_type': 'no_scoring',
+            })
+        elif self.survey_type == 'live_session':
+            self.write({
+                'access_mode': 'public',
+                'is_attempts_limited': False,
+                'is_time_limited': False,
+                'progression_mode': 'percent',
+                'questions_layout': 'page_per_question',
+                'questions_selection': 'all',
+                'scoring_type': 'scoring_with_answers',
+                'users_can_go_back': False,
+            })
+        elif self.survey_type == 'assessment':
+            self.write({
+                'access_mode': 'token',
+                'scoring_type': 'scoring_with_answers',
+            })
+
+    @api.constrains('scoring_type', 'users_can_go_back')
+    def _check_scoring_after_page_availability(self):
+        failing = self.filtered(lambda survey: survey.scoring_type == 'scoring_with_answers_after_page' and survey.users_can_go_back)
+        if failing:
+            raise ValidationError(
+                _('Combining roaming and "Scoring with answers after each page" is not possible; please update the following surveys:\n- %(survey_names)s',
+                survey_names="\n- ".join(failing.mapped('title')))
+            )
+
     # ------------------------------------------------------------
     # CRUD
     # ------------------------------------------------------------
 
-    @api.model
-    def create(self, vals):
-        survey = super(Survey, self).create(vals)
-        if vals.get('certification_give_badge'):
-            survey.sudo()._create_certification_badge_trigger()
-        return survey
+    @api.model_create_multi
+    def create(self, vals_list):
+        surveys = super(Survey, self).create(vals_list)
+        for survey_sudo in surveys.filtered(lambda survey: survey.certification_give_badge).sudo():
+            survey_sudo._create_certification_badge_trigger()
+        return surveys
 
     def write(self, vals):
         result = super(Survey, self).write(vals)
         if 'certification_give_badge' in vals:
-            return self.sudo().with_context(clean_context(self._context))._handle_certification_badges(vals)
+            return self.sudo()._handle_certification_badges(vals)
         return result
 
+    @api.returns('self', lambda value: value.id)
+    def copy(self, default=None):
+        """Correctly copy the 'triggering_answer_ids' field from the original to the clone.
+
+        This needs to be done in post-processing to make sure we get references to the newly
+        created answers from the copy instead of references to the answers of the original.
+        This implementation assumes that the order of created answers will be kept between
+        the original and the clone, using 'zip()' to match the records between the two.
+
+        Note that when `question_ids` is provided in the default parameter, it falls back to the
+        standard copy, meaning that triggering logic will not be maintained.
+        """
+        self.ensure_one()
+        clone = super(Survey, self).copy(default)
+        if default and 'question_ids' in default:
+            return clone
+
+        cloned_question_ids = clone.question_ids.sorted()
+
+        answers_map = {
+            src_answer.id: dst_answer.id
+            for src, dst
+            in zip(self.question_ids, cloned_question_ids)
+            for src_answer, dst_answer
+            in zip(src.suggested_answer_ids, dst.suggested_answer_ids.sorted())
+        }
+        for src, dst in zip(self.question_ids, cloned_question_ids):
+            if src.triggering_answer_ids:
+                dst.triggering_answer_ids = [answers_map[src_answer_id.id] for src_answer_id in src.triggering_answer_ids]
+        return clone
+
     def copy_data(self, default=None):
-        new_defaults = {'title': _("%s (copy)") % (self.title)}
+        new_defaults = {'title': _("%s (copy)", self.title)}
         default = dict(new_defaults, **(default or {}))
         return super(Survey, self).copy_data(default)
 
@@ -399,9 +509,9 @@ class Survey(models.Model):
                 lambda q: q.question_type == 'char_box' and (q.save_as_email or q.save_as_nickname)):
             for user_input in user_inputs:
                 if question.save_as_email and user_input.email:
-                    user_input.save_lines(question, user_input.email)
+                    user_input._save_lines(question, user_input.email)
                 if question.save_as_nickname and user_input.nickname:
-                    user_input.save_lines(question, user_input.nickname)
+                    user_input._save_lines(question, user_input.nickname)
 
         return user_inputs
 
@@ -422,7 +532,7 @@ class Survey(models.Model):
                 # no signup possible -> should be a not public user (employee or portal users)
                 if not self.users_can_signup and (not user or user._is_public()):
                     raise exceptions.UserError(_('Creating token for external people is not allowed for surveys requesting authentication.'))
-            if self.access_mode == 'internal' and (not user or not user.has_group('base.group_user')):
+            if self.access_mode == 'internal' and (not user or not user._is_internal()):
                 raise exceptions.UserError(_('Creating token for anybody else than employees is not allowed for internal surveys.'))
             if check_attempts and not self._has_attempts_left(partner or (user and user.partner_id), email, invite_token):
                 raise exceptions.UserError(_('No attempts left.'))
@@ -527,22 +637,31 @@ class Survey(models.Model):
         return result
 
     def _get_pages_and_questions_to_show(self):
-        """
-        :return: survey.question recordset excluding invalid conditional questions and pages without description
-        """
+        """Filter question_and_pages_ids to include only valid pages and questions.
 
+        Pages are invalid if they have no description. Questions are invalid if
+        they are conditional and all their triggers are invalid.
+        Triggers are invalid if they:
+          - Are a page (not a question)
+          - Have the wrong question type (`simple_choice` and `multiple_choice` are supported)
+          - Are misplaced (positioned after the conditional question)
+          - They are themselves conditional and were found invalid
+        """
         self.ensure_one()
         invalid_questions = self.env['survey.question']
         questions_and_valid_pages = self.question_and_page_ids.filtered(
             lambda question: not question.is_page or not is_html_empty(question.description))
-        for question in questions_and_valid_pages.filtered(lambda q: q.is_conditional).sorted():
-            trigger = question.triggering_question_id
-            if (trigger in invalid_questions
-                    or trigger.is_page
-                    or trigger.question_type not in ['simple_choice', 'multiple_choice']
-                    or not trigger.suggested_answer_ids
-                    or trigger.sequence > question.sequence
-                    or (trigger.sequence == question.sequence and trigger.id > question.id)):
+
+        for question in questions_and_valid_pages.filtered(lambda q: q.triggering_answer_ids).sorted():
+            for trigger in question.triggering_question_ids:
+                if (trigger not in invalid_questions
+                        and not trigger.is_page
+                        and trigger.question_type in ['simple_choice', 'multiple_choice']
+                        and (trigger.sequence < question.sequence
+                             or (trigger.sequence == question.sequence and trigger.id < question.id))):
+                    break
+            else:
+                # No valid trigger found
                 invalid_questions |= question
         return questions_and_valid_pages - invalid_questions
 
@@ -586,7 +705,7 @@ class Survey(models.Model):
             return Question
 
         # Conditional Questions Management
-        triggering_answer_by_question, triggered_questions_by_answer, selected_answers = user_input._get_conditional_values()
+        triggering_answers_by_question, _, selected_answers = user_input._get_conditional_values()
         inactive_questions = user_input._get_inactive_conditional_questions()
         if survey.questions_layout == 'page_per_question':
             question_candidates = pages_or_questions[0:current_page_index] if go_back \
@@ -599,8 +718,8 @@ class Survey(models.Model):
                     if contains_active_question or is_description_section:
                         return question
                 else:
-                    triggering_answer = triggering_answer_by_question.get(question)
-                    if not triggering_answer or triggering_answer in selected_answers:
+                    triggering_answers = triggering_answers_by_question.get(question)
+                    if not triggering_answers or triggering_answers & selected_answers:
                         # question is visible because not conditioned or conditioned by a selected answer
                         return question
         elif survey.questions_layout == 'page_per_section':
@@ -638,7 +757,7 @@ class Survey(models.Model):
         next_page_or_question_candidates = pages_or_questions[current_page_index + 1:]
         if next_page_or_question_candidates:
             inactive_questions = user_input._get_inactive_conditional_questions()
-            triggering_answer_by_question, triggered_questions_by_answer, selected_answers = user_input._get_conditional_values()
+            _, triggered_questions_by_answer, _ = user_input._get_conditional_values()
             if self.questions_layout == 'page_per_question':
                 next_active_question = any(next_question not in inactive_questions for next_question in next_page_or_question_candidates)
                 is_triggering_question = any(triggering_answer in triggered_questions_by_answer.keys() for triggering_answer in page_or_question.suggested_answer_ids)
@@ -706,17 +825,15 @@ class Survey(models.Model):
     # ------------------------------------------------------------
 
     def _get_conditional_maps(self):
-        triggering_answer_by_question = {}
-        triggered_questions_by_answer = {}
+        triggering_answers_by_question = defaultdict(lambda: self.env['survey.question.answer'])
+        triggered_questions_by_answer = defaultdict(lambda: self.env['survey.question'])
         for question in self.question_ids:
-            triggering_answer_by_question[question] = question.is_conditional and question.triggering_answer_id
+            triggering_answers_by_question[question] |= question.triggering_answer_ids
 
-            if question.is_conditional:
-                if question.triggering_answer_id in triggered_questions_by_answer:
-                    triggered_questions_by_answer[question.triggering_answer_id] |= question
-                else:
-                    triggered_questions_by_answer[question.triggering_answer_id] = question
-        return triggering_answer_by_question, triggered_questions_by_answer
+            for triggering_answer_id in question.triggering_answer_ids:
+                triggered_questions_by_answer[triggering_answer_id] |= question
+
+        return triggering_answers_by_question, triggered_questions_by_answer
 
     # ------------------------------------------------------------
     # SESSIONS MANAGEMENT
@@ -730,7 +847,7 @@ class Survey(models.Model):
 
         if self.env.user.has_group('survey.group_survey_user'):
             self.sudo().write({'session_state': 'in_progress'})
-            self.sudo().flush(['session_state'])
+            self.sudo().flush_recordset(['session_state'])
 
     def _get_session_next_question(self, go_back):
         self.ensure_one()
@@ -841,11 +958,15 @@ class Survey(models.Model):
     # ACTIONS
     # ------------------------------------------------------------
 
-    def action_send_survey(self):
-        """ Open a window to compose an email, pre-filled with the survey message """
+    def check_validity(self):
         # Ensure that this survey has at least one question.
         if not self.question_ids:
             raise UserError(_('You cannot send an invitation for a survey that has no questions.'))
+
+        # Ensure scored survey have a positive total score obtainable.
+        if self.scoring_type != 'no_scoring' and self.scoring_max_obtainable <= 0:
+            raise UserError(_("A scored survey needs at least one question that gives points.\n"
+                              "Please check answers and their scores."))
 
         # Ensure that this survey has at least one section with question(s), if question layout is 'One page per section'.
         if self.questions_layout == 'page_per_section':
@@ -857,17 +978,22 @@ class Survey(models.Model):
         if not self.active:
             raise exceptions.UserError(_("You cannot send invitations for closed surveys."))
 
+    def action_send_survey(self):
+        """ Open a window to compose an email, pre-filled with the survey message """
+        self.check_validity()
+
         template = self.env.ref('survey.mail_template_user_input_invite', raise_if_not_found=False)
 
         local_context = dict(
             self.env.context,
             default_survey_id=self.id,
-            default_use_template=bool(template),
             default_template_id=template and template.id or False,
-            notif_layout='mail.mail_notification_light',
+            default_email_layout_xmlid='mail.mail_notification_light',
+            default_send_email=(self.access_mode != 'public'),
         )
         return {
             'type': 'ir.actions.act_window',
+            'name': _("Share a Survey"),
             'view_mode': 'form',
             'res_model': 'survey.invite',
             'target': 'new',
@@ -892,7 +1018,7 @@ class Survey(models.Model):
         return {
             'type': 'ir.actions.act_url',
             'name': "Print Survey",
-            'target': 'self',
+            'target': 'new',
             'url': url
         }
 
@@ -902,7 +1028,7 @@ class Survey(models.Model):
         return {
             'type': 'ir.actions.act_url',
             'name': "Results of the Survey",
-            'target': 'self',
+            'target': 'new',
             'url': '/survey/results/%s' % self.id
         }
 
@@ -912,7 +1038,7 @@ class Survey(models.Model):
         return {
             'type': 'ir.actions.act_url',
             'name': "Test Survey",
-            'target': '_blank',
+            'target': 'new',
             'url': '/survey/test/%s' % self.access_token,
         }
 
@@ -920,8 +1046,7 @@ class Survey(models.Model):
         action = self.env['ir.actions.act_window']._for_xml_id('survey.action_survey_user_input')
         ctx = dict(self.env.context)
         ctx.update({'search_default_survey_id': self.ids[0],
-                    'search_default_completed': 1,
-                    'search_default_not_test': 1})
+                    'search_default_completed': 1})
         action['context'] = ctx
         return action
 
@@ -929,16 +1054,14 @@ class Survey(models.Model):
         action = self.env['ir.actions.act_window']._for_xml_id('survey.action_survey_user_input')
         ctx = dict(self.env.context)
         ctx.update({'search_default_survey_id': self.ids[0],
-                    'search_default_scoring_success': 1,
-                    'search_default_not_test': 1})
+                    'search_default_scoring_success': 1})
         action['context'] = ctx
         return action
 
     def action_survey_user_input(self):
         action = self.env['ir.actions.act_window']._for_xml_id('survey.action_survey_user_input')
         ctx = dict(self.env.context)
-        ctx.update({'search_default_survey_id': self.ids[0],
-                    'search_default_not_test': 1})
+        ctx.update({'search_default_survey_id': self.ids[0]})
         action['context'] = ctx
         return action
 
@@ -946,14 +1069,14 @@ class Survey(models.Model):
         self.ensure_one()
         return {
             'type': 'ir.actions.act_url',
-            'target': '_blank',
+            'target': 'new',
             'url': '/survey/%s/certification_preview' % (self.id)
         }
 
     def action_start_session(self):
         """ Sets the necessary fields for the session to take place and starts it.
         The write is sudo'ed because a survey user can start a session even if it's
-        not his own survey. """
+        not their own survey. """
 
         if not self.env.user.has_group('survey.group_survey_user'):
             raise AccessError(_('Only survey users can manage sessions.'))
@@ -973,13 +1096,13 @@ class Survey(models.Model):
         return {
             'type': 'ir.actions.act_url',
             'name': "Open Session Manager",
-            'target': '_blank',
+            'target': 'new',
             'url': '/survey/session/manage/%s' % self.access_token
         }
 
     def action_end_session(self):
         """ The write is sudo'ed because a survey user can end a session even if it's
-        not his own survey. """
+        not their own survey. """
 
         if not self.env.user.has_group('survey.group_survey_user'):
             raise AccessError(_('Only survey users can manage sessions.'))
@@ -1014,30 +1137,24 @@ class Survey(models.Model):
                 ('state', '=', 'done'),
                 ('test_entry', '=', False)
             ]
-        count_data = self.env['survey.user_input'].sudo().read_group(user_input_domain, ['scoring_success', 'id:count_distinct'], ['scoring_success'])
+        count_data_success = self.env['survey.user_input'].sudo()._read_group(user_input_domain, ['scoring_success'], ['__count'])
+        completed_count = self.env['survey.user_input'].sudo().search_count(user_input_domain + [('state', "=", "done")])
 
         scoring_success_count = 0
         scoring_failed_count = 0
-        for count_data_item in count_data:
-            if count_data_item['scoring_success']:
-                scoring_success_count += count_data_item['scoring_success_count']
+        for scoring_success, count in count_data_success:
+            if scoring_success:
+                scoring_success_count += count
             else:
-                scoring_failed_count += count_data_item['scoring_success_count']
-
-        success_graph = json.dumps([{
-            'text': _('Passed'),
-            'count': scoring_success_count,
-            'color': '#2E7D32'
-        }, {
-            'text': _('Missed'),
-            'count': scoring_failed_count,
-            'color': '#C62828'
-        }])
+                scoring_failed_count += count
 
         total = scoring_success_count + scoring_failed_count
         return {
             'global_success_rate': round((scoring_success_count / total) * 100, 1) if total > 0 else 0,
-            'global_success_graph': success_graph
+            'count_all': total,
+            'count_finished': completed_count,
+            'count_failed': scoring_failed_count,
+            'count_passed': total - scoring_failed_count
         }
 
     # ------------------------------------------------------------

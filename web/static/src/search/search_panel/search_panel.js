@@ -1,7 +1,29 @@
 /** @odoo-module **/
 
-const { Component, hooks } = owl;
-const { useState } = hooks;
+import { useBus } from "@web/core/utils/hooks";
+
+import { Component, onMounted, onWillUpdateProps, onWillStart, useRef, useState } from "@odoo/owl";
+
+//-------------------------------------------------------------------------
+// Helpers
+//-------------------------------------------------------------------------
+
+const isFilter = (s) => s.type === "filter";
+const isActiveCategory = (s) => s.type === "category" && s.activeValueId;
+
+/**
+ * @param {Map<string | false, Object>} values
+ * @returns {Object[]}
+ */
+const nameOfCheckedValues = (values) => {
+    const names = [];
+    for (const [, value] of values) {
+        if (value.checked) {
+            names.push(value.display_name);
+        }
+    }
+    return names;
+};
 
 /**
  * Search panel
@@ -17,29 +39,37 @@ export class SearchPanel extends Component {
         this.state = useState({
             active: {},
             expanded: {},
+            showMobileSearch: false,
         });
+        this.root = useRef("root");
         this.scrollTop = 0;
         this.hasImportedState = false;
 
         this.importState(this.props.importedState);
-    }
 
-    async willStart() {
-        await this.env.searchModel.sectionsPromise;
-        this.expandDefaultValue();
-        this.updateActiveValues();
-    }
+        useBus(this.env.searchModel, "update", async () => {
+            await this.env.searchModel.sectionsPromise;
+            this.updateActiveValues();
+            this.render();
+        });
 
-    mounted() {
-        this.updateGroupHeadersChecked();
-        if (this.hasImportedState) {
-            this.el.scroll({ top: this.scrollTop });
-        }
-    }
+        onWillStart(async () => {
+            await this.env.searchModel.sectionsPromise;
+            this.expandDefaultValue();
+            this.updateActiveValues();
+        });
 
-    async willUpdateProps() {
-        await this.env.searchModel.sectionsPromise;
-        this.updateActiveValues();
+        onWillUpdateProps(async () => {
+            await this.env.searchModel.sectionsPromise;
+            this.updateActiveValues();
+        });
+
+        onMounted(() => {
+            this.updateGroupHeadersChecked();
+            if (this.hasImportedState) {
+                this.root.el.scroll({ top: this.scrollTop });
+            }
+        });
     }
 
     //---------------------------------------------------------------------
@@ -57,7 +87,7 @@ export class SearchPanel extends Component {
     exportState() {
         const exported = {
             expanded: this.state.expanded,
-            scrollTop: this.el.scrollTop,
+            scrollTop: this.root.el.scrollTop,
         };
         return JSON.stringify(exported);
     }
@@ -106,6 +136,52 @@ export class SearchPanel extends Component {
     }
 
     /**
+     * Returns a formatted version of the active categories to populate
+     * the selection banner of the control panel summary.
+     * @returns {Object[]}
+     */
+    getCategorySelection() {
+        const activeCategories = this.env.searchModel.getSections(isActiveCategory);
+        const selection = [];
+        for (const category of activeCategories) {
+            const parentIds = this.getAncestorValueIds(category, category.activeValueId);
+            const orderedCategoryNames = [...parentIds, category.activeValueId].map(
+                (valueId) => category.values.get(valueId).display_name
+            );
+            selection.push({
+                values: orderedCategoryNames,
+                icon: category.icon,
+                color: category.color,
+            });
+        }
+        return selection;
+    }
+
+    /**
+     * Returns a formatted version of the active filters to populate
+     * the selection banner of the control panel summary.
+     * @returns {Object[]}
+     */
+    getFilterSelection() {
+        const filters = this.env.searchModel.getSections(isFilter);
+        const selection = [];
+        for (const { groups, values, icon, color } of filters) {
+            let filterValues;
+            if (groups) {
+                filterValues = Object.keys(groups)
+                    .map((groupId) => nameOfCheckedValues(groups[groupId].values))
+                    .flat();
+            } else if (values) {
+                filterValues = nameOfCheckedValues(values);
+            }
+            if (filterValues.length) {
+                selection.push({ values: filterValues, icon, color });
+            }
+        }
+        return selection;
+    }
+
+    /**
      * Prevent unnecessary calls to the model by ensuring a different category
      * is clicked.
      * @param {Object} category
@@ -121,7 +197,6 @@ export class SearchPanel extends Component {
             }
         }
         if (category.activeValueId !== value.id) {
-            this.state.active[category.id] = value.id;
             this.env.searchModel.toggleCategoryValue(category.id, value.id);
         }
     }
@@ -181,7 +256,7 @@ export class SearchPanel extends Component {
      * headers according to the state of their values.
      */
     updateGroupHeadersChecked() {
-        const groups = this.el.querySelectorAll(":scope .o_search_panel_filter_group");
+        const groups = this.root.el.querySelectorAll(":scope .o_search_panel_filter_group");
         for (const group of groups) {
             const header = group.querySelector(":scope .o_search_panel_group_header input");
             const vals = [...group.querySelectorAll(":scope .o_search_panel_filter_value input")];

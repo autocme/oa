@@ -12,7 +12,7 @@ class LeaveReport(models.Model):
     _order = "date_from DESC, employee_id"
 
     employee_id = fields.Many2one('hr.employee', string="Employee", readonly=True)
-    active_employee = fields.Boolean(related='employee_id.active', readonly=True)
+    leave_id = fields.Many2one('hr.leave', string="Time Off Request", readonly=True)
     name = fields.Char('Description', readonly=True)
     number_of_days = fields.Float('Number of Days', readonly=True)
     leave_type = fields.Selection([
@@ -21,7 +21,7 @@ class LeaveReport(models.Model):
         ], string='Request Type', readonly=True)
     department_id = fields.Many2one('hr.department', string='Department', readonly=True)
     category_id = fields.Many2one('hr.employee.category', string='Employee Tag', readonly=True)
-    holiday_status_id = fields.Many2one("hr.leave.type", string="Leave Type", readonly=True)
+    holiday_status_id = fields.Many2one("hr.leave.type", string="Time Off Type", readonly=True)
     state = fields.Selection([
         ('draft', 'To Submit'),
         ('cancel', 'Cancelled'),
@@ -44,6 +44,7 @@ class LeaveReport(models.Model):
         self._cr.execute("""
             CREATE or REPLACE view hr_leave_report as (
                 SELECT row_number() over(ORDER BY leaves.employee_id) as id,
+                leaves.leave_id as leave_id,
                 leaves.employee_id as employee_id, leaves.name as name,
                 leaves.number_of_days as number_of_days, leaves.leave_type as leave_type,
                 leaves.category_id as category_id, leaves.department_id as department_id,
@@ -51,6 +52,7 @@ class LeaveReport(models.Model):
                 leaves.holiday_type as holiday_type, leaves.date_from as date_from,
                 leaves.date_to as date_to, leaves.company_id
                 from (select
+                    allocation.id as leave_id,
                     allocation.employee_id as employee_id,
                     allocation.private_name as name,
                     allocation.number_of_days as number_of_days,
@@ -64,7 +66,11 @@ class LeaveReport(models.Model):
                     'allocation' as leave_type,
                     allocation.employee_company_id as company_id
                 from hr_leave_allocation as allocation
+                inner join hr_employee as employee on (allocation.employee_id = employee.id)
+                where employee.active IS True AND
+                allocation.active IS True
                 union all select
+                    request.id as leave_id,
                     request.employee_id as employee_id,
                     request.private_name as name,
                     (request.number_of_days * -1) as number_of_days,
@@ -77,31 +83,20 @@ class LeaveReport(models.Model):
                     request.date_to as date_to,
                     'request' as leave_type,
                     request.employee_company_id as company_id
-                from hr_leave as request) leaves
+                from hr_leave as request
+                inner join hr_employee as employee on (request.employee_id = employee.id)
+                where employee.active IS True AND
+                request.active is True
+                ) leaves
             );
         """)
 
-    @api.model
-    def action_time_off_analysis(self):
-        domain = [('holiday_type', '=', 'employee')]
-
-        if self.env.context.get('active_ids'):
-            domain = expression.AND([
-                domain,
-                [('employee_id', 'in', self.env.context.get('active_ids', []))]
-            ])
+    def action_open_record(self):
+        self.ensure_one()
 
         return {
-            'name': _('Time Off Analysis'),
             'type': 'ir.actions.act_window',
-            'res_model': 'hr.leave.report',
-            'view_mode': 'tree,pivot,form',
-            'search_view_id': [self.env.ref('hr_holidays.view_hr_holidays_filter_report').id],
-            'domain': domain,
-            'context': {
-                'search_default_group_type': True,
-                'search_default_year': True,
-                'search_default_validated': True,
-                'search_default_active_employee': True,
-            }
+            'view_mode': 'form',
+            'res_id': self.leave_id.id,
+            'res_model': 'hr.leave' if self.leave_type == 'request' else 'hr.leave.allocation',
         }

@@ -1,17 +1,10 @@
-odoo.define("website.tour.restricted_editor", function (require) {
-"use strict";
+/** @odoo-module **/
 
-var tour = require("web_tour.tour");
+import wTourUtils from "@website/js/tours/tour_utils";
 
-tour.register("restricted_editor", {
+wTourUtils.registerWebsitePreviewTour("restricted_editor", {
     test: true,
     url: "/",
-}, [{
-    trigger: 'a[data-action=edit]',
-    content: "Click \"EDIT\" button of website as Restricted Editor",
-    extra_trigger: ".homepage",
-}, {
-    trigger: '#oe_snippets.o_loaded',
-    content: "Check that the snippets loaded properly",
-}]);
-});
+}, () => [
+    ...wTourUtils.clickOnEditAndWaitEditMode(),
+]);

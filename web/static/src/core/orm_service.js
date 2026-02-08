@@ -8,17 +8,6 @@ import { registry } from "./registry";
  */
 
 // -----------------------------------------------------------------------------
-// Helper
-// -----------------------------------------------------------------------------
-function assignOptions(kwargs, options, whileList) {
-    for (let elem of whileList) {
-        if (elem in options) {
-            kwargs[elem] = options[elem];
-        }
-    }
-}
-
-// -----------------------------------------------------------------------------
 // ORM
 // -----------------------------------------------------------------------------
 
@@ -34,35 +23,43 @@ function assignOptions(kwargs, options, whileList) {
  * and update) either the new ``ids`` list of related records (command set),
  * either 0 (commands delete, unlink, link, and clear).
  */
-export const Commands = {
+export const x2ManyCommands = {
+    // (0, virtualID | false, { values })
+    CREATE: 0,
     create(virtualID, values) {
         delete values.id;
-        return [0, virtualID || false, values];
+        return [x2ManyCommands.CREATE, virtualID || false, values];
     },
-
+    // (1, id, { values })
+    UPDATE: 1,
     update(id, values) {
         delete values.id;
-        return [1, id, values];
+        return [x2ManyCommands.UPDATE, id, values];
     },
-
+    // (2, id[, _])
+    DELETE: 2,
     delete(id) {
-        return [2, id, false];
+        return [x2ManyCommands.DELETE, id, false];
     },
-
-    forget(id) {
-        return [3, id, false];
+    // (3, id[, _]) removes relation, but not linked record itself
+    UNLINK: 3,
+    unlink(id) {
+        return [x2ManyCommands.UNLINK, id, false];
     },
-
-    linkTo(id) {
-        return [4, id, false];
+    // (4, id[, _])
+    LINK: 4,
+    link(id) {
+        return [x2ManyCommands.LINK, id, false];
     },
-
-    deleteAll() {
-        return [5, false, false];
+    // (5[, _[, _]])
+    CLEAR: 5,
+    clear() {
+        return [x2ManyCommands.CLEAR, false, false];
     },
-
-    replaceWith(ids) {
-        return [6, false, ids];
+    // (6, _, ids) replaces all linked records with provided ids
+    SET: 6,
+    set(ids) {
+        return [x2ManyCommands.SET, false, ids];
     },
 };
 
@@ -87,23 +84,43 @@ function validateArray(name, array) {
     }
 }
 
+export const UPDATE_METHODS = [
+    "unlink",
+    "create",
+    "write",
+    "web_save",
+    "action_archive",
+    "action_unarchive",
+];
+
 export class ORM {
     constructor(rpc, user) {
+        /** @protected */
         this.rpc = rpc;
+        /** @protected */
         this.user = user;
+        /** @protected */
         this._silent = false;
     }
 
+    /** @returns {ORM} */
     get silent() {
         return Object.assign(Object.create(this), { _silent: true });
     }
 
+    /**
+     * @param {string} model
+     * @param {string} method
+     * @param {any[]} [args=[]]
+     * @param {any} [kwargs={}]
+     * @returns {Promise<any>}
+     */
     call(model, method, args = [], kwargs = {}) {
         validateModel(model);
-        let url = `/web/dataset/call_kw/${model}/${method}`;
+        const url = `/web/dataset/call_kw/${model}/${method}`;
         const fullContext = Object.assign({}, this.user.context, kwargs.context || {});
         const fullKwargs = Object.assign({}, kwargs, { context: fullContext });
-        let params = {
+        const params = {
             model,
             method,
             args,
@@ -112,12 +129,28 @@ export class ORM {
         return this.rpc(url, params, { silent: this._silent });
     }
 
-    create(model, state, ctx) {
-        validateObject("state", state);
-        return this.call(model, "create", [state], { context: ctx });
+    /**
+     * @param {string} model
+     * @param {any[]} records
+     * @param {any} [kwargs=[]]
+     * @returns {Promise<number>}
+     */
+    create(model, records, kwargs = {}) {
+        validateArray("records", records);
+        for (const record of records) {
+            validateObject("record", record);
+        }
+        return this.call(model, "create", [records], kwargs);
     }
 
-    read(model, ids, fields, ctx) {
+    /**
+     * @param {string} model
+     * @param {number[]} ids
+     * @param {string[]} fields
+     * @param {any} [kwargs={}]
+     * @returns {Promise<any[]>}
+     */
+    read(model, ids, fields, kwargs = {}) {
         validatePrimitiveList("ids", "number", ids);
         if (fields) {
             validatePrimitiveList("fields", "string", fields);
@@ -125,76 +158,146 @@ export class ORM {
         if (!ids.length) {
             return Promise.resolve([]);
         }
-        return this.call(model, "read", [ids, fields], { context: ctx });
+        return this.call(model, "read", [ids, fields], kwargs);
     }
 
-    readGroup(model, domain, fields, groupby, options = {}, ctx = {}) {
+    /**
+     * @param {string} model
+     * @param {import("@web/core/domain").DomainListRepr} domain
+     * @param {string[]} fields
+     * @param {string[]} groupby
+     * @param {any} [kwargs={}]
+     * @returns {Promise<any[]>}
+     */
+    readGroup(model, domain, fields, groupby, kwargs = {}) {
         validateArray("domain", domain);
         validatePrimitiveList("fields", "string", fields);
         validatePrimitiveList("groupby", "string", groupby);
-        const kwargs = {
-            domain,
-            groupby,
-            fields,
-            context: ctx,
-        };
-        assignOptions(kwargs, options, ["lazy", "offset", "orderby", "limit"]);
-        return this.call(model, "read_group", [], kwargs);
+        groupby = [...new Set(groupby)];
+        return this.call(model, "read_group", [], { ...kwargs, domain, fields, groupby });
     }
 
-    search(model, domain, options = {}, ctx = {}) {
+    /**
+     * @param {string} model
+     * @param {import("@web/core/domain").DomainListRepr} domain
+     * @param {any} [kwargs={}]
+     * @returns {Promise<any[]>}
+     */
+    search(model, domain, kwargs = {}) {
         validateArray("domain", domain);
-        const kwargs = {
-            context: ctx,
-        };
-        assignOptions(kwargs, options, ["offset", "limit", "order"]);
         return this.call(model, "search", [domain], kwargs);
     }
 
-    searchRead(model, domain, fields, options = {}, ctx = {}) {
+    /**
+     * @param {string} model
+     * @param {import("@web/core/domain").DomainListRepr} domain
+     * @param {string[]} fields
+     * @param {any} [kwargs={}]
+     * @returns {Promise<any[]>}
+     */
+    searchRead(model, domain, fields, kwargs = {}) {
         validateArray("domain", domain);
         if (fields) {
             validatePrimitiveList("fields", "string", fields);
         }
-        const kwargs = { context: ctx, domain, fields };
-        assignOptions(kwargs, options, ["offset", "limit", "order"]);
-        return this.call(model, "search_read", [], kwargs);
+        return this.call(model, "search_read", [], { ...kwargs, domain, fields });
     }
 
-    unlink(model, ids, ctx) {
+    /**
+     * @param {string} model
+     * @param {import("@web/core/domain").DomainListRepr} domain
+     * @param {any} [kwargs={}]
+     * @returns {Promise<number>}
+     */
+    searchCount(model, domain, kwargs = {}) {
+        validateArray("domain", domain);
+        return this.call(model, "search_count", [domain], kwargs);
+    }
+
+    /**
+     * @param {string} model
+     * @param {number[]} ids
+     * @param {any} [kwargs={}]
+     * @returns {Promise<boolean>}
+     */
+    unlink(model, ids, kwargs = {}) {
         validatePrimitiveList("ids", "number", ids);
         if (!ids.length) {
-            return true;
+            return Promise.resolve(true);
         }
-        return this.call(model, "unlink", [ids], { context: ctx });
+        return this.call(model, "unlink", [ids], kwargs);
     }
 
-    webReadGroup(model, domain, fields, groupby, options = {}, ctx = {}) {
+    /**
+     * @param {string} model
+     * @param {import("@web/core/domain").DomainListRepr} domain
+     * @param {string[]} fields
+     * @param {string[]} groupby
+     * @param {any} [kwargs={}]
+     * @returns {Promise<any[]>}
+     */
+    webReadGroup(model, domain, fields, groupby, kwargs = {}) {
         validateArray("domain", domain);
         validatePrimitiveList("fields", "string", fields);
         validatePrimitiveList("groupby", "string", groupby);
-        const kwargs = {
-            domain,
+        return this.call(model, "web_read_group", [], {
+            ...kwargs,
             groupby,
+            domain,
             fields,
-            context: ctx,
-        };
-        assignOptions(kwargs, options, ["lazy", "offset", "orderby", "limit"]);
-        return this.call(model, "web_read_group", [], kwargs);
+        });
     }
 
-    webSearchRead(model, domain, fields, options = {}, ctx = {}) {
+    /**
+     * @param {string} model
+     * @param {number[]} ids
+     * @param {any} [kwargs={}]
+     * @param {Object} [kwargs.specification]
+     * @param {Object} [kwargs.context]
+     * @returns {Promise<any[]>}
+     */
+    webRead(model, ids, kwargs = {}) {
+        validatePrimitiveList("ids", "number", ids);
+        return this.call(model, "web_read", [ids], kwargs);
+    }
+
+    /**
+     * @param {string} model
+     * @param {import("@web/core/domain").DomainListRepr} domain
+     * @param {any} [kwargs={}]
+     * @returns {Promise<any[]>}
+     */
+    webSearchRead(model, domain, kwargs = {}) {
         validateArray("domain", domain);
-        validatePrimitiveList("fields", "string", fields);
-        const kwargs = { context: ctx, domain, fields };
-        assignOptions(kwargs, options, ["offset", "limit", "order"]);
-        return this.call(model, "web_search_read", [], kwargs);
+        return this.call(model, "web_search_read", [], { ...kwargs, domain });
     }
 
-    write(model, ids, data, ctx) {
+    /**
+     * @param {string} model
+     * @param {number[]} ids
+     * @param {any} data
+     * @param {any} [kwargs={}]
+     * @returns {Promise<boolean>}
+     */
+    write(model, ids, data, kwargs = {}) {
         validatePrimitiveList("ids", "number", ids);
         validateObject("data", data);
-        return this.call(model, "write", [ids, data], { context: ctx });
+        return this.call(model, "write", [ids, data], kwargs);
+    }
+
+    /**
+     * @param {string} model
+     * @param {number[]} ids
+     * @param {any} data
+     * @param {any} [kwargs={}]
+     * @param {Object} [kwargs.specification]
+     * @param {Object} [kwargs.context]
+     * @returns {Promise<any[]>}
+     */
+    webSave(model, ids, data, kwargs = {}) {
+        validatePrimitiveList("ids", "number", ids);
+        validateObject("data", data);
+        return this.call(model, "web_save", [ids, data], kwargs);
     }
 }
 
@@ -215,6 +318,7 @@ export const ormService = {
     async: [
         "call",
         "create",
+        "nameGet",
         "read",
         "readGroup",
         "search",

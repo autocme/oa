@@ -1,9 +1,10 @@
 # -*- coding: utf-8 -*-
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
 
+from datetime import datetime
+
 from odoo import api, fields, models, _
 from odoo.exceptions import ValidationError
-from odoo.tools import float_round
 from odoo.osv import expression
 
 
@@ -52,7 +53,9 @@ class HolidaysAllocation(models.Model):
         res = super().write(vals)
         if 'number_of_days' not in vals:
             return res
-        for allocation in self.filtered('overtime_id'):
+        if not self.env.user.has_group("hr_holidays.group_hr_holidays_user") and any(allocation.state not in ('draft', 'confirm') for allocation in self):
+            raise ValidationError(_('Only an Officer or Administrator is allowed to edit the allocation duration in this status.'))
+        for allocation in self.sudo().filtered('overtime_id'):
             employee = allocation.employee_id
             duration = allocation.number_of_hours_display
             overtime_duration = allocation.overtime_id.sudo().duration
@@ -62,24 +65,28 @@ class HolidaysAllocation(models.Model):
                 allocation.overtime_id.sudo().duration = -1 * duration
         return res
 
-    def action_draft(self):
-        overtime_allocations = self.filtered('overtime_deductible')
-        if any([a.employee_overtime < float_round(a.number_of_hours_display, 2) for a in overtime_allocations]):
-            raise ValidationError(_('The employee does not have enough extra hours to request this allocation.'))
-        res = super().action_draft()
-
-        overtime_allocations.overtime_id.sudo().unlink()
-        for allocation in overtime_allocations:
-            overtime = self.env['hr.attendance.overtime'].sudo().create({
-                'employee_id': allocation.employee_id.id,
-                'date': allocation.date_from,
-                'adjustment': True,
-                'duration': -1 * allocation.number_of_hours_display
-            })
-            allocation.sudo().overtime_id = overtime.id
-        return res
-
     def action_refuse(self):
         res = super().action_refuse()
         self.overtime_id.sudo().unlink()
         return res
+
+    def _get_accrual_plan_level_work_entry_prorata(self, level, start_period, start_date, end_period, end_date):
+        self.ensure_one()
+        if level.frequency != 'hourly' or level.frequency_hourly_source != 'attendance':
+            return super()._get_accrual_plan_level_work_entry_prorata(level, start_period, start_date, end_period, end_date)
+        datetime_min_time = datetime.min.time()
+        start_dt = datetime.combine(start_date, datetime_min_time)
+        end_dt = datetime.combine(end_date, datetime_min_time)
+
+        # Search for any attendance overlapping the window
+        attendances = self.env['hr.attendance'].sudo().search([
+            ('employee_id', '=', self.employee_id.id),
+            ('check_in', '<', end_dt),
+            ('check_out', '>', start_dt),
+        ])
+
+        total_worked_hours = 0.0
+        for attendance in attendances:
+            total_worked_hours += attendance._get_worked_hours_in_range(start_dt, end_dt)
+
+        return total_worked_hours

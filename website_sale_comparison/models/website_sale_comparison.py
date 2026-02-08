@@ -20,9 +20,13 @@ class ProductAttribute(models.Model):
     _inherit = 'product.attribute'
     _order = 'category_id, sequence, id'
 
-    category_id = fields.Many2one('product.attribute.category', string="Category", index=True,
-                                  help="Set a category to regroup similar attributes under "
-                                  "the same section in the Comparison page of eCommerce")
+    category_id = fields.Many2one(
+        comodel_name='product.attribute.category',
+        string="eCommerce Category",
+        index=True,
+        help="Set a category to regroup similar attributes under the same section in the Comparison"
+             " page of eCommerce.",
+    )
 
 
 class ProductTemplateAttributeLine(models.Model):
@@ -66,7 +70,7 @@ class ProductProduct(models.Model):
             }]
         }]
         """
-        attributes = self.product_tmpl_id.valid_product_template_attribute_line_ids._without_no_variant_attributes().attribute_id.sorted()
+        attributes = self.product_tmpl_id.valid_product_template_attribute_line_ids.attribute_id.sorted()
         categories = OrderedDict([(cat, OrderedDict()) for cat in attributes.category_id.sorted()])
         if any(not pa.category_id for pa in attributes):
             # category_id is not required and the mapped does not return empty
@@ -74,7 +78,6 @@ class ProductProduct(models.Model):
         for pa in attributes:
             categories[pa.category_id][pa] = OrderedDict([(
                 product,
-                product.product_template_attribute_value_ids.filtered(lambda ptav: ptav.attribute_id == pa)
+                product.attribute_line_ids.filtered(lambda ptal: ptal.attribute_id == pa).value_ids
             ) for product in self])
-
         return categories

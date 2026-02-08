@@ -4,10 +4,10 @@
 #
 msgid ""
 msgstr ""
-"Project-Id-Version: Odoo Server saas~14.5\n"
+"Project-Id-Version: Odoo Server 17.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2021-09-14 10:28+0000\n"
-"PO-Revision-Date: 2021-09-14 10:28+0000\n"
+"POT-Creation-Date: 2025-12-29 18:37+0000\n"
+"PO-Revision-Date: 2025-12-29 18:37+0000\n"
 "Last-Translator: \n"
 "Language-Team: \n"
 "MIME-Version: 1.0\n"
@@ -27,6 +27,7 @@ msgid "# Registrations"
 msgstr ""
 
 #. module: event_crm
+#. odoo-python
 #: code:addons/event_crm/models/event_registration.py:0
 #, python-format
 msgid "(updated)"
@@ -55,13 +56,13 @@ msgid "Archived"
 msgstr ""
 
 #. module: event_crm
-#: model:ir.model.fields.selection,name:event_crm.selection__event_lead_rule__lead_creation_trigger__confirm
-msgid "Attendees are confirmed"
+#: model:ir.model.fields.selection,name:event_crm.selection__event_lead_rule__lead_creation_trigger__create
+msgid "Attendees are created"
 msgstr ""
 
 #. module: event_crm
-#: model:ir.model.fields.selection,name:event_crm.selection__event_lead_rule__lead_creation_trigger__create
-msgid "Attendees are created"
+#: model:ir.model.fields.selection,name:event_crm.selection__event_lead_rule__lead_creation_trigger__confirm
+msgid "Attendees are registered"
 msgstr ""
 
 #. module: event_crm
@@ -87,16 +88,6 @@ msgstr ""
 #. module: event_crm
 #: model:ir.model.fields,field_description:event_crm.field_event_lead_rule__company_id
 msgid "Company"
-msgstr ""
-
-#. module: event_crm
-#: model:ir.model.fields,help:event_crm.field_event_event__lead_count
-msgid "Counter for the leads linked to this event"
-msgstr ""
-
-#. module: event_crm
-#: model:ir.model.fields,help:event_crm.field_event_registration__lead_count
-msgid "Counter for the leads linked to this registration"
 msgstr ""
 
 #. module: event_crm
@@ -138,7 +129,7 @@ msgstr ""
 #: model:ir.model.fields,help:event_crm.field_event_lead_rule__lead_creation_trigger
 msgid ""
 "Creation: at attendee creation;\n"
-"Confirmation: when attendee is confirmed, manually or automatically;\n"
+"Registered: at attendee registration, manually or automatically;\n"
 "Attended: when attendance is confirmed and registration set to done;"
 msgstr ""
 
@@ -184,6 +175,11 @@ msgid "Event triggering the rule that created this lead"
 msgstr ""
 
 #. module: event_crm
+#: model_terms:ir.ui.view,arch_db:event_crm.crm_lead_merge_summary_inherit_event_crm
+msgid "Event:"
+msgstr ""
+
+#. module: event_crm
 #: model:ir.model.fields,help:event_crm.field_event_lead_rule__event_registration_filter
 msgid "Filter the attendees that will or not generate leads."
 msgstr ""
@@ -215,11 +211,6 @@ msgstr ""
 #. module: event_crm
 #: model_terms:ir.ui.view,arch_db:event_crm.event_lead_rule_view_form
 msgid "If the Attendees meet these Conditions"
-msgstr ""
-
-#. module: event_crm
-#: model:ir.model.fields,field_description:event_crm.field_event_lead_rule____last_update
-msgid "Last Modified on"
 msgstr ""
 
 #. module: event_crm
@@ -282,11 +273,6 @@ msgid "Leads"
 msgstr ""
 
 #. module: event_crm
-#: model:ir.model.fields,help:event_crm.field_event_registration__lead_ids
-msgid "Leads generated from the registration."
-msgstr ""
-
-#. module: event_crm
 #: model:ir.model.fields,help:event_crm.field_event_event__lead_ids
 msgid "Leads generated from this event"
 msgstr ""
@@ -297,6 +283,7 @@ msgid "Name"
 msgstr ""
 
 #. module: event_crm
+#. odoo-python
 #: code:addons/event_crm/models/event_lead_rule.py:0
 #, python-format
 msgid "New registrations"
@@ -319,6 +306,7 @@ msgid "Opportunity"
 msgstr ""
 
 #. module: event_crm
+#. odoo-python
 #: code:addons/event_crm/models/event_registration.py:0
 #: code:addons/event_crm/models/event_registration.py:0
 #, python-format
@@ -333,8 +321,8 @@ msgstr ""
 #. module: event_crm
 #: model:ir.model.fields,help:event_crm.field_event_lead_rule__lead_creation_basis
 msgid ""
-"Per Attendee : A Lead is created for each Attendee (B2C).\n"
-"Per Order : A single Lead is created per Ticket Batch/Sale Order (B2B)"
+"Per Attendee: A Lead is created for each Attendee (B2C).\n"
+"Per Order: A single Lead is created per Ticket Batch/Sale Order (B2B)"
 msgstr ""
 
 #. module: event_crm
@@ -345,6 +333,11 @@ msgstr ""
 #. module: event_crm
 #: model:ir.model.fields,field_description:event_crm.field_crm_lead__event_lead_rule_id
 msgid "Registration Rule"
+msgstr ""
+
+#. module: event_crm
+#: model_terms:ir.ui.view,arch_db:event_crm.crm_lead_merge_summary_inherit_event_crm
+msgid "Registration Rule:"
 msgstr ""
 
 #. module: event_crm
@@ -420,6 +413,7 @@ msgid "Trigger Type"
 msgstr ""
 
 #. module: event_crm
+#. odoo-python
 #: code:addons/event_crm/models/event_registration.py:0
 #: code:addons/event_crm/models/event_registration.py:0
 #, python-format

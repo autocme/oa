@@ -1,8 +1,22 @@
 /** @odoo-module **/
 
 /**
+ * Returns a promise resolved after 'wait' milliseconds
+ *
+ * @param {int} [wait=0] the delay in ms
+ * @return {Promise}
+ */
+export function delay(wait) {
+    return new Promise(function (resolve) {
+        setTimeout(resolve, wait);
+    });
+}
+
+/**
  * KeepLast is a concurrency primitive that manages a list of tasks, and only
  * keeps the last task active.
+ *
+ * @template T
  */
 export class KeepLast {
     constructor() {
@@ -11,7 +25,6 @@ export class KeepLast {
     /**
      * Register a new task
      *
-     * @template T
      * @param {Promise<T>} promise
      * @returns {Promise<T>}
      */
@@ -79,38 +92,31 @@ export class Mutex {
      * Add a computation to the queue, it will be executed as soon as the
      * previous computations are completed.
      *
-     * @param {function} action a function which may return a Promise
-     * @returns {Promise}
+     * @param {() => (void | Promise<void>)} action a function which may return a Promise
+     * @returns {Promise<void>}
      */
     async exec(action) {
-        const currentLock = this._lock;
-        let result;
         this._queueSize++;
-        this._unlockedProm =
-            this._unlockedProm ||
-            new Promise((resolve) => {
-                this._unlock = resolve;
-            });
-        this._lock = new Promise((unlockCurrent) => {
-            currentLock.then(() => {
-                result = action();
-                const always = (returnedResult) => {
-                    unlockCurrent();
-                    this._queueSize--;
-                    if (this._queueSize === 0) {
-                        this._unlockedProm = undefined;
-                        this._unlock();
-                    }
-                    return returnedResult;
+        if (!this._unlockedProm) {
+            this._unlockedProm = new Promise((resolve) => {
+                this._unlock = () => {
+                    resolve();
+                    this._unlockedProm = undefined;
                 };
-                Promise.resolve(result).then(always).guardedCatch(always);
             });
-        });
-        await this._lock;
-        return result;
+        }
+        const always = () => {
+            return Promise.resolve(action()).finally(() => {
+                if (--this._queueSize === 0) {
+                    this._unlock();
+                }
+            });
+        };
+        this._lock = this._lock.then(always, always);
+        return this._lock;
     }
     /**
-     * @returns {Promise} resolved as soon as the Mutex is unlocked
+     * @returns {Promise<void>} resolved as soon as the Mutex is unlocked
      *   (directly if it is currently idle)
      */
     getUnlockedDef() {
@@ -125,6 +131,8 @@ export class Mutex {
  * promise which resolves as soon as a promise, among all added promises, is
  * resolved. The race is thus over. From that point, a new race will begin the
  * next time a promise will be added.
+ *
+ * @template T
  */
 export class Race {
     constructor() {
@@ -138,8 +146,8 @@ export class Race {
      * resolves as soon as the race is over, with the value of the first resolved
      * promise added to the race.
      *
-     * @param {Promise} promise
-     * @returns {Promise}
+     * @param {Promise<T>} promise
+     * @returns {Promise<T>}
      */
     add(promise) {
         if (!this.currentProm) {
@@ -162,10 +170,25 @@ export class Race {
         return this.currentProm;
     }
     /**
-     * @returns {Promise|null} promise resolved as soon as the race is over, or
+     * @returns {Promise<T>|null} promise resolved as soon as the race is over, or
      *   null if there is no race ongoing)
      */
     getCurrentProm() {
         return this.currentProm;
+    }
+}
+
+/**
+ * Deferred is basically a resolvable/rejectable extension of Promise.
+ */
+export class Deferred extends Promise {
+    constructor() {
+        let resolve;
+        let reject;
+        const prom = new Promise((res, rej) => {
+            resolve = res;
+            reject = rej;
+        });
+        return Object.assign(prom, { resolve, reject });
     }
 }

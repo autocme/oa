@@ -1,24 +1,26 @@
 # Translation of Odoo Server.
 # This file contains the translation of the following modules:
 # 	* website_livechat
-# 
+#
 # Translators:
-# Marius Stedjan <marius@stedjan.com>, 2022
-# Martin Trigaux, 2022
-# Jorunn D. Newth, 2022
-# 
+# Martin Trigaux, 2024
+# Marius Stedjan <marius@stedjan.com>, 2024
+# Jorunn D. Newth, 2024
+# Rune Restad, 2025
+#
 msgid ""
 msgstr ""
-"Project-Id-Version: Odoo Server saas~14.4\n"
+"Project-Id-Version: Odoo Server 17.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2021-07-12 07:50+0000\n"
-"PO-Revision-Date: 2021-09-14 12:28+0000\n"
-"Last-Translator: Jorunn D. Newth, 2022\n"
-"Language-Team: Norwegian Bokmål (https://app.transifex.com/odoo/teams/41243/nb/)\n"
+"POT-Creation-Date: 2025-12-29 18:38+0000\n"
+"PO-Revision-Date: 2023-10-26 23:09+0000\n"
+"Last-Translator: Rune Restad, 2025\n"
+"Language-Team: Norwegian Bokmål (https://app.transifex.com/odoo/teams/41243/"
+"nb/)\n"
+"Language: nb\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: \n"
-"Language: nb\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
 
 #. module: website_livechat
@@ -27,29 +29,17 @@ msgid "# Sessions"
 msgstr ""
 
 #. module: website_livechat
-#: code:addons/website_livechat/models/mail_channel.py:0
-#, python-format
-msgid "%s has left the conversation."
-msgstr ""
-
-#. module: website_livechat
-#: code:addons/website_livechat/models/mail_channel.py:0
+#. odoo-python
+#: code:addons/website_livechat/models/discuss_channel.py:0
 #, python-format
 msgid ""
-"%s has started a conversation with %s. \n"
+"%s started a conversation with %s.\n"
 "                        The chat request has been canceled."
 msgstr ""
 
 #. module: website_livechat
 #: model_terms:ir.ui.view,arch_db:website_livechat.channel_page
 msgid "<small>%</small>"
-msgstr ""
-
-#. module: website_livechat
-#: model_terms:ir.ui.view,arch_db:website_livechat.res_config_settings_view_form
-msgid ""
-"<span class=\"o_form_label\">Live Chat</span>\n"
-"                        <span class=\"fa fa-lg fa-globe\" title=\"Values set here are website-specific.\" groups=\"website.group_multi_website\"/>"
 msgstr ""
 
 #. module: website_livechat
@@ -63,8 +53,8 @@ msgid "Available"
 msgstr "Tilgjengelig"
 
 #. module: website_livechat
-#. openerp-web
-#: code:addons/website_livechat/static/src/components/visitor_banner/visitor_banner.xml:0
+#. odoo-javascript
+#: code:addons/website_livechat/static/src/web/thread_patch.xml:0
 #, python-format
 msgid "Avatar"
 msgstr "Avatar"
@@ -85,16 +75,31 @@ msgid "Channel"
 msgstr "Kanal"
 
 #. module: website_livechat
+#: model_terms:ir.ui.view,arch_db:website_livechat.im_livechat_channel_view_form_add
+msgid "Channel Name"
+msgstr "Kanalnavn"
+
+#. module: website_livechat
 #: model_terms:ir.ui.view,arch_db:website_livechat.website_visitor_view_kanban
 #: model_terms:ir.ui.view,arch_db:website_livechat.website_visitor_view_tree
 msgid "Chat"
 msgstr "Chat"
 
 #. module: website_livechat
+#: model:ir.model,name:website_livechat.model_chatbot_script
+msgid "Chatbot Script"
+msgstr ""
+
+#. module: website_livechat
+#: model:ir.model,name:website_livechat.model_chatbot_script_step
+msgid "Chatbot Script Step"
+msgstr ""
+
+#. module: website_livechat
 #: model_terms:ir.ui.view,arch_db:website_livechat.website_visitor_view_form
 #: model_terms:ir.ui.view,arch_db:website_livechat.website_visitor_view_kanban
 msgid "Chats"
-msgstr ""
+msgstr "Chatter"
 
 #. module: website_livechat
 #: model:ir.model,name:website_livechat.model_res_config_settings
@@ -107,7 +112,7 @@ msgid "Description of the channel displayed on the website page"
 msgstr "Beskrivelse av kanalen som vises på nettstedet"
 
 #. module: website_livechat
-#: model:ir.model,name:website_livechat.model_mail_channel
+#: model:ir.model,name:website_livechat.model_discuss_channel
 msgid "Discussion Channel"
 msgstr "Diskusjonskanal"
 
@@ -127,8 +132,8 @@ msgid "Happy face"
 msgstr ""
 
 #. module: website_livechat
-#. openerp-web
-#: code:addons/website_livechat/static/src/components/visitor_banner/visitor_banner.xml:0
+#. odoo-javascript
+#: code:addons/website_livechat/static/src/web/thread_patch.xml:0
 #, python-format
 msgid "History"
 msgstr "Historikk"
@@ -144,22 +149,18 @@ msgid "Is Published"
 msgstr "Er publisert"
 
 #. module: website_livechat
-#. openerp-web
-#: code:addons/website_livechat/static/src/components/visitor_banner/visitor_banner.xml:0
+#. odoo-javascript
+#: code:addons/website_livechat/static/src/web/thread_patch.xml:0
 #, python-format
 msgid "Lang"
-msgstr ""
+msgstr "Lang"
 
 #. module: website_livechat
+#. odoo-python
 #: code:addons/website_livechat/models/website.py:0
 #, python-format
 msgid "Live Support"
 msgstr "Kundestøtte i sanntid"
-
-#. module: website_livechat
-#: model_terms:ir.ui.view,arch_db:website_livechat.res_config_settings_view_form
-msgid "Live chat channel of your website"
-msgstr "Chattekanal på nettstedet ditt"
 
 #. module: website_livechat
 #: model:ir.model,name:website_livechat.model_im_livechat_channel
@@ -172,25 +173,17 @@ msgid "Livechat Support Channels"
 msgstr "Kanaler for kundestøtte-chat"
 
 #. module: website_livechat
-#. openerp-web
-#: code:addons/website_livechat/static/src/js/website_livechat.editor.js:0
-#, python-format
-msgid "Name"
-msgstr "Navn"
-
-#. module: website_livechat
 #: model_terms:ir.ui.view,arch_db:website_livechat.channel_page
 msgid "Neutral face"
 msgstr ""
 
 #. module: website_livechat
-#. openerp-web
-#: code:addons/website_livechat/static/src/js/website_livechat.editor.js:0
-#, python-format
+#: model:ir.actions.act_window,name:website_livechat.im_livechat_channel_action_add
 msgid "New Channel"
 msgstr "Ny kanal"
 
 #. module: website_livechat
+#. odoo-python
 #: code:addons/website_livechat/models/website_visitor.py:0
 #, python-format
 msgid "No Livechat Channel allows you to send a chat request for website %s."
@@ -207,13 +200,6 @@ msgid "Okay"
 msgstr ""
 
 #. module: website_livechat
-#. openerp-web
-#: code:addons/website_livechat/static/src/components/visitor_banner/visitor_banner.xml:0
-#, python-format
-msgid "Online"
-msgstr "På nett"
-
-#. module: website_livechat
 #: model_terms:ir.ui.view,arch_db:website_livechat.website_visitor_view_kanban
 msgid "Operator Avatar"
 msgstr ""
@@ -224,11 +210,12 @@ msgid "Operator Name"
 msgstr ""
 
 #. module: website_livechat
+#. odoo-python
 #: code:addons/website_livechat/models/website_visitor.py:0
 #, python-format
 msgid ""
-"Recipients are not available. Please refresh the page to get latest visitors"
-" status."
+"Recipients are not available. Please refresh the page to get latest visitors "
+"status."
 msgstr ""
 
 #. module: website_livechat
@@ -262,6 +249,11 @@ msgid "Statistics"
 msgstr "Statistikk"
 
 #. module: website_livechat
+#: model_terms:ir.ui.view,arch_db:website_livechat.chatbot_script_view_form
+msgid "Test"
+msgstr "Test"
+
+#. module: website_livechat
 #: model_terms:ir.ui.view,arch_db:website_livechat.channel_page
 msgid "The"
 msgstr " "
@@ -277,7 +269,8 @@ msgid "The full URL to access the document through the website."
 msgstr "Fullstendig link for å nå dokumentet via nettstedet."
 
 #. module: website_livechat
-#: code:addons/website_livechat/models/mail_channel.py:0
+#. odoo-python
+#: code:addons/website_livechat/models/discuss_channel.py:0
 #, python-format
 msgid "The visitor"
 msgstr ""
@@ -298,15 +291,32 @@ msgid "Visible on current website"
 msgstr "Synlig på nåværende nettsted"
 
 #. module: website_livechat
-#: model:ir.model.fields,field_description:website_livechat.field_mail_channel__livechat_visitor_id
+#: model:ir.model.fields,field_description:website_livechat.field_discuss_channel__livechat_visitor_id
 msgid "Visitor"
 msgstr "Besøkende"
 
 #. module: website_livechat
-#. openerp-web
-#: code:addons/website_livechat/static/src/components/visitor_banner/visitor_banner.xml:0
+#. odoo-python
+#: code:addons/website_livechat/controllers/main.py:0
+#: code:addons/website_livechat/models/website_visitor.py:0
 #, python-format
-msgid "Visitor is online"
+msgid "Visitor #%d"
+msgstr ""
+
+#. module: website_livechat
+#. odoo-javascript
+#. odoo-python
+#: code:addons/website_livechat/controllers/main.py:0
+#: code:addons/website_livechat/static/src/web/persona_model_patch.js:0
+#, python-format
+msgid "Visitor #%s"
+msgstr ""
+
+#. module: website_livechat
+#. odoo-python
+#: code:addons/website_livechat/models/discuss_channel.py:0
+#, python-format
+msgid "Visitor %s left the conversation."
 msgstr ""
 
 #. module: website_livechat
@@ -315,7 +325,7 @@ msgid "Visitor's Sessions"
 msgstr ""
 
 #. module: website_livechat
-#: model:ir.model.fields,field_description:website_livechat.field_website_visitor__mail_channel_ids
+#: model:ir.model.fields,field_description:website_livechat.field_website_visitor__discuss_channel_ids
 msgid "Visitor's livechat channels"
 msgstr ""
 
@@ -325,8 +335,8 @@ msgid "Visitors"
 msgstr "Besøkende"
 
 #. module: website_livechat
-#. openerp-web
-#: code:addons/website_livechat/static/src/components/visitor_banner/visitor_banner.xml:0
+#. odoo-javascript
+#: code:addons/website_livechat/static/src/web/thread_patch.xml:0
 #: model:ir.model,name:website_livechat.model_website
 #, python-format
 msgid "Website"
@@ -348,6 +358,7 @@ msgid "Website URL"
 msgstr "Nettsted-URL"
 
 #. module: website_livechat
+#. odoo-python
 #: code:addons/website_livechat/tests/test_livechat_basic_flow.py:0
 #: model:ir.model,name:website_livechat.model_website_visitor
 #, python-format
@@ -360,7 +371,8 @@ msgid "Website description"
 msgstr "Beskrivelse på nettsted"
 
 #. module: website_livechat
-#: code:addons/website_livechat/models/mail_channel.py:0
+#. odoo-python
+#: code:addons/website_livechat/models/discuss_channel.py:0
 #, python-format
 msgid "an operator"
 msgstr ""

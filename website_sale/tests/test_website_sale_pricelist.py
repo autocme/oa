@@ -1,13 +1,19 @@
 # -*- coding: utf-8 -*-
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
+
+import logging
+
+from datetime import datetime, timedelta
+from freezegun import freeze_time
 from unittest.mock import patch
+
+from odoo.fields import Command
+from odoo.tests import tagged, TransactionCase
 
 from odoo.addons.base.tests.common import TransactionCaseWithUserDemo, HttpCaseWithUserPortal
 from odoo.addons.website.tools import MockRequest
-from odoo.addons.website_sale.tests.common import TestWebsiteSaleCommon
-from odoo.tests import tagged
-from odoo.tests.common import TransactionCase
-from odoo.tools import DotDict
+
+_logger = logging.getLogger(__name__)
 
 r''' /!\/!\
 Calling `get_pricelist_available` after setting `property_product_pricelist` on
@@ -29,11 +35,7 @@ Try to keep one call to `get_pricelist_available` by test method.
 
 
 @tagged('post_install', '-at_install')
-class TestWebsitePriceList(TestWebsiteSaleCommon):
-
-    # Mock nedded because request.session doesn't exist during test
-    def _get_pricelist_available(self, show_visible=False):
-        return self.get_pl(self.args.get('show'), self.args.get('current_pl'), self.args.get('country'))
+class TestWebsitePriceList(TransactionCase):
 
     def setUp(self):
         super(TestWebsitePriceList, self).setUp()
@@ -41,7 +43,8 @@ class TestWebsitePriceList(TestWebsiteSaleCommon):
         self.website = self.env.ref('website.default_website')
         self.website.user_id = self.env.user
 
-        (self.env['product.pricelist'].search([]) - self.env.ref('product.list0')).write({'website_id': False, 'active': False})
+        self.env['product.pricelist'].search([]).action_archive()
+        self.env['product.pricelist'].create({'name': 'Public Pricelist'})
         self.benelux = self.env['res.country.group'].create({
             'name': 'BeNeLux',
             'country_ids': [(6, 0, (self.env.ref('base.be') + self.env.ref('base.lu') + self.env.ref('base.nl')).ids)]
@@ -89,8 +92,6 @@ class TestWebsitePriceList(TestWebsiteSaleCommon):
             'compute_price': 'formula',
             'base': 'list_price',
         })
-        self.env.ref('product.list0').website_id = self.website.id
-        self.website.pricelist_id = self.ref('product.list0')
 
         ca_group = self.env['res.country.group'].create({
             'name': 'Canada',
@@ -108,17 +109,19 @@ class TestWebsitePriceList(TestWebsiteSaleCommon):
             'current_pl': False,
         }
         patcher = patch('odoo.addons.website_sale.models.website.Website.get_pricelist_available', wraps=self._get_pricelist_available)
-        patcher.start()
-        self.addCleanup(patcher.stop)
+        self.startPatcher(patcher)
 
-    def get_pl(self, show, current_pl, country):
-        self.website.invalidate_cache(['pricelist_ids'], [self.website.id])
+    # Mock nedded because request.session doesn't exist during test
+    def _get_pricelist_available(self, show_visible=False):
+        return self.get_pl(self.args.get('show'), self.args.get('current_pl'), self.args.get('country'))
+
+    def get_pl(self, show_visible, current_pl_id, country_code):
+        self.website.invalidate_recordset(['pricelist_ids'])
         pl_ids = self.website._get_pl_partner_order(
-            country,
-            show,
-            self.website.pricelist_id.id,
-            current_pl,
-            self.website.pricelist_ids
+            country_code,
+            show_visible,
+            current_pl_id=current_pl_id,
+            website_pricelist_ids=tuple(self.website.pricelist_ids.ids),
         )
         return self.env['product.pricelist'].browse(pl_ids)
 
@@ -199,7 +202,7 @@ class TestWebsitePriceList(TestWebsiteSaleCommon):
             'taxes_id': False,
         })
         current_website = self.env['website'].get_current_website()
-        website_pricelist = current_website.get_current_pricelist()
+        website_pricelist = current_website.pricelist_id
         website_pricelist.write({
             'discount_policy': 'with_discount',
             'item_ids': [(5, 0, 0), (0, 0, {
@@ -231,15 +234,16 @@ class TestWebsitePriceList(TestWebsiteSaleCommon):
                 'product_uom': product.uom_id.id,
                 'price_unit': product.list_price,
                 'tax_id': False,
-            })]
+            })],
+            'website_id': current_website.id,
         })
         sol = so.order_line
         self.assertEqual(sol.price_total, 100.0)
         so.pricelist_id = promo_pricelist
         with MockRequest(self.env, website=current_website, sale_order_id=so.id):
             so._cart_update(product_id=product.id, line_id=sol.id, set_qty=500)
-        self.assertEqual(sol.price_unit, 37.0, 'Both reductions should be applied')
-        self.assertEqual(sol.price_reduce, 27.75, 'Both reductions should be applied')
+        self.assertEqual(sol.price_unit, 100.0, 'Both reductions should be applied')
+        self.assertEqual(sol.discount, 72.25, 'Both reductions should be applied')
         self.assertEqual(sol.price_total, 13875)
 
     def test_pricelist_with_no_list_price(self):
@@ -249,7 +253,7 @@ class TestWebsitePriceList(TestWebsiteSaleCommon):
             'taxes_id': False,
         })
         current_website = self.env['website'].get_current_website()
-        website_pricelist = current_website.get_current_pricelist()
+        website_pricelist = current_website.pricelist_id
         website_pricelist.write({
             'discount_policy': 'without_discount',
             'item_ids': [(5, 0, 0), (0, 0, {
@@ -275,36 +279,129 @@ class TestWebsitePriceList(TestWebsiteSaleCommon):
         self.assertEqual(sol.price_total, 0)
         so.pricelist_id = website_pricelist
         with MockRequest(self.env, website=current_website, sale_order_id=so.id):
-            so._cart_update(product_id=product.id, line_id=sol.id, set_qty=5)
+            so._cart_update(product_id=product.id, line_id=sol.id, set_qty=6)
         self.assertEqual(sol.price_unit, 10.0, 'Pricelist price should be applied')
-        self.assertEqual(sol.price_reduce, 10.0, 'Pricelist price should be applied')
-        self.assertEqual(sol.price_total, 50.0)
+        self.assertEqual(sol.discount, 0, 'Pricelist price should be applied')
+        self.assertEqual(sol.price_total, 60.0)
 
+    def test_get_right_discount(self):
+        """ Test that `_get_sales_prices` from `product_template`
+        returns a dict with just `price_reduce` (no discount) as key
+        when the product is tax included.
+        """
+        self.env.company.country_id = self.env.ref('base.us')
+        tax = self.env['account.tax'].create({
+            'name': "Tax 10",
+            'amount': 10,
+        })
+
+        product = self.env['product.template'].create({
+            'name': 'Event Product',
+            'list_price': 10.0,
+            'taxes_id': tax,
+        })
+
+        prices = product._get_sales_prices(self.list_christmas, self.env['account.fiscal.position'])
+        self.assertFalse('base_price' in prices[product.id])
+
+    def test_pricelist_item_based_on_cost_for_templates(self):
+        """ Test that `_get_sales_prices` from `product_template` computes the correct price when
+        the pricelist item is based on the cost of the product.
+        """
+        pricelist = self.env['product.pricelist'].create({
+            'name': 'Pricelist base on cost',
+            'item_ids': [Command.create({
+                'base': 'standard_price',
+                'compute_price': 'percentage',
+                'percent_price': 10,
+            })]
+        })
+
+        pa = self.env['product.attribute'].create({'name': 'Attribute'})
+        pav1 = self.env['product.attribute.value'].create({'name': 'Value1', 'attribute_id': pa.id})
+        pav2 = self.env['product.attribute.value'].create({'name': 'Value2', 'attribute_id': pa.id})
+
+        product_template = self.env['product.template'].create({
+            'name': 'Product Template', 'list_price': 10.0, 'standard_price': 5.0
+        })
+        self.assertEqual(product_template.standard_price, 5)
+        price = product_template._get_sales_prices(
+            pricelist, self.env['account.fiscal.position'])[product_template.id]['price_reduce']
+        msg = "Template has no variants, the price should be computed based on the template's cost."
+        self.assertEqual(price, 4.5, msg)
+
+        product_template.attribute_line_ids = [Command.create({
+            'attribute_id': pa.id, 'value_ids': [Command.set([pav1.id, pav2.id])]
+        })]
+        msg = "Product template with variants should have no cost."
+        self.assertEqual(product_template.standard_price, 0, msg)
+        self.assertEqual(product_template.product_variant_ids[0].standard_price, 0)
+
+        price = product_template._get_sales_prices(
+            pricelist, self.env['account.fiscal.position'])[product_template.id]['price_reduce']
+        msg = "Template has variants, the price should be computed based on the 1st variant's cost."
+        self.assertEqual(price, 0, msg)
+
+        product_template.product_variant_ids[0].standard_price = 20
+        price = product_template._get_sales_prices(
+            pricelist, self.env['account.fiscal.position'])[product_template.id]['price_reduce']
+        self.assertEqual(price, 18, msg)
+
+    def test_pricelist_item_validity_period(self):
+        """ Test that if a cart was created before a validity period,
+            the correct prices will still apply.
+        """
+        today = datetime.today()
+        tomorrow = today + timedelta(days=1)
+        pricelist = self.env['product.pricelist'].create({
+            'name': 'Pricelist with validity period',
+            'item_ids': [Command.create({
+                    'compute_price': 'formula',
+                    'base': 'list_price',
+                    'price_discount': 20,
+                    'date_start': tomorrow,
+            })]
+        })
+        product = self.env['product.product'].create({
+            'name': 'Super Product',
+            'list_price': 100,
+            'taxes_id': False,
+        })
+        current_website = self.env['website'].get_current_website()
+        current_website.pricelist_id = pricelist
+        with freeze_time(today) as frozen_time:
+            so = self.env['sale.order'].create({
+                'partner_id': self.env.user.partner_id.id,
+                'pricelist_id': pricelist.id,
+                'order_line': [(0, 0, {
+                    'name': product.name,
+                    'product_id': product.id,
+                    'product_uom_qty': 1,
+                    'product_uom': product.uom_id.id,
+                    'price_unit': product.list_price,
+                    'tax_id': False,
+                })],
+                'website_id': current_website.id,
+            })
+            sol = so.order_line
+            self.assertEqual(sol.price_total, 100.0)
+
+            frozen_time.move_to(tomorrow + timedelta(seconds=10))
+            with MockRequest(self.env, website=current_website, sale_order_id=so.id):
+                so._cart_update(product_id=product.id, line_id=sol.id, set_qty=2)
+            self.assertEqual(sol.price_unit, 80.0, 'Reduction should be applied')
+            self.assertEqual(sol.price_total, 160)
 
 def simulate_frontend_context(self, website_id=1):
     # Mock this method will be enough to simulate frontend context in most methods
     def get_request_website():
         return self.env['website'].browse(website_id)
     patcher = patch('odoo.addons.website.models.ir_http.get_request_website', wraps=get_request_website)
-    patcher.start()
-    self.addCleanup(patcher.stop)
+    self.startPatcher(patcher)
 
 
 @tagged('post_install', '-at_install')
 class TestWebsitePriceListAvailable(TransactionCase):
-    # This is enough to avoid a mock (request.session/website do not exist during test)
-    def get_pricelist_available(self, show_visible=False, website_id=1, country_code=None, website_sale_current_pl=None):
-        request = DotDict({
-            'website': self.env['website'].browse(website_id),
-            'session': {
-                'geoip': {
-                    'country_code': country_code,
-                },
-                'website_sale_current_pl': website_sale_current_pl,
-            },
-        })
-        return self.env['website']._get_pricelist_available(request, show_visible)
-
     def setUp(self):
         super(TestWebsitePriceListAvailable, self).setUp()
         Pricelist = self.env['product.pricelist']
@@ -362,6 +459,8 @@ class TestWebsitePriceListAvailable(TransactionCase):
         })
         existing_pricelists.write({'active': False})
 
+        self.website = self.env['website'].browse(1)
+
         simulate_frontend_context(self)
 
     def test_get_pricelist_available(self):
@@ -369,12 +468,12 @@ class TestWebsitePriceListAvailable(TransactionCase):
 
         # Test get all available pricelists
         pls_to_return = self.generic_pl_select + self.generic_pl_code + self.generic_pl_code_select + self.w1_pl + self.w1_pl_select + self.w1_pl_code + self.w1_pl_code_select
-        pls = self.get_pricelist_available()
+        pls = self.website.get_pricelist_available()
         self.assertEqual(pls, pls_to_return, "Every pricelist having the correct website_id set or (no website_id but a code or selectable) should be returned")
 
         # Test get all available and visible pricelists
         pls_to_return = self.generic_pl_select + self.generic_pl_code_select + self.w1_pl_select + self.w1_pl_code_select
-        pls = self.get_pricelist_available(show_visible=True)
+        pls = self.website.get_pricelist_available(show_visible=True)
         self.assertEqual(pls, pls_to_return, "Only selectable pricelists website compliant (website_id False or current website) should be returned")
 
     def test_property_product_pricelist_for_inactive_partner(self):
@@ -433,19 +532,22 @@ class TestWebsitePriceListAvailableGeoIP(TestWebsitePriceListAvailable):
         # property_product_pricelist will also be returned in the available pricelists
         self.website1_be_pl += self.env.user.partner_id.property_product_pricelist
 
-        pls = self.get_pricelist_available(country_code=self.BE.code)
+        with patch('odoo.addons.website_sale.models.website.Website._get_geoip_country_code', return_value=self.BE.code):
+            pls = self.website.get_pricelist_available()
         self.assertEqual(pls, self.website1_be_pl, "Only pricelists for BE and accessible on website should be returned, and the partner pl")
 
     def test_get_pricelist_available_geoip2(self):
         # Test get all available pricelists with geoip and a partner pricelist (ir.property) not website compliant
         self.env.user.partner_id.property_product_pricelist = self.backend_pl
-        pls = self.get_pricelist_available(country_code=self.BE.code)
+        with patch('odoo.addons.website_sale.models.website.Website._get_geoip_country_code', return_value=self.BE.code):
+            pls = self.website.get_pricelist_available()
         self.assertEqual(pls, self.website1_be_pl, "Only pricelists for BE and accessible on website should be returned as partner pl is not website compliant")
 
     def test_get_pricelist_available_geoip3(self):
         # Test get all available pricelists with geoip and a partner pricelist (ir.property) website compliant (but not geoip compliant)
         self.env.user.partner_id.property_product_pricelist = self.w1_pl_code_select
-        pls = self.get_pricelist_available(country_code=self.BE.code)
+        with patch('odoo.addons.website_sale.models.website.Website._get_geoip_country_code', return_value=self.BE.code):
+            pls = self.website.get_pricelist_available()
         self.assertEqual(pls, self.website1_be_pl, "Only pricelists for BE and accessible on website should be returned, but not the partner pricelist as it is website compliant but not GeoIP compliant.")
 
     def test_get_pricelist_available_geoip4(self):
@@ -455,8 +557,35 @@ class TestWebsitePriceListAvailableGeoIP(TestWebsitePriceListAvailable):
         pls_to_return += self.env.user.partner_id.property_product_pricelist
 
         current_pl = self.w1_pl_code
-        pls = self.get_pricelist_available(country_code=self.BE.code, show_visible=True, website_sale_current_pl=current_pl.id)
+        with patch('odoo.addons.website_sale.models.website.Website._get_geoip_country_code', return_value=self.BE.code), \
+            patch('odoo.addons.website_sale.models.website.Website._get_cached_pricelist_id', return_value=current_pl.id):
+            pls = self.website.get_pricelist_available(show_visible=True)
         self.assertEqual(pls, pls_to_return + current_pl, "Only pricelists for BE, accessible en website and selectable should be returned. It should also return the applied promo pl")
+
+    def test_get_pricelist_available_geoip5(self):
+        """Remove country group from certain pricelists, and check that pricelists
+        with country group get prioritized when geoip is available."""
+        exclude = self.backend_pl + self.generic_pl_code + self.w1_pl_select + self.w1_pl_code
+        exclude.country_group_ids = False
+        self.website1_be_pl -= exclude
+
+        with patch(
+            'odoo.addons.website_sale.models.website.Website._get_geoip_country_code',
+            return_value=self.BE.code,
+        ):
+            pls = self.website.get_pricelist_available()
+
+        for pl in pls:
+            self.assertIn(
+                self.BE,
+                pl.country_group_ids.country_ids,
+                "Pricelists without country groups should get excluded",
+            )
+        self.assertEqual(
+            pls,
+            self.website1_be_pl,
+            "Only pricelists for BE and accessible on website should be returned",
+        )
 
 
 @tagged('post_install', '-at_install')
@@ -471,7 +600,7 @@ class TestWebsitePriceListHttp(HttpCaseWithUserPortal):
             reading that `property_product_pricelist`.
         '''
         test_company = self.env['res.company'].create({'name': 'Test Company'})
-        test_company.flush()
+        test_company.flush_recordset()
         self.env['product.pricelist'].create({
             'name': 'Backend Pricelist For "Test Company"',
             'website_id': False,
@@ -506,9 +635,6 @@ class TestWebsitePriceListMultiCompany(TransactionCaseWithUserDemo):
         Website = self.env['website']
         self.website = self.env.ref('website.default_website')
         self.website.company_id = self.company2
-        # Delete unused website, it will make PL manipulation easier, avoiding
-        # UserError being thrown when a website wouldn't have any PL left.
-        Website.search([('id', '!=', self.website.id)]).unlink()
         self.website2 = Website.create({
             'name': 'Website 2',
             'company_id': self.company1.id,
@@ -520,7 +646,6 @@ class TestWebsitePriceListMultiCompany(TransactionCaseWithUserDemo):
             'company_id': self.company1.id,
             # The `website_id` field will default to the company's website,
             # in this case `self.website2`.
-
         })
         self.c2_pl = self.env['product.pricelist'].create({
             'name': 'Company 2 Pricelist',
@@ -594,3 +719,33 @@ class TestWebsitePriceListMultiCompany(TransactionCaseWithUserDemo):
         # The test is here: while having access only to self.company2 records,
         # archive should not raise an error
         self.c2_pl.with_user(self.demo_user).with_context(allowed_company_ids=self.company2.ids).write({'active': False})
+
+@tagged('post_install', '-at_install')
+class TestWebsiteSaleSession(HttpCaseWithUserPortal):
+
+    def test_update_pricelist_user_session(self):
+        """
+            The objective is to verify that the pricelist
+            changes correctly according to the user.
+        """
+        website = self.env.ref('website.default_website')
+        test_user = self.env['res.users'].create({
+            'name': 'Toto',
+            'login': 'toto',
+            'password': 'long_enough_password',
+        })
+        # We need at least two selectable pricelists to display the dropdown
+        self.env['product.pricelist'].create([{
+            'name': 'Public Pricelist 1',
+            'selectable': True
+        }, {
+            'name': 'Public Pricelist 2',
+            'selectable': True
+        }])
+        user_pricelist = self.env['product.pricelist'].create({
+            'name': 'User Pricelist',
+            'website_id': website.id,
+            'code': 'User_pricelist',
+        })
+        test_user.partner_id.property_product_pricelist = user_pricelist
+        self.start_tour("/shop", 'website_sale.website_sale_shop_pricelist_tour', login="")

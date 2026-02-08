@@ -11,7 +11,8 @@ import math
 from dateutil.relativedelta import relativedelta
 from operator import itemgetter
 
-from odoo import fields, http, modules, tools
+from odoo import _, fields, http, tools
+from odoo.exceptions import UserError
 from odoo.http import request
 from odoo.osv import expression
 
@@ -35,20 +36,23 @@ class WebsiteProfile(http.Controller):
             return user.website_published and user.karma > 0
         return False
 
-    def _get_default_avatar(self):
-        img_path = modules.get_module_resource('web', 'static/img', 'placeholder.png')
-        with open(img_path, 'rb') as f:
-            return base64.b64encode(f.read())
-
     def _check_user_profile_access(self, user_id):
+        """ Takes a user_id and returns:
+            - (user record, False) when the user is granted access
+            - (False, str) when the user is denied access
+            Raises a Not Found Exception when the profile does not exist
+        """
         user_sudo = request.env['res.users'].sudo().browse(user_id)
         # User can access - no matter what - his own profile
         if user_sudo.id == request.env.user.id:
-            return user_sudo
-        if user_sudo.karma == 0 or not user_sudo.website_published or \
-            (user_sudo.id != request.session.uid and request.env.user.karma < request.website.karma_profile_min):
-            return False
-        return user_sudo
+            return user_sudo, False
+        if request.env.user.karma < request.website.karma_profile_min:
+            return False, _("Not have enough karma to view other users' profile.")
+        elif not user_sudo.exists():
+            raise request.not_found()
+        elif user_sudo.karma == 0 or not user_sudo.website_published:
+            return False, _('This profile is private!')
+        return user_sudo, False
 
     def _prepare_user_values(self, **kwargs):
         kwargs.pop('edit_translations', None) # avoid nuking edit_translations
@@ -79,41 +83,23 @@ class WebsiteProfile(http.Controller):
         if field not in ('image_128', 'image_256', 'avatar_128', 'avatar_256'):
             return werkzeug.exceptions.Forbidden()
 
-        can_sudo = self._check_avatar_access(user_id, **post)
-        if can_sudo:
-            status, headers, image_base64 = request.env['ir.http'].sudo().binary_content(
-                model='res.users', id=user_id, field=field,
-                default_mimetype='image/png')
-        else:
-            status, headers, image_base64 = request.env['ir.http'].binary_content(
-                model='res.users', id=user_id, field=field,
-                default_mimetype='image/png')
-        if status == 301:
-            return request.env['ir.http']._response_by_status(status, headers, image_base64)
-        if status == 304:
-            return werkzeug.wrappers.Response(status=304)
+        if (int(width), int(height)) == (0, 0):
+            width, height = tools.image_guess_size_from_field_name(field)
 
-        if not image_base64:
-            image_base64 = self._get_default_avatar()
-            if not (width or height):
-                width, height = tools.image_guess_size_from_field_name(field)
+        can_sudo = self._check_avatar_access(int(user_id), **post)
+        return request.env['ir.binary']._get_image_stream_from(
+            request.env['res.users'].sudo(can_sudo).browse(int(user_id)),
+            field_name=field, width=int(width), height=int(height), crop=crop
+        ).get_response()
 
-        image_base64 = tools.image_process(image_base64, size=(int(width), int(height)), crop=crop)
-
-        content = base64.b64decode(image_base64)
-        headers = http.set_safe_image_headers(headers, content)
-        response = request.make_response(content, headers)
-        response.status_code = status
-        return response
-
-    @http.route(['/profile/user/<int:user_id>'], type='http', auth="public", website=True)
+    @http.route('/profile/user/<int:user_id>', type='http', auth='public', website=True)
     def view_user_profile(self, user_id, **post):
-        user = self._check_user_profile_access(user_id)
-        if not user:
-            return request.render("website_profile.private_profile")
+        user_sudo, denial_reason = self._check_user_profile_access(user_id)
+        if denial_reason:
+            return request.render('website_profile.profile_access_denied', {'denial_reason': denial_reason})
         values = self._prepare_user_values(**post)
         params = self._prepare_user_profile_parameters(**post)
-        values.update(self._prepare_user_profile_values(user, **params))
+        values.update(self._prepare_user_profile_values(user_sudo, **params))
         return request.render("website_profile.user_profile_main", values)
 
     # Edit Profile
@@ -163,6 +149,8 @@ class WebsiteProfile(http.Controller):
             user = request.env.user
         values = self._profile_edition_preprocess_values(user, **kwargs)
         whitelisted_values = {key: values[key] for key in user.SELF_WRITEABLE_FIELDS if key in values}
+        if not user.partner_id.can_edit_vat() and whitelisted_values.get('country_id') != user.partner_id.country_id.id:
+            raise UserError(_("Changing the country is not allowed once document(s) have been issued for your account. Please contact us directly for this operation."))
         user.write(whitelisted_values)
         if kwargs.get('url_param'):
             return request.redirect("/profile/user/%d?%s" % (user.id, kwargs['url_param']))
@@ -321,4 +309,5 @@ class WebsiteProfile(http.Controller):
     @http.route('/profile/validate_email/close', type='json', auth='public', website=True)
     def validate_email_done(self, **kwargs):
         request.session['validation_email_done'] = False
+        request.session['validation_email_sent'] = False
         return True

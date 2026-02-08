@@ -74,7 +74,7 @@ class WebsiteSaleVisitorTests(TransactionCase):
         self.assertIn(product, res_products)
 
         product.product_tmpl_id.company_id = new_company
-        product.product_tmpl_id.flush(['company_id'], product.product_tmpl_id)
+        product.product_tmpl_id.flush_recordset(['company_id'])
 
         res = snippet_filter._prepare_values(16, [])
         res_products = [res_product['_record'] for res_product in res]
@@ -113,7 +113,7 @@ class WebsiteSaleVisitorTests(TransactionCase):
 
         # AFTER CHANGING PRODUCT COMPANY
         product.product_tmpl_id.company_id = new_company
-        product.product_tmpl_id.flush(['company_id'], product.product_tmpl_id)
+        product.product_tmpl_id.flush_recordset(['company_id'])
         with MockRequest(self.website.env, website=self.website, cookies=self.cookies):
             res = snippet_filter._prepare_values(16, [])
         self.assertFalse(res)

@@ -1,9 +1,9 @@
-# -*- coding: utf-8 -*-
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
 
 from odoo.tests import tagged
+
+from odoo.addons.base.tests.common import HttpCaseWithUserDemo, HttpCaseWithUserPortal
 from odoo.addons.sale_product_configurator.tests.common import TestProductConfiguratorCommon
-from odoo.addons.base.tests.common import HttpCaseWithUserPortal, HttpCaseWithUserDemo
 
 
 @tagged('post_install', '-at_install')
@@ -31,6 +31,9 @@ class TestWebsiteSaleProductConfigurator(TestProductConfiguratorCommon, HttpCase
         # in this case. However, we still want to make sure that the correct
         # variant attributes are taken into account when calculating the price.
         url = self.product_product_custo_desk.website_url
+        # Ensure that no pricelist is available during the test.
+        # This ensures that tours with triggers on the amounts will run properly.
+        self.env['product.pricelist'].search([]).action_archive()
         self.start_tour(url, 'website_sale_product_configurator_optional_products_tour', login='portal')
 
     def test_02_variants_modal_window(self):
@@ -142,4 +145,4 @@ class TestWebsiteSaleProductConfigurator(TestProductConfiguratorCommon, HttpCase
         # Check the name of the created sale order line
         new_sale_order = self.env['sale.order'].search([]) - old_sale_order
         new_order_line = new_sale_order.order_line
-        self.assertEqual(new_order_line.name, 'Short (TEST) (M always, M dynamic)\n\nNever attribute size: M never\nNever attribute size custom: Yes never custom: TEST')
+        self.assertEqual(new_order_line.name, 'Short (TEST) (M always, M dynamic)\nNever attribute size: M never\nNever attribute size custom: Yes never custom: TEST')

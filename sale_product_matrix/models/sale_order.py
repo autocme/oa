@@ -8,9 +8,9 @@ from odoo.exceptions import ValidationError
 class SaleOrder(models.Model):
     _inherit = 'sale.order'
 
-    report_grids = fields.Boolean(
-        string="Print Variant Grids", default=True,
-        help="If set, the matrix of the products configurable by matrix will be shown on the report of the order.")
+    # if set, the matrix of the products configurable by matrix will be shown
+    # on the report of the order.
+    report_grids = fields.Boolean(string="Print Variant Grids", default=True)
 
     """ Matrix loading and update: fields and methods :
 
@@ -23,14 +23,14 @@ class SaleOrder(models.Model):
     """
 
     grid_product_tmpl_id = fields.Many2one(
-        'product.template', store=False,
-        help="Technical field for product_matrix functionalities.")
-    grid_update = fields.Boolean(
-        default=False, store=False,
-        help="Whether the grid field contains a new matrix to apply or not.")
+        'product.template', store=False)
+    # Whether the grid field contains a new matrix to apply or not
+    grid_update = fields.Boolean(default=False, store=False)
     grid = fields.Char(
         "Matrix local storage", store=False,
-        help="Technical local storage of grid. \nIf grid_update, will be loaded on the SO. \nIf not, represents the matrix to open.")
+        help="Technical local storage of grid. "
+        "\nIf grid_update, will be loaded on the SO."
+        "\nIf not, represents the matrix to open.")
 
     @api.onchange('grid_product_tmpl_id')
     def _set_grid_up(self):
@@ -45,7 +45,6 @@ class SaleOrder(models.Model):
         if self.grid and self.grid_update:
             grid = json.loads(self.grid)
             product_template = self.env['product.template'].browse(grid['product_template_id'])
-            product_ids = set()
             dirty_cells = grid['changes']
             Attrib = self.env['product.template.attribute.value']
             default_so_line_vals = {}
@@ -68,8 +67,6 @@ class SaleOrder(models.Model):
 
                 if not diff:
                     continue
-
-                product_ids.add(product.id)
 
                 # TODO keep qty check? cannot be 0 because we only get cell changes ...
                 if order_lines:
@@ -115,18 +112,9 @@ class SaleOrder(models.Model):
                         product_uom_qty=qty,
                         product_no_variant_attribute_value_ids=no_variant_attribute_values.ids)
                     ))
-            if product_ids:
-                res = False
-                if new_lines:
-                    # Add new SO lines
-                    self.update(dict(order_line=new_lines))
-
-                # Recompute prices for new/modified lines
-                for line in self.order_line.filtered(lambda line: line.product_id.id in product_ids):
-                    res = line.product_id_change() or res
-                    line._onchange_discount()
-                    line._onchange_product_id_set_customer_lead()
-                return res
+            if new_lines:
+                # Add new SO lines
+                self.update(dict(order_line=new_lines))
 
     def _get_matrix(self, product_template):
         """Return the matrix of the given product, updated with current SOLines quantities.
@@ -170,6 +158,11 @@ class SaleOrder(models.Model):
             grid_configured_templates = self.order_line.filtered('is_configurable_product').product_template_id.filtered(lambda ptmpl: ptmpl.product_add_mode == 'matrix')
             for template in grid_configured_templates:
                 if len(self.order_line.filtered(lambda line: line.product_template_id == template)) > 1:
-                    # TODO do we really want the whole matrix even if there isn't a lot of lines ??
-                    matrixes.append(self._get_matrix(template))
+                    matrix = self._get_matrix(template)
+                    matrix_data = []
+                    for row in matrix['matrix']:
+                        if any(column['qty'] != 0 for column in row[1:]):
+                            matrix_data.append(row)
+                    matrix['matrix'] = matrix_data
+                    matrixes.append(matrix)
         return matrixes

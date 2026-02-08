@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
 
+import contextlib
 import logging
 
 from ast import literal_eval
@@ -11,6 +12,7 @@ from odoo import api, fields, models, _
 from odoo.exceptions import UserError
 from odoo.osv import expression
 from odoo.tools.misc import ustr
+from odoo.http import request
 
 from odoo.addons.base.models.ir_mail_server import MailDeliveryException
 from odoo.addons.auth_signup.models.res_partner import SignupError, now
@@ -84,7 +86,7 @@ class ResUsers(models.Model):
                 partner_user.write(values)
                 if not partner_user.login_date:
                     partner_user._notify_inviter()
-                return (self.env.cr.dbname, partner_user.login, values.get('password'))
+                return (partner_user.login, values.get('password'))
             else:
                 # user does not exist: sign up invited user
                 values.update({
@@ -102,7 +104,7 @@ class ResUsers(models.Model):
             values['email'] = values.get('email') or values.get('login')
             self._signup_create_user(values)
 
-        return (self.env.cr.dbname, values.get('login'), values.get('password'))
+        return (values.get('login'), values.get('password'))
 
     @api.model
     def _get_signup_invitation_scope(self):
@@ -117,6 +119,18 @@ class ResUsers(models.Model):
             if self._get_signup_invitation_scope() != 'b2c':
                 raise SignupError(_('Signup is not allowed for uninvited users'))
         return self._create_user_from_template(values)
+
+    @classmethod
+    def authenticate(cls, db, login, password, user_agent_env):
+        uid = super().authenticate(db, login, password, user_agent_env)
+        try:
+            with cls.pool.cursor() as cr:
+                env = api.Environment(cr, uid, {})
+                if env.user._should_alert_new_device():
+                    env.user._alert_new_device()
+        except MailDeliveryException:
+            pass
+        return uid
 
     def _notify_inviter(self):
         for user in self:
@@ -155,16 +169,24 @@ class ResUsers(models.Model):
         users = self.search(self._get_login_domain(login))
         if not users:
             users = self.search(self._get_email_domain(login))
-
         if not users:
-            raise Exception(_('Reset password: invalid username or email'))
+            raise Exception(_('No account found for this login'))
         if len(users) > 1:
-            raise Exception(_('Multiple accounts found for this email'))
+            raise Exception(_('Multiple accounts found for this login'))
         return users.action_reset_password()
 
     def action_reset_password(self):
+        try:
+            return self._action_reset_password()
+        except MailDeliveryException as mde:
+            if len(mde.args) == 2 and isinstance(mde.args[1], ConnectionRefusedError):
+                raise UserError(_("Could not contact the mail server, please check your outgoing email server configuration")) from mde
+            else:
+                raise UserError(_("There was an error when trying to deliver your Email, please check your configuration")) from mde
+
+    def _action_reset_password(self):
         """ create signup token for each user, and send their signup url by email """
-        if self.env.context.get('install_mode', False):
+        if self.env.context.get('install_mode') or self.env.context.get('import_file'):
             return
         if self.filtered(lambda user: not user.active):
             raise UserError(_("You cannot perform this action on an archived user."))
@@ -177,19 +199,17 @@ class ResUsers(models.Model):
         self.mapped('partner_id').signup_prepare(signup_type="reset", expiration=expiration)
 
         # send email to users with their signup url
-        template = False
+        account_created_template = None
         if create_mode:
-            try:
-                template = self.env.ref('auth_signup.set_password_email', raise_if_not_found=False)
-            except ValueError:
-                pass
-        if not template:
-            template = self.env.ref('auth_signup.reset_password_email')
-        assert template._name == 'mail.template'
+            account_created_template = self.env.ref('auth_signup.set_password_email', raise_if_not_found=False)
+            if account_created_template and account_created_template._name != 'mail.template':
+                _logger.error("Wrong set password template %r", account_created_template)
+                return
 
         email_values = {
             'email_cc': False,
             'auto_delete': True,
+            'message_type': 'user_notification',
             'recipient_ids': [],
             'partner_ids': [],
             'scheduled_date': False,
@@ -199,13 +219,32 @@ class ResUsers(models.Model):
             if not user.email:
                 raise UserError(_("Cannot send email: user %s has no email address.", user.name))
             email_values['email_to'] = user.email
-            # TDE FIXME: make this template technical (qweb)
-            with self.env.cr.savepoint():
-                force_send = not(self.env.context.get('import_file', False))
-                template.send_mail(user.id, force_send=force_send, raise_exception=True, email_values=email_values)
+            with contextlib.closing(self.env.cr.savepoint()):
+                if account_created_template:
+                    account_created_template.send_mail(
+                        user.id, force_send=True,
+                        raise_exception=True, email_values=email_values)
+                else:
+                    user_lang = user.lang or self.env.lang or 'en_US'
+                    body = self.env['mail.render.mixin'].with_context(lang=user_lang)._render_template(
+                        self.env.ref('auth_signup.reset_password_email'),
+                        model='res.users', res_ids=user.ids,
+                        engine='qweb_view', options={'post_process': True})[user.id]
+                    context = {'lang': user_lang}   # noqa: F841
+                    mail = self.env['mail.mail'].sudo().create({
+                        'subject': _('Password reset'),
+                        'email_from': user.company_id.email_formatted or user.email_formatted,
+                        'body_html': body,
+                        **email_values,
+                    })
+                    mail.send()
             _logger.info("Password reset email sent for user <%s> to <%s>", user.login, user.email)
 
     def send_unregistered_user_reminder(self, after_days=5):
+        email_template = self.env.ref('auth_signup.mail_template_data_unregistered_users', raise_if_not_found=False)
+        if not email_template:
+            _logger.warning("Template 'auth_signup.mail_template_data_unregistered_users' was not found. Cannot send reminder notifications.")
+            return
         datetime_min = fields.Datetime.today() - relativedelta(days=after_days)
         datetime_max = datetime_min + relativedelta(hours=23, minutes=59, seconds=59)
 
@@ -223,8 +262,67 @@ class ResUsers(models.Model):
 
         # For sending mail to all the invitors about their invited users
         for user in invited_users:
-            template = self.env.ref('auth_signup.mail_template_data_unregistered_users').with_context(dbname=self._cr.dbname, invited_users=invited_users[user])
-            template.send_mail(user, notif_layout='mail.mail_notification_light', force_send=False)
+            template = email_template.with_context(dbname=self._cr.dbname, invited_users=invited_users[user])
+            template.send_mail(user, email_layout_xmlid='mail.mail_notification_light', force_send=False)
+
+    def _alert_new_device(self):
+        self.ensure_one()
+        if self.email:
+            email_values = {
+                'email_cc': False,
+                'auto_delete': True,
+                'message_type': 'user_notification',
+                'recipient_ids': [],
+                'partner_ids': [],
+                'scheduled_date': False,
+                'email_to': self.email
+            }
+
+            body = self.env['mail.render.mixin']._render_template(
+                    'auth_signup.alert_login_new_device',
+                    model='res.users', res_ids=self.ids,
+                    engine='qweb_view', options={'post_process': True},
+                    add_context=self._prepare_new_device_notice_values())[self.id]
+            mail = self.env['mail.mail'].sudo().create({
+                'subject': _('New Connection to your Account'),
+                'email_from': self.company_id.email_formatted or self.email_formatted,
+                'body_html': body,
+                **email_values,
+            })
+            mail.send()
+            _logger.info("New device alert email sent for user <%s> to <%s>", self.login, self.email)
+
+    def _prepare_new_device_notice_values(self):
+        values = {
+            'login_date': fields.Datetime.now(),
+            'location_address': False,
+            'ip_address': False,
+            'browser': False,
+            'useros': False,
+        }
+
+        if not request:
+            return values
+
+        city = request.geoip.get('city') or False
+        region = request.geoip.get('region_name') or False
+        country = request.geoip.get('country') or False
+        if country:
+            if region and city:
+                values['location_address'] = _("Near %(city)s, %(region)s, %(country)s", city=city, region=region, country=country)
+            elif region:
+                values['location_address'] = _("Near %(region)s, %(country)s", region=region, country=country)
+            else:
+                values['location_address'] = _("In %(country)s", country=country)
+        else:
+            values['location_address'] = False
+        values['ip_address'] = request.httprequest.environ['REMOTE_ADDR']
+        if request.httprequest.user_agent:
+            if request.httprequest.user_agent.browser:
+                values['browser'] = request.httprequest.user_agent.browser.capitalize()
+            if request.httprequest.user_agent.platform:
+                values['useros'] = request.httprequest.user_agent.platform.capitalize()
+        return values
 
     @api.model
     def web_create_users(self, emails):
@@ -243,10 +341,22 @@ class ResUsers(models.Model):
             users_with_email = users.filtered('email')
             if users_with_email:
                 try:
-                    users_with_email.with_context(create_user=True).action_reset_password()
+                    users_with_email.with_context(create_user=True)._action_reset_password()
                 except MailDeliveryException:
                     users_with_email.partner_id.with_context(create_user=True).signup_cancel()
         return users
+
+    def write(self, vals):
+        if 'active' in vals and not vals['active']:
+            self.partner_id.sudo().signup_cancel()
+        return super().write(vals)
+
+    @api.ondelete(at_uninstall=False)
+    def _ondelete_signup_cancel(self):
+        # Cancel pending partner signup when the user is deleted.
+        for user in self:
+            if user.partner_id:
+                user.partner_id.signup_cancel()
 
     @api.returns('self', lambda value: value.id)
     def copy(self, default=None):

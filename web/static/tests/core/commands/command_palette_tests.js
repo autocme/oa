@@ -2,7 +2,6 @@
 
 import { browser } from "@web/core/browser/browser";
 import { CommandPalette } from "@web/core/commands/command_palette";
-import { CommandPaletteDialog } from "@web/core/commands/command_palette_dialog";
 import { commandService } from "@web/core/commands/command_service";
 import { dialogService } from "@web/core/dialog/dialog_service";
 import { hotkeyService } from "@web/core/hotkeys/hotkey_service";
@@ -13,35 +12,35 @@ import {
     click,
     getFixture,
     makeDeferred,
+    mount,
     nextTick,
     patchWithCleanup,
     triggerHotkey,
 } from "../../helpers/utils";
-import { editSearchBar } from "./command_service_tests";
+import { backspaceSearchBar, editSearchBar } from "./command_service_tests";
 
-const { Component, mount, tags } = owl;
-const { xml } = tags;
+import { Component, xml } from "@odoo/owl";
 
 let env;
 let target;
-let testComponent;
 const serviceRegistry = registry.category("services");
 
-const footerTemplate = xml`<span>My footer</span>`;
+class FooterComponent extends Component {}
+FooterComponent.template = xml`<span>My footer</span>`;
 
 class TestComponent extends Component {
-    get DialogContainer() {
-        return registry.category("main_components").get("DialogContainer");
+    get OverlayContainer() {
+        return registry.category("main_components").get("OverlayContainer");
     }
 }
 TestComponent.template = xml`
   <div>
     <div class="o_dialog_container"/>
-    <t t-component="DialogContainer.Component" t-props="DialogContainer.props" />
+    <t t-component="OverlayContainer.Component" t-props="OverlayContainer.props" />
   </div>
 `;
 
-QUnit.module("Command Palette Dialog", {
+QUnit.module("Command Palette", {
     async beforeEach() {
         serviceRegistry.add("ui", uiService);
         serviceRegistry.add("dialog", dialogService);
@@ -50,7 +49,7 @@ QUnit.module("Command Palette Dialog", {
 
         patchWithCleanup(browser, {
             clearTimeout: () => {},
-            setTimeout: (later, wait) => {
+            setTimeout: (later) => {
                 later();
             },
         });
@@ -58,19 +57,14 @@ QUnit.module("Command Palette Dialog", {
         env = await makeTestEnv();
         target = getFixture();
     },
-    afterEach() {
-        if (testComponent) {
-            testComponent.destroy();
-        }
-    },
 });
 
 QUnit.test("empty providers", async (assert) => {
-    testComponent = await mount(TestComponent, { env, target });
+    await mount(TestComponent, target, { env });
     const config = {
         providers: [],
     };
-    env.services.dialog.add(CommandPaletteDialog, {
+    env.services.dialog.add(CommandPalette, {
         config,
     });
     await nextTick();
@@ -79,7 +73,7 @@ QUnit.test("empty providers", async (assert) => {
     assert.containsOnce(target, ".o_command_palette_listbox_empty");
     assert.strictEqual(
         target.querySelector(".o_command_palette_listbox_empty").textContent,
-        "No results found"
+        "No result found"
     );
     assert.strictEqual(
         target.querySelector(".o_command_palette_search input").placeholder,
@@ -89,11 +83,17 @@ QUnit.test("empty providers", async (assert) => {
 });
 
 QUnit.test("custom empty message", async (assert) => {
-    testComponent = await mount(TestComponent, { env, target });
-    const emptyMessageByNamespace = {
-        default: "Empty Default",
-        "@": "Empty @",
-        "#": "Empty #",
+    await mount(TestComponent, target, { env });
+    const configByNamespace = {
+        default: {
+            emptyMessage: "Empty Default",
+        },
+        "@": {
+            emptyMessage: "Empty @",
+        },
+        "#": {
+            emptyMessage: "Empty #",
+        },
     };
     const provide = () => [];
     const providers = [
@@ -101,10 +101,10 @@ QUnit.test("custom empty message", async (assert) => {
         { namespace: "#", provide },
     ];
     const config = {
-        emptyMessageByNamespace,
+        configByNamespace,
         providers,
     };
-    env.services.dialog.add(CommandPaletteDialog, {
+    env.services.dialog.add(CommandPalette, {
         config,
     });
     await nextTick();
@@ -113,31 +113,173 @@ QUnit.test("custom empty message", async (assert) => {
     assert.containsOnce(target, ".o_command_palette_listbox_empty");
     assert.strictEqual(
         target.querySelector(".o_command_palette_listbox_empty").textContent,
-        emptyMessageByNamespace["default"]
+        configByNamespace["default"].emptyMessage
     );
 
     await editSearchBar("@");
     assert.containsOnce(target, ".o_command_palette_listbox_empty");
     assert.strictEqual(
         target.querySelector(".o_command_palette_listbox_empty").textContent,
-        emptyMessageByNamespace["@"]
+        configByNamespace["@"].emptyMessage
     );
 
     await editSearchBar("#");
     assert.containsOnce(target, ".o_command_palette_listbox_empty");
     assert.strictEqual(
         target.querySelector(".o_command_palette_listbox_empty").textContent,
-        emptyMessageByNamespace["#"]
+        configByNamespace["#"].emptyMessage
+    );
+});
+
+QUnit.test("custom debounce delay", async (assert) => {
+    patchWithCleanup(browser, {
+        clearTimeout: () => {},
+        setTimeout: (later, delay) => {
+            assert.step(delay.toString());
+            later();
+        },
+    });
+
+    await mount(TestComponent, target, { env });
+    const configByNamespace = {
+        "@": {
+            debounceDelay: 200,
+        },
+        "#": {
+            debounceDelay: 100,
+        },
+    };
+    const action = () => {};
+    const provide = () => [
+        {
+            name: "Command1",
+            action,
+        },
+        {
+            name: "Command2",
+            action,
+        },
+    ];
+    const providers = [
+        { namespace: "@", provide },
+        { namespace: "#", provide },
+    ];
+    const config = {
+        configByNamespace,
+        providers,
+    };
+    env.services.dialog.add(CommandPalette, {
+        config,
+    });
+    await nextTick();
+    assert.containsOnce(target, ".o_command_palette");
+    assert.containsNone(target, ".o_command");
+    await editSearchBar("com");
+    await editSearchBar("@");
+    await editSearchBar("#");
+    await backspaceSearchBar();
+    assert.verifySteps(["0", "200", "100", "0"]);
+});
+
+QUnit.test("concurrency with custom debounce delay", async (assert) => {
+    const def = makeDeferred();
+    patchWithCleanup(browser, {
+        clearTimeout: () => {},
+        setTimeout: async (later, delay) => {
+            if (delay === 200) {
+                await def;
+            }
+            later();
+        },
+    });
+
+    await mount(TestComponent, target, { env });
+    const configByNamespace = {
+        "@": {
+            debounceDelay: 200,
+        },
+        "#": {
+            debounceDelay: 100,
+        },
+    };
+    const action = () => {};
+    const providers = [
+        {
+            namespace: "@",
+            provide: () => [
+                {
+                    name: "Command@",
+                    action,
+                },
+            ],
+        },
+        {
+            namespace: "#",
+            provide: () => [
+                {
+                    name: "Command#",
+                    action,
+                },
+            ],
+        },
+    ];
+    const config = {
+        configByNamespace,
+        providers,
+    };
+    env.services.dialog.add(CommandPalette, {
+        config,
+    });
+    await nextTick();
+    assert.containsOnce(target, ".o_command_palette");
+    assert.containsNone(target, ".o_command");
+    assert.containsNone(target, ".o_command_palette .o_namespace");
+
+    await editSearchBar("@");
+    await nextTick();
+    assert.strictEqual(target.querySelector(".o_command_palette .o_namespace").innerText, "@");
+    assert.deepEqual(
+        [...target.querySelectorAll(".o_command")].map((el) => el.textContent),
+        []
+    );
+
+    await editSearchBar("#");
+    await nextTick();
+    assert.strictEqual(target.querySelector(".o_command_palette .o_namespace").innerText, "#");
+    assert.deepEqual(
+        [...target.querySelectorAll(".o_command")].map((el) => el.textContent),
+        ["Command#"]
+    );
+
+    def.resolve();
+    await nextTick();
+    assert.strictEqual(target.querySelector(".o_command_palette .o_namespace").innerText, "#");
+    assert.deepEqual(
+        [...target.querySelectorAll(".o_command")].map((el) => el.textContent),
+        ["Command#"]
     );
 });
 
 QUnit.test("custom placeholder", async (assert) => {
-    testComponent = await mount(TestComponent, { env, target });
-    const config = {
-        placeholder: "placeholder test",
-        providers: [],
+    await mount(TestComponent, target, { env });
+    const configByNamespace = {
+        default: {
+            placeholder: "default placeholder",
+        },
+        "@": {
+            placeholder: "@ placeholder",
+        },
     };
-    env.services.dialog.add(CommandPaletteDialog, {
+    const config = {
+        configByNamespace,
+        providers: [
+            {
+                namespace: "@",
+                provide: () => [],
+            },
+        ],
+    };
+    env.services.dialog.add(CommandPalette, {
         config,
     });
     await nextTick();
@@ -146,17 +288,23 @@ QUnit.test("custom placeholder", async (assert) => {
     assert.containsOnce(target, ".o_command_palette_listbox_empty");
     assert.strictEqual(
         target.querySelector(".o_command_palette_search input").placeholder,
-        "placeholder test"
+        "default placeholder"
+    );
+
+    await editSearchBar("@");
+    assert.strictEqual(
+        target.querySelector(".o_command_palette_search input").placeholder,
+        "@ placeholder"
     );
 });
 
 QUnit.test("add a footer", async (assert) => {
-    testComponent = await mount(TestComponent, { env, target });
+    await mount(TestComponent, target, { env });
     const config = {
         providers: [],
-        footerTemplate,
+        FooterComponent,
     };
-    env.services.dialog.add(CommandPaletteDialog, {
+    env.services.dialog.add(CommandPalette, {
         config,
     });
     await nextTick();
@@ -174,7 +322,7 @@ QUnit.test("command with a Custom Component", async (assert) => {
         </div>
     `;
 
-    testComponent = await mount(TestComponent, { env, target });
+    await mount(TestComponent, target, { env });
     const action = () => {};
     const providers = [
         {
@@ -194,7 +342,7 @@ QUnit.test("command with a Custom Component", async (assert) => {
     const config = {
         providers,
     };
-    env.services.dialog.add(CommandPaletteDialog, {
+    env.services.dialog.add(CommandPalette, {
         config,
     });
     await nextTick();
@@ -215,7 +363,7 @@ QUnit.test("command with a Custom Component", async (assert) => {
 });
 
 QUnit.test("multi namespace with provider", async (assert) => {
-    testComponent = await mount(TestComponent, { env, target });
+    await mount(TestComponent, target, { env });
     const action = () => {};
     const providers = [
         {
@@ -247,11 +395,12 @@ QUnit.test("multi namespace with provider", async (assert) => {
     const config = {
         providers,
     };
-    env.services.dialog.add(CommandPaletteDialog, {
+    env.services.dialog.add(CommandPalette, {
         config,
     });
     await nextTick();
     assert.containsOnce(target, ".o_command_palette");
+    assert.containsNone(target, ".o_command_palette .o_namespace");
     assert.containsN(target, ".o_command", 2);
     assert.deepEqual(
         [...target.querySelectorAll(".o_command")].map((el) => el.textContent),
@@ -259,6 +408,7 @@ QUnit.test("multi namespace with provider", async (assert) => {
     );
 
     await editSearchBar("@");
+    assert.strictEqual(target.querySelector(".o_command_palette .o_namespace").innerText, "@");
     assert.containsN(target, ".o_command", 2);
     assert.deepEqual(
         [...target.querySelectorAll(".o_command")].map((el) => el.textContent),
@@ -267,7 +417,7 @@ QUnit.test("multi namespace with provider", async (assert) => {
 });
 
 QUnit.test("apply a fuzzysearch on the namespace default not on the others", async (assert) => {
-    testComponent = await mount(TestComponent, { env, target });
+    await mount(TestComponent, target, { env });
     const action = () => {};
     const providers = [
         {
@@ -299,7 +449,7 @@ QUnit.test("apply a fuzzysearch on the namespace default not on the others", asy
     const config = {
         providers,
     };
-    env.services.dialog.add(CommandPaletteDialog, {
+    env.services.dialog.add(CommandPalette, {
         config,
     });
     await nextTick();
@@ -331,7 +481,7 @@ QUnit.test("apply a fuzzysearch on the namespace default not on the others", asy
 });
 
 QUnit.test("multi provider with the same namespace", async (assert) => {
-    testComponent = await mount(TestComponent, { env, target });
+    await mount(TestComponent, target, { env });
     const action = () => {};
     const providers = [
         {
@@ -362,7 +512,7 @@ QUnit.test("multi provider with the same namespace", async (assert) => {
     const config = {
         providers,
     };
-    env.services.dialog.add(CommandPaletteDialog, {
+    env.services.dialog.add(CommandPalette, {
         config,
     });
     await nextTick();
@@ -375,7 +525,7 @@ QUnit.test("multi provider with the same namespace", async (assert) => {
 });
 
 QUnit.test("check the concurrency during a research", async (assert) => {
-    testComponent = await mount(TestComponent, { env, target });
+    await mount(TestComponent, target, { env });
     const imSearchDef = makeDeferred();
     const provide = async (env, options) => {
         if (options.searchValue) {
@@ -400,7 +550,7 @@ QUnit.test("check the concurrency during a research", async (assert) => {
     const config = {
         providers,
     };
-    env.services.dialog.add(CommandPaletteDialog, {
+    env.services.dialog.add(CommandPalette, {
         config,
     });
     await nextTick();
@@ -417,8 +567,58 @@ QUnit.test("check the concurrency during a research", async (assert) => {
     assert.verifySteps(["b"]);
 });
 
+QUnit.test(
+    "open the command palette with a searchValue already in the searchbar",
+    async (assert) => {
+        await mount(TestComponent, target, { env });
+        const action = () => {};
+        const providers = [
+            {
+                provide: () => [
+                    {
+                        name: "Command1",
+                        action,
+                    },
+                    {
+                        name: "Command2",
+                        action,
+                    },
+                ],
+            },
+            {
+                namespace: "@",
+                provide: () => [
+                    {
+                        name: "Command3",
+                        action,
+                    },
+                    {
+                        name: "Command4",
+                        action,
+                    },
+                ],
+            },
+        ];
+        const config = {
+            searchValue: "C1",
+            providers,
+        };
+        env.services.dialog.add(CommandPalette, {
+            config,
+        });
+        await nextTick();
+        assert.containsOnce(target, ".o_command_palette");
+        assert.strictEqual(target.querySelector(".o_command_palette_search input").value, "C1");
+        assert.containsN(target, ".o_command", 1);
+        assert.deepEqual(
+            [...target.querySelectorAll(".o_command")].map((el) => el.textContent),
+            ["Command1"]
+        );
+    }
+);
+
 QUnit.test("open the command palette with a namespace already in the searchbar", async (assert) => {
-    testComponent = await mount(TestComponent, { env, target });
+    await mount(TestComponent, target, { env });
     const action = () => {};
     const providers = [
         {
@@ -448,15 +648,15 @@ QUnit.test("open the command palette with a namespace already in the searchbar",
         },
     ];
     const config = {
-        namespace: "@",
+        searchValue: "@",
         providers,
     };
-    env.services.dialog.add(CommandPaletteDialog, {
+    env.services.dialog.add(CommandPalette, {
         config,
     });
     await nextTick();
     assert.containsOnce(target, ".o_command_palette");
-    assert.strictEqual(target.querySelector(".o_command_palette_search input").value, "@");
+    assert.strictEqual(target.querySelector(".o_command_palette .o_namespace").innerText, "@");
     assert.containsN(target, ".o_command", 2);
     assert.deepEqual(
         [...target.querySelectorAll(".o_command")].map((el) => el.textContent),
@@ -464,12 +664,103 @@ QUnit.test("open the command palette with a namespace already in the searchbar",
     );
 });
 
-QUnit.test("multi provider with categories", async (assert) => {
-    testComponent = await mount(TestComponent, { env, target });
-    const categoriesByNamespace = {
-        default: ["cat1", "cat2"],
-        "@": ["@cat1", "@cat2"],
+QUnit.test("open the command palette with a searchValue with a namespace", async (assert) => {
+    await mount(TestComponent, target, { env });
+    const action = () => {};
+    const providers = [
+        {
+            provide: () => [
+                {
+                    name: "Command1",
+                    action,
+                },
+                {
+                    name: "Command2",
+                    action,
+                },
+            ],
+        },
+        {
+            namespace: "@",
+            provide: () => [
+                {
+                    name: "Command3",
+                    action,
+                },
+                {
+                    name: "Command4",
+                    action,
+                },
+            ],
+        },
+    ];
+    const config = {
+        searchValue: "@Test",
+        providers,
     };
+    env.services.dialog.add(CommandPalette, {
+        config,
+    });
+    await nextTick();
+    assert.containsOnce(target, ".o_command_palette");
+    assert.strictEqual(target.querySelector(".o_command_palette .o_namespace").innerText, "@");
+    assert.strictEqual(target.querySelector(".o_command_palette_search input").value, "Test");
+    assert.deepEqual(
+        [...target.querySelectorAll(".o_command")].map((el) => el.textContent),
+        ["Command3", "Command4"]
+    );
+});
+
+QUnit.test("open the command palette with a searchValue without namespace", async (assert) => {
+    await mount(TestComponent, target, { env });
+    const action = () => {};
+    const providers = [
+        {
+            provide: () => [
+                {
+                    name: "Command1",
+                    action,
+                },
+                {
+                    name: "Command2",
+                    action,
+                },
+            ],
+        },
+        {
+            namespace: "@",
+            provide: () => [
+                {
+                    name: "Command3",
+                    action,
+                },
+                {
+                    name: "Command4",
+                    action,
+                },
+            ],
+        },
+    ];
+    const config = {
+        searchValue: "Command1",
+        providers,
+    };
+    env.services.dialog.add(CommandPalette, {
+        config,
+    });
+    await nextTick();
+    assert.containsOnce(target, ".o_command_palette");
+    assert.containsNone(target, ".o_command_palette .o_namespace");
+    assert.strictEqual(target.querySelector(".o_command_palette_search input").value, "Command1");
+    assert.containsN(target, ".o_command", 1);
+    assert.deepEqual(
+        [...target.querySelectorAll(".o_command")].map((el) => el.textContent),
+        ["Command1"]
+    );
+});
+
+QUnit.test("multi provider with categories", async (assert) => {
+    await mount(TestComponent, target, { env });
     const action = () => {};
     const providers = [
         {
@@ -515,11 +806,19 @@ QUnit.test("multi provider with categories", async (assert) => {
             ],
         },
     ];
+    const configByNamespace = {
+        default: {
+            categories: ["cat1", "cat2"],
+        },
+        "@": {
+            categories: ["@cat1", "@cat2"],
+        },
+    };
     const config = {
-        categoriesByNamespace,
+        configByNamespace,
         providers,
     };
-    env.services.dialog.add(CommandPaletteDialog, {
+    env.services.dialog.add(CommandPalette, {
         config,
     });
     await nextTick();
@@ -533,7 +832,7 @@ QUnit.test("multi provider with categories", async (assert) => {
     assert.deepEqual(
         [
             ...target.querySelectorAll(
-                ".o_command_category:nth-of-type(1) .o_command > div > span:first-child"
+                ".o_command_category:nth-of-type(1) .o_command > a > div > span:first-child"
             ),
         ].map((el) => el.textContent),
         ["Command1"]
@@ -541,7 +840,7 @@ QUnit.test("multi provider with categories", async (assert) => {
     assert.deepEqual(
         [
             ...target.querySelectorAll(
-                ".o_command_category:nth-of-type(2) .o_command > div > span:first-child"
+                ".o_command_category:nth-of-type(2) .o_command > a > div > span:first-child"
             ),
         ].map((el) => el.textContent),
         ["Command2"]
@@ -549,7 +848,7 @@ QUnit.test("multi provider with categories", async (assert) => {
     assert.deepEqual(
         [
             ...target.querySelectorAll(
-                ".o_command_category:nth-of-type(3) .o_command > div > span:first-child"
+                ".o_command_category:nth-of-type(3) .o_command > a > div > span:first-child"
             ),
         ].map((el) => el.textContent),
         ["Command3"]
@@ -566,7 +865,7 @@ QUnit.test("multi provider with categories", async (assert) => {
     assert.deepEqual(
         [
             ...target.querySelectorAll(
-                ".o_command_category:nth-of-type(1) .o_command > div > span:first-child"
+                ".o_command_category:nth-of-type(1) .o_command > a > div > span:first-child"
             ),
         ].map((el) => el.textContent),
         ["Command6", "Command7"]
@@ -574,7 +873,7 @@ QUnit.test("multi provider with categories", async (assert) => {
     assert.deepEqual(
         [
             ...target.querySelectorAll(
-                ".o_command_category:nth-of-type(2) .o_command > div > span:first-child"
+                ".o_command_category:nth-of-type(2) .o_command > a > div > span:first-child"
             ),
         ].map((el) => el.textContent),
         ["Command5"]
@@ -582,7 +881,7 @@ QUnit.test("multi provider with categories", async (assert) => {
     assert.deepEqual(
         [
             ...target.querySelectorAll(
-                ".o_command_category:nth-of-type(3) .o_command > div > span:first-child"
+                ".o_command_category:nth-of-type(3) .o_command > a > div > span:first-child"
             ),
         ].map((el) => el.textContent),
         ["Command4"]
@@ -590,10 +889,7 @@ QUnit.test("multi provider with categories", async (assert) => {
 });
 
 QUnit.test("don't display by categories if there is a search value", async (assert) => {
-    testComponent = await mount(TestComponent, { env, target });
-    const categoriesByNamespace = {
-        default: ["cat1", "cat2"],
-    };
+    await mount(TestComponent, target, { env });
     const action = () => {};
     const providers = [
         {
@@ -615,11 +911,16 @@ QUnit.test("don't display by categories if there is a search value", async (asse
             ],
         },
     ];
+    const configByNamespace = {
+        default: {
+            categories: ["cat1", "cat2"],
+        },
+    };
     const config = {
-        categoriesByNamespace,
+        configByNamespace,
         providers,
     };
-    env.services.dialog.add(CommandPaletteDialog, {
+    env.services.dialog.add(CommandPalette, {
         config,
     });
     await nextTick();
@@ -642,7 +943,7 @@ QUnit.test("don't display by categories if there is a search value", async (asse
     assert.deepEqual(
         [
             ...target.querySelectorAll(
-                ".o_command_category:nth-of-type(1) .o_command > div > span:first-child"
+                ".o_command_category:nth-of-type(1) .o_command > a > div > span:first-child"
             ),
         ].map((el) => el.textContent),
         ["Command1", "Command2", "Command3"]
@@ -650,7 +951,7 @@ QUnit.test("don't display by categories if there is a search value", async (asse
 });
 
 QUnit.test("click on command", async (assert) => {
-    testComponent = await mount(TestComponent, { env, target });
+    await mount(TestComponent, target, { env });
     const commands = [
         {
             name: "Command1",
@@ -665,6 +966,7 @@ QUnit.test("click on command", async (assert) => {
             },
         },
     ];
+
     const providers = [
         {
             provide: () => commands,
@@ -673,7 +975,7 @@ QUnit.test("click on command", async (assert) => {
     const config = {
         providers,
     };
-    env.services.dialog.add(CommandPaletteDialog, {
+    env.services.dialog.add(CommandPalette, {
         config,
     });
     await nextTick();
@@ -683,14 +985,14 @@ QUnit.test("click on command", async (assert) => {
         [...target.querySelectorAll(".o_command")].map((el) => el.textContent),
         ["Command1", "Command2"]
     );
-    let focusedCommand = target.querySelector(".o_command.focused");
+    const focusedCommand = target.querySelector(".o_command.focused");
     assert.strictEqual(focusedCommand.textContent, commands[0].name);
     await click(target, ".o_command.focused");
     assert.verifySteps(["C1"]);
 });
 
 QUnit.test("press enter on command", async (assert) => {
-    testComponent = await mount(TestComponent, { env, target });
+    await mount(TestComponent, target, { env });
     const commands = [
         {
             name: "Command1",
@@ -713,7 +1015,7 @@ QUnit.test("press enter on command", async (assert) => {
     const config = {
         providers,
     };
-    env.services.dialog.add(CommandPaletteDialog, {
+    env.services.dialog.add(CommandPalette, {
         config,
     });
     await nextTick();
@@ -723,7 +1025,7 @@ QUnit.test("press enter on command", async (assert) => {
         [...target.querySelectorAll(".o_command")].map((el) => el.textContent),
         ["Command1", "Command2"]
     );
-    let focusedCommand = target.querySelector(".o_command.focused");
+    const focusedCommand = target.querySelector(".o_command.focused");
     assert.strictEqual(focusedCommand.textContent, commands[0].name);
     triggerHotkey("arrowdown");
     await nextTick();
@@ -734,7 +1036,7 @@ QUnit.test("press enter on command", async (assert) => {
 });
 
 QUnit.test("keyboard navigation scroll", async (assert) => {
-    testComponent = await mount(TestComponent, { env, target });
+    await mount(TestComponent, target, { env });
     const commands = [
         { name: "Command1" },
         { name: "Command2" },
@@ -749,7 +1051,7 @@ QUnit.test("keyboard navigation scroll", async (assert) => {
     const config = {
         providers,
     };
-    env.services.dialog.add(CommandPaletteDialog, {
+    env.services.dialog.add(CommandPalette, {
         config,
     });
 
@@ -892,9 +1194,12 @@ QUnit.test("keyboard navigation scroll", async (assert) => {
 });
 
 QUnit.test("multi level command", async (assert) => {
-    testComponent = await mount(TestComponent, { env, target });
-    const emptyMessageByNamespace = {
-        default: "Empty Default",
+    await mount(TestComponent, target, { env });
+    const configByNamespace = {
+        default: {
+            emptyMessage: "Empty Default",
+            placeholder: "placeholder test",
+        },
     };
     const commands = [
         {
@@ -912,12 +1217,11 @@ QUnit.test("multi level command", async (assert) => {
         },
     ];
     const config = {
-        emptyMessageByNamespace,
-        footerTemplate,
-        placeholder: "placeholder test",
+        configByNamespace,
+        FooterComponent,
         providers,
     };
-    env.services.dialog.add(CommandPaletteDialog, {
+    env.services.dialog.add(CommandPalette, {
         config,
     });
     await nextTick();
@@ -940,7 +1244,7 @@ QUnit.test("multi level command", async (assert) => {
         [...target.querySelectorAll(".o_command")].map((el) => el.textContent),
         ["Command1"]
     );
-    let focusedCommand = target.querySelector(".o_command.focused");
+    const focusedCommand = target.querySelector(".o_command.focused");
     assert.strictEqual(focusedCommand.textContent, commands[0].name);
     triggerHotkey("enter");
     await nextTick();
@@ -954,7 +1258,7 @@ QUnit.test("multi level command", async (assert) => {
     await editSearchBar("empty");
     assert.strictEqual(
         target.querySelector(".o_command_palette_listbox_empty").textContent,
-        "No results found"
+        "No result found"
     );
     assert.strictEqual(
         target.querySelector(".o_command_palette_search input").placeholder,
@@ -964,19 +1268,19 @@ QUnit.test("multi level command", async (assert) => {
 });
 
 QUnit.test("command palette dialog can be rendered and closed on outside click", async (assert) => {
-    testComponent = await mount(TestComponent, { env, target });
+    await mount(TestComponent, target, { env });
 
     const config = {
         providers: [],
     };
-    env.services.dialog.add(CommandPaletteDialog, {
+    env.services.dialog.add(CommandPalette, {
         config,
     });
     await nextTick();
     assert.containsOnce(target, ".o_command_palette");
 
     // Close on outside click
-    window.dispatchEvent(new MouseEvent("mousedown"));
+    document.body.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
     await nextTick();
     assert.containsNone(target, ".o_command_palette");
 });
@@ -984,7 +1288,7 @@ QUnit.test("command palette dialog can be rendered and closed on outside click",
 QUnit.test("navigate in the command palette with the arrows", async (assert) => {
     assert.expect(6);
 
-    testComponent = await mount(TestComponent, { env, target });
+    await mount(TestComponent, target, { env });
     const action = () => {};
     const commands = [
         {
@@ -1008,7 +1312,7 @@ QUnit.test("navigate in the command palette with the arrows", async (assert) => 
     const config = {
         providers,
     };
-    env.services.dialog.add(CommandPaletteDialog, {
+    env.services.dialog.add(CommandPalette, {
         config,
     });
     await nextTick();
@@ -1045,7 +1349,7 @@ QUnit.test("navigate in the command palette with the arrows", async (assert) => 
 QUnit.test("navigate in the command palette with an empty list", async (assert) => {
     assert.expect(6);
 
-    testComponent = await mount(TestComponent, { env, target });
+    await mount(TestComponent, target, { env });
     const providers = [
         {
             provide: () => [],
@@ -1054,7 +1358,7 @@ QUnit.test("navigate in the command palette with an empty list", async (assert) 
     const config = {
         providers,
     };
-    env.services.dialog.add(CommandPaletteDialog, {
+    env.services.dialog.add(CommandPalette, {
         config,
     });
     await nextTick();
@@ -1072,15 +1376,149 @@ QUnit.test("navigate in the command palette with an empty list", async (assert) 
     assert.containsOnce(target, ".o_command_palette_listbox_empty");
 });
 
+QUnit.test("bold the searchValue on the commands", async (assert) => {
+    await mount(TestComponent, target, { env });
+    const action = () => {};
+    const providers = [
+        {
+            namespace: "@",
+            provide: () => [
+                {
+                    name: "Test",
+                    action,
+                },
+                {
+                    name: "test hello",
+                    action,
+                },
+                {
+                    name: "hello test",
+                    action,
+                },
+                {
+                    name: "hello Test hello",
+                    action,
+                },
+                {
+                    name: "TeSt hello Test hello TEST",
+                    action,
+                },
+            ],
+        },
+    ];
+    const config = {
+        searchValue: "@",
+        providers,
+    };
+    env.services.dialog.add(CommandPalette, {
+        config,
+    });
+    await nextTick();
+    assert.containsOnce(target, ".o_command_palette");
+    assert.containsN(target, ".o_command", 5);
+    assert.deepEqual(
+        [...target.querySelectorAll(".o_command b")].map((el) => el.textContent),
+        []
+    );
+
+    await editSearchBar("@test");
+    assert.containsN(target, ".o_command", 5);
+    assert.deepEqual(
+        [...target.querySelectorAll(".o_command")].map((command) => {
+            return [...command.querySelectorAll(".o_command_name b")].map((el) => el.textContent);
+        }),
+        [["Test"], ["test"], ["test"], ["Test"], ["TeSt", "Test", "TEST"]]
+    );
+});
+
+QUnit.test("bold the searchValue on the commands with special char", async (assert) => {
+    await mount(TestComponent, target, { env });
+    const action = () => {};
+    const providers = [
+        {
+            provide: () => [
+                {
+                    name: "Test&",
+                    action,
+                },
+            ],
+        },
+    ];
+    const config = {
+        searchValue: "&",
+        providers,
+    };
+    env.services.dialog.add(CommandPalette, {
+        config,
+    });
+    await nextTick();
+    assert.containsOnce(target, ".o_command_palette");
+    assert.containsN(target, ".o_command", 1);
+    assert.deepEqual(
+        [...target.querySelectorAll(".o_command")].map((el) => el.textContent),
+        ["Test&"]
+    );
+    assert.deepEqual(
+        [...target.querySelectorAll(".o_command b")].map((el) => el.textContent),
+        ["&"]
+    );
+});
+
+QUnit.test("remove namespace with backspace", async (assert) => {
+    await mount(TestComponent, target, { env });
+    const provide = () => [];
+    const providers = [
+        {
+            provide,
+        },
+        {
+            namespace: "@",
+            provide,
+        },
+    ];
+    const config = {
+        providers,
+    };
+    env.services.dialog.add(CommandPalette, {
+        config,
+    });
+    await nextTick();
+    await editSearchBar("@");
+    assert.strictEqual(target.querySelector(".o_command_palette .o_namespace").innerText, "@");
+
+    // remove namespace "@" because the input is empty
+    await backspaceSearchBar();
+    assert.containsNone(target, ".o_command_palette .o_namespace");
+    assert.strictEqual(target.querySelector(".o_command_palette_search input").value, "");
+
+    await editSearchBar("@NotEmpty");
+    assert.strictEqual(target.querySelector(".o_command_palette .o_namespace").innerText, "@");
+    assert.strictEqual(target.querySelector(".o_command_palette_search input").value, "NotEmpty");
+
+    // Do not remove the namespace "@" because the input is not empty
+    await backspaceSearchBar();
+    assert.strictEqual(target.querySelector(".o_command_palette .o_namespace").innerText, "@");
+
+    await editSearchBar("@");
+    assert.strictEqual(target.querySelector(".o_command_palette .o_namespace").innerText, "@");
+
+    // Does not remove the namespace if the backspace is repeatedly applied.
+    // You don't want to remove the namespace by pressing the "backspace" key
+    const searchBar = document.querySelector(".o_command_palette_search input");
+    searchBar.dispatchEvent(new KeyboardEvent("keydown", { key: "backspace", repeat: true }));
+    await nextTick();
+    assert.strictEqual(target.querySelector(".o_command_palette .o_namespace").innerText, "@");
+});
+
 QUnit.test("generate new session id when opened", async (assert) => {
     assert.expect(4);
 
     let lastSessionId;
     CommandPalette.lastSessionId = 0;
-    testComponent = await mount(TestComponent, { env, target });
+    mount(TestComponent, target, { env });
     const providers = [
         {
-            provide: (env, {sessionId}) => {
+            provide: (env, { sessionId }) => {
                 lastSessionId = sessionId;
                 return [];
             },
@@ -1089,7 +1527,7 @@ QUnit.test("generate new session id when opened", async (assert) => {
     const config = {
         providers,
     };
-    env.services.dialog.add(CommandPaletteDialog, {
+    env.services.dialog.add(CommandPalette, {
         config,
     });
 
@@ -1099,13 +1537,115 @@ QUnit.test("generate new session id when opened", async (assert) => {
     await editSearchBar("a");
     assert.equal(lastSessionId, 0);
 
-    window.dispatchEvent(new MouseEvent("mousedown"));
+    document.body.dispatchEvent(new MouseEvent("mousedown"));
     await nextTick();
     assert.equal(lastSessionId, 0);
 
-    env.services.dialog.add(CommandPaletteDialog, {
+    env.services.dialog.add(CommandPalette, {
         config,
     });
     await nextTick();
     assert.equal(lastSessionId, 1);
+});
+
+QUnit.test("checks that href is correctly used", async (assert) => {
+    await mount(TestComponent, target, { env });
+    const providers = [
+        {
+            namespace: "@",
+            provide: () => [
+                {
+                    name: "Command with link",
+                    action: () => {
+                        assert.step("command_with_link_clicked");
+                    },
+                    href: "https://www.odoo.com",
+                },
+                {
+                    name: "Command without link",
+                    action: () => {},
+                },
+            ],
+        },
+    ];
+    const config = { providers };
+    env.services.dialog.add(CommandPalette, {
+        config,
+    });
+    patchWithCleanup(window, {
+        open: (href) => {
+            assert.step(href.toString());
+        },
+    });
+    await nextTick();
+    await editSearchBar("@");
+    const command = target.querySelector(".o_command_palette .o_command");
+    // Check that command has link inside it
+    assert.strictEqual(command.querySelector("a").getAttribute("href"), "https://www.odoo.com");
+    // Check that we get url when doing ctrl+enter on a command having a link inside it
+    triggerHotkey("control+enter");
+    await nextTick();
+    assert.verifySteps(["https://www.odoo.com"]);
+    // Check that command has no link inside it
+    const commandWithoutLink = target.querySelector(".o_command_palette .o_command:nth-child(2)");
+    assert.strictEqual(commandWithoutLink.querySelector("a").getAttribute("href"), null);
+    // Check that clicking on a command having a link inside it triggers the command action
+    // instead of redirecting to the href (last step because it closes the command palette).
+    await click(command);
+    await nextTick();
+    assert.verifySteps(["command_with_link_clicked"]);
+});
+
+QUnit.test("searchValue must not change without edition", async (assert) => {
+    const provideDef = makeDeferred();
+    let debounceDef;
+
+    patchWithCleanup(browser, {
+        clearTimeout: () => {},
+        setTimeout: async (later) => {
+            // debounce the search "deb"
+            await debounceDef;
+            later();
+        },
+    });
+
+    mount(TestComponent, target, { env });
+    const providers = [
+        {
+            provide: async (env, { searchValue }) => {
+                if (searchValue === "abc") {
+                    await provideDef;
+                }
+                return [
+                    {
+                        name: searchValue,
+                        action: () => {},
+                    },
+                ];
+            },
+        },
+    ];
+    const config = {
+        providers,
+    };
+    env.services.dialog.add(CommandPalette, {
+        config,
+    });
+
+    await nextTick();
+
+    await editSearchBar("abc");
+    assert.strictEqual(target.querySelector(".o_command_palette_search input").value, "abc");
+
+    debounceDef = makeDeferred();
+    await editSearchBar("deb");
+    assert.strictEqual(target.querySelector(".o_command_palette_search input").value, "deb");
+
+    provideDef.resolve();
+    await nextTick();
+    assert.strictEqual(target.querySelector(".o_command_palette_search input").value, "deb");
+
+    debounceDef.resolve();
+    await nextTick();
+    assert.strictEqual(target.querySelector(".o_command_palette_search input").value, "deb");
 });

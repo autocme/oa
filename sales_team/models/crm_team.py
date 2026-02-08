@@ -20,7 +20,7 @@ class CrmTeam(models.Model):
     _order = "sequence ASC, create_date DESC, id DESC"
     _check_company_auto = True
 
-    def _get_default_team_id(self, user_id=None, domain=None):
+    def _get_default_team_id(self, user_id=False, domain=False):
         """ Compute default team id for sales related documents. Note that this
         method is not called by default_get as it takes some additional
         parameters and is meant to be called by other default methods.
@@ -44,7 +44,7 @@ class CrmTeam(models.Model):
         :param user_id: salesperson to target, fallback on env.uid;
         :domain: optional domain to filter teams (like use_lead = True);
         """
-        if user_id is None:
+        if not user_id:
             user = self.env.user
         else:
             user = self.env['res.users'].sudo().browse(user_id)
@@ -191,7 +191,9 @@ class CrmTeam(models.Model):
     def _search_member_ids(self, operator, value):
         return [('crm_team_member_ids.user_id', operator, value)]
 
-    @api.depends('company_id')
+    # 'name' should not be in the trigger, but as 'company_id' is possibly not present in the view
+    # because it depends on the multi-company group, we use it as fake trigger to force computation
+    @api.depends('company_id', 'name')
     def _compute_member_company_ids(self):
         """ Available companies for members. Either team company if set, either
         any company if not set on team. """
@@ -289,6 +291,9 @@ class CrmTeam(models.Model):
     def _graph_date_column(self):
         return 'create_date'
 
+    def _graph_get_table(self, GraphModel):
+        return GraphModel._table
+
     def _graph_x_query(self):
         return 'EXTRACT(WEEK FROM %s)' % self._graph_date_column()
 
@@ -321,7 +326,7 @@ class CrmTeam(models.Model):
         # apply rules
         dashboard_graph_model = self._graph_get_model()
         GraphModel = self.env[dashboard_graph_model]
-        graph_table = GraphModel._table
+        graph_table = self._graph_get_table(GraphModel)
         extra_conditions = self._extra_sql_conditions()
         where_query = GraphModel._where_calc([])
         GraphModel._apply_ir_rules(where_query, 'read')

@@ -1,90 +1,179 @@
 /** @odoo-module **/
 
+import { Component, xml } from "@odoo/owl";
+import { makeTestEnv } from "@web/../tests/helpers/mock_env";
+import {
+    click,
+    editInput,
+    getFixture,
+    mount,
+    mouseEnter,
+    triggerEvent,
+    triggerEvents,
+} from "@web/../tests/helpers/utils";
+import { commandService } from "@web/core/commands/command_service";
+import { dialogService } from "@web/core/dialog/dialog_service";
+import { fieldService } from "@web/core/field_service";
 import { hotkeyService } from "@web/core/hotkeys/hotkey_service";
 import { notificationService } from "@web/core/notifications/notification_service";
 import { ormService } from "@web/core/orm_service";
+import { popoverService } from "@web/core/popover/popover_service";
 import { registry } from "@web/core/registry";
-import { CustomFavoriteItem } from "@web/search/favorite_menu/custom_favorite_item";
+import { CustomFavoriteItem } from "@web/search/custom_favorite_item/custom_favorite_item";
 import { WithSearch } from "@web/search/with_search/with_search";
+import { getDefaultConfig } from "@web/views/view";
 import { viewService } from "@web/views/view_service";
 import { actionService } from "@web/webclient/actions/action_service";
-import { registerCleanup } from "../helpers/cleanup";
-import { makeTestEnv } from "../helpers/mock_env";
-import { click, getFixture, mouseEnter, triggerEvent } from "../helpers/utils";
+import { MainComponentsContainer } from "@web/core/main_components_container";
+import { nameService } from "@web/core/name_service";
+import { datetimePickerService } from "@web/core/datetime/datetimepicker_service";
 
 const serviceRegistry = registry.category("services");
 const favoriteMenuRegistry = registry.category("favoriteMenu");
 
-const { Component, mount } = owl;
-
-export const setupControlPanelServiceRegistry = () => {
+export function setupControlPanelServiceRegistry() {
     serviceRegistry.add("action", actionService);
+    serviceRegistry.add("dialog", dialogService);
+    serviceRegistry.add("field", fieldService);
     serviceRegistry.add("hotkey", hotkeyService);
+    serviceRegistry.add("name", nameService);
     serviceRegistry.add("notification", notificationService);
     serviceRegistry.add("orm", ormService);
+    serviceRegistry.add("popover", popoverService);
     serviceRegistry.add("view", viewService);
-};
+    serviceRegistry.add("command", commandService);
+    serviceRegistry.add("datetime_picker", datetimePickerService);
+}
 
-export const setupControlPanelFavoriteMenuRegistry = () => {
+export function setupControlPanelFavoriteMenuRegistry() {
     favoriteMenuRegistry.add(
         "custom-favorite-item",
         { Component: CustomFavoriteItem, groupNumber: 3 },
         { sequence: 0 }
     );
-};
+}
 
-export const makeWithSearch = async (params) => {
+export async function makeWithSearch(params) {
     const props = { ...params };
 
     const serverData = props.serverData || undefined;
     const mockRPC = props.mockRPC || undefined;
-    const config = props.config || {};
+    const config = {
+        ...getDefaultConfig(),
+        ...props.config,
+    };
 
     delete props.serverData;
     delete props.mockRPC;
     delete props.config;
+    const componentProps = props.componentProps || {};
+    delete props.componentProps;
+    delete props.Component;
 
-    const env = await makeTestEnv({ serverData, mockRPC, config });
+    class Parent extends Component {
+        setup() {
+            this.withSearchProps = props;
+        }
 
-    const target = getFixture();
-    const withSearch = await mount(WithSearch, { env, props, target });
+        getProps(search) {
+            const props = Object.assign({}, componentProps, {
+                context: search.context,
+                domain: search.domain,
+                groupBy: search.groupBy,
+                orderBy: search.orderBy,
+                comparison: search.comparison,
+                display: Object.assign({}, search.display, componentProps.display),
+            });
+            return filterPropsForComponent(params.Component, props);
+        }
+    }
 
-    registerCleanup(() => withSearch.destroy());
+    Parent.template = xml`
+        <WithSearch t-props="withSearchProps" t-slot-scope="search">
+            <Component t-props="getProps(search)"/>
+        </WithSearch>
+        <MainComponentsContainer />
+    `;
+    Parent.components = { Component: params.Component, WithSearch, MainComponentsContainer };
 
-    const component = Object.values(withSearch.__owl__.children)[0];
-
+    const env = await makeTestEnv({ serverData, mockRPC });
+    const searchEnv = Object.assign(Object.create(env), { config });
+    const parent = await mount(Parent, getFixture(), { env: searchEnv, props });
+    const parentNode = parent.__owl__;
+    const withSearchNode = getUniqueChild(parentNode);
+    const componentNode = getUniqueChild(withSearchNode);
+    const component = componentNode.component;
     return component;
-};
+}
 
-const getNode = (target) => {
+/** This function is aim to be used only in the tests.
+ * It will filter the props that are needed by the Component.
+ * This is to avoid errors of props validation. This occurs for example, on ControlPanel tests.
+ * In production, View use WithSearch for the Controllers, and the Layout send only the props that
+ * need to the ControlPanel.
+ *
+ * @param {Component} Component
+ * @param {Object} props
+ * @returns {Object} filtered props
+ */
+function filterPropsForComponent(Component, props) {
+    // This if, can be removed once all the Components have the props defined
+    if (Component.props) {
+        let componentKeys = null;
+        if (Component.props instanceof Array) {
+            componentKeys = Component.props.map((x) => x.replace("?", ""));
+        } else {
+            componentKeys = Object.keys(Component.props);
+        }
+        if (componentKeys.includes("*")) {
+            return props;
+        } else {
+            return Object.keys(props)
+                .filter((k) => componentKeys.includes(k))
+                .reduce((o, k) => {
+                    o[k] = props[k];
+                    return o;
+                }, {});
+        }
+    } else {
+        return props;
+    }
+}
+
+function getUniqueChild(node) {
+    return Object.values(node.children)[0];
+}
+
+function getNode(target) {
     return target instanceof Component ? target.el : target;
-};
+}
 
-const findItem = (target, selector, finder = 0) => {
+export function findItem(target, selector, finder = 0) {
     const el = getNode(target);
     const elems = [...el.querySelectorAll(selector)];
     if (Number.isInteger(finder)) {
         return elems[finder];
     }
-    return elems.find((el) => el.innerText.trim().toLowerCase() === finder.toLowerCase());
-};
+    return elems.find((el) => el.innerText.trim().toLowerCase() === String(finder).toLowerCase());
+}
 
 /** Menu (generic) */
 
-export const toggleMenu = async (el, menuFinder) => {
+export async function toggleMenu(el, menuFinder) {
     const menu = findItem(el, `.dropdown button.dropdown-toggle`, menuFinder);
     await click(menu);
-};
+}
 
-export const toggleMenuItem = async (el, itemFinder) => {
+export async function toggleMenuItem(el, itemFinder) {
     const item = findItem(el, `.o_menu_item`, itemFinder);
     if (item.classList.contains("dropdown-toggle")) {
         await mouseEnter(item);
     } else {
         await click(item);
     }
-};
-export const toggleMenuItemOption = async (el, itemFinder, optionFinder) => {
+}
+
+export async function toggleMenuItemOption(el, itemFinder, optionFinder) {
     const item = findItem(el, `.o_menu_item`, itemFinder);
     const option = findItem(item.parentNode, ".o_item_option", optionFinder);
     if (option.classList.contains("dropdown-toggle")) {
@@ -92,216 +181,146 @@ export const toggleMenuItemOption = async (el, itemFinder, optionFinder) => {
     } else {
         await click(option);
     }
-};
-export const isItemSelected = (el, itemFinder) => {
+}
+
+export function isItemSelected(el, itemFinder) {
     const item = findItem(el, `.o_menu_item`, itemFinder);
     return item.classList.contains("selected");
-};
-export const isOptionSelected = (el, itemFinder, optionFinder) => {
+}
+
+export function isOptionSelected(el, itemFinder, optionFinder) {
     const item = findItem(el, `.o_menu_item`, itemFinder);
     const option = findItem(item.parentNode, ".o_item_option", optionFinder);
     return option.classList.contains("selected");
-};
-export const getMenuItemTexts = (target) => {
+}
+
+export function getMenuItemTexts(target) {
     const el = getNode(target);
-    return [...el.querySelectorAll(`.dropdown ul .o_menu_item`)].map((e) => e.innerText.trim());
-};
+    return [...el.querySelectorAll(`.dropdown-menu .o_menu_item`)].map((e) => e.innerText.trim());
+}
+
+export function getVisibleButtons(el) {
+    return [
+        ...$(el).find(
+            [
+                "div.o_control_panel_breadcrumbs button:visible", // button in the breadcrumbs
+                "div.o_control_panel_actions button:visible", // buttons for list selection
+            ].join(",")
+        ),
+    ];
+}
 
 /** Filter menu */
 
-export const toggleFilterMenu = async (el) => {
-    await click(findItem(el, `.o_filter_menu button.dropdown-toggle`));
-};
-
-export const toggleAddCustomFilter = async (el) => {
-    await mouseEnter(findItem(el, `.o_add_custom_filter_menu .dropdown-toggle`));
-};
-
-export const editConditionField = async (el, index, fieldName) => {
-    const condition = findItem(el, `.o_filter_condition`, index);
-    const select = findItem(condition, "select", 0);
-    select.value = fieldName;
-    await triggerEvent(select, null, "change");
-};
-
-export const editConditionOperator = async (el, index, operator) => {
-    const condition = findItem(el, `.o_filter_condition`, index);
-    const select = findItem(condition, "select", 1);
-    select.value = operator;
-    await triggerEvent(select, null, "change");
-};
-
-export const editConditionValue = async (el, index, value, valueIndex = 0) => {
-    const condition = findItem(el, `.o_filter_condition`, index);
-    const target = findItem(
-        condition,
-        ".o_generator_menu_value input,.o_generator_menu_value select",
-        valueIndex
-    );
-    target.value = value;
-    await triggerEvent(target, null, "change");
-};
-
-export const applyFilter = async (el) => {
-    await click(findItem(el, `.o_add_custom_filter_menu .dropdown-menu button.o_apply_filter`));
-};
-
-export const addCondition = async (el) => {
-    await click(findItem(el, `.o_add_custom_filter_menu .dropdown-menu button.o_add_condition`));
-};
-
-export async function removeCondition(el, index) {
-    const condition = findItem(el, `.o_filter_condition`, index);
-    await click(findItem(condition, ".o_generator_menu_delete"));
+export async function openAddCustomFilterDialog(el) {
+    await click(findItem(el, `.o_filter_menu .o_menu_item.o_add_custom_filter`));
 }
 
 /** Group by menu */
 
-export const toggleGroupByMenu = async (el) => {
-    await click(findItem(el, `.o_group_by_menu .dropdown-toggle`));
-};
+export async function selectGroup(el, fieldName) {
+    el.querySelector(".o_add_custom_group_menu").value = fieldName;
+    await triggerEvent(el, ".o_add_custom_group_menu", "change");
+}
 
-export const toggleAddCustomGroup = async (el) => {
-    await mouseEnter(findItem(el, `.o_add_custom_group_menu .dropdown-toggle`));
-};
-
-export const selectGroup = async (el, fieldName) => {
-    const select = findItem(el, `.o_add_custom_group_menu .dropdown-menu select`);
-    select.value = fieldName;
-    await triggerEvent(select, null, "change");
-};
-
-export const applyGroup = async (el) => {
-    await click(findItem(el, `.o_add_custom_group_menu .dropdown-menu .btn`));
-};
+export async function groupByMenu(el, fieldName) {
+    await toggleSearchBarMenu(el);
+    await selectGroup(el, fieldName);
+}
 
 /** Favorite menu */
 
-export const toggleFavoriteMenu = async (el) => {
-    await click(findItem(el, `.o_favorite_menu .dropdown-toggle`));
-};
-
-export const deleteFavorite = async (el, favoriteFinder) => {
+export async function deleteFavorite(el, favoriteFinder) {
     const favorite = findItem(el, `.o_favorite_menu .o_menu_item`, favoriteFinder);
     await click(findItem(favorite, "i.fa-trash-o"));
-};
+}
 
-export const toggleSaveFavorite = async (el) => {
-    await mouseEnter(findItem(el, `.o_favorite_menu .o_add_favorite .dropdown-toggle`));
-};
+export async function toggleSaveFavorite(el) {
+    await click(findItem(el, `.o_favorite_menu .o_add_favorite`));
+}
 
-export const editFavoriteName = async (el, name) => {
+export async function editFavoriteName(el, name) {
     const input = findItem(
         el,
-        `.o_favorite_menu .o_add_favorite .dropdown-menu input[type="text"]`
+        `.o_favorite_menu .o_add_favorite + .o_accordion_values input[type="text"]`
     );
     input.value = name;
-    await triggerEvent(input, null, "input");
-};
+    await triggerEvents(input, null, ["input", "change"]);
+}
 
-export const saveFavorite = async (el) => {
-    await click(findItem(el, `.o_favorite_menu .o_add_favorite .dropdown-menu button`));
-};
-
-/** Comparison menu */
-
-export const toggleComparisonMenu = async (el) => {
-    await click(findItem(el, `.o_comparison_menu button.dropdown-toggle`));
-};
+export async function saveFavorite(el) {
+    await click(findItem(el, `.o_favorite_menu .o_add_favorite + .o_accordion_values button`));
+}
 
 /** Search bar */
 
-export const getFacetTexts = (target) => {
+export function getFacetTexts(target) {
     const el = getNode(target);
     return [...el.querySelectorAll(`div.o_searchview_facet`)].map((facet) =>
         facet.innerText.trim()
     );
-};
+}
 
-export const removeFacet = async (el, facetFinder = 0) => {
+export async function removeFacet(el, facetFinder = 0) {
     const facet = findItem(el, `div.o_searchview_facet`, facetFinder);
-    await click(facet.querySelector("i.o_facet_remove"));
-};
+    await click(facet.querySelector(".o_facet_remove"));
+}
 
-export const editSearch = async (el, value) => {
+export async function editSearch(el, value) {
     const input = findItem(el, `.o_searchview input`);
     input.value = value;
     await triggerEvent(input, null, "input");
-};
+}
 
-export const validateSearch = async (el) => {
+export async function validateSearch(el) {
     const input = findItem(el, `.o_searchview input`);
     await triggerEvent(input, null, "keydown", { key: "Enter" });
-};
+}
 
 /** Switch View */
 
-export const switchView = async (el, viewType) => {
+export async function switchView(el, viewType) {
     await click(findItem(el, `button.o_switch_view.o_${viewType}`));
-};
+}
+
+/** Pager */
+
+export function getPagerValue(el) {
+    const valueEl = findItem(el, ".o_pager .o_pager_value");
+    return valueEl.innerText.trim().split("-").map(Number);
+}
+
+export function getPagerLimit(el) {
+    const limitEl = findItem(el, ".o_pager .o_pager_limit");
+    return Number(limitEl.innerText.trim());
+}
+
+export async function pagerNext(el) {
+    await click(findItem(el, ".o_pager button.o_pager_next"));
+}
+
+export async function pagerPrevious(el) {
+    await click(findItem(el, ".o_pager button.o_pager_previous"));
+}
+
+export async function editPager(el, value) {
+    await click(findItem(el, ".o_pager .o_pager_value"));
+    await editInput(getNode(el), ".o_pager .o_pager_value.o_input", value);
+}
 
 /////////////////////////////////////
 // Action Menu
 /////////////////////////////////////
-// /**
-//  * @param {EventTarget} el
-//  * @param {string} [menuFinder="Action"]
-//  * @returns {Promise}
-//  */
-// export async function toggleActionMenu(el, menuFinder = "Action") {
-//     const dropdown = findItem(el, `.o_cp_action_menus button`, menuFinder);
-//     await click(dropdown);
-// }
-/////////////////////////////////////
-// Pager
-/////////////////////////////////////
-// /**
-//  * @param {EventTarget} el
-//  * @returns {Promise}
-//  */
-// export async function pagerPrevious(el) {
-//     await click(getNode(el).querySelector(`.o_pager button.o_pager_previous`));
-// }
-// /**
-//  * @param {EventTarget} el
-//  * @returns {Promise}
-//  */
-// export async function pagerNext(el) {
-//     await click(getNode(el).querySelector(`.o_pager button.o_pager_next`));
-// }
-// /**
-//  * @param {EventTarget} el
-//  * @returns {string}
-//  */
-// export function getPagerValue(el) {
-//     const pagerValue = getNode(el).querySelector(`.o_pager_counter .o_pager_value`);
-//     switch (pagerValue.tagName) {
-//         case 'INPUT':
-//             return pagerValue.value;
-//         case 'SPAN':
-//             return pagerValue.innerText.trim();
-//     }
-// }
-// /**
-//  * @param {EventTarget} el
-//  * @returns {string}
-//  */
-// export function getPagerSize(el) {
-//     return getNode(el).querySelector(`.o_pager_counter span.o_pager_limit`).innerText.trim();
-// }
-// /**
-//  * @param {EventTarget} el
-//  * @param {string} value
-//  * @returns {Promise}
-//  */
-// export async function setPagerValue(el, value) {
-//     let pagerValue = getNode(el).querySelector(`.o_pager_counter .o_pager_value`);
-//     if (pagerValue.tagName === 'SPAN') {
-//         await click(pagerValue);
-//     }
-//     pagerValue = getNode(el).querySelector(`.o_pager_counter input.o_pager_value`);
-//     if (!pagerValue) {
-//         throw new Error("Pager value is being edited and cannot be changed.");
-//     }
-//     await editAndTrigger(pagerValue, value, ['change', 'blur']);
-// }
+/**
+ * @param {EventTarget} el
+ * @param {string} [menuFinder="Action"]
+ * @returns {Promise}
+ */
+export async function toggleActionMenu(el) {
+    await click(el.querySelector(".o_cp_action_menus .dropdown-toggle"));
+}
+
+/** SearchBarMenu */
+export async function toggleSearchBarMenu(el) {
+    await click(findItem(el, `.o_searchview_dropdown_toggler`));
+}

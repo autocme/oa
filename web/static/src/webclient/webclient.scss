@@ -1,4 +1,6 @@
 :root {
+  --o-webclient-color-scheme:#{$o-webclient-color-scheme};
+
   font-size: $o-root-font-size;
 }
 
@@ -8,6 +10,13 @@ html, body {
     height: 100%;
 }
 
+// Disable default border-style added by _reboot.scss
+tfoot {
+  tr, td, th {
+    border-style: none;
+  }
+}
+
 // ------------------------------------------------------------------
 //  General
 // ------------------------------------------------------------------
@@ -15,6 +24,7 @@ html, body {
   direction: ltr;
   position: relative; // normally useless but required by bootstrap-datepicker
   background-color: $o-webclient-background-color;
+  color-scheme: $o-webclient-color-scheme;
 }
 
 // ------------------------------------------------------------------
@@ -29,129 +39,28 @@ html, body {
   outline: none;
 }
 
-// Boolean Toggle widget
-div.o_boolean_toggle.custom-control.custom-checkbox {
-  $line-height-computed: $line-height-base * $font-size-base;
-  $slider-width: $line-height-computed * 1.5;
-  $font-size: $font-size-base * 1.2;
 
-  display: inline-block;
-  padding-left: $slider-width + 0.25rem;
-
-  > label.custom-control-label {
-    > i {
-      color: white;
-      cursor: pointer;
-      font-size: $font-size;
-      position: absolute;
-      top: 2px;
-      &.fa-times-circle {
-        right: 15px;
-      }
-      &.fa-check-circle {
-        right: 7px;
-      }
-    }
-    &::before,
-    &::after {
-      content: "";
-      top: 0;
-      left: -($slider-width + 0.25rem);
-    }
-    &::before {
-      width: $slider-width;
-      height: 100%;
-      background-color: #a0a0a0 !important;
-      border-radius: 100px;
-      outline: none !important;
-    }
-  }
-  > input.custom-control-input:checked + label.custom-control-label {
-    &::before {
-      background-color: $o-brand-primary !important;
-    }
-    &::after {
-      background-image: none;
-    }
-  }
-}
+// User input typically entered via keyboard
+kbd {
+  border: 1px solid $o-gray-200;
+  box-shadow: $kbd-box-shadow;
+}  
 
 //== Backgound light colors variations (bootstrap extensions)
 @each $-name, $-bg-color in $theme-colors {
-  $-safe-text-color: color-yiq(mix($-bg-color, $o-view-background-color));
-  @include bg-variant(".bg-#{$-name}-light", rgba(theme-color($-name), 0.5), $-safe-text-color);
-}
-
-.bg-muted {
-  @extend .bg-200;
-}
-
-.o_web_accesskey_overlay {
-  font-family: $font-family-sans-serif;
-}
-
-// == Extend default border-radius utility classes
-//------------------------------------------------------------------------------
-// Allows to use small and large variations for directional border-radius
-// utility classes (eg. 'rounded-lg-left')
-
-.rounded {
-  $sizes: ('-sm': $border-radius-sm, '-lg': $border-radius-lg);
-
-  @each $size, $radius in $sizes {
-    @each $side in ('left', 'right') {
-      &#{$size}-#{$side} {
-        border-top-#{$side}-radius: $radius !important;
-        border-bottom-#{$side}-radius: $radius !important;
-      }
-    }
-
-    @each $direction in ('top', 'bottom') {
-      &#{$size}-#{$direction} {
-        border-#{$direction}-left-radius: $radius !important;
-        border-#{$direction}-right-radius: $radius !important;
-      }
-    }
-  }
+  $-safe-text-color: color-contrast(mix($-bg-color, $o-view-background-color));
+  @include bg-variant(".bg-#{$-name}-light", rgba(map-get($theme-colors, $-name), 0.5), $-safe-text-color);
 }
 
 //== Badges
 .badge {
-  margin: 1px 2px 1px 0;
-}
-
-//== Btn-link
-.btn-link {
-  font-weight: $btn-font-weight;
-
-  // -- Btn-link variations
-  // Adapt the behavieur of .btn-link buttons when in conjuction with contextual
-  // classes (eg. text-warning). 'muted' is set as default text color, while
-  // the contextual-class color will be used on ':hover'.
-
-  // Apply all theme-colors variations except "secondary"
-  @each $-name, $-color in map-remove($theme-colors, "secondary") {
-    &.btn-#{$-name}, &.text-#{$-name} {
-      @include o-btn-link-variant($o-main-color-muted!important, o-text-color($-name) or $-color!important);
-    }
-  }
-
-  // Specific behavieur for "secondary"
-  &.btn-secondary {
-    @include o-btn-link-variant($body-color, $headings-color);
-  }
+  min-width: $o-badge-min-width;
+  line-height: 1.1;
 }
 
 // == Boostrap Dropdown
 // ----------------------------------------------------------------------------
-.dropdown-menu {
-  max-height: 70vh;
-  overflow: auto;
-  background-clip: border-box;
-  box-shadow: $o-dropdown-box-shadow;
-}
-
-:not(.dropleft) > .dropdown-item {
+:not(.dropstart) > .dropdown-item {
   &.active, &.selected {
     position: relative;
     font-weight: $font-weight-bold;
@@ -165,7 +74,7 @@ div.o_boolean_toggle.custom-control.custom-checkbox {
         @include o-position-absolute(0);
         transform: translate(-1.5em, 90%);
         font: .7em/1em FontAwesome;
-        color: $primary;
+        color: $link-color;
         content: "\f00c";
       }
 
@@ -177,7 +86,7 @@ div.o_boolean_toggle.custom-control.custom-checkbox {
 }
 
 /*!rtl:begin:ignore*/
-.o-dropdown.dropleft > .dropdown-item.dropdown-toggle:not(.dropdown-item_active_noarrow) {
+.o-dropdown.dropstart > .dropdown-item.dropdown-toggle:not(.dropdown-item_active_noarrow) {
   &.active, &.selected {
     &::after {
       @include o-position-absolute(0, $left: 90%);
@@ -222,4 +131,132 @@ div.o_boolean_toggle.custom-control.custom-checkbox {
 [type="action"],
 [type="toggle"] {
   cursor: pointer !important;
+}
+
+.o_web_client.o_touch_device {
+  .btn {
+      &, .btn-sm {
+          font-size: $font-size-base;
+          padding: $o-touch-btn-padding;
+      }
+
+      &.fa {
+          font-size: 1.3em;
+          padding: 2px 10px;
+      }
+  }
+}
+
+//------------------------------------------------------------------------------
+// Inputs and selects (note: put the o_input class to have the style)
+//------------------------------------------------------------------------------
+[type="text"],
+[type="password"],
+[type="number"],
+[type="email"],
+[type="tel"],
+textarea,
+select {
+  width: 100%;
+  display: block;
+  outline: none;
+}
+select {
+
+  // FIXME buggy 'padding-left'
+  cursor: pointer;
+  min-width: 50px;
+
+  appearance: none;
+  background: transparent $o-caret-down no-repeat right center;
+  border-radius: 0; // webkit OSX browsers have a border-radius on select
+
+  color: $o-main-text-color;
+
+  > option {
+    background: $light;
+  }
+
+  // This is a hack to remove the outline in FF
+  &:-moz-focusring {
+    color: transparent;
+    text-shadow: 0 0 0 $o-main-text-color;
+    > option {
+      color: $o-main-text-color;
+    }
+  }
+}
+
+@mixin o-placeholder {
+  // Rules below need to be separeted. Otherwise all browsers will discard the whole rule.
+  color: $input-placeholder-color;
+}
+::-webkit-input-placeholder {
+  // WebKit, Blink, Edge
+  @include o-placeholder;
+}
+::-moz-placeholder {
+  // Mozilla Firefox 19+
+  @include o-placeholder;
+}
+:-ms-input-placeholder {
+  // Internet Explorer 10-11
+  @include o-placeholder;
+}
+
+//------------------------------------------------------------------------------
+// Misc.
+//------------------------------------------------------------------------------
+
+//== Titles
+@include media-breakpoint-down(md) {
+  h1 {
+    font-size: $h1-font-size * 3 / 4;
+  }
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    font-size: $o-font-size-base-touch;
+  }
+}
+
+//== Alerts
+.alert {
+  &.alert-info,
+  &.alert-success,
+  &.alert-warning,
+  &.alert-danger {
+    border-width: 0 0 0 3px;
+  }
+  a {
+    font-weight: $alert-link-font-weight;
+  }
+}
+
+//== Badges
+.badge {
+    &.text-bg-default, &.bg-light, &.text-bg-light, &.bg-default, &.text-primary{
+        outline: 1px solid $o-brand-primary;
+        outline-offset: -1px;
+    }
+}
+
+//== Buttons
+
+// Disable unnecessary box-shadows on mouse hover
+.btn:focus:hover {
+  box-shadow: none;
+}
+
+//== Navbar
+.navbar .navbar-toggle {
+  border-color: transparent;
+}
+
+//== Labels
+.label {
+  border-radius: 0;
+  font-size: 1em; // Override 75% of .label
 }

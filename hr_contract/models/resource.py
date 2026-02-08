@@ -1,6 +1,5 @@
 # -*- coding:utf-8 -*-
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
-
 from datetime import datetime
 
 from odoo import fields, models
@@ -30,16 +29,16 @@ class ResourceCalendar(models.Model):
         })
 
     def _compute_contracts_count(self):
-        count_data = self.env['hr.contract'].read_group(
-            [('resource_calendar_id', 'in', self.ids)],
+        count_data = self.env['hr.contract']._read_group(
+            [('resource_calendar_id', 'in', self.ids), ('employee_id', '!=', False)],
             ['resource_calendar_id'],
-            ['resource_calendar_id'])
-        mapped_counts = {cd['resource_calendar_id'][0]: cd['resource_calendar_id_count'] for cd in count_data}
+            ['__count'])
+        mapped_counts = {resource_calendar.id: count for resource_calendar, count in count_data}
         for calendar in self:
             calendar.contracts_count = mapped_counts.get(calendar.id, 0)
 
     def action_open_contracts(self):
         self.ensure_one()
         action = self.env["ir.actions.actions"]._for_xml_id("hr_contract.action_hr_contract")
-        action.update({'domain': [('resource_calendar_id', '=', self.id)]})
+        action.update({'domain': [('resource_calendar_id', '=', self.id), ('employee_id', '!=', False)]})
         return action

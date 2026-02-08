@@ -1,33 +1,47 @@
 # Translation of Odoo Server.
 # This file contains the translation of the following modules:
 # 	* resource
-# 
+#
 # Translators:
-# Dafao Berto <netmastersgr@gmail.com>, 2022
-# George Tarasidis <george_tarasidis@yahoo.com>, 2022
-# Kostas Goutoudis <goutoudis@gmail.com>, 2022
-# Martin Trigaux, 2022
-# 
+# George Tarasidis <george_tarasidis@yahoo.com>, 2024
+# Dafao Berto <netmastersgr@gmail.com>, 2024
+# Martin Trigaux, 2024
+# Kostas Goutoudis <goutoudis@gmail.com>, 2024
+# Gerasimos Kanelatos, 2025
+# Agapi Psyllou, 2025
+# Iasonas Polydoros <j.polydoros@dileanity.com>, 2025
+#
 msgid ""
 msgstr ""
-"Project-Id-Version: Odoo Server saas~14.5\n"
+"Project-Id-Version: Odoo Server 17.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2021-09-14 10:29+0000\n"
-"PO-Revision-Date: 2021-09-14 12:26+0000\n"
-"Last-Translator: Martin Trigaux, 2022\n"
+"POT-Creation-Date: 2025-12-29 18:38+0000\n"
+"PO-Revision-Date: 2023-10-26 23:09+0000\n"
+"Last-Translator: Iasonas Polydoros <j.polydoros@dileanity.com>, 2025\n"
 "Language-Team: Greek (https://app.transifex.com/odoo/teams/41243/el/)\n"
+"Language: el\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: \n"
-"Language: el\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
 
 #. module: resource
-#: code:addons/resource/models/resource.py:0
-#: code:addons/resource/models/resource.py:0
+#. odoo-python
+#: code:addons/resource/models/resource_calendar.py:0
+#: code:addons/resource/models/resource_resource.py:0
 #, python-format
 msgid "%s (copy)"
 msgstr "%s (αντίγραφο)"
+
+#. module: resource
+#: model_terms:ir.ui.view,arch_db:resource.resource_calendar_form
+msgid "<span class=\"o_stat_text\">Time Off</span>"
+msgstr ""
+
+#. module: resource
+#: model_terms:ir.ui.view,arch_db:resource.resource_calendar_form
+msgid "<span class=\"o_stat_text\">Work Resources</span>"
+msgstr ""
 
 #. module: resource
 #: model:ir.model.fields,field_description:resource.field_resource_calendar__active
@@ -41,6 +55,7 @@ msgid "Afternoon"
 msgstr ""
 
 #. module: resource
+#: model_terms:ir.ui.view,arch_db:resource.resource_calendar_form
 #: model_terms:ir.ui.view,arch_db:resource.resource_resource_form
 #: model_terms:ir.ui.view,arch_db:resource.view_resource_calendar_search
 #: model_terms:ir.ui.view,arch_db:resource.view_resource_resource_search
@@ -50,19 +65,20 @@ msgstr "Αρχειοθετημένα"
 #. module: resource
 #: model_terms:ir.ui.view,arch_db:resource.resource_calendar_form
 msgid ""
-"Are you sure you want to switch this calendar to 1 week calendar ? All "
+"Are you sure you want to switch this calendar to 1 week calendar? All "
 "entries will be lost"
 msgstr ""
 
 #. module: resource
 #: model_terms:ir.ui.view,arch_db:resource.resource_calendar_form
 msgid ""
-"Are you sure you want to switch this calendar to 2 weeks calendar ? All "
+"Are you sure you want to switch this calendar to 2 weeks calendar? All "
 "entries will be lost"
 msgstr ""
 
 #. module: resource
-#: code:addons/resource/models/resource.py:0
+#. odoo-python
+#: code:addons/resource/models/resource_calendar.py:0
 #, python-format
 msgid "Attendances can't overlap."
 msgstr ""
@@ -76,6 +92,11 @@ msgstr ""
 #: model:ir.model.fields,help:resource.field_resource_calendar__hours_per_day
 msgid ""
 "Average hours per day a resource is supposed to work with this calendar."
+msgstr ""
+
+#. module: resource
+#: model:ir.model.fields.selection,name:resource.selection__resource_calendar_attendance__day_period__lunch
+msgid "Break"
 msgstr ""
 
 #. module: resource
@@ -99,7 +120,6 @@ msgstr "Εταιρίες"
 #: model:ir.model.fields,field_description:resource.field_resource_calendar_leaves__company_id
 #: model:ir.model.fields,field_description:resource.field_resource_mixin__company_id
 #: model:ir.model.fields,field_description:resource.field_resource_resource__company_id
-#: model:ir.model.fields,field_description:resource.field_resource_test__company_id
 #: model_terms:ir.ui.view,arch_db:resource.view_resource_calendar_leaves_search
 #: model_terms:ir.ui.view,arch_db:resource.view_resource_resource_search
 msgid "Company"
@@ -110,7 +130,6 @@ msgstr "Εταιρία"
 #: model:ir.model.fields,field_description:resource.field_resource_calendar_attendance__create_uid
 #: model:ir.model.fields,field_description:resource.field_resource_calendar_leaves__create_uid
 #: model:ir.model.fields,field_description:resource.field_resource_resource__create_uid
-#: model:ir.model.fields,field_description:resource.field_resource_test__create_uid
 msgid "Created by"
 msgstr "Δημιουργήθηκε από"
 
@@ -119,9 +138,13 @@ msgstr "Δημιουργήθηκε από"
 #: model:ir.model.fields,field_description:resource.field_resource_calendar_attendance__create_date
 #: model:ir.model.fields,field_description:resource.field_resource_calendar_leaves__create_date
 #: model:ir.model.fields,field_description:resource.field_resource_resource__create_date
-#: model:ir.model.fields,field_description:resource.field_resource_test__create_date
 msgid "Created on"
 msgstr "Δημιουργήθηκε στις"
+
+#. module: resource
+#: model_terms:ir.ui.view,arch_db:resource.view_resource_calendar_leaves_search
+msgid "Date"
+msgstr "Ημερομηνία"
 
 #. module: resource
 #: model:ir.model.fields,field_description:resource.field_resource_calendar_attendance__day_period
@@ -140,14 +163,6 @@ msgid "Default Working Hours"
 msgstr ""
 
 #. module: resource
-#: model:ir.model.fields,help:resource.field_res_users__resource_calendar_id
-#: model:ir.model.fields,help:resource.field_resource_mixin__resource_calendar_id
-#: model:ir.model.fields,help:resource.field_resource_resource__calendar_id
-#: model:ir.model.fields,help:resource.field_resource_test__resource_calendar_id
-msgid "Define the schedule of resource"
-msgstr "Ορίστε το χρονοδιάγραμμα των πόρων"
-
-#. module: resource
 #: model_terms:ir.actions.act_window,help:resource.action_resource_calendar_form
 msgid ""
 "Define working hours and time table that could be scheduled to your project "
@@ -161,7 +176,6 @@ msgstr ""
 #: model:ir.model.fields,field_description:resource.field_resource_calendar_attendance__display_name
 #: model:ir.model.fields,field_description:resource.field_resource_calendar_leaves__display_name
 #: model:ir.model.fields,field_description:resource.field_resource_resource__display_name
-#: model:ir.model.fields,field_description:resource.field_resource_test__display_name
 msgid "Display Name"
 msgstr "Εμφάνιση Ονόματος"
 
@@ -169,6 +183,16 @@ msgstr "Εμφάνιση Ονόματος"
 #: model:ir.model.fields,field_description:resource.field_resource_calendar_attendance__display_type
 msgid "Display Type"
 msgstr "Τύπος Οθόνης"
+
+#. module: resource
+#: model:ir.model.fields,field_description:resource.field_resource_calendar_attendance__duration_days
+msgid "Duration (days)"
+msgstr "Διάρκεια (ημέρες)"
+
+#. module: resource
+#: model:ir.model.fields,field_description:resource.field_resource_calendar_attendance__duration_hours
+msgid "Duration (hours)"
+msgstr "Διάρκεια (ώρες)"
 
 #. module: resource
 #: model:ir.model.fields,field_description:resource.field_resource_resource__time_efficiency
@@ -192,7 +216,8 @@ msgid "First"
 msgstr "Πρώτο"
 
 #. module: resource
-#: code:addons/resource/models/resource.py:0
+#. odoo-python
+#: code:addons/resource/models/resource_calendar_attendance.py:0
 #, python-format
 msgid "First week"
 msgstr ""
@@ -203,13 +228,22 @@ msgid "Friday"
 msgstr "Παρασκευή"
 
 #. module: resource
-#: code:addons/resource/models/resource.py:0
+#. odoo-python
+#: code:addons/resource/models/resource_calendar.py:0
 #, python-format
 msgid "Friday Afternoon"
 msgstr ""
 
 #. module: resource
-#: code:addons/resource/models/resource.py:0
+#. odoo-python
+#: code:addons/resource/models/resource_calendar.py:0
+#, python-format
+msgid "Friday Lunch"
+msgstr ""
+
+#. module: resource
+#. odoo-python
+#: code:addons/resource/models/resource_calendar.py:0
 #, python-format
 msgid "Friday Morning"
 msgstr ""
@@ -246,7 +280,6 @@ msgstr "Άνθρωπος"
 #: model:ir.model.fields,field_description:resource.field_resource_calendar_attendance__id
 #: model:ir.model.fields,field_description:resource.field_resource_calendar_leaves__id
 #: model:ir.model.fields,field_description:resource.field_resource_resource__id
-#: model:ir.model.fields,field_description:resource.field_resource_test__id
 msgid "ID"
 msgstr "Κωδικός"
 
@@ -274,33 +307,18 @@ msgid ""
 msgstr ""
 
 #. module: resource
-#: code:addons/resource/models/resource.py:0
-#, python-format
-msgid "Impossible to switch calendar type for the default company schedule."
-msgstr ""
-
-#. module: resource
-#: code:addons/resource/models/resource.py:0
+#. odoo-python
+#: code:addons/resource/models/resource_calendar.py:0
 #, python-format
 msgid ""
 "In a calendar with 2 weeks mode, all periods need to be in the sections."
 msgstr ""
 
 #. module: resource
-#: model:ir.model.fields,field_description:resource.field_resource_calendar____last_update
-#: model:ir.model.fields,field_description:resource.field_resource_calendar_attendance____last_update
-#: model:ir.model.fields,field_description:resource.field_resource_calendar_leaves____last_update
-#: model:ir.model.fields,field_description:resource.field_resource_resource____last_update
-#: model:ir.model.fields,field_description:resource.field_resource_test____last_update
-msgid "Last Modified on"
-msgstr "Τελευταία τροποποίηση στις"
-
-#. module: resource
 #: model:ir.model.fields,field_description:resource.field_resource_calendar__write_uid
 #: model:ir.model.fields,field_description:resource.field_resource_calendar_attendance__write_uid
 #: model:ir.model.fields,field_description:resource.field_resource_calendar_leaves__write_uid
 #: model:ir.model.fields,field_description:resource.field_resource_resource__write_uid
-#: model:ir.model.fields,field_description:resource.field_resource_test__write_uid
 msgid "Last Updated by"
 msgstr "Τελευταία Ενημέρωση από"
 
@@ -309,20 +327,8 @@ msgstr "Τελευταία Ενημέρωση από"
 #: model:ir.model.fields,field_description:resource.field_resource_calendar_attendance__write_date
 #: model:ir.model.fields,field_description:resource.field_resource_calendar_leaves__write_date
 #: model:ir.model.fields,field_description:resource.field_resource_resource__write_date
-#: model:ir.model.fields,field_description:resource.field_resource_test__write_date
 msgid "Last Updated on"
 msgstr "Τελευταία Ενημέρωση στις"
-
-#. module: resource
-#: model_terms:ir.ui.view,arch_db:resource.view_resource_calendar_leaves_search
-msgid "Leave Date"
-msgstr ""
-
-#. module: resource
-#: model_terms:ir.ui.view,arch_db:resource.resource_calendar_leave_form
-#: model_terms:ir.ui.view,arch_db:resource.resource_calendar_leave_tree
-msgid "Leave Detail"
-msgstr "Λεπτομέρεια Άδειας"
 
 #. module: resource
 #: model:ir.model.fields.selection,name:resource.selection__resource_resource__resource_type__material
@@ -336,13 +342,22 @@ msgid "Monday"
 msgstr "Δευτέρα"
 
 #. module: resource
-#: code:addons/resource/models/resource.py:0
+#. odoo-python
+#: code:addons/resource/models/resource_calendar.py:0
 #, python-format
 msgid "Monday Afternoon"
 msgstr ""
 
 #. module: resource
-#: code:addons/resource/models/resource.py:0
+#. odoo-python
+#: code:addons/resource/models/resource_calendar.py:0
+#, python-format
+msgid "Monday Lunch"
+msgstr ""
+
+#. module: resource
+#. odoo-python
+#: code:addons/resource/models/resource_calendar.py:0
 #, python-format
 msgid "Monday Morning"
 msgstr ""
@@ -350,13 +365,12 @@ msgstr ""
 #. module: resource
 #: model:ir.model.fields.selection,name:resource.selection__resource_calendar_attendance__day_period__morning
 msgid "Morning"
-msgstr ""
+msgstr "Πρωί"
 
 #. module: resource
 #: model:ir.model.fields,field_description:resource.field_resource_calendar__name
 #: model:ir.model.fields,field_description:resource.field_resource_calendar_attendance__name
 #: model:ir.model.fields,field_description:resource.field_resource_resource__name
-#: model:ir.model.fields,field_description:resource.field_resource_test__name
 msgid "Name"
 msgstr "Περιγραφή"
 
@@ -386,7 +400,6 @@ msgstr "Σχετιζόμενο όνομα χρήστη του πόρου για 
 #: model:ir.model.fields,field_description:resource.field_resource_calendar_attendance__resource_id
 #: model:ir.model.fields,field_description:resource.field_resource_calendar_leaves__resource_id
 #: model:ir.model.fields,field_description:resource.field_resource_mixin__resource_id
-#: model:ir.model.fields,field_description:resource.field_resource_test__resource_id
 #: model:ir.ui.menu,name:resource.menu_resource_config
 #: model_terms:ir.ui.view,arch_db:resource.resource_resource_form
 #: model_terms:ir.ui.view,arch_db:resource.view_resource_calendar
@@ -445,9 +458,9 @@ msgid ""
 "workload based on their weekly working hours."
 msgstr ""
 "Οι 'Πόροι' σας επιτρέπουν να δημιουργήσετε και να διαχειρίζεται τους πόρους "
-"που θα πρέπει να συμμετέχουν σε μια συγκεκριμένη φάση έργου. Μπορείτε επίσης"
-" να ρυθμίσετε το επίπεδο της αποτελεσματικότητας τους και του φόρτου "
-"εργασίας που βασίζονται σε εβδομαδιαίες ώρες εργασίας."
+"που θα πρέπει να συμμετέχουν σε μια συγκεκριμένη φάση έργου. Μπορείτε επίσης "
+"να ρυθμίσετε το επίπεδο της αποτελεσματικότητας τους και του φόρτου εργασίας "
+"που βασίζονται σε εβδομαδιαίες ώρες εργασίας."
 
 #. module: resource
 #: model:ir.model.fields.selection,name:resource.selection__resource_calendar_attendance__dayofweek__5
@@ -475,7 +488,8 @@ msgid "Second"
 msgstr "Δευτερόλεπτο"
 
 #. module: resource
-#: code:addons/resource/models/resource.py:0
+#. odoo-python
+#: code:addons/resource/models/resource_calendar_attendance.py:0
 #, python-format
 msgid "Second week"
 msgstr ""
@@ -491,6 +505,7 @@ msgid "Sequence"
 msgstr "Ακολουθία"
 
 #. module: resource
+#. odoo-python
 #: code:addons/resource/models/res_company.py:0
 #, python-format
 msgid "Standard 40 hours/week"
@@ -515,7 +530,7 @@ msgstr "Ημερομηνία Εκκίνησης"
 
 #. module: resource
 #: model_terms:ir.ui.view,arch_db:resource.view_resource_calendar_leaves_search
-msgid "Starting Date of Leave"
+msgid "Starting Date of Time Off"
 msgstr ""
 
 #. module: resource
@@ -539,18 +554,15 @@ msgid "Technical field for UX purpose."
 msgstr ""
 
 #. module: resource
-#: model:ir.model,name:resource.model_resource_test
-msgid "Test Resource Model"
-msgstr ""
-
-#. module: resource
-#: code:addons/resource/models/resource.py:0
+#. odoo-python
+#: code:addons/resource/models/resource_calendar.py:0
 #, python-format
 msgid "The current week (from %s to %s) correspond to the  %s one."
 msgstr ""
 
 #. module: resource
-#: code:addons/resource/models/resource.py:0
+#. odoo-python
+#: code:addons/resource/models/resource_calendar_leaves.py:0
 #, python-format
 msgid "The start date of the time off must be earlier than the end date."
 msgstr ""
@@ -558,12 +570,12 @@ msgstr ""
 #. module: resource
 #: model:ir.model.fields,help:resource.field_resource_calendar__tz
 #: model:ir.model.fields,help:resource.field_resource_mixin__tz
-#: model:ir.model.fields,help:resource.field_resource_resource__tz
-#: model:ir.model.fields,help:resource.field_resource_test__tz
 msgid ""
 "This field is used in order to define in which timezone the resources will "
 "work."
 msgstr ""
+"Αυτό το πεδίο χρησιμοποιείται για τον καθορισμό της ζώνης ώρας στην οποία θα "
+"εργάζονται οι πόροι."
 
 #. module: resource
 #: model:ir.model.fields,help:resource.field_resource_resource__time_efficiency
@@ -574,6 +586,11 @@ msgid ""
 "the efficiency factor is 200%, however the expected duration will be 30 "
 "minutes."
 msgstr ""
+"Αυτό το πεδίο χρησιμοποιείται για τον υπολογισμό της αναμενόμενης διάρκειας "
+"μιας εντολής εργασίας σε αυτό το κέντρο εργασίας. Για παράδειγμα, αν μια "
+"εντολή εργασίας διαρκεί μία ώρα και ο συντελεστής αποδοτικότητας είναι 100%, "
+"τότε η αναμενόμενη διάρκεια θα είναι μία ώρα. Αν όμως ο συντελεστής "
+"αποδοτικότητας είναι 200%, η αναμενόμενη διάρκεια θα είναι 30 λεπτά."
 
 #. module: resource
 #: model:ir.model.fields.selection,name:resource.selection__resource_calendar_attendance__dayofweek__3
@@ -581,13 +598,22 @@ msgid "Thursday"
 msgstr "Πέμπτη"
 
 #. module: resource
-#: code:addons/resource/models/resource.py:0
+#. odoo-python
+#: code:addons/resource/models/resource_calendar.py:0
 #, python-format
 msgid "Thursday Afternoon"
 msgstr ""
 
 #. module: resource
-#: code:addons/resource/models/resource.py:0
+#. odoo-python
+#: code:addons/resource/models/resource_calendar.py:0
+#, python-format
+msgid "Thursday Lunch"
+msgstr ""
+
+#. module: resource
+#. odoo-python
+#: code:addons/resource/models/resource_calendar.py:0
 #, python-format
 msgid "Thursday Morning"
 msgstr ""
@@ -595,8 +621,13 @@ msgstr ""
 #. module: resource
 #: model:ir.model.fields,field_description:resource.field_resource_calendar__leave_ids
 #: model:ir.model.fields.selection,name:resource.selection__resource_calendar_leaves__time_type__leave
-#: model_terms:ir.ui.view,arch_db:resource.resource_calendar_form
 msgid "Time Off"
+msgstr "Άδεια"
+
+#. module: resource
+#: model_terms:ir.ui.view,arch_db:resource.resource_calendar_leave_form
+#: model_terms:ir.ui.view,arch_db:resource.resource_calendar_leave_tree
+msgid "Time Off Detail"
 msgstr ""
 
 #. module: resource
@@ -613,7 +644,6 @@ msgstr ""
 #: model:ir.model.fields,field_description:resource.field_resource_calendar__tz
 #: model:ir.model.fields,field_description:resource.field_resource_mixin__tz
 #: model:ir.model.fields,field_description:resource.field_resource_resource__tz
-#: model:ir.model.fields,field_description:resource.field_resource_test__tz
 msgid "Timezone"
 msgstr "Ζώνη Ώρας"
 
@@ -628,13 +658,22 @@ msgid "Tuesday"
 msgstr "Τρίτη"
 
 #. module: resource
-#: code:addons/resource/models/resource.py:0
+#. odoo-python
+#: code:addons/resource/models/resource_calendar.py:0
 #, python-format
 msgid "Tuesday Afternoon"
 msgstr ""
 
 #. module: resource
-#: code:addons/resource/models/resource.py:0
+#. odoo-python
+#: code:addons/resource/models/resource_calendar.py:0
+#, python-format
+msgid "Tuesday Lunch"
+msgstr ""
+
+#. module: resource
+#. odoo-python
+#: code:addons/resource/models/resource_calendar.py:0
 #, python-format
 msgid "Tuesday Morning"
 msgstr ""
@@ -646,15 +685,11 @@ msgid "Type"
 msgstr "Τύπος"
 
 #. module: resource
+#: model:ir.model,name:resource.model_res_users
 #: model:ir.model.fields,field_description:resource.field_resource_resource__user_id
 #: model_terms:ir.ui.view,arch_db:resource.view_resource_resource_search
 msgid "User"
 msgstr "Χρήστης"
-
-#. module: resource
-#: model:ir.model,name:resource.model_res_users
-msgid "Users"
-msgstr "Χρήστες"
 
 #. module: resource
 #: model:ir.model.fields.selection,name:resource.selection__resource_calendar_attendance__dayofweek__2
@@ -662,13 +697,22 @@ msgid "Wednesday"
 msgstr "Τετάρτη"
 
 #. module: resource
-#: code:addons/resource/models/resource.py:0
+#. odoo-python
+#: code:addons/resource/models/resource_calendar.py:0
 #, python-format
 msgid "Wednesday Afternoon"
 msgstr ""
 
 #. module: resource
-#: code:addons/resource/models/resource.py:0
+#. odoo-python
+#: code:addons/resource/models/resource_calendar.py:0
+#, python-format
+msgid "Wednesday Lunch"
+msgstr ""
+
+#. module: resource
+#. odoo-python
+#: code:addons/resource/models/resource_calendar.py:0
 #, python-format
 msgid "Wednesday Morning"
 msgstr ""
@@ -681,19 +725,13 @@ msgstr ""
 #. module: resource
 #: model:ir.model.fields,help:resource.field_resource_calendar_leaves__time_type
 msgid ""
-"Whether this should be computed as a time off or as work time (eg: "
-"formation)"
+"Whether this should be computed as a time off or as work time (eg: formation)"
 msgstr ""
 
 #. module: resource
 #: model:ir.model,name:resource.model_resource_calendar_attendance
 msgid "Work Detail"
 msgstr "Λεπτομέρειες Εργασίας"
-
-#. module: resource
-#: model_terms:ir.ui.view,arch_db:resource.resource_calendar_form
-msgid "Work Resources"
-msgstr ""
 
 #. module: resource
 #: model:ir.model.fields,field_description:resource.field_resource_calendar_attendance__hour_from
@@ -709,15 +747,21 @@ msgstr "Eργασία έως"
 #: model:ir.model.fields,field_description:resource.field_res_company__resource_calendar_ids
 #: model:ir.model.fields,field_description:resource.field_resource_calendar_leaves__calendar_id
 #: model:ir.model.fields,field_description:resource.field_resource_mixin__resource_calendar_id
-#: model:ir.model.fields,field_description:resource.field_resource_test__resource_calendar_id
 #: model_terms:ir.ui.view,arch_db:resource.resource_calendar_form
 msgid "Working Hours"
 msgstr "Ώρες Εργασίας"
 
 #. module: resource
-#: code:addons/resource/models/resource.py:0
+#. odoo-python
+#: code:addons/resource/models/resource_calendar.py:0
 #, python-format
 msgid "Working Hours of %s"
+msgstr ""
+
+#. module: resource
+#: model:ir.actions.act_window,name:resource.action_resource_calendar_form
+#: model:ir.ui.menu,name:resource.menu_resource_calendar
+msgid "Working Schedules"
 msgstr ""
 
 #. module: resource
@@ -733,37 +777,36 @@ msgid "Working Time"
 msgstr "Ωράριο Εργασίας"
 
 #. module: resource
-#: model:ir.actions.act_window,name:resource.action_resource_calendar_form
-#: model:ir.ui.menu,name:resource.menu_resource_calendar
-msgid "Working Times"
-msgstr ""
-
-#. module: resource
-#: code:addons/resource/models/resource.py:0
+#. odoo-python
+#: code:addons/resource/models/resource_calendar.py:0
 #, python-format
 msgid "You can't delete section between weeks."
 msgstr ""
 
 #. module: resource
-#: code:addons/resource/models/resource.py:0
+#. odoo-python
+#: code:addons/resource/models/resource_calendar.py:0
 #, python-format
 msgid "first"
 msgstr ""
 
 #. module: resource
-#: code:addons/resource/models/resource.py:0
+#. odoo-python
+#: code:addons/resource/models/resource_calendar_attendance.py:0
 #, python-format
 msgid "other week"
 msgstr ""
 
 #. module: resource
-#: code:addons/resource/models/resource.py:0
+#. odoo-python
+#: code:addons/resource/models/resource_calendar.py:0
 #, python-format
 msgid "second"
 msgstr ""
 
 #. module: resource
-#: code:addons/resource/models/resource.py:0
+#. odoo-python
+#: code:addons/resource/models/resource_calendar_attendance.py:0
 #, python-format
 msgid "this week"
 msgstr ""

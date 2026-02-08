@@ -1,12 +1,13 @@
 /** @odoo-module **/
 
 import { registry } from "@web/core/registry";
-import { CommandPaletteDialog } from "./command_palette_dialog";
+import { CommandPalette } from "./command_palette";
 
-const { xml } = owl.tags;
+import { Component, EventBus } from "@odoo/owl";
 
 /**
  * @typedef {import("./command_palette").CommandPaletteConfig} CommandPaletteConfig
+ * @typedef {import("../hotkeys/hotkey_service").HotkeyOptions} HotkeyOptions
  */
 
 /**
@@ -14,15 +15,17 @@ const { xml } = owl.tags;
  *  name: string;
  *  action: ()=>(void | CommandPaletteConfig);
  *  category?: string;
+ *  href?: string;
  * }} Command
  */
 
 /**
  * @typedef {{
- *  activeElement?: HTMLElement;
  *  category?: string;
+ *  isAvailable?: ()=>(boolean);
  *  global?: boolean;
  *  hotkey?: string;
+ *  hotkeyOptions?: HotkeyOptions
  * }} CommandOptions
  */
 
@@ -33,14 +36,22 @@ const { xml } = owl.tags;
  */
 
 const commandCategoryRegistry = registry.category("command_categories");
-const commandEmptyMessageRegistry = registry.category("command_empty_list");
 const commandProviderRegistry = registry.category("command_provider");
+const commandSetupRegistry = registry.category("command_setup");
 
-const footerTemplate = xml`
-<span>
-    <span class='o_promote'>TIP</span> — search for <span class='o_promote'>@</span>users, <span class='o_promote'>#</span>channels, and <span class='o_promote'>/</span>menus
-</span>
-`;
+class DefaultFooter extends Component {
+    setup() {
+        this.elements = commandSetupRegistry
+            .getEntries()
+            .map((el) => ({ namespace: el[0], name: el[1].name }))
+            .filter((el) => el.name);
+    }
+
+    onClick(namespace) {
+        this.props.switchNamespace(namespace);
+    }
+}
+DefaultFooter.template = "web.DefaultFooter";
 
 export const commandService = {
     dependencies: ["dialog", "hotkey", "ui"],
@@ -49,57 +60,91 @@ export const commandService = {
         const registeredCommands = new Map();
         let nextToken = 0;
         let isPaletteOpened = false;
+        const bus = new EventBus();
 
         hotkeyService.add("control+k", openMainPalette, {
             bypassEditableProtection: true,
             global: true,
         });
 
-        function openMainPalette() {
-            const categoriesByNamespace = {};
-            commandCategoryRegistry.getEntries().forEach(([category, el]) => {
-                const namespace = el.namespace ? el.namespace : "default";
-                if (namespace in categoriesByNamespace) {
-                    categoriesByNamespace[namespace].push(category);
-                } else {
-                    categoriesByNamespace[namespace] = [category];
+        /**
+         * @param {CommandPaletteConfig} config command palette config merged with default config
+         * @param {Function} onClose called when the command palette is closed
+         * @returns the actual command palette config if the command palette is already open
+         */
+        function openMainPalette(config = {}, onClose) {
+            const configByNamespace = {};
+            for (const provider of commandProviderRegistry.getAll()) {
+                const namespace = provider.namespace || "default";
+                if (!configByNamespace[namespace]) {
+                    configByNamespace[namespace] = {
+                        categories: [],
+                        categoryNames: {},
+                    };
                 }
-            });
+            }
 
-            const emptyMessageByNamespace = {};
-            commandEmptyMessageRegistry.getEntries().forEach(([key, message]) => {
-                emptyMessageByNamespace[key] = message.toString();
-            });
+            for (const [category, el] of commandCategoryRegistry.getEntries()) {
+                const namespace = el.namespace || "default";
+                const name = el.name;
+                if (namespace in configByNamespace) {
+                    configByNamespace[namespace].categories.push(category);
+                    configByNamespace[namespace].categoryNames[category] = name;
+                }
+            }
 
-            const config = {
-                categoriesByNamespace,
-                emptyMessageByNamespace,
-                footerTemplate,
-                placeholder: env._t("Search for a command..."),
-                providers: commandProviderRegistry.getAll(),
-            };
-            return openPalette(config);
+            for (const [
+                namespace,
+                { emptyMessage, debounceDelay, placeholder },
+            ] of commandSetupRegistry.getEntries()) {
+                if (namespace in configByNamespace) {
+                    if (emptyMessage) {
+                        configByNamespace[namespace].emptyMessage = emptyMessage;
+                    }
+                    if (debounceDelay !== undefined) {
+                        configByNamespace[namespace].debounceDelay = debounceDelay;
+                    }
+                    if (placeholder) {
+                        configByNamespace[namespace].placeholder = placeholder;
+                    }
+                }
+            }
+
+            config = Object.assign(
+                {
+                    configByNamespace,
+                    FooterComponent: DefaultFooter,
+                    providers: commandProviderRegistry.getAll(),
+                },
+                config
+            );
+            return openPalette(config, onClose);
         }
 
         /**
          * @param {CommandPaletteConfig} config
-         * @returns config if the command palette is already open
+         * @param {Function} onClose called when the command palette is closed
          */
-        function openPalette(config) {
+        function openPalette(config, onClose) {
             if (isPaletteOpened) {
-                return config;
+                bus.trigger("SET-CONFIG", config);
+                return;
             }
 
             // Open Command Palette dialog
             isPaletteOpened = true;
             dialog.add(
-                CommandPaletteDialog,
+                CommandPalette,
                 {
                     config,
+                    bus,
                 },
                 {
                     onClose: () => {
                         isPaletteOpened = false;
+                        if (onClose) {
+                            onClose();
+                        }
                     },
                 }
             );
@@ -114,18 +159,46 @@ export const commandService = {
             if (!command.name || !command.action || typeof command.action !== "function") {
                 throw new Error("A Command must have a name and an action function.");
             }
-
             const registration = Object.assign({}, command, options);
-
-            if (registration.hotkey) {
-                registration.removeHotkey = hotkeyService.add(
-                    registration.hotkey,
-                    registration.action,
-                    {
-                        activeElement: registration.activeElement,
-                        global: registration.global,
+            if (registration.identifier) {
+                const commandsArray = Array.from(registeredCommands.values());
+                const sameName = commandsArray.find((com) => com.name === registration.name);
+                if (sameName) {
+                    if (registration.identifier !== sameName.identifier) {
+                        registration.name += ` (${registration.identifier})`;
+                        sameName.name += ` (${sameName.identifier})`;
                     }
-                );
+                } else {
+                    const sameFullName = commandsArray.find(
+                        (com) => com.name === registration.name + `(${registration.identifier})`
+                    );
+                    if (sameFullName) {
+                        registration.name += ` (${registration.identifier})`;
+                    }
+                }
+            }
+            if (registration.hotkey) {
+                const action = async () => {
+                    const commandService = env.services.command;
+                    const config = await command.action();
+                    if (!isPaletteOpened && config) {
+                        commandService.openPalette(config);
+                    }
+                };
+                registration.removeHotkey = hotkeyService.add(registration.hotkey, action, {
+                    ...options.hotkeyOptions,
+                    global: registration.global,
+                    isAvailable: (...args) => {
+                        let available = true;
+                        if (registration.isAvailable) {
+                            available = registration.isAvailable(...args);
+                        }
+                        if (available && options.hotkeyOptions?.isAvailable) {
+                            available = options.hotkeyOptions?.isAvailable(...args);
+                        }
+                        return available;
+                    },
+                });
             }
 
             const token = nextToken++;
@@ -177,6 +250,7 @@ export const commandService = {
                     (command) => command.activeElement === activeElement || command.global
                 );
             },
+            openMainPalette,
             openPalette,
         };
     },

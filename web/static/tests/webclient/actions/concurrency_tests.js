@@ -1,31 +1,51 @@
 /** @odoo-module **/
 
-import { click, makeDeferred } from "@web/../tests/helpers/utils";
+import {
+    click,
+    getFixture,
+    getNodesTextContent,
+    makeDeferred,
+    nextTick,
+} from "@web/../tests/helpers/utils";
 import { ControlPanel } from "@web/search/control_panel/control_panel";
-import { createWebClient, doAction, getActionManagerServerData } from "./../helpers";
-import { isItemSelected, toggleFilterMenu, toggleMenuItem } from "@web/../tests/search/helpers";
-import { legacyExtraNextTick, nextTick } from "../../helpers/utils";
+import { SearchBar } from "@web/search/search_bar/search_bar";
+import {
+    isItemSelected,
+    toggleSearchBarMenu,
+    toggleMenuItem,
+    switchView,
+} from "@web/../tests/search/helpers";
 import { registry } from "@web/core/registry";
-import testUtils from "web.test_utils";
-import { useSetupView } from "@web/views/helpers/view_hook";
-import * as cpHelpers from "@web/../tests/search/helpers";
+import { useSetupView } from "@web/views/view_hook";
+import {
+    createWebClient,
+    doAction,
+    getActionManagerServerData,
+    loadState,
+} from "@web/../tests/webclient/helpers";
 
-const { Component, tags } = owl;
+import { Component, onWillStart, xml } from "@odoo/owl";
 const actionRegistry = registry.category("actions");
 
+function getBreadCrumbTexts(target) {
+    return getNodesTextContent(target.querySelectorAll(".breadcrumb-item, .o_breadcrumb .active"));
+}
+
 let serverData;
+let target;
 
 QUnit.module("ActionManager", (hooks) => {
     hooks.beforeEach(() => {
         serverData = getActionManagerServerData();
+        target = getFixture();
     });
 
     QUnit.module("Concurrency management");
 
     QUnit.test("drop previous actions if possible", async function (assert) {
         assert.expect(7);
-        const def = testUtils.makeTestPromise();
-        const mockRPC = async function (route, args) {
+        const def = makeDeferred();
+        const mockRPC = async function (route) {
             assert.step(route);
             if (route === "/web/action/load") {
                 await def;
@@ -35,60 +55,54 @@ QUnit.module("ActionManager", (hooks) => {
         doAction(webClient, 4);
         doAction(webClient, 8);
         def.resolve();
-        await testUtils.nextTick();
-        await legacyExtraNextTick();
+        await nextTick();
         // action 4 loads a kanban view first, 6 loads a list view. We want a list
-        assert.containsOnce(webClient, ".o_list_view");
+        assert.containsOnce(target, ".o_list_view");
         assert.verifySteps([
             "/web/webclient/load_menus",
             "/web/action/load",
             "/web/action/load",
-            "/web/dataset/call_kw/pony/load_views",
-            "/web/dataset/search_read",
+            "/web/dataset/call_kw/pony/get_views",
+            "/web/dataset/call_kw/pony/web_search_read",
         ]);
     });
 
-    QUnit.skip("handle switching view and switching back on slow network", async function (assert) {
-        // This scenario isn't supported while we still have the compatibility layer.
-        // As soon as the list and kanban views will be written in owl, this test will
-        // need to be unskipped.
+    QUnit.test("handle switching view and switching back on slow network", async function (assert) {
         assert.expect(9);
-        let def = testUtils.makeTestPromise();
+        const def = makeDeferred();
         const defs = [Promise.resolve(), def, Promise.resolve()];
-        const mockRPC = async function (route, args) {
+        const mockRPC = async function (route, { method }) {
             assert.step(route);
-            if (route === "/web/dataset/search_read") {
+            if (method === "web_search_read") {
                 await defs.shift();
             }
         };
         const webClient = await createWebClient({ serverData, mockRPC });
         await doAction(webClient, 4);
         // kanban view is loaded, switch to list view
-        await cpHelpers.switchView(webClient.el, "list");
-        await legacyExtraNextTick();
+        await switchView(target, "list");
         // here, list view is not ready yet, because def is not resolved
         // switch back to kanban view
-        await cpHelpers.switchView(webClient.el, "kanban");
-        await legacyExtraNextTick();
+        await switchView(target, "kanban");
         // here, we want the kanban view to reload itself, regardless of list view
         assert.verifySteps([
             "/web/webclient/load_menus",
             "/web/action/load",
-            "/web/dataset/call_kw/partner/load_views",
-            "/web/dataset/search_read",
-            "/web/dataset/search_read",
-            "/web/dataset/search_read",
+            "/web/dataset/call_kw/partner/get_views",
+            "/web/dataset/call_kw/partner/web_search_read",
+            "/web/dataset/call_kw/partner/web_search_read",
+            "/web/dataset/call_kw/partner/web_search_read",
         ]);
         // we resolve def => list view is now ready (but we want to ignore it)
         def.resolve();
-        await testUtils.nextTick();
-        assert.containsOnce(webClient, ".o_kanban_view", "there should be a kanban view in dom");
-        assert.containsNone(webClient, ".o_list_view", "there should not be a list view in dom");
+        await nextTick();
+        assert.containsOnce(target, ".o_kanban_view", "there should be a kanban view in dom");
+        assert.containsNone(target, ".o_list_view", "there should not be a list view in dom");
     });
 
     QUnit.test("when an server action takes too much time...", async function (assert) {
         assert.expect(1);
-        const def = testUtils.makeTestPromise();
+        const def = makeDeferred();
         const mockRPC = async function (route, args) {
             if (route === "/web/action/run") {
                 await def;
@@ -99,48 +113,34 @@ QUnit.module("ActionManager", (hooks) => {
         doAction(webClient, 2);
         doAction(webClient, 4);
         def.resolve();
-        await testUtils.nextTick();
-        await legacyExtraNextTick();
-        assert.strictEqual(
-            $(webClient.el).find(".o_control_panel .breadcrumb-item.active").text(),
-            "Partners Action 4",
-            "action 4 should be loaded"
-        );
+        await nextTick();
+        assert.deepEqual(getBreadCrumbTexts(target), ["Partners Action 4"]);
     });
 
     QUnit.test("clicking quickly on breadcrumbs...", async function (assert) {
         assert.expect(1);
         let def;
         const mockRPC = async function (route, args) {
-            if (args && args.method === "read") {
+            if (args && args.method === "web_read") {
                 await def;
             }
         };
         const webClient = await createWebClient({ serverData, mockRPC });
         // create a situation with 3 breadcrumbs: kanban/form/list
         await doAction(webClient, 4);
-        await testUtils.dom.click($(webClient.el).find(".o_kanban_record:first"));
-        await legacyExtraNextTick();
+        await click(target.querySelector(".o_kanban_record"));
         await doAction(webClient, 8);
-        await legacyExtraNextTick();
         // now, the next read operations will be promise (this is the read
         // operation for the form view reload)
-        def = testUtils.makeTestPromise();
+        def = makeDeferred();
         // click on the breadcrumbs for the form view, then on the kanban view
         // before the form view is fully reloaded
-        await testUtils.dom.click($(webClient.el).find(".o_control_panel .breadcrumb-item:eq(1)"));
-        await legacyExtraNextTick();
-        await testUtils.dom.click($(webClient.el).find(".o_control_panel .breadcrumb-item:eq(0)"));
-        await legacyExtraNextTick();
+        await click(target.querySelectorAll(".o_control_panel .breadcrumb-item")[1]);
+        await click(target.querySelector(".o_control_panel .breadcrumb-item"));
         // resolve the form view read
         def.resolve();
-        await testUtils.nextTick();
-        await legacyExtraNextTick();
-        assert.strictEqual(
-            $(webClient.el).find(".o_control_panel .breadcrumb-item.active").text(),
-            "Partners Action 4",
-            "action 4 should be loaded and visible"
-        );
+        await nextTick();
+        assert.deepEqual(getBreadCrumbTexts(target), ["Partners Action 4"]);
     });
 
     QUnit.test(
@@ -148,61 +148,47 @@ QUnit.module("ActionManager", (hooks) => {
         async function (assert) {
             assert.expect(16);
             let def;
-            const mockRPC = async function (route, args) {
-                assert.step((args && args.method) || route);
-                if (route === "/web/dataset/search_read" && args && args.model === "partner") {
+            const mockRPC = async function (route, { method, model }) {
+                assert.step(method || route);
+                if (method === "web_search_read" && model === "partner") {
                     await def;
                 }
             };
             const webClient = await createWebClient({ serverData, mockRPC });
-            webClient.env.bus.trigger("test:hashchange", {
+            await loadState(webClient, {
                 action: 4,
                 id: 2,
                 view_type: "form",
             });
-            await testUtils.nextTick();
-            await legacyExtraNextTick();
-            assert.containsOnce(
-                webClient.el,
-                ".o_form_view",
-                "should display the form view of action 4"
-            );
+            assert.containsOnce(target, ".o_form_view", "should display the form view of action 4");
             // click to go back to Kanban (this request is blocked)
-            def = testUtils.makeTestPromise();
-            await testUtils.nextTick();
-            await legacyExtraNextTick();
-            await testUtils.dom.click($(webClient.el).find(".o_control_panel .breadcrumb a"));
-            await legacyExtraNextTick();
+            def = makeDeferred();
+            await click(target.querySelector(".o_control_panel .breadcrumb a"));
             assert.containsOnce(
-                webClient.el,
+                target,
                 ".o_form_view",
                 "should still display the form view of action 4"
             );
             // execute another action meanwhile (don't block this request)
             await doAction(webClient, 8, { clearBreadcrumbs: true });
-            assert.containsOnce(webClient, ".o_list_view", "should display action 8");
-            assert.containsNone(
-                webClient,
-                ".o_form_view",
-                "should no longer display the form view"
-            );
+            assert.containsOnce(target, ".o_list_view", "should display action 8");
+            assert.containsNone(target, ".o_form_view", "should no longer display the form view");
             assert.verifySteps([
                 "/web/webclient/load_menus",
                 "/web/action/load",
-                "load_views",
-                "read",
-                "/web/dataset/search_read",
+                "get_views",
+                "web_read",
+                "web_search_read",
                 "/web/action/load",
-                "load_views",
-                "/web/dataset/search_read",
+                "get_views",
+                "web_search_read",
             ]);
             // unblock the switch to Kanban in action 4
             def.resolve();
-            await testUtils.nextTick();
-            await legacyExtraNextTick();
-            assert.containsOnce(webClient, ".o_list_view", "should still display action 8");
+            await nextTick();
+            assert.containsOnce(target, ".o_list_view", "should still display action 8");
             assert.containsNone(
-                webClient.el,
+                target,
                 ".o_kanban_view",
                 "should not display the kanban view of action 4"
             );
@@ -212,7 +198,7 @@ QUnit.module("ActionManager", (hooks) => {
 
     QUnit.test("execute a new action while handling a call_button", async function (assert) {
         assert.expect(17);
-        const def = testUtils.makeTestPromise();
+        const def = makeDeferred();
         const mockRPC = async function (route, args) {
             assert.step((args && args.method) || route);
             if (route === "/web/dataset/call_button") {
@@ -223,43 +209,39 @@ QUnit.module("ActionManager", (hooks) => {
         const webClient = await createWebClient({ serverData, mockRPC });
         // execute action 3 and open a record in form view
         await doAction(webClient, 3);
-        await testUtils.dom.click($(webClient.el).find(".o_list_view .o_data_row:first"));
-        await legacyExtraNextTick();
-        assert.containsOnce(webClient, ".o_form_view", "should display the form view of action 3");
+        await click(target.querySelector(".o_list_view .o_data_cell"));
+        assert.containsOnce(target, ".o_form_view", "should display the form view of action 3");
         // click on 'Call method' button (this request is blocked)
-        await testUtils.dom.click(
-            $(webClient.el).find(".o_form_view button:contains(Call method)")
-        );
+        await click(target.querySelector('.o_form_view button[name="object"]'));
         assert.containsOnce(
-            webClient.el,
+            target,
             ".o_form_view",
             "should still display the form view of action 3"
         );
         // execute another action
         await doAction(webClient, 8, { clearBreadcrumbs: true });
-        assert.containsOnce(webClient, ".o_list_view", "should display the list view of action 8");
-        assert.containsNone(webClient, ".o_form_view", "should no longer display the form view");
+        assert.containsOnce(target, ".o_list_view", "should display the list view of action 8");
+        assert.containsNone(target, ".o_form_view", "should no longer display the form view");
         assert.verifySteps([
             "/web/webclient/load_menus",
             "/web/action/load",
-            "load_views",
-            "/web/dataset/search_read",
-            "read",
+            "get_views",
+            "web_search_read",
+            "web_read",
             "object",
             "/web/action/load",
-            "load_views",
-            "/web/dataset/search_read",
+            "get_views",
+            "web_search_read",
         ]);
         // unblock the call_button request
         def.resolve();
-        await testUtils.nextTick();
-        await legacyExtraNextTick();
+        await nextTick();
         assert.containsOnce(
-            webClient.el,
+            target,
             ".o_list_view",
             "should still display the list view of action 8"
         );
-        assert.containsNone(webClient, ".o_kanban_view", "should not display action 1");
+        assert.containsNone(target, ".o_kanban_view", "should not display action 1");
         assert.verifySteps([]);
     });
 
@@ -278,60 +260,49 @@ QUnit.module("ActionManager", (hooks) => {
             let def;
             const mockRPC = async function (route, args) {
                 assert.step((args && args.method) || route);
-                if (args && args.method === "read") {
+                if (args && args.method === "web_read") {
                     await def;
                 }
             };
             const webClient = await createWebClient({ serverData, mockRPC });
             await doAction(webClient, 3);
-            assert.containsOnce(
-                webClient,
-                ".o_list_view",
-                "should display the list view of action 3"
-            );
+            assert.containsOnce(target, ".o_list_view", "should display the list view of action 3");
             // switch to the form view (this request is blocked)
-            def = testUtils.makeTestPromise();
-            testUtils.dom.click($(webClient.el).find(".o_list_view .o_data_row:first"));
-            await testUtils.nextTick();
-            await legacyExtraNextTick();
+            def = makeDeferred();
+            await click(target.querySelector(".o_list_view .o_data_cell"));
             assert.containsOnce(
-                webClient.el,
+                target,
                 ".o_list_view",
                 "should still display the list view of action 3"
             );
             // execute another action meanwhile (don't block this request)
             await doAction(webClient, 4, { clearBreadcrumbs: true });
             assert.containsOnce(
-                webClient.el,
+                target,
                 ".o_kanban_view",
                 "should display the kanban view of action 8"
             );
-            assert.containsNone(
-                webClient,
-                ".o_list_view",
-                "should no longer display the list view"
-            );
+            assert.containsNone(target, ".o_list_view", "should no longer display the list view");
             assert.verifySteps([
                 "/web/webclient/load_menus",
                 "/web/action/load",
-                "load_views",
-                "/web/dataset/search_read",
-                "read",
+                "get_views",
+                "web_search_read",
+                "web_read",
                 "/web/action/load",
-                "load_views",
-                "/web/dataset/search_read",
+                "get_views",
+                "web_search_read",
             ]);
             // unblock the switch to the form view in action 3
             def.resolve();
-            await testUtils.nextTick();
-            await legacyExtraNextTick();
+            await nextTick();
             assert.containsOnce(
-                webClient.el,
+                target,
                 ".o_kanban_view",
                 "should still display the kanban view of action 8"
             );
             assert.containsNone(
-                webClient.el,
+                target,
                 ".o_form_view",
                 "should not display the form view of action 3"
             );
@@ -341,211 +312,160 @@ QUnit.module("ActionManager", (hooks) => {
 
     QUnit.test("execute a new action while loading views", async function (assert) {
         assert.expect(11);
-        const def = testUtils.makeTestPromise();
+        const def = makeDeferred();
         const mockRPC = async function (route, args) {
             assert.step((args && args.method) || route);
-            if (args && args.method === "load_views") {
+            if (args && args.method === "get_views") {
                 await def;
             }
         };
         const webClient = await createWebClient({ serverData, mockRPC });
-        // execute a first action (its 'load_views' RPC is blocked)
+        // execute a first action (its 'get_views' RPC is blocked)
         doAction(webClient, 3);
-        await testUtils.nextTick();
-        await legacyExtraNextTick();
-        assert.containsNone(
-            webClient.el,
-            ".o_list_view",
-            "should not display the list view of action 3"
-        );
+        await nextTick();
+        assert.containsNone(target, ".o_list_view", "should not display the list view of action 3");
         // execute another action meanwhile (and unlock the RPC)
         doAction(webClient, 4);
-        await testUtils.nextTick();
+        await nextTick();
         def.resolve();
-        await testUtils.nextTick();
-        await legacyExtraNextTick();
-        assert.containsOnce(
-            webClient.el,
-            ".o_kanban_view",
-            "should display the kanban view of action 4"
-        );
-        assert.containsNone(
-            webClient.el,
-            ".o_list_view",
-            "should not display the list view of action 3"
-        );
-        assert.containsOnce(
-            webClient.el,
-            ".o_control_panel .breadcrumb-item",
-            "there should be one controller in the breadcrumbs"
-        );
+        await nextTick();
+        assert.containsOnce(target, ".o_kanban_view", "should display the kanban view of action 4");
+        assert.containsNone(target, ".o_list_view", "should not display the list view of action 3");
+        assert.deepEqual(getBreadCrumbTexts(target), ["Partners Action 4"]);
         assert.verifySteps([
             "/web/webclient/load_menus",
             "/web/action/load",
-            "load_views",
+            "get_views",
             "/web/action/load",
-            "load_views",
-            "/web/dataset/search_read",
+            "get_views",
+            "web_search_read",
         ]);
     });
 
     QUnit.test("execute a new action while loading data of default view", async function (assert) {
         assert.expect(12);
-        const def = testUtils.makeTestPromise();
-        const mockRPC = async function (route, args) {
-            assert.step((args && args.method) || route);
-            if (route === "/web/dataset/search_read") {
+        const def = makeDeferred();
+        const mockRPC = async function (route, { method }) {
+            assert.step(method || route);
+            if (method === "web_search_read") {
                 await def;
             }
         };
         const webClient = await createWebClient({ serverData, mockRPC });
         // execute a first action (its 'search_read' RPC is blocked)
         doAction(webClient, 3);
-        await testUtils.nextTick();
-        await legacyExtraNextTick();
-        assert.containsNone(
-            webClient.el,
-            ".o_list_view",
-            "should not display the list view of action 3"
-        );
+        await nextTick();
+        assert.containsNone(target, ".o_list_view", "should not display the list view of action 3");
         // execute another action meanwhile (and unlock the RPC)
         doAction(webClient, 4);
         def.resolve();
-        await testUtils.nextTick();
-        await legacyExtraNextTick();
-        assert.containsOnce(
-            webClient.el,
-            ".o_kanban_view",
-            "should display the kanban view of action 4"
-        );
-        assert.containsNone(
-            webClient.el,
-            ".o_list_view",
-            "should not display the list view of action 3"
-        );
-        assert.containsOnce(
-            webClient.el,
-            ".o_control_panel .breadcrumb-item",
-            "there should be one controller in the breadcrumbs"
-        );
+        await nextTick();
+        assert.containsOnce(target, ".o_kanban_view", "should display the kanban view of action 4");
+        assert.containsNone(target, ".o_list_view", "should not display the list view of action 3");
+        assert.deepEqual(getBreadCrumbTexts(target), ["Partners Action 4"]);
         assert.verifySteps([
             "/web/webclient/load_menus",
             "/web/action/load",
-            "load_views",
-            "/web/dataset/search_read",
+            "get_views",
+            "web_search_read",
             "/web/action/load",
-            "load_views",
-            "/web/dataset/search_read",
+            "get_views",
+            "web_search_read",
         ]);
     });
 
     QUnit.test("open a record while reloading the list view", async function (assert) {
-        assert.expect(12);
+        assert.expect(10);
         let def;
         const mockRPC = async function (route, args) {
-            if (route === "/web/dataset/search_read") {
+            if (args.method === "web_search_read") {
                 await def;
             }
         };
         const webClient = await createWebClient({ serverData, mockRPC });
         await doAction(webClient, 3);
-        assert.containsOnce(webClient, ".o_list_view");
-        assert.containsN(webClient, ".o_list_view .o_data_row", 5);
-        assert.containsOnce(webClient, ".o_control_panel .o_list_buttons");
+        assert.containsOnce(target, ".o_list_view");
+        assert.containsN(target, ".o_list_view .o_data_row", 5);
+        assert.containsOnce(target, ".o_control_panel .d-none.d-xl-inline-flex .o_list_buttons");
         // reload (the search_read RPC will be blocked)
-        def = testUtils.makeTestPromise();
-        await cpHelpers.switchView(webClient.el, "list");
-        await legacyExtraNextTick();
-        assert.containsN(webClient, ".o_list_view .o_data_row", 5);
-        assert.containsOnce(webClient, ".o_control_panel .o_list_buttons");
+        def = makeDeferred();
+        await switchView(target, "list");
+        assert.containsN(target, ".o_list_view .o_data_row", 5);
+        assert.containsOnce(target, ".o_control_panel .d-none.d-xl-inline-flex .o_list_buttons");
         // open a record in form view
-        await testUtils.dom.click($(webClient.el).find(".o_list_view .o_data_row:first"));
-        await legacyExtraNextTick();
-        assert.containsOnce(webClient, ".o_form_view");
-        assert.containsNone(webClient, ".o_control_panel .o_list_buttons");
-        assert.containsOnce(webClient, ".o_control_panel .o_form_buttons_view");
+        await click(target.querySelector(".o_list_view .o_data_cell"));
+        assert.containsOnce(target, ".o_form_view");
+        assert.containsNone(target, ".o_control_panel .o_list_buttons");
         // unblock the search_read RPC
         def.resolve();
-        await testUtils.nextTick();
-        await legacyExtraNextTick();
-        assert.containsOnce(webClient, ".o_form_view");
-        assert.containsNone(webClient, ".o_list_view");
-        assert.containsNone(webClient, ".o_control_panel .o_list_buttons");
-        assert.containsOnce(webClient, ".o_control_panel .o_form_buttons_view");
+        await nextTick();
+        assert.containsOnce(target, ".o_form_view");
+        assert.containsNone(target, ".o_list_view");
+        assert.containsNone(target, ".o_control_panel .o_list_buttons");
     });
 
     QUnit.test(
         "properly drop client actions after new action is initiated",
         async function (assert) {
             assert.expect(3);
-            const slowWillStartDef = testUtils.makeTestPromise();
+            const slowWillStartDef = makeDeferred();
             class ClientAction extends Component {
-                willStart() {
-                    return slowWillStartDef;
+                setup() {
+                    onWillStart(() => slowWillStartDef);
                 }
             }
-            ClientAction.template = tags.xml`<div class="client_action">ClientAction</div>`;
+            ClientAction.template = xml`<div class="client_action">ClientAction</div>`;
             actionRegistry.add("slowAction", ClientAction);
             const webClient = await createWebClient({ serverData });
             doAction(webClient, "slowAction");
             await nextTick();
-            await legacyExtraNextTick();
-            assert.containsNone(webClient, ".client_action", "client action isn't ready yet");
+            assert.containsNone(target, ".client_action", "client action isn't ready yet");
             doAction(webClient, 4);
             await nextTick();
-            await legacyExtraNextTick();
-            assert.containsOnce(webClient, ".o_kanban_view", "should have loaded a kanban view");
+            assert.containsOnce(target, ".o_kanban_view", "should have loaded a kanban view");
             slowWillStartDef.resolve();
-            await testUtils.nextTick();
-            await legacyExtraNextTick();
-            assert.containsOnce(
-                webClient,
-                ".o_kanban_view",
-                "should still display the kanban view"
-            );
+            await nextTick();
+            assert.containsOnce(target, ".o_kanban_view", "should still display the kanban view");
         }
     );
 
-    QUnit.test("restoring a controller when doing an action -- load_action slow", async function (assert) {
-        assert.expect(14);
-        let def;
-        const mockRPC = async (route, args) => {
-            assert.step((args && args.method) || route);
-            if (route === "/web/action/load") {
-                return Promise.resolve(def);
-            }
-        };
-        const webClient = await createWebClient({ serverData, mockRPC });
-        await doAction(webClient, 3);
-        assert.containsOnce(webClient, ".o_list_view");
-        await click(webClient.el.querySelector(".o_list_view .o_data_cell"));
-        await legacyExtraNextTick();
-        assert.containsOnce(webClient, ".o_form_view");
-        def = makeDeferred();
-        doAction(webClient, 4, { clearBreadcrumbs: true });
-        await nextTick();
-        await legacyExtraNextTick();
-        assert.containsOnce(webClient, ".o_form_view", "should still contain the form view");
-        await click(webClient.el.querySelector(".o_control_panel .breadcrumb-item a"));
-        def.resolve();
-        await nextTick();
-        await legacyExtraNextTick();
-        assert.containsOnce(webClient, ".o_list_view");
-        assert.strictEqual(
-            webClient.el.querySelector(".o_control_panel .breadcrumb-item").textContent,
-            "Partners"
-        );
-        assert.containsNone(webClient, ".o_form_view");
-        assert.verifySteps([
-            "/web/webclient/load_menus",
-            "/web/action/load",
-            "load_views",
-            "/web/dataset/search_read",
-            "read",
-            "/web/action/load",
-            "/web/dataset/search_read",
-        ]);
-    });
+    QUnit.test(
+        "restoring a controller when doing an action -- load_action slow",
+        async function (assert) {
+            assert.expect(14);
+            let def;
+            const mockRPC = async (route, args) => {
+                assert.step((args && args.method) || route);
+                if (route === "/web/action/load") {
+                    return Promise.resolve(def);
+                }
+            };
+            const webClient = await createWebClient({ serverData, mockRPC });
+            await doAction(webClient, 3);
+            assert.containsOnce(target, ".o_list_view");
+            await click(target.querySelector(".o_list_view .o_data_cell"));
+            assert.containsOnce(target, ".o_form_view");
+            def = makeDeferred();
+            doAction(webClient, 4, { clearBreadcrumbs: true });
+            await nextTick();
+            assert.containsOnce(target, ".o_form_view", "should still contain the form view");
+            await click(target.querySelector(".o_control_panel .breadcrumb-item a"));
+            def.resolve();
+            await nextTick();
+            assert.containsOnce(target, ".o_list_view");
+            assert.deepEqual(getBreadCrumbTexts(target), ["Partners"]);
+            assert.containsNone(target, ".o_form_view");
+            assert.verifySteps([
+                "/web/webclient/load_menus",
+                "/web/action/load",
+                "get_views",
+                "web_search_read",
+                "web_read",
+                "/web/action/load",
+                "web_search_read",
+            ]);
+        }
+    );
 
     QUnit.test("switching when doing an action -- load_action slow", async function (assert) {
         assert.expect(12);
@@ -558,141 +478,123 @@ QUnit.module("ActionManager", (hooks) => {
         };
         const webClient = await createWebClient({ serverData, mockRPC });
         await doAction(webClient, 3);
-        assert.containsOnce(webClient, ".o_list_view");
+        assert.containsOnce(target, ".o_list_view");
         def = makeDeferred();
         doAction(webClient, 4, { clearBreadcrumbs: true });
         await nextTick();
-        await legacyExtraNextTick();
-        assert.containsOnce(webClient, ".o_list_view", "should still contain the list view");
-        await cpHelpers.switchView(webClient, "kanban");
+        assert.containsOnce(target, ".o_list_view", "should still contain the list view");
+        await switchView(target, "kanban");
         def.resolve();
         await nextTick();
-        await legacyExtraNextTick();
-        assert.containsOnce(webClient, ".o_kanban_view");
-        assert.strictEqual(
-            webClient.el.querySelector(".o_control_panel .breadcrumb-item").textContent,
-            "Partners"
-        );
-        assert.containsNone(webClient, ".o_list_view");
+        assert.containsOnce(target, ".o_kanban_view");
+        assert.deepEqual(getBreadCrumbTexts(target), ["Partners"]);
+        assert.containsNone(target, ".o_list_view");
         assert.verifySteps([
             "/web/webclient/load_menus",
             "/web/action/load",
-            "load_views",
-            "/web/dataset/search_read",
+            "get_views",
+            "web_search_read",
             "/web/action/load",
-            "/web/dataset/search_read",
+            "web_search_read",
         ]);
     });
 
-    QUnit.test("switching when doing an action -- load_views slow", async function (assert) {
+    QUnit.test("switching when doing an action -- get_views slow", async function (assert) {
         assert.expect(13);
         let def;
         const mockRPC = async (route, args) => {
             assert.step((args && args.method) || route);
-            if (args && args.method === "load_views") {
+            if (args && args.method === "get_views") {
                 return Promise.resolve(def);
             }
         };
         const webClient = await createWebClient({ serverData, mockRPC });
         await doAction(webClient, 3);
-        assert.containsOnce(webClient, ".o_list_view");
-        def = testUtils.makeTestPromise();
-        doAction(webClient, 4, { clearBreadcrumbs: true });
+        assert.containsOnce(target, ".o_list_view");
+        def = makeDeferred();
+        doAction(webClient, 4);
         await nextTick();
-        await legacyExtraNextTick();
-        assert.containsOnce(webClient, ".o_list_view", "should still contain the list view");
-        await cpHelpers.switchView(webClient, "kanban");
+        assert.containsOnce(target, ".o_list_view", "should still contain the list view");
+        await switchView(target, "kanban");
         def.resolve();
-        await testUtils.nextTick();
-        await legacyExtraNextTick();
-        assert.containsOnce(webClient, ".o_kanban_view");
-        assert.strictEqual(
-            webClient.el.querySelector(".o_control_panel .breadcrumb-item").textContent,
-            "Partners"
-        );
-        assert.containsNone(webClient, ".o_list_view");
+        await nextTick();
+        assert.containsOnce(target, ".o_kanban_view");
+        assert.deepEqual(getBreadCrumbTexts(target), ["Partners"]);
+        assert.containsNone(target, ".o_list_view");
         assert.verifySteps([
             "/web/webclient/load_menus",
             "/web/action/load",
-            "load_views",
-            "/web/dataset/search_read",
+            "get_views",
+            "web_search_read",
             "/web/action/load",
-            "load_views",
-            "/web/dataset/search_read",
+            "get_views",
+            "web_search_read",
         ]);
     });
 
     QUnit.test("switching when doing an action -- search_read slow", async function (assert) {
         assert.expect(13);
-        const def = testUtils.makeTestPromise();
+        const def = makeDeferred();
         const defs = [null, def, null];
-        const mockRPC = async (route, args) => {
-            assert.step((args && args.method) || route);
-            if (route === "/web/dataset/search_read") {
+        const mockRPC = async (route, { method }) => {
+            assert.step(method || route);
+            if (method === "web_search_read") {
                 await Promise.resolve(defs.shift());
             }
         };
         const webClient = await createWebClient({ serverData, mockRPC });
         await doAction(webClient, 3);
-        assert.containsOnce(webClient, ".o_list_view");
-        doAction(webClient, 4, { clearBreadcrumbs: true });
-        await testUtils.nextTick();
-        await legacyExtraNextTick();
-        await cpHelpers.switchView(webClient, "kanban");
+        assert.containsOnce(target, ".o_list_view");
+        doAction(webClient, 4);
+        await nextTick();
+        await switchView(target, "kanban");
         def.resolve();
-        await testUtils.nextTick();
-        await legacyExtraNextTick();
-        assert.containsOnce(webClient, ".o_kanban_view");
-        assert.strictEqual(
-            webClient.el.querySelector(".o_control_panel .breadcrumb-item").textContent,
-            "Partners"
-        );
-        assert.containsNone(webClient, ".o_list_view");
+        await nextTick();
+        assert.containsOnce(target, ".o_kanban_view");
+        assert.deepEqual(getBreadCrumbTexts(target), ["Partners"]);
+        assert.containsNone(target, ".o_list_view");
         assert.verifySteps([
             "/web/webclient/load_menus",
             "/web/action/load",
-            "load_views",
-            "/web/dataset/search_read",
+            "get_views",
+            "web_search_read",
             "/web/action/load",
-            "load_views",
-            "/web/dataset/search_read",
-            "/web/dataset/search_read",
+            "get_views",
+            "web_search_read",
+            "web_search_read",
         ]);
     });
 
     QUnit.test("click multiple times to open a record", async function (assert) {
-        assert.expect(5);
-
-        const def = testUtils.makeTestPromise();
+        const def = makeDeferred();
         const defs = [null, def];
         const mockRPC = async (route, args) => {
-            if (args.method === "read") {
+            if (args.method === "web_read") {
                 await Promise.resolve(defs.shift());
             }
         };
 
         const webClient = await createWebClient({ serverData, mockRPC });
         await doAction(webClient, 3);
-        assert.containsOnce(webClient, ".o_list_view");
+        assert.containsOnce(target, ".o_list_view");
 
-        await testUtils.dom.click(webClient.el.querySelector(".o_list_view .o_data_row"));
-        await legacyExtraNextTick();
-        assert.containsOnce(webClient, ".o_form_view");
+        await click(target.querySelector(".o_list_view .o_data_cell"));
+        assert.containsOnce(target, ".o_form_view");
 
-        await testUtils.dom.click(webClient.el.querySelector(".o_back_button"));
-        await legacyExtraNextTick();
+        await click(target.querySelector(".o_back_button"));
+        assert.containsOnce(target, ".o_list_view");
 
-        assert.containsOnce(webClient, ".o_list_view");
-
-        await testUtils.dom.click(webClient.el.querySelector(".o_list_view .o_data_row"));
-        await testUtils.dom.click(webClient.el.querySelector(".o_list_view .o_data_row"));
-        await legacyExtraNextTick();
-        assert.containsOnce(webClient, ".o_list_view");
+        const row1 = target.querySelectorAll(".o_list_view .o_data_row")[0];
+        const row2 = target.querySelectorAll(".o_list_view .o_data_row")[1];
+        await click(row1.querySelector(".o_data_cell"));
+        await click(row2.querySelector(".o_data_cell"));
+        assert.containsOnce(target, ".o_form_view");
+        assert.deepEqual(getBreadCrumbTexts(target), ["Partners", "Second record"]);
 
         def.resolve();
         await nextTick();
-        await legacyExtraNextTick();
-        assert.containsOnce(webClient, ".o_form_view");
+        assert.containsOnce(target, ".o_form_view");
+        assert.deepEqual(getBreadCrumbTexts(target), ["Partners", "Second record"]);
     });
 
     QUnit.test(
@@ -709,15 +611,15 @@ QUnit.module("ActionManager", (hooks) => {
             const webClient = await createWebClient({ serverData, mockRPC });
             doAction(webClient, 5);
             await nextTick();
-            assert.containsNone(webClient, ".o_dialog .o_form_view");
+            assert.containsNone(target, ".o_dialog .o_form_view");
 
             doAction(webClient, 5);
             await nextTick();
-            assert.containsNone(webClient, ".o_dialog .o_form_view");
+            assert.containsNone(target, ".o_dialog .o_form_view");
 
             def.resolve();
             await nextTick();
-            assert.containsOnce(webClient, ".o_dialog .o_form_view", "dialog should open only once");
+            assert.containsOnce(target, ".o_dialog .o_form_view", "dialog should open only once");
         }
     );
 
@@ -735,7 +637,7 @@ QUnit.module("ActionManager", (hooks) => {
         let def = Promise.resolve();
 
         let id = 1;
-        class ToyView extends Component {
+        class ToyController extends Component {
             setup() {
                 this.id = id++;
                 assert.step(JSON.stringify(this.props.state || "no state"));
@@ -744,23 +646,23 @@ QUnit.module("ActionManager", (hooks) => {
                         return { fromId: this.id };
                     },
                 });
-            }
-            async willStart() {
-                await def;
+                onWillStart(() => def);
             }
         }
-        ToyView.components = { ControlPanel };
-        ToyView.display_name = "Toy";
-        ToyView.icon = "fab fa-android";
-        ToyView.multiRecord = true;
-        ToyView.searchMenuTypes = ["filter"];
-        ToyView.template = owl.tags.xml`
+        ToyController.template = xml`
             <div class="o_toy_view">
                 <ControlPanel />
-            </div>
-        `;
-        ToyView.type = "toy";
-        registry.category("views").add("toy", ToyView);
+                <SearchBar />
+            </div>`;
+        ToyController.components = { ControlPanel, SearchBar };
+
+        registry.category("views").add("toy", {
+            type: "toy",
+            display_name: "Toy",
+            icon: "fab fa-android",
+            multiRecord: true,
+            Controller: ToyController,
+        });
 
         const webClient = await createWebClient({ serverData });
 
@@ -774,20 +676,20 @@ QUnit.module("ActionManager", (hooks) => {
             ],
         });
 
-        await toggleFilterMenu(webClient);
-        await toggleMenuItem(webClient, "Foo");
-        assert.ok(isItemSelected(webClient, "Foo"));
+        await toggleSearchBarMenu(target);
+        await toggleMenuItem(target, "Foo");
+        assert.ok(isItemSelected(target, "Foo"));
 
         // reload twice by clicking on toy view switcher
         def = makeDeferred();
-        await click(webClient.el.querySelector(".o_control_panel .o_switch_view.o_toy"));
-        await click(webClient.el.querySelector(".o_control_panel .o_switch_view.o_toy"));
+        await click(target.querySelector(".o_control_panel .o_switch_view.o_toy"));
+        await click(target.querySelector(".o_control_panel .o_switch_view.o_toy"));
 
         def.resolve();
         await nextTick();
 
-        await toggleFilterMenu(webClient);
-        assert.ok(isItemSelected(webClient, "Foo"));
+        await toggleSearchBarMenu(target);
+        assert.ok(isItemSelected(target, "Foo"));
         // this test is not able to detect that getGlobalState is put on the right place:
         // currentController.action.globalState contains in any case the search state
         // of the first instantiated toy view.

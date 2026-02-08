@@ -3,6 +3,7 @@
 
 import datetime
 import logging
+
 from psycopg2 import OperationalError
 
 from odoo import _, api, fields, models, tools
@@ -19,10 +20,6 @@ class Lead(models.Model):
 
     @api.depends('email_from', 'probability', 'iap_enrich_done', 'reveal_id')
     def _compute_show_enrich_button(self):
-        config = self.env['ir.config_parameter'].sudo().get_param('crm.iap.lead.enrich.setting', 'manual')
-        if not config or config != 'manual':
-            self.show_enrich_button = False
-            return
         for lead in self:
             if not lead.active or not lead.email_from or lead.email_state == 'incorrect' or lead.iap_enrich_done or lead.reveal_id or lead.probability == 100:
                 lead.show_enrich_button = False
@@ -36,10 +33,20 @@ class Lead(models.Model):
         leads = self.search([
             ('iap_enrich_done', '=', False),
             ('reveal_id', '=', False),
-            ('probability', '<', 100),
+            '|', ('probability', '<', 100), ('probability', '=', False),
             ('create_date', '>', timeDelta)
         ])
         leads.iap_enrich(from_cron=True)
+
+    @api.model_create_multi
+    def create(self, vals_list):
+        leads = super(Lead, self).create(vals_list)
+        enrich_mode = self.env['ir.config_parameter'].sudo().get_param('crm.iap.lead.enrich.setting', 'auto')
+        if enrich_mode == 'auto':
+            cron = self.env.ref('crm_iap_enrich.ir_cron_lead_enrichment', raise_if_not_found=False)
+            if cron:
+                cron._trigger()
+        return leads
 
     def iap_enrich(self, from_cron=False):
         # Split self in a list of sub-recordsets or 50 records to prevent timeouts
@@ -55,21 +62,26 @@ class Lead(models.Model):
                         # If lead is lost, active == False, but is anyway removed from the search in the cron.
                         if lead.probability == 100 or lead.iap_enrich_done:
                             continue
+                        # Skip if no email (different from wrong email leading to no email_normalized)
+                        if not lead.email_from:
+                            continue
 
                         normalized_email = tools.email_normalize(lead.email_from)
                         if not normalized_email:
-                            lead.message_post_with_view(
+                            lead.message_post_with_source(
                                 'crm_iap_enrich.mail_message_lead_enrich_no_email',
-                                subtype_id=self.env.ref('mail.mt_note').id)
+                                subtype_xmlid='mail.mt_note',
+                            )
                             continue
 
                         email_domain = normalized_email.split('@')[1]
                         # Discard domains of generic email providers as it won't return relevant information
                         if email_domain in iap_tools._MAIL_PROVIDERS:
                             lead.write({'iap_enrich_done': True})
-                            lead.message_post_with_view(
+                            lead.message_post_with_source(
                                 'crm_iap_enrich.mail_message_lead_enrich_notfound',
-                                subtype_id=self.env.ref('mail.mt_note').id)
+                                subtype_xmlid='mail.mt_note',
+                            )
                         else:
                             lead_emails[lead.id] = email_domain
 
@@ -77,21 +89,23 @@ class Lead(models.Model):
                         try:
                             iap_response = self.env['iap.enrich.api']._request_enrich(lead_emails)
                         except iap_tools.InsufficientCreditError:
-                            _logger.info('Sent batch %s enrich requests: failed because of credit', len(lead_emails))
+                            _logger.info('Lead enrichment failed because of insufficient credit')
                             if not from_cron:
-                                data = {
-                                    'url': self.env['iap.account'].get_credits_url('reveal'),
-                                }
-                                leads[0].message_post_with_view(
-                                    'crm_iap_enrich.mail_message_lead_enrich_no_credit',
-                                    values=data,
-                                    subtype_id=self.env.ref('mail.mt_note').id)
+                                self.env['iap.account']._send_no_credit_notification(
+                                    service_name='reveal',
+                                    title=_("Not enough credits for Lead Enrichment"))
                             # Since there are no credits left, there is no point to process the other batches
                             break
                         except Exception as e:
-                            _logger.info('Sent batch %s enrich requests: failed with exception %s', len(lead_emails), e)
+                            if not from_cron:
+                                self.env['iap.account']._send_error_notification(
+                                    message=_('An error occurred during lead enrichment'))
+                            _logger.info('An error occurred during lead enrichment: %s', e)
                         else:
-                            _logger.info('Sent batch %s enrich requests: success', len(lead_emails))
+                            if not from_cron:
+                                self.env['iap.account']._send_success_notification(
+                                    message=_("The leads/opportunities have successfully been enriched"))
+                            _logger.info('Batch of %s leads successfully enriched', len(lead_emails))
                             self._iap_enrich_from_response(iap_response)
                 except OperationalError:
                     _logger.error('A batch of leads could not be enriched :%s', repr(leads))
@@ -110,7 +124,10 @@ class Lead(models.Model):
             iap_data = iap_response.get(str(lead.id))
             if not iap_data:
                 lead.write({'iap_enrich_done': True})
-                lead.message_post_with_view('crm_iap_enrich.mail_message_lead_enrich_notfound', subtype_id=self.env.ref('mail.mt_note').id)
+                lead.message_post_with_source(
+                    'crm_iap_enrich.mail_message_lead_enrich_notfound',
+                    subtype_xmlid='mail.mt_note',
+                )
                 continue
 
             values = {'iap_enrich_done': True}
@@ -140,8 +157,14 @@ class Lead(models.Model):
 
             template_values = iap_data
             template_values['flavor_text'] = _("Lead enriched based on email address")
-            lead.message_post_with_view(
+            lead.message_post_with_source(
                 'iap_mail.enrich_company',
-                values=template_values,
-                subtype_id=self.env.ref('mail.mt_note').id
+                render_values=template_values,
+                subtype_xmlid='mail.mt_note',
             )
+
+    def _merge_get_fields_specific(self):
+        return {
+            ** super(Lead, self)._merge_get_fields_specific(),
+            'iap_enrich_done': lambda fname, leads: any(lead.iap_enrich_done for lead in leads),
+        }

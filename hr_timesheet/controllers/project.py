@@ -10,12 +10,19 @@ from odoo.addons.project.controllers.portal import CustomerPortal
 
 class ProjectCustomerPortal(CustomerPortal):
 
-    def _prepare_project_sharing_session_info(self, project):
-        session_info = super()._prepare_project_sharing_session_info(project)
-
+    def _get_project_sharing_company(self, project):
         company = project.company_id
+        if not company:
+            timesheet = request.env['account.analytic.line'].sudo().search([('project_id', '=', project.id)], limit=1)
+            company = timesheet.company_id or request.env.user.company_id
+        return company
+
+    def _prepare_project_sharing_session_info(self, project, task=None):
+        session_info = super()._prepare_project_sharing_session_info(project, task)
+        company = request.env['res.company'].sudo().browse(session_info['user_companies']['current_company'])
         timesheet_encode_uom = company.timesheet_encode_uom_id
         project_time_mode_uom = company.project_time_mode_id
+
         session_info['user_companies']['allowed_companies'][company.id].update(
             timesheet_uom_id=timesheet_encode_uom.id,
             timesheet_uom_factor=project_time_mode_uom._compute_quantity(
@@ -45,6 +52,7 @@ class ProjectCustomerPortal(CustomerPortal):
         timesheets_by_subtask = defaultdict(lambda: request.env['account.analytic.line'].sudo())
         for timesheet in subtasks_timesheets:
             timesheets_by_subtask[timesheet.task_id] |= timesheet
+        values['allow_timesheets'] = task.allow_timesheets
         values['timesheets'] = timesheets
         values['timesheets_by_subtask'] = timesheets_by_subtask
         values['is_uom_day'] = request.env['account.analytic.line']._is_timesheet_encode_uom_day()

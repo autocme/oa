@@ -11,10 +11,10 @@ class LeaveReport(models.Model):
     _order = "date_from DESC, employee_id"
 
     employee_id = fields.Many2one('hr.employee', string="Employee", readonly=True)
-    active_employee = fields.Boolean(related='employee_id.active', readonly=True)
+    active_employee = fields.Boolean(readonly=True)
     number_of_days = fields.Float('Number of Days', readonly=True, group_operator="sum")
     department_id = fields.Many2one('hr.department', string='Department', readonly=True)
-    leave_type = fields.Many2one("hr.leave.type", string="Leave Type", readonly=True)
+    leave_type = fields.Many2one("hr.leave.type", string="Time Off Type", readonly=True)
     holiday_status = fields.Selection([
         ('taken', 'Taken'), #taken = validated
         ('left', 'Left'),
@@ -39,6 +39,7 @@ class LeaveReport(models.Model):
             CREATE or REPLACE view hr_leave_employee_type_report as (
                 SELECT row_number() over(ORDER BY leaves.employee_id) as id,
                 leaves.employee_id as employee_id,
+                leaves.active_employee as active_employee,
                 leaves.number_of_days as number_of_days,
                 leaves.department_id as department_id,
                 leaves.leave_type as leave_type,
@@ -49,6 +50,7 @@ class LeaveReport(models.Model):
                 leaves.company_id as company_id
                 FROM (SELECT
                     allocation.employee_id as employee_id,
+                    employee.active as active_employee,
                     CASE
                         WHEN allocation.id = min_allocation_id.min_id
                             THEN aggregate_allocation.number_of_days - COALESCE(aggregate_leave.number_of_days, 0)
@@ -62,6 +64,7 @@ class LeaveReport(models.Model):
                     'left' as holiday_status,
                     allocation.employee_company_id as company_id
                 FROM hr_leave_allocation as allocation
+                INNER JOIN hr_employee as employee ON (allocation.employee_id = employee.id)
 
                 /* Obtain the minimum id for a given employee and type of leave */
                 LEFT JOIN
@@ -88,6 +91,7 @@ class LeaveReport(models.Model):
 
                 UNION ALL SELECT
                     request.employee_id as employee_id,
+                    employee.active as active_employee,
                     request.number_of_days as number_of_days,
                     request.department_id as department_id,
                     request.holiday_status_id as leave_type,
@@ -99,9 +103,9 @@ class LeaveReport(models.Model):
                         WHEN request.state = 'confirm' THEN 'planned'
                     END as holiday_status,
                     request.employee_company_id as company_id
-                    FROM hr_leave as request
-                    WHERE request.state IN ('confirm', 'validate', 'validate1')
-                ) leaves
+                FROM hr_leave as request
+                INNER JOIN hr_employee as employee ON (request.employee_id = employee.id)
+                WHERE request.state IN ('confirm', 'validate', 'validate1')) leaves
             );
         """)
 

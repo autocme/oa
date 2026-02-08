@@ -3,8 +3,6 @@
 
 from .test_project_base import TestProjectCommon
 
-from odoo.tests import tagged, TransactionCase
-
 class TestTaskFollow(TestProjectCommon):
 
     def test_follow_on_create(self):

@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 
+import re
 from odoo.tests import common
 
 
@@ -16,8 +17,8 @@ class TestStockCommon(common.TransactionCase):
         cls.StockQuantObj = cls.env['stock.quant']
         cls.PickingObj = cls.env['stock.picking']
         cls.MoveObj = cls.env['stock.move']
+        cls.LotObj = cls.env['stock.lot']
         cls.StockLocationObj = cls.env['stock.location']
-        cls.LotObj = cls.env['stock.production.lot']
 
         # Model Data
         cls.picking_type_in = cls.ModelDataObj._xmlid_to_res_id('stock.picking_type_in')
@@ -105,3 +106,13 @@ class TestStockCommon(common.TransactionCase):
         cls.UnitA = cls.ProductObj.create({'name': 'Unit-A', 'type': 'product'})
         cls.kgB = cls.ProductObj.create({'name': 'kg-B', 'type': 'product', 'uom_id': cls.uom_kg.id, 'uom_po_id': cls.uom_kg.id})
         cls.gB = cls.ProductObj.create({'name': 'g-B', 'type': 'product', 'uom_id': cls.uom_gm.id, 'uom_po_id': cls.uom_gm.id})
+
+        cls.env.ref('base.group_user').write({'implied_ids': [
+            (4, cls.env.ref('base.group_multi_company').id),
+            (4, cls.env.ref('stock.group_production_lot').id),
+        ]})
+
+    def url_extract_rec_id_and_model(self, url):
+        rec_id = re.findall(r'[?&]id=([^&]+).*', url)
+        model_name = re.findall(r'[?&]model=([^&]+).*', url)
+        return rec_id, model_name

@@ -35,7 +35,7 @@
 
 .s_website_form[data-vcss="001"] {
     .s_website_form_label {
-        @include media-breakpoint-down(xs) {
+        @include media-breakpoint-down(sm) {
             width: auto !important;
         }
     }
@@ -45,20 +45,12 @@
     }
 
     span.s_website_form_mark {
-        font-size: 0.85em;
+        @include font-size(0.85em);
         font-weight: 400;
     }
 
     .s_website_form_dnone {
         display: none;
-    }
-
-    // The snippet editor uses padding and not margin.
-    // This will include bootstrap margin in the dragable y axes
-    .s_website_form_rows > .form-group {
-        margin-bottom: 0;
-        padding-top: 0.5rem;
-        padding-bottom: 0.5rem;
     }
 
     .s_website_form_submit, .s_website_form_recaptcha {
@@ -73,9 +65,45 @@
         }
     }
 
-    .form-control-file.is-invalid {
-        padding-left: 3px;
-        border-left: 3px solid $form-feedback-invalid-color;
+    // File blocks.
+    div.o_files_zone {
+        div.o_file_wrap {
+            border: 1px solid $o-gray-400;
+            border-radius: 0.25rem;
+            @include font-size(0.9em);
+            line-height: normal;
+
+            div.o_file_name {
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+            }
+
+            i.o_file_delete {
+                max-width: 25%;
+                padding: 2px 4px 3px 4px;
+                color: $primary;
+                cursor: pointer;
+
+                &:hover {
+                    color: darken($primary, 7.5%);
+                }
+            }
+        }
+    }
+
+    .o_add_files_button {
+        background-color: $o-gray-200;
+        width: fit-content;
+
+        &:hover {
+            background-color: darken($o-gray-200, 4.5%);
+        }
+    }
+    @include media-breakpoint-down(md) {
+        .datetimepicker-input{
+            caret-color: transparent;
+        }
     }
 }
 

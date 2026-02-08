@@ -11,7 +11,13 @@ import logging
 
 _logger = logging.getLogger(__name__)
 
-@tagged('post_install', '-at_install')
+def archive_products(env):
+    # Archive all existing product to avoid noise during the tours
+    all_pos_product = env['product.product'].search([('available_in_pos', '=', True)])
+    discount = env.ref('point_of_sale.product_product_consumable')
+    tip = env.ref('point_of_sale.product_product_tip')
+    (all_pos_product - discount - tip)._write({'active': False})
+
 class TestPointOfSaleCommon(ValuationReconciliationTestCommon):
 
     @classmethod
@@ -58,6 +64,7 @@ class TestPointOfSaleCommon(ValuationReconciliationTestCommon):
             'available_in_pos': True,
             'list_price': 1.28,
         })
+        cls.company_data['default_journal_cash'].pos_payment_method_ids.unlink()
         cls.cash_payment_method = cls.env['pos.payment.method'].create({
             'name': 'Cash',
             'receivable_account_id': cls.company_data['default_account_receivable'].id,
@@ -132,7 +139,6 @@ class TestPointOfSaleCommon(ValuationReconciliationTestCommon):
         (invoice_rep_lines | refund_rep_lines).write({'account_id': cls.company_data['default_account_tax_sale'].id})
 
 
-@tagged('post_install', '-at_install')
 class TestPoSCommon(ValuationReconciliationTestCommon):
     """ Set common values for different special test cases.
 
@@ -155,22 +161,16 @@ class TestPoSCommon(ValuationReconciliationTestCommon):
 
         # Set basic defaults
         cls.company = cls.company_data['company']
-        cls.pos_sale_journal = cls.env['account.journal'].create({
-            'type': 'general',
-            'name': 'Point of Sale Test',
-            'code': 'POSS',
-            'company_id': cls.company.id,
-            'sequence': 20
-        })
+        cls.pos_sale_journal = cls.env['account.journal'].search([('company_id', '=', cls.company.id), ('code', '=', 'POSS')])
         cls.sales_account = cls.company_data['default_account_revenue']
         cls.invoice_journal = cls.company_data['default_journal_sale']
         cls.receivable_account = cls.company_data['default_account_receivable']
         cls.tax_received_account = cls.company_data['default_account_tax_sale']
         cls.company.account_default_pos_receivable_account_id = cls.env['account.account'].create({
-            'code': 'X1012 - POS',
+            'code': 'X1012.POS',
             'name': 'Debtors - (POS)',
             'reconcile': True,
-            'user_type_id': cls.env.ref('account.data_account_type_receivable').id,
+            'account_type': 'asset_receivable',
         })
         cls.pos_receivable_account = cls.company.account_default_pos_receivable_account_id
         cls.pos_receivable_cash = cls.copy_account(cls.company.account_default_pos_receivable_account_id, {'name': 'POS Receivable Cash'})
@@ -179,8 +179,8 @@ class TestPoSCommon(ValuationReconciliationTestCommon):
         cls.c1_receivable = cls.copy_account(cls.receivable_account, {'name': 'Customer 1 Receivable'})
         cls.other_receivable_account = cls.env['account.account'].create({
             'name': 'Other Receivable',
-            'code': 'RCV00' ,
-            'user_type_id': cls.env['account.account.type'].create({'name': 'RCV type', 'type': 'receivable', 'internal_group': 'asset'}).id,
+            'code': 'RCV00',
+            'account_type': 'asset_receivable',
             'internal_group': 'asset',
             'reconcile': True,
         })
@@ -217,7 +217,7 @@ class TestPoSCommon(ValuationReconciliationTestCommon):
         cls.sale_account = cls.categ_basic.property_account_income_categ_id
         cls.other_sale_account = cls.env['account.account'].search([
             ('company_id', '=', cls.company.id),
-            ('user_type_id', '=', cls.env.ref('account.data_account_type_revenue').id),
+            ('account_type', '=', 'income'),
             ('id', '!=', cls.sale_account.id)
         ], limit=1)
 
@@ -242,15 +242,14 @@ class TestPoSCommon(ValuationReconciliationTestCommon):
 
     @classmethod
     def _create_basic_config(cls):
-        new_config = Form(cls.env['pos.config'])
-        new_config.name = 'PoS Shop Test'
-        new_config.module_account = True
-        new_config.invoice_journal_id = cls.invoice_journal
-        new_config.journal_id = cls.pos_sale_journal
-        new_config.available_pricelist_ids.clear()
-        new_config.available_pricelist_ids.add(cls.currency_pricelist)
-        new_config.pricelist_id = cls.currency_pricelist
-        config = new_config.save()
+        config = cls.env['pos.config'].create({
+            'name': 'PoS Shop Test',
+            'invoice_journal_id': cls.invoice_journal.id,
+            'journal_id': cls.pos_sale_journal.id,
+            'available_pricelist_ids': cls.currency_pricelist.ids,
+            'pricelist_id': cls.currency_pricelist.id,
+        })
+        cls.company_data['default_journal_cash'].pos_payment_method_ids.unlink()
         cls.cash_pm1 = cls.env['pos.payment.method'].create({
             'name': 'Cash',
             'journal_id': cls.company_data['default_journal_cash'].id,
@@ -267,6 +266,11 @@ class TestPoSCommon(ValuationReconciliationTestCommon):
         cls.cash_split_pm1 = cls.cash_pm1.copy(default={
             'name': 'Split (Cash) PM',
             'split_transactions': True,
+            'journal_id': cls.env['account.journal'].create({
+                                'name': "Cash",
+                                'code': "CSH %s" % config.id,
+                                'type': 'cash',
+                            }).id
         })
         cls.bank_split_pm1 = cls.bank_pm1.copy(default={
             'name': 'Split (Bank) PM',
@@ -332,18 +336,15 @@ class TestPoSCommon(ValuationReconciliationTestCommon):
             'outstanding_account_id': cls.outstanding_bank.id,
         })
 
-        new_config = Form(cls.env['pos.config'])
-        new_config.name = 'Shop Other'
-        new_config.invoice_journal_id = other_invoice_journal
-        new_config.journal_id = other_sales_journal
-        new_config.use_pricelist = True
-        new_config.available_pricelist_ids.clear()
-        new_config.available_pricelist_ids.add(other_pricelist)
-        new_config.pricelist_id = other_pricelist
-        new_config.payment_method_ids.clear()
-        new_config.payment_method_ids.add(cls.cash_pm2)
-        new_config.payment_method_ids.add(cls.bank_pm2)
-        config = new_config.save()
+        config = cls.env['pos.config'].create({
+            'name': 'Shop Other',
+            'invoice_journal_id': other_invoice_journal.id,
+            'journal_id': other_sales_journal.id,
+            'use_pricelist': True,
+            'available_pricelist_ids': other_pricelist.ids,
+            'pricelist_id': other_pricelist.id,
+            'payment_method_ids': [cls.cash_pm2.id, cls.bank_pm2.id],
+        })
         return config
 
     @classmethod
@@ -369,7 +370,7 @@ class TestPoSCommon(ValuationReconciliationTestCommon):
             return cls.env['account.account.tag'].create({
                 'name': name,
                 'applicability': 'taxes',
-                'country_id': cls.env.company.country_id.id
+                'country_id': cls.env.company.account_fiscal_country_id.id
             })
 
         cls.tax_tag_invoice_base = create_tag('Invoice Base tag')
@@ -377,21 +378,19 @@ class TestPoSCommon(ValuationReconciliationTestCommon):
         cls.tax_tag_refund_base = create_tag('Refund Base tag')
         cls.tax_tag_refund_tax = create_tag('Refund Tax tag')
 
-        def create_tax(percentage, price_include=False):
+        def create_tax(percentage, price_include=False, include_base_amount=False):
             return cls.env['account.tax'].create({
                 'name': f'Tax {percentage}%',
                 'amount': percentage,
                 'price_include': price_include,
                 'amount_type': 'percent',
-                'include_base_amount': False,
+                'include_base_amount': include_base_amount,
                 'invoice_repartition_line_ids': [
                     (0, 0, {
-                        'factor_percent': 100,
                         'repartition_type': 'base',
                         'tag_ids': [(6, 0, cls.tax_tag_invoice_base.ids)],
                     }),
                     (0, 0, {
-                        'factor_percent': 100,
                         'repartition_type': 'tax',
                         'account_id': cls.tax_received_account.id,
                         'tag_ids': [(6, 0, cls.tax_tag_invoice_tax.ids)],
@@ -399,12 +398,10 @@ class TestPoSCommon(ValuationReconciliationTestCommon):
                 ],
                 'refund_repartition_line_ids': [
                     (0, 0, {
-                        'factor_percent': 100,
                         'repartition_type': 'base',
                         'tag_ids': [(6, 0, cls.tax_tag_refund_base.ids)],
                     }),
                     (0, 0, {
-                        'factor_percent': 100,
                         'repartition_type': 'tax',
                         'account_id': cls.tax_received_account.id,
                         'tag_ids': [(6, 0, cls.tax_tag_refund_tax.ids)],
@@ -420,12 +417,10 @@ class TestPoSCommon(ValuationReconciliationTestCommon):
                 'amount_type': 'fixed',
                 'invoice_repartition_line_ids': [
                     (0, 0, {
-                        'factor_percent': 100,
                         'repartition_type': 'base',
                         'tag_ids': [(6, 0, cls.tax_tag_invoice_base.ids)],
                     }),
                     (0, 0, {
-                        'factor_percent': 100,
                         'repartition_type': 'tax',
                         'account_id': cls.tax_received_account.id,
                         'tag_ids': [(6, 0, cls.tax_tag_invoice_tax.ids)],
@@ -433,12 +428,10 @@ class TestPoSCommon(ValuationReconciliationTestCommon):
                 ],
                 'refund_repartition_line_ids': [
                     (0, 0, {
-                        'factor_percent': 100,
                         'repartition_type': 'base',
                         'tag_ids': [(6, 0, cls.tax_tag_refund_base.ids)],
                     }),
                     (0, 0, {
-                        'factor_percent': 100,
                         'repartition_type': 'tax',
                         'account_id': cls.tax_received_account.id,
                         'tag_ids': [(6, 0, cls.tax_tag_refund_tax.ids)],
@@ -449,6 +442,8 @@ class TestPoSCommon(ValuationReconciliationTestCommon):
         tax_fixed006 = create_tax_fixed(0.06, price_include=True)
         tax_fixed012 = create_tax_fixed(0.12, price_include=True)
         tax7 = create_tax(7, price_include=False)
+        tax8 = create_tax(8, include_base_amount=True)
+        tax9 = create_tax(9)
         tax10 = create_tax(10, price_include=True)
         tax21 = create_tax(21, price_include=True)
 
@@ -462,6 +457,8 @@ class TestPoSCommon(ValuationReconciliationTestCommon):
 
         return {
             'tax7': tax7,
+            'tax8': tax8,
+            'tax9': tax9,
             'tax10': tax10,
             'tax21': tax21,
             'tax_fixed006': tax_fixed006,
@@ -498,9 +495,21 @@ class TestPoSCommon(ValuationReconciliationTestCommon):
         default_fiscal_position = self.config.default_fiscal_position_id
         fiscal_position = customer.property_account_position_id if customer else default_fiscal_position
 
-        def create_order_line(product, quantity, discount=0.0):
-            price_unit = self.pricelist.get_product_price(product, quantity, False)
-            tax_ids = fiscal_position.map_tax(product.taxes_id)
+        def normalize_order_line_param(param):
+            if isinstance(param, dict):
+                return param
+
+            assert len(param) >= 2
+            return {
+                'product': param[0],
+                'quantity': param[1],
+                'discount': 0.0 if len(param) == 2 else param[2],
+            }
+
+        def create_order_line(product, quantity, **kwargs):
+            price_unit = self.pricelist._get_product_price(product, quantity)
+            tax_ids = fiscal_position.map_tax(product.taxes_id.filtered_domain(self.env['account.tax']._check_company_domain(self.env.company)))
+            discount = kwargs.get('discount', 0.0)
             price_unit_after_discount = price_unit * (1 - discount / 100.0)
             tax_values = (
                 tax_ids.compute_all(price_unit_after_discount, self.currency, quantity)
@@ -511,7 +520,7 @@ class TestPoSCommon(ValuationReconciliationTestCommon):
                 }
             )
             return (0, 0, {
-                'discount': discount,
+                **kwargs,
                 'id': randint(1, 1000000),
                 'pack_lot_ids': [],
                 'price_unit': price_unit,
@@ -525,7 +534,7 @@ class TestPoSCommon(ValuationReconciliationTestCommon):
         def create_payment(payment_method, amount):
             return (0, 0, {
                 'amount': amount,
-                'name': fields.Datetime.now(),
+                'name': fields.Datetime.to_string(fields.Datetime.now()),
                 'payment_method_id': payment_method.id,
             })
 
@@ -533,15 +542,14 @@ class TestPoSCommon(ValuationReconciliationTestCommon):
 
         # 1. generate the order lines
         order_lines = [
-            create_order_line(product, quantity, discount and discount[0] or 0.0)
-            for product, quantity, *discount
-            in pos_order_lines_ui_args
+            create_order_line(**normalize_order_line_param(param))
+            for param in pos_order_lines_ui_args
         ]
 
         # 2. generate the payments
         total_amount_incl = sum(line[2]['price_subtotal_incl'] for line in order_lines)
         if payments is None:
-            default_cash_pm = self.config.payment_method_ids.filtered(lambda pm: pm.is_cash_count)[:1]
+            default_cash_pm = self.config.payment_method_ids.filtered(lambda pm: pm.is_cash_count and not pm.split_transactions)[:1]
             if not default_cash_pm:
                 raise Exception('There should be a cash payment method set in the pos.config.')
             payments = [create_payment(default_cash_pm, total_amount_incl)]
@@ -559,7 +567,7 @@ class TestPoSCommon(ValuationReconciliationTestCommon):
                 'amount_return': 0,
                 'amount_tax': total_amount_incl - total_amount_base,
                 'amount_total': total_amount_incl,
-                'creation_date': fields.Datetime.to_string(fields.Datetime.now()),
+                'date_order': fields.Datetime.to_string(fields.Datetime.now()),
                 'fiscal_position_id': fiscal_position.id,
                 'pricelist_id': self.config.pricelist_id.id,
                 'lines': order_lines,
@@ -618,7 +626,7 @@ class TestPoSCommon(ValuationReconciliationTestCommon):
             * currency : currency of the current pos.session
             * pricelist : the default pricelist of the session
         """
-        self.config.open_session_cb(check_coa=False)
+        self.config.open_ui()
         self.pos_session = self.config.current_session_id
         self.currency = self.pos_session.currency_id
         self.pricelist = self.pos_session.config_id.pricelist_id
@@ -636,7 +644,8 @@ class TestPoSCommon(ValuationReconciliationTestCommon):
             _logger.info('DONE: Call of before_closing_cb.')
         self._check_invoice_journal_entries(pos_session, orders_map, expected_values=args['journal_entries_before_closing'])
         _logger.info('DONE: Checks for journal entries before closing the session.')
-        total_cash_payment = sum(pos_session.mapped('order_ids.payment_ids').filtered(lambda payment: payment.payment_method_id.type == 'cash').mapped('amount'))
+        cash_payment_method = pos_session.payment_method_ids.filtered('is_cash_count')[:1]
+        total_cash_payment = sum(pos_session.mapped('order_ids.payment_ids').filtered(lambda payment: payment.payment_method_id.id == cash_payment_method.id).mapped('amount'))
         pos_session.post_closing_cash_details(total_cash_payment)
         pos_session.close_session_from_ui()
         after_closing_cb = args.get('after_closing_cb')
@@ -701,7 +710,7 @@ class TestPoSCommon(ValuationReconciliationTestCommon):
         _logger.info("DONE: Check of the session's account move.")
 
         # check expected cash journal entries
-        for statement_line in pos_session.cash_register_id.line_ids:
+        for statement_line in pos_session.statement_line_ids:
             def statement_line_predicate(args):
                 return tools.float_is_zero(statement_line.amount - args[0], precision_rounding=currency_rounding)
             self._find_then_assert_values(statement_line.move_id, expected_values['cash_statement'], statement_line_predicate)
@@ -728,3 +737,12 @@ class TestPoSCommon(ValuationReconciliationTestCommon):
         else:
             # if the expected_account_move_vals is falsy, the account_move should be falsy.
             self.assertFalse(account_move)
+
+    def make_payment(self, order, payment_method, amount):
+        """ Make payment for the order using the given payment method.
+        """
+        payment_context = {"active_id": order.id, "active_ids": order.ids}
+        return self.env['pos.make.payment'].with_context(**payment_context).create({
+            'amount': amount,
+            'payment_method_id': payment_method.id,
+        }).check()

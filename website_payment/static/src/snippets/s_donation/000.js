@@ -1,9 +1,10 @@
 /** @odoo-module **/
 
-import {_t} from 'web.core';
-import publicWidget from 'web.public.widget';
+import { _t } from "@web/core/l10n/translation";
+import publicWidget from '@web/legacy/js/public/public_widget';
 
 const CUSTOM_BUTTON_EXTRA_WIDTH = 10;
+let cachedCurrency;
 
 publicWidget.registry.DonationSnippet = publicWidget.Widget.extend({
     selector: '.s_donation',
@@ -13,6 +14,13 @@ publicWidget.registry.DonationSnippet = publicWidget.Widget.extend({
         'click .s_donation_donate_btn': '_onClickDonateNowButton',
         'input #s_donation_range_slider': '_onInputRangeSlider',
     },
+    /**
+     * @override
+     */
+    init() {
+        this._super(...arguments);
+        this.rpc = this.bindService("rpc");
+    },
 
     /**
      * @override
@@ -20,7 +28,7 @@ publicWidget.registry.DonationSnippet = publicWidget.Widget.extend({
     async start() {
         await this._super(...arguments);
         this.$rangeSlider = this.$('#s_donation_range_slider');
-        this.defaultAmount = this.$target[0].dataset.defaultAmount;
+        this.defaultAmount = this.el.dataset.defaultAmount;
         if (this.$rangeSlider.length) {
             this.$rangeSlider.val(this.defaultAmount);
             this._setBubble(this.$rangeSlider);
@@ -43,7 +51,7 @@ publicWidget.registry.DonationSnippet = publicWidget.Widget.extend({
         if (customButtonEl) {
             customButtonEl.style.maxWidth = "";
         }
-        this.$target.find('.s_donation_currency').remove();
+        this.$el.find('.s_donation_currency').remove();
         this._deselectPrefilledButtons();
         this.$('.alert-danger').remove();
         this._super(...arguments);
@@ -75,23 +83,25 @@ publicWidget.registry.DonationSnippet = publicWidget.Widget.extend({
         }).replaceWith(val);
 
         // Sorta magic numbers based on size of the native UI thumb (source: https://css-tricks.com/value-bubbles-for-range-inputs/)
-        $bubble[0].style.left = `calc(${newVal}% + (${tipOffsetLow}px))`;
+        $bubble[0].style.insetInlineStart = `calc(${newVal}% + (${tipOffsetLow}px))`;
     },
     /**
      * @private
      */
     _displayCurrencies() {
-        return this._rpc({
-            route: '/website/get_current_currency',
-        }).then((result) => {
+        return this._getCachedCurrency().then((result) => {
+            // No need to recreate the elements if the currency is already set.
+            if (this.currency === result) {
+                return;
+            }
             this.currency = result;
             this.$('.s_donation_currency').remove();
             const $prefilledButtons = this.$('.s_donation_btn, .s_range_bubble');
-            _.each($prefilledButtons, button => {
+            $prefilledButtons.toArray().forEach((button) => {
                 const before = result.position === "before";
                 const $currencySymbol = document.createElement('span');
                 $currencySymbol.innerText = result.symbol;
-                $currencySymbol.classList.add('s_donation_currency', before ? "pr-1" : "pl-1");
+                $currencySymbol.classList.add('s_donation_currency', before ? "pe-1" : "ps-1");
                 if (before) {
                     $(button).prepend($currencySymbol);
                 } else {
@@ -99,6 +109,17 @@ publicWidget.registry.DonationSnippet = publicWidget.Widget.extend({
                 }
             });
         });
+    },
+    /**
+     * @private
+     */
+    _getCachedCurrency() {
+        return cachedCurrency
+            ? Promise.resolve(cachedCurrency)
+            : this.rpc("/website/get_current_currency").then((result) => {
+                cachedCurrency = result;
+                return result;
+            });
     },
 
     //--------------------------------------------------------------------------
@@ -128,19 +149,19 @@ publicWidget.registry.DonationSnippet = publicWidget.Widget.extend({
         const $buttons = this.$('.s_donation_btn');
         const $selectedButton = $buttons.filter('.active');
         let amount = $selectedButton.length ? $selectedButton[0].dataset.donationValue : 0;
-        if (this.$target[0].dataset.displayOptions && !amount) {
+        if (this.el.dataset.displayOptions && !amount) {
             if (this.$rangeSlider.length) {
                 amount = this.$rangeSlider.val();
             } else if ($buttons.length) {
                 amount = parseFloat(this.$('#s_donation_amount_input').val());
                 let errorMessage = '';
-                const minAmount = this.$target[0].dataset.minimumAmount;
+                const minAmount = this.el.dataset.minimumAmount;
                 if (!amount) {
                     errorMessage = _t("Please select or enter an amount");
                 } else if (amount < parseFloat(minAmount)) {
                     const before = this.currency.position === "before" ? this.currency.symbol : "";
                     const after = this.currency.position === "after" ? this.currency.symbol : "";
-                    errorMessage = _.str.sprintf(_t("The minimum donation amount is %s%s%s"), before, minAmount, after);
+                    errorMessage = _t("The minimum donation amount is %s%s%s", before, minAmount, after);
                 }
                 if (errorMessage) {
                     $(ev.currentTarget).before($('<p>', {
@@ -154,12 +175,22 @@ publicWidget.registry.DonationSnippet = publicWidget.Widget.extend({
         if (!amount) {
             amount = this.defaultAmount;
         }
-        const $form = this.$('.s_donation_form');
-        $('<input>').attr({type: 'hidden', name: 'amount', value: amount}).appendTo($form);
-        $('<input>').attr({type: 'hidden', name: 'currency_id', value: this.currency.id}).appendTo($form);
-        $('<input>').attr({type: 'hidden', name: 'csrf_token', value: odoo.csrf_token}).appendTo($form);
-        $('<input>').attr({type: 'hidden', name: 'donation_options', value: JSON.stringify(this.el.dataset)}).appendTo($form);
-        $form.submit();
+        const formEl = document.querySelector(".s_donation_form");
+        function updateInputValues(name, value) {
+            const inputEl = formEl.querySelector(`input[name="${name}"]`);
+            if (inputEl) {
+                inputEl.value = value;
+            } else {
+                const newInputEl = document.createElement("input");
+                Object.assign(newInputEl, { type: "hidden", name, value });
+                formEl.appendChild(newInputEl);
+            }
+        }
+        updateInputValues("amount", amount);
+        updateInputValues("currency_id", this.currency.id);
+        updateInputValues("csrf_token", odoo.csrf_token);
+        updateInputValues("donation_options", JSON.stringify(this.el.dataset));
+        formEl.submit();
     },
     /**
      * @private

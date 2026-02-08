@@ -1,5 +1,39 @@
 /** @odoo-module **/
 
+export const nbsp = "\u00a0";
+
+export const escapeMethod = Symbol("html");
+
+/**
+ * Escapes a string for HTML.
+ *
+ * @param {string | number} [str] the string to escape
+ * @returns {string} an escaped string
+ */
+export function escape(str) {
+    if (typeof str === "object" && str[escapeMethod]) {
+        return str[escapeMethod]();
+    } else {
+        if (str === undefined) {
+            return "";
+        }
+        if (typeof str === "number") {
+            return String(str);
+        }
+        [
+            ["&", "&amp;"],
+            ["<", "&lt;"],
+            [">", "&gt;"],
+            ["'", "&#x27;"],
+            ['"', "&quot;"],
+            ["`", "&#x60;"],
+        ].forEach((pairs) => {
+            str = String(str).replaceAll(pairs[0], pairs[1]);
+        });
+        return str;
+    }
+}
+
 /**
  * Escapes a string to use as a RegExp.
  * @url https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Regular_Expressions#Escaping
@@ -66,15 +100,15 @@ export function intersperse(str, indices, separator = "") {
  * If no value is given, the string will not be formatted.
  *
  * @param {string} s
- * @param {...string} ...values
+ * @param {any[]} values
  * @returns {string}
  */
 export function sprintf(s, ...values) {
     if (values.length === 1 && Object.prototype.toString.call(values[0]) === "[object Object]") {
         const valuesDict = values[0];
-        s = s.replace(/\%\(?([^\)]+)\)s/g, (match, value) => valuesDict[value]);
+        s = s.replace(/%\(([^)]+)\)s/g, (match, value) => valuesDict[value]);
     } else if (values.length > 0) {
-        s = s.replace(/\%s/g, () => values.shift());
+        s = s.replace(/%s/g, () => values.shift());
     }
     return s;
 }
@@ -89,6 +123,8 @@ export function capitalize(s) {
     return s ? s[0].toUpperCase() + s.slice(1) : "";
 }
 
+/* eslint-disable */
+// prettier-ignore
 const diacriticsMap = {
 '\u0041': 'A','\u24B6': 'A','\uFF21': 'A','\u00C0': 'A','\u00C1': 'A','\u00C2': 'A','\u1EA6': 'A','\u1EA4': 'A','\u1EAA': 'A','\u1EA8': 'A',
 '\u00C3': 'A','\u0100': 'A','\u0102': 'A','\u1EB0': 'A','\u1EAE': 'A','\u1EB4': 'A','\u1EB2': 'A','\u0226': 'A','\u01E0': 'A','\u00C4': 'A',
@@ -292,4 +328,14 @@ export function unaccent(str, caseSensitive) {
         return diacriticsMap[accented] || accented;
     });
     return caseSensitive ? str : str.toLowerCase();
+}
+
+/**
+ * @param {string} value
+ * @returns boolean
+ */
+export function isEmail(value) {
+    // http://stackoverflow.com/questions/46155/validate-email-address-in-javascript
+    const re = /^(([^<>()\[\]\.,;:\s@\"]+(\.[^<>()\[\]\.,;:\s@\"]+)*)|(\".+\"))@(([^<>()[\]\.,;:\s@\"]+\.)+[^<>()[\]\.,;:\s@\"]{2,})$/i;
+    return re.test(value);
 }

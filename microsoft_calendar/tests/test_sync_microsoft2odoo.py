@@ -24,6 +24,25 @@ class TestSyncMicrosoft2Odoo(TransactionCase):
             {'@odata.type': '#microsoft.graph.event', '@odata.etag': 'W/"DwAAABYAAABlLa4RUBXJToExnebpwea2AAALKrjF"', 'seriesMasterId': 'AQ8PojGtrADQATM3ZmYAZS0yY2MAMC00MDg1LTAwAi0wMAoARgAAA0By7X03vaNKv1GnWYTbFYAHAGUtrhFQFclOgTGd5unB5rYAAAIBDQAAAGUtrhFQFclOgTGd5unB5rYAAAALLLTEAAAA', 'type': 'occurrence', 'id': 'AQ8PojGtrADQATM3ZmYAZS0yY2MAMC00MDg1LTAwAi0wMAoBUQAICADX774WtQAAAEYAAAJAcu19N72jSr9Rp1mE2xWABwBlLa4RUBXJToExnebpwea2AAACAQ0AAABlLa4RUBXJToExnebpwea2AAAACyy0xAAAABA=', 'start': {'dateTime': '2020-05-04T14:30:00.0000000', 'timeZone': 'UTC'}, 'end': {'dateTime': '2020-05-04T16:00:00.0000000', 'timeZone': 'UTC'}},
             {'@odata.type': '#microsoft.graph.event', '@odata.etag': 'W/"DwAAABYAAABlLa4RUBXJToExnebpwea2AAALKrjF"', 'seriesMasterId': 'AQ8PojGtrADQATM3ZmYAZS0yY2MAMC00MDg1LTAwAi0wMAoARgAAA0By7X03vaNKv1GnWYTbFYAHAGUtrhFQFclOgTGd5unB5rYAAAIBDQAAAGUtrhFQFclOgTGd5unB5rYAAAALLLTEAAAA', 'type': 'occurrence', 'id': 'AQ8PojGtrADQATM3ZmYAZS0yY2MAMC00MDg1LTAwAi0wMAoBUQAICADX8IdBHsAARgAAAkBy7X03vaNKv1GnWYTbFYAHAGUtrhFQFclOgTGd5unB5rYAAAIBDQAAAGUtrhFQFclOgTGd5unB5rYAAAALLLTEAAAAEA==', 'start': {'dateTime': '2020-05-05T14:30:00.0000000', 'timeZone': 'UTC'}, 'end': {'dateTime': '2020-05-05T16:00:00.0000000', 'timeZone': 'UTC'}}
         ]
+        self.single_event = [
+            {
+                '@odata.type': '#microsoft.graph.event',
+                '@odata.etag': 'W/"AAAAA"',
+                'type': 'singleInstance',
+                'id': "CCCCC",
+                'start': {
+                    'dateTime': '2020-05-05T14:30:00.0000000',
+                    'timeZone': 'UTC'
+                },
+                'end': {
+                    'dateTime': '2020-05-05T16:00:00.0000000',
+                    'timeZone': 'UTC'
+                },
+                'location': {
+                    'displayName': "a meeting room at Odoo"
+                }
+            }
+        ]
 
         self.env['calendar.event']._sync_microsoft2odoo(MicrosoftEvent(values))
 
@@ -271,9 +290,89 @@ class TestSyncMicrosoft2Odoo(TransactionCase):
 
         self.env['calendar.event']._sync_microsoft2odoo(MicrosoftEvent(second_sync_values))
         self.assertEqual(len(recurrent_event.calendar_event_ids), 2)
+        self.assertEqual(recurrent_event.calendar_event_ids[0].start, datetime(2021, 7, 15, 15, 00))
+        self.assertEqual(recurrent_event.calendar_event_ids[0].stop, datetime(2021, 7, 15, 15, 30))
+        self.assertEqual(recurrent_event.calendar_event_ids[1].start, datetime(2021, 7, 17, 15, 00))
+        self.assertEqual(recurrent_event.calendar_event_ids[1].stop, datetime(2021, 7, 17, 15, 30))
 
         events = recurrent_event.calendar_event_ids.sorted(key=lambda e: e.start)
         self.assertEqual(events[0].start, datetime(2021, 7, 15, 15, 00))
         self.assertEqual(events[0].stop, datetime(2021, 7, 15, 15, 30))
         self.assertEqual(events[1].start, datetime(2021, 7, 17, 15, 00))
         self.assertEqual(events[1].stop, datetime(2021, 7, 17, 15, 30))
+
+    def test_use_classic_location(self):
+        ms_event = self.single_event
+
+        self.env['calendar.event']._sync_microsoft2odoo(MicrosoftEvent(ms_event))
+
+        event = self.env['calendar.event'].search([("microsoft_id", "=", ms_event[0]["id"])])
+        self.assertEqual(event.location, ms_event[0]["location"]["displayName"])
+
+    def test_use_url_location(self):
+        ms_event = self.single_event
+        ms_event[0]["location"]["displayName"] = "https://mylocation.com/meeting-room"
+
+        self.env['calendar.event']._sync_microsoft2odoo(MicrosoftEvent(ms_event))
+
+        event = self.env['calendar.event'].search([("microsoft_id", "=", ms_event[0]["id"])])
+        self.assertEqual(event.location, ms_event[0]["location"]["displayName"])
+
+    def test_use_specific_virtual_location(self):
+        """
+        If the location of the Outlook event is a specific virtual location (such as a video Teams meeting),
+        use it as videocall location.
+        """
+        ms_event = self.single_event
+        ms_event[0]["location"]["displayName"] = "https://teams.microsoft.com/l/meeting/1234"
+
+        self.env['calendar.event']._sync_microsoft2odoo(MicrosoftEvent(ms_event))
+
+        event = self.env['calendar.event'].search([("microsoft_id", "=", ms_event[0]["id"])])
+        self.assertEqual(event.location, False)
+        self.assertEqual(event.videocall_location, ms_event[0]["location"]["displayName"])
+
+    def test_outlook_event_has_online_meeting_url(self):
+        ms_event = self.single_event
+        ms_event[0].update({
+            'isOnlineMeeting': True,
+            'onlineMeeting': {'joinUrl': 'https://video-meeting.com/1234'}
+        })
+
+        self.env['calendar.event']._sync_microsoft2odoo(MicrosoftEvent(ms_event))
+
+        event = self.env['calendar.event'].search([("microsoft_id", "=", ms_event[0]["id"])])
+        self.assertEqual(event.videocall_location, ms_event[0]["onlineMeeting"]["joinUrl"])
+
+    def test_event_reminder_emails_with_microsoft_id(self):
+        """
+        Odoo shouldn't send email reminders for synced events.
+        Test that events synced to Microsoft (with a `microsoft_id`)
+        are excluded from email alarm notifications.
+        """
+        now = datetime.now()
+        start = now - relativedelta(minutes=30)
+        end = now + relativedelta(hours=2)
+        alarm = self.env['calendar.alarm'].create({
+            'name': 'Alarm',
+            'alarm_type': 'email',
+            'interval': 'minutes',
+            'duration': 30,
+        })
+        ms_event = self.single_event
+        ms_event[0].update({
+            'isOnlineMeeting': True,
+            'alarm_id': alarm.id,
+            'start': {
+                'dateTime': pytz.utc.localize(start).isoformat(),
+                'timeZone': 'Europe/Brussels'
+            },
+            'reminders': {'overrides': [{"method": "email", "minutes": 30}], 'useDefault': False},
+            'end': {
+                'dateTime': pytz.utc.localize(end).isoformat(),
+                'timeZone': 'Europe/Brussels'
+            },
+        })
+        self.env['calendar.event']._sync_microsoft2odoo(MicrosoftEvent(ms_event))
+        events_by_alarm = self.env['calendar.alarm_manager']._get_events_by_alarm_to_notify('email')
+        self.assertFalse(events_by_alarm, "Events with microsoft_id should not trigger reminders")

@@ -14,13 +14,14 @@ class Lead(models.Model):
     def _compute_visitor_page_count(self):
         mapped_data = {}
         if self.ids:
-            self.flush(['visitor_ids'])
+            self.flush_model(['visitor_ids'])
+            self.env['website.track'].flush_model(['visitor_id'])
             sql = """ SELECT l.id as lead_id, count(*) as page_view_count
                         FROM crm_lead l
                         JOIN crm_lead_website_visitor_rel lv ON l.id = lv.crm_lead_id
                         JOIN website_visitor v ON v.id = lv.website_visitor_id
                         JOIN website_track p ON p.visitor_id = v.id
-                        WHERE l.id in %s AND v.active = TRUE
+                        WHERE l.id in %s
                         GROUP BY l.id"""
             self.env.cr.execute(sql, (tuple(self.ids),))
             page_data = self.env.cr.dictfetchall()
@@ -45,7 +46,7 @@ class Lead(models.Model):
 
     def website_form_input_filter(self, request, values):
         values['medium_id'] = values.get('medium_id') or \
-                              self.default_get(['medium_id']).get('medium_id') or \
+                              self.sudo().default_get(['medium_id']).get('medium_id') or \
                               self.sudo().env.ref('utm.utm_medium_website').id
         values['team_id'] = values.get('team_id') or \
                             request.website.crm_default_team_id.id

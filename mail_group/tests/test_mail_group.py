@@ -12,8 +12,7 @@ from odoo.tools import mute_logger, append_content_to_html
 class TestMailGroup(TestMailListCommon):
 
     def test_clean_email_body(self):
-        template = self.env.ref('mail_group.mail_group_footer')
-        footer = template._render({'group_url': 'Test remove footer'}, engine='ir.qweb', minimal_qcontext=True)
+        footer = self.env['ir.qweb']._render('mail_group.mail_group_footer', {'group_url': 'Test remove footer'}, minimal_qcontext=True)
         body = append_content_to_html("<div>Test email body</div>", footer, plaintext=False)
 
         result = self.env['mail.group']._clean_email_body(body)
@@ -46,7 +45,7 @@ class TestMailGroup(TestMailListCommon):
 
         self.test_group.alias_id.alias_contact = 'followers'
         self.test_group.access_mode = 'groups'
-        err_msg = self.test_group._alias_get_error_message({}, {'email_from': group_user_not_member.email}, self.test_group.alias_id)
+        err_msg = self.test_group._alias_get_error({}, {'email_from': group_user_not_member.email}, self.test_group.alias_id)
         self.assertFalse(err_msg, "Mail with sender belonging to allowed user group (not a member of the mail group) was rejected")
 
     def test_find_member(self):
@@ -126,7 +125,7 @@ class TestMailGroup(TestMailListCommon):
             'email_from': user2.email,
         }
         self.test_group.alias_id.alias_contact = 'followers'
-        self.assertFalse(self.test_group._alias_get_error_message({}, msg_dict, self.test_group.alias_id))
+        self.assertFalse(self.test_group._alias_get_error({}, msg_dict, self.test_group.alias_id))
 
     @users('employee')
     def test_join_group(self):
@@ -232,7 +231,7 @@ class TestMailGroup(TestMailListCommon):
         })]})
         self.assertIn(partner, mail_group.member_partner_ids)
 
-        # Now that portal is in the member list he should have access
+        # Now that portal is in the member list they should have access
         mail_group.with_user(self.user_employee_2).check_access_rule('read')
         with self.assertRaises(AccessError, msg='Only moderator / responsible and admin can write on the group'):
             mail_group.with_user(self.user_employee_2).check_access_rule('write')

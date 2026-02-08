@@ -40,9 +40,9 @@ class GoogleMap(http.Controller):
             partner_data["partners"].append({
                 'id': partner.id,
                 'name': partner.name,
-                'address': '\n'.join(partner.name_get()[0][1].split('\n')[1:]),
-                'latitude': str(partner.partner_latitude),
-                'longitude': str(partner.partner_longitude),
+                'address': '\n'.join(partner.display_name.split('\n')[1:]),
+                'latitude': str(partner.partner_latitude) if partner.partner_latitude else False,
+                'longitude': str(partner.partner_longitude) if partner.partner_longitude else False,
             })
         if 'customers' in post.get('partner_url', ''):
             partner_url = '/customers/'

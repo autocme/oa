@@ -1,5 +1,4 @@
-odoo.define('web.jquery.extensions', function () {
-'use strict';
+/** @odoo-module **/
 
 /**
  * The jquery library extensions and fixes should be done here to avoid patching
@@ -115,7 +114,7 @@ $.fn.extend({
         events = events.split(' ');
         return this.each(function () {
             var el = this;
-            _.each(events, function (evNameNamespaced) {
+            events.forEach((evNameNamespaced) => {
                 var evName = evNameNamespaced.split('.')[0];
                 var handler = $._data(el, 'events')[evName].pop();
                 $._data(el, 'events')[evName].unshift(handler);
@@ -169,8 +168,10 @@ $.fn.extend({
                 return;
             }
             const style = window.getComputedStyle(el);
-            const borderLeftWidth = parseInt(style.borderLeftWidth.replace('px', ''));
-            const borderRightWidth = parseInt(style.borderRightWidth.replace('px', ''));
+            // Round up to the nearest integer to be as close as possible to
+            // the correct value in case of browser zoom.
+            const borderLeftWidth = Math.ceil(parseFloat(style.borderLeftWidth.replace('px', '')));
+            const borderRightWidth = Math.ceil(parseFloat(style.borderRightWidth.replace('px', '')));
             const bordersWidth = borderLeftWidth + borderRightWidth;
             const newValue = parseInt(style[cssProperty]) + scrollableEl.offsetWidth - scrollableEl.clientWidth - bordersWidth;
             el.style.setProperty(cssProperty, `${newValue}px`, 'important');
@@ -204,9 +205,13 @@ $.fn.extend({
      * @returns {jQuery}
      */
     getScrollingTarget(contextItem = window.document) {
-        const $scrollingElement = contextItem instanceof Element
+        // Cannot use `instanceof` because of cross-frame issues.
+        const isElement = obj => obj && obj.nodeType === Node.ELEMENT_NODE;
+        const isJQuery = obj => obj && ('jquery' in obj);
+
+        const $scrollingElement = isElement(contextItem)
             ? $(contextItem)
-            : contextItem instanceof jQuery
+            : isJQuery(contextItem)
             ? contextItem
             : $().getScrollingElement(contextItem);
         const document = $scrollingElement[0].ownerDocument;
@@ -244,13 +249,14 @@ $.fn.scrollTop = function (value) {
         // The caller wants to scroll a set of elements including html and/or
         // body to a specific point -> do that but make sure to add the real
         // top level element to that set of elements if any different is found.
-        originalScrollTop.apply(this.not('html, body').add($().getScrollingElement()), arguments);
+        const $withRealScrollable = this.not('html, body').add($().getScrollingElement(this[0].ownerDocument));
+        originalScrollTop.apply($withRealScrollable, arguments);
         return this;
     } else if (value === undefined && this.eq(0).is('html, body')) {
         // The caller wants to get the scroll point of a set of elements, jQuery
         // will return the scroll point of the first one, if it is html or body
         // return the scroll point of the real top level element.
-        return originalScrollTop.apply($().getScrollingElement(), arguments);
+        return originalScrollTop.apply($().getScrollingElement(this[0].ownerDocument), arguments);
     }
     return originalScrollTop.apply(this, arguments);
 };
@@ -261,7 +267,8 @@ $.fn.animate = function (properties, ...rest) {
         // The caller wants to scroll a set of elements including html and/or
         // body to a specific point -> do that but make sure to add the real
         // top level element to that set of elements if any different is found.
-        originalAnimate.call(this.not('html, body').add($().getScrollingElement()), {'scrollTop': props['scrollTop']}, ...rest);
+        const $withRealScrollable = this.not('html, body').add($().getScrollingElement(this[0].ownerDocument));
+        originalAnimate.call($withRealScrollable, {'scrollTop': props['scrollTop']}, ...rest);
         delete props['scrollTop'];
     }
     if (!Object.keys(props).length) {
@@ -269,4 +276,3 @@ $.fn.animate = function (properties, ...rest) {
     }
     return originalAnimate.call(this, props, ...rest);
 };
-});

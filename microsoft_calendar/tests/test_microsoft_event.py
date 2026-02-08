@@ -349,7 +349,7 @@ class TestMicrosoftEvent(TestCommon):
         recurring_event_data = [{
             '@odata.type': '#microsoft.graph.event',
             '@odata.etag': f'W/"{x}IaZKQ=="',
-            'createdDateTime': (start_date + relativedelta(minutes=(2 * x))).isoformat(),
+            'createdDateTime': (start_date + relativedelta(minutes=(2*x))).isoformat(),
             'lastModifiedDateTime': (datetime.now().astimezone(UTC) + relativedelta(days=3)).isoformat(),
             'changeKey': 'ZS2uEVAVyU6BMZ3m6cHmtgAADIaZKQ==',
             'categories': [],

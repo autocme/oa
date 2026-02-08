@@ -34,9 +34,9 @@
         <field name="model">lunch.cashmove.report</field>
         <field name="arch" type="xml">
             <tree string="cashmove tree">
-                <field name="currency_id" invisible="1"/>
+                <field name="currency_id" column_invisible="True"/>
                 <field name="date"/>
-                <field name="user_id"/>
+                <field name="user_id" widget="many2one_avatar_user"/>
                 <field name="description"/>
                 <field name="amount" sum="Total" widget="monetary"/>
             </tree>
@@ -48,7 +48,7 @@
         <field name="model">lunch.cashmove.report</field>
         <field name="arch" type="xml">
             <tree string="cashmove tree" create='false'>
-                <field name="currency_id" invisible="1"/>
+                <field name="currency_id" column_invisible="True"/>
                 <field name="date"/>
                 <field name="description"/>
                 <field name="amount" sum="Total" widget="monetary"/>
@@ -64,7 +64,7 @@
                 <sheet>
                     <group>
                         <field name="currency_id" invisible="1"/>
-                        <field name="user_id" required="1"/>
+                        <field name="user_id" required="1" widget="many2one_avatar"/>
                         <field name="date"/>
                         <field name="amount" widget="monetary"/>
                     </group>
@@ -94,8 +94,8 @@
                                         <strong class="o_kanban_record_title"><t t-esc="record.description.value"/></strong>
                                     </span>
                                 </div>
-                                <div class="col-4 text-right">
-                                    <span class="badge badge-pill">
+                                <div class="col-4 text-end">
+                                    <span class="badge rounded-pill">
                                         <strong><i class="fa fa-money" role="img" aria-label="Amount" title="Amount"/> <field name="amount" widget="monetary"/></strong>
                                     </span>
                                 </div>
@@ -106,7 +106,7 @@
                                     <t t-esc="record.date.value"/>
                                 </div>
                                 <div class="col-6">
-                                    <div class="float-right">
+                                    <div class="float-end">
                                         <field name="user_id" widget="many2one_avatar_user"/>
                                     </div>
                                 </div>

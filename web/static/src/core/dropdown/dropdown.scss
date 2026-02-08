@@ -5,6 +5,12 @@
     // Makes sure the dropdown menus are already in a
     // fixed position before the positioning computations begin.
     position: fixed;
+    margin-top: var(--Dropdown_menu-margin-y, #{map-get($spacers, 1)});
+    margin-bottom: var(--Dropdown_menu-margin-y, #{map-get($spacers, 1)});
+
+    &.o-dropdown--menu-submenu {
+      --Dropdown_menu-margin-y: 0;
+    }
 
     .dropdown-toggle:focus, .dropdown-item:focus {
       background-color: transparent;
@@ -16,14 +22,24 @@
     .dropdown-item:not(.disabled):not(:disabled) {
       // Needed 'cause <DropdownItem> generate <span> html tags that for
       // browsers are normally not clickable.
-      cursor: pointer;
+      &, label {
+        cursor: pointer;
+      }
+    }
+
+    // Correctly align sub dropdowns items with its parent's
+    .o-dropdown > .o-dropdown--menu {
+      // the value comes from bootstrap's ".dropdown-menu" padding and border style
+      --o-dropdown--submenu-margin: calc(-.5rem - 1px);
+      margin-top: var(--o-dropdown--submenu-margin);
+      margin-bottom: var(--o-dropdown--submenu-margin);
     }
   }
   /*!rtl:begin:ignore*/
   &.dropup > .o-dropdown--menu,
   &.dropdown > .o-dropdown--menu,
-  &.dropleft > .o-dropdown--menu,
-  &.dropright > .o-dropdown--menu {
+  &.dropstart > .o-dropdown--menu,
+  &.dropend > .o-dropdown--menu {
     // Also makes sure that left/right stuffs are not polluted
     // by bootstrap rules processed by rtlcss
     left: auto;
@@ -46,22 +62,12 @@
       outline: none;
       box-shadow: none !important;
     }
-    &.dropdown-item:not(.o_menu_item) {
+    &.dropdown-item {
       &::after, &::before {
         // Changes the placement of bootstrap dropdown carets for subdropdowns
         @include o-position-absolute($right: 0, $top: 0);
         transform: translate(-.6em, .6em) #{"/*rtl:translate(.6em, .6em) scaleX(-1)*/"};
       }
-    }
-  }
-
-  // Correctly align sub dropdowns items with its parent's
-  .o-dropdown > .o-dropdown--menu.o-popper-position {
-    &--rs, &--ls {
-      margin-top: calc(-.5rem - 1px);
-    }
-    &--re, &--le {
-      margin-top: calc(.5rem - 2px);
     }
   }
 }

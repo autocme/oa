@@ -1,484 +1,508 @@
-odoo.define('web.bus_tests', function (require) {
-"use strict";
+/** @odoo-module **/
 
-var BusService = require('bus.BusService');
-var CrossTabBus = require('bus.CrossTab');
-var AbstractStorageService = require('web.AbstractStorageService');
-var RamStorage = require('web.RamStorage');
-var testUtils = require('web.test_utils');
-var Widget = require('web.Widget');
-const LegacyRegistry = require("web.Registry");
-const { ConnectionLostError } = require("@web/core/network/rpc_service");
-const { patchWithCleanup, nextTick } = require("@web/../tests/helpers/utils");
-const { createWebClient } =  require('@web/../tests/webclient/helpers');
+import { addBusServicesToRegistry } from "@bus/../tests/helpers/test_utils";
+import { startServer } from "@bus/../tests/helpers/mock_python_environment";
+import { patchWebsocketWorkerWithCleanup } from "@bus/../tests/helpers/mock_websocket";
+import {
+    waitForBusEvent,
+    waitForChannels,
+    waitNotifications,
+    waitUntilSubscribe,
+    waitForWorkerEvent,
+} from "@bus/../tests/helpers/websocket_event_deferred";
+import { busParametersService } from "@bus/bus_parameters_service";
+import { WEBSOCKET_CLOSE_CODES } from "@bus/workers/websocket_worker";
 
+import { makeTestEnv } from "@web/../tests/helpers/mock_env";
+import { makeDeferred, nextTick, patchWithCleanup } from "@web/../tests/helpers/utils";
+import { assertSteps, click, contains, step } from "@web/../tests/utils";
+import { createWebClient } from "@web/../tests/webclient/helpers";
+import { browser } from "@web/core/browser/browser";
+import { session } from "@web/session";
 
-var LocalStorageServiceMock;
+QUnit.module("Bus");
 
-BusService = BusService.extend({
-    TAB_HEARTBEAT_PERIOD: 10,
-    MASTER_TAB_HEARTBEAT_PERIOD: 1,
+QUnit.test("notifications received from the channel", async () => {
+    addBusServicesToRegistry();
+    const pyEnv = await startServer();
+    const env = await makeTestEnv({ activateMockServer: true });
+    await Promise.all([
+        env.services["bus_service"].addChannel("lambda"),
+        waitUntilSubscribe("lambda"),
+    ]);
+    pyEnv["bus.bus"]._sendone("lambda", "notifType", "beta");
+    pyEnv["bus.bus"]._sendone("lambda", "notifType", "epsilon");
+    await waitNotifications([env, "notifType", "beta"], [env, "notifType", "epsilon"]);
 });
 
-
-QUnit.module('Bus', {
-    beforeEach: function () {
-        LocalStorageServiceMock = AbstractStorageService.extend({storage: new RamStorage()});
-    },
-}, function () {
-    QUnit.test('notifications received from the longpolling channel', async function (assert) {
-        assert.expect(6);
-
-        var pollPromise = testUtils.makeTestPromise();
-
-        var parent = new Widget();
-        await testUtils.mock.addMockEnvironment(parent, {
-            data: {},
-            services: {
-                bus_service: BusService,
-                local_storage: LocalStorageServiceMock,
-            },
-            mockRPC: function (route, args) {
-                if (route === '/longpolling/poll') {
-                    assert.step(route + ' - ' + args.channels.join(','));
-
-                    pollPromise = testUtils.makeTestPromise();
-                    pollPromise.abort = (function () {
-                        this.reject({message: "XmlHttpRequestError abort"}, $.Event());
-                    }).bind(pollPromise);
-                    return pollPromise;
-                }
-                return this._super.apply(this, arguments);
-            }
-        });
-
-        var widget = new Widget(parent);
-        await widget.appendTo($('#qunit-fixture'));
-
-        widget.call('bus_service', 'onNotification', this, function (notifications) {
-            assert.step('notification - ' + notifications.toString());
-        });
-        widget.call('bus_service', 'addChannel', 'lambda');
-
-        pollPromise.resolve([{
-            message: 'beta',
-        }]);
-        await testUtils.nextTick();
-
-        pollPromise.resolve([{
-            message: 'epsilon',
-        }]);
-        await testUtils.nextTick();
-
-        assert.verifySteps([
-            '/longpolling/poll - lambda',
-            'notification - beta',
-            '/longpolling/poll - lambda',
-            'notification - epsilon',
-            '/longpolling/poll - lambda',
-        ]);
-
-        parent.destroy();
-    });
-
-    QUnit.test('longpolling restarts when connection is lost', async function (assert) {
-        assert.expect(4);
-        const legacyRegistry = new LegacyRegistry();
-        legacyRegistry.add("bus_service", BusService);
-        legacyRegistry.add("local_storage", LocalStorageServiceMock);
-
-        const oldSetTimeout = window.setTimeout;
-        patchWithCleanup(
-            window,
-            {
-                setTimeout: callback => oldSetTimeout(callback, 0)
-            },
-            { pure: true },
-        )
-
-        let busService;
-        let rpcCount = 0;
-        // Using createWebclient to get the compatibility layer between the old services and the new
-        await createWebClient({
-            mockRPC(route) {
-                if (route === '/longpolling/poll') {
-                    rpcCount++;
-                    assert.step(`polling ${rpcCount}`);
-                    if (rpcCount == 1) {
-                        return Promise.reject(new ConnectionLostError());
-                    }
-                    assert.equal(rpcCount, 2, "Should not be called after stopPolling");
-                    busService.stopPolling();
-                    return Promise.reject(new ConnectionLostError());
-                }
-            },
-            legacyParams: { serviceRegistry: legacyRegistry },
-        });
-        busService = owl.Component.env.services.bus_service;
-        busService.startPolling();
-        // Give longpolling bus a tick to try to restart polling
-        await nextTick();
-
-        assert.verifySteps([
-            "polling 1",
-            "polling 2",
-        ]);
-    });
-
-    QUnit.test('provide notification ID of 0 by default', async function (assert) {
-        // This test is important in order to ensure that we provide the correct
-        // sentinel value 0 when we are not aware of the last notification ID
-        // that we have received. We cannot provide an ID of -1, otherwise it
-        // may likely be handled incorrectly (before this test was written,
-        // it was providing -1 to the server, which in return sent every stored
-        // notifications related to this user).
-        assert.expect(3);
-
-        // Simulate no ID of last notification in the local storage
-        testUtils.mock.patch(LocalStorageServiceMock, {
-            getItem: function (key) {
-                if (key === 'last_ts') {
-                    return 0;
-                }
-                return this._super.apply(this, arguments);
-            },
-        });
-
-        var pollPromise = testUtils.makeTestPromise();
-        var parent = new Widget();
-        await testUtils.mock.addMockEnvironment(parent, {
-            data: {},
-            services: {
-                bus_service: BusService,
-                local_storage: LocalStorageServiceMock,
-            },
-            mockRPC: function (route, args) {
-                if (route === '/longpolling/poll') {
-                    assert.step(route);
-                    assert.strictEqual(args.last, 0,
-                        "provided last notification ID should be 0");
-
-                    pollPromise = testUtils.makeTestPromise();
-                    pollPromise.abort = (function () {
-                        this.reject({message: "XmlHttpRequestError abort"}, $.Event());
-                    }).bind(pollPromise);
-                    return pollPromise;
-                }
-                return this._super.apply(this, arguments);
-            }
-        });
-
-        var widget = new Widget(parent);
-        await widget.appendTo($('#qunit-fixture'));
-
-        // trigger longpolling poll RPC
-        widget.call('bus_service', 'addChannel', 'lambda');
-        assert.verifySteps(['/longpolling/poll']);
-
-        testUtils.mock.unpatch(LocalStorageServiceMock);
-        parent.destroy();
-    });
-
-    QUnit.test('cross tab bus share message from a channel', async function (assert) {
-        assert.expect(5);
-
-        // master
-
-        var pollPromiseMaster = testUtils.makeTestPromise();
-
-        var parentMaster = new Widget();
-        await testUtils.mock.addMockEnvironment(parentMaster, {
-            data: {},
-            services: {
-                bus_service: BusService,
-                local_storage: LocalStorageServiceMock,
-            },
-            mockRPC: function (route, args) {
-                if (route === '/longpolling/poll') {
-                    assert.step('master' + ' - ' + route + ' - ' + args.channels.join(','));
-
-                    pollPromiseMaster = testUtils.makeTestPromise();
-                    pollPromiseMaster.abort = (function () {
-                        this.reject({message: "XmlHttpRequestError abort"}, $.Event());
-                    }).bind(pollPromiseMaster);
-                    return pollPromiseMaster;
-                }
-                return this._super.apply(this, arguments);
-            }
-        });
-
-        var master = new Widget(parentMaster);
-        await master.appendTo($('#qunit-fixture'));
-
-        master.call('bus_service', 'onNotification', master, function (notifications) {
-            assert.step('master - notification - ' + notifications.toString());
-        });
-        master.call('bus_service', 'addChannel', 'lambda');
-
-        // slave
-        await testUtils.nextTick();
-        var parentSlave = new Widget();
-        await testUtils.mock.addMockEnvironment(parentSlave, {
-            data: {},
-            services: {
-                bus_service: BusService,
-                local_storage: LocalStorageServiceMock,
-            },
-            mockRPC: function (route, args) {
-                if (route === '/longpolling/poll') {
-                    throw new Error("Can not use the longpolling of the slave client");
-                }
-                return this._super.apply(this, arguments);
-            }
-        });
-
-        var slave = new Widget(parentSlave);
-        await slave.appendTo($('#qunit-fixture'));
-
-        slave.call('bus_service', 'onNotification', slave, function (notifications) {
-            assert.step('slave - notification - ' + notifications.toString());
-        });
-        slave.call('bus_service', 'addChannel', 'lambda');
-
-        pollPromiseMaster.resolve([{
-            id: 1,
-            channel: 'lambda',
-            message: 'beta',
-        }]);
-        await testUtils.nextTick();
-
-        assert.verifySteps([
-            'master - /longpolling/poll - lambda',
-            'master - notification - beta',
-            'slave - notification - beta',
-            'master - /longpolling/poll - lambda',
-        ]);
-
-        parentMaster.destroy();
-        parentSlave.destroy();
-    });
-
-    QUnit.test('cross tab bus elect new master on master unload', async function (assert) {
-        assert.expect(8);
-
-        // master
-        var pollPromiseMaster = testUtils.makeTestPromise();
-
-        var parentMaster = new Widget();
-        await testUtils.mock.addMockEnvironment(parentMaster, {
-            data: {},
-            services: {
-                bus_service: BusService,
-                local_storage: LocalStorageServiceMock,
-            },
-            mockRPC: function (route, args) {
-                if (route === '/longpolling/poll') {
-                    assert.step('master - ' + route + ' - ' + args.channels.join(','));
-
-                    pollPromiseMaster = testUtils.makeTestPromise();
-                    pollPromiseMaster.abort = (function () {
-                        this.reject({message: "XmlHttpRequestError abort"}, $.Event());
-                    }).bind(pollPromiseMaster);
-                    return pollPromiseMaster;
-                }
-                return this._super.apply(this, arguments);
-            }
-        });
-
-        var master = new Widget(parentMaster);
-        await master.appendTo($('#qunit-fixture'));
-
-        master.call('bus_service', 'onNotification', master, function (notifications) {
-            assert.step('master - notification - ' + notifications.toString());
-        });
-        master.call('bus_service', 'addChannel', 'lambda');
-
-        // slave
-        await testUtils.nextTick();
-        var parentSlave = new Widget();
-        var pollPromiseSlave = testUtils.makeTestPromise();
-        await testUtils.mock.addMockEnvironment(parentSlave, {
-            data: {},
-            services: {
-                bus_service: BusService,
-                local_storage: LocalStorageServiceMock,
-            },
-            mockRPC: function (route, args) {
-                if (route === '/longpolling/poll') {
-                    assert.step('slave - ' + route + ' - ' + args.channels.join(','));
-
-                    pollPromiseSlave = testUtils.makeTestPromise();
-                    pollPromiseSlave.abort = (function () {
-                        this.reject({message: "XmlHttpRequestError abort"}, $.Event());
-                    }).bind(pollPromiseSlave);
-                    return pollPromiseSlave;
-                }
-                return this._super.apply(this, arguments);
-            }
-        });
-
-        var slave = new Widget(parentSlave);
-        await slave.appendTo($('#qunit-fixture'));
-
-        slave.call('bus_service', 'onNotification', slave, function (notifications) {
-            assert.step('slave - notification - ' + notifications.toString());
-        });
-        slave.call('bus_service', 'addChannel', 'lambda');
-
-        pollPromiseMaster.resolve([{
-            id: 1,
-            channel: 'lambda',
-            message: 'beta',
-        }]);
-        await testUtils.nextTick();
-
-        // simulate unloading master
-        master.call('bus_service', '_onUnload');
-
-        pollPromiseSlave.resolve([{
-            id: 2,
-            channel: 'lambda',
-            message: 'gamma',
-        }]);
-        await testUtils.nextTick();
-
-        assert.verifySteps([
-            'master - /longpolling/poll - lambda',
-            'master - notification - beta',
-            'slave - notification - beta',
-            'master - /longpolling/poll - lambda',
-            'slave - /longpolling/poll - lambda',
-            'slave - notification - gamma',
-            'slave - /longpolling/poll - lambda',
-        ]);
-
-        parentMaster.destroy();
-        parentSlave.destroy();
-    });
-
-    QUnit.test('two tabs calling addChannel simultaneously', async function (assert) {
-        assert.expect(5);
-
-        let id = 1;
-        testUtils.mock.patch(CrossTabBus, {
-            init: function () {
-                this._super.apply(this, arguments);
-                this.__tabId__ = id++;
-            },
-            addChannel: function (channel) {
-                assert.step('Tab ' + this.__tabId__ + ': addChannel ' + channel);
-                this._super.apply(this, arguments);
-            },
-            deleteChannel: function (channel) {
-                assert.step('Tab ' + this.__tabId__ + ': deleteChannel ' + channel);
-                this._super.apply(this, arguments);
-            },
-        });
-
-        let pollPromise;
-        const parentTab1 = new Widget();
-        await testUtils.mock.addMockEnvironment(parentTab1, {
-            data: {},
-            services: {
-                local_storage: LocalStorageServiceMock,
-            },
-            mockRPC: function (route) {
-                if (route === '/longpolling/poll') {
-                    pollPromise = testUtils.makeTestPromise();
-                    pollPromise.abort = (function () {
-                        this.reject({message: "XmlHttpRequestError abort"}, $.Event());
-                    }).bind(pollPromise);
-                    return pollPromise;
-                }
-                return this._super.apply(this, arguments);
-            }
-        });
-        const parentTab2 = new Widget();
-        await testUtils.mock.addMockEnvironment(parentTab2, {
-            data: {},
-            services: {
-                local_storage: LocalStorageServiceMock,
-            },
-            mockRPC: function (route) {
-                if (route === '/longpolling/poll') {
-                    pollPromise = testUtils.makeTestPromise();
-                    pollPromise.abort = (function () {
-                        this.reject({message: "XmlHttpRequestError abort"}, $.Event());
-                    }).bind(pollPromise);
-                    return pollPromise;
-                }
-                return this._super.apply(this, arguments);
-            }
-        });
-
-        const tab1 = new CrossTabBus(parentTab1);
-        const tab2 = new CrossTabBus(parentTab2);
-
-        tab1.addChannel("alpha");
-        tab2.addChannel("alpha");
-        tab1.addChannel("beta");
-        tab2.addChannel("beta");
-
-        assert.verifySteps([
-            "Tab 1: addChannel alpha",
-            "Tab 2: addChannel alpha",
-            "Tab 1: addChannel beta",
-            "Tab 2: addChannel beta",
-        ]);
-
-        testUtils.mock.unpatch(CrossTabBus);
-        parentTab1.destroy();
-        parentTab2.destroy();
-    });
-
-    QUnit.test('two tabs adding channels', async function (assert) {
-        assert.expect(4);
-        const parentTab1 = new Widget();
-        let pollPromise;
-        await testUtils.mock.addMockEnvironment(parentTab1, {
-            data: {},
-            services: {
-                local_storage: LocalStorageServiceMock,
-            },
-            mockRPC: function (route, args) {
-                if (route === '/longpolling/poll') {
-                    assert.step(args.channels.join())
-                    pollPromise = testUtils.makeTestPromise();
-                    pollPromise.abort = (function () {
-                        this.reject({message: 'XmlHttpRequestError abort'});
-                    }).bind(pollPromise);
-                    return pollPromise;
-                }
-                return this._super.apply(this, arguments);
-            }
-        });
-        const parentTab2 = new Widget();
-        await testUtils.mock.addMockEnvironment(parentTab2, {
-            data: {},
-            services: {
-                local_storage: LocalStorageServiceMock,
-            },
-            mockRPC: function (route, args) {
-                if (route === '/longpolling/poll') {
-                    throw new Error("slave tab should not use the polling route")
-                }
-                return this._super.apply(this, arguments);
-            }
-        });
-
-        const tab1 = new CrossTabBus(parentTab1);
-        const tab2 = new CrossTabBus(parentTab2);
-        tab1.addChannel("alpha");
-        await nextTick();
-        assert.verifySteps(["alpha"]);
-
-        tab2.addChannel("beta");
-        await nextTick();
-        assert.verifySteps(["alpha,beta"]);
-
-        parentTab1.destroy();
-        parentTab2.destroy();
-    });
+QUnit.test("notifications not received after stoping the service", async () => {
+    addBusServicesToRegistry();
+    const pyEnv = await startServer();
+    const firstTabEnv = await makeTestEnv({ activateMockServer: true });
+    const secondTabEnv = await makeTestEnv({ activateMockServer: true });
+    firstTabEnv.services["bus_service"].start();
+    secondTabEnv.services["bus_service"].start();
+    firstTabEnv.services["bus_service"].addChannel("lambda");
+    await waitUntilSubscribe("lambda");
+    // both tabs should receive the notification
+    pyEnv["bus.bus"]._sendone("lambda", "notifType", "beta");
+    await waitNotifications(
+        [firstTabEnv, "notifType", "beta"],
+        [secondTabEnv, "notifType", "beta"]
+    );
+    secondTabEnv.services["bus_service"].stop();
+    await waitForWorkerEvent("leave");
+    pyEnv["bus.bus"]._sendone("lambda", "notifType", "epsilon");
+    await waitNotifications(
+        [firstTabEnv, "notifType", "epsilon"],
+        [secondTabEnv, "notifType", "epsilon", { received: false }]
+    );
 });
 
+QUnit.test("notifications still received after disconnect/reconnect", async () => {
+    addBusServicesToRegistry();
+    const pyEnv = await startServer();
+    const env = await makeTestEnv({ activateMockServer: true });
+    env.services["bus_service"].addChannel("lambda");
+    await Promise.all([waitForBusEvent(env, "connect"), waitUntilSubscribe("lambda")]);
+    pyEnv["bus.bus"]._sendone("lambda", "notifType", "beta");
+    await waitNotifications([env, "notifType", "beta"]);
+    pyEnv.simulateConnectionLost(WEBSOCKET_CLOSE_CODES.ABNORMAL_CLOSURE);
+    await waitForBusEvent(env, "reconnect");
+    pyEnv["bus.bus"]._sendone("lambda", "notifType", "gamma");
+    await waitNotifications([env, "notifType", "gamma"]);
+});
+
+QUnit.test("tabs share message from a channel", async () => {
+    addBusServicesToRegistry();
+    const pyEnv = await startServer();
+    const mainEnv = await makeTestEnv({ activateMockServer: true });
+    mainEnv.services["bus_service"].addChannel("lambda");
+    const slaveEnv = await makeTestEnv();
+    slaveEnv.services["bus_service"].addChannel("lambda");
+    await waitUntilSubscribe("lambda");
+    pyEnv["bus.bus"]._sendone("lambda", "notifType", "beta");
+    await waitNotifications([mainEnv, "notifType", "beta"], [slaveEnv, "notifType", "beta"]);
+});
+
+QUnit.test("second tab still receives notifications after main pagehide", async () => {
+    patchWebsocketWorkerWithCleanup({
+        _unregisterClient(client) {
+            // Ensure that the worker does not receive any messages from the main tab
+            // after pagehide, mimicking real-world behavior.
+            client.onmessage = null;
+            super._unregisterClient(client);
+        },
+    });
+    addBusServicesToRegistry();
+    const pyEnv = await startServer();
+    const mainEnv = await makeTestEnv({ activateMockServer: true });
+    mainEnv.services["bus_service"].addChannel("lambda");
+    // prevent second tab from receiving pagehide event.
+    patchWithCleanup(browser, {
+        addEventListener(eventName, callback) {
+            if (eventName === "pagehide") {
+                return;
+            }
+            super.addEventListener(eventName, callback);
+        },
+    });
+    const secondEnv = await makeTestEnv({ activateMockServer: true });
+    secondEnv.services["bus_service"].addChannel("lambda");
+    await waitUntilSubscribe("lambda");
+    pyEnv["bus.bus"]._sendone("lambda", "notifType", "beta");
+    await waitNotifications([mainEnv, "notifType", "beta"], [secondEnv, "notifType", "beta"]);
+    // simulate unloading main
+    window.dispatchEvent(new Event("pagehide"));
+    await waitForWorkerEvent("leave");
+    pyEnv["bus.bus"]._sendone("lambda", "notifType", "gamma");
+    await waitNotifications(
+        [mainEnv, "notifType", "gamma", { received: false }],
+        [secondEnv, "notifType", "gamma"]
+    );
+});
+
+QUnit.test("two tabs adding a different channel", async () => {
+    addBusServicesToRegistry();
+    const pyEnv = await startServer();
+    const firstTabEnv = await makeTestEnv({ activateMockServer: true });
+    const secondTabEnv = await makeTestEnv({ activateMockServer: true });
+    firstTabEnv.services["bus_service"].addChannel("alpha");
+    secondTabEnv.services["bus_service"].addChannel("beta");
+    await waitUntilSubscribe("alpha", "beta");
+    pyEnv["bus.bus"]._sendmany([
+        ["alpha", "notifType", "alpha"],
+        ["beta", "notifType", "beta"],
+    ]);
+    await waitNotifications(
+        [firstTabEnv, "notifType", "alpha"],
+        [secondTabEnv, "notifType", "alpha"],
+        [firstTabEnv, "notifType", "beta"],
+        [secondTabEnv, "notifType", "beta"]
+    );
+});
+
+QUnit.test("channel management from multiple tabs", async (assert) => {
+    await startServer();
+    addBusServicesToRegistry();
+    patchWebsocketWorkerWithCleanup({
+        _sendToServer({ event_name, data }) {
+            assert.step(`${event_name} - [${data.channels.toString()}]`);
+            super._sendToServer(...arguments);
+        },
+    });
+    const firstTabEnv = await makeTestEnv({ activateMockServer: true });
+    const secTabEnv = await makeTestEnv({ activateMockServer: true });
+    firstTabEnv.services["bus_service"].addChannel("channel1");
+    await waitUntilSubscribe("channel1");
+    // this should not trigger a subscription since the channel1 was
+    // aleady known.
+    secTabEnv.services["bus_service"].addChannel("channel1");
+    await waitForChannels(["channel1"]);
+    // removing channel1 from first tab should not trigger
+    // re-subscription since the second tab still listens to this
+    // channel.
+    firstTabEnv.services["bus_service"].deleteChannel("channel1");
+    await waitForChannels(["channel1"], { operation: "delete" });
+    // this should trigger a subscription since the channel2 was not
+    // known.
+    secTabEnv.services["bus_service"].addChannel("channel2");
+    await waitUntilSubscribe("channel2");
+    assert.verifySteps(["subscribe - [channel1]", "subscribe - [channel1,channel2]"]);
+});
+
+QUnit.test("channels subscription after disconnection", async (assert) => {
+    await startServer();
+    addBusServicesToRegistry();
+    const worker = patchWebsocketWorkerWithCleanup();
+    const env = await makeTestEnv({ activateMockServer: true });
+    env.services["bus_service"].start();
+    await waitUntilSubscribe();
+    worker.websocket.close(WEBSOCKET_CLOSE_CODES.KEEP_ALIVE_TIMEOUT);
+    await Promise.all([waitForBusEvent(env, "reconnect"), waitUntilSubscribe()]);
+    assert.ok(
+        true,
+        "No error means waitUntilSubscribe resolves twice thus two subscriptions were triggered as expected"
+    );
+});
+
+QUnit.test("Last notification id is passed to the worker on service start", async (assert) => {
+    addBusServicesToRegistry();
+    const pyEnv = await startServer();
+    let updateLastNotificationDeferred = makeDeferred();
+    patchWebsocketWorkerWithCleanup({
+        _onClientMessage(_, { action, data }) {
+            if (action === "initialize_connection") {
+                assert.step(`${action} - ${data["lastNotificationId"]}`);
+                updateLastNotificationDeferred.resolve();
+            }
+            return super._onClientMessage(...arguments);
+        },
+    });
+    const env1 = await makeTestEnv();
+    env1.services["bus_service"].start();
+    env1.services["bus_service"].addChannel("lambda");
+    await waitUntilSubscribe("lambda");
+    await updateLastNotificationDeferred;
+    // First bus service has never received notifications thus the
+    // default is 0.
+    assert.verifySteps(["initialize_connection - 0"]);
+    pyEnv["bus.bus"]._sendmany([
+        ["lambda", "notifType", "beta"],
+        ["lambda", "notifType", "beta"],
+    ]);
+    await waitNotifications([env1, "notifType", "beta"], [env1, "notifType", "beta"]);
+    updateLastNotificationDeferred = makeDeferred();
+    const env2 = await makeTestEnv();
+    await env2.services["bus_service"].start();
+    await updateLastNotificationDeferred;
+    // Second bus service sends the last known notification id.
+    assert.verifySteps([`initialize_connection - 2`]);
+});
+
+QUnit.test("Websocket disconnects upon user log out", async () => {
+    addBusServicesToRegistry();
+    patchWebsocketWorkerWithCleanup();
+    // first tab connects to the worker with user logged.
+    patchWithCleanup(session, { user_id: 1 });
+    const firstTabEnv = await makeTestEnv();
+    firstTabEnv.services["bus_service"].start();
+    await waitForBusEvent(firstTabEnv, "connect");
+    patchWithCleanup(session, { db: undefined });
+    // second tab connects to the worker, ommiting the DB name. Consider same DB.
+    const env2 = await makeTestEnv();
+    env2.services["bus_service"].start();
+    await waitForBusEvent(firstTabEnv, "disconnect", { received: false });
+    // third tab connects to the worker after disconnection: user_id is now false.
+    patchWithCleanup(session, { user_id: false });
+    const env3 = await makeTestEnv();
+    env3.services["bus_service"].start();
+    await waitForBusEvent(firstTabEnv, "disconnect");
+});
+
+QUnit.test("Websocket reconnects upon user log in", async () => {
+    addBusServicesToRegistry();
+    patchWebsocketWorkerWithCleanup();
+    // first tab connects to the worker with no user logged.
+    patchWithCleanup(session, { user_id: false });
+    const firstTabEnv = await makeTestEnv();
+    firstTabEnv.services["bus_service"].start();
+    await waitForBusEvent(firstTabEnv, "connect");
+    // second tab connects to the worker after connection: user_id
+    // is now set.
+    patchWithCleanup(session, { user_id: 1 });
+    const secondTabEnv = await makeTestEnv();
+    secondTabEnv.services["bus_service"].start();
+    await Promise.all([
+        waitForBusEvent(firstTabEnv, "disconnect"),
+        waitForBusEvent(firstTabEnv, "connect"),
+    ]);
+});
+
+QUnit.test("WebSocket connects with URL corresponding to given serverURL", async (assert) => {
+    addBusServicesToRegistry();
+    patchWebsocketWorkerWithCleanup();
+    const serverURL = "http://random-website.com";
+    patchWithCleanup(busParametersService, {
+        start() {
+            return {
+                ...super.start(...arguments),
+                serverURL,
+            };
+        },
+    });
+    const websocketCreatedDeferred = makeDeferred();
+    patchWithCleanup(window, {
+        WebSocket: function (url) {
+            assert.step(url);
+            websocketCreatedDeferred.resolve();
+            return new EventTarget();
+        },
+    });
+    const env = await makeTestEnv();
+    env.services["bus_service"].start();
+    await websocketCreatedDeferred;
+    assert.verifySteps([`${serverURL.replace("http", "ws")}/websocket?version=undefined`]);
+});
+
+QUnit.test("Disconnect on offline, re-connect on online", async () => {
+    addBusServicesToRegistry();
+    patchWebsocketWorkerWithCleanup();
+    const env = await makeTestEnv();
+    await env.services["bus_service"].start();
+    await waitForBusEvent(env, "connect");
+    window.dispatchEvent(new Event("offline"));
+    await waitForBusEvent(env, "disconnect");
+    window.dispatchEvent(new Event("online"));
+    await waitForBusEvent(env, "connect");
+});
+
+QUnit.test("No disconnect on change offline/online when bus inactive", async () => {
+    addBusServicesToRegistry();
+    patchWebsocketWorkerWithCleanup();
+    const env = await makeTestEnv();
+    window.dispatchEvent(new Event("offline"));
+    await waitForBusEvent(env, "disconnect", { received: false });
+    window.dispatchEvent(new Event("online"));
+    await waitForBusEvent(env, "connect", { received: false });
+});
+
+QUnit.test("Can reconnect after late close event", async (assert) => {
+    addBusServicesToRegistry();
+    const closeDeferred = makeDeferred();
+    const worker = patchWebsocketWorkerWithCleanup();
+    const pyEnv = await startServer();
+    const env = await makeTestEnv();
+    env.services["bus_service"].start();
+    await waitForBusEvent(env, "connect");
+    patchWithCleanup(worker.websocket, {
+        close(code = WEBSOCKET_CLOSE_CODES.CLEAN, reason) {
+            this.readyState = 2;
+            if (code === WEBSOCKET_CLOSE_CODES.CLEAN) {
+                closeDeferred.then(() => {
+                    // Simulate that the connection could not be closed cleanly.
+                    super.close(WEBSOCKET_CLOSE_CODES.ABNORMAL_CLOSURE, reason);
+                });
+            } else {
+                super.close(code, reason);
+            }
+        },
+    });
+    // Connection will be closed when passing offline. But the close event
+    // will be delayed to come after the next open event. The connection
+    // will thus be in the closing state in the meantime.
+    window.dispatchEvent(new Event("offline"));
+    // Worker reconnects upon the reception of the online event.
+    window.dispatchEvent(new Event("online"));
+    await waitForBusEvent(env, "disconnect");
+    await waitForBusEvent(env, "connect");
+    // Trigger the close event, it shouldn't have any effect since it is
+    // related to an old connection that is no longer in use.
+    closeDeferred.resolve();
+    await waitForBusEvent(env, "disconnect", { received: false });
+    // Server closes the connection, the worker should reconnect.
+    pyEnv.simulateConnectionLost(WEBSOCKET_CLOSE_CODES.KEEP_ALIVE_TIMEOUT);
+    await waitForBusEvent(env, "reconnecting");
+    await waitForBusEvent(env, "reconnect");
+});
+
+QUnit.test("Fallback on simple worker when shared worker failed to initialize", async (assert) => {
+    addBusServicesToRegistry();
+    patchWebsocketWorkerWithCleanup();
+    const originalSharedWorker = browser.SharedWorker;
+    const originalWorker = browser.Worker;
+    patchWithCleanup(browser, {
+        SharedWorker: function (url, options) {
+            assert.step("shared-worker creation");
+            const sw = new originalSharedWorker(url, options);
+            // Simulate error during shared worker creation.
+            setTimeout(() => sw.dispatchEvent(new Event("error")));
+            return sw;
+        },
+        Worker: function (url, options) {
+            assert.step("worker creation");
+            return new originalWorker(url, options);
+        },
+    });
+    patchWithCleanup(window.console, {
+        warn(message) {
+            assert.step(message);
+        },
+    });
+    const env = await makeTestEnv();
+    env.services["bus_service"].start();
+    await waitForBusEvent(env, "connect");
+    assert.verifySteps([
+        "shared-worker creation",
+        'Error while loading "bus_service" SharedWorker, fallback on Worker.',
+        "worker creation",
+    ]);
+});
+
+QUnit.test("subscribe to single notification", async (assert) => {
+    addBusServicesToRegistry();
+    const pyEnv = await startServer();
+    const env = await makeTestEnv({ activateMockServer: true });
+    env.services["bus_service"].start();
+    const messageReceivedDeferred = makeDeferred();
+    env.services["bus_service"].subscribe("message", (payload) => {
+        assert.deepEqual({ body: "hello", id: 1 }, payload);
+        assert.step("message");
+        messageReceivedDeferred.resolve();
+    });
+    await waitUntilSubscribe();
+    pyEnv["bus.bus"]._sendone(pyEnv.currentPartner, "message", {
+        body: "hello",
+        id: 1,
+    });
+    await messageReceivedDeferred;
+    assert.verifySteps(["message"]);
+});
+
+QUnit.test("do not reconnect when worker version is outdated", async () => {
+    await startServer();
+    addBusServicesToRegistry();
+    const worker = patchWebsocketWorkerWithCleanup();
+    const env = await makeTestEnv({ activateMockServer: true });
+    env.services["bus_service"].addEventListener("connect", () => step("connect"));
+    env.services["bus_service"].addEventListener("reconnect", () => step("reconnect"));
+    env.services["bus_service"].addEventListener("disconnect", () => step("disconnect"));
+    env.services["bus_service"].start();
+    await assertSteps(["connect"]);
+    worker.websocket.close(WEBSOCKET_CLOSE_CODES.ABNORMAL_CLOSURE);
+    await assertSteps(["disconnect", "reconnect"]);
+    patchWithCleanup(console, { warn: (message) => step(message) });
+    worker.websocket.close(WEBSOCKET_CLOSE_CODES.CLEAN, "OUTDATED_VERSION");
+    await assertSteps(["Worker deactivated due to an outdated version.", "disconnect"]);
+    env.services["bus_service"].start();
+    env.services["bus_service"].send("hello", "world");
+    await nextTick();
+    await assertSteps([]);
+});
+
+QUnit.test("reconnect on demande after clean close code", async () => {
+    await startServer();
+    addBusServicesToRegistry();
+    const worker = patchWebsocketWorkerWithCleanup();
+    const env = await makeTestEnv({ activateMockServer: true });
+    env.services["bus_service"].addEventListener("connect", () => step("connect"));
+    env.services["bus_service"].addEventListener("reconnect", () => step("reconnect"));
+    env.services["bus_service"].addEventListener("disconnect", () => step("disconnect"));
+    env.services["bus_service"].start();
+    await assertSteps(["connect"]);
+    worker.websocket.close(WEBSOCKET_CLOSE_CODES.ABNORMAL_CLOSURE);
+    await assertSteps(["disconnect", "reconnect"]);
+    worker.websocket.close(WEBSOCKET_CLOSE_CODES.CLEAN);
+    await assertSteps(["disconnect"]);
+    env.services["bus_service"].start();
+    await assertSteps(["connect"]);
+});
+
+QUnit.test("remove from main tab candidates when version is outdated", async (assert) => {
+    await startServer();
+    addBusServicesToRegistry();
+    const worker = patchWebsocketWorkerWithCleanup();
+    const env = await makeTestEnv({ activateMockServer: true });
+    patchWithCleanup(console, { warn: (message) => step(message) });
+    env.services["bus_service"].addEventListener("connect", () => step("connect"));
+    env.services["bus_service"].addEventListener("disconnect", () => step("disconnect"));
+    env.services["bus_service"].start();
+    await assertSteps(["connect"]);
+    patchWithCleanup(env.services.multi_tab, { isOnMainTab: () => true });
+    assert.ok(env.services["multi_tab"].isOnMainTab());
+    env.services.multi_tab.bus.addEventListener("no_longer_main_tab", () =>
+        step("no_longer_main_tab")
+    );
+    worker.websocket.close(WEBSOCKET_CLOSE_CODES.CLEAN, "OUTDATED_VERSION");
+    await assertSteps([
+        "Worker deactivated due to an outdated version.",
+        "disconnect",
+        "no_longer_main_tab",
+    ]);
+});
+
+QUnit.test("show notification when version is outdated", async () => {
+    await startServer();
+    addBusServicesToRegistry();
+    const worker = patchWebsocketWorkerWithCleanup();
+    const { env } = await createWebClient({});
+    patchWithCleanup(console, { warn: (message) => step(message) });
+    patchWithCleanup(browser.location, { reload: () => step("reload") });
+    env.services["bus_service"].addEventListener("connect", () => step("connect"));
+    env.services["bus_service"].addEventListener("disconnect", () => step("disconnect"));
+    env.services["bus_service"].start();
+    await assertSteps(["connect"]);
+    worker.websocket.close(WEBSOCKET_CLOSE_CODES.CLEAN, "OUTDATED_VERSION");
+    await assertSteps(["Worker deactivated due to an outdated version.", "disconnect"]);
+    await contains(".o_notification", {
+        text: "Save your work and refresh to get the latest updates and avoid potential issues.",
+    });
+    await click(".o_notification_buttons .btn-primary", { text: "Refresh" });
+    await assertSteps(["reload"]);
+});
+
+QUnit.test("subscribe message is sent first", async () => {
+    await startServer();
+    addBusServicesToRegistry();
+    const worker = patchWebsocketWorkerWithCleanup();
+    const ogSocket = window.WebSocket;
+    patchWithCleanup(window, {
+        WebSocket: function () {
+            const ws = new ogSocket(...arguments);
+            ws.send = (message) => step(JSON.parse(message).event_name);
+            return ws;
+        },
+    });
+    const env = await makeTestEnv({ activateMockServer: true });
+    env.services.bus_service.start();
+    await assertSteps(["subscribe"]);
+    env.services.bus_service.send("some_event");
+    await assertSteps(["some_event"]);
+    worker.websocket.close(WEBSOCKET_CLOSE_CODES.CLEAN);
+    env.services.bus_service.send("some_event");
+    env.services.bus_service.send("some_other_event");
+    env.services.bus_service.addChannel("channel_1");
+    await assertSteps([]);
+    env.services.bus_service.start();
+    await assertSteps(["subscribe", "some_event", "some_other_event"]);
 });

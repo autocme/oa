@@ -354,11 +354,8 @@ class PickingType(models.Model):
 
                 yield values
 
-        def get_show_operations(values, counter, random):
-            return values['code'] != 'incoming'  # Simulate onchange of form
-
         def get_show_reserved(values, counter, random):
-            return values['show_operations'] and values['code'] != 'incoming'  # Simulate onchange of form
+            return values['code'] != 'incoming'  # Simulate onchange of form
 
         return [
             ('company_id', populate.iterate(company_ids)),
@@ -366,7 +363,6 @@ class PickingType(models.Model):
             ('name', populate.compute(get_name)),
             ('sequence_code', populate.constant("PT{counter}")),
             ('_compute_default_locations', _compute_default_locations),
-            ('show_operations', populate.compute(get_show_operations)),
             ('show_reserved', populate.compute(get_show_reserved)),
         ]
 
@@ -492,12 +488,12 @@ class StockMove(models.Model):
                 package_for_picking = None
                 if random.random() < 0.20:  # 20 % of chance to use package
                     package_for_picking = {'name': picking.name}
-                for move in picking.move_lines:
+                for move in picking.move_ids:
                     # For assigned moves
                     for move_line in move._get_move_lines():
-                        move_line.qty_done = move_line.product_uom_qty
+                        move_line.quantity = move_line.reserved_uom_qty
                     # Create move line for remaining qty
-                    missing_to_do = move.product_qty - move.quantity_done
+                    missing_to_do = move.product_qty - move.quantity
                     missing_to_do = move.product_uom._compute_quantity(missing_to_do, move.product_uom, rounding_method='HALF-UP')
                     if move.product_id.tracking == 'serial':
                         for i in range(int(missing_to_do)):
@@ -508,7 +504,7 @@ class StockMove(models.Model):
                             })
                             sml_values.append(dict(
                                 **move._prepare_move_line_vals(),
-                                qty_done=1,
+                                quantity=1,
                                 lot_id=len(lot_values) - 1,
                                 package_id=package_for_picking and len(package_values) - 1 or False
                             ))
@@ -520,21 +516,21 @@ class StockMove(models.Model):
                         })
                         sml_values.append(dict(
                             **move._prepare_move_line_vals(),
-                            qty_done=missing_to_do,
+                            quantity=missing_to_do,
                             lot_id=len(lot_values) - 1,
                             package_id=package_for_picking and len(package_values) - 1 or False
                         ))
                     else:
                         sml_values.append(dict(
                             **move._prepare_move_line_vals(),
-                            qty_done=missing_to_do,
+                            quantity=missing_to_do,
                             package_id=package_for_picking and len(package_values) - 1 or False
                         ))
                 if package_for_picking:
                     package_values.append(package_for_picking)
 
             _logger.info("Create lots (%d) for pickings to validate" % len(lot_values))
-            lots = self.env["stock.production.lot"].create(lot_values)
+            lots = self.env["stock.lot"].create(lot_values)
             _logger.info("Create packages (%d) for pickings to validate" % len(package_values))
             packages = self.env["stock.quant.package"].create(package_values)
 

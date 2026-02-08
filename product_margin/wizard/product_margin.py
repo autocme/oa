@@ -16,7 +16,7 @@ class ProductMargin(models.TransientModel):
         ('paid', 'Paid'),
         ('open_paid', 'Open and Paid'),
         ('draft_open_paid', 'Draft, Open and Paid'),
-    ], 'Invoice State', index=True, required=True, default="open_paid")
+    ], 'Invoice State', required=True, default="open_paid")
 
     def action_open_window(self):
         self.ensure_one()
@@ -24,7 +24,7 @@ class ProductMargin(models.TransientModel):
 
         def ref(xml_id):
             proxy = self.env['ir.model.data']
-            return proxy._xmlid_lookup(xml_id)[2]
+            return proxy._xmlid_lookup(xml_id)[1]
 
         search_view_id = ref('product.product_search_form_view')
         graph_view_id = ref('product_margin.view_product_margin_graph')

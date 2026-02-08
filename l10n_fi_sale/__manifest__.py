@@ -3,6 +3,7 @@
 
 {
     'name': 'Finland - Sale',
+    'countries': ['fi'],
     'version': '1.0',
     'description': """Finland Sale""",
     'category': 'Localization',
@@ -11,7 +12,6 @@
         'sale',
     ],
     'installable': True,
-    'application': False,
     'auto_install': True,
     'license': 'LGPL-3',
 }

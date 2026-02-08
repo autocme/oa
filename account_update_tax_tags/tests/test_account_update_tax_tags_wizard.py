@@ -1,8 +1,9 @@
-# Part of Odoo. See LICENSE file for full copyright and licensing details.
+import time
 from freezegun import freeze_time
 
+from odoo import Command
 from odoo.exceptions import UserError
-from odoo.tests import Form, tagged
+from odoo.tests import tagged
 from odoo.addons.account.tests.common import AccountTestInvoicingCommon
 
 
@@ -15,6 +16,11 @@ class TestAccountUpdateTaxTagsWizard(AccountTestInvoicingCommon):
         super().setUpClass(chart_template_ref=chart_template_ref)
 
         be_country_id = cls.env.ref('base.be').id
+        cls.partner_agrolait = cls.env['res.partner'].create({
+            'name': 'Deco Agrolait',
+            'is_company': True,
+            'country_id': cls.env.ref('base.us').id,
+        })
         cls.company = cls.company_data['company']
         cls.company.write({'country_id': be_country_id})
         cls.tag_names = {
@@ -26,11 +32,109 @@ class TestAccountUpdateTaxTagsWizard(AccountTestInvoicingCommon):
         cls.tax_1 = cls._create_tax('update_test_tax', 15, tag_names=cls.tag_names)
         cls.wizard = cls.env['account.update.tax.tags.wizard'].create({'date_from': '2023-02-01'})
 
+    def _create_invoice(self, move_type='out_invoice', invoice_amount=50, currency_id=None, partner_id=None, date_invoice=None, payment_term_id=False, auto_validate=False, taxes=None, state=None):
+        if move_type == 'entry':
+            raise AssertionError("Unexpected move_type : 'entry'.")
+
+        if not taxes:
+            taxes = self.env['account.tax']
+
+        date_invoice = date_invoice or time.strftime('%Y') + '-07-01'
+
+        invoice_vals = {
+            'move_type': move_type,
+            'partner_id': partner_id or self.partner_agrolait.id,
+            'invoice_date': date_invoice,
+            'date': date_invoice,
+            'invoice_line_ids': [Command.create({
+                'name': 'product that cost %s' % invoice_amount,
+                'quantity': 1,
+                'price_unit': invoice_amount,
+                'tax_ids': [Command.set(taxes.ids)],
+            })]
+        }
+
+        if payment_term_id:
+            invoice_vals['invoice_payment_term_id'] = payment_term_id
+
+        if currency_id:
+            invoice_vals['currency_id'] = currency_id
+
+        invoice = self.env['account.move'].with_context(default_move_type=move_type).create(invoice_vals)
+
+        if state == 'cancel':
+            invoice.write({'state': 'cancel'})
+        elif auto_validate or state == 'posted':
+            invoice.action_post()
+        return invoice
+
+    def create_invoice(self, move_type='out_invoice', invoice_amount=50, currency_id=None):
+        return self._create_invoice(move_type=move_type, invoice_amount=invoice_amount, currency_id=currency_id, auto_validate=True)
+
+    @classmethod
+    def _create_or_get_tax_tag(cls, name, country_id=None):
+        country_id = country_id or cls.company_data['company'].country_id.id
+        tag = cls.env['account.account.tag'].search([
+            ('name', '=', name),
+            ('applicability', '=', 'taxes'),
+            ('country_id', '=', country_id),
+        ])
+        if tag:
+            return tag
+        return cls.env['account.account.tag'].create({
+            'name': name,
+            'applicability': 'taxes',
+            'country_id': country_id,
+        })
+
+    @classmethod
+    def _create_tax(cls, name, amount, amount_type='percent', type_tax_use='sale', tag_names=None, children_taxes=None, tax_exigibility='on_invoice', **kwargs):
+        if not tag_names:
+            tag_names = {}
+        tag_commands = {
+            type_rep_line: [(Command.set(cls._create_or_get_tax_tag(tags).ids))]
+            for type_rep_line, tags in tag_names.items()
+        }
+        vals = {
+            'name': name,
+            'amount': amount,
+            'amount_type': amount_type,
+            'type_tax_use': type_tax_use,
+            'tax_exigibility': tax_exigibility,
+            'children_tax_ids': [Command.set(children_taxes.ids)] if children_taxes else None,
+            'invoice_repartition_line_ids': [
+                Command.create({
+                    'factor_percent': 100,
+                    'repartition_type': 'base',
+                    'tag_ids': tag_commands.get('invoice_base'),
+                }),
+                Command.create({
+                    'factor_percent': 100,
+                    'repartition_type': 'tax',
+                    'tag_ids': tag_commands.get('invoice_tax'),
+                }),
+            ] if not children_taxes else [],
+            'refund_repartition_line_ids': [
+                Command.create({
+                    'factor_percent': 100,
+                    'repartition_type': 'base',
+                    'tag_ids': tag_commands.get('refund_base'),
+                }),
+                Command.create({
+                    'factor_percent': 100,
+                    'repartition_type': 'tax',
+                    'tag_ids': tag_commands.get('refund_tax'),
+                }),
+            ] if not children_taxes else [],
+            **kwargs,
+        }
+        return cls.env['account.tax'].create(vals)
+
     @classmethod
     def _change_tax_tag(cls, tax, new_tag, invoice=True, base=True):
         rep_lines = tax.invoice_repartition_line_ids if invoice else tax.refund_repartition_line_ids
         filtered_rep_lines = rep_lines.filtered(lambda rep_line: rep_line.repartition_type == ('base' if base else 'tax'))
-        filtered_rep_lines.write({'tag_ids': [(6, 0, cls._create_tax_tag(new_tag).ids)]})
+        filtered_rep_lines.write({'tag_ids': [Command.set(cls._create_or_get_tax_tag(new_tag).ids)]})
 
     def _get_amls_by_type(self, moves):
         invoice_lines = moves.invoice_line_ids
@@ -47,7 +151,6 @@ class TestAccountUpdateTaxTagsWizard(AccountTestInvoicingCommon):
         self.wizard.update_amls_tax_tags()
 
         invoice_lines, tax_lines, counterpart_lines = self._get_amls_by_type(moves)
-        self.assertTrue(all('invoice_tax_tag_changed' in tax_line.tax_audit for tax_line in tax_lines), 'Tax audit string should have changed.')
         self.assertEqual(invoice_lines.tax_tag_ids.name, 'invoice_base_tag', 'Base lines tags should not have changed.')
         self.assertEqual(tax_lines.tax_tag_ids.name, 'invoice_tax_tag_changed', 'Tax lines tags should have changed.')
         self.assertFalse(counterpart_lines.tax_tag_ids, 'Counterpart lines should not have changed.')
@@ -128,7 +231,7 @@ class TestAccountUpdateTaxTagsWizard(AccountTestInvoicingCommon):
             for line_type in ['base', 'tax']:
                 with self.subTest(f'Update tax tag on {move_type}-{line_type}'):
                     type_tax_use = 'sale' if move_type.startswith('out_') else 'purchase'
-                    tax_2 = self._create_tax('update_test_tax_2', 15, type_tax_use=type_tax_use, tag_names={
+                    tax_2 = self._create_tax(f'update_test_tax_2_{move_type}_{line_type}', 15, type_tax_use=type_tax_use, tag_names={
                         'invoice_base': 'test_tag_invoice_base',
                         'invoice_tax': 'test_tag_invoice_tax',
                         'refund_base': 'test_tag_refund_base',
@@ -153,29 +256,27 @@ class TestAccountUpdateTaxTagsWizard(AccountTestInvoicingCommon):
 
     def test_update_move_type_entry(self):
         """ Test that move of type 'entry' are correctly updated.
-        If a move has negative balance and use a sale tax, it should act as an invoice.
-        If a move has positive balance and use a sale tax, it should act as a refund.
-        If a move has negative balance and use a purchase tax, it should act as a refund.
-        If a move has positive balance and use a purchase tax, it should be treated as an invoice.
+        If a line has a negative balance and use a sale tax, it should act as an invoice.
+        If a line has a positive balance and use a sale tax, it should act as a refund.
+        If a line has a negative balance and use a purchase tax, it should act as a refund.
+        If a line has a positive balance and use a purchase tax, it should be treated as an invoice.
         """
         account = self.company_data['default_account_assets']  # Account is not relevant for the test but must be set.
         for tax_type in ['sale', 'purchase']:
             tax = self._create_tax(f'test_{tax_type}_tax', 10, type_tax_use=tax_type, tag_names=self.tag_names)
             for balance in [-1000, 1000]:
                 with self.subTest(f'Testing move type entry {tax_type}: {balance}'):
-                    # Create one entry and it's reverse.
-                    move_form = Form(self.env['account.move'].with_context(default_move_type='entry'))
-                    with move_form.line_ids.new() as line:
-                        line.account_id = account
-                        if balance < 0:
-                            line.credit = abs(balance)
-                        else:
-                            line.debit = abs(balance)
-                        line.tax_ids.add(tax)
-
-                    # Create a third account.move.line for balance. It will be automatically filled given above lines.
-                    move_form.line_ids.new().save()
-                    move = move_form.save()
+                    move = self.env['account.move'].create({
+                        'move_type': 'entry',
+                        'line_ids': [
+                            Command.create({
+                                "name": "line name",
+                                "account_id": account.id,
+                                'tax_ids': [Command.set(tax.ids)],
+                                "balance": balance,
+                            }),
+                        ]
+                    })
 
                     self._change_tax_tag(tax, 'invoice_base_tag_changed', invoice=True, base=True)
                     self._change_tax_tag(tax, 'refund_base_tag_changed', invoice=False, base=True)
@@ -214,7 +315,7 @@ class TestAccountUpdateTaxTagsWizard(AccountTestInvoicingCommon):
 
     def test_update_no_tag_after(self):
         move = self._create_invoice(taxes=self.tax_1)
-        self.tax_1.invoice_repartition_line_ids.write({'tag_ids': [(5, 0, 0)]})  # Command.CLEAR both base and tax lines
+        self.tax_1.invoice_repartition_line_ids.write({'tag_ids': [Command.clear()]})  # Command.CLEAR both base and tax lines
         self.wizard.update_amls_tax_tags()
 
         invoice_line, tax_line, counterpart_line = self._get_amls_by_type(move)
@@ -257,6 +358,7 @@ class TestAccountUpdateTaxTagsWizard(AccountTestInvoicingCommon):
         self.assertFalse(counterpart_line.tax_tag_ids)
 
     def test_update_with_caba_taxes(self):
+        """  Ensure the CABA (cash basis) moves linked to the invoices are updated too. """
         self.env.company.tax_exigibility = True
         tax = self._create_tax('caba_tax', 15, tag_names=self.tag_names, tax_exigibility='on_payment')
         invoice = self._create_invoice(taxes=tax, state='posted')
@@ -283,7 +385,7 @@ class TestAccountUpdateTaxTagsWizard(AccountTestInvoicingCommon):
         self.assertEqual(caba_tax_line.tax_tag_ids.name, 'invoice_tax_tag_changed', 'CABA tax lines tags should have changed.')
         self.assertFalse(caba_counterpart_lines.tax_tag_ids, 'CABA counterpart lines should not have changed.')
 
-    def test_update_with_caba_taxes_with_negative_line(self):
+    def test_update_caba_taxes_with_negative_line(self):
         self.company.tax_exigibility = True
         tax = self._create_tax('caba_tax', 15, tag_names=self.tag_names, tax_exigibility='on_payment')
         invoice = self.init_invoice('out_invoice', invoice_date='2023-02-23', amounts=[-50, 100], taxes=tax, post=True)
@@ -292,7 +394,6 @@ class TestAccountUpdateTaxTagsWizard(AccountTestInvoicingCommon):
             'payment_date': invoice.date,
         })._create_payments()
         partial_rec = invoice.line_ids.matched_credit_ids
-        caba_move = self.env['account.move'].search([('tax_cash_basis_rec_id', '=', partial_rec.id)])
 
         self._change_tax_tag(tax, 'invoice_base_tag_changed', invoice=True, base=True)
         self._change_tax_tag(tax, 'invoice_tax_tag_changed', invoice=True, base=False)
@@ -303,6 +404,7 @@ class TestAccountUpdateTaxTagsWizard(AccountTestInvoicingCommon):
         self.assertEqual(tax_lines.tax_tag_ids.name, 'invoice_tax_tag_changed', 'Tax lines tags should have changed.')
         self.assertFalse(counterpart_lines.tax_tag_ids, 'Counterpart lines should not have changed.')
 
+        caba_move = self.env['account.move'].search([('tax_cash_basis_rec_id', '=', partial_rec.id)])
         caba_base_line = caba_move.line_ids.filtered('tax_ids')
         caba_tax_line = caba_move.line_ids.filtered('tax_line_id')
         caba_counterpart_lines = caba_move.line_ids - caba_base_line - caba_tax_line

@@ -12,10 +12,15 @@ class TestReInvoice(TestSaleCommon):
     def setUpClass(cls, chart_template_ref=None):
         super().setUpClass(chart_template_ref=chart_template_ref)
 
+        cls.analytic_plan = cls.env['account.analytic.plan'].create({
+            'name': 'Plan',
+        })
+
         cls.analytic_account = cls.env['account.analytic.account'].create({
             'name': 'Test AA',
             'code': 'TESTSALE_REINVOICE',
             'company_id': cls.partner_a.company_id.id,
+            'plan_id': cls.analytic_plan.id,
             'partner_id': cls.partner_a.id
         })
 
@@ -35,44 +40,36 @@ class TestReInvoice(TestSaleCommon):
         )
 
     def test_at_cost(self):
+        # Required for `analytic_account_id` to be visible in the view
+        self.env.user.groups_id += self.env.ref('analytic.group_analytic_accounting')
         """ Test vendor bill at cost for product based on ordered and delivered quantities. """
         # create SO line and confirm SO (with only one line)
         sale_order_line1 = self.env['sale.order.line'].create({
-            'name': self.company_data['product_order_cost'].name,
             'product_id': self.company_data['product_order_cost'].id,
             'product_uom_qty': 2,
             'qty_delivered': 1,
-            'product_uom': self.company_data['product_order_cost'].uom_id.id,
-            'price_unit': self.company_data['product_order_cost'].list_price,
             'order_id': self.sale_order.id,
         })
-        sale_order_line1.product_id_change()
         sale_order_line2 = self.env['sale.order.line'].create({
-            'name': self.company_data['product_delivery_cost'].name,
             'product_id': self.company_data['product_delivery_cost'].id,
             'product_uom_qty': 4,
             'qty_delivered': 1,
-            'product_uom': self.company_data['product_delivery_cost'].uom_id.id,
-            'price_unit': self.company_data['product_delivery_cost'].list_price,
             'order_id': self.sale_order.id,
         })
-        sale_order_line2.product_id_change()
 
-        self.sale_order.onchange_partner_id()
-        self.sale_order._compute_tax_id()
         self.sale_order.action_confirm()
 
         # create invoice lines and validate it
         move_form = Form(self.AccountMove)
         move_form.partner_id = self.partner_a
-        with move_form.line_ids.new() as line_form:
+        with move_form.invoice_line_ids.new() as line_form:
             line_form.product_id = self.company_data['product_order_cost']
             line_form.quantity = 3.0
-            line_form.analytic_account_id = self.analytic_account
-        with move_form.line_ids.new() as line_form:
+            line_form.analytic_distribution = {self.analytic_account.id: 100}
+        with move_form.invoice_line_ids.new() as line_form:
             line_form.product_id = self.company_data['product_delivery_cost']
             line_form.quantity = 3.0
-            line_form.analytic_account_id = self.analytic_account
+            line_form.analytic_distribution = {self.analytic_account.id: 100}
         invoice_a = move_form.save()
         invoice_a.action_post()
 
@@ -93,14 +90,14 @@ class TestReInvoice(TestSaleCommon):
         # create second invoice lines and validate it
         move_form = Form(self.AccountMove)
         move_form.partner_id = self.partner_a
-        with move_form.line_ids.new() as line_form:
+        with move_form.invoice_line_ids.new() as line_form:
             line_form.product_id = self.company_data['product_order_cost']
             line_form.quantity = 2.0
-            line_form.analytic_account_id = self.analytic_account
-        with move_form.line_ids.new() as line_form:
+            line_form.analytic_distribution = {self.analytic_account.id: 100}
+        with move_form.invoice_line_ids.new() as line_form:
             line_form.product_id = self.company_data['product_delivery_cost']
             line_form.quantity = 2.0
-            line_form.analytic_account_id = self.analytic_account
+            line_form.analytic_distribution = {self.analytic_account.id: 100}
         invoice_b = move_form.save()
         invoice_b.action_post()
 
@@ -149,48 +146,41 @@ class TestReInvoice(TestSaleCommon):
                 .create({})\
                 ._create_payments()
 
-        invoices.flush()
+        invoices.flush_model()
         self.assertRecordValues(invoices.team_id, [{'invoiced': 500.0}])
 
     def test_sales_price(self):
         """ Test invoicing vendor bill at sales price for products based on delivered and ordered quantities. Check no existing SO line is incremented, but when invoicing a
             second time, increment only the delivered so line.
         """
+        # Required for `analytic_account_id` to be visible in the view
+        self.env.user.groups_id += self.env.ref('analytic.group_analytic_accounting')
         # create SO line and confirm SO (with only one line)
         sale_order_line1 = self.env['sale.order.line'].create({
-            'name': self.company_data['product_delivery_sales_price'].name,
             'product_id': self.company_data['product_delivery_sales_price'].id,
             'product_uom_qty': 2,
             'qty_delivered': 1,
-            'product_uom': self.company_data['product_delivery_sales_price'].uom_id.id,
-            'price_unit': self.company_data['product_delivery_sales_price'].list_price,
             'order_id': self.sale_order.id,
         })
-        sale_order_line1.product_id_change()
         sale_order_line2 = self.env['sale.order.line'].create({
-            'name': self.company_data['product_order_sales_price'].name,
             'product_id': self.company_data['product_order_sales_price'].id,
             'product_uom_qty': 3,
             'qty_delivered': 1,
-            'product_uom': self.company_data['product_order_sales_price'].uom_id.id,
-            'price_unit': self.company_data['product_order_sales_price'].list_price,
             'order_id': self.sale_order.id,
         })
-        sale_order_line2.product_id_change()
-        self.sale_order._compute_tax_id()
         self.sale_order.action_confirm()
 
         # create invoice lines and validate it
         move_form = Form(self.AccountMove)
         move_form.partner_id = self.partner_a
-        with move_form.line_ids.new() as line_form:
+        with move_form.invoice_line_ids.new() as line_form:
             line_form.product_id = self.company_data['product_delivery_sales_price']
             line_form.quantity = 3.0
-            line_form.analytic_account_id = self.analytic_account
-        with move_form.line_ids.new() as line_form:
+            line_form.analytic_distribution = {self.analytic_account.id: 100}
+        with move_form.invoice_line_ids.new() as line_form:
             line_form.product_id = self.company_data['product_order_sales_price']
             line_form.quantity = 3.0
-            line_form.analytic_account_id = self.analytic_account
+            line_form.analytic_distribution = {self.analytic_account.id: 100}
         invoice_a = move_form.save()
         invoice_a.action_post()
 
@@ -211,14 +201,14 @@ class TestReInvoice(TestSaleCommon):
         # create second invoice lines and validate it
         move_form = Form(self.AccountMove)
         move_form.partner_id = self.partner_a
-        with move_form.line_ids.new() as line_form:
+        with move_form.invoice_line_ids.new() as line_form:
             line_form.product_id = self.company_data['product_delivery_sales_price']
             line_form.quantity = 2.0
-            line_form.analytic_account_id = self.analytic_account
-        with move_form.line_ids.new() as line_form:
+            line_form.analytic_distribution = {self.analytic_account.id: 100}
+        with move_form.invoice_line_ids.new() as line_form:
             line_form.product_id = self.company_data['product_order_sales_price']
             line_form.quantity = 2.0
-            line_form.analytic_account_id = self.analytic_account
+            line_form.analytic_distribution = {self.analytic_account.id: 100}
         invoice_b = move_form.save()
         invoice_b.action_post()
 
@@ -235,26 +225,24 @@ class TestReInvoice(TestSaleCommon):
 
     def test_no_expense(self):
         """ Test invoicing vendor bill with no policy. Check nothing happen. """
+        # Required for `analytic_account_id` to be visible in the view
+        self.env.user.groups_id += self.env.ref('analytic.group_analytic_accounting')
         # confirm SO
         sale_order_line = self.env['sale.order.line'].create({
-            'name': self.company_data['product_delivery_no'].name,
             'product_id': self.company_data['product_delivery_no'].id,
             'product_uom_qty': 2,
             'qty_delivered': 1,
-            'product_uom': self.company_data['product_delivery_no'].uom_id.id,
-            'price_unit': self.company_data['product_delivery_no'].list_price,
             'order_id': self.sale_order.id,
         })
-        self.sale_order._compute_tax_id()
         self.sale_order.action_confirm()
 
         # create invoice lines and validate it
         move_form = Form(self.AccountMove)
         move_form.partner_id = self.partner_a
-        with move_form.line_ids.new() as line_form:
+        with move_form.invoice_line_ids.new() as line_form:
             line_form.product_id = self.company_data['product_delivery_no']
             line_form.quantity = 3.0
-            line_form.analytic_account_id = self.analytic_account
+            line_form.analytic_distribution = {self.analytic_account.id: 100}
         invoice_a = move_form.save()
         invoice_a.action_post()
 
@@ -264,28 +252,16 @@ class TestReInvoice(TestSaleCommon):
     def test_not_reinvoicing_invoiced_so_lines(self):
         """ Test that invoiced SO lines are not re-invoiced. """
         so_line1 = self.env['sale.order.line'].create({
-            'name': self.company_data['product_delivery_cost'].name,
             'product_id': self.company_data['product_delivery_cost'].id,
-            'product_uom_qty': 1,
-            'product_uom': self.company_data['product_delivery_cost'].uom_id.id,
-            'price_unit': self.company_data['product_delivery_cost'].list_price,
             'discount': 100.00,
             'order_id': self.sale_order.id,
         })
-        so_line1.product_id_change()
         so_line2 = self.env['sale.order.line'].create({
-            'name': self.company_data['product_delivery_sales_price'].name,
             'product_id': self.company_data['product_delivery_sales_price'].id,
-            'product_uom_qty': 1,
-            'product_uom': self.company_data['product_delivery_sales_price'].uom_id.id,
-            'price_unit': self.company_data['product_delivery_sales_price'].list_price,
             'discount': 100.00,
             'order_id': self.sale_order.id,
         })
-        so_line2.product_id_change()
 
-        self.sale_order.onchange_partner_id()
-        self.sale_order._compute_tax_id()
         self.sale_order.action_confirm()
 
         for line in self.sale_order.order_line:
@@ -301,3 +277,35 @@ class TestReInvoice(TestSaleCommon):
         self.assertFalse(so_line4, "No re-invoicing should have created a new sale line with product #2")
         self.assertEqual(so_line1.qty_delivered, 1, "No re-invoicing should have impacted exising SO line 1")
         self.assertEqual(so_line2.qty_delivered, 1, "No re-invoicing should have impacted exising SO line 2")
+
+    def test_not_recomputing_unit_price_for_expensed_so_lines(self):
+        # Required for `analytic_account_id` to be visible in the view
+        self.env.user.groups_id += self.env.ref('analytic.group_analytic_accounting')
+
+        # create SO line and confirm SO (with only one line)
+        sol_1 = self.env['sale.order.line'].create({
+            'product_id': self.company_data['product_order_cost'].id,
+            'product_uom_qty': 2,
+            'qty_delivered': 1,
+            'order_id': self.sale_order.id,
+        })
+        self.sale_order.action_confirm()
+
+        # create invoice lines and validate it
+        move_form = Form(self.AccountMove)
+        move_form.partner_id = self.partner_a
+        with move_form.invoice_line_ids.new() as line_form:
+            line_form.product_id = self.company_data['product_order_cost']
+            line_form.quantity = 3.0
+            line_form.analytic_distribution = {self.analytic_account.id: 100}
+        invoice = move_form.save()
+        invoice.action_post()
+
+        # update the quantity of the expensed line
+        sol_2 = self.sale_order.order_line.filtered(lambda sol: sol != sol_1 and sol.product_id == self.company_data['product_order_cost'])
+
+        sol_2_subtotal_before = sol_2.price_unit
+        sol_2.product_uom_qty = 3.0
+        sol_2_subtotal_after = sol_2.price_unit
+
+        self.assertEqual(sol_2_subtotal_before, sol_2_subtotal_after)

@@ -1,10 +1,10 @@
-odoo.define('portal.rating.composer', function (require) {
-'use strict';
+/** @odoo-module **/
 
-const publicWidget = require('web.public.widget');
-const session = require('web.session');
-const portalComposer = require('portal.composer');
-const {_t, qweb} = require('web.core');
+import publicWidget from "@web/legacy/js/public/public_widget";
+import { session } from "@web/session";
+import portalComposer from "@portal/js/portal_composer";
+import { _t } from "@web/core/l10n/translation";
+import { renderToElement } from "@web/core/utils/render";
 
 const PortalComposer = portalComposer.PortalComposer;
 
@@ -19,12 +19,6 @@ const RatingPopupComposer = publicWidget.Widget.extend({
     custom_events: {
         reload_rating_popup_composer: '_onReloadRatingPopupComposer',
     },
-    xmlDependencies: [
-        '/portal/static/src/xml/portal_chatter.xml',
-        '/portal_rating/static/src/xml/portal_chatter.xml',
-        '/portal_rating/static/src/xml/portal_tools.xml',
-        '/portal_rating/static/src/xml/portal_rating_composer.xml',
-    ],
 
     willStart: function (parent) {
         const def = this._super.apply(this, arguments);
@@ -33,7 +27,7 @@ const RatingPopupComposer = publicWidget.Widget.extend({
         this.rating_avg = Math.round(options['rating_avg'] * 100) / 100 || 0.0;
         this.rating_count = options['rating_count'] || 0.0;
 
-        this.options = _.defaults({}, options, {
+        this.options = Object.assign({
             'token': false,
             'res_model': false,
             'res_id': false,
@@ -41,7 +35,7 @@ const RatingPopupComposer = publicWidget.Widget.extend({
             'display_rating': true,
             'csrf_token': odoo.csrf_token,
             'user_id': session.user_id,
-        });
+        }, options, {});
 
         return def;
     },
@@ -66,7 +60,7 @@ const RatingPopupComposer = publicWidget.Widget.extend({
         if (this.options.hide_rating_avg) {
             this.$('.o_rating_popup_composer_stars').empty();
         } else {
-            const ratingAverage = qweb.render(
+            const ratingAverage = renderToElement(
                 'portal_rating.rating_stars_static', {
                 inline_mode: true,
                 widget: this,
@@ -76,12 +70,12 @@ const RatingPopupComposer = publicWidget.Widget.extend({
         }
 
         // Append the modal
-        const modal = qweb.render(
+        const modal = renderToElement(
             'portal_rating.PopupComposer', {
             inline_mode: true,
             widget: this,
             val: this.rating_avg,
-        });
+        }) || '';
         this.$('.o_rating_popup_composer_modal').html(modal);
 
         if (this._composer) {
@@ -93,8 +87,9 @@ const RatingPopupComposer = publicWidget.Widget.extend({
         return this._composer.appendTo(this.$('.o_rating_popup_composer_modal .o_portal_chatter_composer')).then(() => {
             // Change the text of the button
             this.$('.o_rating_popup_composer_text').text(
-                this.options.default_message_id ?
-                _t('Modify your review') : _t('Add a review')
+                this.options.is_fullscreen ?
+                _t('Review') : this.options.default_message_id ?
+                _t('Edit Review') : _t('Add Review')
             );
         });
     },
@@ -120,7 +115,7 @@ const RatingPopupComposer = publicWidget.Widget.extend({
         delete data.rating_count;
         delete data.rating_value;
 
-        this.options = _.extend(this.options, data);
+        this.options = Object.assign(this.options, data);
 
         this._reloadRatingPopupComposer();
     }
@@ -128,6 +123,4 @@ const RatingPopupComposer = publicWidget.Widget.extend({
 
 publicWidget.registry.RatingPopupComposer = RatingPopupComposer;
 
-return RatingPopupComposer;
-
-});
+export default RatingPopupComposer;

@@ -3,7 +3,7 @@
 import { DropdownItem } from "@web/core/dropdown/dropdown_item";
 import { useBus, useService } from "@web/core/utils/hooks";
 
-const { Component } = owl;
+import { Component, EventBus } from "@odoo/owl";
 
 export class ProfilingItem extends Component {
     setup() {
@@ -14,7 +14,7 @@ export class ProfilingItem extends Component {
     changeParam(param, ev) {
         this.profiling.setParam(param, ev.target.value);
     }
-    toggleParam(param, ev) {
+    toggleParam(param) {
         const value = this.profiling.state.params.execution_context_qweb;
         this.profiling.setParam(param, !value);
     }
@@ -30,3 +30,6 @@ export class ProfilingItem extends Component {
 }
 ProfilingItem.components = { DropdownItem };
 ProfilingItem.template = "web.DebugMenu.ProfilingItem";
+ProfilingItem.props = {
+    bus: { type: EventBus },
+};

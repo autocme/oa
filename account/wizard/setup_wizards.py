@@ -35,8 +35,8 @@ class FinancialYearOpeningWizard(models.TransientModel):
                 date(2020, int(wiz.fiscalyear_last_month), wiz.fiscalyear_last_day)
             except ValueError:
                 raise ValidationError(
-                    _('Incorrect fiscal year date: day is out of range for month. Month: %s; Day: %s') %
-                    (wiz.fiscalyear_last_month, wiz.fiscalyear_last_day)
+                    _('Incorrect fiscal year date: day is out of range for month. Month: %s; Day: %s',
+                    wiz.fiscalyear_last_month, wiz.fiscalyear_last_day)
                 )
 
     def write(self, vals):
@@ -60,7 +60,7 @@ class FinancialYearOpeningWizard(models.TransientModel):
         return super().write(vals)
 
     def action_save_onboarding_fiscal_year(self):
-        self.env.company.sudo().set_onboarding_step_done('account_setup_fy_data_state')
+        return self.env['onboarding.onboarding.step'].action_validate_step('account.onboarding_onboarding_step_fiscal_year')
 
 
 class SetupBarBankConfigWizard(models.TransientModel):
@@ -73,35 +73,41 @@ class SetupBarBankConfigWizard(models.TransientModel):
     new_journal_name = fields.Char(default=lambda self: self.linked_journal_id.name, inverse='set_linked_journal_id', required=True, help='Will be used to name the Journal related to this bank account')
     linked_journal_id = fields.Many2one(string="Journal",
         comodel_name='account.journal', inverse='set_linked_journal_id',
-        compute="_compute_linked_journal_id", check_company=True,
-        domain="[('type','=','bank'), ('bank_account_id', '=', False), ('company_id', '=', company_id)]")
+        compute="_compute_linked_journal_id",
+        check_company=True,
+        domain=[('type', '=', 'bank'), ('bank_account_id', '=', False)])
     bank_bic = fields.Char(related='bank_id.bic', readonly=False, string="Bic")
     num_journals_without_account = fields.Integer(default=lambda self: self._number_unlinked_journal())
+    company_id = fields.Many2one('res.company', required=True, compute='_compute_company_id')
 
     def _number_unlinked_journal(self):
-        return self.env['account.journal'].search([('type', '=', 'bank'), ('bank_account_id', '=', False),
-                                                   ('id', '!=', self.default_linked_journal_id())], count=True)
+        return self.env['account.journal'].search_count([
+            ('type', '=', 'bank'),
+            ('bank_account_id', '=', False),
+            ('id', '!=', self.default_linked_journal_id()),
+        ])
 
     @api.onchange('acc_number')
     def _onchange_acc_number(self):
         for record in self:
             record.new_journal_name = record.acc_number
 
-    @api.model
-    def create(self, vals):
+    @api.model_create_multi
+    def create(self, vals_list):
         """ This wizard is only used to setup an account for the current active
         company, so we always inject the corresponding partner when creating
         the model.
         """
-        vals['partner_id'] = self.env.company.partner_id.id
-        vals['new_journal_name'] = vals['acc_number']
+        for vals in vals_list:
+            vals['partner_id'] = self.env.company.partner_id.id
+            vals['new_journal_name'] = vals['acc_number']
 
-        # If no bank has been selected, but we have a bic, we are using it to find or create the bank
-        if not vals['bank_id'] and vals['bank_bic']:
-            vals['bank_id'] = self.env['res.bank'].search([('bic', '=', vals['bank_bic'])], limit=1).id \
-                              or self.env['res.bank'].create({'name': vals['bank_bic'], 'bic': vals['bank_bic']}).id
+            # If no bank has been selected, but we have a bic, we are using it to find or create the bank
+            if not vals['bank_id'] and vals['bank_bic']:
+                vals['bank_id'] = self.env['res.bank'].search([('bic', '=', vals['bank_bic'])], limit=1).id \
+                                  or self.env['res.bank'].create({'name': vals['bank_bic'], 'bic': vals['bank_bic']}).id
 
-        return super(SetupBarBankConfigWizard, self).create(vals)
+        return super().create(vals_list)
 
     @api.onchange('linked_journal_id')
     def _onchange_new_journal_related_data(self):
@@ -115,8 +121,11 @@ class SetupBarBankConfigWizard(models.TransientModel):
             record.linked_journal_id = record.journal_id and record.journal_id[0] or record.default_linked_journal_id()
 
     def default_linked_journal_id(self):
-        default = self.env['account.journal'].search([('type', '=', 'bank'), ('bank_account_id', '=', False)], limit=1)
-        return default[:1].id
+        for journal_id in self.env['account.journal'].search([('type', '=', 'bank'), ('bank_account_id', '=', False)]):
+            empty_journal_count = self.env['account.move'].search_count([('journal_id', '=', journal_id.id)])
+            if empty_journal_count == 0:
+                return journal_id.id
+        return False
 
     def set_linked_journal_id(self):
         """ Called when saving the wizard.
@@ -126,19 +135,28 @@ class SetupBarBankConfigWizard(models.TransientModel):
             if not selected_journal:
                 new_journal_code = self.env['account.journal'].get_next_bank_cash_default_code('bank', self.env.company)
                 company = self.env.company
-                selected_journal = self.env['account.journal'].create({
+                record.linked_journal_id = self.env['account.journal'].create({
                     'name': record.new_journal_name,
                     'code': new_journal_code,
                     'type': 'bank',
                     'company_id': company.id,
                     'bank_account_id': record.res_partner_bank_id.id,
+                    'bank_statements_source': 'undefined',
                 })
             else:
                 selected_journal.bank_account_id = record.res_partner_bank_id.id
                 selected_journal.name = record.new_journal_name
 
     def validate(self):
-        """ Called by the validation button of this wizard. Serves as an
+        """Called by the validation button of this wizard. Serves as an
         extension hook in account_bank_statement_import.
         """
-        self.linked_journal_id.mark_bank_setup_as_done_action()
+        self.env["onboarding.onboarding.step"].sudo().action_validate_step(
+            "account.onboarding_onboarding_step_bank_account"
+        )
+        return {'type': 'ir.actions.client', 'tag': 'soft_reload'}
+
+    def _compute_company_id(self):
+        for wizard in self:
+            if not wizard.company_id:
+                wizard.company_id = self.env.company

@@ -1,9 +1,12 @@
 /** @odoo-module */
 
-import { useEffect, useService } from "@web/core/utils/hooks";
+import { useService } from "@web/core/utils/hooks";
 import { browser } from "../browser/browser";
 import { localization } from "@web/core/l10n/localization";
 import { scrollTo } from "../utils/scrolling";
+
+import { useChildSubEnv, useComponent, useEffect, useRef } from "@odoo/owl";
+import { ACCORDION } from "@web/core/dropdown/accordion_item";
 
 /**
  * @typedef {{
@@ -18,11 +21,17 @@ import { scrollTo } from "../utils/scrolling";
  * }} MenuElement
  */
 
-const { hooks } = owl;
-const { useComponent, useRef } = hooks;
-
 const ACTIVE_MENU_ELEMENT_CLASS = "focus";
-const MENU_ELEMENTS_SELECTORS = [":scope > .dropdown-item", ":scope > .dropdown"];
+const MENU_ELEMENTS_SELECTORS = [
+    ":scope > .dropdown-item",
+    ":scope > .dropdown",
+    ":scope > .o_accordion > .dropdown-item",
+    ":scope > .o_accordion > .o_accordion_values > .dropdown-item",
+    ":scope > .o_dropdown_container > .dropdown-item",
+    ":scope > .o_dropdown_container > .dropdown",
+    ":scope > .o_dropdown_container > .o_accordion > .dropdown-item",
+    ":scope > .o_dropdown_container > .o_accordion > .o_accordion_values > .dropdown-item",
+];
 const NEXT_ACTIVE_INDEX_FNS = {
     FIRST: () => 0,
     LAST: (list) => list.length - 1,
@@ -36,14 +45,14 @@ export function useDropdownNavigation() {
 
     // As this navigation hook relies on clicking ".dropdown-toggle" elements,
     // it is incompatible with a toggler="parent" strategy for subdropdowns.
-    if (comp.hasParentDropdown && comp.props.toggler === "parent") {
+    if (comp.parentDropdown && comp.props.toggler === "parent") {
         throw new Error("A nested Dropdown must use its standard toggler");
     }
 
     // Needed to avoid unwanted mouseclick behavior on a subdropdown toggler.
     const originalOnTogglerClick = comp.onTogglerClick.bind(comp);
     comp.onTogglerClick = (ev) => {
-        if (comp.hasParentDropdown && !ev.__fromDropdownNavigation) {
+        if (comp.parentDropdown && !ev.__fromDropdownNavigation) {
             return;
         }
         originalOnTogglerClick();
@@ -52,7 +61,7 @@ export function useDropdownNavigation() {
     // Needed to avoid unwanted mouseenter behavior on a subdropdown toggler.
     const originalOnTogglerMouseEnter = comp.onTogglerMouseEnter.bind(comp);
     comp.onTogglerMouseEnter = () => {
-        if (comp.hasParentDropdown) {
+        if (comp.parentDropdown) {
             return;
         }
         originalOnTogglerMouseEnter();
@@ -66,7 +75,9 @@ export function useDropdownNavigation() {
     const menuRef = useRef("menuRef");
     /** @type {MenuElement[]} */
     let menuElements = [];
-    useEffect(() => {
+
+    let cleanupMenuElements;
+    const refreshMenuElements = () => {
         if (!comp.state.open) {
             return;
         }
@@ -153,7 +164,7 @@ export function useDropdownNavigation() {
             }
             addedListeners.push([navTarget, elementListeners]);
         }
-        return () => {
+        cleanupMenuElements = () => {
             menuElements = [];
             mouseSelectionActive = true;
 
@@ -164,6 +175,21 @@ export function useDropdownNavigation() {
                 }
             }
         };
+        return () => cleanupMenuElements();
+    };
+
+    useEffect(refreshMenuElements);
+
+    // Set up nested accordion
+    // This is needed in order to keep the parent dropdown
+    // aware of the accordion menu elements when its state has changed.
+    useChildSubEnv({
+        [ACCORDION]: {
+            accordionStateChanged: () => {
+                cleanupMenuElements?.();
+                refreshMenuElements();
+            },
+        },
     });
 
     // Set up active menu element helpers --------------------------------------
@@ -193,7 +219,7 @@ export function useDropdownNavigation() {
     useEffect(
         (open) => {
             // If we just opened and we are a subdropdown, make active our first menu element.
-            if (open && comp.hasParentDropdown) {
+            if (open && comp.parentDropdown) {
                 setActiveMenuElement("FIRST");
             }
         },
@@ -205,13 +231,13 @@ export function useDropdownNavigation() {
     const closeAndRefocus = () => {
         const toFocus =
             comp.props.toggler === "parent"
-                ? comp.el.parentElement
-                : comp.el.querySelector(":scope > .dropdown-toggle");
+                ? comp.rootRef.el.parentElement
+                : comp.rootRef.el.querySelector(":scope > .dropdown-toggle");
         comp.close().then(() => {
             toFocus.focus();
         });
     };
-    const closeSubDropdown = comp.hasParentDropdown ? closeAndRefocus : () => {};
+    const closeSubDropdown = comp.parentDropdown ? closeAndRefocus : () => {};
     const openSubDropdown = () => {
         const menuElement = getActiveMenuElement();
         // Active menu element is a sub dropdown

@@ -1,27 +1,15 @@
 /** @odoo-module **/
 
-import { browser } from "@web/core/browser/browser";
+import { Dropdown } from "@web/core/dropdown/dropdown";
 import { DropdownItem } from "@web/core/dropdown/dropdown_item";
+import { CheckBox } from "@web/core/checkbox/checkbox";
+import { browser } from "@web/core/browser/browser";
 import { registry } from "@web/core/registry";
-import { useEffect, useService } from "@web/core/utils/hooks";
+import { useService } from "@web/core/utils/hooks";
 
-const { Component } = owl;
+import { Component } from "@odoo/owl";
 
 const userMenuRegistry = registry.category("user_menuitems");
-
-class UserMenuItem extends DropdownItem {
-    setup() {
-        super.setup();
-        useEffect(
-            () => {
-                if (this.props.payload.id) {
-                    this.el.dataset.menu = this.props.payload.id;
-                }
-            },
-            () => []
-        );
-    }
-}
 
 export class UserMenu extends Component {
     setup() {
@@ -42,13 +30,10 @@ export class UserMenu extends Component {
             });
         return sortedItems;
     }
-
-    onDropdownItemSelected(ev) {
-        ev.detail.payload.callback();
-    }
 }
 UserMenu.template = "web.UserMenu";
-UserMenu.components = { UserMenuItem };
+UserMenu.components = { Dropdown, DropdownItem, CheckBox };
+UserMenu.props = {};
 
 export const systrayItem = {
     Component: UserMenu,

@@ -24,6 +24,7 @@ class TestAccountMoveDateAlgorithm(AccountTestInvoicingCommon):
                 Command.create({
                     'product_id': self.product_a.id,
                     'price_unit': 1200.0,
+                    'tax_ids': [],
                     **line_kwargs,
                 })
                 for line_kwargs in kwargs.get('invoice_line_ids', [{}])
@@ -49,9 +50,8 @@ class TestAccountMoveDateAlgorithm(AccountTestInvoicingCommon):
             .create({
                 'journal_id': invoice.journal_id.id,
                 'reason': "no reason",
-                'refund_method': 'cancel',
             })
-        reversal = move_reversal.reverse_moves()
+        reversal = move_reversal.refund_moves()
         return self.env['account.move'].browse(reversal['res_id'])
 
     # -------------------------------------------------------------------------
@@ -151,13 +151,12 @@ class TestAccountMoveDateAlgorithm(AccountTestInvoicingCommon):
         (invoice + refund).action_post()
         self._set_lock_date('2017-01-31')
 
-        res = (invoice + refund).line_ids\
-            .filtered(lambda x: x.account_id.internal_type == 'receivable')\
-            .reconcile()
-        exchange_move = res['full_reconcile'].exchange_move_id
+        amls = (invoice + refund).line_ids.filtered(lambda x: x.account_id.account_type == 'asset_receivable')
+        amls.reconcile()
+        exchange_move = amls.matched_debit_ids.exchange_move_id
 
         self.assertRecordValues(exchange_move, [{
-            'date': fields.Date.from_string('2017-02-01'),
+            'date': fields.Date.from_string('2017-02-12'),
             'amount_total_signed': 200.0,
         }])
 
@@ -167,10 +166,9 @@ class TestAccountMoveDateAlgorithm(AccountTestInvoicingCommon):
         refund = self._create_invoice('out_refund', '2017-01-01', currency_id=self.currency_data['currency'].id)
         (invoice + refund).action_post()
 
-        res = (invoice + refund).line_ids\
-            .filtered(lambda x: x.account_id.internal_type == 'receivable')\
-            .reconcile()
-        exchange_move = res['full_reconcile'].exchange_move_id
+        amls = (invoice + refund).line_ids.filtered(lambda x: x.account_id.account_type == 'asset_receivable')
+        amls.reconcile()
+        exchange_move = amls.matched_debit_ids.exchange_move_id
 
         self._set_lock_date('2017-01-31')
         (invoice + refund).line_ids.remove_move_reconcile()
@@ -187,7 +185,7 @@ class TestAccountMoveDateAlgorithm(AccountTestInvoicingCommon):
         tax_waiting_account = self.env['account.account'].create({
             'name': 'TAX_WAIT',
             'code': 'TWAIT',
-            'user_type_id': self.env.ref('account.data_account_type_current_liabilities').id,
+            'account_type': 'liability_current',
             'reconcile': True,
         })
         tax = self.env['account.tax'].create({
@@ -210,7 +208,7 @@ class TestAccountMoveDateAlgorithm(AccountTestInvoicingCommon):
 
         with freezegun.freeze_time('2017-01-12'):
             (invoice + payment.move_id).line_ids\
-                .filtered(lambda x: x.account_id.internal_type == 'receivable')\
+                .filtered(lambda x: x.account_id.account_type == 'asset_receivable')\
                 .reconcile()
 
         caba_move = self.env['account.move'].search([('tax_cash_basis_origin_move_id', '=', invoice.id)])
@@ -244,7 +242,7 @@ class TestAccountMoveDateAlgorithm(AccountTestInvoicingCommon):
         tax_waiting_account = self.env['account.account'].create({
             'name': 'TAX_WAIT',
             'code': 'TWAIT',
-            'user_type_id': self.env.ref('account.data_account_type_current_liabilities').id,
+            'account_type': 'liability_current',
             'reconcile': True,
         })
         tax = self.env['account.tax'].create({
@@ -274,7 +272,7 @@ class TestAccountMoveDateAlgorithm(AccountTestInvoicingCommon):
                 (invoice + payment.move_id).action_post()
 
                 (invoice + payment.move_id).line_ids\
-                    .filtered(lambda x: x.account_id.internal_type == 'receivable')\
+                    .filtered(lambda x: x.account_id.account_type == 'asset_receivable')\
                     .reconcile()
 
                 caba_move = self.env['account.move'].search([('tax_cash_basis_origin_move_id', '=', invoice.id)])

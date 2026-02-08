@@ -40,11 +40,12 @@ class StockBackorderConfirmation(models.TransientModel):
     def _check_less_quantities_than_expected(self, pickings):
         for pick_id in pickings:
             moves_to_log = {}
-            for move in pick_id.move_lines:
+            for move in pick_id.move_ids:
+                picked_qty = move._get_picked_quantity()
                 if float_compare(move.product_uom_qty,
-                                 move.quantity_done,
+                                 picked_qty,
                                  precision_rounding=move.product_uom.rounding) > 0:
-                    moves_to_log[move] = (move.quantity_done, move.product_uom_qty)
+                    moves_to_log[move] = (picked_qty, move.product_uom_qty)
             if moves_to_log:
                 pick_id._log_less_quantities_than_expected(moves_to_log)
 
@@ -75,4 +76,3 @@ class StockBackorderConfirmation(models.TransientModel):
                 .with_context(skip_backorder=True, picking_ids_not_to_backorder=self.pick_ids.ids)\
                 .button_validate()
         return True
-

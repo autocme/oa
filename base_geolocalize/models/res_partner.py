@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
 
-from odoo import api, fields, models
+from odoo import api, fields, models, _
 from odoo.tools import config
 
 
@@ -37,6 +37,7 @@ class ResPartner(models.Model):
                 and (self._context.get('import_file') \
                      or any(config[key] for key in ['test_enable', 'test_file', 'init', 'update'])):
             return False
+        partners_not_geo_localized = self.env['res.partner']
         for partner in self.with_context(lang='en_US'):
             result = self._geo_localize(partner.street,
                                         partner.zip,
@@ -50,4 +51,13 @@ class ResPartner(models.Model):
                     'partner_longitude': result[1],
                     'date_localization': fields.Date.context_today(partner)
                 })
+            else:
+                partners_not_geo_localized |= partner
+        if partners_not_geo_localized:
+            self.env['bus.bus']._sendone(self.env.user.partner_id, 'simple_notification', {
+                'type': 'danger',
+                'title': _("Warning"),
+                'message': _('No match found for %(partner_names)s address(es).',
+                             partner_names=', '.join(partners_not_geo_localized.mapped('display_name')))
+            })
         return True

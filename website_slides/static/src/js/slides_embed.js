@@ -1,4 +1,5 @@
 /* global PDFSlidesViewer */
+
 /**
  * This is a minimal version of the PDFViewer widget.
  * It is NOT use in the website_slides module, but it is called when embedding
@@ -6,6 +7,14 @@
  * (see website_slides.slide_embed_assets bundle, in website_slides_embed.xml)
  */
 $(function () {
+
+    function debounce(func, timeout = 300){
+        let timer;
+        return (...args) => {
+          clearTimeout(timer);
+          timer = setTimeout(() => { func.apply(this, args); }, timeout);
+        };
+    }
 
     if ($('#PDFViewer') && $('#PDFViewerCanvas')) { // check if presentation only
         var MIN_ZOOM=1, MAX_ZOOM=10, ZOOM_INCREMENT=.5;
@@ -19,7 +28,8 @@ $(function () {
             this.defaultpage = parseInt($viewer.find('#PDFSlideViewer').data('defaultpage'));
             this.canvas = $viewer.find('canvas')[0];
 
-            this.pdf_viewer = new PDFSlidesViewer(this.slide_url, this.canvas, true);
+            this.pdf_viewer = new PDFSlidesViewer(this.slide_url, this.canvas);
+            this.hasSuggestions = !!this.$(".oe_slides_suggestion_media").length;
             this.pdf_viewer.loadDocument().then(function () {
                 self.on_loaded_file();
             });
@@ -34,9 +44,6 @@ $(function () {
                 this.$('canvas').show();
                 this.$('#page_count').text(this.pdf_viewer.pdf_page_total);
                 this.$('#PDFViewerLoader').hide();
-                if (this.pdf_viewer.pdf_page_total > 1) {
-                    this.$('.o_slide_navigation_buttons').removeClass('hide');
-                }
                 // init first page to display
                 var initpage = this.defaultpage;
                 var pageNum = (initpage > 0 && initpage <= this.pdf_viewer.pdf_page_total) ? initpage : 1;
@@ -67,6 +74,13 @@ $(function () {
                 }
             },
             next: function () {
+                if (
+                    this.pdf_viewer.pdf_page_current >=
+                    this.pdf_viewer.pdf_page_total + this.hasSuggestions
+                ) {
+                    return;
+                }
+
                 var self = this;
                 this.pdf_viewer.nextPage().then(function (pageNum) {
                     if (pageNum) {
@@ -83,7 +97,10 @@ $(function () {
                 if (!slideSuggestOverlay.hasClass('d-none')) {
                     // Hide suggested slide overlay before changing page nb.
                     slideSuggestOverlay.addClass('d-none');
-                    this.$('#next, #last').removeClass('disabled');
+                    this.$("#next").removeClass("disabled");
+                    if (this.pdf_viewer.pdf_page_total <= 1) {
+                        this.$("#previous, #first").addClass("disabled");
+                    }
                     return;
                 }
                 var self = this;
@@ -121,11 +138,16 @@ $(function () {
                 }
             },
             navUpdate: function (pageNum) {
-                this.$('#first').toggleClass('disabled', pageNum < 3 );
-                this.$('#previous').toggleClass('disabled', pageNum < 2 );
-                this.$('#next, #last').removeClass('disabled');
-                this.$('#zoomout').toggleClass('disabled', this.pdf_viewer.pdf_zoom <= MIN_ZOOM);
-                this.$('#zoomin').toggleClass('disabled', this.pdf_viewer.pdf_zoom >= MAX_ZOOM);
+                const pagesCount = this.pdf_viewer.pdf_page_total + this.hasSuggestions;
+                this.$("#first").toggleClass("disabled", pagesCount < 2 || pageNum < 2);
+                this.$("#last").toggleClass(
+                    "disabled",
+                    pagesCount < 2 || pageNum >= this.pdf_viewer.pdf_page_total
+                );
+                this.$("#next").toggleClass("disabled", pageNum >= pagesCount);
+                this.$("#previous").toggleClass("disabled", pageNum <= 1);
+                this.$("#zoomout").toggleClass("disabled", this.pdf_viewer.pdf_zoom <= MIN_ZOOM);
+                this.$("#zoomin").toggleClass("disabled", this.pdf_viewer.pdf_zoom >= MAX_ZOOM);
             },
             // full screen mode
             fullscreen: function () {
@@ -138,8 +160,9 @@ $(function () {
             },
             // display suggestion displayed after last slide
             display_suggested_slides: function () {
-                this.$("#slide_suggest").removeClass('d-none');
-                this.$('#next, #last').addClass('disabled');
+                this.$("#slide_suggest").removeClass("d-none");
+                this.$("#next, #last").addClass("disabled");
+                this.$("#previous, #first").removeClass("disabled");
             },
         };
 
@@ -184,16 +207,16 @@ $(function () {
                 return false;
             }
         });
-        $(window).on('resize', _.debounce(function() {
+        $(window).on("resize", debounce(() => {
             embeddedViewer.on_resize();
         }, 500));
 
         // switching slide with keyboard
         $(document).keydown(function (ev) {
-            if (ev.keyCode === 37 || ev.keyCode === 38) {
+            if (ev.key === "ArrowLeft" || ev.key === "ArrowUp") {
                 embeddedViewer.previous();
             }
-            if (ev.keyCode === 39 || ev.keyCode === 40) {
+            if (ev.key === "ArrowRight" || ev.key === "ArrowDown") {
                 embeddedViewer.next();
             }
         });
@@ -234,23 +257,30 @@ $(function () {
             var widget = $('.oe_slide_js_share_email');
             var input = widget.find('input');
             var slideID = widget.find('button').data('slide-id');
-            if (input.val() && input[0].checkValidity()) {
-                widget.removeClass('o_has_error').find('.form-control, .custom-select').removeClass('is-invalid');
+            if (input.val()) {
+                widget.removeClass('o_has_error').find('.form-control, .form-select').removeClass('is-invalid');
                 $.ajax({
                     type: "POST",
                     dataType: 'json',
                     url: '/slides/slide/send_share_email',
                     contentType: "application/json; charset=utf-8",
-                    data: JSON.stringify({'jsonrpc': "2.0", 'method': "call", "params": {'slide_id': slideID, 'email': input.val()}}),
-                    success: function () {
-                        widget.html($('<div class="alert alert-info" role="alert"><strong>Thank you!</strong> Mail has been sent.</div>'));
-                    },
-                    error: function (data) {
-                        console.error("ERROR ", data);
+                    data: JSON.stringify({'jsonrpc': "2.0", 'method': "call", "params": {'slide_id': slideID, 'emails': input.val()}}),
+                    success: function (action) {
+                        if (action.result) {
+                            widget.find('.alert-info').removeClass('d-none');
+                            widget.find('.input-group').addClass('d-none');
+                        } else {
+                            widget.find('.alert-warning').removeClass('d-none');
+                            widget.find('.input-group').addClass('d-none');
+                            widget.addClass('o_has_error').find('.form-control, .form-select').addClass('is-invalid');
+                            input.focus();
+                        }
                     },
                 });
             } else {
-                widget.addClass('o_has_error').find('.form-control, .custom-select').addClass('is-invalid');
+                widget.find('.alert-warning').removeClass('d-none');
+                widget.find('.input-group').addClass('d-none');
+                widget.addClass('o_has_error').find('.form-control, .form-select').addClass('is-invalid');
                 input.focus();
             }
         });

@@ -1,8 +1,7 @@
-odoo.define('mass_mailing.s_rating_options', function (require) {
-'use strict';
+/** @odoo-module **/
 
-const weWidgets = require('wysiwyg.widgets');
-const options = require('web_editor.snippets.options');
+import { MediaDialog } from "@web_editor/components/media_dialog/media_dialog";
+import options from "@web_editor/js/editor/snippets.options";
 
 options.registry.Rating = options.Class.extend({
     /**
@@ -37,16 +36,15 @@ options.registry.Rating = options.Class.extend({
      * @see this.selectClass for parameters
      */
     customIcon: async function (previewMode, widgetValue, params) {
-        return new Promise(resolve => {
-            const dialog = new weWidgets.MediaDialog(
-                this,
-                {noImages: true, noDocuments: true, noVideos: true, mediaWidth: 1920},
-                $('<i/>')
-            );
-            this._saving = false;
-            dialog.on('save', this, function (attachments) {
-                this._saving = true;
-                const customClass = 'fa ' + attachments.className;
+        const media = document.createElement('i');
+        media.className = params.customActiveIcon === 'true' ? this.faClassActiveCustomIcons : this.faClassInactiveCustomIcons;
+        this.call("dialog", "add", MediaDialog, {
+            noImages: true,
+            noDocuments: true,
+            noVideos: true,
+            media,
+            save: icon => {
+                const customClass = icon.className;
                 const $activeIcons = this.$target.find('.s_rating_active_icons > i');
                 const $inactiveIcons = this.$target.find('.s_rating_inactive_icons > i');
                 const $icons = params.customActiveIcon === 'true' ? $activeIcons : $inactiveIcons;
@@ -57,14 +55,7 @@ options.registry.Rating = options.Class.extend({
                 this.$target[0].dataset.inactiveCustomIcon = this.faClassInactiveCustomIcons;
                 this.$target[0].dataset.icon = 'custom';
                 this.iconType = 'custom';
-                resolve();
-            });
-            dialog.on('closed', this, function () {
-                if (!this._saving) {
-                    resolve();
-                }
-            });
-            dialog.open();
+            }
         });
     },
     /**
@@ -120,9 +111,9 @@ options.registry.Rating = options.Class.extend({
         this.$target.find('.s_rating_icons i').remove();
         for (let i = 0; i < this.nbTotalIcons; i++) {
             if (i < this.nbActiveIcons) {
-                $activeIcons.append('<i/> ');
+                $activeIcons.append('<i></i> ');
             } else {
-                $inactiveIcons.append('<i/> ');
+                $inactiveIcons.append('<i></i> ');
             }
         }
         this._renderIcons();
@@ -147,5 +138,4 @@ options.registry.Rating = options.Class.extend({
         $activeIcons.removeClass().addClass(faClassActiveIcons);
         $inactiveIcons.removeClass().addClass(faClassInactiveIcons);
     },
-});
 });

@@ -1,58 +1,95 @@
-odoo.define('website.s_share', function (require) {
-'use strict';
+/** @odoo-module */
 
-const publicWidget = require('web.public.widget');
+import publicWidget from '@web/legacy/js/public/public_widget';
 
 const ShareWidget = publicWidget.Widget.extend({
     selector: '.s_share, .oe_share', // oe_share for compatibility
+    events: {
+        'click a': '_onShareLinkClick',
+    },
+
+    //--------------------------------------------------------------------------
+    // Handlers
+    //--------------------------------------------------------------------------
 
     /**
-     * @override
+     * Everything is done on click here (even changing the href) as the URL we
+     * want to share may be updated during the page use (like when updating
+     * variant on a product page then clicking on a share link).
+     *
+     * @private
      */
-    start: function () {
-        const urlRegex = /(\?(?:|.*&)(?:u|url|body)=)(.*?)(&|#|$)/;
-        const titleRegex = /(\?(?:|.*&)(?:title|text|subject|description)=)(.*?)(&|#|$)/;
-        const mediaRegex = /(\?(?:|.*&)(?:media)=)(.*?)(&|#|$)/;
-        const url = encodeURIComponent(window.location.href);
-        const title = encodeURIComponent($('title').text());
-        const media = encodeURIComponent($('meta[property="og:image"]').attr('content'));
+    _onShareLinkClick(ev) {
+        const urlParams = ["u", "url", "body"];
+        const titleParams = ["title", "text", "subject", "description"];
+        const mediaParams = ["media"];
+        const aEl = ev.currentTarget;
+        // We don't modify the original URL in case the user clicks again on the
+        // sharer later.
+        const modifiedUrl = new URL(aEl.href);
 
-        this.$('a').each((index, element) => {
-            const $a = $(element);
-            $a.attr('href', (i, href) => {
-                return href.replace(urlRegex, (match, a, b, c) => {
-                    return a + url + c;
-                }).replace(titleRegex, function (match, a, b, c) {
-                    if ($a.hasClass('s_share_whatsapp')) {
-                        // WhatsApp does not support the "url" GET parameter.
-                        // Instead we need to include the url within the passed "text" parameter, merging everything together.
-                        // e.g of output:
-                        // https://wa.me/?text=%20OpenWood%20Collection%20Online%20Reveal%20%7C%20My%20Website%20http%3A%2F%2Flocalhost%3A8888%2Fevent%2Fopenwood-collection-online-reveal-2021-06-21-2021-06-23-8%2Fregister
-                        // see https://faq.whatsapp.com/general/chats/how-to-use-click-to-chat/ for more details
-                        return a + title + url + c;
-                    }
-                    return a + title + c;
-                }).replace(mediaRegex, (match, a, b, c) => {
-                    return a + media + c;
-                });
-            });
-            if ($a.attr('target') && $a.attr('target').match(/_blank/i) && !$a.closest('.o_editable').length) {
-                $a.on('click.share_widget', function () {
-                    window.open(this.href, '', 'menubar=no,toolbar=no,resizable=yes,scrollbars=yes,height=550,width=600');
-                    return false;
-                });
+        // Try and support old use of share snippet as a social link snippet:
+        // if the URL does not look like a sharer, then do nothing. This
+        // obviously won't cover all cases (people may have added URL that look
+        // like sharer but are not but in that case, it was probably already
+        // broken before).
+        if (![...urlParams, ...titleParams, ...mediaParams]
+                .some(param => modifiedUrl.searchParams.has(param))) {
+            return;
+        }
+
+        ev.preventDefault();
+        ev.stopPropagation();
+
+        // We don't need to encode the URL as searchParams.set does it for us.
+        const currentUrl = window.location.href;
+
+        const urlParamFound = urlParams.find(param => modifiedUrl.searchParams.has(param));
+        if (urlParamFound) {
+            modifiedUrl.searchParams.set(urlParamFound, currentUrl);
+        }
+
+        const titleParamFound = titleParams.find(param => modifiedUrl.searchParams.has(param));
+        if (titleParamFound) {
+            // We don't need to encode the title as searchParams.set does it.
+            const currentTitle = document.title;
+            if (aEl.classList.contains('s_share_whatsapp')) {
+                // WhatsApp does not support the "url" GET parameter.
+                // Instead we need to include the url within the passed "text"
+                // parameter, merging everything together, e.g of output:
+                // https://wa.me/?text=%20OpenWood%20Collection%20Online%20Reveal%20%7C%20My%20Website%20http%3A%2F%2Flocalhost%3A8888%2Fevent%2Fopenwood-collection-online-reveal-2021-06-21-2021-06-23-8%2Fregister
+                // For more details, see https://faq.whatsapp.com/general/chats/how-to-use-click-to-chat/
+                modifiedUrl.searchParams.set(titleParamFound, `${currentTitle} ${currentUrl}`);
+            } else {
+                // The built-in `URLSearchParams.set()` method encodes spaces
+                // as "+" characters, which are not properly parsed as spaces
+                // by email clients, so we can't use it here.
+                modifiedUrl.search = modifiedUrl.search
+                    .replace(encodeURIComponent("{title}"), encodeURIComponent(currentTitle));
             }
-        });
+        }
 
-        return this._super.apply(this, arguments);
+        const mediaParamFound = mediaParams.find(param => modifiedUrl.searchParams.has(param));
+        if (mediaParamFound) {
+            const ogImageEl = document.querySelector("meta[property='og:image']");
+            // Some pages (/profile/user/ID) don't have an image to share.
+            if (ogImageEl) {
+                // We don't need to encode the media as searchParams does it.
+                const media = ogImageEl.content;
+                modifiedUrl.searchParams.set(mediaParamFound, media);
+            } else {
+                modifiedUrl.searchParams.delete(mediaParamFound);
+            }
+        }
+
+        window.open(
+            modifiedUrl.toString(),
+            aEl.target,
+            "menubar=no,toolbar=no,resizable=yes,scrollbars=yes,height=550,width=600",
+        );
     },
-    destroy: function () {
-        this._super.apply(this, arguments);
-        this.$('a').off('.share_widget');
-    }
 });
 
 publicWidget.registry.share = ShareWidget;
 
-return ShareWidget;
-});
+export default ShareWidget;

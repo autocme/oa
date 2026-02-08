@@ -12,12 +12,16 @@
         ],
     'auto_install': True,
     'assets': {
-        'web_editor.assets_wysiwyg': [
-            'web_unsplash/static/src/js/unsplashapi.js',
-            'web_unsplash/static/src/js/unsplash_image_widget.js',
-        ],
         'web.assets_frontend': [
             'web_unsplash/static/src/js/unsplash_beacon.js',
+        ],
+        'web_editor.assets_media_dialog': [
+            'web_unsplash/static/src/components/media_dialog/*.js',
+            'web_unsplash/static/src/components/media_dialog/*.xml',
+            'web_unsplash/static/src/services/unsplash_service.js',
+        ],
+        'web.qunit_suite_tests': [
+            'web_unsplash/static/tests/**/*',
         ],
     },
     'license': 'LGPL-3',

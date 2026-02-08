@@ -90,9 +90,8 @@ def to_major_currency_units(minor_amount, currency, arbitrary_decimal_number=Non
     :return: The amount in major units of its currency
     :rtype: int
     """
-    currency.ensure_one()
-
     if arbitrary_decimal_number is None:
+        currency.ensure_one()
         decimal_number = CURRENCY_MINOR_UNITS.get(currency.name, currency.decimal_places)
     else:
         decimal_number = arbitrary_decimal_number
@@ -115,26 +114,12 @@ def to_minor_currency_units(major_amount, currency, arbitrary_decimal_number=Non
     :return: The amount in minor units of its currency
     :rtype: int
     """
-    if arbitrary_decimal_number is not None:
-        decimal_number = arbitrary_decimal_number
-    else:
+    if arbitrary_decimal_number is None:
         currency.ensure_one()
         decimal_number = CURRENCY_MINOR_UNITS.get(currency.name, currency.decimal_places)
+    else:
+        decimal_number = arbitrary_decimal_number
     return int(float_round(major_amount * (10**decimal_number), precision_digits=0))
-
-
-# Token values formatting
-
-def build_token_name(payment_details_short=None, final_length=16):
-    """ Pad plain payment details with leading X's to build a token name of the desired length.
-
-    :param str payment_details_short: The plain part of the payment details (usually last 4 digits)
-    :param int final_length: The desired final length of the token name (16 for a bank card)
-    :return: The padded token name
-    :rtype: str
-    """
-    payment_details_short = payment_details_short or '????'
-    return f"{'X' * (final_length - len(payment_details_short))}{payment_details_short}"
 
 
 # Partner values formatting
@@ -159,7 +144,11 @@ def split_partner_name(partner_name):
     :return: The splitted first name and last name
     :rtype: tuple
     """
-    return " ".join(partner_name.split()[:-1]), partner_name.split()[-1]
+    parts = partner_name.split()
+    if len(parts) == 1:
+        return parts[0], ""
+
+    return " ".join(parts[:-1]), parts[-1]
 
 
 # Security

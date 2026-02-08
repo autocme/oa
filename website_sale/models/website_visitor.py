@@ -8,7 +8,7 @@ from odoo import fields, models, api
 class WebsiteTrack(models.Model):
     _inherit = 'website.track'
 
-    product_id = fields.Many2one('product.product', index=True, ondelete='cascade', readonly=True)
+    product_id = fields.Many2one('product.product', ondelete='cascade', readonly=True, index='btree_not_null')
 
 
 class WebsiteVisitor(models.Model):
@@ -20,17 +20,14 @@ class WebsiteVisitor(models.Model):
 
     @api.depends('website_track_ids')
     def _compute_product_statistics(self):
-        results = self.env['website.track'].read_group(
-            [('visitor_id', 'in', self.ids), ('product_id', '!=', False),
-             '|', ('product_id.company_id', 'in', self.env.companies.ids), ('product_id.company_id', '=', False)],
-            ['visitor_id', 'product_id'], ['visitor_id', 'product_id'],
-            lazy=False)
-        mapped_data = {}
-        for result in results:
-            visitor_info = mapped_data.get(result['visitor_id'][0], {'product_count': 0, 'product_ids': set()})
-            visitor_info['product_count'] += result['__count']
-            visitor_info['product_ids'].add(result['product_id'][0])
-            mapped_data[result['visitor_id'][0]] = visitor_info
+        results = self.env['website.track']._read_group([
+            ('visitor_id', 'in', self.ids), ('product_id', '!=', False),
+            ('product_id', 'any', self.env['product.product']._check_company_domain(self.env.companies)),
+        ], ['visitor_id'], ['product_id:array_agg', '__count'])
+        mapped_data = {
+            visitor.id: {'product_count': count, 'product_ids': product_ids}
+            for visitor, product_ids, count in results
+        }
 
         for visitor in self:
             visitor_info = mapped_data.get(visitor.id, {'product_ids': [], 'product_count': 0})
@@ -44,5 +41,5 @@ class WebsiteVisitor(models.Model):
         self.ensure_one()
         if product_id and self.env['product.product'].browse(product_id)._is_variant_possible():
             domain = [('product_id', '=', product_id)]
-            website_track_values = {'product_id': product_id, 'visit_datetime': datetime.now()}
+            website_track_values = {'product_id': product_id}
             self._add_tracking(domain, website_track_values)

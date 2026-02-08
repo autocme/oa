@@ -57,38 +57,34 @@ class AccountJournal(models.Model):
                 journal.check_sequence_id.sudo().number_next_actual = int(journal.check_next_number)
                 journal.check_sequence_id.sudo().padding = len(journal.check_next_number)
 
-    @api.model
-    def create(self, vals):
-        rec = super(AccountJournal, self).create(vals)
-        if not rec.check_sequence_id:
-            rec._create_check_sequence()
-        return rec
+    @api.model_create_multi
+    def create(self, vals_list):
+        journals = super().create(vals_list)
+        journals.filtered(lambda j: not j.check_sequence_id)._create_check_sequence()
+        return journals
 
     def _create_check_sequence(self):
         """ Create a check sequence for the journal """
         for journal in self:
             journal.check_sequence_id = self.env['ir.sequence'].sudo().create({
-                'name': journal.name + _(" : Check Number Sequence"),
+                'name': journal.name + _(": Check Number Sequence"),
                 'implementation': 'no_gap',
                 'padding': 5,
                 'number_increment': 1,
                 'company_id': journal.company_id.id,
             })
 
-    def get_journal_dashboard_datas(self):
-        domain_checks_to_print = [
-            ('journal_id', '=', self.id),
+    def _get_journal_dashboard_data_batched(self):
+        dashboard_data = super()._get_journal_dashboard_data_batched()
+        self._fill_dashboard_data_count(dashboard_data, 'account.payment', 'num_checks_to_print', [
             ('payment_method_line_id.code', '=', 'check_printing'),
             ('state', '=', 'posted'),
             ('is_move_sent','=', False),
-        ]
-        return dict(
-            super(AccountJournal, self).get_journal_dashboard_datas(),
-            num_checks_to_print=self.env['account.payment'].search_count(domain_checks_to_print),
-        )
+        ])
+        return dashboard_data
 
     def action_checks_to_print(self):
-        payment_method_line = self.outbound_payment_method_line_ids.filtered(lambda l: l.code == 'check_printing')
+        payment_method_line_id = self.outbound_payment_method_line_ids.filtered(lambda l: l.code == 'check_printing')[:1].id
         return {
             'name': _('Checks to Print'),
             'type': 'ir.actions.act_window',
@@ -100,6 +96,6 @@ class AccountJournal(models.Model):
                 journal_id=self.id,
                 default_journal_id=self.id,
                 default_payment_type='outbound',
-                default_payment_method_line_id=payment_method_line.id,
+                default_payment_method_line_id=payment_method_line_id,
             ),
         }

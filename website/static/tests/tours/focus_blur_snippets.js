@@ -1,22 +1,20 @@
-odoo.define('website.tour.focus_blur_snippets', function (require) {
-'use strict';
+/** @odoo-module **/
 
-const ajax = require('web.ajax');
-const tour = require('web_tour.tour');
+import wTourUtils from '@website/js/tours/tour_utils';
 
 const blockIDToData = {
     parent: {
-        selector: '.s_focusblur',
+        selector: 'iframe .s_focusblur',
         name: 'section',
         overlayIndex: 2,
     },
     child1: {
-        selector: '.s_focusblur_child1',
+        selector: 'iframe .s_focusblur_child1',
         name: 'first child',
         overlayIndex: 1,
     },
     child2: {
-        selector: '.s_focusblur_child2',
+        selector: 'iframe .s_focusblur_child2',
         name: 'second child',
         overlayIndex: 0,
     },
@@ -27,12 +25,13 @@ function clickAndCheck(blockID, expected) {
 
     return [{
         content: blockID ? `Enable the ${blockData.name}` : 'Disable all blocks',
-        trigger: blockData.selector || '#wrapwrap',
+        trigger: blockData.selector || 'iframe #wrapwrap',
     }, {
         content: 'Once the related overlays are enabled/disabled, check that the focus/blur calls have been correct.',
         trigger: blockID
-            ? `.oe_overlay.ui-draggable:eq(${blockData.overlayIndex}).oe_active`
-            : `#oe_manipulators:not(:has(.oe_active))`,
+            ? `iframe .oe_overlay.o_draggable:eq(${blockData.overlayIndex}).oe_active`
+            : `iframe #oe_manipulators:not(:has(.oe_active))`,
+        allowInvisible: !blockID,
         run: function (actions) {
             const result = window.focusBlurSnippetsResult;
             window.focusBlurSnippetsResult = [];
@@ -50,24 +49,15 @@ function clickAndCheck(blockID, expected) {
 
 window.focusBlurSnippetsResult = [];
 
-tour.register('focus_blur_snippets', {
+wTourUtils.registerWebsitePreviewTour("focus_blur_snippets", {
     test: true,
-    url: '/?enable_editor=1',
-}, [
-    {
-        content: 'First load our custom JS options',
-        trigger: 'body',
-        run: function () {
-            ajax.loadJS('/website/static/tests/tour_utils/focus_blur_snippets_options.js').then(function () {
-                $('body').addClass('focus_blur_snippets_options_loaded');
-            });
-        },
-    },
+    url: "/",
+    edition: true,
+}, () => [
     {
         content: 'Drag the custom block into the page',
         trigger: '#snippet_structure .oe_snippet:has(.oe_snippet_body.s_focusblur) .oe_snippet_thumbnail',
-        extra_trigger: 'body.focus_blur_snippets_options_loaded',
-        run: 'drag_and_drop #wrap',
+        run: 'drag_and_drop_native iframe #wrap',
     },
     ...clickAndCheck('parent', ['focus parent']),
     ...clickAndCheck(null, ['blur parent']),
@@ -79,4 +69,3 @@ tour.register('focus_blur_snippets', {
     ...clickAndCheck('child2', ['blur parent', 'blur child1', 'focus parent', 'focus child2']),
     ...clickAndCheck('parent', ['blur parent', 'blur child2', 'focus parent']),
 ]);
-});

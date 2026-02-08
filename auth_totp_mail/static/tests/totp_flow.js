@@ -1,23 +1,7 @@
-odoo.define('auth_totp_mail.tours', function(require) {
-"use strict";
+/** @odoo-module **/
 
-const tour = require('web_tour.tour');
-
-function openUserProfileAtSecurityTab() {
-    return [{
-        content: 'Open user account menu',
-        trigger: '.o_user_menu .oe_topbar_name',
-        run: 'click',
-    }, {
-        content: "Open preferences / profile screen",
-        trigger: '[data-menu=settings]',
-        run: 'click',
-    }, {
-        content: "Switch to security tab",
-        trigger: 'a[role=tab]:contains("Account Security")',
-        run: 'click',
-    }];
-}
+import { registry } from "@web/core/registry";
+import { stepUtils } from "@web_tour/tour_service/tour_utils";
 
 function openAccountSettingsTab() {
     return [{
@@ -52,41 +36,41 @@ function openAccountSettingsTab() {
     }];
 }
 
-tour.register('totp_admin_self_invite', {
+registry.category("web_tour.tours").add('totp_admin_self_invite', {
     test: true,
-    url: '/web'
-}, [tour.stepUtils.showAppsMenuItem(), ...openAccountSettingsTab(), {
+    url: '/web',
+    steps: () => [stepUtils.showAppsMenuItem(), ...openAccountSettingsTab(), {
     content: "open the user's form",
     trigger: "td.o_data_cell:contains(admin)",
 }, {
     content: "go to Account security Tab",
     trigger: "a.nav-link:contains(Account Security)",
 }, {
-    content: "check that user cannot invite himself to use 2FA.",
+    content: "check that user cannot invite themselves to use 2FA.",
     trigger: "body",
     run: function () {
-        var $inviteBtn = $('button:contains(Invite to use 2FA)');
-        if ($inviteBtn.hasClass('o_invisible_modifier')) {
+        const inviteBtn = $('button:contains(Invite to use 2FA)')[0];
+        if (!inviteBtn) {
             $('body').addClass('CannotInviteYourself');
         }
     }
 }, {
     content: "check that user cannot invite themself.",
-    trigger: "body.CannotInviteYourself"
-}]);
+    trigger: "body.CannotInviteYourself",
+    isCheck: true,
+}]});
 
-tour.register('totp_admin_invite', {
+registry.category("web_tour.tours").add('totp_admin_invite', {
     test: true,
-    url: '/web'
-}, [tour.stepUtils.showAppsMenuItem(), ...openAccountSettingsTab(), {
+    url: '/web',
+    steps: () => [stepUtils.showAppsMenuItem(), ...openAccountSettingsTab(), {
     content: "open the user's form",
-    trigger: "td.o_data_cell:contains(demo)",
+    trigger: "td.o_data_cell:contains(test_user)",
 }, {
     content: "go to Account security Tab",
     trigger: "a.nav-link:contains(Account Security)",
 }, {
-    content: "check that demo user can be invited to use 2FA.",
+    content: "check that test_user user can be invited to use 2FA.",
     trigger: "button:contains(Invite to use 2FA)",
-}]);
-
-});
+    isCheck: true,
+}]});

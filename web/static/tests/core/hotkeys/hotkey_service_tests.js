@@ -4,19 +4,20 @@ import { browser } from "@web/core/browser/browser";
 import { useHotkey } from "@web/core/hotkeys/hotkey_hook";
 import { registry } from "@web/core/registry";
 import { uiService, useActiveElement } from "@web/core/ui/ui_service";
-import { hotkeyService } from "@web/core/hotkeys/hotkey_service";
+import { getActiveHotkey, hotkeyService } from "@web/core/hotkeys/hotkey_service";
 import { makeTestEnv } from "../../helpers/mock_env";
 import {
+    destroy,
     getFixture,
     makeDeferred,
+    mount,
     nextTick,
     patchWithCleanup,
     triggerHotkey,
 } from "../../helpers/utils";
+import { registerCleanup } from "../../helpers/cleanup";
 
-const { Component, hooks, mount, tags } = owl;
-const { xml } = tags;
-const { useState } = hooks;
+import { Component, useRef, useState, xml } from "@odoo/owl";
 const serviceRegistry = registry.category("services");
 
 let env;
@@ -40,7 +41,7 @@ QUnit.test("register / unregister", async (assert) => {
     triggerHotkey(key);
     await nextTick();
 
-    let removeHotkey = hotkey.add(key, () => assert.step(key));
+    const removeHotkey = hotkey.add(key, () => assert.step(key));
     await nextTick();
 
     triggerHotkey(key);
@@ -51,6 +52,75 @@ QUnit.test("register / unregister", async (assert) => {
     await nextTick();
 
     assert.verifySteps([key]);
+});
+
+QUnit.test("should ignore when IME is composing", async (assert) => {
+    const key = "enter";
+    env.services.hotkey.add(key, () => assert.step(key));
+    await nextTick();
+
+    triggerHotkey(key);
+    await nextTick();
+    assert.verifySteps([key]);
+
+    triggerHotkey(key, false, { isComposing: true });
+    await nextTick();
+    assert.verifySteps([]);
+});
+
+QUnit.test("hotkey handles wrongly formed KeyboardEvent", async (assert) => {
+    // This test's aim is to assert that Chrome's autofill bug is handled.
+    // When filling a form with the autofill feature of Chrome, a keyboard event without any
+    // key set on it is triggered. This seems to be a bug on Chrome's side, since the spec
+    //doesn't mention that field may be unset. (https://developer.mozilla.org/en-US/docs/Web/API/KeyboardEvent/key).
+    assert.expect(5);
+
+    const hotkey = env.services.hotkey;
+
+    class FakeKeyboardEvent extends Event {
+        constructor(evName, params) {
+            super(...arguments);
+            this.key = params.key;
+            this.code = params.code;
+        }
+    }
+
+    const handler = (ev) => {
+        ev.stopPropagation();
+        ev.preventDefault();
+        assert.step("error");
+    };
+
+    // fake error service so that the odoo qunit handlers don't think that they need to handle the error
+    registry.category("services").add("error", { start: () => {} });
+    window.addEventListener("error", handler);
+    const _onError = window.onerror;
+    window.onerror = () => {};
+    registerCleanup(() => {
+        window.removeEventListener("error", handler);
+        window.onerror = _onError;
+    });
+
+    const key = "q";
+    let removeHotkey = hotkey.add(key, () => assert.step(key), { global: true });
+    target.dispatchEvent(new FakeKeyboardEvent("keydown", { bubbles: true, key, code: key }));
+    assert.verifySteps([key]);
+    removeHotkey();
+
+    removeHotkey = hotkey.add(
+        key,
+        () => {
+            throw new Error("error");
+        },
+        { global: true }
+    );
+    target.dispatchEvent(new FakeKeyboardEvent("keydown", { bubbles: true, key, code: key }));
+    assert.verifySteps(["error"]);
+
+    // Trigger an event that doesn't honor KeyboardEvent API: that's the point
+    // in particular, it has no `key`
+    target.dispatchEvent(new FakeKeyboardEvent("keydown", { bubbles: true }));
+    assert.verifySteps([]);
 });
 
 QUnit.test("[accesskey] attrs replaced by [data-hotkey]", async (assert) => {
@@ -88,7 +158,7 @@ QUnit.test("[accesskey] attrs replaced by [data-hotkey], part 2", async (assert)
             useActiveElement("bouh");
         }
     }
-    UIOwnershipTakerComponent.template = xml`<p class="owner" t-ref="bouh">bouh</p>`;
+    UIOwnershipTakerComponent.template = xml`<p class="owner" t-ref="bouh"><button/></p>`;
     class MyComponent extends Component {
         setup() {
             this.state = useState({ foo: true });
@@ -102,7 +172,7 @@ QUnit.test("[accesskey] attrs replaced by [data-hotkey], part 2", async (assert)
             <div t-on-click="() => { this.step('click'); }" accesskey="a">foo</div>
         </main>
     `;
-    const comp = await mount(MyComponent, { env, target });
+    const comp = await mount(MyComponent, target, { env });
 
     // UIOwnershipTakerComponent should be there and it should be the ui active element
     assert.containsOnce(target, "main .owner");
@@ -169,18 +239,47 @@ QUnit.test("data-hotkey", async (assert) => {
     triggerHotkey(key, true);
     await nextTick();
 
-    const comp = await mount(MyComponent, { env, target });
+    const comp = await mount(MyComponent, target, { env });
 
     triggerHotkey(key, true);
     await nextTick();
 
-    comp.unmount();
+    destroy(comp);
 
     triggerHotkey(key, true);
     await nextTick();
 
     assert.verifySteps(["click"]);
-    comp.destroy();
+});
+
+QUnit.test("input with [accesskey] is correctly focused", async (assert) => {
+    const inputEl = document.createElement("input");
+    inputEl.className = "foo";
+    inputEl.accessKey = "a";
+    inputEl.onclick = () => assert.step("click");
+    inputEl.textContent = "foo";
+    target.appendChild(inputEl);
+
+    // div must only have [accesskey] attribute
+    assert.containsOnce(target, ".foo");
+    assert.containsOnce(target, ".foo[accesskey]");
+    assert.containsNone(target, ".foo[data-hotkey]");
+
+    // press any hotkey, i.e. the left arrow
+    triggerHotkey("arrowleft");
+    await nextTick();
+
+    // div should now only have [data-hotkey] attribute
+    assert.containsOnce(target, ".foo");
+    assert.containsOnce(target, ".foo[data-hotkey]");
+    assert.containsNone(target, ".foo[accesskey]");
+
+    // try to press the related hotkey, just to make sure it works
+    assert.verifySteps([]);
+    triggerHotkey("a", true);
+    await nextTick();
+    assert.verifySteps(["click"]);
+    assert.strictEqual(document.activeElement, inputEl);
 });
 
 QUnit.test("invisible data-hotkeys are not enabled. ", async (assert) => {
@@ -201,18 +300,16 @@ QUnit.test("invisible data-hotkeys are not enabled. ", async (assert) => {
     triggerHotkey(key, true);
     await nextTick();
 
-    const comp = await mount(MyComponent, { env, target });
+    await mount(MyComponent, target, { env });
 
     triggerHotkey(key, true);
     await nextTick();
     assert.verifySteps(["click"]);
 
-    comp.el.querySelector(".myButton").disabled = true;
+    target.querySelector(".myButton").disabled = true;
     triggerHotkey(key, true);
     await nextTick();
     assert.verifySteps([], "shouldn't trigger the hotkey of an invisible button");
-
-    comp.destroy();
 });
 
 QUnit.test("hook", async (assert) => {
@@ -227,18 +324,17 @@ QUnit.test("hook", async (assert) => {
     triggerHotkey(key);
     await nextTick();
 
-    const comp = await mount(TestComponent, { env, target });
+    const comp = await mount(TestComponent, target, { env });
 
     triggerHotkey(key);
     await nextTick();
 
-    comp.unmount();
+    destroy(comp);
 
     triggerHotkey(key);
     await nextTick();
 
     assert.verifySteps([key]);
-    comp.destroy();
 });
 
 QUnit.test("non-MacOS usability", async (assert) => {
@@ -246,18 +342,18 @@ QUnit.test("non-MacOS usability", async (assert) => {
 
     const hotkey = env.services.hotkey;
     const key = "q";
+    const commentEventAttrs = { key, bubbles: true };
 
     // On non-MacOS, ALT is NOT replaced by CONTROL key
     let removeHotkey = hotkey.add(`alt+${key}`, () => assert.step(`alt+${key}`));
     await nextTick();
-
-    let keydown = new KeyboardEvent("keydown", { key, altKey: true });
-    window.dispatchEvent(keydown);
+    let keydown = new KeyboardEvent("keydown", { ...commentEventAttrs, altKey: true });
+    document.activeElement.dispatchEvent(keydown);
     await nextTick();
     assert.verifySteps([`alt+${key}`]);
 
-    keydown = new KeyboardEvent("keydown", { key, ctrlKey: true });
-    window.dispatchEvent(keydown);
+    keydown = new KeyboardEvent("keydown", { ...commentEventAttrs, ctrlKey: true });
+    document.activeElement.dispatchEvent(keydown);
     await nextTick();
     assert.verifySteps([]);
 
@@ -267,13 +363,13 @@ QUnit.test("non-MacOS usability", async (assert) => {
     removeHotkey = hotkey.add(`control+${key}`, () => assert.step(`control+${key}`));
     await nextTick();
 
-    keydown = new KeyboardEvent("keydown", { key, ctrlKey: true });
-    window.dispatchEvent(keydown);
+    keydown = new KeyboardEvent("keydown", { ...commentEventAttrs, ctrlKey: true });
+    document.activeElement.dispatchEvent(keydown);
     await nextTick();
     assert.verifySteps([`control+${key}`]);
 
-    keydown = new KeyboardEvent("keydown", { key, metaKey: true });
-    window.dispatchEvent(keydown);
+    keydown = new KeyboardEvent("keydown", { ...commentEventAttrs, metaKey: true });
+    document.activeElement.dispatchEvent(keydown);
     await nextTick();
     assert.verifySteps([]);
 
@@ -297,9 +393,9 @@ QUnit.test("the overlay of hotkeys is correctly displayed", async (assert) => {
         <button t-on-click="onClick" data-hotkey="c"/>
         </div>
     `;
-    const comp = await mount(MyComponent, { env, target });
+    await mount(MyComponent, target, { env });
     const getOverlays = () =>
-        [...comp.el.querySelectorAll(".o_web_hotkey_overlay")].map((el) => el.innerText);
+        [...target.querySelectorAll(".o_web_hotkey_overlay")].map((el) => el.innerText);
 
     displayHotkeysOverlay();
     assert.deepEqual(getOverlays(), ["B", "C"], "should display the overlay");
@@ -343,9 +439,9 @@ QUnit.test("the overlay of hotkeys is correctly displayed on MacOs", async (asse
         <button t-on-click="onClick" data-hotkey="c"/>
         </div>
     `;
-    const comp = await mount(MyComponent, { env, target });
+    await mount(MyComponent, target, { env });
     const getOverlays = () =>
-        [...comp.el.querySelectorAll(".o_web_hotkey_overlay")].map((el) => el.innerText);
+        [...target.querySelectorAll(".o_web_hotkey_overlay")].map((el) => el.innerText);
 
     displayHotkeysOverlay();
     assert.deepEqual(getOverlays(), ["B", "C"], "should display the overlay");
@@ -366,6 +462,40 @@ QUnit.test("the overlay of hotkeys is correctly displayed on MacOs", async (asse
     assert.verifySteps([]);
 });
 
+QUnit.test("overlays can be toggled multiple times in a row", async (assert) => {
+    const eventArgs = { key: "alt", altKey: true, bubbles: true };
+    const pressOverlayModifier = () =>
+        document.activeElement.dispatchEvent(new KeyboardEvent("keydown", eventArgs));
+    const releaseOverlayModifier = () =>
+        document.activeElement.dispatchEvent(new KeyboardEvent("keyup", eventArgs));
+
+    class MyComponent extends Component {}
+    MyComponent.template = xml`<button data-hotkey="a"/>`;
+
+    await mount(MyComponent, target, { env });
+    assert.containsNone(target, ".o_web_hotkey_overlay");
+
+    // Display overlays
+    pressOverlayModifier();
+    await nextTick();
+    assert.containsOnce(target, ".o_web_hotkey_overlay");
+
+    // Hide overlays
+    releaseOverlayModifier();
+    await nextTick();
+    assert.containsNone(target, ".o_web_hotkey_overlay");
+
+    // Display overlays
+    pressOverlayModifier();
+    await nextTick();
+    assert.containsOnce(target, ".o_web_hotkey_overlay");
+
+    // Hide overlays
+    releaseOverlayModifier();
+    await nextTick();
+    assert.containsNone(target, ".o_web_hotkey_overlay");
+});
+
 QUnit.test("MacOS usability", async (assert) => {
     assert.expect(6);
 
@@ -377,18 +507,19 @@ QUnit.test("MacOS usability", async (assert) => {
 
     const hotkey = env.services.hotkey;
     const key = "q";
+    const commentEventAttrs = { key, bubbles: true };
 
     // On MacOS, ALT is replaced by CONTROL key
     let removeHotkey = hotkey.add(`alt+${key}`, () => assert.step(`alt+${key}`));
     await nextTick();
 
-    let keydown = new KeyboardEvent("keydown", { key, altKey: true });
-    window.dispatchEvent(keydown);
+    let keydown = new KeyboardEvent("keydown", { ...commentEventAttrs, altKey: true });
+    document.activeElement.dispatchEvent(keydown);
     await nextTick();
     assert.verifySteps([]);
 
-    keydown = new KeyboardEvent("keydown", { key, ctrlKey: true });
-    window.dispatchEvent(keydown);
+    keydown = new KeyboardEvent("keydown", { ...commentEventAttrs, ctrlKey: true });
+    document.activeElement.dispatchEvent(keydown);
     await nextTick();
     assert.verifySteps([`alt+${key}`]);
 
@@ -398,13 +529,13 @@ QUnit.test("MacOS usability", async (assert) => {
     removeHotkey = hotkey.add(`control+${key}`, () => assert.step(`control+${key}`));
     await nextTick();
 
-    keydown = new KeyboardEvent("keydown", { key, ctrlKey: true });
-    window.dispatchEvent(keydown);
+    keydown = new KeyboardEvent("keydown", { ...commentEventAttrs, ctrlKey: true });
+    document.activeElement.dispatchEvent(keydown);
     await nextTick();
     assert.verifySteps([]);
 
-    keydown = new KeyboardEvent("keydown", { key, metaKey: true });
-    window.dispatchEvent(keydown);
+    keydown = new KeyboardEvent("keydown", { ...commentEventAttrs, metaKey: true });
+    document.activeElement.dispatchEvent(keydown);
     await nextTick();
     assert.verifySteps([`control+${key}`]);
 
@@ -420,7 +551,7 @@ QUnit.test("[data-hotkey] alt is required", async (assert) => {
     }
     TestComponent.template = xml`<div><button t-on-click="onClick" data-hotkey="${key}"/></div>`;
 
-    const comp = await mount(TestComponent, { env, target });
+    await mount(TestComponent, target, { env });
 
     triggerHotkey(key, true);
     await nextTick();
@@ -429,8 +560,6 @@ QUnit.test("[data-hotkey] alt is required", async (assert) => {
     triggerHotkey(key);
     await nextTick();
     assert.verifySteps([]);
-
-    comp.destroy();
 });
 
 QUnit.test("registration allows repeat if specified", async (assert) => {
@@ -476,7 +605,7 @@ QUnit.test("[data-hotkey] never allow repeat", async (assert) => {
     }
     TestComponent.template = xml`<div><button t-on-click="onClick" data-hotkey="${key}"/></div>`;
 
-    const comp = await mount(TestComponent, { env, target });
+    await mount(TestComponent, target, { env });
 
     triggerHotkey(key, true);
     await nextTick();
@@ -485,8 +614,6 @@ QUnit.test("[data-hotkey] never allow repeat", async (assert) => {
     triggerHotkey(key, true, { repeat: true });
     await nextTick();
     assert.verifySteps([]);
-
-    comp.destroy();
 });
 
 QUnit.test("hotkeys evil 👹", async (assert) => {
@@ -534,14 +661,13 @@ QUnit.test("component can register many hotkeys", async (assert) => {
     }
     MyComponent.template = xml`<div><button t-on-click="onClick" data-hotkey="c"/></div>`;
 
-    const comp = await mount(MyComponent, { env, target });
+    await mount(MyComponent, target, { env });
     triggerHotkey("a");
     triggerHotkey("b");
     triggerHotkey("c", true);
     await nextTick();
 
     assert.verifySteps(["callback:a", "callback:b", "click"]);
-    comp.destroy();
 });
 
 QUnit.test("many components can register same hotkeys (call order matters)", async (assert) => {
@@ -565,7 +691,7 @@ QUnit.test("many components can register same hotkeys (call order matters)", asy
         `;
         return Comp;
     };
-    const comp1 = await mount(getComp("comp1"), { env, target });
+    await mount(getComp("comp1"), target, { env });
     triggerHotkey("a");
     triggerHotkey("b");
     triggerHotkey("c", true);
@@ -582,7 +708,7 @@ QUnit.test("many components can register same hotkeys (call order matters)", asy
         "calls only the callback from the useHotkey registration and the button is not clicked"
     );
 
-    const comp2 = await mount(getComp("comp2"), { env, target });
+    await mount(getComp("comp2"), target, { env });
     triggerHotkey("a");
     triggerHotkey("b");
     await nextTick();
@@ -604,9 +730,6 @@ QUnit.test("many components can register same hotkeys (call order matters)", asy
         ["comp2:z"],
         "calls only the callbacks from last useHotkey registrations and no button is clicked"
     );
-
-    comp1.destroy();
-    comp2.destroy();
 });
 
 QUnit.test("registrations and elements belong to the correct UI owner", async (assert) => {
@@ -619,30 +742,31 @@ QUnit.test("registrations and elements belong to the correct UI owner", async (a
             assert.step("MyComponent1 [data-hotkey]");
         }
     }
-    MyComponent1.template = xml`<div><button data-hotkey="b" t-on-click="onClick()"/></div>`;
+    MyComponent1.template = xml`<div><button data-hotkey="b" t-on-click="onClick"/></div>`;
 
     class MyComponent2 extends Component {
         setup() {
             useHotkey("a", () => assert.step("MyComponent2 subscription"));
-            useActiveElement();
+            useActiveElement("active");
         }
         onClick() {
             assert.step("MyComponent2 [data-hotkey]");
         }
     }
-    MyComponent2.template = xml`<div><button data-hotkey="b" t-on-click="onClick()"/></div>`;
+    MyComponent2.template = xml`<div t-ref="active"><button data-hotkey="b" t-on-click="onClick"/></div>`;
 
-    const comp1 = await mount(MyComponent1, { env, target });
+    await mount(MyComponent1, target, { env });
     triggerHotkey("a");
     triggerHotkey("b", true);
     await nextTick();
 
-    const comp2 = await mount(MyComponent2, { env, target });
+    const comp2 = await mount(MyComponent2, target, { env });
     triggerHotkey("a");
     triggerHotkey("b", true);
     await nextTick();
 
-    comp2.unmount();
+    destroy(comp2);
+    await Promise.resolve();
     triggerHotkey("a");
     triggerHotkey("b", true);
     await nextTick();
@@ -655,9 +779,6 @@ QUnit.test("registrations and elements belong to the correct UI owner", async (a
         "MyComponent1 subscription",
         "MyComponent1 [data-hotkey]",
     ]);
-
-    comp1.destroy();
-    comp2.destroy();
 });
 
 QUnit.test("replace the overlayModifier for non-MacOs", async (assert) => {
@@ -678,7 +799,7 @@ QUnit.test("replace the overlayModifier for non-MacOs", async (assert) => {
         <button t-on-click="onClick" data-hotkey="b"/>
         </div>
     `;
-    await mount(MyComponent, { env, target });
+    await mount(MyComponent, target, { env });
 
     const key = "b";
     triggerHotkey(`alt+shift+${key}`);
@@ -716,7 +837,7 @@ QUnit.test("replace the overlayModifier for MacOs", async (assert) => {
         <button t-on-click="onClick" data-hotkey="b"/>
         </div>
     `;
-    await mount(MyComponent, { env, target });
+    await mount(MyComponent, target, { env });
 
     const key = "b";
     triggerHotkey(`alt+shift+${key}`);
@@ -738,15 +859,16 @@ QUnit.test("protects editable elements", async (assert) => {
         }
     }
     Comp.template = xml`<div><input class="foo"/></div>`;
-    await mount(Comp, { env, target });
+    await mount(Comp, target, { env });
     const input = target.querySelector(".foo");
 
     assert.verifySteps([]);
-    document.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowLeft", bubbles: true }));
+    triggerHotkey("ArrowLeft");
     await nextTick();
     assert.verifySteps(["called"]);
 
-    input.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowLeft", bubbles: true }));
+    input.focus();
+    triggerHotkey("ArrowLeft");
     await nextTick();
     assert.verifySteps(
         [],
@@ -762,15 +884,16 @@ QUnit.test("protects editable elements: can bypassEditableProtection", async (as
         }
     }
     Comp.template = xml`<div><input class="foo"/></div>`;
-    await mount(Comp, { env, target });
+    await mount(Comp, target, { env });
     const input = target.querySelector(".foo");
 
     assert.verifySteps([]);
-    document.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowLeft", bubbles: true }));
+    triggerHotkey("ArrowLeft");
     await nextTick();
     assert.verifySteps(["called"]);
 
-    input.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowLeft", bubbles: true }));
+    input.focus();
+    triggerHotkey("ArrowLeft");
     await nextTick();
     assert.verifySteps(
         ["called"],
@@ -785,23 +908,22 @@ QUnit.test("protects editable elements: an editable can allow hotkeys", async (a
         }
     }
     Comp.template = xml`<div><input class="foo" data-allow-hotkeys="true"/><input class="bar"/></div>`;
-    await mount(Comp, { env, target });
+    await mount(Comp, target, { env });
     const fooInput = target.querySelector(".foo");
     const barInput = target.querySelector(".bar");
 
     assert.verifySteps([]);
-    document.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowLeft", bubbles: true }));
+    triggerHotkey("ArrowLeft");
     await nextTick();
     assert.verifySteps(["called"]);
 
-    fooInput.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowLeft", bubbles: true }));
+    fooInput.focus();
+    triggerHotkey("ArrowLeft");
     await nextTick();
-    assert.verifySteps(
-        ["called"],
-        "the callback gets called as the foo editable allows it"
-    );
+    assert.verifySteps(["called"], "the callback gets called as the foo editable allows it");
 
-    barInput.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowLeft", bubbles: true }));
+    barInput.focus();
+    triggerHotkey("ArrowLeft");
     await nextTick();
     assert.verifySteps(
         [],
@@ -812,20 +934,24 @@ QUnit.test("protects editable elements: an editable can allow hotkeys", async (a
 QUnit.test("ignore numpad keys", async (assert) => {
     assert.expect(3);
 
-    const key = '1';
+    const key = "1";
+    const commonEventAttrs = {
+        altKey: true,
+        bubbles: true,
+    };
 
     env.services.hotkey.add(`alt+${key}`, () => assert.step(key));
     await nextTick();
 
-    let keydown = new KeyboardEvent("keydown", { key, code: "Numpad1", altKey: true });
-    window.dispatchEvent(keydown);
+    let keydown = new KeyboardEvent("keydown", { ...commonEventAttrs, key, code: "Numpad1" });
+    document.activeElement.dispatchEvent(keydown);
     await nextTick();
     assert.verifySteps([]);
 
-    keydown = new KeyboardEvent("keydown", { key: '&', code: "Digit1", altKey: true });
-    window.dispatchEvent(keydown);
+    keydown = new KeyboardEvent("keydown", { ...commonEventAttrs, key: "&", code: "Digit1" });
+    document.activeElement.dispatchEvent(keydown);
     await nextTick();
-    assert.verifySteps(['1']);
+    assert.verifySteps(["1"]);
 });
 
 QUnit.test("within iframes", async (assert) => {
@@ -857,4 +983,245 @@ QUnit.test("within iframes", async (assert) => {
     h1.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
     await nextTick();
     assert.verifySteps(["called"]);
+});
+
+QUnit.test("callback: received context", async (assert) => {
+    class A extends Component {
+        setup() {
+            useHotkey("a", (context) => {
+                assert.deepEqual(context, {
+                    area: undefined,
+                    target: document.activeElement,
+                });
+            });
+        }
+    }
+    A.template = xml``;
+
+    class B extends Component {
+        setup() {
+            useHotkey(
+                "b",
+                (context) => {
+                    assert.deepEqual(context, {
+                        area: target,
+                        target: target,
+                    });
+                },
+                { area: () => target }
+            );
+        }
+    }
+    B.template = xml``;
+
+    await mount(A, target, { env });
+    await mount(B, target, { env });
+    triggerHotkey("A");
+    triggerHotkey("B");
+    await nextTick();
+});
+
+QUnit.test("operating area can be restricted", async (assert) => {
+    class A extends Component {
+        setup() {
+            const areaRef = useRef("area");
+            useHotkey(
+                "space",
+                ({ area }) => {
+                    assert.step("RGNTDJÛ!");
+                    assert.strictEqual(area, target.querySelector(".two"));
+                },
+                {
+                    area: () => areaRef.el,
+                }
+            );
+        }
+    }
+    A.template = xml`
+        <div class="one" tabindex="0"/>
+        <div class="two" tabindex="0" t-ref="area"/>
+    `;
+    await mount(A, target, { env });
+
+    target.querySelector(".one").focus();
+    triggerHotkey("Space");
+    await nextTick();
+    assert.verifySteps([]);
+
+    target.querySelector(".two").focus();
+    triggerHotkey("Space");
+    await nextTick();
+    assert.verifySteps(["RGNTDJÛ!"]);
+});
+
+QUnit.test("operating area and UI active element", async (assert) => {
+    class UIOwnershipTakerComponent extends Component {
+        setup() {
+            useActiveElement("bouh");
+        }
+    }
+    UIOwnershipTakerComponent.template = xml`<p class="owner" t-ref="bouh"><button/></p>`;
+    class C extends Component {
+        setup() {
+            this.state = useState({ foo: false });
+            const areaRef = useRef("area");
+            useHotkey(
+                "space",
+                ({ area }) => {
+                    assert.step("RGNTDJÛ!");
+                    assert.strictEqual(area, target.querySelector(".two"));
+                },
+                {
+                    area: () => areaRef.el,
+                }
+            );
+            useHotkey(
+                "backspace",
+                ({ area }) => {
+                    assert.step("RGNTDJÛ! (global)");
+                    assert.strictEqual(area, target.querySelector(".two"));
+                },
+                {
+                    area: () => areaRef.el,
+                    global: true,
+                }
+            );
+        }
+    }
+    C.components = { UIOwnershipTakerComponent };
+    C.template = xml`
+        <main>
+            <UIOwnershipTakerComponent t-if="state.foo" />
+            <div class="one" tabindex="0"/>
+            <div class="two" tabindex="0" t-ref="area"/>
+        </main>
+    `;
+    const comp = await mount(C, target, { env });
+    assert.strictEqual(env.services.ui.activeElement, document);
+
+    // Show the UIOwnershipTaker
+    comp.state.foo = true;
+    await nextTick();
+    assert.hasClass(env.services.ui.activeElement, "owner");
+
+    // Trigger hotkeys from the 'one'
+    target.querySelector(".one").focus();
+    triggerHotkey("Space");
+    triggerHotkey("BackSpace");
+    await nextTick();
+    assert.verifySteps([]);
+
+    // Trigger hotkeys from the 'two'
+    target.querySelector(".two").focus();
+    triggerHotkey("Space");
+    triggerHotkey("BackSpace");
+    await nextTick();
+    assert.verifySteps(["RGNTDJÛ! (global)"]);
+});
+
+QUnit.test("validating option", async (assert) => {
+    let isAvailable = false;
+    class A extends Component {
+        setup() {
+            useHotkey(
+                "space",
+                () => {
+                    assert.step("RGNTDJÛ!");
+                },
+                {
+                    isAvailable: () => isAvailable,
+                }
+            );
+        }
+    }
+    A.template = xml``;
+    await mount(A, target, { env });
+
+    triggerHotkey("Space");
+    await nextTick();
+    assert.verifySteps([]);
+
+    isAvailable = true;
+    triggerHotkey("Space");
+    await nextTick();
+    assert.verifySteps(["RGNTDJÛ!"]);
+});
+
+QUnit.test("operation area with validating option", async (assert) => {
+    let isAvailable;
+    class A extends Component {
+        setup() {
+            const areaRef = useRef("area");
+            useHotkey(
+                "space",
+                () => {
+                    assert.step("RGNTDJÛ!");
+                },
+                { area: () => areaRef.el, isAvailable: () => isAvailable }
+            );
+        }
+    }
+    A.template = xml`
+        <div class="one" tabindex="0"/>
+        <div class="two" tabindex="0" t-ref="area"/>
+    `;
+    await mount(A, target, { env });
+
+    // Trigger hotkeys from the 'one'
+    target.querySelector(".one").focus();
+
+    isAvailable = false;
+    triggerHotkey("Space");
+    await nextTick();
+    assert.verifySteps([]);
+
+    isAvailable = true;
+    triggerHotkey("Space");
+    await nextTick();
+    assert.verifySteps([]);
+
+    // Trigger hotkeys from the 'two'
+    target.querySelector(".two").focus();
+
+    isAvailable = false;
+    triggerHotkey("Space");
+    await nextTick();
+    assert.verifySteps([]);
+
+    isAvailable = true;
+    triggerHotkey("Space");
+    await nextTick();
+    assert.verifySteps(["RGNTDJÛ!"]);
+});
+
+QUnit.test("mixing hotkeys with and without operation area", async (assert) => {
+    class A extends Component {
+        setup() {
+            const areaRef = useRef("area");
+            useHotkey("space", () => assert.step("withoutArea"));
+            useHotkey("space", () => assert.step("withArea"), { area: () => areaRef.el });
+        }
+    }
+    A.template = xml`<div class="root" tabindex="0" t-ref="area"/>`;
+    await mount(A, target, { env });
+
+    target.querySelector(".root").focus();
+    triggerHotkey("Space");
+    await nextTick();
+    assert.verifySteps(["withArea"]);
+});
+
+QUnit.test("native browser space key ' ' is correctly translated to 'space' ", async (assert) => {
+    class A extends Component {
+        setup() {
+            useHotkey("space", () => assert.step("space"));
+        }
+    }
+    A.template = xml``;
+
+    assert.strictEqual(getActiveHotkey({ key: " " }), "space");
+
+    await mount(A, target, { env });
+    await triggerHotkey(" "); // event key triggered by the browser
+    assert.verifySteps(["space"]);
 });

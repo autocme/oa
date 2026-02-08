@@ -29,14 +29,14 @@ class MrpBom(models.Model):
             product_ids += bom.product_id.ids or bom.product_tmpl_id.product_variant_ids.ids
         if not product_ids:
             return
-        lines = self.env['sale.order.line'].search([
-            ('state', 'in', ('sale', 'done')),
+        lines = self.env['sale.order.line'].sudo().search([
+            ('state', '=', 'sale'),
             ('invoice_status', 'in', ('no', 'to invoice')),
             ('product_id', 'in', product_ids),
             ('move_ids.state', '!=', 'cancel'),
         ])
         if lines:
-            product_names = ', '.join(lines.product_id.mapped('name'))
+            product_names = ', '.join(lines.product_id.mapped('display_name'))
             raise UserError(_('As long as there are some sale order lines that must be delivered/invoiced and are '
                               'related to these bills of materials, you can not remove them.\n'
                               'The error concerns these products: %s', product_names))

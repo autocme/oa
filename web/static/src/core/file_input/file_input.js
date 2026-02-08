@@ -2,8 +2,8 @@
 
 import { useService } from "@web/core/utils/hooks";
 
-const { Component, hooks, QWeb } = owl;
-const { useRef } = hooks;
+import { Component, onMounted, useRef, useState } from "@odoo/owl";
+import { checkFileSize } from "@web/core/utils/files";
 
 /**
  * Custom file input
@@ -14,19 +14,60 @@ const { useRef } = hooks;
  * @extends Component
  *
  * Props:
- * @param {string} [props.accepted_file_extensions='*'] Comma-separated
+ * @param {string} [props.acceptedFileExtensions='*'] Comma-separated
  *      list of authorized file extensions (default to all).
- * @param {string} [props.action='/web/binary/upload'] Route called when
+ * @param {string} [props.route='/web/binary/upload'] Route called when
  *      a file is uploaded in the input.
- * @param {string} [props.id]
- * @param {string} [props.model]
- * @param {string} [props.multi_upload=false] Whether the input should allow
+ * @param {string} [props.resId]
+ * @param {string} [props.resModel]
+ * @param {string} [props.multiUpload=false] Whether the input should allow
  *      to upload multiple files at once.
  */
 export class FileInput extends Component {
     setup() {
         this.http = useService("http");
+        this.notification = useService("notification");
         this.fileInputRef = useRef("file-input");
+        this.state = useState({
+            // Disables upload button if currently uploading.
+            isDisable: false,
+        });
+
+        onMounted(() => {
+            if (this.props.autoOpen) {
+                this.onTriggerClicked();
+            }
+        });
+    }
+
+    get httpParams() {
+        const { resId, resModel } = this.props;
+        const params = {
+            csrf_token: odoo.csrf_token,
+            ufile: [...this.fileInputRef.el.files],
+        };
+        if (resModel) {
+            params.model = resModel;
+        }
+        if (resId !== undefined) {
+            params.id = resId;
+        }
+        return params;
+    }
+
+    async uploadFiles(params) {
+        if ((params.ufile && params.ufile.length) || params.file) {
+            const fileSize = (params.ufile && params.ufile[0].size) || params.file.size;
+            if (!checkFileSize(fileSize, this.notification)) {
+                return null;
+            }
+        }
+        const fileData = await this.http.post(this.props.route, params, "text");
+        const parsedFileData = JSON.parse(fileData);
+        if (parsedFileData.error) {
+            throw new Error(parsedFileData.error);
+        }
+        return parsedFileData;
     }
 
     //--------------------------------------------------------------------------
@@ -34,54 +75,67 @@ export class FileInput extends Component {
     //--------------------------------------------------------------------------
 
     /**
-     * Upload an attachment to the given action with the given parameters:
+     * Upload an attachment to the given route with the given parameters:
      * - ufile: list of files contained in the file input
      * - csrf_token: CSRF token provided by the odoo global object
-     * - model: a specific model which will be given when creating the attachment
-     * - id: the id of the model target instance
-     * @private
+     * - resModel: a specific model which will be given when creating the attachment
+     * - resId: the id of the resModel target instance
      */
     async onFileInputChange() {
-        const { action, model, id } = this.props;
-        const params = {
-            csrf_token: odoo.csrf_token,
-            ufile: [...this.fileInputRef.el.files],
-        };
-        if (model) {
-            params.model = model;
+        this.state.isDisable = true;
+        const httpParams = this.httpParams;
+        if (this.props.onWillUploadFiles) {
+            try {
+                const files = await this.props.onWillUploadFiles(httpParams.ufile);
+                httpParams.ufile = files;
+            } catch (e) {
+                this.state.isDisable = false;
+                throw e;
+            }
         }
-        if (id) {
-            params.id = id;
+        const parsedFileData = await this.uploadFiles(httpParams);
+        if (parsedFileData) {
+            // When calling onUpload, also pass the files to allow to get data like their names
+            this.props.onUpload(
+                parsedFileData,
+                this.fileInputRef.el ? this.fileInputRef.el.files : []
+            );
+            // Because the input would not trigger this method if the same file name is uploaded,
+            // we must clear the value after handling the upload
+            this.fileInputRef.el.value = null;
         }
-        const fileData = await this.http.post(action, params, "text");
-        const parsedFileData = JSON.parse(fileData);
-        if (parsedFileData.error) {
-            throw new Error(parsedFileData.error);
-        }
-        this.trigger("uploaded", { files: parsedFileData });
+        this.state.isDisable = false;
     }
 
     /**
      * Redirect clicks from the trigger element to the input.
-     * @private
      */
-    onTriggerClicked() {
-        this.fileInputRef.el.click();
+    async onTriggerClicked() {
+        if (await this.props.beforeOpen()) {
+            this.fileInputRef.el.click();
+        }
     }
 }
 
 FileInput.defaultProps = {
-    accepted_file_extensions: "*",
-    action: "/web/binary/upload",
-    multi_upload: false,
+    acceptedFileExtensions: "*",
+    hidden: false,
+    multiUpload: false,
+    onUpload: () => {},
+    route: "/web/binary/upload_attachment",
+    beforeOpen: async () => true,
 };
 FileInput.props = {
-    accepted_file_extensions: { type: String, optional: 1 },
-    action: { type: String, optional: 1 },
-    id: { type: Number, optional: 1 },
-    model: { type: String, optional: 1 },
-    multi_upload: { type: Boolean, optional: 1 },
+    acceptedFileExtensions: { type: String, optional: true },
+    autoOpen: { type: Boolean, optional: true },
+    hidden: { type: Boolean, optional: true },
+    multiUpload: { type: Boolean, optional: true },
+    onWillUploadFiles: { type: Function, optional: true },
+    onUpload: { type: Function, optional: true },
+    beforeOpen: { type: Function, optional: true },
+    resId: { type: Number, optional: true },
+    resModel: { type: String, optional: true },
+    route: { type: String, optional: true },
+    "*": true,
 };
 FileInput.template = "web.FileInput";
-
-QWeb.registerComponent("FileInput", FileInput);

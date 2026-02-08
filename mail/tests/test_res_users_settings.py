@@ -1,10 +1,10 @@
-# -*- coding: utf-8 -*-
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
 
 from odoo.addons.mail.tests.common import MailCommon
-from odoo.tests.common import users
+from odoo.tests.common import tagged, users
 
 
+@tagged("post_install", "-at_install")
 class TestResUsersSettings(MailCommon):
 
     @users('employee')
@@ -35,8 +35,11 @@ class TestResUsersSettings(MailCommon):
         with self.assertBus(
                 [(self.cr.dbname, 'res.partner', self.partner_employee.id)],
                 [{
-                    "type": "res.users.settings/changed",
-                    "payload": {"is_discuss_sidebar_category_chat_open": True}
+                    'type': 'res.users.settings',
+                    'payload': {
+                        'id': settings.id,
+                        'is_discuss_sidebar_category_chat_open': True,
+                    },
                 }]):
             settings.set_res_users_settings({'is_discuss_sidebar_category_chat_open': True})
 

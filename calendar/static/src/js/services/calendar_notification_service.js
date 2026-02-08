@@ -1,28 +1,22 @@
 /** @odoo-module **/
 
+import { _t } from "@web/core/l10n/translation";
 import { browser } from "@web/core/browser/browser";
 import { ConnectionLostError } from "@web/core/network/rpc_service";
 import { registry } from "@web/core/registry";
 
 export const calendarNotificationService = {
-    dependencies: ["action", "notification", "rpc"],
+    dependencies: ["action", "bus_service", "notification", "rpc"],
 
-    start(env, { action, notification, rpc }) {
+    start(env, { action, bus_service, notification, rpc }) {
         let calendarNotifTimeouts = {};
         let nextCalendarNotifTimeout = null;
         const displayedNotifications = new Set();
 
-        env.bus.on("WEB_CLIENT_READY", null, async () => {
-            const legacyEnv = owl.Component.env;
-            legacyEnv.services.bus_service.onNotification(this, (notifications) => {
-                for (const { payload, type } of notifications) {
-                    if (type === "calendar.alarm") {
-                        displayCalendarNotification(payload);
-                    }
-                }
-            });
-            legacyEnv.services.bus_service.startPolling();
+        bus_service.subscribe("calendar.alarm", (payload) => {
+            displayCalendarNotification(payload);
         });
+        bus_service.start();
 
         /**
          * Displays the Calendar notification on user's screen
@@ -51,7 +45,7 @@ export const calendarNotificationService = {
                         },
                         buttons: [
                             {
-                                name: env._t("OK"),
+                                name: _t("OK"),
                                 primary: true,
                                 onClick: async () => {
                                     await rpc("/calendar/notify_ack");
@@ -59,7 +53,7 @@ export const calendarNotificationService = {
                                 },
                             },
                             {
-                                name: env._t("Details"),
+                                name: _t("Details"),
                                 onClick: async () => {
                                     await action.doAction({
                                         type: 'ir.actions.act_window',
@@ -72,7 +66,7 @@ export const calendarNotificationService = {
                                 },
                             },
                             {
-                                name: env._t("Snooze"),
+                                name: _t("Snooze"),
                                 onClick: () => {
                                     notificationRemove();
                                 },

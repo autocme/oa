@@ -1,36 +1,33 @@
 # Translation of Odoo Server.
 # This file contains the translation of the following modules:
 # 	* hr_work_entry_holidays
-# 
+#
 # Translators:
-# 敬雲 林 <chingyun@yuanchih-consult.com>, 2021
+# Wil Odoo, 2023
 # Tony Ng, 2024
-# 
+#
 msgid ""
 msgstr ""
-"Project-Id-Version: Odoo Server saas~14.5\n"
+"Project-Id-Version: Odoo Server 17.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2021-09-14 10:28+0000\n"
-"PO-Revision-Date: 2021-09-14 12:23+0000\n"
+"POT-Creation-Date: 2025-12-29 18:37+0000\n"
+"PO-Revision-Date: 2023-10-26 23:09+0000\n"
 "Last-Translator: Tony Ng, 2024\n"
-"Language-Team: Chinese (Taiwan) (https://app.transifex.com/odoo/teams/41243/zh_TW/)\n"
+"Language-Team: Chinese (Taiwan) (https://app.transifex.com/odoo/teams/41243/"
+"zh_TW/)\n"
+"Language: zh_TW\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: \n"
-"Language: zh_TW\n"
 "Plural-Forms: nplurals=1; plural=0;\n"
 
 #. module: hr_work_entry_holidays
-#: code:addons/hr_work_entry_holidays/models/hr_leave.py:0
-#, python-format
-msgid "%s: Time Off"
-msgstr "%s:休假"
-
-#. module: hr_work_entry_holidays
+#. odoo-python
 #: code:addons/hr_work_entry_holidays/models/hr_leave.py:0
 #, python-format
 msgid ""
-"A leave cannot be set across multiple contracts with different working schedules.\n"
+"A leave cannot be set across multiple contracts with different working "
+"schedules.\n"
 "\n"
 "Please create one time off for each contract.\n"
 "\n"
@@ -50,16 +47,29 @@ msgstr ""
 "%s"
 
 #. module: hr_work_entry_holidays
+#: model:ir.model,name:hr_work_entry_holidays.model_hr_employee_base
+msgid "Basic Employee"
+msgstr "一般員工"
+
+#. module: hr_work_entry_holidays
+#. odoo-python
+#: code:addons/hr_work_entry_holidays/models/hr_contract.py:0
+#, python-format
+msgid ""
+"Changing the contract on this employee changes their working schedule in a "
+"period they already took leaves. Changing this working schedule changes the "
+"duration of these leaves in such a way the employee no longer has the "
+"required allocation for them. Please review these leaves and/or allocations "
+"before changing the contract."
+msgstr ""
+"更改該員工的合同會改變其已休假期間的工作安排。更改工作時間表會改變這些假期的"
+"持續時間，從而使該員工不再擁有所需的假期分配。請在更改合同前審查這些假期和/或"
+"分配。"
+
+#. module: hr_work_entry_holidays
 #: model:ir.model,name:hr_work_entry_holidays.model_hr_contract
 msgid "Employee Contract"
 msgstr "員工契約"
-
-#. module: hr_work_entry_holidays
-#: model:ir.model.fields,help:hr_work_entry_holidays.field_hr_work_entry_type__leave_type_ids
-msgid ""
-"Every new time off type in this list will be reported as select work entry "
-"in payslip."
-msgstr "此列表中的每個新休假類型都將報告為工資單中的選擇工時紀錄。"
 
 #. module: hr_work_entry_holidays
 #: model:ir.model,name:hr_work_entry_holidays.model_hr_work_entry
@@ -89,12 +99,13 @@ msgid ""
 "The status is 'Refused', when time off request is refused by manager.\n"
 "The status is 'Approved', when time off request is approved by manager."
 msgstr ""
-"建立休假請求時，狀態設定為「提交」。\n"
+"建立休假請求時，狀態設定為「待提交」。\n"
 "當使用者確認休假請求時，狀態為「待批准」\n"
-"當經理拒絕請假停止請求時，狀態為「拒絕」\n"
+"當經理退回請假停止請求時，狀態為「已退回」\n"
 "當經理批准休假時，狀態為「已批准」。"
 
 #. module: hr_work_entry_holidays
+#. odoo-python
 #: code:addons/hr_work_entry_holidays/models/hr_leave.py:0
 #, python-format
 msgid ""
@@ -117,4 +128,9 @@ msgstr "休假類型"
 #. module: hr_work_entry_holidays
 #: model:ir.model.fields,field_description:hr_work_entry_holidays.field_hr_leave_type__work_entry_type_id
 msgid "Work Entry Type"
-msgstr "工時記錄類型"
+msgstr "工時紀錄類型"
+
+#. module: hr_work_entry_holidays
+#: model:ir.model.fields,help:hr_work_entry_holidays.field_hr_work_entry_type__leave_type_ids
+msgid "Work entry used in the payslip."
+msgstr "工資單中使用的工作條目。"

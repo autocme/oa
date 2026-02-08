@@ -1,28 +1,23 @@
 # Translation of Odoo Server.
 # This file contains the translation of the following modules:
 # 	* website_payment
-# 
+#
 # Translators:
-# Martin Trigaux, 2021
-# Nancy Momoland <thanh.np2502@gmail.com>, 2021
-# Trinh Tran Thi Phuong <trinhttp@trobz.com>, 2021
-# Dung Nguyen Thi <dungnt@trobz.com>, 2021
-# Vo Thanh Thuy, 2021
-# Thi Huong Nguyen, 2023
-# Wil Odoo, 2024
-# 
+# Wil Odoo, 2023
+# Thi Huong Nguyen, 2024
+#
 msgid ""
 msgstr ""
-"Project-Id-Version: Odoo Server 15.0\n"
+"Project-Id-Version: Odoo Server 17.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-08-14 15:43+0000\n"
-"PO-Revision-Date: 2021-09-14 12:28+0000\n"
-"Last-Translator: Wil Odoo, 2024\n"
+"POT-Creation-Date: 2025-12-29 18:38+0000\n"
+"PO-Revision-Date: 2023-10-26 23:09+0000\n"
+"Last-Translator: Thi Huong Nguyen, 2024\n"
 "Language-Team: Vietnamese (https://app.transifex.com/odoo/teams/41243/vi/)\n"
+"Language: vi\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: \n"
-"Language: vi\n"
 "Plural-Forms: nplurals=1; plural=0;\n"
 
 #. module: website_payment
@@ -30,13 +25,15 @@ msgstr ""
 msgid ""
 ".\n"
 "                        <br/>\n"
-"                        We appreciate your support for our organization as such.\n"
+"                        We appreciate your support for our organization as "
+"such.\n"
 "                        <br/>\n"
 "                        Regards."
 msgstr ""
 ".\n"
 "                        <br/>\n"
-"                        Chúng tôi đánh giá cao sự ủng hộ của bạn cho tổ chức của chúng tôi.\n"
+"                        Rất cảm ơn sự quan tâm hỗ trợ của bạn dành cho chúng "
+"tôi.\n"
 "                        <br/>\n"
 "                        Trân trọng."
 
@@ -71,7 +68,7 @@ msgid "<b>Payment Method:</b>"
 msgstr "<b>Phương thức thanh toán:</b>"
 
 #. module: website_payment
-#: model_terms:ir.ui.view,arch_db:website_payment.payment_checkout
+#: model_terms:ir.ui.view,arch_db:website_payment.donation_information
 msgid "<option value=\"\">Country...</option>"
 msgstr "<option value=\"\">Quốc gia...</option>"
 
@@ -79,10 +76,12 @@ msgstr "<option value=\"\">Quốc gia...</option>"
 #: model_terms:ir.ui.view,arch_db:website_payment.donation_pay
 msgid ""
 "<strong>No suitable payment option could be found.</strong><br/>\n"
-"                                If you believe that it is an error, please contact the website administrator."
+"                                If you believe that it is an error, please "
+"contact the website administrator."
 msgstr ""
 "<strong>Không tìm thấy lựa chọn thanh toán phù hợp.</strong><br/>\n"
-"                                Nếu bạn tin rằng đây là lỗi, hãy liên hệ với quản trị website. "
+"                                Nếu bạn tin đây là lỗi, hãy liên hệ với quản "
+"trị viên trang web."
 
 #. module: website_payment
 #: model_terms:ir.ui.view,arch_db:website_payment.donation_pay
@@ -91,6 +90,7 @@ msgstr ""
 "<strong>Cảnh báo</strong> Đơn vị tiền tệ bị thiếu hoặc không chính xác."
 
 #. module: website_payment
+#. odoo-python
 #: code:addons/website_payment/models/payment_transaction.py:0
 #, python-format
 msgid "A donation has been made on your website"
@@ -102,29 +102,39 @@ msgid "A year of cultural awakening."
 msgstr "Một năm khám phá văn hóa. "
 
 #. module: website_payment
-#. openerp-web
+#: model_terms:ir.ui.view,arch_db:website_payment.res_config_settings_view_form
+msgid "Activate Payments"
+msgstr "Phương thức thanh toán hiện tại"
+
+#. module: website_payment
+#: model:ir.actions.server,name:website_payment.action_activate_stripe
+#: model_terms:ir.ui.view,arch_db:website_payment.res_config_settings_view_form
+msgid "Activate Stripe"
+msgstr "Kích hoạt Stripe"
+
+#. module: website_payment
+#. odoo-javascript
 #: code:addons/website_payment/static/src/snippets/s_donation/options.js:0
 #, python-format
 msgid "Add a description here"
 msgstr "Thêm mô tả ở đây"
 
 #. module: website_payment
-#. openerp-web
+#. odoo-javascript
 #: code:addons/website_payment/static/src/snippets/s_donation/options.js:0
 #, python-format
 msgid "Add new pre-filled option"
 msgstr "Thêm tùy chọn điền trước mới"
 
 #. module: website_payment
-#. openerp-web
-#: code:addons/website_payment/static/src/snippets/s_donation/000.xml:0
-#: code:addons/website_payment/static/src/snippets/s_donation/000.xml:0
+#. odoo-javascript
+#: code:addons/website_payment/static/src/snippets/s_donation/options.xml:0
 #, python-format
 msgid "Amount"
-msgstr "Khoản"
+msgstr "Số tiền"
 
 #. module: website_payment
-#: model_terms:ir.ui.view,arch_db:website_payment.payment_checkout
+#: model_terms:ir.ui.view,arch_db:website_payment.donation_information
 msgid "Amount ("
 msgstr "Khoản ("
 
@@ -139,38 +149,51 @@ msgid "Caring for a baby for 1 month."
 msgstr "Chăm sóc em bé trong 1 tháng. "
 
 #. module: website_payment
-#. openerp-web
-#: code:addons/website_payment/static/src/snippets/s_donation/000.xml:0
+#. odoo-javascript
+#: code:addons/website_payment/static/src/snippets/s_donation/options.xml:0
 #, python-format
 msgid "Choose Your Amount"
 msgstr "Chọn một khoản"
 
 #. module: website_payment
-#. openerp-web
-#: code:addons/website_payment/static/src/js/website_payment_form.js:0
+#: model:ir.model,name:website_payment.model_res_config_settings
+msgid "Config Settings"
+msgstr "Cài đặt cấu hình"
+
+#. module: website_payment
+#. odoo-python
+#: code:addons/website_payment/models/res_config_settings.py:0
+#, python-format
+msgid "Configure %s"
+msgstr "Tùy chỉnh %s"
+
+#. module: website_payment
+#. odoo-javascript
+#: code:addons/website_payment/static/src/js/payment_form.js:0
+#: model:ir.model,name:website_payment.model_res_country
 #, python-format
 msgid "Country"
 msgstr "Quốc gia"
 
 #. module: website_payment
-#: model_terms:ir.ui.view,arch_db:website_payment.payment_checkout
+#: model_terms:ir.ui.view,arch_db:website_payment.donation_information
 msgid ""
 "Country\n"
-"                            <span class=\"s_website_form_mark\"> *</span>"
+"                    <span class=\"s_website_form_mark\"> *</span>"
 msgstr ""
 "Quốc gia\n"
-"                            <span class=\"s_website_form_mark\"> *</span>"
+"                    <span class=\"s_website_form_mark\"> *</span>"
 
 #. module: website_payment
+#. odoo-python
 #: code:addons/website_payment/controllers/portal.py:0
 #, python-format
 msgid "Country is required."
 msgstr "Yêu cầu chọn quốc gia. "
 
 #. module: website_payment
-#. openerp-web
-#: code:addons/website_payment/static/src/snippets/s_donation/000.xml:0
-#: code:addons/website_payment/static/src/snippets/s_donation/000.xml:0
+#. odoo-javascript
+#: code:addons/website_payment/static/src/snippets/s_donation/options.xml:0
 #: model_terms:ir.ui.view,arch_db:website_payment.donation_input
 #: model_terms:ir.ui.view,arch_db:website_payment.s_donation_options
 #, python-format
@@ -189,29 +212,47 @@ msgstr "Khoản mặc định"
 
 #. module: website_payment
 #: model_terms:ir.ui.view,arch_db:website_payment.s_donation_options
+msgid "Descriptions"
+msgstr "Mô tả"
+
+#. module: website_payment
+#: model_terms:ir.ui.view,arch_db:website_payment.s_donation_options
 msgid "Display Options"
 msgstr "Tùy chọn hiển thị"
 
 #. module: website_payment
-#: model_terms:ir.ui.view,arch_db:website_payment.payment_checkout
+#. odoo-python
+#: code:addons/website_payment/controllers/portal.py:0
+#, python-format
+msgid "Donate"
+msgstr "Quyên góp"
+
+#. module: website_payment
 #: model_terms:ir.ui.view,arch_db:website_payment.s_donation_button
 msgid "Donate Now"
 msgstr "Quyên góp "
 
 #. module: website_payment
-#: model:mail.template,name:website_payment.mail_template_donation
+#: model_terms:ir.ui.view,arch_db:website_payment.donation_information
 #: model_terms:ir.ui.view,arch_db:website_payment.donation_mail_body
-#: model_terms:ir.ui.view,arch_db:website_payment.payment_checkout
+#: model_terms:ir.ui.view,arch_db:website_payment.snippets
 msgid "Donation"
 msgstr "Quyên góp"
 
 #. module: website_payment
+#: model_terms:ir.ui.view,arch_db:website_payment.snippets
+msgid "Donation Button"
+msgstr "Nút quyên góp"
+
+#. module: website_payment
+#. odoo-python
 #: code:addons/website_payment/controllers/portal.py:0
 #, python-format
 msgid "Donation amount must be at least %.2f."
 msgstr "Khoản quyên góp phải ít nhất %.2f. "
 
 #. module: website_payment
+#. odoo-python
 #: code:addons/website_payment/models/payment_transaction.py:0
 #, python-format
 msgid "Donation confirmation"
@@ -223,45 +264,51 @@ msgid "Donation notification"
 msgstr "Thông báo quyên góp"
 
 #. module: website_payment
-#. openerp-web
-#: code:addons/website_payment/static/src/js/website_payment_form.js:0
+#. odoo-javascript
+#: code:addons/website_payment/static/src/js/payment_form.js:0
 #, python-format
 msgid "Email"
 msgstr "Email"
 
 #. module: website_payment
-#: model_terms:ir.ui.view,arch_db:website_payment.payment_checkout
+#: model_terms:ir.ui.view,arch_db:website_payment.donation_information
 msgid ""
 "Email\n"
-"                            <span class=\"s_website_form_mark\"> *</span>"
+"                    <span class=\"s_website_form_mark\"> *</span>"
 msgstr ""
 "Email\n"
-"                            <span class=\"s_website_form_mark\"> *</span>"
+"                    <span class=\"s_website_form_mark\"> *</span>"
 
 #. module: website_payment
-#. openerp-web
-#: code:addons/website_payment/static/src/js/website_payment_form.js:0
+#. odoo-javascript
+#: code:addons/website_payment/static/src/js/payment_form.js:0
 #, python-format
 msgid "Email is invalid"
 msgstr "Email không hợp lệ"
 
 #. module: website_payment
+#. odoo-python
 #: code:addons/website_payment/controllers/portal.py:0
 #, python-format
 msgid "Email is required."
 msgstr "Yêu cầu có email. "
 
 #. module: website_payment
-#. openerp-web
-#: code:addons/website_payment/static/src/js/website_payment_form.js:0
+#. odoo-javascript
+#: code:addons/website_payment/static/src/js/payment_form.js:0
 #, python-format
 msgid "Field '%s' is mandatory"
 msgstr "Trường '%s' là bắt buộc"
 
 #. module: website_payment
+#: model:ir.model.fields,field_description:website_payment.field_res_config_settings__first_provider_label
+msgid "First Provider Label"
+msgstr "Nhãn nhà cung cấp đầu tiên"
+
+#. module: website_payment
 #: model_terms:ir.ui.view,arch_db:website_payment.s_donation_options
 msgid "Input"
-msgstr "Nhập liệu"
+msgstr "Đầu vào"
 
 #. module: website_payment
 #: model:ir.model.fields,field_description:website_payment.field_account_payment__is_donation
@@ -269,15 +316,15 @@ msgid "Is Donation"
 msgstr "Là quyên góp"
 
 #. module: website_payment
+#: model:ir.model.fields,field_description:website_payment.field_res_config_settings__is_stripe_supported_country
+#: model:ir.model.fields,field_description:website_payment.field_res_country__is_stripe_supported_country
+msgid "Is Stripe Supported Country"
+msgstr "Là quốc gia có hỗ trợ Stripe"
+
+#. module: website_payment
 #: model:ir.model.fields,field_description:website_payment.field_payment_transaction__is_donation
 msgid "Is donation"
 msgstr "Là quyên góp"
-
-#. module: website_payment
-#: model:ir.model.fields,help:website_payment.field_account_payment__is_donation
-#: model:ir.model.fields,help:website_payment.field_payment_transaction__is_donation
-msgid "Is the payment a donation"
-msgstr "Khoản thanh toán là quyên góp"
 
 #. module: website_payment
 #: model_terms:ir.ui.view,arch_db:website_payment.s_donation
@@ -285,31 +332,43 @@ msgid "Make a Donation"
 msgstr "Quyên góp "
 
 #. module: website_payment
-#. openerp-web
-#: code:addons/website_payment/static/src/js/website_payment_form.js:0
+#: model_terms:ir.ui.view,arch_db:website_payment.s_donation_options
+msgid "Maximum"
+msgstr "Tối đa"
+
+#. module: website_payment
+#: model_terms:ir.ui.view,arch_db:website_payment.s_donation_options
+msgid "Minimum"
+msgstr "Nhỏ nhất"
+
+#. module: website_payment
+#. odoo-javascript
+#: code:addons/website_payment/static/src/js/payment_form.js:0
 #, python-format
 msgid "Name"
 msgstr "Tên"
 
 #. module: website_payment
-#: model_terms:ir.ui.view,arch_db:website_payment.payment_checkout
+#: model_terms:ir.ui.view,arch_db:website_payment.donation_information
 msgid ""
 "Name\n"
-"                            <span class=\"s_website_form_mark\"> *</span>"
+"                    <span class=\"s_website_form_mark\"> *</span>"
 msgstr ""
 "Tên\n"
-"                            <span class=\"s_website_form_mark\"> *</span>"
+"                    <span class=\"s_website_form_mark\"> *</span>"
 
 #. module: website_payment
+#. odoo-python
 #: code:addons/website_payment/controllers/portal.py:0
 #, python-format
 msgid "Name is required."
 msgstr "Yêu cầu điền tên"
 
 #. module: website_payment
+#: model:ir.model.fields.selection,name:website_payment.selection__res_config_settings__providers_state__none
 #: model_terms:ir.ui.view,arch_db:website_payment.s_donation_options
 msgid "None"
-msgstr "Không "
+msgstr "Không"
 
 #. module: website_payment
 #: model_terms:ir.ui.view,arch_db:website_payment.s_donation_button
@@ -322,19 +381,19 @@ msgid "One year in high school."
 msgstr "Một năm học trung học. "
 
 #. module: website_payment
-#: model:ir.model,name:website_payment.model_website_page
-msgid "Page"
-msgstr "Trang"
+#: model:ir.model.fields.selection,name:website_payment.selection__res_config_settings__providers_state__other_than_paypal
+msgid "Other than Paypal"
+msgstr "Khác Paypal"
 
 #. module: website_payment
-#: model:ir.model,name:website_payment.model_payment_acquirer
-msgid "Payment Acquirer"
-msgstr "Dịch vụ thanh toán"
-
-#. module: website_payment
-#: model_terms:ir.ui.view,arch_db:website_payment.payment_checkout
+#: model_terms:ir.ui.view,arch_db:website_payment.donation_information
 msgid "Payment Details"
 msgstr "Chi tiết thanh toán"
+
+#. module: website_payment
+#: model:ir.model,name:website_payment.model_payment_provider
+msgid "Payment Provider"
+msgstr "Nhà cung cấp dịch vụ thanh toán"
 
 #. module: website_payment
 #: model:ir.model,name:website_payment.model_payment_transaction
@@ -342,6 +401,14 @@ msgid "Payment Transaction"
 msgstr "Giao dịch thanh toán"
 
 #. module: website_payment
+#. odoo-javascript
+#: code:addons/website_payment/static/src/js/payment_form.js:0
+#, python-format
+msgid "Payment processing failed"
+msgstr "Xử lý thanh toán không thành công"
+
+#. module: website_payment
+#. odoo-python
 #: code:addons/website_payment/models/payment_transaction.py:0
 #, python-format
 msgid "Payment received from donation with following details:"
@@ -353,7 +420,12 @@ msgid "Payments"
 msgstr "Thanh toán"
 
 #. module: website_payment
-#. openerp-web
+#: model:ir.model.fields.selection,name:website_payment.selection__res_config_settings__providers_state__paypal_only
+msgid "Paypal Only"
+msgstr "Chỉ Paypal"
+
+#. module: website_payment
+#. odoo-javascript
 #: code:addons/website_payment/static/src/snippets/s_donation/000.js:0
 #, python-format
 msgid "Please select or enter an amount"
@@ -365,16 +437,19 @@ msgid "Pre-filled Options"
 msgstr "Tùy chọn điền trước"
 
 #. module: website_payment
+#: model:ir.model.fields,field_description:website_payment.field_res_config_settings__providers_state
+msgid "Providers State"
+msgstr "Tỉnh/TP của nhà cung cấp"
+
+#. module: website_payment
 #: model_terms:ir.ui.view,arch_db:website_payment.s_donation_options
 msgid "Recipient Email"
 msgstr "Email người nhận"
 
 #. module: website_payment
-#. openerp-web
-#: code:addons/website_payment/static/src/js/website_payment_form.js:0
-#, python-format
-msgid "Server Error"
-msgstr "Lỗi máy chủ"
+#: model_terms:ir.ui.view,arch_db:website_payment.res_config_settings_view_form
+msgid "Shop - Payment"
+msgstr "Cửa hàng - Thanh toán"
 
 #. module: website_payment
 #: model_terms:ir.ui.view,arch_db:website_payment.s_donation_options
@@ -387,11 +462,34 @@ msgid "Small or large, your contribution is essential."
 msgstr "Dù ít hay nhiều, đóng góp của bạn đều đáng quý. "
 
 #. module: website_payment
-#. openerp-web
-#: code:addons/website_payment/static/src/js/website_payment_form.js:0
+#. odoo-javascript
+#: code:addons/website_payment/static/src/js/payment_form.js:0
 #, python-format
 msgid "Some information is missing to process your payment."
 msgstr "Thiếu một số thông tin để xử lý thanh toán. "
+
+#. module: website_payment
+#: model_terms:ir.ui.view,arch_db:website_payment.s_donation_options
+msgid "Step"
+msgstr "Bước"
+
+#. module: website_payment
+#: model_terms:ir.ui.view,arch_db:website_payment.res_config_settings_view_form
+msgid ""
+"Stripe Connect is not available in your country, please use another payment "
+"provider."
+msgstr ""
+"Stripe Connect không khả dụng ở quốc gia của bạn, vui lòng sử dụng nhà cung "
+"cấp dịch vụ thanh toán khác."
+
+#. module: website_payment
+#: model_terms:ir.ui.view,arch_db:website_payment.res_config_settings_view_form
+msgid ""
+"Support most payment methods; Visa, Mastercard, Maestro, Google Pay, Apple "
+"Pay, etc. as well as recurring charges."
+msgstr ""
+"Hỗ trợ hầu hết các phương thức thanh toán; Visa, Mastercard, Maestro, Google "
+"Pay, Apple Pay,... cũng như các khoản phí định kỳ."
 
 #. module: website_payment
 #: model_terms:ir.ui.view,arch_db:website_payment.donation_mail_body
@@ -399,7 +497,7 @@ msgid "Thank you for your donation of"
 msgstr "Cảm ơn bạn đã quyên góp"
 
 #. module: website_payment
-#. openerp-web
+#. odoo-javascript
 #: code:addons/website_payment/static/src/snippets/s_donation/000.js:0
 #, python-format
 msgid "The minimum donation amount is %s%s%s"
@@ -408,34 +506,35 @@ msgstr "Khoản quyên góp tối thiểu là %s%s%s"
 #. module: website_payment
 #: model_terms:ir.ui.view,arch_db:website_payment.donation_pay
 msgid "There is nothing to pay."
-msgstr "Không có khoản thanh toán nào. "
+msgstr "Không có gì cần thanh toán. "
 
 #. module: website_payment
-#. openerp-web
-#: code:addons/website_payment/static/src/js/website_payment_form.js:0
-#, python-format
-msgid "Validation Error"
-msgstr "Lỗi xác nhận"
+#: model_terms:ir.ui.view,arch_db:website_payment.res_config_settings_view_form
+msgid "View Alternatives"
+msgstr "Xem phương thức khác"
 
 #. module: website_payment
-#. openerp-web
-#: code:addons/website_payment/static/src/js/website_payment_form.js:0
-#, python-format
-msgid "We could not obtain payment fees."
-msgstr "Chúng tôi không thể nhận được phí thanh toán. "
+#: model_terms:ir.ui.view,arch_db:website_payment.res_config_settings_view_form
+msgid "View other providers"
+msgstr "Xem nhà cung cấp khác"
 
 #. module: website_payment
-#: model:ir.model.fields,field_description:website_payment.field_payment_acquirer__website_id
+#: model:ir.model.fields,field_description:website_payment.field_payment_provider__website_id
 msgid "Website"
-msgstr "Website"
+msgstr "Trang web"
 
 #. module: website_payment
-#: model_terms:ir.ui.view,arch_db:website_payment.payment_checkout
+#: model:mail.template,name:website_payment.mail_template_donation
+msgid "Website: Donation"
+msgstr "Website: Quyên góp"
+
+#. module: website_payment
+#: model_terms:ir.ui.view,arch_db:website_payment.donation_information
 msgid "Write us a comment"
 msgstr "Viết nhận xét"
 
 #. module: website_payment
-#: model_terms:ir.ui.view,arch_db:website_payment.payment_checkout
+#: model_terms:ir.ui.view,arch_db:website_payment.donation_information
 msgid "Your comment"
 msgstr "Nhận xét của bạn"
 
@@ -443,23 +542,3 @@ msgstr "Nhận xét của bạn"
 #: model_terms:ir.ui.view,arch_db:website_payment.donation_mail_body
 msgid "made on"
 msgstr "vào ngày"
-
-#. module: website_payment
-#: model_terms:ir.ui.view,arch_db:website_payment.s_donation_options
-msgid "⌙ Descriptions"
-msgstr "⌙ Mô tả"
-
-#. module: website_payment
-#: model_terms:ir.ui.view,arch_db:website_payment.s_donation_options
-msgid "⌙ Maximum"
-msgstr "⌙ Tối đa"
-
-#. module: website_payment
-#: model_terms:ir.ui.view,arch_db:website_payment.s_donation_options
-msgid "⌙ Minimum"
-msgstr "⌙ Tối thiểu "
-
-#. module: website_payment
-#: model_terms:ir.ui.view,arch_db:website_payment.s_donation_options
-msgid "⌙ Step"
-msgstr "⌙ Khoảng"

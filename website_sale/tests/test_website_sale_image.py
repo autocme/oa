@@ -4,13 +4,14 @@ import base64
 import io
 
 from PIL import Image
+from odoo.tests.common import HOST
+from odoo.tools import config
 
-from odoo.addons.website_sale.tests.common import TestWebsiteSaleCommon
 import odoo.tests
 
 
 @odoo.tests.common.tagged('post_install', '-at_install')
-class TestWebsiteSaleImage(TestWebsiteSaleCommon):
+class TestWebsiteSaleImage(odoo.tests.HttpCase):
 
     # registry_test_mode = False  # uncomment to save the product to test in browser
 
@@ -23,6 +24,8 @@ class TestWebsiteSaleImage(TestWebsiteSaleCommon):
 
         color_blue = '#4169E1'
         name_blue = 'Royal Blue'
+
+        self.env['product.pricelist'].sudo().search([]).action_archive()
 
         # create the color attribute
         product_attribute = self.env['product.attribute'].create({
@@ -88,7 +91,7 @@ class TestWebsiteSaleImage(TestWebsiteSaleCommon):
         image_png = base64.b64encode(f.read())
 
         # create the template, without creating the variants
-        template = self.env['product.template'].with_context(create_product_product=True).create({
+        template = self.env['product.template'].with_context(create_product_product=False).create({
             'name': 'A Colorful Image',
             'product_template_image_ids': [(0, 0, {'name': 'image 1', 'image_1920': image_gif}), (0, 0, {'name': 'image 4', 'image_1920': image_svg})],
         })
@@ -203,6 +206,18 @@ class TestWebsiteSaleImage(TestWebsiteSaleCommon):
 
         # self.env.cr.commit()  # uncomment to save the product to test in browser
 
+        # Make sure we have zoom on click
+        self.env['ir.ui.view'].with_context(active_test=False).search(
+            [('key', 'in', ('website_sale.product_picture_magnify_hover', 'website_sale.product_picture_magnify_click', 'website_sale.product_picture_magnify_both'))]
+        ).write({'active': False})
+        self.env['ir.ui.view'].with_context(active_test=False).search(
+            [('key', '=', 'website_sale.product_picture_magnify_click')]
+        ).write({'active': True})
+
+        # Ensure that no pricelist is available during the test.
+        # This ensures that tours with triggers on the amounts will run properly.
+        self.env['product.pricelist'].search([]).action_archive()
+
         self.start_tour("/", 'shop_zoom', login="admin")
 
         # CASE: unlink move image to fallback if fallback image empty
@@ -225,9 +240,9 @@ class TestWebsiteSaleImage(TestWebsiteSaleCommon):
         product_green.image_variant_1920 = False
         images = product_green._get_images()
         # images on fields are resized to max 1920
-        image = Image.open(io.BytesIO(base64.b64decode(images[0].image_1920)))
-        self.assertEqual(image.size, (1268, 1920))
-        self.assertEqual(images[1].image_1920, red_image)
+        image_png = Image.open(io.BytesIO(base64.b64decode(images[1].image_1920)))
+        self.assertEqual(images[0].image_1920, red_image)
+        self.assertEqual(image_png.size, (1268, 1920))
         self.assertEqual(images[2].image_1920, image_gif)
         self.assertEqual(images[3].image_1920, image_svg)
 
@@ -286,7 +301,7 @@ class TestWebsiteSaleImage(TestWebsiteSaleCommon):
         }])
 
         # create the template, without creating the variants
-        template = self.env['product.template'].with_context(create_product_product=True).create({
+        template = self.env['product.template'].with_context(create_product_product=False).create({
             'name': 'Test subject',
         })
 
@@ -319,3 +334,84 @@ class TestWebsiteSaleImage(TestWebsiteSaleCommon):
 
         # when there is a template image, the image must be obtained from the template
         self.assertEqual(template, template._get_image_holder())
+
+@odoo.tests.common.tagged('post_install', '-at_install')
+class TestEnvironmentWebsiteSaleImage(odoo.tests.HttpCase):
+    def setUp(self):
+        super(TestEnvironmentWebsiteSaleImage, self).setUp()
+        # Attachment needed for the replacement of images
+        IrAttachment = self.env['ir.attachment']
+        base = "http://%s:%s" % (HOST, config['http_port'])
+        IrAttachment.create({
+            'public': True,
+            'name': 's_default_image.jpg',
+            'type': 'url',
+            'url': base + '/web/image/website.s_banner_default_image.jpg',
+        })
+
+        # First image (blue) for the template.
+        color_blue = '#4169E1'
+        name_blue = 'Royal Blue'
+        # Red for the variant.
+        color_red = '#CD5C5C'
+        name_red = 'Indian Red'
+
+        # Create the color attribute.
+        self.product_attribute = self.env['product.attribute'].create({
+            'name': 'Beautiful Color',
+            'display_type': 'color',
+        })
+
+        # create the color attribute values
+        self.attr_values = self.env['product.attribute.value'].create([{
+            'name': name_blue,
+            'attribute_id': self.product_attribute.id,
+            'html_color': color_blue,
+            'sequence': 1,
+        }, {
+            'name': name_red,
+            'attribute_id': self.product_attribute.id,
+            'html_color': color_red,
+            'sequence': 2,
+        },
+        ])
+        f = io.BytesIO()
+        Image.new('RGB', (1920, 1080), color_blue).save(f, 'JPEG')
+        f.seek(0)
+        blue_image = base64.b64encode(f.read())
+
+        self.template = self.env['product.template'].with_context(create_product_product=False).create({
+            'name': 'Test Remove Image',
+            'image_1920': blue_image,
+        })
+
+@odoo.tests.common.tagged('post_install', '-at_install')
+class TestRemoveWebsiteSaleImageNoVariant(TestEnvironmentWebsiteSaleImage):
+    def setUp(self):
+        super(TestRemoveWebsiteSaleImageNoVariant, self).setUp()
+        self.product = self.env['product.product'].create({
+            'product_tmpl_id': self.template.id,
+        })
+
+    def test_website_sale_add_and_remove_main_product_image_no_variant(self):
+        self.start_tour(self.env['website'].get_client_action_url('/'), 'add_and_remove_main_product_image_no_variant', login='admin')
+        self.assertFalse(self.template.image_1920)
+        self.assertFalse(self.product.image_1920)
+
+@odoo.tests.common.tagged('post_install', '-at_install')
+class TestRemoveWebsiteSaleImageVariants(TestEnvironmentWebsiteSaleImage):
+    def setUp(self):
+        super(TestRemoveWebsiteSaleImageVariants, self).setUp()
+        # Set the color attribute and values on the template.
+        self.env['product.template.attribute.line'].create([{
+            'attribute_id': self.product_attribute.id,
+            'product_tmpl_id': self.template.id,
+            'value_ids': [(6, 0, self.attr_values.ids)]
+        }])
+        self.product = self.env['product.product'].create({
+            'product_tmpl_id': self.template.id,
+        })
+    def test_website_sale_remove_main_product_image_with_variant(self):
+        self.start_tour(self.env['website'].get_client_action_url('/'), 'remove_main_product_image_with_variant', login='admin')
+        self.assertFalse(self.template.image_1920)
+        self.assertFalse(self.product.image_1920)

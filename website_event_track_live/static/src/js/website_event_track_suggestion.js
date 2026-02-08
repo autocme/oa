@@ -1,11 +1,9 @@
-odoo.define('website_event_track_live.website_event_track_suggestion', function (require) {
-'use strict';
+/** @odoo-module **/
 
-var Widget = require('web.Widget');
+import { PublicWidget } from "@web/legacy/js/public/public_widget";
 
-var WebsiteEventTrackSuggestion = Widget.extend({
+var WebsiteEventTrackSuggestion = PublicWidget.extend({
     template: 'website_event_track_live.website_event_track_suggestion',
-    xmlDependencies: ['/website_event_track_live/static/src/xml/website_event_track_live_templates.xml'],
     events: {
         'click .owevent_track_suggestion_next': '_onNextTrackClick',
         'click .owevent_track_suggestion_close': '_onCloseClick',
@@ -76,6 +74,4 @@ var WebsiteEventTrackSuggestion = Widget.extend({
     }
 });
 
-return WebsiteEventTrackSuggestion;
-
-});
+export default WebsiteEventTrackSuggestion;

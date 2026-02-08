@@ -1,11 +1,18 @@
 /** @odoo-module **/
 
 import { registry } from "../registry";
-import { Dialog } from "./dialog";
-import { DialogContainer } from "./dialog_container";
+import { Component, markRaw, reactive, xml } from "@odoo/owl";
+import { WithEnv } from "../utils/components";
 
-const { core } = owl;
-const { EventBus } = core;
+class DialogWrapper extends Component {
+    static template = xml`
+        <WithEnv env="{ dialogData: props.subEnv }">
+            <t t-component="props.subComponent" t-props="props.subProps" />
+        </WithEnv>
+    `;
+    static components = { WithEnv };
+    static props = ["*"];
+}
 
 /**
  *  @typedef {{
@@ -15,7 +22,7 @@ const { EventBus } = core;
 /**
  *  @typedef {{
  *      add(
- *          Component: any,
+ *          Component: typeof import("@odoo/owl").Component,
  *          props: {},
  *          options?: DialogServiceInterfaceAddOptions
  *      ): () => void;
@@ -23,45 +30,69 @@ const { EventBus } = core;
  */
 
 export const dialogService = {
+    dependencies: ["overlay"],
     /** @returns {DialogServiceInterface} */
-    start() {
-        const dialogs = {};
-        const bus = new EventBus();
-        let dialogId = 0;
+    start(env, { overlay }) {
+        const stack = [];
+        let nextId = 0;
 
-        registry.category("main_components").add("DialogContainer", {
-            Component: DialogContainer,
-            props: { bus, dialogs },
-        });
-
-        function add(dialogClass, props, options = {}) {
-            if (!(dialogClass.prototype instanceof Dialog)) {
-                throw new Error(`${dialogClass.name} must be a subclass of Dialog`);
+        const deactivate = () => {
+            for (const subEnv of stack) {
+                subEnv.isActive = false;
             }
+        };
 
-            const id = ++dialogId;
-            function close() {
-                if (dialogs[id]) {
-                    delete dialogs[id];
-                    if (options.onClose) {
-                        options.onClose();
-                    }
-                    bus.trigger("UPDATE");
-                }
-            }
-
-            const dialog = {
+        const add = (dialogClass, props, options = {}) => {
+            const id = nextId++;
+            const close = () => remove();
+            const subEnv = reactive({
                 id,
-                class: dialogClass,
-                props: { ...props, close },
-            };
-            dialogs[id] = dialog;
-            bus.trigger("UPDATE");
+                close,
+                isActive: true,
+            });
 
-            return close;
+            deactivate();
+            stack.push(subEnv);
+            document.body.classList.add("modal-open");
+
+            const scrollOrigin = { top: window.scrollY, left: window.scrollX };
+            subEnv.scrollToOrigin = () => {
+                if (!stack.length) {
+                    window.scrollTo(scrollOrigin);
+                }
+            };
+
+            const remove = overlay.add(
+                DialogWrapper,
+                {
+                    subComponent: dialogClass,
+                    subProps: markRaw({ ...props, close }),
+                    subEnv,
+                },
+                {
+                    onRemove: () => {
+                        stack.pop();
+                        deactivate();
+                        if (stack.length) {
+                            stack.at(-1).isActive = true;
+                        } else {
+                            document.body.classList.remove("modal-open");
+                        }
+                        options.onClose?.();
+                    },
+                }
+            );
+
+            return remove;
+        };
+
+        function closeAll() {
+            for (const dialog of [...stack].reverse()) {
+                dialog.close();
+            }
         }
 
-        return { add };
+        return { add, closeAll };
     },
 };
 

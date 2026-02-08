@@ -5,9 +5,9 @@
 # Translators:
 msgid ""
 msgstr ""
-"Project-Id-Version: Odoo Server 15.0\n"
+"Project-Id-Version: Odoo 9.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2016-08-18 14:07+0000\n"
+"POT-Creation-Date: 2024-02-05 16:24+0000\n"
 "PO-Revision-Date: 2016-07-22 02:00+0000\n"
 "Last-Translator: Martin Trigaux\n"
 "Language-Team: Spanish (Chile) (http://www.transifex.com/odoo/odoo-9/"
@@ -24,14 +24,7 @@ msgid "# of Lines"
 msgstr "# de líneas"
 
 #. module: purchase
-#: model:ir.model.fields,field_description:purchase.field_purchase_order__message_needaction
-msgid "Action Needed"
-msgstr "Acción necesaria"
-
-#. module: purchase
 #: model:ir.model,name:purchase.model_account_analytic_account
-#: model:ir.model.fields,field_description:purchase.field_purchase_order_line__account_analytic_id
-#: model:ir.model.fields,field_description:purchase.field_purchase_report__account_analytic_id
 msgid "Analytic Account"
 msgstr "Cuenta analítica"
 
@@ -46,6 +39,7 @@ msgid "Cancel"
 msgstr "Cancelar"
 
 #. module: purchase
+#. odoo-python
 #: code:addons/purchase/controllers/portal.py:0
 #: model:ir.model.fields.selection,name:purchase.selection__purchase_order__state__cancel
 #: model:ir.model.fields.selection,name:purchase.selection__purchase_report__state__cancel
@@ -73,6 +67,7 @@ msgid "Company"
 msgstr "Compañía"
 
 #. module: purchase
+#. odoo-python
 #: code:addons/purchase/models/purchase.py:0
 #, python-format
 msgid "Compose Email"
@@ -133,16 +128,6 @@ msgid "Fiscal Position"
 msgstr "Posición fiscal"
 
 #. module: purchase
-#: model:ir.model.fields,field_description:purchase.field_purchase_order__message_follower_ids
-msgid "Followers"
-msgstr "Seguidores"
-
-#. module: purchase
-#: model:ir.model.fields,field_description:purchase.field_purchase_order__message_partner_ids
-msgid "Followers (Partners)"
-msgstr "Seguidores (Empresas)"
-
-#. module: purchase
 #: model_terms:ir.ui.view,arch_db:purchase.purchase_order_line_search
 #: model_terms:ir.ui.view,arch_db:purchase.purchase_order_view_search
 #: model_terms:ir.ui.view,arch_db:purchase.view_purchase_order_filter
@@ -159,28 +144,9 @@ msgid "ID"
 msgstr "ID (identificación)"
 
 #. module: purchase
-#: model:ir.model.fields,help:purchase.field_purchase_order__message_needaction
-#: model:ir.model.fields,help:purchase.field_purchase_order__message_unread
-msgid "If checked, new messages require your attention."
-msgstr "Si está marcado, hay nuevos mensajes que requieren su atención."
-
-#. module: purchase
 #: model:ir.model.fields,field_description:purchase.field_purchase_order__incoterm_id
 msgid "Incoterm"
 msgstr "Incoterm"
-
-#. module: purchase
-#: model:ir.model.fields,field_description:purchase.field_purchase_order__message_is_follower
-msgid "Is Follower"
-msgstr "Es un seguidor"
-
-#. module: purchase
-#: model:ir.model.fields,field_description:purchase.field_purchase_bill_union____last_update
-#: model:ir.model.fields,field_description:purchase.field_purchase_order____last_update
-#: model:ir.model.fields,field_description:purchase.field_purchase_order_line____last_update
-#: model:ir.model.fields,field_description:purchase.field_purchase_report____last_update
-msgid "Last Modified on"
-msgstr "Última modificación en"
 
 #. module: purchase
 #: model:ir.model.fields,field_description:purchase.field_purchase_order__write_uid
@@ -200,29 +166,9 @@ msgid "Manual Invoices"
 msgstr "Facturas manuales"
 
 #. module: purchase
-#: model:ir.model.fields,field_description:purchase.field_purchase_order__message_ids
-msgid "Messages"
-msgstr "Mensajes"
-
-#. module: purchase
 #: model_terms:ir.ui.view,arch_db:purchase.purchase_order_form
 msgid "Notes"
 msgstr "Notas"
-
-#. module: purchase
-#: model:ir.model.fields,field_description:purchase.field_purchase_order__message_needaction_counter
-msgid "Number of Actions"
-msgstr "Número de acciones"
-
-#. module: purchase
-#: model:ir.model.fields,help:purchase.field_purchase_order__message_needaction_counter
-msgid "Number of messages which requires an action"
-msgstr "Número de mensajes que requieren una acción"
-
-#. module: purchase
-#: model:ir.model.fields,help:purchase.field_purchase_order__message_unread_counter
-msgid "Number of unread messages"
-msgstr "Número de mensajes no leidos"
 
 #. module: purchase
 #: model:ir.model.fields,field_description:purchase.field_purchase_order_line__date_order
@@ -257,7 +203,7 @@ msgid "Partner"
 msgstr "Empresa"
 
 #. module: purchase
-#: model:ir.model,name:purchase.model_product_product
+#: model:ir.model,name:purchase.model_product_template
 #: model:ir.model.fields,field_description:purchase.field_purchase_order__product_id
 #: model:ir.model.fields,field_description:purchase.field_purchase_order_line__product_id
 #: model:ir.model.fields,field_description:purchase.field_purchase_report__product_id
@@ -273,14 +219,12 @@ msgid "Product Categories"
 msgstr "Categorías de productos"
 
 #. module: purchase
-#: model:ir.model,name:purchase.model_product_category
 #: model:ir.model.fields,field_description:purchase.field_purchase_report__category_id
 #: model_terms:ir.ui.view,arch_db:purchase.view_purchase_order_search
 msgid "Product Category"
 msgstr "Categoría de producto"
 
 #. module: purchase
-#: model:ir.model,name:purchase.model_product_template
 #: model:ir.model.fields,field_description:purchase.field_purchase_report__product_tmpl_id
 msgid "Product Template"
 msgstr "Plantilla producto"
@@ -319,6 +263,7 @@ msgid "Purchase Lead Time"
 msgstr "Plazo de tiempo de compra"
 
 #. module: purchase
+#. odoo-python
 #: code:addons/purchase/controllers/portal.py:0
 #: code:addons/purchase/models/purchase.py:0
 #: model:ir.actions.report,name:purchase.action_report_purchase_order
@@ -330,6 +275,7 @@ msgstr "Plazo de tiempo de compra"
 #: model:ir.model.fields,field_description:purchase.field_purchase_bill_union__purchase_order_id
 #: model:ir.model.fields,field_description:purchase.field_res_partner__purchase_warn
 #: model:ir.model.fields,field_description:purchase.field_res_users__purchase_warn
+#: model:ir.model.fields.selection,name:purchase.selection__account_analytic_applicability__business_domain__purchase_order
 #: model:ir.model.fields.selection,name:purchase.selection__purchase_order__state__purchase
 #: model:ir.model.fields.selection,name:purchase.selection__purchase_report__state__purchase
 #: model_terms:ir.ui.view,arch_db:purchase.purchase_order_form
@@ -345,6 +291,7 @@ msgid "Purchase Order"
 msgstr "Órden de Compra"
 
 #. module: purchase
+#: model:ir.actions.act_window,name:purchase.action_purchase_history
 #: model:ir.model,name:purchase.model_purchase_order_line
 #: model:ir.model.fields,field_description:purchase.field_account_move_line__purchase_line_id
 #: model_terms:ir.ui.view,arch_db:purchase.purchase_order_form
@@ -359,6 +306,7 @@ msgid "Purchase Order Lines"
 msgstr "Líneas orden de compra"
 
 #. module: purchase
+#. odoo-python
 #: code:addons/purchase/models/analytic_account.py:0
 #: model:ir.actions.act_window,name:purchase.purchase_form_action
 #: model:ir.ui.menu,name:purchase.menu_purchase_form_action
@@ -375,6 +323,7 @@ msgstr "Pedidos de compra"
 
 #. module: purchase
 #: model_terms:ir.ui.view,arch_db:purchase.res_partner_view_purchase_buttons
+#: model_terms:ir.ui.view,arch_db:purchase.view_move_form_inherit_purchase
 msgid "Purchases"
 msgstr "Compras"
 
@@ -399,6 +348,7 @@ msgid "Reference"
 msgstr "Referencia"
 
 #. module: purchase
+#. odoo-python
 #: code:addons/purchase/models/purchase.py:0
 #: model:ir.actions.report,name:purchase.report_purchase_quotation
 #: model_terms:ir.ui.view,arch_db:purchase.purchase_order_portal_content
@@ -409,8 +359,6 @@ msgstr "Solicitud de presupuesto"
 
 #. module: purchase
 #: model:ir.actions.act_window,name:purchase.action_rfq_form
-#: model:ir.actions.act_window,name:purchase.purchase_action_dashboard_kanban
-#: model:ir.actions.act_window,name:purchase.purchase_action_dashboard_list
 #: model:ir.actions.act_window,name:purchase.purchase_rfq
 #: model:ir.ui.menu,name:purchase.menu_purchase_rfq
 #: model_terms:ir.ui.view,arch_db:purchase.portal_my_home_menu_purchase
@@ -478,6 +426,7 @@ msgid "Taxes"
 msgstr "Impuestos"
 
 #. module: purchase
+#. odoo-python
 #: code:addons/purchase/controllers/portal.py:0
 #: model:ir.model.fields,field_description:purchase.field_purchase_order__amount_total
 #: model:ir.model.fields,field_description:purchase.field_purchase_order_line__price_total
@@ -493,7 +442,7 @@ msgstr "Total"
 #: model_terms:ir.ui.view,arch_db:purchase.purchase_order_tree
 #: model_terms:ir.ui.view,arch_db:purchase.purchase_order_view_tree
 msgid "Total Untaxed amount"
-msgstr "Total neto"
+msgstr "Monto neto"
 
 #. module: purchase
 #: model_terms:ir.ui.view,arch_db:purchase.purchase_order_kpis_tree
@@ -514,11 +463,6 @@ msgid "Units of Measure"
 msgstr "Unidades de medida"
 
 #. module: purchase
-#: model:ir.model.fields,field_description:purchase.field_purchase_order__message_unread_counter
-msgid "Unread Messages Counter"
-msgstr "Contador de mensajes no leídos"
-
-#. module: purchase
 #: model_terms:ir.ui.view,arch_db:purchase.purchase_order_kpis_tree
 #: model_terms:ir.ui.view,arch_db:purchase.purchase_order_tree
 #: model_terms:ir.ui.view,arch_db:purchase.purchase_order_view_tree
@@ -528,7 +472,7 @@ msgstr "Base"
 #. module: purchase
 #: model:ir.model.fields,field_description:purchase.field_purchase_order__amount_untaxed
 msgid "Untaxed Amount"
-msgstr "Total neto"
+msgstr "Monto neto"
 
 #. module: purchase
 #: model:res.groups,name:purchase.group_purchase_user
@@ -554,13 +498,3 @@ msgstr "Vendedor"
 #: model_terms:ir.ui.view,arch_db:purchase.view_purchase_bill_union_filter
 msgid "Vendor Bills"
 msgstr "Facturas del Proveedor"
-
-#. module: purchase
-#: model:ir.model.fields,field_description:purchase.field_purchase_order__website_message_ids
-msgid "Website Messages"
-msgstr "Mensajes del sitio web"
-
-#. module: purchase
-#: model:ir.model.fields,help:purchase.field_purchase_order__website_message_ids
-msgid "Website communication history"
-msgstr "Historial de comunicaciones del sitio web"

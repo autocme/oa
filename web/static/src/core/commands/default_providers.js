@@ -2,19 +2,23 @@
 
 import { isMacOS } from "@web/core/browser/feature_detection";
 import { useHotkey } from "@web/core/hotkeys/hotkey_hook";
-import { _lt } from "@web/core/l10n/translation";
+import { _t } from "@web/core/l10n/translation";
 import { registry } from "@web/core/registry";
 import { capitalize } from "@web/core/utils/strings";
 import { getVisibleElements } from "@web/core/utils/ui";
 import { DefaultCommandItem } from "./command_palette";
 
-const { Component } = owl;
+import { Component } from "@odoo/owl";
+
+const commandSetupRegistry = registry.category("command_setup");
+commandSetupRegistry.add("default", {
+    emptyMessage: _t("No command found"),
+    placeholder: _t("Search for a command..."),
+});
 
 export class HotkeyCommandItem extends Component {
     setup() {
-        useHotkey(this.props.hotkey, () => {
-            this.trigger("execute-command");
-        });
+        useHotkey(this.props.hotkey, this.props.executeCommand);
     }
 
     getKeysToPress(command) {
@@ -29,22 +33,28 @@ export class HotkeyCommandItem extends Component {
     }
 }
 HotkeyCommandItem.template = "web.HotkeyCommandItem";
-const commandEmptyMessageRegistry = registry.category("command_empty_list");
-commandEmptyMessageRegistry.add("default", _lt("No commands found"));
 
 const commandCategoryRegistry = registry.category("command_categories");
-
 const commandProviderRegistry = registry.category("command_provider");
 commandProviderRegistry.add("command", {
     provide: (env, options = {}) => {
-        const commands = env.services.command.getCommands(options.activeElement).map((cmd) => {
-            cmd.category = commandCategoryRegistry.contains(cmd.category)
-                ? cmd.category
-                : "default";
-            return cmd;
+        const commands = env.services.command
+            .getCommands(options.activeElement)
+            .map((cmd) => {
+                cmd.category = commandCategoryRegistry.contains(cmd.category)
+                    ? cmd.category
+                    : "default";
+                return cmd;
+            })
+            .filter((command) => command.isAvailable === undefined || command.isAvailable());
+        // Filter out same category dupplicate commands
+        const uniqueCommands = commands.filter((obj, index) => {
+            return (
+                index ===
+                commands.findIndex((o) => obj.name === o.name && obj.category === o.category)
+            );
         });
-
-        return commands.map((command) => ({
+        return uniqueCommands.map((command) => ({
             Component: command.hotkey ? HotkeyCommandItem : DefaultCommandItem,
             action: command.action,
             category: command.category,
@@ -68,15 +78,18 @@ commandProviderRegistry.add("data-hotkeys", {
         )) {
             const closest = el.closest("[data-command-category]");
             const category = closest ? closest.dataset.commandCategory : "default";
+            if (category === "disabled") {
+                continue;
+            }
 
             const description =
                 el.title ||
-                el.dataset.originalTitle || // LEGACY: bootstrap moves title to data-original-title
+                el.dataset.bsOriginalTitle || // LEGACY: bootstrap moves title to data-bs-original-title
                 el.dataset.tooltip ||
                 el.placeholder ||
                 (el.innerText &&
                     `${el.innerText.slice(0, 50)}${el.innerText.length > 50 ? "..." : ""}`) ||
-                env._t("no description provided");
+                _t("no description provided");
 
             commands.push({
                 Component: HotkeyCommandItem,

@@ -1,23 +1,21 @@
-/** @odoo-module alias=website.root */
+/** @odoo-module */
 
-import ajax from 'web.ajax';
-import { _t } from 'web.core';
-import KeyboardNavigationMixin from 'web.KeyboardNavigationMixin';
-import {Markup} from 'web.utils';
-import session from 'web.session';
-import publicRootData from 'web.public.root';
-import "web.zoomodoo";
-import { FullscreenIndication } from '@website/js/widgets/fullscreen_indication';
+import { loadJS } from "@web/core/assets";
+import { _t } from "@web/core/l10n/translation";
+import { session } from "@web/session";
+import publicRootData from '@web/legacy/js/public/public_root';
+import "@website/libs/zoomodoo/zoomodoo";
+import { pick } from "@web/core/utils/objects";
 
-export const WebsiteRoot = publicRootData.PublicRoot.extend(KeyboardNavigationMixin, {
-    // TODO remove KeyboardNavigationMixin in master
-    events: _.extend({}, KeyboardNavigationMixin.events, publicRootData.PublicRoot.prototype.events || {}, {
+import { markup } from "@odoo/owl";
+
+export const WebsiteRoot = publicRootData.PublicRoot.extend({
+    events: Object.assign({}, publicRootData.PublicRoot.prototype.events || {}, {
         'click .js_change_lang': '_onLangChangeClick',
         'click .js_publish_management .js_publish_btn': '_onPublishBtnClick',
-        'click .js_multi_website_switch': '_onWebsiteSwitch',
         'shown.bs.modal': '_onModalShown',
     }),
-    custom_events: _.extend({}, publicRootData.PublicRoot.prototype.custom_events || {}, {
+    custom_events: Object.assign({}, publicRootData.PublicRoot.prototype.custom_events || {}, {
         'gmap_api_request': '_onGMapAPIRequest',
         'gmap_api_key_request': '_onGMapAPIKeyRequest',
         'ready_to_clean_for_save': '_onWidgetsStopRequest',
@@ -30,65 +28,18 @@ export const WebsiteRoot = publicRootData.PublicRoot.extend(KeyboardNavigationMi
      */
     init() {
         this.isFullscreen = false;
-        KeyboardNavigationMixin.init.call(this, {
-            autoAccessKeys: false,
-            skipRenderOverlay: true,
-        });
-
-        // Special case for Safari browser: padding on wrapwrap is added by the
-        // layout option (boxed, etc), but it also receives a border on top of
-        // it to simulate an addition of padding. That padding is added with
-        // the "sidebar" header template to combine both options/effects.
-        // Sadly, the border hack is not working on safari, the menu is somehow
-        // broken and its content is not visible.
-        // This class will be used in scss to instead add the border size to the
-        // padding directly on Safari when "sidebar" menu is enabled.
-        if (/^((?!chrome|android).)*safari/i.test(navigator.userAgent) && document.querySelector('#wrapwrap')) {
-            document.querySelector('#wrapwrap').classList.add('o_safari_browser');
-        }
-
+        this.rpc = this.bindService("rpc");
+        this.notification = this.bindService("notification");
         return this._super(...arguments);
-    },
-    /**
-     * @override
-     */
-    willStart: async function () {
-        this.fullscreenIndication = new FullscreenIndication(this);
-        return Promise.all([
-            this._super(...arguments),
-            this.fullscreenIndication.appendTo(document.body),
-        ]);
     },
     /**
      * @override
      */
     start: function () {
-        KeyboardNavigationMixin.start.call(this);
-        // Compatibility lang change ?
-        if (!this.$('.js_change_lang').length) {
-            var $links = this.$('.js_language_selector a:not([data-oe-id])');
-            var m = $(_.min($links, function (l) {
-                return $(l).attr('href').length;
-            })).attr('href');
-            $links.each(function () {
-                var $link = $(this);
-                var t = $link.attr('href');
-                var l = (t === m) ? "default" : t.split('/')[1];
-                $link.data('lang', l).addClass('js_change_lang');
-            });
-        }
-
         // Enable magnify on zommable img
         this.$('.zoomable img[data-zoom]').zoomOdoo();
 
         return this._super.apply(this, arguments);
-    },
-    /**
-     * @override
-     */
-    destroy() {
-        KeyboardNavigationMixin.destroy.call(this);
-        return this._super(...arguments);
     },
 
     //--------------------------------------------------------------------------
@@ -100,7 +51,7 @@ export const WebsiteRoot = publicRootData.PublicRoot.extend(KeyboardNavigationMi
      */
     _getContext: function (context) {
         var html = document.documentElement;
-        return _.extend({
+        return Object.assign({
             'website_id': html.getAttribute('data-website-id') | 0,
         }, this._super.apply(this, arguments));
     },
@@ -109,7 +60,7 @@ export const WebsiteRoot = publicRootData.PublicRoot.extend(KeyboardNavigationMi
      */
     _getExtraContext: function (context) {
         var html = document.documentElement;
-        return _.extend({
+        return Object.assign({
             'editable': !!(html.dataset.editable || $('[data-oe-model]').length), // temporary hack, this should be done in python
             'translatable': !!html.dataset.translatable,
             'edit_translations': !!html.dataset.edit_translations,
@@ -122,9 +73,7 @@ export const WebsiteRoot = publicRootData.PublicRoot.extend(KeyboardNavigationMi
     async _getGMapAPIKey(refetch) {
         if (refetch || !this._gmapAPIKeyProm) {
             this._gmapAPIKeyProm = new Promise(async resolve => {
-                const data = await this._rpc({
-                    route: '/website/google_maps_api_key',
-                });
+                const data = await this.rpc('/website/google_maps_api_key');
                 resolve(JSON.parse(data).google_maps_api_key || '');
             });
         }
@@ -136,9 +85,11 @@ export const WebsiteRoot = publicRootData.PublicRoot.extend(KeyboardNavigationMi
     _getPublicWidgetsRegistry: function (options) {
         var registry = this._super.apply(this, arguments);
         if (options.editableMode) {
-            return _.pick(registry, function (PublicWidget) {
+            const toPick = Object.keys(registry).filter((key) => {
+                const PublicWidget = registry[key];
                 return !PublicWidget.prototype.disabledInEditableMode;
             });
+            return pick(registry, ...toPick);
         }
         return registry;
     },
@@ -157,7 +108,7 @@ export const WebsiteRoot = publicRootData.PublicRoot.extend(KeyboardNavigationMi
                 const key = await this._getGMapAPIKey(refetch);
 
                 window.odoo_gmap_api_post_load = (async function odoo_gmap_api_post_load() {
-                    await this._startWidgets(undefined, {editableMode: editableMode});
+                    await this._startWidgets($("section.s_google_map"), {editableMode: editableMode});
                     resolve(key);
                 }).bind(this);
 
@@ -165,63 +116,22 @@ export const WebsiteRoot = publicRootData.PublicRoot.extend(KeyboardNavigationMi
                     if (!editableMode && session.is_admin) {
                         const message = _t("Cannot load google map.");
                         const urlTitle = _t("Check your configuration.");
-                        this.displayNotification({
-                            type: 'warning',
-                            sticky: true,
-                            message:
-                                Markup`<div>
-                                    <span>${message}</span><br/>
-                                    <a href="/web#action=website.action_website_configuration">${urlTitle}</a>
-                                </div>`,
-                        });
+                        this.notification.add(
+                            markup(`<div>
+                                <span>${message}</span><br/>
+                                <a href="/web#action=website.action_website_configuration">${urlTitle}</a>
+                            </div>`),
+                            { type: 'warning', sticky: true }
+                        );
                     }
                     resolve(false);
                     this._gmapAPILoading = false;
                     return;
                 }
-                await ajax.loadJS(`https://maps.googleapis.com/maps/api/js?v=3.exp&libraries=places&callback=odoo_gmap_api_post_load&key=${encodeURIComponent(key)}`);
+                await loadJS(`https://maps.googleapis.com/maps/api/js?v=3.exp&libraries=places&callback=odoo_gmap_api_post_load&key=${encodeURIComponent(key)}`);
             });
         }
         return this._gmapAPILoading;
-    },
-    /**
-     * Toggles the fullscreen mode.
-     *
-     * @private
-     * @param {boolean} state toggle fullscreen on/off (true/false)
-     */
-    _toggleFullscreen(state) {
-        this.isFullscreen = state;
-        if (this.isFullscreen) {
-            this.fullscreenIndication.show();
-        } else {
-            this.fullscreenIndication.hide();
-        }
-        document.body.classList.add('o_fullscreen_transition');
-        document.body.classList.toggle('o_fullscreen', this.isFullscreen);
-        document.body.style.overflowX = 'hidden';
-        let resizing = true;
-        window.requestAnimationFrame(function resizeFunction() {
-            window.dispatchEvent(new Event('resize'));
-            if (resizing) {
-                window.requestAnimationFrame(resizeFunction);
-            }
-        });
-        let stopResizing;
-        const onTransitionEnd = ev => {
-            if (ev.target === document.body && ev.propertyName === 'padding-top') {
-                stopResizing();
-            }
-        };
-        stopResizing = () => {
-            resizing = false;
-            document.body.style.overflowX = '';
-            document.body.removeEventListener('transitionend', onTransitionEnd);
-            document.body.classList.remove('o_fullscreen_transition');
-        };
-        document.body.addEventListener('transitionend', onTransitionEnd);
-        // Safeguard in case the transitionend event doesn't trigger for whatever reason.
-        window.setTimeout(() => stopResizing(), 500);
     },
 
     //--------------------------------------------------------------------------
@@ -232,7 +142,7 @@ export const WebsiteRoot = publicRootData.PublicRoot.extend(KeyboardNavigationMi
      * @override
      */
     _onWidgetsStartRequest: function (ev) {
-        ev.data.options = _.clone(ev.data.options || {});
+        ev.data.options = Object.assign({}, ev.data.options || {});
         ev.data.options.editableMode = ev.data.editableMode;
         this._super.apply(this, arguments);
     },
@@ -242,7 +152,11 @@ export const WebsiteRoot = publicRootData.PublicRoot.extend(KeyboardNavigationMi
      */
     _onLangChangeClick: function (ev) {
         ev.preventDefault();
-
+        // In edit mode, the client action redirects the iframe to the correct
+        // location with the chosen language.
+        if (document.body.classList.contains('editor_enable')) {
+            return;
+        }
         var $target = $(ev.currentTarget);
         // retrieve the hash before the redirect
         var redirect = {
@@ -250,7 +164,7 @@ export const WebsiteRoot = publicRootData.PublicRoot.extend(KeyboardNavigationMi
             url: encodeURIComponent($target.attr('href').replace(/[&?]edit_translations[^&?]+/, '')),
             hash: encodeURIComponent(window.location.hash)
         };
-        window.location.href = _.str.sprintf("/website/lang/%(lang)s?r=%(url)s%(hash)s", redirect);
+        window.location.href = `/website/lang/${redirect.lang}?r=${redirect.url}${redirect.hash}`;
     },
     /**
      * @private
@@ -291,7 +205,7 @@ export const WebsiteRoot = publicRootData.PublicRoot.extend(KeyboardNavigationMi
      */
     _unslugHtmlDataObject: function (dataAttr) {
         var repr = $('html').data(dataAttr);
-        var match = repr && repr.match(/(.+)\((\d+),(.*)\)/);
+        var match = repr && repr.match(/(.+)\((-?\d+),(.*)\)/);
         if (!match) {
             return null;
         }
@@ -310,14 +224,10 @@ export const WebsiteRoot = publicRootData.PublicRoot.extend(KeyboardNavigationMi
             return;
         }
 
-        var self = this;
         var $data = $(ev.currentTarget).parents(".js_publish_management:first");
-        this._rpc({
-            route: $data.data('controller') || '/website/publish',
-            params: {
-                id: +$data.data('id'),
-                object: $data.data('object'),
-            },
+        this.rpc($data.data('controller') || '/website/publish', {
+            id: +$data.data('id'),
+            object: $data.data('object'),
         })
         .then(function (result) {
             $data.toggleClass("css_published", result).toggleClass("css_unpublished", !result);
@@ -329,36 +239,8 @@ export const WebsiteRoot = publicRootData.PublicRoot.extend(KeyboardNavigationMi
      * @private
      * @param {Event} ev
      */
-    _onWebsiteSwitch: function (ev) {
-        var websiteId = ev.currentTarget.getAttribute('website-id');
-        var websiteDomain = ev.currentTarget.getAttribute('domain');
-        let url = `/website/force/${encodeURIComponent(websiteId)}`;
-        if (websiteDomain && window.location.hostname !== websiteDomain) {
-            url = websiteDomain + url;
-        }
-        const path = window.location.pathname + window.location.search + window.location.hash;
-        window.location.href = $.param.querystring(url, {'path': path});
-    },
-    /**
-     * @private
-     * @param {Event} ev
-     */
     _onModalShown: function (ev) {
         $(ev.target).addClass('modal_shown');
-    },
-    /**
-     * @override
-     */
-    _onKeyDown(ev) {
-        if (!session.user_id) {
-            return;
-        }
-        // If document.body doesn't contain the element, it was probably removed as a consequence of pressing Esc.
-        // we don't want to toggle fullscreen as the removal (eg, closing a modal) is the intended action.
-        if (ev.keyCode !== $.ui.keyCode.ESCAPE || !document.body.contains(ev.target) || ev.target.closest('.modal')) {
-            return KeyboardNavigationMixin._onKeyDown.apply(this, arguments);
-        }
-        this._toggleFullscreen(!this.isFullscreen);
     },
 });
 

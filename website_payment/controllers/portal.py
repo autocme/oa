@@ -6,6 +6,7 @@ from odoo.exceptions import ValidationError
 from odoo.http import request
 from odoo.tools.json import scriptsafe as json_safe
 
+from odoo.addons.account_payment.controllers import portal as account_payment_portal
 from odoo.addons.payment import utils as payment_utils
 from odoo.addons.payment.controllers import portal as payment_portal
 
@@ -23,8 +24,8 @@ class PaymentPortal(payment_portal.PaymentPortal):
         :raise: werkzeug.exceptions.NotFound if the access token is invalid
         """
         kwargs['is_donation'] = True
-        kwargs['currency_id'] = int(kwargs.get('currency_id', request.env.company.currency_id.id))
-        kwargs['amount'] = float(kwargs.get('amount', 25))
+        kwargs['currency_id'] = self._cast_as_int(kwargs.get('currency_id')) or request.env.company.currency_id.id
+        kwargs['amount'] = self._cast_as_float(kwargs.get('amount')) or 25.0
         kwargs['donation_options'] = kwargs.get('donation_options', json_safe.dumps(dict(customAmount="freeAmount")))
 
         if request.env.user._is_public():
@@ -32,19 +33,6 @@ class PaymentPortal(payment_portal.PaymentPortal):
             kwargs['access_token'] = payment_utils.generate_access_token(kwargs['partner_id'], kwargs['amount'], kwargs['currency_id'])
 
         return self.payment_pay(**kwargs)
-
-    @http.route('/donation/get_acquirer_fees', type='json', auth='public', website=True, sitemap=False)
-    def get_acquirer_fees(self, acquirer_ids=None, amount=None, currency_id=None, country_id=None):
-        acquirers_sudo = request.env['payment.acquirer'].sudo().browse(acquirer_ids)
-        currency = request.env['res.currency'].browse(currency_id)
-        country = request.env['res.country'].browse(country_id)
-
-        # Compute the fees taken by acquirers supporting the feature
-        fees_by_acquirer = {
-            acq_sudo.id: acq_sudo._compute_fees(amount, currency, country)
-            for acq_sudo in acquirers_sudo.filtered('fees_active')
-        }
-        return fees_by_acquirer
 
     @http.route('/donation/transaction/<minimum_amount>', type='json', auth='public', website=True, sitemap=False)
     def donation_transaction(self, amount, currency_id, partner_id, access_token, minimum_amount=0, **kwargs):
@@ -64,7 +52,11 @@ class PaymentPortal(payment_portal.PaymentPortal):
         else:
             partner_id = request.env.user.partner_id.id
 
-        kwargs.pop('custom_create_values', None)  # Don't allow passing arbitrary create values
+        self._validate_transaction_kwargs(kwargs, additional_allowed_keys=(
+            'donation_comment', 'donation_recipient_email', 'partner_details', 'reference_prefix'
+        ))
+        if use_public_partner:
+            kwargs['custom_create_values'] = {'tokenize': False}
         tx_sudo = self._create_transaction(
             amount=amount, currency_id=currency_id, partner_id=partner_id, **kwargs
         )
@@ -73,10 +65,10 @@ class PaymentPortal(payment_portal.PaymentPortal):
             tx_sudo.update({
                 'partner_name': details['name'],
                 'partner_email': details['email'],
-                'partner_country_id': details['country_id'],
+                'partner_country_id': int(details['country_id']),
             })
         elif not tx_sudo.partner_country_id:
-            tx_sudo.partner_country_id = kwargs['partner_details']['country_id']
+            tx_sudo.partner_country_id = int(kwargs['partner_details']['country_id'])
         # the user can change the donation amount on the payment page,
         # therefor we need to recompute the access_token
         access_token = payment_utils.generate_access_token(
@@ -91,8 +83,15 @@ class PaymentPortal(payment_portal.PaymentPortal):
 
         return tx_sudo._get_processing_values()
 
-    def _get_custom_rendering_context_values(self, donation_options=None, donation_descriptions=None, is_donation=False, **kwargs):
-        rendering_context = super()._get_custom_rendering_context_values(**kwargs)
+    def _get_extra_payment_form_values(
+        self, donation_options=None, donation_descriptions=None, is_donation=False, **kwargs
+    ):
+        rendering_context = super()._get_extra_payment_form_values(
+            donation_options=donation_options,
+            donation_descriptions=donation_descriptions,
+            is_donation=is_donation,
+            **kwargs,
+        )
         if is_donation:
             user_sudo = request.env.user
             logged_in = not user_sudo._is_public()
@@ -103,7 +102,6 @@ class PaymentPortal(payment_portal.PaymentPortal):
             # transaction and invoice partners are different).
             partner_sudo = user_sudo.partner_id
             partner_details = {}
-            countries = request.env['res.country']
             if logged_in:
                 partner_details = {
                     'name': partner_sudo.name,
@@ -120,6 +118,7 @@ class PaymentPortal(payment_portal.PaymentPortal):
             rendering_context.update({
                 'is_donation': True,
                 'partner': partner_sudo,
+                'submit_button_label': _("Donate"),
                 'transaction_route': '/donation/transaction/%s' % donation_options.get('minimumAmount', 0),
                 'partner_details': partner_details,
                 'error': {},
@@ -134,3 +133,28 @@ class PaymentPortal(payment_portal.PaymentPortal):
         if kwargs.get('is_donation'):
             return 'website_payment.donation_pay'
         return super()._get_payment_page_template_xmlid(**kwargs)
+
+    @staticmethod
+    def _compute_show_tokenize_input_mapping(providers_sudo, **kwargs):
+        """ Override of `payment` to hide the "Save my payment details" input in the payment form
+        when its a donation and user is not logged in.
+
+        :param payment.provider providers_sudo: The providers for which to determine whether the
+                                                tokenization input should be shown or not.
+        :param dict kwargs: The optional data passed to the helper methods.
+        :return: The mapping of the computed value for each provider id.
+        :rtype: dict
+        """
+        res = super(PaymentPortal, PaymentPortal)._compute_show_tokenize_input_mapping(
+            providers_sudo, **kwargs
+        )
+        if kwargs.get('is_donation') and request.env.user._is_public():
+            for provider_sudo in providers_sudo:
+                res[provider_sudo.id] = False
+        return res
+
+
+class PortalAccount(account_payment_portal.PortalAccount):
+    def _invoice_get_page_view_values(self, *args, **kwargs):
+        """Override of `account_payment` to make the providers filtering website-aware."""
+        return super()._invoice_get_page_view_values(*args, website_id=request.website.id, **kwargs)

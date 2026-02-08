@@ -2,9 +2,10 @@
 
 import { browser } from "@web/core/browser/browser";
 import { registry } from "@web/core/registry";
-import { useService } from "@web/core/utils/hooks";
+import { useBus, useService } from "@web/core/utils/hooks";
+import { Transition } from "@web/core/transition";
 
-const { Component, useState } = owl;
+import { Component, useState } from "@odoo/owl";
 
 /**
  * Loading Indicator
@@ -18,44 +19,56 @@ const { Component, useState } = owl;
  */
 export class LoadingIndicator extends Component {
     setup() {
+        this.uiService = useService("ui");
         this.state = useState({
             count: 0,
             show: false,
         });
         this.rpcIds = new Set();
-        this.env.bus.on("RPC:REQUEST", this, this.requestCall);
-        this.env.bus.on("RPC:RESPONSE", this, this.responseCall);
-        this.uiService = useService("ui");
+        this.shouldUnblock = false;
+        this.startShowTimer = null;
+        this.blockUITimer = null;
+        useBus(this.env.bus, "RPC:REQUEST", this.requestCall);
+        useBus(this.env.bus, "RPC:RESPONSE", this.responseCall);
     }
 
-    requestCall(rpcId) {
-        if (this.state.count === 0) {
-            this.state.show = true;
-            this.blockUITimer = browser.setTimeout(() => {
-                this.shouldUnblock = true;
-                this.uiService.block();
-            }, 3000);
+    requestCall({ detail }) {
+        if (detail.settings.silent) {
+            return;
         }
-        this.rpcIds.add(rpcId);
+        if (this.state.count === 0) {
+            browser.clearTimeout(this.startShowTimer);
+            this.startShowTimer = browser.setTimeout(() => {
+                if (this.state.count) {
+                    this.state.show = true;
+                }
+            }, 250);
+        }
+        this.rpcIds.add(detail.data.id);
         this.state.count++;
     }
 
-    responseCall(rpcId) {
-        this.rpcIds.delete(rpcId);
+    responseCall({ detail }) {
+        if (detail.settings.silent) {
+            return;
+        }
+        this.rpcIds.delete(detail.data.id);
         this.state.count = this.rpcIds.size;
         if (this.state.count === 0) {
+            browser.clearTimeout(this.startShowTimer);
+            browser.clearTimeout(this.blockUITimer);
+            this.state.show = false;
             if (this.shouldUnblock) {
                 this.uiService.unblock();
                 this.shouldUnblock = false;
-            } else {
-                browser.clearTimeout(this.blockUITimer);
             }
-            this.state.show = false;
         }
     }
 }
 
 LoadingIndicator.template = "web.LoadingIndicator";
+LoadingIndicator.components = { Transition };
+LoadingIndicator.props = {};
 
 registry.category("main_components").add("LoadingIndicator", {
     Component: LoadingIndicator,

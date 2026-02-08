@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
 import uuid
+from ast import literal_eval
 from werkzeug.urls import url_encode
 from odoo import api, exceptions, fields, models, _
 
@@ -46,10 +47,14 @@ class PortalMixin(models.AbstractModel):
         :return: the url of the record with access parameters, if any.
         """
         self.ensure_one()
-        params = {
-            'model': self._name,
-            'res_id': self.id,
-        }
+        if redirect:
+            # model / res_id used by mail/view to check access on record
+            params = {
+                'model': self._name,
+                'res_id': self.id,
+            }
+        else:
+            params = {}
         if share_token and hasattr(self, 'access_token'):
             params['access_token'] = self._portal_ensure_token()
         if pid:
@@ -60,33 +65,9 @@ class PortalMixin(models.AbstractModel):
 
         return '%s?%s' % ('/mail/view' if redirect else self.access_url, url_encode(params))
 
-    def _notify_get_groups(self, msg_vals=None):
-        access_token = self._portal_ensure_token()
-        groups = super(PortalMixin, self)._notify_get_groups(msg_vals=msg_vals)
-        local_msg_vals = dict(msg_vals or {})
-
-        if access_token and 'partner_id' in self._fields and self['partner_id']:
-            customer = self['partner_id']
-            local_msg_vals['access_token'] = self.access_token
-            local_msg_vals.update(customer.signup_get_auth_param()[customer.id])
-            access_link = self._notify_get_action_link('view', **local_msg_vals)
-
-            new_group = [
-                ('portal_customer', lambda pdata: pdata['id'] == customer.id, {
-                    'has_button_access': False,
-                    'button_access': {
-                        'url': access_link,
-                    },
-                    'notification_is_customer': True,
-                })
-            ]
-        else:
-            new_group = []
-        return new_group + groups
-
-    def get_access_action(self, access_uid=None):
+    def _get_access_action(self, access_uid=None, force_website=False):
         """ Instead of the classic form view, redirect to the online document for
-        portal users or if force_website=True in the context. """
+        portal users or if force_website=True. """
         self.ensure_one()
 
         user, record = self.env.user, self
@@ -95,15 +76,17 @@ class PortalMixin(models.AbstractModel):
                 record.check_access_rights('read')
                 record.check_access_rule("read")
             except exceptions.AccessError:
-                return super(PortalMixin, self).get_access_action(access_uid)
+                return super(PortalMixin, self)._get_access_action(
+                    access_uid=access_uid, force_website=force_website
+                )
             user = self.env['res.users'].sudo().browse(access_uid)
             record = self.with_user(user)
-        if user.share or self.env.context.get('force_website'):
+        if user.share or force_website:
             try:
                 record.check_access_rights('read')
                 record.check_access_rule('read')
             except exceptions.AccessError:
-                if self.env.context.get('force_website'):
+                if force_website:
                     return {
                         'type': 'ir.actions.act_url',
                         'url': record.access_url,
@@ -119,13 +102,16 @@ class PortalMixin(models.AbstractModel):
                     'target': 'self',
                     'res_id': record.id,
                 }
-        return super(PortalMixin, self).get_access_action(access_uid)
+        return super(PortalMixin, self)._get_access_action(
+            access_uid=access_uid, force_website=force_website
+        )
 
     @api.model
     def action_share(self):
         action = self.env["ir.actions.actions"]._for_xml_id("portal.portal_share_action")
         action['context'] = {'active_id': self.env.context['active_id'],
-                             'active_model': self.env.context['active_model']}
+                             'active_model': self.env.context['active_model'],
+                             **literal_eval(action['context'])}
         return action
 
     def get_portal_url(self, suffix=None, report_type=None, download=None, query_string=None, anchor=None):

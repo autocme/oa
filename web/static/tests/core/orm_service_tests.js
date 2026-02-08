@@ -4,10 +4,9 @@ import { ormService } from "@web/core/orm_service";
 import { registry } from "@web/core/registry";
 import { useService } from "@web/core/utils/hooks";
 import { makeTestEnv } from "../helpers/mock_env";
-import { getFixture } from "../helpers/utils";
+import { getFixture, mount } from "../helpers/utils";
 
-const { Component, mount, tags } = owl;
-const { xml } = tags;
+import { Component, xml } from "@odoo/owl";
 const serviceRegistry = registry.category("services");
 
 QUnit.module("ORM Service", {
@@ -53,7 +52,8 @@ QUnit.test("context is combined with user context in read request", async (asser
     const [query, rpc] = makeFakeRPC();
     serviceRegistry.add("rpc", rpc);
     const env = await makeTestEnv();
-    await env.services.orm.read("my.model", [3], ["id", "descr"], { earth: "isfucked" });
+    const context = { earth: "isfucked" };
+    await env.services.orm.read("my.model", [3], ["id", "descr"], { context });
     assert.strictEqual(query.route, "/web/dataset/call_kw/my.model/read");
     assert.deepEqual(query.params, {
         args: [[3], ["id", "descr"]],
@@ -91,17 +91,19 @@ QUnit.test("basic method call of model", async (assert) => {
     });
 });
 
-QUnit.test("create method", async (assert) => {
+QUnit.test("create method: one record", async (assert) => {
     const [query, rpc] = makeFakeRPC();
     serviceRegistry.add("rpc", rpc);
     const env = await makeTestEnv();
-    await env.services.orm.create("partner", { color: "red" });
+    await env.services.orm.create("partner", [{ color: "red" }]);
     assert.strictEqual(query.route, "/web/dataset/call_kw/partner/create");
     assert.deepEqual(query.params, {
         args: [
-            {
-                color: "red",
-            },
+            [
+                {
+                    color: "red",
+                },
+            ],
         ],
         kwargs: {
             context: {
@@ -112,6 +114,64 @@ QUnit.test("create method", async (assert) => {
         },
         method: "create",
         model: "partner",
+    });
+});
+
+QUnit.test("create method: several records", async (assert) => {
+    const [query, rpc] = makeFakeRPC();
+    serviceRegistry.add("rpc", rpc);
+    const env = await makeTestEnv();
+    await env.services.orm.create("partner", [{ color: "red" }, { color: "green" }]);
+    assert.strictEqual(query.route, "/web/dataset/call_kw/partner/create");
+    assert.deepEqual(query.params, {
+        args: [
+            [
+                {
+                    color: "red",
+                },
+                {
+                    color: "green",
+                },
+            ],
+        ],
+        kwargs: {
+            context: {
+                lang: "en",
+                tz: "taht",
+                uid: 7,
+            },
+        },
+        method: "create",
+        model: "partner",
+    });
+});
+
+QUnit.test("read method", async (assert) => {
+    const [query, rpc] = makeFakeRPC();
+    serviceRegistry.add("rpc", rpc);
+    const env = await makeTestEnv();
+    const context = { abc: 3 };
+    await env.services.orm.read("sale.order", [2, 5], ["name", "amount"], {
+        load: "none",
+        context,
+    });
+    assert.strictEqual(query.route, "/web/dataset/call_kw/sale.order/read");
+    assert.deepEqual(query.params, {
+        args: [
+            [2, 5],
+            ["name", "amount"],
+        ],
+        kwargs: {
+            load: "none",
+            context: {
+                abc: 3,
+                lang: "en",
+                tz: "taht",
+                uid: 7,
+            },
+        },
+        method: "read",
+        model: "sale.order",
     });
 });
 
@@ -215,6 +275,25 @@ QUnit.test("readGroup method", async (assert) => {
     });
 });
 
+QUnit.test("test readGroup method removes duplicate values from groupby", async (assert) => {
+    const [query, rpc] = makeFakeRPC();
+    serviceRegistry.add("rpc", rpc);
+    const env = await makeTestEnv();
+    await env.services.orm.readGroup(
+        "sale.order",
+        [["user_id", "=", 2]],
+        ["amount_total:sum"],
+        ["date_order:month", "date_order:month"],
+        { offset: 1 }
+    );
+    assert.strictEqual(query.route, "/web/dataset/call_kw/sale.order/read_group");
+    assert.deepEqual(
+        query.params.kwargs.groupby,
+        ["date_order:month"],
+        "Duplicate values should be removed from groupby"
+    );
+});
+
 QUnit.test("searchRead method", async (assert) => {
     const [query, rpc] = makeFakeRPC();
     serviceRegistry.add("rpc", rpc);
@@ -237,11 +316,58 @@ QUnit.test("searchRead method", async (assert) => {
     });
 });
 
+QUnit.test("searchCount method", async (assert) => {
+    const [query, rpc] = makeFakeRPC();
+    serviceRegistry.add("rpc", rpc);
+    const env = await makeTestEnv();
+    await env.services.orm.searchCount("sale.order", [["user_id", "=", 2]]);
+    assert.strictEqual(query.route, "/web/dataset/call_kw/sale.order/search_count");
+    assert.deepEqual(query.params, {
+        args: [[["user_id", "=", 2]]],
+        kwargs: {
+            context: {
+                lang: "en",
+                tz: "taht",
+                uid: 7,
+            },
+        },
+        method: "search_count",
+        model: "sale.order",
+    });
+});
+
+QUnit.test("webRead method", async (assert) => {
+    const [query, rpc] = makeFakeRPC();
+    serviceRegistry.add("rpc", rpc);
+    const env = await makeTestEnv();
+    const context = { abc: 3 };
+    await env.services.orm.webRead("sale.order", [2, 5], {
+        specification: { name: {}, amount: {} },
+        context,
+    });
+    assert.strictEqual(query.route, "/web/dataset/call_kw/sale.order/web_read");
+    assert.deepEqual(query.params, {
+        args: [[2, 5]],
+        kwargs: {
+            specification: { name: {}, amount: {} },
+            context: {
+                abc: 3,
+                lang: "en",
+                tz: "taht",
+                uid: 7,
+            },
+        },
+        method: "web_read",
+        model: "sale.order",
+    });
+});
+
 QUnit.test("webSearchRead method", async (assert) => {
     const [query, rpc] = makeFakeRPC();
     serviceRegistry.add("rpc", rpc);
     const env = await makeTestEnv();
-    await env.services.orm.webSearchRead("sale.order", [["user_id", "=", 2]], ["amount_total"]);
+    const specification = { amount_total: {} };
+    await env.services.orm.webSearchRead("sale.order", [["user_id", "=", 2]], { specification });
     assert.strictEqual(query.route, "/web/dataset/call_kw/sale.order/web_search_read");
     assert.deepEqual(query.params, {
         args: [],
@@ -252,15 +378,15 @@ QUnit.test("webSearchRead method", async (assert) => {
                 uid: 7,
             },
             domain: [["user_id", "=", 2]],
-            fields: ["amount_total"],
+            specification: { amount_total: {} },
         },
         method: "web_search_read",
         model: "sale.order",
     });
 });
 
-QUnit.test("useModel is specialized for component", async (assert) => {
-    const [query, rpc] = makeFakeRPC();
+QUnit.test("orm is specialized for component", async (assert) => {
+    const [, /* query */ rpc] = makeFakeRPC();
     serviceRegistry.add("rpc", rpc);
     const env = await makeTestEnv();
 
@@ -273,7 +399,7 @@ QUnit.test("useModel is specialized for component", async (assert) => {
     MyComponent.template = xml`<div/>`;
 
     const target = getFixture();
-    const component = await mount(MyComponent, { env, target });
+    const component = await mount(MyComponent, target, { env });
     assert.notStrictEqual(component.orm, env.services.orm);
 });
 
@@ -307,7 +433,7 @@ QUnit.test("silent mode", async (assert) => {
 
 QUnit.test("validate some obviously wrong calls", async (assert) => {
     assert.expect(2);
-    const [query, rpc] = makeFakeRPC();
+    const [, /* query*/ rpc] = makeFakeRPC();
     serviceRegistry.add("rpc", rpc);
     const env = await makeTestEnv();
     try {

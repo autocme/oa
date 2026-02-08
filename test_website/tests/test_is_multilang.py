@@ -1,4 +1,5 @@
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
+from urllib.parse import urlparse
 import odoo.tests
 import lxml
 
@@ -30,35 +31,25 @@ class TestIsMultiLang(odoo.tests.HttpCase):
         it = self.env.ref('base.lang_it').sudo()
         en = self.env.ref('base.lang_en').sudo()
         be = self.env.ref('base.lang_fr_BE').sudo()
-        country1 = self.env['res.country'].create({'name': "My Super Country"})
+        country1 = self.env['res.country'].create({'name': "My Super Country", 'code': 'ZV'})
 
         it.active = True
         be.active = True
-        website.domain = 'http://127.0.0.1:8069'  # for _is_canonical_url
+        website.domain = self.base_url()  # for _is_canonical_url
         website.default_lang_id = en
         website.language_ids = en + it + be
-        params = {
-            'src': country1.name,
-            'value': country1.name + ' Italia',
-            'type': 'model',
-            'name': 'res.country,name',
-            'res_id': country1.id,
-            'lang': it.code,
-            'state': 'translated',
-        }
-        self.env['ir.translation'].create(params)
-        params.update({
-            'value': country1.name + ' Belgium',
-            'lang': be.code,
+        country1.update_field_translations('name', {
+            it.code: country1.name + ' Italia',
+            be.code: country1.name + ' Belgium'
         })
-        self.env['ir.translation'].create(params)
-        r = self.url_open('/test_lang_url/%s' % country1.id)
-        self.assertEqual(r.status_code, 200)
-        self.assertTrue(r.url.endswith('/test_lang_url/my-super-country-%s' % country1.id))
 
-        r = self.url_open('/%s/test_lang_url/%s' % (it.url_code, country1.id))
+        r = self.url_open(f'/test_lang_url/{country1.id}')
         self.assertEqual(r.status_code, 200)
-        self.assertTrue(r.url.endswith('/%s/test_lang_url/my-super-country-italia-%s' % (it.url_code, country1.id)))
+        self.assertEqual(urlparse(r.url).path, f'/test_lang_url/my-super-country-{country1.id}')
+
+        r = self.url_open(f'/{it.url_code}/test_lang_url/{country1.id}')
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(urlparse(r.url).path, f'/{it.url_code}/test_lang_url/my-super-country-italia-{country1.id}')
 
         body = lxml.html.fromstring(r.content)
         # Note: this test is indirectly testing the `ref=canonical` tag is correctly set,
@@ -66,6 +57,41 @@ class TestIsMultiLang(odoo.tests.HttpCase):
         it_href = body.find('./head/link[@rel="alternate"][@hreflang="it"]').get('href')
         fr_href = body.find('./head/link[@rel="alternate"][@hreflang="fr"]').get('href')
         en_href = body.find('./head/link[@rel="alternate"][@hreflang="en"]').get('href')
-        self.assertTrue(it_href.endswith('/%s/test_lang_url/my-super-country-italia-%s' % (it.url_code, country1.id)))
-        self.assertTrue(fr_href.endswith('/%s/test_lang_url/my-super-country-belgium-%s' % (be.url_code, country1.id)))
-        self.assertTrue(en_href.endswith('/test_lang_url/my-super-country-%s' % country1.id))
+
+        self.assertEqual(urlparse(it_href).path, f'/{it.url_code}/test_lang_url/my-super-country-italia-{country1.id}')
+        self.assertEqual(urlparse(fr_href).path, f'/{be.url_code}/test_lang_url/my-super-country-belgium-{country1.id}')
+        self.assertEqual(urlparse(en_href).path, f'/test_lang_url/my-super-country-{country1.id}')
+
+    def test_03_head_alternate_href(self):
+        website = self.env['website'].search([], limit=1)
+        be = self.env.ref('base.lang_fr_BE').sudo()
+        en = self.env.ref('base.lang_en').sudo()
+
+        be.active = True
+        be_prefix = "/" + be.iso_code
+
+        website.default_lang_id = en
+        website.language_ids = en + be
+
+        # alternate href should be use the current url.
+        self.url_open(be_prefix)
+        self.url_open(be_prefix + '/contactus')
+        r = self.url_open(be_prefix)
+        self.assertRegex(r.text, r'<link rel="alternate" hreflang="en" href="http://[^"]+/"/>')
+        r = self.url_open(be_prefix + '/contactus')
+        self.assertRegex(r.text, r'<link rel="alternate" hreflang="en" href="http://[^"]+/contactus"/>')
+
+    def test_04_multilang_false(self):
+        website = self.env['website'].search([], limit=1)
+        fr = self.env.ref('base.lang_fr').sudo()
+        en = self.env.ref('base.lang_en').sudo()
+        fr.active = True
+
+        website.default_lang_id = en
+        website.language_ids = en + fr
+        self.opener.cookies['frontend_lang'] = fr.iso_code
+
+        res = self.url_open('/get_post_nomultilang', allow_redirects=False)
+        res.raise_for_status()
+
+        self.assertEqual(res.status_code, 200, "Should not be redirected")

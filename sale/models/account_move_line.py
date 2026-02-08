@@ -9,6 +9,7 @@ from odoo.tools import float_compare, float_is_zero
 class AccountMoveLine(models.Model):
     _inherit = 'account.move.line'
 
+    is_downpayment = fields.Boolean()
     sale_line_ids = fields.Many2many(
         'sale.order.line',
         'sale_order_line_invoice_rel',
@@ -20,26 +21,26 @@ class AccountMoveLine(models.Model):
         super(AccountMoveLine, self)._copy_data_extend_business_fields(values)
         values['sale_line_ids'] = [(6, None, self.sale_line_ids.ids)]
 
-    def _prepare_analytic_line(self):
-        """ Note: This method is called only on the move.line that having an analytic account, and
+    def _prepare_analytic_lines(self):
+        """ Note: This method is called only on the move.line that having an analytic distribution, and
             so that should create analytic entries.
         """
-        values_list = super(AccountMoveLine, self)._prepare_analytic_line()
+        values_list = super(AccountMoveLine, self)._prepare_analytic_lines()
 
         # filter the move lines that can be reinvoiced: a cost (negative amount) analytic line without SO line but with a product can be reinvoiced
         move_to_reinvoice = self.env['account.move.line']
-        for index, move_line in enumerate(self):
-            values = values_list[index]
-            if 'so_line' not in values:
-                if move_line._sale_can_be_reinvoice():
-                    move_to_reinvoice |= move_line
+        if len(values_list) > 0:
+            for index, move_line in enumerate(self):
+                values = values_list[index]
+                if 'so_line' not in values:
+                    if move_line._sale_can_be_reinvoice():
+                        move_to_reinvoice |= move_line
 
         # insert the sale line in the create values of the analytic entries
-        if move_to_reinvoice:
+        if move_to_reinvoice.filtered(lambda aml: not aml.move_id.reversed_entry_id and aml.product_id):  # only if the move line is not a reversal one
             map_sale_line_per_move = move_to_reinvoice._sale_create_reinvoice_sale_line()
-
             for values in values_list:
-                sale_line = map_sale_line_per_move.get(values.get('move_id'))
+                sale_line = map_sale_line_per_move.get(values.get('move_line_id'))
                 if sale_line:
                     values['so_line'] = sale_line.id
 
@@ -74,16 +75,29 @@ class AccountMoveLine(models.Model):
             if not sale_order:
                 continue
 
-            # raise if the sale order is not currenlty open
-            if sale_order.state != 'sale':
-                message_unconfirmed = _('The Sales Order %s linked to the Analytic Account %s must be validated before registering expenses.')
-                messages = {
-                    'draft': message_unconfirmed,
-                    'sent': message_unconfirmed,
-                    'done': _('The Sales Order %s linked to the Analytic Account %s is currently locked. You cannot register an expense on a locked Sales Order. Please create a new SO linked to this Analytic Account.'),
-                    'cancel': _('The Sales Order %s linked to the Analytic Account %s is cancelled. You cannot register an expense on a cancelled Sales Order.'),
-                }
-                raise UserError(messages[sale_order.state] % (sale_order.name, sale_order.analytic_account_id.name))
+            # raise if the sale order is not currently open
+            if sale_order.state in ('draft', 'sent'):
+                raise UserError(_(
+                    "The Sales Order %(order)s linked to the Analytic Account %(account)s must be"
+                    " validated before registering expenses.",
+                    order=sale_order.name,
+                    account=sale_order.analytic_account_id.name,
+                ))
+            elif sale_order.state == 'cancel':
+                raise UserError(_(
+                    "The Sales Order %(order)s linked to the Analytic Account %(account)s is cancelled."
+                    " You cannot register an expense on a cancelled Sales Order.",
+                    order=sale_order.name,
+                    account=sale_order.analytic_account_id.name,
+                ))
+            elif sale_order.locked:
+                raise UserError(_(
+                    "The Sales Order %(order)s linked to the Analytic Account %(account)s is currently locked."
+                    " You cannot register an expense on a locked Sales Order."
+                    " Please create a new SO linked to this Analytic Account.",
+                    order=sale_order.name,
+                    account=sale_order.analytic_account_id.name,
+                ))
 
             price = move_line._sale_get_invoice_price(sale_order)
 
@@ -123,8 +137,6 @@ class AccountMoveLine(models.Model):
 
         # create the sale lines in batch
         new_sale_lines = self.env['sale.order.line'].create(sale_line_values_to_create)
-        for sol in new_sale_lines:
-            sol._onchange_discount()
 
         # build result map by replacing index with newly created record of sale.order.line
         result = {}
@@ -139,23 +151,23 @@ class AccountMoveLine(models.Model):
         """ Get the mapping of move.line with the sale.order record on which its analytic entries should be reinvoiced
             :return a dict where key is the move line id, and value is sale.order record (or None).
         """
-        analytic_accounts = self.mapped('analytic_account_id')
-
-        # link the analytic account with its open SO by creating a map: {AA.id: sale.order}, if we find some analytic accounts
         mapping = {}
-        if analytic_accounts:  # first, search for the open sales order
-            sale_orders = self.env['sale.order'].search([('analytic_account_id', 'in', analytic_accounts.ids), ('state', '=', 'sale')], order='create_date DESC')
-            for sale_order in sale_orders:
-                mapping[sale_order.analytic_account_id.id] = sale_order
+        for move_line in self:
+            if move_line.analytic_distribution:
+                distribution_json = move_line.analytic_distribution
+                account_ids = [int(account_id) for key in distribution_json.keys() for account_id in key.split(',')]
 
-            analytic_accounts_without_open_order = analytic_accounts.filtered(lambda account: not mapping.get(account.id))
-            if analytic_accounts_without_open_order:  # then, fill the blank with not open sales orders
-                sale_orders = self.env['sale.order'].search([('analytic_account_id', 'in', analytic_accounts_without_open_order.ids)], order='create_date DESC')
-            for sale_order in sale_orders:
-                mapping[sale_order.analytic_account_id.id] = sale_order
+                sale_order = self.env['sale.order'].search([('analytic_account_id', 'in', account_ids),
+                                                            ('state', '=', 'sale')], order='create_date ASC', limit=1)
+                if sale_order:
+                    mapping[move_line.id] = sale_order
+                else:
+                    sale_order = self.env['sale.order'].search([('analytic_account_id', 'in', account_ids)],
+                                                               order='create_date ASC', limit=1)
+                    mapping[move_line.id] = sale_order
 
         # map of AAL index with the SO on which it needs to be reinvoiced. Maybe be None if no SO found
-        return {move_line.id: mapping.get(move_line.analytic_account_id.id) for move_line in self}
+        return mapping
 
     def _sale_prepare_sale_line_values(self, order, price):
         """ Generate the sale.line creation value from the current move line """
@@ -163,8 +175,8 @@ class AccountMoveLine(models.Model):
         last_so_line = self.env['sale.order.line'].search([('order_id', '=', order.id)], order='sequence desc', limit=1)
         last_sequence = last_so_line.sequence + 1 if last_so_line else 100
 
-        fpos = order.fiscal_position_id or order.fiscal_position_id.get_fiscal_position(order.partner_id.id)
-        product_taxes = self.product_id.taxes_id.filtered(lambda tax: tax.company_id == order.company_id)
+        fpos = order.fiscal_position_id or order.fiscal_position_id._get_fiscal_position(order.partner_id)
+        product_taxes = self.product_id.taxes_id._filter_taxes_by_company(order.company_id)
         taxes = fpos.map_tax(product_taxes)
 
         return {
@@ -190,12 +202,12 @@ class AccountMoveLine(models.Model):
         amount = (self.credit or 0.0) - (self.debit or 0.0)
 
         if self.product_id.expense_policy == 'sales_price':
-            return self.product_id.with_context(
-                partner=order.partner_id,
-                date_order=order.date_order,
-                pricelist=order.pricelist_id.id,
-                uom=self.product_uom_id.id
-            ).price
+            return order.pricelist_id._get_product_price(
+                self.product_id,
+                1.0,
+                uom=self.product_uom_id,
+                date=order.date_order,
+            )
 
         uom_precision_digits = self.env['decimal.precision'].precision_get('Product Unit of Measure')
         if float_is_zero(unit_amount, precision_digits=uom_precision_digits):
@@ -204,7 +216,7 @@ class AccountMoveLine(models.Model):
         # Prevent unnecessary currency conversion that could be impacted by exchange rate
         # fluctuations
         if self.company_id.currency_id and amount and self.company_id.currency_id == order.currency_id:
-            return abs(amount / unit_amount)
+            return self.company_id.currency_id.round(abs(amount / unit_amount))
 
         price_unit = abs(amount / unit_amount)
         currency_id = self.company_id.currency_id

@@ -1,18 +1,16 @@
 /** @odoo-module **/
 
-import { ActionContainer } from "./actions/action_container";
-import { NavBar } from "./navbar/navbar";
-import { useBus, useEffect, useService } from "@web/core/utils/hooks";
-import { useTooltip } from "@web/core/tooltip/tooltip_hook";
-import { NotUpdatable } from "../core/utils/components";
-import { MainComponentsContainer } from "../core/main_components_container";
-import { useOwnDebugContext } from "../core/debug/debug_context";
-import { registry } from "@web/core/registry";
+import { useOwnDebugContext } from "@web/core/debug/debug_context";
+import { Deferred } from "@web/core/utils/concurrency";
 import { DebugMenu } from "@web/core/debug/debug_menu";
 import { localization } from "@web/core/l10n/localization";
+import { MainComponentsContainer } from "@web/core/main_components_container";
+import { registry } from "@web/core/registry";
+import { useBus, useService } from "@web/core/utils/hooks";
+import { ActionContainer } from "./actions/action_container";
+import { NavBar } from "./navbar/navbar";
 
-const { Component, hooks } = owl;
-const { useExternalListener } = hooks;
+import { Component, onMounted, onWillStart, useExternalListener, useState } from "@odoo/owl";
 
 export class WebClient extends Component {
     setup() {
@@ -21,7 +19,6 @@ export class WebClient extends Component {
         this.title = useService("title");
         this.router = useService("router");
         this.user = useService("user");
-        useService("legacy_service_provider");
         useOwnDebugContext({ categories: ["default"] });
         if (this.env.debug) {
             registry.category("systray").add(
@@ -33,27 +30,25 @@ export class WebClient extends Component {
             );
         }
         this.localization = localization;
+        this.state = useState({
+            fullscreen: false,
+        });
         this.title.setParts({ zopenerp: "Odoo" }); // zopenerp is easy to grep
         useBus(this.env.bus, "ROUTE_CHANGE", this.loadRouterState);
-        useBus(this.env.bus, "ACTION_MANAGER:UI-UPDATED", (mode) => {
+        useBus(this.env.bus, "ACTION_MANAGER:UI-UPDATED", ({ detail: mode }) => {
             if (mode !== "new") {
-                this.el.classList.toggle("o_fullscreen", mode === "fullscreen");
+                this.state.fullscreen = mode === "fullscreen";
             }
         });
-        useEffect(
-            () => {
-                this.loadRouterState();
-            },
-            () => []
-        );
+        onMounted(() => {
+            this.loadRouterState();
+            // the chat window and dialog services listen to 'web_client_ready' event in
+            // order to initialize themselves:
+            this.env.bus.trigger("WEB_CLIENT_READY");
+        });
         useExternalListener(window, "click", this.onGlobalClick, { capture: true });
-        useTooltip();
-    }
-
-    mounted() {
-        // the chat window and dialog services listen to 'web_client_ready' event in
-        // order to initialize themselves:
-        this.env.bus.trigger("WEB_CLIENT_READY");
+        this.serviceWorkerActivatedDeferred = new Deferred();
+        onWillStart(this.registerServiceWorker);
     }
 
     async loadRouterState() {
@@ -107,6 +102,7 @@ export class WebClient extends Component {
         // we do not want any other listener to execute.
         if (
             (ev.ctrlKey || ev.metaKey) &&
+            !ev.target.isContentEditable &&
             ((ev.target instanceof HTMLAnchorElement && ev.target.href) ||
                 (ev.target instanceof HTMLElement && ev.target.closest("a[href]:not([href=''])")))
         ) {
@@ -114,11 +110,34 @@ export class WebClient extends Component {
             return;
         }
     }
+
+    registerServiceWorker() {
+        if ("serviceWorker" in navigator) {
+            navigator.serviceWorker
+                .register("/web/service-worker.js", { scope: "/web" })
+                .then((registration) => {
+                    if (registration.active && registration.active.state === "activated") {
+                        this.serviceWorkerActivatedDeferred.resolve();
+                    } else {
+                        const sw =
+                            registration.installing || registration.waiting || registration.active;
+                        sw.addEventListener("statechange", (e) => {
+                            if (e.target.state === "activated") {
+                                this.serviceWorkerActivatedDeferred.resolve();
+                            }
+                        });
+                    }
+                })
+                .catch((error) => {
+                    console.error("Service worker registration failed, error:", error);
+                });
+        }
+    }
 }
 WebClient.components = {
     ActionContainer,
     NavBar,
-    NotUpdatable,
     MainComponentsContainer,
 };
 WebClient.template = "web.WebClient";
+WebClient.props = {};

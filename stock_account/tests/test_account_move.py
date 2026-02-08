@@ -4,11 +4,9 @@
 from odoo.addons.account.tests.common import AccountTestInvoicingCommon
 from odoo.addons.stock_account.tests.test_stockvaluation import _create_accounting_data
 from odoo.tests.common import tagged, Form
-from odoo import fields
+from odoo import fields, Command
 
-
-@tagged("post_install", "-at_install")
-class TestAccountMove(AccountTestInvoicingCommon):
+class TestAccountMoveStockCommon(AccountTestInvoicingCommon):
     @classmethod
     def setUpClass(cls, chart_template_ref=None):
         super().setUpClass(chart_template_ref=chart_template_ref)
@@ -49,6 +47,11 @@ class TestAccountMove(AccountTestInvoicingCommon):
             }
         )
 
+        cls.branch_a = cls.setup_company_data("Branch A", parent_id=cls.env.company.id)
+
+
+@tagged("post_install", "-at_install")
+class TestAccountMove(TestAccountMoveStockCommon):
     def test_standard_perpetual_01_mc_01(self):
         rate = self.currency_data["rates"].sorted()[0].rate
 
@@ -61,7 +64,6 @@ class TestAccountMove(AccountTestInvoicingCommon):
         invoice = move_form.save()
 
         self.assertAlmostEqual(self.product_A.lst_price * rate, invoice.amount_total)
-        self.assertAlmostEqual(self.product_A.lst_price * rate, invoice.amount_residual)
         self.assertEqual(len(invoice.mapped("line_ids")), 2)
         self.assertEqual(len(invoice.mapped("line_ids.currency_id")), 1)
 
@@ -70,7 +72,7 @@ class TestAccountMove(AccountTestInvoicingCommon):
         self.assertAlmostEqual(self.product_A.lst_price * rate, invoice.amount_total)
         self.assertAlmostEqual(self.product_A.lst_price * rate, invoice.amount_residual)
         self.assertEqual(len(invoice.mapped("line_ids")), 4)
-        self.assertEqual(len(invoice.mapped("line_ids").filtered("is_anglo_saxon_line")), 2)
+        self.assertEqual(len(invoice.mapped("line_ids").filtered(lambda l: l.display_type == 'cogs')), 2)
         self.assertEqual(len(invoice.mapped("line_ids.currency_id")), 2)
 
     def test_fifo_perpetual_01_mc_01(self):
@@ -86,7 +88,6 @@ class TestAccountMove(AccountTestInvoicingCommon):
         invoice = move_form.save()
 
         self.assertAlmostEqual(self.product_A.lst_price * rate, invoice.amount_total)
-        self.assertAlmostEqual(self.product_A.lst_price * rate, invoice.amount_residual)
         self.assertEqual(len(invoice.mapped("line_ids")), 2)
         self.assertEqual(len(invoice.mapped("line_ids.currency_id")), 1)
 
@@ -95,7 +96,7 @@ class TestAccountMove(AccountTestInvoicingCommon):
         self.assertAlmostEqual(self.product_A.lst_price * rate, invoice.amount_total)
         self.assertAlmostEqual(self.product_A.lst_price * rate, invoice.amount_residual)
         self.assertEqual(len(invoice.mapped("line_ids")), 4)
-        self.assertEqual(len(invoice.mapped("line_ids").filtered("is_anglo_saxon_line")), 2)
+        self.assertEqual(len(invoice.mapped("line_ids").filtered(lambda l: l.display_type == 'cogs')), 2)
         self.assertEqual(len(invoice.mapped("line_ids.currency_id")), 2)
 
     def test_average_perpetual_01_mc_01(self):
@@ -111,7 +112,6 @@ class TestAccountMove(AccountTestInvoicingCommon):
         invoice = move_form.save()
 
         self.assertAlmostEqual(self.product_A.lst_price * rate, invoice.amount_total)
-        self.assertAlmostEqual(self.product_A.lst_price * rate, invoice.amount_residual)
         self.assertEqual(len(invoice.mapped("line_ids")), 2)
         self.assertEqual(len(invoice.mapped("line_ids.currency_id")), 1)
 
@@ -120,8 +120,90 @@ class TestAccountMove(AccountTestInvoicingCommon):
         self.assertAlmostEqual(self.product_A.lst_price * rate, invoice.amount_total)
         self.assertAlmostEqual(self.product_A.lst_price * rate, invoice.amount_residual)
         self.assertEqual(len(invoice.mapped("line_ids")), 4)
-        self.assertEqual(len(invoice.mapped("line_ids").filtered("is_anglo_saxon_line")), 2)
+        self.assertEqual(len(invoice.mapped("line_ids").filtered(lambda l: l.display_type == 'cogs')), 2)
         self.assertEqual(len(invoice.mapped("line_ids.currency_id")), 2)
+
+    def test_storno_accounting(self):
+        """Storno accounting uses negative numbers on debit/credit to cancel other moves.
+        This test checks that we do the same for the anglosaxon lines when storno is enabled.
+        """
+        self.env.company.account_storno = True
+        self.env.company.anglo_saxon_accounting = True
+
+        move = self.env['account.move'].create({
+            'move_type': 'out_refund',
+            'invoice_date': fields.Date.from_string('2019-01-01'),
+            'partner_id': self.partner_a.id,
+            'currency_id': self.currency_data['currency'].id,
+            'invoice_line_ids': [
+                (0, None, {'product_id': self.product_A.id}),
+            ]
+        })
+        move.action_post()
+
+        stock_output_line = move.line_ids.filtered(lambda l: l.account_id == self.stock_output_account)
+        self.assertEqual(stock_output_line.debit, 0)
+        self.assertEqual(stock_output_line.credit, -10)
+
+        expense_line = move.line_ids.filtered(lambda l: l.account_id == self.product_A.property_account_expense_id)
+        self.assertEqual(expense_line.debit, -10)
+        self.assertEqual(expense_line.credit, 0)
+
+    def test_standard_manual_tax_edit(self):
+        ''' Test manually editing tax amount, cogs creation should not reset tax amount '''
+        move_form = Form(self.env["account.move"].with_context(default_move_type="out_invoice"))
+        move_form.partner_id = self.partner_a
+        self.company_data["default_account_revenue"].write({
+            'tax_ids': [(6, 0, [self.env.company.account_sale_tax_id.id])]
+        })
+        with move_form.invoice_line_ids.new() as line_form:
+            line_form.product_id = self.product_A
+        invoice = move_form.save()
+
+        self.assertEqual(invoice.amount_total, 115)
+        self.assertEqual(invoice.amount_untaxed, 100)
+        self.assertEqual(invoice.amount_tax, 15)
+
+        # simulate manual tax edit via widget
+        vals = {
+            'tax_totals': {
+                'amount_untaxed': 100,
+                'amount_total': 114,
+                'formatted_amount_total': '$\xa0114.00',
+                'formatted_amount_untaxed': '$\xa0100.00',
+                'groups_by_subtotal': {
+                    'Untaxed Amount': [{
+                        'group_key': 2,
+                        'tax_group_id': invoice.invoice_line_ids.tax_ids.tax_group_id.id,
+                        'tax_group_name': 'Tax 15%',
+                        'tax_group_amount': 14,
+                        'tax_group_base_amount': 100,
+                        'formatted_tax_group_amount': '$\xa014.00',
+                        'formatted_tax_group_base_amount': '$\xa0100.00'
+                    }]
+                },
+                'subtotals': [{
+                    'name': 'Untaxed Amount',
+                    'amount': 100,
+                    'formatted_amount': '$\xa0100.00'
+                }],
+                'subtotals_order': ['Untaxed Amount'],
+                'display_tax_base': False,
+            }
+        }
+        invoice.write(vals)
+
+        self.assertEqual(len(invoice.mapped("line_ids")), 3)
+        self.assertEqual(invoice.amount_total, 114)
+        self.assertEqual(invoice.amount_untaxed, 100)
+        self.assertEqual(invoice.amount_tax, 14)
+
+        invoice._post()
+
+        self.assertEqual(len(invoice.mapped("line_ids")), 5)
+        self.assertEqual(invoice.amount_total, 114)
+        self.assertEqual(invoice.amount_untaxed, 100)
+        self.assertEqual(invoice.amount_tax, 14)
 
     def test_basic_bill(self):
         """
@@ -154,12 +236,11 @@ class TestAccountMove(AccountTestInvoicingCommon):
             self.assertEqual(bill.invoice_line_ids.account_id, product_accounts['expense'])
 
     def test_product_valuation_method_change_to_automated_negative_on_hand_qty(self):
-        """
-        We have a product whose category has manual valuation and on-hand quantity is negative:
-            Upon switching to an automated valuation method for the product category, the following
-            entries should be generated in the stock journal:
-                1. CREDIT to valuation account
-                2. DEBIT to stock output account
+        """ We have a product whose category has manual valuation and on-hand quantity is negative:
+        Upon switching to an automated valuation method for the product category, the following
+        entries should be generated in the stock journal:
+            1. CREDIT to valuation account
+            2. DEBIT to stock output account
         """
         stock_location = self.env['stock.warehouse'].search([
             ('company_id', '=', self.env.company.id),
@@ -186,7 +267,7 @@ class TestAccountMove(AccountTestInvoicingCommon):
             'picking_id': out_picking.id,
         })
         out_picking.action_confirm()
-        sm.quantity_done = 1
+        sm.quantity = 1
         out_picking.button_validate()
 
         categ.write({
@@ -219,3 +300,116 @@ class TestAccountMove(AccountTestInvoicingCommon):
             [stock_valuation_line, output_line],
             [expected_valuation_line, expected_output_line]
         )
+
+    def test_stock_account_move_automated_not_standard_with_branch_company(self):
+        """
+        Test that the validation of a stock picking does not fail `_check_company`
+        at the creation of the account move with sub company
+        """
+        branch_a = self.branch_a['company']
+        self.env.user.company_id = branch_a
+
+        self.auto_categ.write({'property_cost_method': 'average', 'property_valuation': 'real_time'})
+        product = self.product_A
+        product.write({'categ_id': self.auto_categ.id, 'standard_price': 300, 'company_id': branch_a.id})
+
+        stock_location = self.env['stock.warehouse'].search([
+            ('company_id', '=', self.env.company.id),
+        ], limit=1).lot_stock_id
+
+        in_picking = self.env['stock.picking'].create({
+            'location_id': stock_location.id,
+            'location_dest_id': self.ref('stock.stock_location_customers'),
+            'picking_type_id': stock_location.warehouse_id.in_type_id.id,
+        })
+
+        sm = self.env['stock.move'].create({
+            'name': product.name,
+            'product_id': product.id,
+            'product_uom_qty': 1,
+            'product_uom': product.uom_id.id,
+            'location_id': in_picking.location_id.id,
+            'location_dest_id': in_picking.location_dest_id.id,
+            'picking_id': in_picking.id,
+        })
+        in_picking.button_validate()
+        self.assertEqual(sm.state, 'done')
+        self.assertEqual(sm.account_move_ids.company_id, self.env.company)
+
+    def test_cogs_analytic_accounting(self):
+        """Check analytic distribution is correctly propagated to COGS lines"""
+        self.env.company.anglo_saxon_accounting = True
+        default_plan = self.env['account.analytic.plan'].create({
+            'name': 'Default',
+        })
+        analytic_account = self.env['account.analytic.account'].create({
+            'name': 'Account 1',
+            'plan_id': default_plan.id,
+            'company_id': False,
+        })
+
+        move = self.env['account.move'].create({
+            'move_type': 'out_refund',
+            'invoice_date': fields.Date.from_string('2019-01-01'),
+            'partner_id': self.partner_a.id,
+            'currency_id': self.currency_data['currency'].id,
+            'invoice_line_ids': [
+                Command.create({
+                    'product_id': self.product_A.id,
+                    'analytic_distribution': {
+                        analytic_account.id: 100,
+                    },
+                }),
+            ]
+        })
+        move.action_post()
+
+        cogs_line = move.line_ids.filtered(lambda l: l.account_id == self.product_A.property_account_expense_id)
+        self.assertEqual(cogs_line.analytic_distribution, {str(analytic_account.id): 100})
+
+    def test_cogs_account_branch_company(self):
+        """Check branch company accounts are selected"""
+        branch = self.branch_a['company']
+        test_account = self.env['account.account'].create({
+            'name': '10001 Test Account',
+            'code': 'STCKIN',
+            'reconcile': True,
+            'account_type': 'asset_current',
+            'company_id': branch.id,
+        })
+        self.auto_categ.with_company(branch.id).property_valuation = "real_time"
+        self.auto_categ.with_company(branch.id).property_stock_account_input_categ_id = test_account
+
+        bill = self.env['account.move'].with_company(branch.id).with_context(default_move_type='in_invoice').create({
+            'partner_id': self.partner_a.id,
+            'invoice_date': fields.Date.today(),
+            'invoice_line_ids': [
+                Command.create({
+                    'product_id': self.product_A.id,
+                    'price_unit': 100,
+                }),
+            ],
+        })
+
+        self.assertEqual(bill.invoice_line_ids.account_id, test_account)
+
+    def test_invoice_with_journal_item_without_label(self):
+        """Test posting an invoice whose invoice lines have no label.
+        The 'name' field is optional on account.move.line and should be
+        handled safely when generating accounting entries.
+        """
+        move = self.env['account.move'].create({
+            'move_type': 'out_invoice',
+            'partner_id': self.partner_a.id,
+            'invoice_line_ids': [
+                Command.create({
+                    'product_id': self.product_A.id,
+                    'name': False,
+                }),
+            ],
+        })
+        move.action_post()
+        # name should remain falsy on the invoice line
+        self.assertFalse(move.invoice_line_ids.name)
+        # ensure the invoice is posted successfully
+        self.assertEqual(move.state, 'posted')

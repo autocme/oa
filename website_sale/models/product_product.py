@@ -1,31 +1,38 @@
-# -*- coding: utf-8 -*-
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
 
-from odoo import api, fields, models, _
+from werkzeug.urls import url_join
+
+from odoo import _, api, fields, models
 from odoo.exceptions import ValidationError
 
 
 class Product(models.Model):
     _inherit = "product.product"
+    _mail_post_access = 'read'
 
     website_id = fields.Many2one(related='product_tmpl_id.website_id', readonly=False)
 
     product_variant_image_ids = fields.One2many('product.image', 'product_variant_id', string="Extra Variant Images")
 
     website_url = fields.Char('Website URL', compute='_compute_product_website_url', help='The full URL to access the document through the website.')
+    ribbon_id = fields.Many2one(string="Variant Ribbon", comodel_name='product.ribbon')
 
     base_unit_count = fields.Float('Base Unit Count', required=True, default=1, help="Display base unit price on your eCommerce pages. Set to 0 to hide it for this product.")
     base_unit_id = fields.Many2one('website.base.unit', string='Custom Unit of Measure', help="Define a custom unit to display in the price per unit of measure field.")
     base_unit_price = fields.Monetary("Price Per Unit", currency_field="currency_id", compute="_compute_base_unit_price")
     base_unit_name = fields.Char(compute='_compute_base_unit_name', help='Displays the custom unit for the products if defined or the selected unit of measure otherwise.')
 
-    @api.depends('price', 'lst_price', 'base_unit_count')
+    def _get_base_unit_price(self, price):
+        self.ensure_one()
+        return self.base_unit_count and price / self.base_unit_count
+
+    @api.depends('lst_price', 'base_unit_count')
     def _compute_base_unit_price(self):
         for product in self:
             if not product.id:
                 product.base_unit_price = 0
             else:
-                product.base_unit_price = product.base_unit_count and (product.price or product.lst_price) / product.base_unit_count
+                product.base_unit_price = product._get_base_unit_price(product.lst_price)
 
     @api.depends('uom_name', 'base_unit_id')
     def _compute_base_unit_name(self):
@@ -42,7 +49,10 @@ class Product(models.Model):
     def _compute_product_website_url(self):
         for product in self:
             attributes = ','.join(str(x) for x in product.product_template_attribute_value_ids.ids)
-            product.website_url = "%s#attr=%s" % (product.product_tmpl_id.website_url, attributes)
+            url = product.product_tmpl_id.website_url
+            if attributes:
+                url = url_join(url, f"#attr={attributes}")
+            product.website_url = url
 
     def _prepare_variant_values(self, combination):
         variant_dict = super()._prepare_variant_values(combination)
@@ -66,27 +76,41 @@ class Product(models.Model):
         This returns a list and not a recordset because the records might be
         from different models (template, variant and image).
 
-        It contains in this order: the main image of the variant (if set), the
-        Variant Extra Images, and the Template Extra Images.
+        It contains in this order: the main image of the variant (which will fall back on the main
+        image of the template, if unset), the Variant Extra Images, and the Template Extra Images.
         """
         self.ensure_one()
         variant_images = list(self.product_variant_image_ids)
-        if self.image_variant_1920:
-            # if the main variant image is set, display it first
-            variant_images = [self] + variant_images
-        else:
-            # If the main variant image is empty, it will fallback to template
-            # image, in this case insert it after the other variant images, so
-            # that all variant images are first and all template images last.
-            variant_images = variant_images + [self]
-        # [1:] to remove the main image from the template, we only display
-        # the template extra images here
-        return variant_images + self.product_tmpl_id._get_images()[1:]
+        template_images = list(self.product_tmpl_id.product_template_image_ids)
+        return [self] + variant_images + template_images
 
-    def _is_sold_out(self):
-        combination_info = self.with_context(website_sale_stock_get_quantity=True).product_tmpl_id._get_combination_info(product_id=self.id)
-        return combination_info['product_type'] == 'product' and combination_info['free_qty'] <= 0
+    def _get_combination_info_variant(self, **kwargs):
+        """Return the variant info based on its combination.
+        See `_get_combination_info` for more information.
+        """
+        self.ensure_one()
+        return self.product_tmpl_id._get_combination_info(
+            combination=self.product_template_attribute_value_ids,
+            product_id=self.id,
+            **kwargs)
+
+    def _website_show_quick_add(self):
+        website = self.env['website'].get_current_website()
+        return self.sale_ok and (not website.prevent_zero_price_sale or self._get_contextual_price())
 
     def _is_add_to_cart_allowed(self):
         self.ensure_one()
         return self.user_has_groups('base.group_system') or (self.active and self.sale_ok and self.website_published)
+
+    def _get_contextual_price_tax_selection(self):
+        self.ensure_one()
+        website = self.env['website'].get_current_website()
+        fiscal_position_sudo = website.sudo().fiscal_position_id
+        product_taxes = self.sudo().taxes_id._filter_taxes_by_company(self.env.company)
+        return self.env['product.template']._apply_taxes_to_price(
+            self._get_contextual_price(),
+            website.currency_id,
+            product_taxes,
+            fiscal_position_sudo.map_tax(product_taxes),
+            self,
+        )

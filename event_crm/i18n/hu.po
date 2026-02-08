@@ -1,26 +1,27 @@
 # Translation of Odoo Server.
 # This file contains the translation of the following modules:
 # 	* event_crm
-# 
+#
 # Translators:
-# Martin Trigaux, 2021
-# krnkris, 2021
-# Tamás Németh <ntomasz81@gmail.com>, 2021
-# gezza <geza.nagy@oregional.hu>, 2021
-# Ákos Nagy <akos.nagy@oregional.hu>, 2021
-# 
+# Tamás Dombos, 2023
+# Tamás Németh <ntomasz81@gmail.com>, 2023
+# Martin Trigaux, 2023
+# Ákos Nagy <akos.nagy@oregional.hu>, 2023
+# krnkris, 2023
+# gezza <geza.nagy@oregional.hu>, 2025
+#
 msgid ""
 msgstr ""
-"Project-Id-Version: Odoo Server saas~14.5\n"
+"Project-Id-Version: Odoo Server 17.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2021-09-14 10:28+0000\n"
-"PO-Revision-Date: 2021-09-14 12:21+0000\n"
-"Last-Translator: Ákos Nagy <akos.nagy@oregional.hu>, 2021\n"
+"POT-Creation-Date: 2025-12-29 18:37+0000\n"
+"PO-Revision-Date: 2023-10-26 23:09+0000\n"
+"Last-Translator: gezza <geza.nagy@oregional.hu>, 2025\n"
 "Language-Team: Hungarian (https://app.transifex.com/odoo/teams/41243/hu/)\n"
+"Language: hu\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: \n"
-"Language: hu\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
 
 #. module: event_crm
@@ -35,6 +36,7 @@ msgid "# Registrations"
 msgstr ""
 
 #. module: event_crm
+#. odoo-python
 #: code:addons/event_crm/models/event_registration.py:0
 #, python-format
 msgid "(updated)"
@@ -49,7 +51,7 @@ msgstr ""
 #: model_terms:ir.ui.view,arch_db:event_crm.event_registration_view_form
 #: model_terms:ir.ui.view,arch_db:event_crm.event_view_form
 msgid "<span class=\"o_stat_text\"> Leads</span>"
-msgstr ""
+msgstr "<span class=\"o_stat_text\"> Érdeklődések</span>"
 
 #. module: event_crm
 #: model:ir.model.fields,field_description:event_crm.field_event_lead_rule__active
@@ -63,13 +65,13 @@ msgid "Archived"
 msgstr "Archivált"
 
 #. module: event_crm
-#: model:ir.model.fields.selection,name:event_crm.selection__event_lead_rule__lead_creation_trigger__confirm
-msgid "Attendees are confirmed"
+#: model:ir.model.fields.selection,name:event_crm.selection__event_lead_rule__lead_creation_trigger__create
+msgid "Attendees are created"
 msgstr ""
 
 #. module: event_crm
-#: model:ir.model.fields.selection,name:event_crm.selection__event_lead_rule__lead_creation_trigger__create
-msgid "Attendees are created"
+#: model:ir.model.fields.selection,name:event_crm.selection__event_lead_rule__lead_creation_trigger__confirm
+msgid "Attendees are registered"
 msgstr ""
 
 #. module: event_crm
@@ -96,16 +98,6 @@ msgstr ""
 #: model:ir.model.fields,field_description:event_crm.field_event_lead_rule__company_id
 msgid "Company"
 msgstr "Vállalat"
-
-#. module: event_crm
-#: model:ir.model.fields,help:event_crm.field_event_event__lead_count
-msgid "Counter for the leads linked to this event"
-msgstr ""
-
-#. module: event_crm
-#: model:ir.model.fields,help:event_crm.field_event_registration__lead_count
-msgid "Counter for the leads linked to this registration"
-msgstr ""
 
 #. module: event_crm
 #: model:ir.model.fields,help:event_crm.field_crm_lead__registration_count
@@ -146,7 +138,7 @@ msgstr ""
 #: model:ir.model.fields,help:event_crm.field_event_lead_rule__lead_creation_trigger
 msgid ""
 "Creation: at attendee creation;\n"
-"Confirmation: when attendee is confirmed, manually or automatically;\n"
+"Registered: at attendee registration, manually or automatically;\n"
 "Attended: when attendance is confirmed and registration set to done;"
 msgstr ""
 
@@ -158,7 +150,7 @@ msgstr ""
 #. module: event_crm
 #: model:ir.model.fields,field_description:event_crm.field_event_lead_rule__display_name
 msgid "Display Name"
-msgstr "Név megjelenítése"
+msgstr "Megjelenített név"
 
 #. module: event_crm
 #: model:ir.model,name:event_crm.model_event_event
@@ -192,6 +184,11 @@ msgid "Event triggering the rule that created this lead"
 msgstr ""
 
 #. module: event_crm
+#: model_terms:ir.ui.view,arch_db:event_crm.crm_lead_merge_summary_inherit_event_crm
+msgid "Event:"
+msgstr ""
+
+#. module: event_crm
 #: model:ir.model.fields,help:event_crm.field_event_lead_rule__event_registration_filter
 msgid "Filter the attendees that will or not generate leads."
 msgstr ""
@@ -206,8 +203,8 @@ msgstr ""
 #. module: event_crm
 #: model:ir.model.fields,help:event_crm.field_event_lead_rule__event_id
 msgid ""
-"Filter the attendees to include those of this specific event. If not set, no"
-" event restriction will be applied."
+"Filter the attendees to include those of this specific event. If not set, no "
+"event restriction will be applied."
 msgstr ""
 
 #. module: event_crm
@@ -226,11 +223,6 @@ msgid "If the Attendees meet these Conditions"
 msgstr ""
 
 #. module: event_crm
-#: model:ir.model.fields,field_description:event_crm.field_event_lead_rule____last_update
-msgid "Last Modified on"
-msgstr "Legutóbb módosítva"
-
-#. module: event_crm
 #: model:ir.model.fields,field_description:event_crm.field_event_lead_rule__write_uid
 msgid "Last Updated by"
 msgstr "Frissítette"
@@ -238,7 +230,7 @@ msgstr "Frissítette"
 #. module: event_crm
 #: model:ir.model.fields,field_description:event_crm.field_event_lead_rule__write_date
 msgid "Last Updated on"
-msgstr "Frissítve "
+msgstr "Frissítve"
 
 #. module: event_crm
 #: model:ir.model.fields.selection,name:event_crm.selection__event_lead_rule__lead_type__lead
@@ -258,7 +250,7 @@ msgstr ""
 #. module: event_crm
 #: model:ir.ui.menu,name:event_crm.event_lead_rule_menu
 msgid "Lead Generation"
-msgstr ""
+msgstr "Érdeklődés generálás"
 
 #. module: event_crm
 #: model:ir.actions.act_window,name:event_crm.event_lead_rule_action
@@ -290,11 +282,6 @@ msgid "Leads"
 msgstr "Érdeklődések"
 
 #. module: event_crm
-#: model:ir.model.fields,help:event_crm.field_event_registration__lead_ids
-msgid "Leads generated from the registration."
-msgstr ""
-
-#. module: event_crm
 #: model:ir.model.fields,help:event_crm.field_event_event__lead_ids
 msgid "Leads generated from this event"
 msgstr ""
@@ -305,6 +292,7 @@ msgid "Name"
 msgstr "Név"
 
 #. module: event_crm
+#. odoo-python
 #: code:addons/event_crm/models/event_lead_rule.py:0
 #, python-format
 msgid "New registrations"
@@ -327,7 +315,7 @@ msgid "Opportunity"
 msgstr "Lehetőség"
 
 #. module: event_crm
-#: code:addons/event_crm/models/event_registration.py:0
+#. odoo-python
 #: code:addons/event_crm/models/event_registration.py:0
 #, python-format
 msgid "Participants"
@@ -341,8 +329,8 @@ msgstr ""
 #. module: event_crm
 #: model:ir.model.fields,help:event_crm.field_event_lead_rule__lead_creation_basis
 msgid ""
-"Per Attendee : A Lead is created for each Attendee (B2C).\n"
-"Per Order : A single Lead is created per Ticket Batch/Sale Order (B2B)"
+"Per Attendee: A Lead is created for each Attendee (B2C).\n"
+"Per Order: A single Lead is created per Ticket Batch/Sale Order (B2B)"
 msgstr ""
 
 #. module: event_crm
@@ -353,6 +341,11 @@ msgstr ""
 #. module: event_crm
 #: model:ir.model.fields,field_description:event_crm.field_crm_lead__event_lead_rule_id
 msgid "Registration Rule"
+msgstr ""
+
+#. module: event_crm
+#: model_terms:ir.ui.view,arch_db:event_crm.crm_lead_merge_summary_inherit_event_crm
+msgid "Registration Rule:"
 msgstr ""
 
 #. module: event_crm
@@ -368,7 +361,8 @@ msgstr ""
 #. module: event_crm
 #: model:ir.model.fields,help:event_crm.field_event_lead_rule__company_id
 msgid ""
-"Restrict the trigger of this rule to events belonging to a specific company.\n"
+"Restrict the trigger of this rule to events belonging to a specific "
+"company.\n"
 "If not set, no company restriction will be applied."
 msgstr ""
 
@@ -428,7 +422,7 @@ msgid "Trigger Type"
 msgstr "Aktiváló típusa"
 
 #. module: event_crm
-#: code:addons/event_crm/models/event_registration.py:0
+#. odoo-python
 #: code:addons/event_crm/models/event_registration.py:0
 #, python-format
 msgid "Updated registrations"

@@ -27,7 +27,6 @@
     <record id="action_picking_tree_wave" model="ir.actions.act_window">
         <field name="name">Wave Transfers</field>
         <field name="res_model">stock.picking.batch</field>
-        <field name="type">ir.actions.act_window</field>
         <field name="view_mode">tree,kanban,form</field>
         <field name="context">{'search_default_draft': True, 'search_default_in_progress': True}</field>
         <field name="view_ids" eval="[(5, 0, 0),
@@ -39,7 +38,7 @@
             <p class="o_view_nocontent_smiling_face">
                 Create a new wave transfer
                 </p><p>
-                    The goal of the wave transfer is to group operations from differents transfer
+                    The goal of the wave transfer is to group operations from different transfer
                     together in order to increase their efficiency.
                     It may also be useful to assign jobs (one person = one batch) or
                     help the timing management of operations (tasks to be done at 1pm).
@@ -75,8 +74,8 @@
     <menuitem
         action="action_picking_tree_wave"
         id="stock_picking_wave_menu"
-        parent="stock.menu_stock_warehouse_mgmt"
+        parent="stock.menu_stock_transfers"
         groups="stock.group_stock_picking_wave"
-        sequence="8"/>
+        sequence="31"/>
 
 </odoo>

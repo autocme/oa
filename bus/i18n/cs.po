@@ -1,28 +1,27 @@
 # Translation of Odoo Server.
 # This file contains the translation of the following modules:
 # 	* bus
-# 
+#
 # Translators:
-# Martin Trigaux, 2021
-# Jaroslav Helemik Nemec <nemec@helemik.cz>, 2021
-# Jan Horzinka <jan.horzinka@centrum.cz>, 2021
-# Michal Veselý <michal@veselyberanek.net>, 2021
-# Jiří Podhorecký, 2021
-# karolína schusterová <karolina.schusterova@vdp.sk>, 2021
-# 
+# Jakub Smolka, 2023
+# Ivana Bartonkova, 2023
+# karolína schusterová <karolina.schusterova@vdp.sk>, 2023
+# Wil Odoo, 2025
+#
 msgid ""
 msgstr ""
-"Project-Id-Version: Odoo Server 15.0\n"
+"Project-Id-Version: Odoo Server 17.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-08-14 15:43+0000\n"
-"PO-Revision-Date: 2021-09-14 12:21+0000\n"
-"Last-Translator: karolína schusterová <karolina.schusterova@vdp.sk>, 2021\n"
+"POT-Creation-Date: 2025-12-29 18:37+0000\n"
+"PO-Revision-Date: 2023-10-26 23:09+0000\n"
+"Last-Translator: Wil Odoo, 2025\n"
 "Language-Team: Czech (https://app.transifex.com/odoo/teams/41243/cs/)\n"
+"Language: cs\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: \n"
-"Language: cs\n"
-"Plural-Forms: nplurals=4; plural=(n == 1 && n % 1 == 0) ? 0 : (n >= 2 && n <= 4 && n % 1 == 0) ? 1: (n % 1 != 0 ) ? 2 : 3;\n"
+"Plural-Forms: nplurals=4; plural=(n == 1 && n % 1 == 0) ? 0 : (n >= 2 && n "
+"<= 4 && n % 1 == 0) ? 1: (n % 1 != 0 ) ? 2 : 3;\n"
 
 #. module: bus
 #: model:ir.model.fields.selection,name:bus.selection__bus_presence__status__away
@@ -47,18 +46,23 @@ msgstr "Kontakt"
 #. module: bus
 #: model:ir.model.fields,field_description:bus.field_bus_bus__create_uid
 msgid "Created by"
-msgstr "Vytvořeno od"
+msgstr "Vytvořeno uživatelem"
 
 #. module: bus
 #: model:ir.model.fields,field_description:bus.field_bus_bus__create_date
 msgid "Created on"
-msgstr "Vytvořeno"
+msgstr "Vytvořeno dne"
 
 #. module: bus
 #: model:ir.model.fields,field_description:bus.field_bus_bus__display_name
 #: model:ir.model.fields,field_description:bus.field_bus_presence__display_name
 msgid "Display Name"
-msgstr "Zobrazované jméno"
+msgstr "Zobrazovací název"
+
+#. module: bus
+#: model:ir.model,name:bus.model_ir_http
+msgid "HTTP Routing"
+msgstr "HTTP Routing"
 
 #. module: bus
 #: model:ir.model.fields,field_description:bus.field_bus_bus__id
@@ -74,12 +78,6 @@ msgid "IM Status"
 msgstr "IM Status"
 
 #. module: bus
-#: model:ir.model.fields,field_description:bus.field_bus_bus____last_update
-#: model:ir.model.fields,field_description:bus.field_bus_presence____last_update
-msgid "Last Modified on"
-msgstr "Naposled změněno"
-
-#. module: bus
 #: model:ir.model.fields,field_description:bus.field_bus_presence__last_poll
 msgid "Last Poll"
 msgstr "Poslední průzkum"
@@ -92,17 +90,22 @@ msgstr "Poslední přítomnost"
 #. module: bus
 #: model:ir.model.fields,field_description:bus.field_bus_bus__write_uid
 msgid "Last Updated by"
-msgstr "Naposledy upraveno od"
+msgstr "Naposledy upraveno uživatelem"
 
 #. module: bus
 #: model:ir.model.fields,field_description:bus.field_bus_bus__write_date
 msgid "Last Updated on"
-msgstr "Naposled upraveno"
+msgstr "Naposledy upraveno dne"
 
 #. module: bus
 #: model:ir.model.fields,field_description:bus.field_bus_bus__message
 msgid "Message"
 msgstr "Zpráva"
+
+#. module: bus
+#: model:ir.model,name:bus.model_ir_model
+msgid "Models"
+msgstr "Modely"
 
 #. module: bus
 #: model:ir.model.fields.selection,name:bus.selection__bus_presence__status__offline
@@ -115,19 +118,40 @@ msgid "Online"
 msgstr "Online"
 
 #. module: bus
-#. openerp-web
-#: code:addons/bus/static/src/js/services/assets_watchdog_service.js:0
-#: code:addons/bus/static/src/js/services/assets_watchdog_service.js:0
+#. odoo-javascript
+#: code:addons/bus/static/src/services/assets_watchdog_service.js:0
+#: code:addons/bus/static/src/services/bus_service.js:0
 #, python-format
 msgid "Refresh"
 msgstr "Obnovit"
 
 #. module: bus
-#. openerp-web
-#: code:addons/bus/static/src/js/services/assets_watchdog_service.js:0
+#. odoo-javascript
+#: code:addons/bus/static/src/services/bus_service.js:0
+#, python-format
+msgid ""
+"Save your work and refresh to get the latest updates and avoid potential "
+"issues."
+msgstr ""
+
+#. module: bus
+#. odoo-javascript
+#: code:addons/bus/static/src/services/assets_watchdog_service.js:0
 #, python-format
 msgid "The page appears to be out of date."
 msgstr "Stránka se zdá být zastaralá."
+
+#. module: bus
+#. odoo-javascript
+#: code:addons/bus/static/src/services/bus_service.js:0
+#, python-format
+msgid "The page is out of date"
+msgstr ""
+
+#. module: bus
+#: model:ir.model,name:bus.model_res_users
+msgid "User"
+msgstr "Uživatel"
 
 #. module: bus
 #: model:ir.model,name:bus.model_bus_presence
@@ -135,13 +159,24 @@ msgid "User Presence"
 msgstr "Přítomnost uživatele"
 
 #. module: bus
-#: model:ir.model,name:bus.model_res_users
 #: model:ir.model.fields,field_description:bus.field_bus_presence__user_id
 msgid "Users"
 msgstr "Uživatelé"
 
 #. module: bus
-#: code:addons/bus/controllers/main.py:0
+#. odoo-python
+#: code:addons/bus/controllers/home.py:0
 #, python-format
-msgid "bus.Bus not available in test mode"
-msgstr "bus.Bus není v testovacím režimu k dispozici"
+msgid ""
+"Your password is the default (admin)! If this system is exposed to untrusted "
+"users it is important to change it immediately for security reasons. I will "
+"keep nagging you about it!"
+msgstr ""
+"Vaše heslo je výchozí (admin)! Pokud je tento systém vystaven nedůvěryhodným "
+"uživatelům, je důležité jej z bezpečnostních důvodů okamžitě změnit. Budu "
+"vás o tom pořád otravovat!"
+
+#. module: bus
+#: model:ir.model,name:bus.model_ir_websocket
+msgid "websocket message handling"
+msgstr "zpráva zpracování websocketu"

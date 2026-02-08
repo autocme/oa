@@ -3,10 +3,9 @@
 
 from odoo.addons.mail.tests.common import MailCommon
 from odoo.tests import tagged, users
-from odoo import tools
 
 
-@tagged('mail_tools')
+@tagged('mail_tools', 'res_partner')
 class TestMailTools(MailCommon):
 
     @classmethod
@@ -22,32 +21,8 @@ class TestMailTools(MailCommon):
             'phone': '0456334455',
         })
 
-        cls.sources = [
-            # single email
-            'alfred.astaire@test.example.com',
-            ' alfred.astaire@test.example.com ',
-            'Fredo The Great <alfred.astaire@test.example.com>',
-            '"Fredo The Great" <alfred.astaire@test.example.com>',
-            'Fredo "The Great" <alfred.astaire@test.example.com>',
-            # multiple emails
-            'alfred.astaire@test.example.com, evelyne.gargouillis@test.example.com',
-            'Fredo The Great <alfred.astaire@test.example.com>, Evelyne The Goat <evelyne.gargouillis@test.example.com>',
-            '"Fredo The Great" <alfred.astaire@test.example.com>, evelyne.gargouillis@test.example.com',
-            '"Fredo The Great" <alfred.astaire@test.example.com>, <evelyne.gargouillis@test.example.com>',
-            # text containing email
-            'Hello alfred.astaire@test.example.com how are you ?',
-            '<p>Hello alfred.astaire@test.example.com</p>',
-            # text containing emails
-            'Hello "Fredo" <alfred.astaire@test.example.com>, evelyne.gargouillis@test.example.com',
-            'Hello "Fredo" <alfred.astaire@test.example.com> and evelyne.gargouillis@test.example.com',
-            # falsy
-            '<p>Hello Fredo</p>',
-            'j\'adore écrire des @gmail.com ou "@gmail.com" a bit randomly',
-            '',
-        ]
-
     @users('employee')
-    def test_mail_find_partner_from_emails(self):
+    def test_find_partner_from_emails(self):
         Partner = self.env['res.partner']
         test_partner = Partner.browse(self.test_partner.ids)
         self.assertEqual(test_partner.email, self._test_email)
@@ -170,87 +145,62 @@ class TestMailTools(MailCommon):
                 self.assertEqual(partner, expected,
                                 'Mail (FIXME): partial recognition of multi email through email_normalize')
 
-    @users('employee')
-    def test_tools_email_re(self):
-        expected = [
-            # single email
-            ['alfred.astaire@test.example.com'],
-            ['alfred.astaire@test.example.com'],
-            ['alfred.astaire@test.example.com'],
-            ['alfred.astaire@test.example.com'],
-            ['alfred.astaire@test.example.com'],
-            # multiple emails
-            ['alfred.astaire@test.example.com', 'evelyne.gargouillis@test.example.com'],
-            ['alfred.astaire@test.example.com', 'evelyne.gargouillis@test.example.com'],
-            ['alfred.astaire@test.example.com', 'evelyne.gargouillis@test.example.com'],
-            ['alfred.astaire@test.example.com', 'evelyne.gargouillis@test.example.com'],
-            # text containing email
-            ['alfred.astaire@test.example.com'],
-            ['alfred.astaire@test.example.com'],
-            # text containing emails
-            ['alfred.astaire@test.example.com', 'evelyne.gargouillis@test.example.com'],
-            ['alfred.astaire@test.example.com', 'evelyne.gargouillis@test.example.com'],
-            # falsy
-            [], [], [],
+        # test users with same email, priority given to current user
+        # --------------------------------------------------------------
+        self.user_employee.sudo().write({'email': '"Alfred Astaire" <%s>' % self.env.user.partner_id.email_normalized})
+        found = self.env['res.partner']._mail_find_partner_from_emails([self.env.user.partner_id.email_formatted])
+        self.assertEqual(found, [self.env.user.partner_id])
+
+    def test_mail_find_partner_from_emails_multicompany(self):
+        """ Test _mail_find_partner_from_emails when dealing with records in
+        a multicompany environment, returning a partner record with matching
+        company_id. """
+        Partner = self.env['res.partner']
+        self.test_partner.company_id = self.company_2
+
+        test_partner_no_company = self.test_partner.copy({'company_id': False})
+        test_partner_company_2 = self.test_partner
+        test_partner_company_3 = test_partner_no_company.copy({'company_id': self.company_3.id})
+        records = [
+            None,
+            *Partner.create([
+                {'name': 'Company 2 contact', 'company_id': self.company_2.id},
+                {'name': 'Company 3 contact', 'company_id': self.company_3.id},
+                {'name': 'No restrictions', 'company_id': False},
+            ])
         ]
-
-        for src, exp in zip(self.sources, expected):
-            res = tools.email_re.findall(src)
-            self.assertEqual(
-                res, exp,
-                'Seems email_re is broken with %s (expected %r, received %r)' % (src, exp, res)
-            )
-
-    @users('employee')
-    def test_tools_email_split_tuples(self):
-        expected = [
-            # single email
-            [('', 'alfred.astaire@test.example.com')],
-            [('', 'alfred.astaire@test.example.com')],
-            [('Fredo The Great', 'alfred.astaire@test.example.com')],
-            [('Fredo The Great', 'alfred.astaire@test.example.com')],
-            [('Fredo The Great', 'alfred.astaire@test.example.com')],
-            # multiple emails
-            [('', 'alfred.astaire@test.example.com'), ('', 'evelyne.gargouillis@test.example.com')],
-            [('Fredo The Great', 'alfred.astaire@test.example.com'), ('Evelyne The Goat', 'evelyne.gargouillis@test.example.com')],
-            [('Fredo The Great', 'alfred.astaire@test.example.com'), ('', 'evelyne.gargouillis@test.example.com')],
-            [('Fredo The Great', 'alfred.astaire@test.example.com'), ('', 'evelyne.gargouillis@test.example.com')],
-            # text containing email -> fallback on parsing to extract text from email
-            [('Hello', 'alfred.astaire@test.example.comhowareyou?')],
-            [('Hello', 'alfred.astaire@test.example.com')],
-            [('Hello Fredo', 'alfred.astaire@test.example.com'), ('', 'evelyne.gargouillis@test.example.com')],
-            [('Hello Fredo', 'alfred.astaire@test.example.com'), ('and', 'evelyne.gargouillis@test.example.com')],
-            # falsy -> probably not designed for that
-            [],
-            [('j\'adore écrire', "des@gmail.comou"), ('', '@gmail.com')], [],
+        expected_partners = [
+            (test_partner_no_company, "W/out reference record, prefer non-specific partner."),
+            (test_partner_company_2, "Prefer same company as reference record."),
+            (test_partner_company_3, "Prefer same company as reference record."),
+            (test_partner_no_company, "Prefer non-specific partner for non-specific records."),
         ]
+        for record, (expected_partner, msg) in zip(records, expected_partners):
+            found = Partner._mail_find_partner_from_emails([self._test_email], records=record)
+            self.assertEqual(found, [expected_partner], msg)
 
-        for src, exp in zip(self.sources, expected):
-            res = tools.email_split_tuples(src)
-            self.assertEqual(
-                res, exp,
-                'Seems email_split_tuples is broken with %s (expected %r, received %r)' % (src, exp, res)
-            )
 
-    @users('employee')
-    def test_tools_single_email_re(self):
-        expected = [
-            # single email
-            ['alfred.astaire@test.example.com'],
-            [], [], [], [], # formatting issue for single email re
-            # multiple emails -> couic
-            [], [], [], [],
-            # text containing email -> couic
-            [], [],
-            # text containing emails -> couic
-            [], [],
-            # falsy
-            [], [], [],
-        ]
+@tagged('mail_tools', 'mail_init')
+class TestMailUtils(MailCommon):
 
-        for src, exp in zip(self.sources, expected):
-            res = tools.single_email_re.findall(src)
-            self.assertEqual(
-                res, exp,
-                'Seems single_email_re is broken with %s (expected %r, received %r)' % (src, exp, res)
-            )
+    def test_migrate_icp_to_domain(self):
+        """ Test ICP to alias domain migration """
+        self.env["ir.config_parameter"].set_param("mail.catchall.domain", "test.migration.com")
+        self.env["ir.config_parameter"].set_param("mail.bounce.alias", "migrate+bounce")
+        self.env["ir.config_parameter"].set_param("mail.catchall.alias", "migrate+catchall")
+        self.env["ir.config_parameter"].set_param("mail.default.from", "migrate+default_from")
+
+        existing = self.env["mail.alias.domain"].search([('name', '=', 'test.migration.com')])
+        self.assertFalse(existing)
+
+        new = self.env["mail.alias.domain"]._migrate_icp_to_domain()
+        self.assertEqual(new.name, "test.migration.com")
+        self.assertEqual(new.bounce_alias, "migrate+bounce")
+        self.assertEqual(new.catchall_alias, "migrate+catchall")
+        self.assertEqual(new.default_from, "migrate+default_from")
+
+        again = self.env["mail.alias.domain"]._migrate_icp_to_domain()
+        self.assertEqual(again.name, "test.migration.com")
+
+        existing = self.env["mail.alias.domain"].search([('name', '=', 'test.migration.com')])
+        self.assertEqual(len(existing), 1, 'Should not migrate twice')

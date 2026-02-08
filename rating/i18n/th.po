@@ -1,26 +1,23 @@
 # Translation of Odoo Server.
 # This file contains the translation of the following modules:
 # 	* rating
-# 
+#
 # Translators:
-# Martin Trigaux, 2021
-# Khwunchai Jaengsawang <khwunchai.j@ku.th>, 2021
-# gsong <gsong2014@foxmail.com>, 2021
-# Wichanon Jamwutthipreecha, 2022
+# Wil Odoo, 2023
 # Rasareeyar Lappiam, 2024
-# 
+#
 msgid ""
 msgstr ""
-"Project-Id-Version: Odoo Server saas~14.5\n"
+"Project-Id-Version: Odoo Server 17.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2021-09-14 10:29+0000\n"
-"PO-Revision-Date: 2021-09-14 12:26+0000\n"
+"POT-Creation-Date: 2025-12-29 18:38+0000\n"
+"PO-Revision-Date: 2023-10-26 23:09+0000\n"
 "Last-Translator: Rasareeyar Lappiam, 2024\n"
 "Language-Team: Thai (https://app.transifex.com/odoo/teams/41243/th/)\n"
+"Language: th\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: \n"
-"Language: th\n"
 "Plural-Forms: nplurals=1; plural=0;\n"
 
 #. module: rating
@@ -29,20 +26,45 @@ msgid "# Ratings"
 msgstr "# การให้คะแนน"
 
 #. module: rating
-#: model:ir.model.fields,help:rating.field_rating_rating__access_token
-msgid "Access token to set the rating of the value"
-msgstr ""
+#: model_terms:ir.ui.view,arch_db:rating.rating_external_page_view
+msgid "<i class=\"fa fa-arrow-left me-1\"/> Back to the Homepage"
+msgstr "<i class=\"fa fa-arrow-left me-1\"/> กลับไปที่หน้าแรก"
 
 #. module: rating
-#: model:ir.model.fields,help:rating.field_rating_rating__message_id
-msgid ""
-"Associated message when posting a review. Mainly used in website addons."
-msgstr ""
+#: model_terms:ir.ui.view,arch_db:rating.rating_rating_view_kanban_stars
+msgid "<i class=\"fa fa-clock-o me-2\" aria-label=\"Create date\"/>"
+msgstr "<i class=\"fa fa-clock-o me-2\" aria-label=\"วันที่สร้าง\"/>"
 
 #. module: rating
-#: model:ir.model.fields,help:rating.field_rating_rating__partner_id
-msgid "Author of the rating"
-msgstr ""
+#: model_terms:ir.ui.view,arch_db:rating.rating_rating_view_kanban_stars
+msgid "<i class=\"fa fa-folder me-2\" aria-label=\"Open folder\"/>"
+msgstr "<i class=\"fa fa-folder me-2\" aria-label=\"เปิดโฟลเดอร์\"/>"
+
+#. module: rating
+#: model_terms:ir.ui.view,arch_db:rating.rating_rating_view_kanban_stars
+msgid "A star"
+msgstr "ดาว"
+
+#. module: rating
+#: model:ir.model.fields,field_description:rating.field_rating_mixin__message_needaction
+msgid "Action Needed"
+msgstr "จำเป็นต้องดำเนินการ"
+
+#. module: rating
+#: model:ir.model.fields,field_description:rating.field_rating_mixin__message_attachment_count
+msgid "Attachment Count"
+msgstr "จำนวนสิ่งที่แนบมา"
+
+#. module: rating
+#: model:ir.model.fields,field_description:rating.field_rating_mixin__rating_avg
+#: model:ir.model.fields,field_description:rating.field_rating_parent_mixin__rating_avg
+msgid "Average Rating"
+msgstr "คะแนนเฉลี่ย"
+
+#. module: rating
+#: model:ir.model.fields,field_description:rating.field_rating_parent_mixin__rating_avg_percentage
+msgid "Average Rating (%)"
+msgstr "คะแนนเฉลี่ย (%)"
 
 #. module: rating
 #: model:ir.model.fields,field_description:rating.field_rating_rating__feedback
@@ -68,11 +90,17 @@ msgstr "วันที่"
 #. module: rating
 #: model:ir.model.fields,field_description:rating.field_rating_rating__display_name
 msgid "Display Name"
-msgstr "ชื่อที่ใช้แสดง"
+msgstr "แสดงชื่อ"
 
 #. module: rating
+#. odoo-python
 #: code:addons/rating/controllers/main.py:0
+#: model:ir.model.fields.selection,name:rating.selection__discuss_channel__rating_avg_text__ko
+#: model:ir.model.fields.selection,name:rating.selection__product_template__rating_avg_text__ko
+#: model:ir.model.fields.selection,name:rating.selection__project_task__rating_avg_text__ko
+#: model:ir.model.fields.selection,name:rating.selection__rating_mixin__rating_avg_text__ko
 #: model:ir.model.fields.selection,name:rating.selection__rating_rating__rating_text__ko
+#: model:ir.model.fields.selection,name:rating.selection__slide_channel__rating_avg_text__ko
 #: model_terms:ir.ui.view,arch_db:rating.rating_rating_view_search
 #, python-format
 msgid "Dissatisfied"
@@ -95,14 +123,9 @@ msgid "Email Thread"
 msgstr "เธรดอีเมล"
 
 #. module: rating
-#: model:ir.model.fields,help:rating.field_rating_rating__consumed
-msgid "Enabled if the rating has been filled."
-msgstr ""
-
-#. module: rating
 #: model_terms:ir.ui.view,arch_db:rating.rating_external_page_submit
-msgid "Feel free to write a feedback on your experience:"
-msgstr ""
+msgid "Feel free to share feedback on your experience:"
+msgstr "โปรดแบ่งปันข้อเสนอแนะเกี่ยวกับประสบการณ์ของคุณ:"
 
 #. module: rating
 #: model:ir.model.fields,field_description:rating.field_rating_rating__consumed
@@ -110,36 +133,79 @@ msgid "Filled Rating"
 msgstr "คะแนนที่เต็ม"
 
 #. module: rating
-#: model_terms:ir.ui.view,arch_db:rating.rating_external_page_view
-msgid "Go back to the Homepage"
-msgstr ""
+#: model:ir.model.fields,field_description:rating.field_rating_mixin__message_follower_ids
+msgid "Followers"
+msgstr "ผู้ติดตาม"
+
+#. module: rating
+#: model:ir.model.fields,field_description:rating.field_rating_mixin__message_partner_ids
+msgid "Followers (Partners)"
+msgstr "ผู้ติดตาม (พาร์ทเนอร์)"
 
 #. module: rating
 #: model_terms:ir.ui.view,arch_db:rating.rating_rating_view_search
 msgid "Group By"
-msgstr "จัดกลุ่มตาม"
+msgstr "กลุ่มโดย"
+
+#. module: rating
+#: model_terms:ir.ui.view,arch_db:rating.rating_rating_view_kanban_stars
+msgid "Half a star"
+msgstr "ครึ่งดาว"
+
+#. module: rating
+#: model:ir.model.fields,field_description:rating.field_rating_mixin__has_message
+msgid "Has Message"
+msgstr "มีข้อความ"
 
 #. module: rating
 #: model:ir.model.fields,help:rating.field_rating_rating__is_internal
 msgid ""
 "Hide to public / portal users, independently from subtype configuration."
-msgstr ""
-"ซ่อนสำหรับผู้ใช้สาธารณะ/พอร์ทัล โดยไม่ขึ้นอยู่กับการกำหนดค่าประเภทย่อย"
+msgstr "ซ่อนสำหรับผู้ใช้สาธารณะ/พอร์ทัล โดยไม่ขึ้นอยู่กับการกำหนดค่าประเภทย่อย"
 
 #. module: rating
 #: model:ir.model.fields,field_description:rating.field_rating_rating__id
 msgid "ID"
-msgstr "รหัส"
+msgstr "ไอดี"
 
 #. module: rating
-#: model:ir.model.fields,help:rating.field_rating_rating__res_id
-msgid "Identifier of the rated object"
-msgstr ""
+#: model:ir.model.fields,help:rating.field_rating_mixin__message_needaction
+msgid "If checked, new messages require your attention."
+msgstr "ถ้าเลือก ข้อความใหม่จะต้องการความสนใจจากคุณ"
+
+#. module: rating
+#: model:ir.model.fields,help:rating.field_rating_mixin__message_has_error
+msgid "If checked, some messages have a delivery error."
+msgstr "ถ้าเลือก ข้อความบางข้อความมีข้อผิดพลาดในการส่ง"
 
 #. module: rating
 #: model:ir.model.fields,field_description:rating.field_rating_rating__rating_image
 msgid "Image"
 msgstr "รูปภาพ"
+
+#. module: rating
+#: model:ir.model.fields,field_description:rating.field_rating_rating__rating_image_url
+msgid "Image URL"
+msgstr "URL รูปภาพ"
+
+#. module: rating
+#. odoo-python
+#: code:addons/rating/controllers/main.py:0
+#, python-format
+msgid "Incorrect rating: should be 1, 3 or 5 (received %d)"
+msgstr "การให้คะแนนไม่ถูกต้อง: ควรเป็น 1, 3 หรือ 5 (ได้รับ %d)"
+
+#. module: rating
+#. odoo-python
+#: code:addons/rating/models/mail_thread.py:0
+#, python-format
+msgid "Invalid token or rating."
+msgstr "โทเค็นหรือการให้คะแนนไม่ถูกต้อง"
+
+#. module: rating
+#: model:ir.model.fields,field_description:rating.field_rating_mixin__message_is_follower
+msgid "Is Follower"
+msgstr "เป็นผู้ติดตาม"
 
 #. module: rating
 #: model_terms:ir.ui.view,arch_db:rating.rating_rating_view_search
@@ -152,19 +218,14 @@ msgid "Last 7 days"
 msgstr "7 วันล่าสุด"
 
 #. module: rating
-#: model:ir.model.fields,field_description:rating.field_rating_rating____last_update
-msgid "Last Modified on"
-msgstr "แก้ไขครั้งสุดท้ายเมื่อ"
-
-#. module: rating
 #: model:ir.model.fields,field_description:rating.field_rating_rating__write_uid
 msgid "Last Updated by"
-msgstr "อัพเดทครั้งสุดท้ายโดย"
+msgstr "อัปเดตครั้งล่าสุดโดย"
 
 #. module: rating
 #: model:ir.model.fields,field_description:rating.field_rating_rating__write_date
 msgid "Last Updated on"
-msgstr "อัพเดทครั้งสุดท้ายเมื่อ"
+msgstr "อัปเดตครั้งล่าสุดเมื่อ"
 
 #. module: rating
 #: model:ir.model,name:rating.model_mail_message
@@ -173,9 +234,14 @@ msgid "Message"
 msgstr "ข้อความ"
 
 #. module: rating
-#: model:ir.model.fields,help:rating.field_rating_rating__res_model_id
-msgid "Model of the followed resource"
-msgstr "รูปแบบของทรัพยากรที่ตามมา"
+#: model:ir.model.fields,field_description:rating.field_rating_mixin__message_has_error
+msgid "Message Delivery error"
+msgstr "เกิดข้อผิดพลาดในการส่งข้อความ"
+
+#. module: rating
+#: model:ir.model.fields,field_description:rating.field_rating_mixin__message_ids
+msgid "Messages"
+msgstr "ข้อความ"
 
 #. module: rating
 #: model_terms:ir.ui.view,arch_db:rating.rating_rating_view_search
@@ -188,27 +254,53 @@ msgid "Name"
 msgstr "ชื่อ"
 
 #. module: rating
+#: model:ir.model.fields.selection,name:rating.selection__discuss_channel__rating_avg_text__none
+#: model:ir.model.fields.selection,name:rating.selection__product_template__rating_avg_text__none
+#: model:ir.model.fields.selection,name:rating.selection__project_task__rating_avg_text__none
+#: model:ir.model.fields.selection,name:rating.selection__rating_mixin__rating_avg_text__none
 #: model:ir.model.fields.selection,name:rating.selection__rating_rating__rating_text__none
+#: model:ir.model.fields.selection,name:rating.selection__slide_channel__rating_avg_text__none
 msgid "No Rating yet"
 msgstr "ยังไม่มีคะแนน"
 
 #. module: rating
-#: model_terms:ir.actions.act_window,help:rating.rating_rating_view
+#: model_terms:ir.actions.act_window,help:rating.rating_rating_action
 msgid "No rating yet"
 msgstr "ยังไม่มีการให้คะแนน"
 
 #. module: rating
+#: model:ir.model.fields,field_description:rating.field_rating_mixin__message_needaction_counter
+msgid "Number of Actions"
+msgstr "จํานวนการดําเนินการ"
+
+#. module: rating
+#: model:ir.model.fields,field_description:rating.field_rating_mixin__message_has_error_counter
+msgid "Number of errors"
+msgstr "จํานวนข้อผิดพลาด"
+
+#. module: rating
+#: model:ir.model.fields,help:rating.field_rating_mixin__message_needaction_counter
+msgid "Number of messages requiring action"
+msgstr "จำนวนข้อความที่ต้องดำเนินการ"
+
+#. module: rating
+#: model:ir.model.fields,help:rating.field_rating_mixin__message_has_error_counter
+msgid "Number of messages with delivery error"
+msgstr "จํานวนข้อความที่มีข้อผิดพลาดในการส่ง"
+
+#. module: rating
+#. odoo-python
 #: code:addons/rating/controllers/main.py:0
+#: model:ir.model.fields.selection,name:rating.selection__discuss_channel__rating_avg_text__ok
+#: model:ir.model.fields.selection,name:rating.selection__product_template__rating_avg_text__ok
+#: model:ir.model.fields.selection,name:rating.selection__project_task__rating_avg_text__ok
+#: model:ir.model.fields.selection,name:rating.selection__rating_mixin__rating_avg_text__ok
 #: model:ir.model.fields.selection,name:rating.selection__rating_rating__rating_text__ok
+#: model:ir.model.fields.selection,name:rating.selection__slide_channel__rating_avg_text__ok
 #: model_terms:ir.ui.view,arch_db:rating.rating_rating_view_search
 #, python-format
 msgid "Okay"
 msgstr "โอเค"
-
-#. module: rating
-#: model:ir.model.fields,help:rating.field_rating_rating__rated_partner_id
-msgid "Owner of the rated resource"
-msgstr ""
 
 #. module: rating
 #: model:ir.model.fields,field_description:rating.field_rating_rating__parent_res_id
@@ -243,41 +335,48 @@ msgstr "โมเดลที่เกี่ยวข้องกับเอก
 #. module: rating
 #: model:ir.model.fields,help:rating.field_rating_parent_mixin__rating_percentage_satisfaction
 msgid "Percentage of happy ratings"
-msgstr "เปอร์เซ็นการให้คะแนนความสุข"
+msgstr "เปอร์เซ็นต์การให้คะแนนความสุข"
+
+#. module: rating
+#. odoo-python
+#: code:addons/rating/models/mail_thread.py:0
+#, python-format
+msgid "Posting a rating should be done using message post API."
+msgstr "การโพสต์การให้คะแนนควรทำโดยใช้ API การโพสต์ข้อความ"
 
 #. module: rating
 #: model:ir.model.fields,field_description:rating.field_rating_rating__rated_partner_id
 #: model_terms:ir.ui.view,arch_db:rating.rating_rating_view_search
 msgid "Rated Operator"
-msgstr "ผู้ดำเนินการที่ได้รับการจัดอันดับ"
+msgstr "ผู้ดำเนินการที่ได้รับคะแนน"
 
 #. module: rating
 #: model:ir.model,name:rating.model_rating_rating
-#: model:ir.model.fields,field_description:rating.field_rating_mixin__rating_ids
 #: model:ir.model.fields,field_description:rating.field_rating_rating__rating_text
+#: model_terms:ir.ui.view,arch_db:rating.rating_rating_view_form_text
 #: model_terms:ir.ui.view,arch_db:rating.rating_rating_view_search
 msgid "Rating"
 msgstr "การให้คะแนน"
 
 #. module: rating
-#: model:ir.model.fields,field_description:rating.field_rating_mixin__rating_avg
-msgid "Rating Average"
-msgstr "คะแนนเฉลี่ย"
+#: model:ir.model.fields,field_description:rating.field_rating_mixin__rating_avg_text
+msgid "Rating Avg Text"
+msgstr "ข้อความเฉลี่ยการให้คะแนน"
 
 #. module: rating
 #: model:ir.model.fields,field_description:rating.field_rating_mixin__rating_last_feedback
 msgid "Rating Last Feedback"
-msgstr "การให้คะแนน ความคิดเห็นล่าสุด"
+msgstr "การให้คะแนนผลตอบรับล่าสุด"
 
 #. module: rating
 #: model:ir.model.fields,field_description:rating.field_rating_mixin__rating_last_image
 msgid "Rating Last Image"
-msgstr "ให้คะแนนภาพสุดท้าย"
+msgstr "การให้คะแนนรูปภาพ"
 
 #. module: rating
 #: model:ir.model.fields,field_description:rating.field_rating_mixin__rating_last_value
 msgid "Rating Last Value"
-msgstr "เรตติ้งค่าสุดท้าย"
+msgstr "ค่าการให้คะแนนล่าสุด"
 
 #. module: rating
 #: model:ir.model,name:rating.model_rating_mixin
@@ -290,9 +389,15 @@ msgid "Rating Parent Mixin"
 msgstr "การให้คะแนนหลัก Mixin"
 
 #. module: rating
+#: model:ir.model.fields,field_description:rating.field_rating_mixin__rating_percentage_satisfaction
 #: model:ir.model.fields,field_description:rating.field_rating_parent_mixin__rating_percentage_satisfaction
 msgid "Rating Satisfaction"
 msgstr "การให้คะแนนความพึงพอใจ"
+
+#. module: rating
+#: model:ir.model.fields,field_description:rating.field_rating_mixin__rating_last_text
+msgid "Rating Text"
+msgstr "ข้อความการให้คะแนน"
 
 #. module: rating
 #: model:ir.model.fields,field_description:rating.field_mail_mail__rating_value
@@ -318,13 +423,40 @@ msgid "Rating should be between 0 and 5"
 msgstr "การให้คะแนนควรอยู่ระหว่าง 0 ถึง 5"
 
 #. module: rating
-#: model:ir.model.fields,help:rating.field_rating_rating__rating
-msgid "Rating value: 0=Unhappy, 5=Happy"
-msgstr ""
+#. odoo-javascript
+#: code:addons/rating/static/src/notification_item_patch.xml:0
+#, python-format
+msgid "Rating:"
+msgstr "การให้คะแนน:"
 
 #. module: rating
-#: model:ir.actions.act_window,name:rating.rating_rating_view
+#: model:ir.actions.act_window,name:rating.rating_rating_action
+#: model:ir.model.fields,field_description:rating.field_account_analytic_account__rating_ids
+#: model:ir.model.fields,field_description:rating.field_calendar_event__rating_ids
+#: model:ir.model.fields,field_description:rating.field_discuss_channel__rating_ids
+#: model:ir.model.fields,field_description:rating.field_fleet_vehicle__rating_ids
+#: model:ir.model.fields,field_description:rating.field_fleet_vehicle_log_contract__rating_ids
+#: model:ir.model.fields,field_description:rating.field_fleet_vehicle_log_services__rating_ids
+#: model:ir.model.fields,field_description:rating.field_gamification_badge__rating_ids
+#: model:ir.model.fields,field_description:rating.field_gamification_challenge__rating_ids
+#: model:ir.model.fields,field_description:rating.field_lunch_supplier__rating_ids
+#: model:ir.model.fields,field_description:rating.field_mail_blacklist__rating_ids
+#: model:ir.model.fields,field_description:rating.field_mail_thread__rating_ids
+#: model:ir.model.fields,field_description:rating.field_mail_thread_blacklist__rating_ids
+#: model:ir.model.fields,field_description:rating.field_mail_thread_cc__rating_ids
+#: model:ir.model.fields,field_description:rating.field_mail_thread_main_attachment__rating_ids
+#: model:ir.model.fields,field_description:rating.field_mail_thread_phone__rating_ids
+#: model:ir.model.fields,field_description:rating.field_maintenance_equipment__rating_ids
+#: model:ir.model.fields,field_description:rating.field_maintenance_equipment_category__rating_ids
+#: model:ir.model.fields,field_description:rating.field_maintenance_request__rating_ids
+#: model:ir.model.fields,field_description:rating.field_phone_blacklist__rating_ids
+#: model:ir.model.fields,field_description:rating.field_product_pricelist__rating_ids
+#: model:ir.model.fields,field_description:rating.field_product_product__rating_ids
+#: model:ir.model.fields,field_description:rating.field_product_template__rating_ids
+#: model:ir.model.fields,field_description:rating.field_rating_mixin__rating_ids
 #: model:ir.model.fields,field_description:rating.field_rating_parent_mixin__rating_ids
+#: model:ir.model.fields,field_description:rating.field_res_partner__rating_ids
+#: model:ir.model.fields,field_description:rating.field_res_users__rating_ids
 #: model:ir.ui.menu,name:rating.rating_rating_menu_technical
 #: model_terms:ir.ui.view,arch_db:rating.mail_message_view_form
 #: model_terms:ir.ui.view,arch_db:rating.rating_rating_view_form
@@ -334,12 +466,6 @@ msgstr ""
 #: model_terms:ir.ui.view,arch_db:rating.rating_rating_view_tree
 msgid "Ratings"
 msgstr "การให้คะแนน"
-
-#. module: rating
-#: model:ir.model.fields,help:rating.field_rating_mixin__rating_last_feedback
-#: model:ir.model.fields,help:rating.field_rating_rating__feedback
-msgid "Reason of the rating"
-msgstr "เหตุผลของการให้คะแนน"
 
 #. module: rating
 #: model:ir.model.fields,field_description:rating.field_rating_rating__res_model_id
@@ -355,7 +481,7 @@ msgstr "การให้คะแนนที่เกี่ยวข้อง
 #. module: rating
 #: model_terms:ir.ui.view,arch_db:rating.rating_rating_view_search
 msgid "Resource"
-msgstr "ทรัพยากร"
+msgstr "แหล่งข้อมูล"
 
 #. module: rating
 #: model:ir.model.fields,field_description:rating.field_rating_rating__resource_ref
@@ -368,8 +494,14 @@ msgid "Resource name"
 msgstr "ชื่อทรัพยากร"
 
 #. module: rating
+#. odoo-python
 #: code:addons/rating/controllers/main.py:0
+#: model:ir.model.fields.selection,name:rating.selection__discuss_channel__rating_avg_text__top
+#: model:ir.model.fields.selection,name:rating.selection__product_template__rating_avg_text__top
+#: model:ir.model.fields.selection,name:rating.selection__project_task__rating_avg_text__top
+#: model:ir.model.fields.selection,name:rating.selection__rating_mixin__rating_avg_text__top
 #: model:ir.model.fields.selection,name:rating.selection__rating_rating__rating_text__top
+#: model:ir.model.fields.selection,name:rating.selection__slide_channel__rating_avg_text__top
 #: model_terms:ir.ui.view,arch_db:rating.rating_rating_view_search
 #, python-format
 msgid "Satisfied"
@@ -378,7 +510,7 @@ msgstr "พึงพอใจ"
 #. module: rating
 #: model:ir.model.fields,field_description:rating.field_rating_rating__access_token
 msgid "Security Token"
-msgstr "ความปลอดภัย"
+msgstr "โทเค็นความปลอดภัย"
 
 #. module: rating
 #: model_terms:ir.ui.view,arch_db:rating.rating_external_page_submit
@@ -397,16 +529,11 @@ msgstr "ขอบคุณสำหรับการให้คะแนนต
 
 #. module: rating
 #: model_terms:ir.ui.view,arch_db:rating.rating_external_page_view
-msgid "Thank you, we appreciate your feedback!"
-msgstr ""
+msgid "Thank you for your feedback!"
+msgstr "ขอบคุณสำหรับความคิดเห็นของคุณ!"
 
 #. module: rating
-#: model:ir.model.fields,help:rating.field_rating_rating__res_name
-msgid "The name of the rated resource."
-msgstr ""
-
-#. module: rating
-#: model_terms:ir.actions.act_window,help:rating.rating_rating_view
+#: model_terms:ir.actions.act_window,help:rating.rating_rating_action
 msgid "There is no rating for this object at the moment."
 msgstr "ไม่มีการให้คะแนนสำหรับวัตถุนี้ในขณะนี้"
 
@@ -421,6 +548,13 @@ msgid "Visible Internally Only"
 msgstr "มองเห็นได้ภายในเท่านั้น"
 
 #. module: rating
+#. odoo-python
+#: code:addons/rating/models/mail_thread.py:0
+#, python-format
+msgid "Wrong rating value. A rate should be between 0 and 5 (received %d)."
+msgstr "ค่าการให้คะแนนไม่ถูกต้อง การให้คะแนนควรอยู่ระหว่าง 0 ถึง 5 (ได้รับ %d)"
+
+#. module: rating
 #: model_terms:ir.ui.view,arch_db:rating.rating_rating_view_kanban
 msgid "by"
 msgstr "โดย"
@@ -433,4 +567,4 @@ msgstr "สำหรับ"
 #. module: rating
 #: model_terms:ir.ui.view,arch_db:rating.rating_rating_view_kanban
 msgid "on"
-msgstr "บน"
+msgstr "เมื่อ"

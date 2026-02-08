@@ -1,18 +1,29 @@
 /** @odoo-module **/
 
-import { useAutofocus, useService } from "@web/core/utils/hooks";
+import { Dialog } from "@web/core/dialog/dialog";
 import { useHotkey } from "@web/core/hotkeys/hotkey_hook";
-import { KeepLast } from "@web/core/utils/concurrency";
+import { _t } from "@web/core/l10n/translation";
+import { KeepLast, Race } from "@web/core/utils/concurrency";
+import { useAutofocus, useService } from "@web/core/utils/hooks";
 import { scrollTo } from "@web/core/utils/scrolling";
 import { fuzzyLookup } from "@web/core/utils/search";
 import { debounce } from "@web/core/utils/timing";
-import { _lt } from "@web/core/l10n/translation";
+import { isMacOS, isMobileOS } from "@web/core/browser/feature_detection";
+import { escapeRegExp } from "@web/core/utils/strings";
 
-const { Component, hooks } = owl;
-const { useState } = hooks;
+import {
+    Component,
+    onWillStart,
+    onWillDestroy,
+    EventBus,
+    useRef,
+    useState,
+    markRaw,
+    useExternalListener,
+} from "@odoo/owl";
 
-const DEFAULT_PLACEHOLDER = _lt("Search...");
-const DEFAULT_EMPTY_MESSAGE = _lt("No results found");
+const DEFAULT_PLACEHOLDER = _t("Search...");
+const DEFAULT_EMPTY_MESSAGE = _t("No result found");
 const FUZZY_NAMESPACES = ["default"];
 
 /**
@@ -21,7 +32,7 @@ const FUZZY_NAMESPACES = ["default"];
 
 /**
  * @typedef {Command & {
- *  Component?: owl.Component;
+ *  Component?: Component;
  *  props?: object;
  * }} CommandItem
  */
@@ -35,12 +46,19 @@ const FUZZY_NAMESPACES = ["default"];
 
 /**
  * @typedef {{
- *  categoriesByNamespace?: {[namespace]: string[]};
- *  namespace?: string;
- *  emptyMessageByNamespace?: {[namespace]: string};
- *  footerTemplate?: string;
- *  placeholder?: string;
+ *  categories: string[];
+ *  debounceDelay: number;
+ *  emptyMessage: string;
+ *  placeholder: string;
+ * }} NamespaceConfig
+ */
+
+/**
+ * @typedef {{
+ *  configByNamespace?: {[namespace: string]: NamespaceConfig};
+ *  FooterComponent?: Component;
  *  providers: Provider[];
+ *  searchValue?: string;
  * }} CommandPaletteConfig
  */
 
@@ -60,26 +78,46 @@ function commandsWithinCategory(categoryName, categories) {
     };
 }
 
+export function splitCommandName(name, searchValue) {
+    if (name) {
+        const splitName = name.split(new RegExp(`(${escapeRegExp(searchValue)})`, "ig"));
+        return searchValue.length && splitName.length > 1 ? splitName : [name];
+    }
+    return [];
+}
+
 export class DefaultCommandItem extends Component {}
 DefaultCommandItem.template = "web.DefaultCommandItem";
+DefaultCommandItem.props = {
+    slots: { type: Object, optional: true },
+    // Props send by the command palette:
+    hotkey: { type: String, optional: true },
+    hotkeyOptions: { type: String, optional: true },
+    name: { type: String, optional: true },
+    searchValue: { type: String, optional: true },
+    executeCommand: { type: Function, optional: true },
+};
 
 export class CommandPalette extends Component {
     setup() {
+        if (this.props.bus) {
+            const setConfig = ({ detail }) => this.setCommandPaletteConfig(detail);
+            this.props.bus.addEventListener(`SET-CONFIG`, setConfig);
+            onWillDestroy(() => this.props.bus.removeEventListener(`SET-CONFIG`, setConfig));
+        }
+
         this.keyId = 1;
+        this.race = new Race();
         this.keepLast = new KeepLast();
         this._sessionId = CommandPalette.lastSessionId++;
         this.DefaultCommandItem = DefaultCommandItem;
         this.activeElement = useService("ui").activeElement;
-        const onDebouncedSearchInput = debounce.apply(this, [this.onSearchInput, 200]);
-        this.onDebouncedSearchInput = (...args) => {
-            this.inputPromise = onDebouncedSearchInput.apply(this, args).catch(() => {
-                this.inputPromise = null;
-            });
-        };
-
-        useAutofocus();
+        this.inputRef = useAutofocus();
 
         useHotkey("Enter", () => this.executeSelectedCommand(), { bypassEditableProtection: true });
+        useHotkey("Control+Enter", () => this.executeSelectedCommand(true), {
+            bypassEditableProtection: true,
+        });
         useHotkey("ArrowUp", () => this.selectCommandAndScrollTo("PREV"), {
             bypassEditableProtection: true,
             allowRepeat: true,
@@ -88,20 +126,23 @@ export class CommandPalette extends Component {
             bypassEditableProtection: true,
             allowRepeat: true,
         });
+        useExternalListener(window, "mousedown", this.onWindowMouseDown);
 
         /**
          * @type {{ commands: CommandItem[],
          *          emptyMessage: string,
-         *          footerTemplate: string,
+         *          FooterComponent: Component,
+         *          namespace: string,
          *          placeholder: string,
          *          searchValue: string,
          *          selectedCommand: CommandItem }}
          */
-        this.state = useState({
-            commands: [],
-        });
+        this.state = useState({});
 
-        this.setCommandPaletteConfig(this.props.config);
+        this.root = useRef("root");
+        this.listboxRef = useRef("listbox");
+
+        onWillStart(() => this.setCommandPaletteConfig(this.props.config));
     }
 
     get commandsByCategory() {
@@ -113,6 +154,7 @@ export class CommandPalette extends Component {
             if (commands.length) {
                 categories.push({
                     commands,
+                    name: this.categoryNames[category],
                     keyId: category,
                 });
             }
@@ -124,31 +166,24 @@ export class CommandPalette extends Component {
      * Apply the new config to the command pallet
      * @param {CommandPaletteConfig} config
      */
-    setCommandPaletteConfig(config) {
-        const result = { default: [] };
+    async setCommandPaletteConfig(config) {
+        this.configByNamespace = config.configByNamespace || {};
+        this.state.FooterComponent = config.FooterComponent;
+
+        this.providersByNamespace = { default: [] };
         for (const provider of config.providers) {
             const namespace = provider.namespace || "default";
-            if (namespace in result) {
-                result[namespace].push(provider);
+            if (namespace in this.providersByNamespace) {
+                this.providersByNamespace[namespace].push(provider);
             } else {
-                result[namespace] = [provider];
+                this.providersByNamespace[namespace] = [provider];
             }
         }
-        this.categoriesByNamespace = config.categoriesByNamespace;
-        this.emptyMessageByNamespace = config.emptyMessageByNamespace || {};
-        this.providersByNamespace = result;
 
-        this.state.footerTemplate = config.footerTemplate;
-
-        this.state.placeholder = config.placeholder || DEFAULT_PLACEHOLDER.toString();
-
-        const namespace = config.namespace || "default";
-        this.setCommands(namespace, {
-            activeElement: this.activeElement,
-            searchValue: "",
-            sessionId: this._sessionId,
-        });
-        this.state.searchValue = namespace === "default" ? "" : namespace;
+        const { namespace, searchValue } = this.processSearchValue(config.searchValue || "");
+        this.switchNamespace(namespace);
+        this.state.searchValue = searchValue;
+        await this.race.add(this.search(searchValue));
     }
 
     /**
@@ -159,19 +194,22 @@ export class CommandPalette extends Component {
      */
     async setCommands(namespace, options = {}) {
         this.categoryKeys = ["default"];
+        this.categoryNames = {};
         const proms = this.providersByNamespace[namespace].map((provider) => {
             const { provide } = provider;
             const result = provide(this.env, options);
             return result;
         });
         let commands = (await this.keepLast.add(Promise.all(proms))).flat();
+        const namespaceConfig = this.configByNamespace[namespace] || {};
         if (options.searchValue && FUZZY_NAMESPACES.includes(namespace)) {
             commands = fuzzyLookup(options.searchValue, commands, (c) => c.name);
         } else {
             // we have to sort the commands by category to avoid navigation issues with the arrows
-            if (this.categoriesByNamespace && this.categoriesByNamespace[namespace]) {
+            if (namespaceConfig.categories) {
                 let commandsSorted = [];
-                this.categoryKeys = this.categoriesByNamespace[namespace];
+                this.categoryKeys = namespaceConfig.categories;
+                this.categoryNames = namespaceConfig.categoryNames || {};
                 if (!this.categoryKeys.includes("default")) {
                     this.categoryKeys.push("default");
                 }
@@ -184,14 +222,18 @@ export class CommandPalette extends Component {
             }
         }
 
-        this.state.commands = commands.map((command) => ({
-            ...command,
-            keyId: this.keyId++,
-        }));
+        this.state.commands = markRaw(
+            commands.slice(0, 100).map((command) => ({
+                ...command,
+                keyId: this.keyId++,
+                splitName: splitCommandName(command.name, options.searchValue),
+            }))
+        );
         this.selectCommand(this.state.commands.length ? 0 : -1);
         this.mouseSelectionActive = false;
-        this.state.emptyMessage =
-            this.emptyMessageByNamespace[namespace] || DEFAULT_EMPTY_MESSAGE.toString();
+        this.state.emptyMessage = (
+            namespaceConfig.emptyMessage || DEFAULT_EMPTY_MESSAGE
+        ).toString();
     }
 
     selectCommand(index) {
@@ -199,7 +241,7 @@ export class CommandPalette extends Component {
             this.state.selectedCommand = null;
             return;
         }
-        this.state.selectedCommand = this.state.commands[index];
+        this.state.selectedCommand = markRaw(this.state.commands[index]);
     }
 
     selectCommandAndScrollTo(type) {
@@ -218,14 +260,15 @@ export class CommandPalette extends Component {
         }
         this.selectCommand(nextIndex);
 
-        const listbox = this.el.querySelector(".o_command_palette_listbox");
-        const command = listbox.querySelector(`#o_command_${nextIndex}`);
-        scrollTo(command, { scrollable: listbox });
+        const command = this.listboxRef.el.querySelector(`#o_command_${nextIndex}`);
+        scrollTo(command, { scrollable: this.listboxRef.el });
     }
 
-    onCommandClicked(index) {
+    onCommandClicked(event, index) {
+        event.preventDefault(); // Prevent redirect for commands with href
         this.selectCommand(index);
-        this.executeSelectedCommand();
+        const ctrlKey = isMacOS() ? event.metaKey : event.ctrlKey;
+        this.executeSelectedCommand(ctrlKey);
     }
 
     /**
@@ -239,14 +282,19 @@ export class CommandPalette extends Component {
         if (config) {
             this.setCommandPaletteConfig(config);
         } else {
-            this.props.closeMe();
+            this.props.close();
         }
     }
 
-    async executeSelectedCommand() {
-        await this.inputPromise;
-        if (this.state.selectedCommand) {
-            this.executeCommand(this.state.selectedCommand);
+    async executeSelectedCommand(ctrlKey) {
+        await this.searchValuePromise;
+        const selectedCommand = this.state.selectedCommand;
+        if (selectedCommand) {
+            if (!ctrlKey) {
+                this.executeCommand(selectedCommand);
+            } else if (selectedCommand.href) {
+                window.open(selectedCommand.href, "_blank");
+            }
         }
     }
 
@@ -258,20 +306,86 @@ export class CommandPalette extends Component {
         }
     }
 
-    async onSearchInput(ev) {
-        this.state.searchValue = ev.target.value;
-        let searchValue = this.state.searchValue;
-        let namespace = "default";
-        if (searchValue.length && searchValue[0] in this.providersByNamespace) {
-            namespace = searchValue[0];
-            searchValue = searchValue.slice(1);
-        }
-        await this.setCommands(namespace, {
+    async search(searchValue) {
+        await this.setCommands(this.state.namespace, {
             searchValue,
             activeElement: this.activeElement,
             sessionId: this._sessionId,
         });
+        if (this.inputRef.el) {
+            this.inputRef.el.focus();
+        }
+    }
+
+    debounceSearch(value) {
+        const { namespace, searchValue } = this.processSearchValue(value);
+        if (namespace !== "default" && this.state.namespace !== namespace) {
+            this.switchNamespace(namespace);
+        }
+        this.state.searchValue = searchValue;
+        this.searchValuePromise = this.lastDebounceSearch(searchValue).catch(() => {
+            this.searchValuePromise = null;
+        });
+    }
+
+    onSearchInput(ev) {
+        this.debounceSearch(ev.target.value);
+    }
+
+    onKeyDown(ev) {
+        if (ev.key.toLowerCase() === "backspace" && !ev.target.value.length && !ev.repeat) {
+            this.switchNamespace("default");
+            this.state.searchValue = "";
+            this.searchValuePromise = this.lastDebounceSearch("").catch(() => {
+                this.searchValuePromise = null;
+            });
+        }
+    }
+
+    /**
+     * Close the palette on outside click.
+     */
+    onWindowMouseDown(ev) {
+        if (!this.root.el.contains(ev.target)) {
+            this.props.close();
+        }
+    }
+
+    switchNamespace(namespace) {
+        if (this.lastDebounceSearch) {
+            this.lastDebounceSearch.cancel();
+        }
+        const namespaceConfig = this.configByNamespace[namespace] || {};
+        this.lastDebounceSearch = debounce(
+            (value) => this.search(value),
+            namespaceConfig.debounceDelay || 0
+        );
+        this.state.namespace = namespace;
+        this.state.placeholder = namespaceConfig.placeholder || DEFAULT_PLACEHOLDER.toString();
+    }
+
+    processSearchValue(searchValue) {
+        let namespace = "default";
+        if (searchValue.length && this.providersByNamespace[searchValue[0]]) {
+            namespace = searchValue[0];
+            searchValue = searchValue.slice(1);
+        }
+        return { namespace, searchValue };
+    }
+
+    get isMacOS() {
+        return isMacOS();
+    }
+    get isMobileOS() {
+        return isMobileOS();
     }
 }
 CommandPalette.lastSessionId = 0;
+CommandPalette.props = {
+    bus: { type: EventBus, optional: true },
+    close: Function,
+    config: Object,
+    closeMe: { type: Function, optional: true },
+};
 CommandPalette.template = "web.CommandPalette";
+CommandPalette.components = { Dialog };

@@ -1,65 +1,26 @@
-/** @odoo-module */
+/* @odoo-module */
 
-import * as legacyRegistry from "web.Registry";
-import * as BusService from "bus.BusService";
-import * as RamStorage from "web.RamStorage";
-import * as AbstractStorageService from "web.AbstractStorageService";
+import { startServer } from "@bus/../tests/helpers/mock_python_environment";
 
-import { createWebClient } from "@web/../tests/webclient/helpers";
 import { calendarNotificationService } from "@calendar/js/services/calendar_notification_service";
-import { click, nextTick, patchWithCleanup } from "@web/../tests/helpers/utils";
-import { browser } from "@web/core/browser/browser";
-import { registry } from "@web/core/registry";
 
-const LocalStorageService = AbstractStorageService.extend({
-    storage: new RamStorage(),
-});
+import { start } from "@mail/../tests/helpers/test_utils";
+
+import { registry } from "@web/core/registry";
+import { click, contains } from "@web/../tests/utils";
+
 const serviceRegistry = registry.category("services");
 
 QUnit.module("Calendar Notification", (hooks) => {
-    let legacyServicesRegistry;
     hooks.beforeEach(() => {
-        legacyServicesRegistry = new legacyRegistry();
-        legacyServicesRegistry.add("bus_service", BusService);
-        legacyServicesRegistry.add("local_storage", LocalStorageService);
-
         serviceRegistry.add("calendarNotification", calendarNotificationService);
-
-        patchWithCleanup(browser, {
-            setTimeout: (fn) => fn(),
-            clearTimeout: () => {},
-        });
     });
 
     QUnit.test(
         "can listen on bus and display notifications in DOM and click OK",
         async (assert) => {
-            assert.expect(5);
-
-            let pollNumber = 0;
+            const pyEnv = await startServer();
             const mockRPC = (route, args) => {
-                if (route === "/longpolling/poll") {
-                    if (pollNumber > 0) {
-                        return new Promise(() => {}); // let it hang to avoid further calls
-                    }
-                    pollNumber++;
-                    return Promise.resolve([
-                        {
-                            id: "prout",
-                            message: {
-                                type: "calendar.alarm",
-                                payload: [{
-                                    alarm_id: 1,
-                                    event_id: 2,
-                                    title: "Meeting",
-                                    message: "Very old meeting message",
-                                    timer: 20 * 60,
-                                    notify_at: "1978-04-14 12:45:00",
-                                }],
-                            },
-                        },
-                    ]);
-                }
                 if (route === "/calendar/notify") {
                     return Promise.resolve([]);
                 }
@@ -68,61 +29,33 @@ QUnit.module("Calendar Notification", (hooks) => {
                     return Promise.resolve(true);
                 }
             };
-
-            const webClient = await createWebClient({
-                legacyParams: { serviceRegistry: legacyServicesRegistry },
-                mockRPC,
-            });
-
-            await nextTick();
-
-            assert.containsOnce(webClient.el, ".o_notification_body");
-            assert.strictEqual(
-                webClient.el.querySelector(".o_notification_body .o_notification_content")
-                    .textContent,
-                "Very old meeting message"
-            );
-
-            await click(webClient.el.querySelector(".o_notification_buttons .btn"));
+            await start({ mockRPC });
+            pyEnv["bus.bus"]._sendone(pyEnv.currentPartner, "calendar.alarm", [
+                {
+                    alarm_id: 1,
+                    event_id: 2,
+                    title: "Meeting",
+                    message: "Very old meeting message",
+                    timer: 0,
+                    notify_at: "1978-04-14 12:45:00",
+                },
+            ]);
+            await contains(".o_notification", { text: "Very old meeting message" });
+            await click(".o_notification_buttons button", { text: "OK" });
+            await contains(".o_notification", { count: 0 });
             assert.verifySteps(["notifyAck"]);
-            assert.containsNone(webClient.el, ".o_notification");
         }
     );
 
     QUnit.test(
         "can listen on bus and display notifications in DOM and click Detail",
         async (assert) => {
-            assert.expect(5);
-
-            let pollNumber = 0;
+            const pyEnv = await startServer();
             const mockRPC = (route, args) => {
-                if (route === "/longpolling/poll") {
-                    if (pollNumber > 0) {
-                        return new Promise(() => {}); // let it hang to avoid further calls
-                    }
-                    pollNumber++;
-                    return Promise.resolve([
-                        {
-                            id: "prout",
-                            message: {
-                                type: "calendar.alarm",
-                                payload: [{
-                                    alarm_id: 1,
-                                    event_id: 2,
-                                    title: "Meeting",
-                                    message: "Very old meeting message",
-                                    timer: 20 * 60,
-                                    notify_at: "1978-04-14 12:45:00",
-                                }],
-                            },
-                        },
-                    ]);
-                }
                 if (route === "/calendar/notify") {
                     return Promise.resolve([]);
                 }
             };
-
             const fakeActionService = {
                 name: "action",
                 start() {
@@ -138,56 +71,29 @@ QUnit.module("Calendar Notification", (hooks) => {
                 },
             };
             serviceRegistry.add("action", fakeActionService, { force: true });
-
-            const webClient = await createWebClient({
-                legacyParams: { serviceRegistry: legacyServicesRegistry },
-                mockRPC,
-            });
-
-            await nextTick();
-
-            assert.containsOnce(webClient.el, ".o_notification_body");
-            assert.strictEqual(
-                webClient.el.querySelector(".o_notification_body .o_notification_content")
-                    .textContent,
-                "Very old meeting message"
-            );
-
-            await click(webClient.el.querySelectorAll(".o_notification_buttons .btn")[1]);
+            await start({ mockRPC });
+            pyEnv["bus.bus"]._sendone(pyEnv.currentPartner, "calendar.alarm", [
+                {
+                    alarm_id: 1,
+                    event_id: 2,
+                    title: "Meeting",
+                    message: "Very old meeting message",
+                    timer: 0,
+                    notify_at: "1978-04-14 12:45:00",
+                },
+            ]);
+            await contains(".o_notification", { text: "Very old meeting message" });
+            await click(".o_notification_buttons button", { text: "Details" });
+            await contains(".o_notification", { count: 0 });
             assert.verifySteps(["ir.actions.act_window"]);
-            assert.containsNone(webClient.el, ".o_notification");
         }
     );
 
     QUnit.test(
         "can listen on bus and display notifications in DOM and click Snooze",
         async (assert) => {
-            assert.expect(4);
-
-            let pollNumber = 0;
+            const pyEnv = await startServer();
             const mockRPC = (route, args) => {
-                if (route === "/longpolling/poll") {
-                    if (pollNumber > 0) {
-                        return new Promise(() => {}); // let it hang to avoid further calls
-                    }
-                    pollNumber++;
-                    return Promise.resolve([
-                        {
-                            message: {
-                                id: "prout",
-                                type: "calendar.alarm",
-                                payload: [{
-                                    alarm_id: 1,
-                                    event_id: 2,
-                                    title: "Meeting",
-                                    message: "Very old meeting message",
-                                    timer: 20 * 60,
-                                    notify_at: "1978-04-14 12:45:00",
-                                }],
-                            },
-                        },
-                    ]);
-                }
                 if (route === "/calendar/notify") {
                     return Promise.resolve([]);
                 }
@@ -196,24 +102,21 @@ QUnit.module("Calendar Notification", (hooks) => {
                     return Promise.resolve(true);
                 }
             };
-
-            const webClient = await createWebClient({
-                legacyParams: { serviceRegistry: legacyServicesRegistry },
-                mockRPC,
-            });
-
-            await nextTick();
-
-            assert.containsOnce(webClient.el, ".o_notification_body");
-            assert.strictEqual(
-                webClient.el.querySelector(".o_notification_body .o_notification_content")
-                    .textContent,
-                "Very old meeting message"
-            );
-
-            await click(webClient.el.querySelectorAll(".o_notification_buttons .btn")[2]);
+            await start({ mockRPC });
+            pyEnv["bus.bus"]._sendone(pyEnv.currentPartner, "calendar.alarm", [
+                {
+                    alarm_id: 1,
+                    event_id: 2,
+                    title: "Meeting",
+                    message: "Very old meeting message",
+                    timer: 0,
+                    notify_at: "1978-04-14 12:45:00",
+                },
+            ]);
+            await contains(".o_notification", { text: "Very old meeting message" });
+            await click(".o_notification button", { text: "Snooze" });
+            await contains(".o_notification", { count: 0 });
             assert.verifySteps([], "should only close the notification withtout calling a rpc");
-            assert.containsNone(webClient.el, ".o_notification");
         }
     );
 });

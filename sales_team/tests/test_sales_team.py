@@ -2,8 +2,9 @@
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
 
 from odoo import exceptions
-from odoo.addons.sales_team.tests.common import TestSalesCommon, TestSalesMC
-from odoo.tests.common import users
+from odoo.tests import tagged, users
+
+from odoo.addons.sales_team.tests.common import SalesTeamCommon, TestSalesCommon, TestSalesMC
 
 
 class TestDefaultTeam(TestSalesCommon):
@@ -63,7 +64,7 @@ class TestDefaultTeam(TestSalesCommon):
         domain, order """
         self.sales_team_1.member_ids = [(5,)]
         self.team_sequence.member_ids = [(5,)]
-        (self.sales_team_1 + self.team_sequence).flush()
+        (self.sales_team_1 + self.team_sequence).flush_model()
         self.assertFalse(self.env['crm.team.member'].search([('user_id', '=', self.user_sales_leads.id)]))
 
         # default is better sequence matching company criterion
@@ -98,7 +99,7 @@ class TestDefaultTeam(TestSalesCommon):
             self.assertEqual(team, self.team_sequence)
 
         self.team_sequence.member_ids = [(5,)]
-        self.team_sequence.flush()
+        self.team_sequence.flush_model()
         with self.with_user('user_sales_leads'):
             team = self.env['crm.team']._get_default_team_id()
             self.assertEqual(team, self.sales_team_1)
@@ -132,7 +133,7 @@ class TestDefaultTeam(TestSalesCommon):
         # remove all memberships
         self.sales_team_1.member_ids = [(5,)]
         self.team_sequence.member_ids = [(5,)]
-        (self.sales_team_1 + self.team_sequence).flush()
+        (self.sales_team_1 + self.team_sequence).flush_model()
         self.assertFalse(self.env['crm.team.member'].search([('user_id', '=', self.user_sales_leads.id)]))
 
         with self.with_user('user_sales_leads'):
@@ -202,3 +203,30 @@ class TestMultiCompany(TestSalesMC):
         # cannot change company as it breaks memberships mc check
         with self.assertRaises(exceptions.UserError):
             team_c2.write({'company_id': self.company_2.id})
+
+
+@tagged('post_install', '-at_install')
+class TestAccessRights(SalesTeamCommon):
+
+    @users('salesmanager')
+    def test_access_sales_manager(self):
+        """ Test sales manager's access rights """
+        # Manager can create a Sales Team
+        india_channel = self.env['crm.team'].with_context(tracking_disable=True).create({
+            'name': 'India',
+        })
+        self.assertIn(
+            india_channel.id, self.env['crm.team'].search([]).ids,
+            'Sales manager should be able to create a Sales Team')
+
+        # Manager can edit a Sales Team
+        india_channel.write({'name': 'new_india'})
+        self.assertEqual(
+            india_channel.name, 'new_india',
+            'Sales manager should be able to edit a Sales Team')
+
+        # Manager can delete a Sales Team
+        india_channel.unlink()
+        self.assertNotIn(
+            india_channel.id, self.env['crm.team'].search([]).ids,
+            'Sales manager should be able to delete a Sales Team')

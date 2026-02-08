@@ -2,15 +2,17 @@
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
 
 from . import barcode
+from . import ir_actions_report
 from . import product_strategy
 from . import res_company
 from . import res_partner
+from . import res_users
 from . import res_config_settings
 from . import stock_location
 from . import stock_move
 from . import stock_move_line
 from . import stock_orderpoint
-from . import stock_production_lot
+from . import stock_lot
 from . import stock_picking
 from . import stock_quant
 from . import stock_rule

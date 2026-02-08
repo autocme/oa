@@ -1,65 +1,80 @@
-odoo.define('base_iban.iban_widget_tests', function (require) {
-"use strict";
+/* @odoo-module */
 
-var FormView = require('web.FormView');
-var testUtils = require('web.test_utils');
+import { DELAY } from "@base_iban/components/iban_widget/iban_widget";
+import { startServer } from "@bus/../tests/helpers/mock_python_environment";
+import { start } from "@mail/../tests/helpers/test_utils";
+import { click, contains, insertText } from "@web/../tests/utils";
 
-var createView = testUtils.createView;
+QUnit.module("Fields", {}, function () {
+    QUnit.module("IbanWidget");
+    const [validIban, invalidIban] = ["BE12651194580992", "invalidIban!"];
 
-QUnit.module('fields', {
-    beforeEach: function () {
-        this.data = {
-            partner: {
-                fields: {
-                    acc_number: {string: "acc_number", type: "char"},
-                },
-                records: [{
-                    id: 1,
-                    acc_number: "",
-                }]
+    const openPreparedView = async () => {
+        const pyEnv = await startServer();
+        const partnerId = pyEnv["res.partner"].create([
+            {
+                name: "Awesome partner",
+                bank_ids: [pyEnv["res.partner.bank"].create([{ acc_number: "" }])],
             },
+        ]);
+        const views = {
+            "res.partner,false,form": `<form>
+                    <sheet>
+                        <group>
+                            <field name="name"/>
+                        </group>
+                        <field name="bank_ids">
+                            <tree editable="bottom">
+                                <field name="acc_number" widget="iban"/>
+                            </tree>
+                        </field>
+                    </sheet>
+                </form>`,
         };
-        // patch _.debounce to be fast and synchronous
-        this.underscoreDebounce = _.debounce;
-        _.debounce = _.identity;
-    },
-    afterEach: function () {
-        // unpatch _.debounce
-        _.debounce = this.underscoreDebounce;
-    }
-}, function () {
-
-    QUnit.module('IbanWidget');
-
-    QUnit.test('Iban widgets are correctly rendered', async function (assert) {
-        assert.expect(6);
-        var form = await createView({
-            View: FormView,
-            model: 'partner',
-            data: this.data,
-            arch: '<form><sheet><field name="acc_number" widget="iban"/></sheet></form>',
+        const { advanceTime, openView } = await start({
+            serverData: { views },
+            hasTimeControl: true,
             mockRPC: function (route, args) {
-                if (args.method === 'check_iban') {
-                    console.log(args.args[1] === "BE00 0000 0000 0000 0000")
-                    return Promise.resolve(args.args[1] === "BE00 0000 0000 0000 0000");
+                if (args.method === "check_iban") {
+                    const iban = args.args[1].replace(/\s/g, "");
+                    return Promise.resolve(iban === validIban);
                 }
-                return this._super.apply(this, arguments);
             },
         });
+        await openView({
+            res_id: partnerId,
+            res_model: "res.partner",
+            views: [[false, "form"]],
+        });
+        return { advanceTime };
+    };
 
-        await testUtils.fields.editAndTrigger(form.$('.o_field_widget'), "BE00", 'input');
-        assert.containsOnce(form, '.o_iban_fail', "Should be a False account, it's too short");
-        assert.containsOnce(form, '.fa-times', "Should have a cross pictogram");
-
-        await testUtils.fields.editAndTrigger(form.$('.o_field_widget'), "BE00 0000 0000 0000 0000", 'input');
-        assert.containsOnce(form, '.text-success', "Should have text-success");
-        assert.containsOnce(form, '.fa-check', "Should have a valid pictogram");
-
-        await testUtils.fields.editAndTrigger(form.$('.o_field_widget'), "BE00 xxxx xxxx xxxx xxxx", 'input');
-        assert.containsOnce(form, '.o_iban_fail', "Should be False account");
-        assert.containsOnce(form, '.fa-times', "Should have a cross pictogram");
-
-        form.destroy();
+    QUnit.test("Iban Widget full flow [REQUIRE FOCUS]", async () => {
+        const { advanceTime } = await openPreparedView();
+        await contains("td.o_iban_cell");
+        await contains(".o_iban", { count: 0 }); // "Shouldn't display any validation icon while not editing a specific line"
+        await click("td.o_iban_cell");
+        await contains(".o_iban_input_with_validator");
+        await contains(".o_iban", { count: 0 }); // "Shouldn't display any validation icon while iban is empty"
+        await insertText(".o_iban_input_with_validator", invalidIban, { replace: true });
+        await contains(".o_iban", { count: 0 }); // "Shouldn't change its state of display before edition is finished"
+        await advanceTime(DELAY);
+        await contains(".o_iban"); // "Should contain a validation icon 400ms after edition"
+        await contains("i.fa.fa-times.o_iban_fail"); // "The validation icon should be the failed one"
+        await contains("i.fa.fa-check.o_iban", { count: 0 }); // "The validation icon shouldn't be the successful one"
+        await click(".o_form_button_save");
+        await contains(".o_iban", { count: 0 }); // "Shouldn't display any validation while not editing"
+        await click("td.o_iban_cell");
+        await contains(".o_iban_input_with_validator");
+        await advanceTime(DELAY);
+        await contains("i.fa.fa-times.o_iban_fail"); // "The validation icon should be present while clicking on an already filled IBAN"
+        await insertText(".o_iban_cell .o_input", validIban, { replace: true });
+        await contains("i.fa.fa-times.o_iban_fail"); // "The validation icon shouldn't change during the edition"
+        await advanceTime(DELAY);
+        await contains(".o_iban"); // "Should contain a validation icon 400ms after edition"
+        await contains("i.fa.fa-check.o_iban"); // "The validation icon should be the successful one"
+        await contains("i.fa.fa-times.o_iban_fail", { count: 0 }); // "The validation icon shouldn't be the failed one"
+        await click(".o_form_button_save");
+        await contains(".o_iban", { count: 0 }); // "Shouldn't display any validation while not editing"
     });
-});
 });

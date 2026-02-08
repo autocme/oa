@@ -79,6 +79,12 @@ class TestBarcodeNomenclature(common.TransactionCase):
             # Must fail because '*' isn't accepted (should be '.*' instead).
             barcode_rule.pattern = '*'
 
+        with self.assertRaises(ValidationError), self.cr.savepoint():
+            # Must fail because '**' isn't even a valid regular expression.
+            barcode_rule.pattern = '**>>>{ND}'
+        # Allowed since it leads to a valid regular expression.
+        barcode_rule.pattern = '..>>>{ND}'
+
     def test_barcode_nomenclature_parse_barcode_ean8_03_value(self):
         """ Parses some barcodes with a EAN-8 barcode rule who convert the
         barcode into value and checks the result.
@@ -218,7 +224,7 @@ class TestBarcodeNomenclature(common.TransactionCase):
         })
 
         # Invalids the cache to reset the nomenclature barcode rules' order.
-        self.env['barcode.nomenclature'].invalidate_cache()
+        self.nomenclature.invalidate_recordset(['rule_ids'])
 
         # Only fits the second barcode rule.
         res = self.nomenclature.parse_barcode('2012345610255')
@@ -236,9 +242,9 @@ class TestBarcodeNomenclature(common.TransactionCase):
         self.assertEqual(res['base_code'], '2212345600007')
         self.assertEqual(res['value'], 10.25)
 
-        # Invalids the cache to reset the nomenclature barcode rules' order.
         first_created_rule.sequence = 1
-        self.env['barcode.nomenclature'].invalidate_cache()
+        # Invalids the cache to reset the nomenclature barcode rules' order.
+        self.nomenclature.invalidate_recordset(['rule_ids'])
 
         # Should take the first one now (lower sequence).
         res = self.nomenclature.parse_barcode('2212345610259')

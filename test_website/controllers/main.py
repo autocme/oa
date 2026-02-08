@@ -131,13 +131,29 @@ class WebsiteTest(Home):
         return 'Basic Controller Content'
 
     # Test Redirects
-    @http.route(['/test_website/country/<model("res.country"):country>'], type='http', auth="public", website=True, sitemap=False)
+    @http.route(['/test_website/country/<model("res.country"):country>'], type='http', auth="public", website=True, sitemap=True)
     def test_model_converter_country(self, country, **kw):
         return request.render('test_website.test_redirect_view', {'country': country})
 
     @http.route(['/test_website/200/<model("test.model"):rec>'], type='http', auth="public", website=True, sitemap=False)
     def test_model_converter_seoname(self, rec, **kw):
         return request.make_response('ok')
+
+    @http.route(['/test_website/model_item/<int:record_id>'], type='http', methods=['GET'], auth="public", website=True, sitemap=False)
+    def test_model_item(self, record_id):
+        record = request.env['test.model'].browse(record_id)
+        values = {
+            'record': record,
+            'main_object': record,
+        }
+        return request.render("test_website.model_item", values)
+
+    @http.route(['/test_website/model_item_sudo/<int:record_id>'], type='http', methods=['GET'], auth="public", website=True, sitemap=False)
+    def test_model_item_sudo(self, record_id):
+        values = {
+            'record': request.env['test.model'].sudo().browse(record_id),
+        }
+        return request.render("test_website.model_item", values)
 
     @http.route(['/test_website/test_redirect_view_qs'], type='http', auth="public", website=True, sitemap=False)
     def test_redirect_view_qs(self, **kw):
@@ -149,3 +165,19 @@ class WebsiteTest(Home):
     ], type='http', auth='public', website=True, sitemap=False)
     def test_countries_308(self, **kwargs):
         return request.make_response('ok')
+
+    # Test Sitemap
+    def sitemap_test(env, rule, qs):
+        if not qs or qs.lower() in '/test_website_sitemap':
+            yield {'loc': '/test_website_sitemap'}
+
+    @http.route([
+        '/test_website_sitemap',
+        '/test_website_sitemap/something/<model("test.model"):rec>',
+    ], type='http', auth='public', website=True, sitemap=sitemap_test)
+    def test_sitemap(self, rec=None, **kwargs):
+        return request.make_response('Sitemap Testing Page')
+
+    @http.route('/test_model/<model("test.model"):test_model>', type='http', auth='public', website=True, sitemap=False)
+    def test_model(self, test_model, **kwargs):
+        return request.render('test_website.test_model_page_layout', {'main_object': test_model, 'test_model': test_model})

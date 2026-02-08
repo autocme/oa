@@ -1,12 +1,12 @@
-odoo.define('event.event_configurator_tour', function (require) {
-"use strict";
+/** @odoo-module **/
 
-var tour = require('web_tour.tour');
+import { registry } from "@web/core/registry";
+import { stepUtils } from "@web_tour/tour_service/tour_utils";
 
-tour.register('event_configurator_tour', {
+registry.category("web_tour.tours").add('event_configurator_tour', {
     url: "/web",
     test: true,
-}, [tour.stepUtils.showAppsMenuItem(), {
+    steps: () => [stepUtils.showAppsMenuItem(), {
     trigger: '.o_app[data-menu-xmlid="sale.sale_menu_root"]',
     edition: 'community'
 }, {
@@ -42,24 +42,23 @@ tour.register('event_configurator_tour', {
 }, {
     trigger: '.o_event_sale_js_event_configurator_ok'
 }, {
-    trigger: 'textarea[name="name"]',
-    run: function () {
-        var $textarea = $('textarea[name="name"]');
-        if ($textarea.val().includes('Design Fair Los Angeles') && $textarea.val().includes('VIP')) {
-            $textarea.addClass('tour_success');
-        }
-    }
-}, {
-    trigger: 'textarea[name="name"].tour_success',
+    trigger: "td[name='name'][data-tooltip*='VIP']",
     run: function () {} // check
 }, {
     trigger: 'ul.nav a:contains("Order Lines")',
     run: 'click'
 }, {
+    content: "search the partner",
+    trigger: 'div[name="partner_id"] input',
+    run: 'text Azure'
+}, {
+    content: "select the partner",
+    trigger: 'ul.ui-autocomplete > li > a:contains(Azure)',
+}, {
     trigger: 'td:contains("Event")',
     run: 'click'
 }, {
-    trigger: '.o_edit_product_configuration'
+    trigger: 'button.fa-pencil'
 }, {
     trigger: 'div[name="event_ticket_id"] input',
     run: 'click'
@@ -70,16 +69,7 @@ tour.register('event_configurator_tour', {
 }, {
     trigger: '.o_event_sale_js_event_configurator_ok'
 }, {
-    trigger: 'textarea[name="name"]',
-    run: function () {
-        var $textarea = $('textarea[name="name"]');
-        if ($textarea.val().includes('Standard')) {
-            $textarea.addClass('tour_success_2');
-        }
-    }
-}, {
-    trigger: 'textarea[name="name"].tour_success_2',
+    trigger: "td[name='name'][data-tooltip*='Standard']",
     run: function () {} // check
-}]);
-
-});
+}, ...stepUtils.saveForm()
+]});

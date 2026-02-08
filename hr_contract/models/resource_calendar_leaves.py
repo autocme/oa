@@ -1,6 +1,5 @@
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
 
-from collections import defaultdict
 from datetime import datetime
 from pytz import timezone, utc
 
@@ -15,23 +14,13 @@ class ResourceCalendarLeaves(models.Model):
             dt = datetime.fromordinal(date.toordinal())
             return tz.localize(dt).astimezone(utc).replace(tzinfo=None)
 
-        contracts = self.env['hr.contract'].search([
-            ('state', '=', 'open'),
-            ('employee_id.resource_id', 'in', self.resource_id.ids),
-        ])
-
-        CalendarLeaves = self.env['resource.calendar.leaves']
-        leaves_by_resource_id = defaultdict(lambda: CalendarLeaves, {False: CalendarLeaves})
-        for leave in self:
-            leaves_by_resource_id[leave.resource_id.id] += leave
-        # pass leaves without resource_id to super
-        remaining = leaves_by_resource_id.pop(False)
-
-        for resource_id, leaves in leaves_by_resource_id.items():
-            contract = contracts.filtered_domain([('employee_id.resource_id', '=', resource_id)])
-            if not contract:
-                remaining += leaves
-                continue
+        leaves_by_contract = self.grouped(lambda leave: leave.resource_id.employee_id.contract_id)
+        # set aside leaves without contract_id for super
+        remaining = leaves_by_contract.pop(
+            self.env['hr.contract'],
+            self.env['resource.calendar.leaves'],
+        )
+        for contract, leaves in leaves_by_contract.items():
             tz = timezone(contract.resource_calendar_id.tz or 'UTC')
             start_dt = date2datetime(contract.date_start, tz)
             end_dt = date2datetime(contract.date_end, tz) if contract.date_end else datetime.max

@@ -1,6 +1,7 @@
 import re
 
 from odoo import models, fields, api
+from odoo.tools import check_barcode_encoding, get_barcode_check_digit
 
 
 UPC_EAN_CONVERSIONS = [
@@ -15,21 +16,11 @@ class BarcodeNomenclature(models.Model):
     _name = 'barcode.nomenclature'
     _description = 'Barcode Nomenclature'
 
-    name = fields.Char(string='Barcode Nomenclature', size=32, required=True, help='An internal identification of the barcode nomenclature')
+    name = fields.Char(string='Barcode Nomenclature', required=True, help='An internal identification of the barcode nomenclature')
     rule_ids = fields.One2many('barcode.rule', 'barcode_nomenclature_id', string='Rules', help='The list of barcode rules')
     upc_ean_conv = fields.Selection(
         UPC_EAN_CONVERSIONS, string='UPC/EAN Conversion', required=True, default='always',
         help="UPC Codes can be converted to EAN by prefixing them with a zero. This setting determines if a UPC/EAN barcode should be automatically converted in one way or another when trying to match a rule with the other encoding.")
-
-    @api.model
-    def get_barcode_check_digit(self, numeric_barcode):
-        # todo master: remove this method
-        return self.env['ir.actions.report'].get_barcode_check_digit(numeric_barcode)
-
-    @api.model
-    def check_encoding(self, barcode, encoding):
-        # todo master: remove this method
-        return self.env['ir.actions.report'].check_barcode_encoding(barcode, encoding)
 
     @api.model
     def sanitize_ean(self, ean):
@@ -38,7 +29,7 @@ class BarcodeNomenclature(models.Model):
         :type ean: str
         """
         ean = ean[0:13].zfill(13)
-        return ean[0:-1] + str(self.get_barcode_check_digit(ean))
+        return ean[0:-1] + str(get_barcode_check_digit(ean))
 
     @api.model
     def sanitize_upc(self, upc):
@@ -81,12 +72,12 @@ class BarcodeNomenclature(models.Model):
             decimal_part = "0." + value_string[decimal_part_match.start():decimal_part_match.end() - 1]  # retrieve decimal part
             if whole_part == '':
                 whole_part = '0'
-            match['value'] = int(whole_part) + float(decimal_part)
+            if whole_part.isdigit():
+                match['value'] = int(whole_part) + float(decimal_part)
 
-            match['base_code'] = barcode[:num_start] + (num_end - num_start - 2) * "0" + barcode[num_end - 2:]  # replace numerical content by 0's in barcode
-            match['base_code'] = match['base_code'].replace("\\\\", "\\").replace("\\{", "{").replace("\\}", "}").replace("\\.", ".")
-            pattern = pattern[:num_start] + (num_end - num_start - 2) * "0" + pattern[num_end:]  # replace numerical content by 0's in pattern to match
-
+                match['base_code'] = barcode[:num_start] + (num_end - num_start - 2) * "0" + barcode[num_end - 2:]  # replace numerical content by 0's in barcode
+                match['base_code'] = match['base_code'].replace("\\\\", "\\").replace("\\{", "{").replace("\\}", "}").replace("\\.", ".")
+                pattern = pattern[:num_start] + (num_end - num_start - 2) * "0" + pattern[num_end:]  # replace numerical content by 0's in pattern to match
         match['match'] = re.match(pattern, match['base_code'][:len(pattern)])
 
         return match
@@ -114,12 +105,12 @@ class BarcodeNomenclature(models.Model):
 
         for rule in self.rule_ids:
             cur_barcode = barcode
-            if rule.encoding == 'ean13' and self.check_encoding(barcode, 'upca') and self.upc_ean_conv in ['upc2ean', 'always']:
+            if rule.encoding == 'ean13' and check_barcode_encoding(barcode, 'upca') and self.upc_ean_conv in ['upc2ean', 'always']:
                 cur_barcode = '0' + cur_barcode
-            elif rule.encoding == 'upca' and self.check_encoding(barcode, 'ean13') and barcode[0] == '0' and self.upc_ean_conv in ['ean2upc', 'always']:
+            elif rule.encoding == 'upca' and check_barcode_encoding(barcode, 'ean13') and barcode[0] == '0' and self.upc_ean_conv in ['ean2upc', 'always']:
                 cur_barcode = cur_barcode[1:]
 
-            if not self.check_encoding(barcode, rule.encoding):
+            if not check_barcode_encoding(barcode, rule.encoding):
                 continue
 
             match = self.match_pattern(cur_barcode, rule.pattern)

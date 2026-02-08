@@ -1,17 +1,16 @@
 /** @odoo-module **/
 
-import { evaluateExpr } from "@web/core/py_js/py";
+import { visitXML } from "@web/core/utils/xml";
 import { GROUPABLE_TYPES } from "@web/search/utils/misc";
-import { XMLParser } from "@web/core/utils/xml";
-import { archParseBoolean } from "../helpers/utils";
+import { archParseBoolean } from "@web/views/utils";
 
 const MODES = ["bar", "line", "pie"];
 const ORDERS = ["ASC", "DESC", "asc", "desc", null];
 
-export class GraphArchParser extends XMLParser {
+export class GraphArchParser {
     parse(arch, fields = {}) {
         const archInfo = { fields, fieldAttrs: {}, groupBy: [], measures: [] };
-        this.visitXML(arch, (node) => {
+        visitXML(arch, (node) => {
             switch (node.tagName) {
                 case "graph": {
                     if (node.hasAttribute("disable_linking")) {
@@ -21,6 +20,14 @@ export class GraphArchParser extends XMLParser {
                     }
                     if (node.hasAttribute("stacked")) {
                         archInfo.stacked = archParseBoolean(node.getAttribute("stacked"));
+                    }
+                    if (node.hasAttribute("cumulated")) {
+                        archInfo.cumulated = archParseBoolean(node.getAttribute("cumulated"));
+                    }
+                    if (node.hasAttribute("cumulated_start")) {
+                        archInfo.cumulatedStart = archParseBoolean(
+                            node.getAttribute("cumulated_start")
+                        );
                     }
                     const mode = node.getAttribute("type");
                     if (mode && MODES.includes(mode)) {
@@ -37,7 +44,7 @@ export class GraphArchParser extends XMLParser {
                     break;
                 }
                 case "field": {
-                    let fieldName = node.getAttribute("name"); // exists (rng validation)
+                    const fieldName = node.getAttribute("name"); // exists (rng validation)
                     if (fieldName === "id") {
                         break;
                     }
@@ -48,10 +55,17 @@ export class GraphArchParser extends XMLParser {
                         }
                         archInfo.fieldAttrs[fieldName].string = string;
                     }
-                    const isInvisible = Boolean(
-                        evaluateExpr(node.getAttribute("invisible") || "0")
-                    );
-                    if (isInvisible) {
+                    const widget = node.getAttribute("widget");
+                    if (widget) {
+                        if (!archInfo.fieldAttrs[fieldName]) {
+                            archInfo.fieldAttrs[fieldName] = {};
+                        }
+                        archInfo.fieldAttrs[fieldName].widget = widget;
+                    }
+                    if (
+                        node.getAttribute("invisible") === "True" ||
+                        node.getAttribute("invisible") === "1"
+                    ) {
                         if (!archInfo.fieldAttrs[fieldName]) {
                             archInfo.fieldAttrs[fieldName] = {};
                         }

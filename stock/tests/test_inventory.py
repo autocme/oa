@@ -63,7 +63,7 @@ class TestInventory(TransactionCase):
 
         self.assertEqual(len(inventory_quant), 0)
 
-        lot1 = self.env['stock.production.lot'].create({
+        lot1 = self.env['stock.lot'].create({
             'name': 'sn2',
             'product_id': self.product2.id,
             'company_id': self.env.company.id,
@@ -95,7 +95,7 @@ class TestInventory(TransactionCase):
         ])
         self.assertEqual(len(inventory_quant), 0)
 
-        lot1 = self.env['stock.production.lot'].create({
+        lot1 = self.env['stock.lot'].create({
             'name': 'sn2',
             'product_id': self.product2.id,
             'company_id': self.env.company.id,
@@ -123,7 +123,7 @@ class TestInventory(TransactionCase):
         ]
         inventory_quants = self.env['stock.quant'].search(quant_domain)
         self.assertEqual(len(inventory_quants), 0)
-        lot1 = self.env['stock.production.lot'].create({
+        lot1 = self.env['stock.lot'].create({
             'name': 'sn2',
             'product_id': self.product2.id,
             'company_id': self.env.company.id,
@@ -220,7 +220,8 @@ class TestInventory(TransactionCase):
         (move_stock_pack + move_pack_cust)._action_confirm()
         move_stock_pack._action_assign()
         self.assertEqual(move_stock_pack.state, 'assigned')
-        move_stock_pack.move_line_ids.qty_done = 10
+        move_stock_pack.move_line_ids.quantity = 10
+        move_stock_pack.picked = True
         move_stock_pack._action_done()
         self.assertEqual(move_stock_pack.state, 'done')
         self.assertEqual(move_pack_cust.state, 'assigned')
@@ -238,13 +239,13 @@ class TestInventory(TransactionCase):
         self.assertEqual(self.env['stock.quant']._gather(self.product1, self.pack_location).quantity, 8.0)
         self.assertEqual(self.env['stock.quant']._get_available_quantity(self.product1, self.pack_location), 0)
         self.assertEqual(move_pack_cust.state, 'partially_available')
-        self.assertEqual(move_pack_cust.reserved_availability, 8)
+        self.assertEqual(move_pack_cust.quantity, 8)
 
         # If the user tries to assign again, only 8 products are available and thus the reservation
         # state should not change.
         move_pack_cust._action_assign()
         self.assertEqual(move_pack_cust.state, 'partially_available')
-        self.assertEqual(move_pack_cust.reserved_availability, 8)
+        self.assertEqual(move_pack_cust.quantity, 8)
 
         # Make a new inventory adjustment and add two new products.
         inventory_quant = self.env['stock.quant'].search([
@@ -258,7 +259,7 @@ class TestInventory(TransactionCase):
 
         # Nothing should have changed for our pack move
         self.assertEqual(move_pack_cust.state, 'partially_available')
-        self.assertEqual(move_pack_cust.reserved_availability, 8)
+        self.assertEqual(move_pack_cust.quantity, 8)
 
         # Running _action_assign will now find the new available quantity. Since the products
         # are not differentiated (no lot/pack/owner), even if the new available quantity is not directly
@@ -267,7 +268,8 @@ class TestInventory(TransactionCase):
         self.assertEqual(move_pack_cust.state, 'assigned')
 
         # move all the things
-        move_pack_cust.move_line_ids.qty_done = 10
+        move_pack_cust.move_line_ids.quantity = 10
+        move_pack_cust.picked = True
         move_stock_pack._action_done()
 
         self.assertEqual(self.env['stock.quant']._get_available_quantity(self.product1, self.pack_location), 0)
@@ -301,7 +303,7 @@ class TestInventory(TransactionCase):
         after an adjustment.
         """
         # Set product quantity to 42.
-        inventory_quant = self.env['stock.quant'].create(vals={
+        inventory_quant = self.env['stock.quant'].create({
             'product_id': self.product1.id,
             'location_id': self.stock_location.id,
             'inventory_quantity': 42,
@@ -353,7 +355,8 @@ class TestInventory(TransactionCase):
         })
         move_out._action_confirm()
         move_out._action_assign()
-        move_out.move_line_ids.qty_done = 3
+        move_out.move_line_ids.quantity = 3
+        move_out.picked = True
         move_out._action_done()
 
         # Ensure that diff didn't change.
@@ -393,9 +396,11 @@ class TestInventory(TransactionCase):
             'product_uom': self.uom_unit.id,
             'product_uom_qty': 4.0,
         })
+        quant.invalidate_recordset()
         move_out._action_confirm()
         move_out._action_assign()
-        move_out.move_line_ids.qty_done = 4
+        move_out.move_line_ids.quantity = 4
+        move_out.picked = True
         move_out._action_done()
 
         self.assertEqual(quant.inventory_quantity, 7)

@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
+from odoo import Command
 from odoo.addons.account.tests.common import AccountTestInvoicingCommon
 from odoo.tests import tagged
 
 
-@tagged('post_install', '-at_install')
 class TestTaxCommon(AccountTestInvoicingCommon):
 
     @classmethod
@@ -99,25 +99,15 @@ class TestTaxCommon(AccountTestInvoicingCommon):
             'amount': 0,
             'sequence': 8,
             'invoice_repartition_line_ids': [
-                (0,0, {
-                    'factor_percent': 100,
-                    'repartition_type': 'base',
-                }),
-
-                (0,0, {
-                    'factor_percent': 100,
+                (0, 0, {'repartition_type': 'base'}),
+                (0, 0, {
                     'repartition_type': 'tax',
                     'account_id': some_account.id,
                 }),
             ],
             'refund_repartition_line_ids': [
-                (0,0, {
-                    'factor_percent': 100,
-                    'repartition_type': 'base',
-                }),
-
-                (0,0, {
-                    'factor_percent': 100,
+                (0, 0, {'repartition_type': 'base'}),
+                (0, 0, {
                     'repartition_type': 'tax',
                     'account_id': some_account.id,
                 }),
@@ -200,15 +190,50 @@ class TestTax(TestTaxCommon):
         )
 
     def test_tax_group_percent(self):
-        res = self.group_tax_percent.with_context({'force_price_include':True}).compute_all(100.0)
+        res = self.group_tax_percent.with_context({'force_price_include': True}).compute_all(100.0)
         self._check_compute_all_results(
             100,    # 'total_included'
-            83.33,    # 'total_excluded'
+            83.33,  # 'total_excluded'
             [
                 # base , amount     | seq | amount | incl | incl_base
                 # ---------------------------------------------------
                 (83.33, 8.33),    # |  1  |    10% |      |
                 (83.33, 8.34),    # |  2  |    10% |      |
+                # ---------------------------------------------------
+            ],
+            res
+        )
+
+        self.env.company.country_id = self.env.ref('base.in')
+        self.group_tax_percent.children_tax_ids.price_include = True
+        res = self.group_tax_percent.compute_all(100.0)
+        self._check_compute_all_results(
+            100,    # 'total_included'
+            83.34,  # 'total_excluded'
+            [
+                # base , amount     | seq | amount | incl | incl_base
+                # ---------------------------------------------------
+                (83.34, 8.33),    # |  1  |    10% |      |
+                (83.34, 8.33),    # |  2  |    10% |      |
+                # ---------------------------------------------------
+            ],
+            res
+        )
+
+        self.group_tax_percent.children_tax_ids.write({
+            'amount': 2.5,
+            'include_base_amount': True,
+            'is_base_affected': False,
+        })
+        res = self.group_tax_percent.compute_all(295.0)
+        self._check_compute_all_results(
+            295.0,  # 'total_included'
+            280.96,  # 'total_excluded'
+            [
+                # base , amount     | seq | amount | incl | incl_base
+                # ---------------------------------------------------
+                (280.96, 7.02),   # |  1  |    10% |      |
+                (280.96, 7.02),   # |  2  |    10% |      |
                 # ---------------------------------------------------
             ],
             res
@@ -1104,33 +1129,21 @@ class TestTax(TestTaxCommon):
             'amount': 42,
             'price_include': True,
             'invoice_repartition_line_ids': [
-                (0,0, {
-                    'factor_percent': 100,
-                    'repartition_type': 'base',
-                }),
+                (0, 0, {'repartition_type': 'base'}),
 
-                (0,0, {
-                    'factor_percent': 100,
-                    'repartition_type': 'tax',
-                }),
+                (0, 0, {'repartition_type': 'tax'}),
 
-                (0,0, {
+                (0, 0, {
                     'factor_percent': -100,
                     'repartition_type': 'tax',
                 }),
             ],
             'refund_repartition_line_ids': [
-                (0,0, {
-                    'factor_percent': 100,
-                    'repartition_type': 'base',
-                }),
+                (0, 0, {'repartition_type': 'base'}),
 
-                (0,0, {
-                    'factor_percent': 100,
-                    'repartition_type': 'tax',
-                }),
+                (0, 0, {'repartition_type': 'tax'}),
 
-                (0,0, {
+                (0, 0, {
                     'factor_percent': -100,
                     'repartition_type': 'tax',
                 }),
@@ -1149,4 +1162,60 @@ class TestTax(TestTaxCommon):
                 # ---------------
             ],
             compute_all_res
+        )
+
+    def test_parse_name_search(self):
+        list_ten_fixed_tax = self.env["account.tax"]
+        ten_fixed_tax = self.env["account.tax"].create(
+            {"name": "Ten Fixed tax", "amount_type": "fixed", "amount": 10}
+        )
+        list_ten_fixed_tax |= ten_fixed_tax
+        ten_fixed_tax_tix = self.env["account.tax"].create(
+            {"name": "Ten Fixed tax tix", "amount_type": "fixed", "amount": 10}
+        )
+        list_ten_fixed_tax |= ten_fixed_tax_tix
+
+        self.assertListEqual(
+            [x[0] for x in self.env["account.tax"].name_search("tix")],
+            list_ten_fixed_tax.ids,
+        )
+        self.assertListEqual(
+            [x[0] for x in self.env["account.tax"].name_search("\"tix\"")],
+            ten_fixed_tax_tix.ids,
+        )
+        self.assertListEqual(
+            [x[0] for x in self.env["account.tax"].name_search("Ten \"tix\"")],
+            ten_fixed_tax_tix.ids,
+        )
+
+    def test_repartition_line_in(self):
+        tax = self.env['account.tax'].create({
+            'name': 'tax20',
+            'amount_type': 'percent',
+            'amount': 20,
+            'type_tax_use': 'none',
+            'invoice_repartition_line_ids': [
+                Command.create({'repartition_type': 'base', 'factor_percent': 100.0}),
+                Command.create({'repartition_type': 'tax', 'factor_percent': 100.0}),
+                Command.create({'repartition_type': 'tax', 'factor_percent': -100.0}),
+            ],
+            'refund_repartition_line_ids': [
+                Command.create({'repartition_type': 'base', 'factor_percent': 100.0}),
+                Command.create({'repartition_type': 'tax', 'factor_percent': 100.0}),
+                Command.create({'repartition_type': 'tax', 'factor_percent': -100.0}),
+            ],
+        })
+        self.env.company.country_id = self.env.ref('base.in')
+        res = tax.with_context(force_price_include=True).compute_all(1000.0)
+        self._check_compute_all_results(
+            1000,         # 'total_included'
+            1000,         # 'total_excluded'
+            [
+                # base , amount
+                # ---------------
+                (1000, 200.0),
+                (1000, -200.0),
+                # ---------------
+            ],
+            res
         )

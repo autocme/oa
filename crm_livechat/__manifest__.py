@@ -7,6 +7,9 @@
     'summary': 'Create lead from livechat conversation',
     'data': [
         'data/utm_data.xml',
+        'data/crm_livechat_chatbot_data.xml',
+        'views/chatbot_script_views.xml',
+        'views/chatbot_script_step_views.xml',
     ],
     'depends': [
         'crm',
@@ -16,11 +19,11 @@
     'auto_install': True,
     'license': 'LGPL-3',
     'assets': {
-        'mail.assets_discuss_public': [
-            'crm_livechat/static/src/models/*/*.js',
-        ],
-        'web.assets_backend': [
-            'crm_livechat/static/src/models/*/*.js',
+        'web.assets_backend': {
+            'crm_livechat/static/src/core/*',
+        },
+        'web.qunit_suite_tests': [
+            'crm_livechat/static/tests/**/*.js',
         ],
     },
 }

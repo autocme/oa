@@ -1,20 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
 
-<template id="wysiwyg_iframe_editor_assets" name="Editor assets for wysiwyg iframe content" groups="base.group_user">
-    <t t-call-assets="web.assets_common" t-css="false" />
-    <t t-call-assets="web_editor.assets_wysiwyg" t-css="false" />
-</template>
-
-<template id="compiled_assets_wysiwyg" name="Wysiwyg Editor" groups="base.group_public,base.group_portal,base.group_user">
-    <t t-call-assets="web_editor.assets_wysiwyg"/>
-</template>
-
-<template id="assets_edit_html_field" name="Wysiwyg Editor Assets for html field (style-inline)" groups="base.group_user,base.group_portal">
-    <t t-call-assets="web.assets_common" t-js="false"/>
-    <t t-call-assets="web_editor.assets_wysiwyg" t-js="false"/>
-</template>
-
 <!--
     The web_editor.colorpicker template regroups section of colorpicker menu for website customization
     (text foreground/background but also snippet background color option).
@@ -31,13 +17,13 @@
     If a color is no longer used you need to add the d-none class to it and not remove it from this file !!
     Else you will no longer be able to use them.
 -->
-<template id="web_editor.colorpicker" name="Color-Picker" groups="base.group_user">
+<template id="web_editor.colorpicker" name="Color-Picker" groups="base.group_user,base.group_portal">
     <colorpicker>
         <div class="o_colorpicker_section" data-name="theme">
             <button data-color="o-color-1"/>
             <button data-color="o-color-3"/>
             <button data-color="o-color-2"/>
-            <button data-color="o-color-4" class="ml-2"/>
+            <button data-color="o-color-4" class="ms-2"/>
             <button data-color="o-color-5"/>
         </div>
         <div class="o_colorpicker_section" data-name="common">
@@ -81,7 +67,7 @@
         <div class="o_colorpicker_section o_custom_gradient_editor" data-name="custom_gradient">
             <button class="w-50 o_custom_gradient_btn o_we_color_btn py-1 btn" title="Define a custom gradient">Custom</button>
             <div class="o_color_picker_inputs mx-1">
-                <t t-set="input_classes" t-value="'p-0 border-0 text-center text-monospace bg-transparent text-white'" />
+                <t t-set="input_classes" t-value="'p-0 border-0 text-center font-monospace bg-transparent text-white'" />
                 <div class="d-flex justify-content-between my-2 o_type_row">
                     <we-title>Type</we-title>
                     <span class="d-flex justify-content-between bg-black-50">
@@ -93,21 +79,21 @@
                     <we-title>Angle</we-title>
                     <span class="o_custom_gradient_input bg-black-50 px-1 d-flex align-items-baseline">
                         <input data-name="angle" type="text" t-attf-class="{{input_classes}}" style="width: 5ch;" value="90"/>
-                        <span class="flex-grow-0 ml-1 text-white-50">deg</span>
+                        <span class="flex-grow-0 ms-1 text-white-50">deg</span>
                     </span>
                 </div>
                 <div class="d-flex justify-content-between my-2 o_position_row">
                     <we-title>Position</we-title>
                     <span class="d-flex">
-                    <span class="mr-2">X</span>
+                    <span class="me-2">X</span>
                     <span class="o_custom_gradient_input bg-black-50 px-1 d-flex">
                         <input data-name="positionX" type="text" t-attf-class="{{input_classes}}" style="width: 3ch;" value="25"/>
-                        <span class="flex-grow-0 ml-1 text-white-50">%</span>
+                        <span class="flex-grow-0 ms-1 text-white-50">%</span>
                     </span>
-                    <span class="mr-2 ml-3">Y</span>
+                    <span class="me-2 ms-3">Y</span>
                     <span class="o_custom_gradient_input bg-black-50 px-1 d-flex">
                         <input data-name="positionY" type="text" t-attf-class="{{input_classes}}" style="width: 3ch;" value="25"/>
-                        <span class="flex-grow-0 ml-1 text-white-50">%</span>
+                        <span class="flex-grow-0 ms-1 text-white-50">%</span>
                     </span>
                     </span>
                 </div>
@@ -167,5 +153,34 @@
             </div>
         </div>
     </colorpicker>
+</template>
+<template id="web_editor.tests">
+    <t t-call="web.layout">
+        <t t-set="title">Odoo Editor Tests</t>
+        <t t-set="head">
+            <t t-call-assets="web_editor.assets_tests_styles" t-js="false"/>
+            <link rel="stylesheet" href="/web_editor/static/src/js/editor/odoo-editor/test/lib/mocha.css"/>
+            <style type="text/css">
+                #mocha-report b.zws, #mocha-report b.tab {
+                    background-color: #833112;
+                    color: white;
+                    border-radius: 3px;
+                    padding: 1px 3px;
+                    font-size: 8px;
+                    vertical-align: middle;
+                }
+                #mocha-report b.tab {
+                    background-color: #14386e;
+                }
+            </style>
+            <script src="/web_editor/static/lib/DOMPurify.js"></script>
+            <script src="/web_editor/static/src/js/editor/odoo-editor/test/lib/mocha.js"></script>
+            <script src="/web_editor/static/src/js/editor/odoo-editor/test/lib/chai.js"></script>
+            <script>mocha.setup('bdd').fullTrace()</script>
+            <t t-call-assets="web_editor.mocha_tests"/>
+        </t>
+        <div id="mocha"></div>
+        <div id="editor-test-container"></div>
+    </t>
 </template>
 </odoo>

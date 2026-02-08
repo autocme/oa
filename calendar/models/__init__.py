@@ -12,4 +12,7 @@ from . import calendar_event_type
 from . import calendar_recurrence
 from . import mail_activity
 from . import mail_activity_mixin
+from . import mail_activity_type
 from . import res_users
+from . import onboarding_onboarding
+from . import onboarding_onboarding_step

@@ -2,27 +2,20 @@
 
 import { makeTestEnv } from "@web/../tests/helpers/mock_env";
 import { getFixture, nextTick } from "@web/../tests/helpers/utils";
-import { hotkeyService } from "@web/core/hotkeys/hotkey_service";
-import { ormService } from "@web/core/orm_service";
-import { registry } from "@web/core/registry";
-import { FilterMenu } from "@web/search/filter_menu/filter_menu";
-import { GroupByMenu } from "@web/search/group_by_menu/group_by_menu";
+import { SearchBarMenu } from "@web/search/search_bar_menu/search_bar_menu";
 import { WithSearch } from "@web/search/with_search/with_search";
-import { viewService } from "@web/views/view_service";
+import { mount } from "../helpers/utils";
 import {
     getMenuItemTexts,
     makeWithSearch,
-    toggleFilterMenu,
-    toggleGroupByMenu,
+    setupControlPanelServiceRegistry,
+    toggleSearchBarMenu,
     toggleMenuItem,
 } from "./helpers";
 
-const { Component, hooks, mount, tags } = owl;
-const { useState } = hooks;
-const { xml } = tags;
+import { Component, onWillUpdateProps, onWillStart, useState, xml, useSubEnv } from "@odoo/owl";
 
-const serviceRegistry = registry.category("services");
-
+let target;
 let serverData;
 
 QUnit.module("Search", (hooks) => {
@@ -55,9 +48,8 @@ QUnit.module("Search", (hooks) => {
         `,
             },
         };
-        serviceRegistry.add("hotkey", hotkeyService);
-        serviceRegistry.add("orm", ormService);
-        serviceRegistry.add("view", viewService);
+        setupControlPanelServiceRegistry();
+        target = getFixture();
     });
 
     QUnit.module("WithSearch");
@@ -68,13 +60,16 @@ QUnit.module("Search", (hooks) => {
         class TestComponent extends Component {}
         TestComponent.template = xml`<div class="o_test_component">Test component content</div>`;
 
-        const component = await makeWithSearch({
+        await makeWithSearch({
             serverData,
             resModel: "animal",
             Component: TestComponent,
         });
-        assert.hasClass(component.el, "o_test_component");
-        assert.strictEqual(component.el.innerText, "Test component content");
+        assert.containsOnce(target, ".o_test_component");
+        assert.strictEqual(
+            target.querySelector(".o_test_component").innerText,
+            "Test component content"
+        );
     });
 
     QUnit.test("search model in sub env", async function (assert) {
@@ -107,7 +102,7 @@ QUnit.module("Search", (hooks) => {
                     });
                     assert.deepEqual(domain, [[0, "=", 1]]);
                     assert.deepEqual(groupBy, ["birthday"]);
-                    assert.deepEqual(orderBy, ["bar"]);
+                    assert.deepEqual(orderBy, [{ name: "bar", asc: true }]);
                 }
             }
             TestComponent.template = xml`<div class="o_test_component">Test component content</div>`;
@@ -119,7 +114,7 @@ QUnit.module("Search", (hooks) => {
                 domain: [[0, "=", 1]],
                 groupBy: ["birthday"],
                 context: { key: "val" },
-                orderBy: ["bar"],
+                orderBy: [{ name: "bar", asc: true }],
             });
         }
     );
@@ -133,8 +128,8 @@ QUnit.module("Search", (hooks) => {
         await makeWithSearch({
             serverData,
             mockRPC: function (_, args) {
-                if (args.method === "load_views") {
-                    throw new Error("No load_views should be done");
+                if (args.method === "get_views") {
+                    throw new Error("No get_views should be done");
                 }
             },
             resModel: "animal",
@@ -155,7 +150,7 @@ QUnit.module("Search", (hooks) => {
             await makeWithSearch({
                 serverData,
                 mockRPC: function (_, args) {
-                    if (args.method === "load_views") {
+                    if (args.method === "get_views") {
                         assert.deepEqual(args.kwargs, {
                             context: {
                                 lang: "en",
@@ -189,8 +184,8 @@ QUnit.module("Search", (hooks) => {
             await makeWithSearch({
                 serverData,
                 mockRPC: function (_, args) {
-                    if (args.method === "load_views") {
-                        throw new Error("No load_views should be done");
+                    if (args.method === "get_views") {
+                        throw new Error("No get_views should be done");
                     }
                 },
                 resModel: "animal",
@@ -214,7 +209,7 @@ QUnit.module("Search", (hooks) => {
             await makeWithSearch({
                 serverData,
                 mockRPC: function (_, args) {
-                    if (args.method === "load_views") {
+                    if (args.method === "get_views") {
                         assert.deepEqual(args.kwargs.options, {
                             action_id: false,
                             load_filters: true,
@@ -238,18 +233,17 @@ QUnit.module("Search", (hooks) => {
             assert.expect(3);
 
             class TestComponent extends Component {}
-            TestComponent.components = { FilterMenu, GroupByMenu };
+            TestComponent.components = { SearchBarMenu };
             TestComponent.template = xml`
                 <div class="o_test_component">
-                    <FilterMenu/>
-                    <GroupByMenu/>
+                    <SearchBarMenu/>
                 </div>
             `;
 
-            const component = await makeWithSearch({
+            await makeWithSearch({
                 serverData,
                 mockRPC: function (_, args) {
-                    if (args.method === "load_views") {
+                    if (args.method === "get_views") {
                         assert.deepEqual(args.kwargs.views, [[1, "search"]]);
                     }
                 },
@@ -257,11 +251,11 @@ QUnit.module("Search", (hooks) => {
                 Component: TestComponent,
                 searchViewId: 1,
             });
-            await toggleFilterMenu(component);
-            await assert.ok(getMenuItemTexts(component), ["True Domain"]);
+            await toggleSearchBarMenu(target);
+            await assert.ok(getMenuItemTexts(target), ["True Domain"]);
 
-            await toggleGroupByMenu(component);
-            await assert.ok(getMenuItemTexts(component), ["Name"]);
+            await toggleSearchBarMenu(target);
+            await assert.ok(getMenuItemTexts(target), ["Name"]);
         }
     );
 
@@ -271,28 +265,30 @@ QUnit.module("Search", (hooks) => {
             assert.expect(2);
 
             class TestComponent extends Component {
-                async willStart() {
-                    assert.deepEqual(this.props.domain, []);
-                }
-                async willUpdateProps(nextProps) {
-                    assert.deepEqual(nextProps.domain, [[1, "=", 1]]);
+                setup() {
+                    onWillStart(() => {
+                        assert.deepEqual(this.props.domain, []);
+                    });
+                    onWillUpdateProps((nextProps) => {
+                        assert.deepEqual(nextProps.domain, [[1, "=", 1]]);
+                    });
                 }
             }
-            TestComponent.components = { FilterMenu };
+            TestComponent.components = { SearchBarMenu };
             TestComponent.template = xml`
                 <div class="o_test_component">
-                    <FilterMenu/>
+                    <SearchBarMenu/>
                 </div>
             `;
 
-            const component = await makeWithSearch({
+            await makeWithSearch({
                 serverData,
                 resModel: "animal",
                 Component: TestComponent,
                 searchViewId: 1,
             });
-            await toggleFilterMenu(component);
-            await toggleMenuItem(component, "True domain");
+            await toggleSearchBarMenu(target);
+            await toggleMenuItem(target, "True domain");
         }
     );
 
@@ -300,11 +296,13 @@ QUnit.module("Search", (hooks) => {
         assert.expect(2);
 
         class TestComponent extends Component {
-            willStart() {
-                assert.deepEqual(this.props.domain, [["type", "=", "carnivorous"]]);
-            }
-            willUpdateProps(nextProps) {
-                assert.deepEqual(nextProps.domain, [["type", "=", "herbivorous"]]);
+            setup() {
+                onWillStart(() => {
+                    assert.deepEqual(this.props.domain, [["type", "=", "carnivorous"]]);
+                });
+                onWillUpdateProps((nextProps) => {
+                    assert.deepEqual(nextProps.domain, [["type", "=", "herbivorous"]]);
+                });
             }
         }
         TestComponent.template = xml`<div class="o_test_component">Test component content</div>`;
@@ -314,23 +312,26 @@ QUnit.module("Search", (hooks) => {
 
         class Parent extends Component {
             setup() {
-                this.state = useState({
+                useSubEnv({ config: {} });
+                this.searchState = useState({
                     resModel: "animal",
-                    Component: TestComponent,
                     domain: [["type", "=", "carnivorous"]],
                 });
             }
         }
-        Parent.template = xml`<WithSearch t-props="state"/>`;
-        Parent.components = { WithSearch };
+        Parent.template = xml`
+            <WithSearch t-props="searchState" t-slot-scope="search">
+                <TestComponent
+                    domain="search.domain"
+                />
+            </WithSearch>
+        `;
+        Parent.components = { WithSearch, TestComponent };
 
-        const parent = await mount(Parent, { env, target });
-
-        parent.state.domain = [["type", "=", "herbivorous"]];
+        const parent = await mount(Parent, target, { env });
+        parent.searchState.domain = [["type", "=", "herbivorous"]];
 
         await nextTick();
-
-        parent.destroy();
     });
 
     QUnit.test("search defaults are removed from context at reload", async function (assert) {
@@ -342,39 +343,46 @@ QUnit.module("Search", (hooks) => {
         };
 
         class TestComponent extends Component {
-            willStart() {
-                assert.deepEqual(this.props.context, { lang: "en", tz: "taht", uid: 7 });
-            }
-            willUpdateProps(nextProps) {
-                assert.deepEqual(nextProps.context, { lang: "en", tz: "taht", uid: 7 });
+            setup() {
+                onWillStart(() => {
+                    assert.deepEqual(this.props.context, { lang: "en", tz: "taht", uid: 7 });
+                });
+                onWillUpdateProps((nextProps) => {
+                    assert.deepEqual(nextProps.context, { lang: "en", tz: "taht", uid: 7 });
+                });
             }
         }
         TestComponent.template = xml`<div class="o_test_component">Test component content</div>`;
+        TestComponent.props = { context: Object };
 
         const env = await makeTestEnv(serverData);
         const target = getFixture();
 
         class Parent extends Component {
             setup() {
-                this.state = useState({
+                useSubEnv({ config: {} });
+                this.searchState = useState({
                     resModel: "animal",
-                    Component: TestComponent,
                     domain: [["type", "=", "carnivorous"]],
                     context,
                 });
             }
         }
-        Parent.template = xml`<WithSearch t-props="state"/>`;
-        Parent.components = { WithSearch };
+        Parent.template = xml`
+            <WithSearch t-props="searchState" t-slot-scope="search">
+                <TestComponent
+                    context="search.context"
+                />
+            </WithSearch>
+        `;
+        Parent.components = { WithSearch, TestComponent };
 
-        const parent = await mount(Parent, { env, target });
-        assert.deepEqual(parent.state.context, context);
+        const parent = await mount(Parent, target, { env });
+        assert.deepEqual(parent.searchState.context, context);
 
-        parent.state.domain = [["type", "=", "herbivorous"]];
+        parent.searchState.domain = [["type", "=", "herbivorous"]];
 
         await nextTick();
-        assert.deepEqual(parent.state.context, context);
-
-        parent.destroy();
+        assert.deepEqual(parent.searchState.context, context);
     });
 });

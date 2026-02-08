@@ -3,8 +3,10 @@
 
 import odoo
 
-from odoo import tools
+from odoo import fields
 from odoo.addons.point_of_sale.tests.common import TestPoSCommon
+from freezegun import freeze_time
+from dateutil.relativedelta import relativedelta
 
 
 @odoo.tests.tagged('post_install', '-at_install')
@@ -24,6 +26,7 @@ class TestPoSBasicConfig(TestPoSCommon):
         self.product3 = self.create_product('Product 3', self.categ_basic, 30.0, 15)
         self.product4 = self.create_product('Product_4', self.categ_basic, 9.96, 4.98)
         self.product99 = self.create_product('Product_99', self.categ_basic, 99, 50)
+        self.product_multi_tax = self.create_product('Multi-tax product', self.categ_basic, 100, 100, (self.taxes['tax8'] | self.taxes['tax9']).ids)
         self.adjust_inventory([self.product1, self.product2, self.product3], [100, 50, 50])
 
     def test_orders_no_invoiced(self):
@@ -94,10 +97,10 @@ class TestPoSBasicConfig(TestPoSCommon):
                     'done',
                     'Picking should be in done state.'
                 )
-                move_lines = order.picking_ids[0].move_lines
+                move_ids = order.picking_ids[0].move_ids
                 self.assertEqual(
-                    move_lines.mapped('state'),
-                    ['done'] * len(move_lines),
+                    move_ids.mapped('state'),
+                    ['done'] * len(move_ids),
                     'Move Lines should be in done state.'
                 )
 
@@ -208,10 +211,10 @@ class TestPoSBasicConfig(TestPoSCommon):
                     'done',
                     'Picking should be in done state.'
                 )
-                move_lines = order.picking_ids[0].move_lines
+                move_ids = order.picking_ids[0].move_ids
                 self.assertEqual(
-                    move_lines.mapped('state'),
-                    ['done'] * len(move_lines),
+                    move_ids.mapped('state'),
+                    ['done'] * len(move_ids),
                     'Move Lines should be in done state.'
                 )
 
@@ -303,7 +306,7 @@ class TestPoSBasicConfig(TestPoSCommon):
                     'invoice': {
                         'line_ids': [
                             {'account_id': self.sales_account.id, 'partner_id': self.customer.id, 'debit': 0, 'credit': 0, 'reconciled': False},
-                            {'account_id': self.c1_receivable.id, 'partner_id': self.customer.id, 'debit': 0, 'credit': 0, 'reconciled': False},
+                            {'account_id': self.c1_receivable.id, 'partner_id': self.customer.id, 'debit': 0, 'credit': 0, 'reconciled': True},
                         ]
                     },
                     'payments': [
@@ -460,10 +463,10 @@ class TestPoSBasicConfig(TestPoSCommon):
                     'done',
                     'Picking should be in done state.'
                 )
-                move_lines = order.picking_ids[0].move_lines
+                move_ids = order.picking_ids[0].move_ids
                 self.assertEqual(
-                    move_lines.mapped('state'),
-                    ['done'] * len(move_lines),
+                    move_ids.mapped('state'),
+                    ['done'] * len(move_ids),
                     'Move Lines should be in done state.'
                 )
 
@@ -820,18 +823,16 @@ class TestPoSBasicConfig(TestPoSCommon):
         session.post_closing_cash_details(amount_paid)
         session.close_session_from_ui()
 
-        cash_register = session.cash_register_id
-        self.assertEqual(cash_register.balance_start, 0)
-        self.assertEqual(cash_register.balance_end_real, amount_paid)
+        self.assertEqual(session.cash_register_balance_start, 0)
+        self.assertEqual(session.cash_register_balance_end_real, amount_paid)
 
         # Open/Close session without any order in cash control
         self.open_new_session(amount_paid)
         session = self.pos_session
         session.post_closing_cash_details(amount_paid)
         session.close_session_from_ui()
-        cash_register = session.cash_register_id
-        self.assertEqual(cash_register.balance_start, amount_paid)
-        self.assertEqual(cash_register.balance_end_real, amount_paid)
+        self.assertEqual(session.cash_register_balance_start, amount_paid)
+        self.assertEqual(session.cash_register_balance_end_real, amount_paid)
         self.assertEqual(self.config.last_session_closing_cash, amount_paid)
 
     def test_start_balance_with_two_pos(self):
@@ -842,10 +843,20 @@ class TestPoSBasicConfig(TestPoSCommon):
             self.open_new_session()
             session = self.pos_session
             session.set_cashbox_pos(pos_data['amount_paid'], False)
-            self.assertEqual(session.cash_register_id.balance_start, pos_data['amount_paid'])
+            self.assertEqual(session.cash_register_balance_start, pos_data['amount_paid'])
 
         pos01_config = self.config
-        pos02_config = pos01_config.copy()
+        self.cash_journal = self.env['account.journal'].create(
+            {'name': 'CASH journal', 'type': 'cash', 'code': 'CSH00'})
+        self.cash_payment_method = self.env['pos.payment.method'].create({
+            'name': 'Cash Test',
+            'journal_id': self.cash_journal.id,
+            'receivable_account_id': pos01_config.payment_method_ids.filtered(lambda s: s.is_cash_count)[
+                1].receivable_account_id.id
+        })
+        pos02_config = pos01_config.copy({
+            'payment_method_ids': self.cash_payment_method
+        })
         pos01_data = {'config': pos01_config, 'p_qty': 1, 'amount_paid': 0}
         pos02_data = {'config': pos02_config, 'p_qty': 3, 'amount_paid': 0}
 
@@ -862,3 +873,211 @@ class TestPoSBasicConfig(TestPoSCommon):
 
         open_and_check(pos01_data)
         open_and_check(pos02_data)
+
+    def test_load_pos_data_should_not_fail(self):
+        """load_pos_data shouldn't fail
+
+        (Include test conditions here if possible)
+
+        - When there are partners that belong to different company
+        """
+
+        # create a partner that belongs to different company
+        company2 = self.company_data_2['company']
+        self.env['res.partner'].create({
+            'name': 'Test',
+            'company_id': company2.id,
+        })
+
+        self.open_new_session()
+
+        # calling load_pos_data should not raise an error
+        self.pos_session.load_pos_data()
+
+    def test_invoice_past_refund(self):
+        """ Test invoicing a past refund
+
+        Orders
+        ======
+        +------------------+----------+-----------+----------+-----+-------+
+        | order            | payments | invoiced? | product  | qty | total |
+        +------------------+----------+-----------+----------+-----+-------+
+        | order 1          | cash     | no        | product3 |   1 |    30 |
+        +------------------+----------+-----------+----------+-----+-------+
+        | order 2 (return) | cash     | no        | product3 |  -1 |   -30 |
+        +------------------+----------+-----------+----------+-----+-------+
+
+        Expected Result
+        ===============
+        +---------------------+---------+
+        | account             | balance |
+        +---------------------+---------+
+        | sale (sales)        |     -30 |
+        | sale (refund)       |      30 |
+        +---------------------+---------+
+        | Total balance       |     0.0 |
+        +---------------------+---------+
+        """
+        def _before_closing_cb():
+            # Return the order
+            order_to_return = self.pos_session.order_ids.filtered(lambda order: '12345-123-1234' in order.pos_reference)
+            order_to_return.refund()
+            refund_order = self.pos_session.order_ids.filtered(lambda order: order.state == 'draft')
+
+            # Check if there's an amount to pay
+            self.assertAlmostEqual(refund_order.amount_total - refund_order.amount_paid, -30)
+
+            # Pay the refund
+            context_make_payment = {"active_ids": [refund_order.id], "active_id": refund_order.id}
+            make_payment = self.env['pos.make.payment'].with_context(context_make_payment).create({
+                'payment_method_id': self.cash_pm1.id,
+                'amount': -30,
+            })
+            make_payment.check()
+
+        self._run_test({
+            'payment_methods': self.cash_pm1 | self.bank_pm1,
+            'orders': [
+                {'pos_order_lines_ui_args': [(self.product3, 1)], 'payments': [(self.cash_pm1, 30)], 'uid': '12345-123-1234'},
+            ],
+            'before_closing_cb': _before_closing_cb,
+            'journal_entries_before_closing': {},
+            'journal_entries_after_closing': {
+                'session_journal_entry': {
+                    'line_ids': [
+                        {'account_id': self.sales_account.id, 'partner_id': False, 'debit': 0, 'credit': 30, 'reconciled': False},
+                        {'account_id': self.sales_account.id, 'partner_id': False, 'debit': 30, 'credit': 0, 'reconciled': False},
+                    ],
+                },
+                'cash_statement': [],
+                'bank_payments': [],
+            },
+        })
+
+        closed_session = self.pos_session
+        self.assertTrue(closed_session.state == 'closed', 'Session should be closed.')
+
+        return_to_invoice = closed_session.order_ids[1]
+        test_customer = self.env['res.partner'].create({'name': 'Test Customer'})
+        new_session_date = return_to_invoice.date_order + relativedelta(days=2)
+
+        with freeze_time(new_session_date):
+            # Create a new session after 2 days
+            self.open_new_session(0)
+            # Invoice the uninvoiced refund
+            return_to_invoice.write({'partner_id': test_customer.id})
+            return_to_invoice.action_pos_order_invoice()
+            # Check the credit note
+            self.assertTrue(return_to_invoice.account_move, 'Invoice should be created.')
+            self.assertEqual(return_to_invoice.account_move.move_type, 'out_refund', 'Invoice should be a credit note.')
+            self.assertEqual(return_to_invoice.account_move.invoice_date, new_session_date.date(), 'Invoice date should be the same as the session it is created in.')
+            self.assertRecordValues(return_to_invoice.account_move, [{
+                'amount_untaxed': 30,
+                'amount_tax': 0,
+                'amount_total': 30,
+            }])
+            self.assertRecordValues(return_to_invoice.account_move.line_ids, [
+                {'account_id': self.sales_account.id, 'balance': 30},
+                {'account_id': self.receivable_account.id, 'balance': -30},
+            ])
+
+    def test_invoice_past_order(self):
+        # create 1 uninvoiced order then close the session
+        self._run_test({
+            'payment_methods': self.cash_pm1 | self.bank_pm1,
+            'orders': [
+                {'pos_order_lines_ui_args': [(self.product99, 1)], 'payments': [(self.bank_pm1, 99)], 'customer': False, 'is_invoiced': False, 'uid': '00100-010-0001'},
+            ],
+            'journal_entries_before_closing': {},
+            'journal_entries_after_closing': {
+                'session_journal_entry': {
+                    'line_ids': [
+                        {'account_id': self.sales_account.id, 'partner_id': False, 'debit': 0, 'credit': 99, 'reconciled': False},
+                        {'account_id': self.bank_pm1.receivable_account_id.id, 'partner_id': False, 'debit': 99, 'credit': 0, 'reconciled': True},
+                    ],
+                },
+                'cash_statement': [],
+                'bank_payments': [
+                    ((99, ), {
+                        'line_ids': [
+                            {'account_id': self.bank_pm1.outstanding_account_id.id, 'partner_id': False, 'debit': 99, 'credit': 0, 'reconciled': False},
+                            {'account_id': self.bank_pm1.receivable_account_id.id, 'partner_id': False, 'debit': 0, 'credit': 99, 'reconciled': True},
+                        ]
+                    })
+                ],
+            },
+        })
+
+        # keep reference of the closed session
+        closed_session = self.pos_session
+        self.assertTrue(closed_session.state == 'closed', 'Session should be closed.')
+
+        order_to_invoice = closed_session.order_ids[0]
+        test_customer = self.env['res.partner'].create({'name': 'Test Customer'})
+
+        with freeze_time(fields.Datetime.now() + relativedelta(days=2)):
+            # create new session after 2 days
+            self.open_new_session(0)
+            # invoice the uninvoiced order
+            order_to_invoice.write({'partner_id': test_customer.id})
+            order_to_invoice.action_pos_order_invoice()
+            # check invoice
+            invoice = order_to_invoice.account_move
+            self.assertTrue(invoice, 'Invoice should be created.')
+            self.assertNotEqual(invoice.invoice_date, order_to_invoice.date_order.date(), 'Invoice date should not be the same as order date since the session was closed.')
+
+            # check that the payment date is set to the order date which
+            # is the real payment date and not to the invoice_date
+            payment = invoice.line_ids.full_reconcile_id.reconciled_line_ids.move_id - invoice
+            self.assertEqual(payment.date, order_to_invoice.date_order.date())
+
+    def test_invoice_past_order_affecting_taxes(self):
+        """ Test whether two taxes affecting each other don't trigger a recomputation on invoice generation
+        """
+        # Create 1 uninvoiced order then close the session
+        self._run_test({
+            'payment_methods': self.cash_pm1 | self.bank_pm1,
+            'orders': [
+                {'pos_order_lines_ui_args': [(self.product_multi_tax, 1)], 'payments': [(self.bank_pm1, 117.72)], 'customer': False, 'is_invoiced': False, 'uid': '00100-010-0001'},
+            ],
+            'journal_entries_before_closing': {},
+            'journal_entries_after_closing': {
+                'session_journal_entry': {
+                    'line_ids': [
+                        {'account_id': self.tax_received_account.id, 'partner_id': False, 'debit': 0, 'credit': 8, 'reconciled': False},
+                        {'account_id': self.tax_received_account.id, 'partner_id': False, 'debit': 0, 'credit': 9.72, 'reconciled': False},
+                        {'account_id': self.sales_account.id, 'partner_id': False, 'debit': 0, 'credit': 100, 'reconciled': False},
+                        {'account_id': self.bank_pm1.receivable_account_id.id, 'partner_id': False, 'debit': 117.72, 'credit': 0, 'reconciled': True},
+                    ],
+                },
+                'cash_statement': [],
+                'bank_payments': [
+                    ((117.72, ), {
+                        'line_ids': [
+                            {'account_id': self.bank_pm1.outstanding_account_id.id, 'partner_id': False, 'debit': 117.72, 'credit': 0, 'reconciled': False},
+                            {'account_id': self.bank_pm1.receivable_account_id.id, 'partner_id': False, 'debit': 0, 'credit': 117.72, 'reconciled': True},
+                        ]
+                    })
+                ],
+            },
+        })
+
+        closed_session = self.pos_session
+        self.assertTrue(closed_session.state == 'closed', 'Session should be closed.')
+
+        order_to_invoice = closed_session.order_ids[0]
+        test_customer = self.env['res.partner'].create({'name': 'Test Customer'})
+
+        # Create a new session
+        self.open_new_session(0)
+        # Invoice the uninvoiced order
+        order_to_invoice.write({'partner_id': test_customer.id})
+        order_to_invoice.action_pos_order_invoice()
+        # Check the invoice for the lines
+        self.assertTrue(order_to_invoice.account_move, 'Invoice should be created.')
+        self.assertRecordValues(order_to_invoice.account_move.line_ids, [
+            {'account_id': self.sales_account.id, 'balance': -100, 'reconciled': False},
+            {'account_id': self.tax_received_account.id, 'balance': -8, 'reconciled': False},
+            {'account_id': self.tax_received_account.id, 'balance': -9.72, 'reconciled': False},
+            {'account_id': self.receivable_account.id, 'balance': 117.72, 'reconciled': True},
+        ])

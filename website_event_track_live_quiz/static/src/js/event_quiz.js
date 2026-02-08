@@ -1,13 +1,8 @@
-odoo.define('website_event_track_live_quiz.event_quiz', function (require) {
-'use strict';
+/** @odoo-module **/
 
-var Quiz = require('website_event_track_quiz.event.quiz');
+import Quiz from "@website_event_track_quiz/js/event_quiz";
 
 var WebsiteEventTrackSuggestionQuiz = Quiz.include({
-    xmlDependencies: Quiz.prototype.xmlDependencies.concat([
-        '/website_event_track_live_quiz/static/src/xml/website_event_track_quiz_templates.xml',
-    ]),
-
     /**
      * @override
      */
@@ -41,11 +36,8 @@ var WebsiteEventTrackSuggestionQuiz = Quiz.include({
 
     _getTrackSuggestion: function () {
         var self = this;
-        return this._rpc({
-            route: '/event_track/get_track_suggestion',
-            params: {
-                track_id: this.track.id,
-            }
+        return this.rpc('/event_track/get_track_suggestion', {
+            track_id: this.track.id,
         }).then(function (suggestion) {
             self.nextSuggestion = suggestion;
             return Promise.resolve();
@@ -53,6 +45,4 @@ var WebsiteEventTrackSuggestionQuiz = Quiz.include({
     }
 });
 
-return WebsiteEventTrackSuggestionQuiz;
-
-});
+export default WebsiteEventTrackSuggestionQuiz;

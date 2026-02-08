@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
 
 import datetime
@@ -37,18 +36,22 @@ class Users(models.Model):
         #   |           |
         #   |           | <--- `stop_dt_utc` = `stop_dt` if user lives in an area of West longitude (positive shift compared to UTC, America for example)
         #   |           |
-        now_utc = datetime.datetime.utcnow()
-        start_dt_utc = start_dt = now_utc.replace(tzinfo=UTC)
-        stop_dt_utc = datetime.datetime.combine(now_utc.date(), datetime.time.max).replace(tzinfo=UTC)
+        start_dt_utc = start_dt = datetime.datetime.now(UTC)
+        stop_dt_utc = UTC.localize(datetime.datetime.combine(start_dt.date(), datetime.time.max))
 
         tz = self.env.user.tz
         if tz:
             user_tz = timezone(tz)
             start_dt = start_dt_utc.astimezone(user_tz)
-            stop_dt = datetime.datetime.combine(start_dt.date(), datetime.time.max).replace(tzinfo=user_tz)
+            stop_dt = user_tz.localize(datetime.datetime.combine(start_dt.date(), datetime.time.max))
             stop_dt_utc = stop_dt.astimezone(UTC)
 
         start_date = start_dt.date()
+
+        current_user_non_declined_attendee_ids = self.env['calendar.attendee']._search([
+            ('partner_id', '=', self.env.user.partner_id.id),
+            ('state', '!=', 'declined'),
+        ])
 
         return ['&', '|',
                 '&',
@@ -59,26 +62,32 @@ class Users(models.Model):
                 '&',
                     ['allday', '=', True],
                     ['start_date', '=', fields.Date.to_string(start_date)],
-                ('attendee_ids.partner_id', '=', self.env.user.partner_id.id)]
+                ('attendee_ids', 'in', current_user_non_declined_attendee_ids)]
 
     @api.model
     def systray_get_activities(self):
         res = super(Users, self).systray_get_activities()
 
-        meetings_lines = self.env['calendar.event'].search_read(
+        EventModel = self.env['calendar.event']
+        meetings_lines = EventModel.search_read(
             self._systray_get_calendar_event_domain(),
-            ['id', 'start', 'name', 'allday', 'attendee_status'],
+            ['id', 'start', 'name', 'allday'],
             order='start')
-        meetings_lines = [line for line in meetings_lines if line['attendee_status'] != 'declined']
         if meetings_lines:
             meeting_label = _("Today's Meetings")
             meetings_systray = {
+                'id': self.env['ir.model']._get('calendar.event').id,
                 'type': 'meeting',
                 'name': meeting_label,
                 'model': 'calendar.event',
-                'icon': modules.module.get_module_icon(self.env['calendar.event']._original_module),
+                'icon': modules.module.get_module_icon(EventModel._original_module),
                 'meetings': meetings_lines,
+                "view_type": EventModel._systray_view,
             }
             res.insert(0, meetings_systray)
 
         return res
+
+    @api.model
+    def check_calendar_credentials(self):
+        return {}

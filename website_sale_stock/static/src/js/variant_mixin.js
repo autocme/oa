@@ -1,18 +1,13 @@
-odoo.define('website_sale_stock.VariantMixin', function (require) {
-'use strict';
+/** @odoo-module **/
 
-const {Markup} = require('web.utils');
-var VariantMixin = require('sale.VariantMixin');
-var publicWidget = require('web.public.widget');
-var ajax = require('web.ajax');
-var core = require('web.core');
-var QWeb = core.qweb;
+import VariantMixin from "@website_sale/js/sale_variant_mixin";
+import publicWidget from "@web/legacy/js/public/public_widget";
+import { renderToFragment } from "@web/core/utils/render";
+import { formatFloat } from "@web/core/utils/numbers";
 
-const loadXml = async () => {
-    return ajax.loadXML('/website_sale_stock/static/src/xml/website_sale_stock_product_availability.xml', QWeb);
-};
+import "@website_sale/js/website_sale";
 
-require('website_sale.website_sale');
+import { markup } from "@odoo/owl";
 
 /**
  * Addition to the variant_mixin._onChangeCombination
@@ -29,7 +24,7 @@ require('website_sale.website_sale');
  * @param {$.Element} $parent
  * @param {Array} combination
  */
-VariantMixin._onChangeCombinationStock = function (ev, $parent, combination) {
+VariantMixin._onChangeCombinationStock = async function (ev, $parent, combination) {
     let product_id = 0;
     // needed for list view of variants
     if ($parent.find('input.product_id:checked').length) {
@@ -47,11 +42,13 @@ VariantMixin._onChangeCombinationStock = function (ev, $parent, combination) {
 
     const $addQtyInput = $parent.find('input[name="add_qty"]');
     let qty = $addQtyInput.val();
+    let ctaWrapper = $parent[0].querySelector('#o_wsale_cta_wrapper');
+    ctaWrapper.classList.replace('d-none', 'd-flex');
+    ctaWrapper.classList.remove('out_of_stock');
 
-    $parent.find('#add_to_cart').removeClass('out_of_stock');
-    $parent.find('.o_we_buy_now').removeClass('out_of_stock');
     if (combination.product_type === 'product' && !combination.allow_out_of_stock_order) {
-        combination.free_qty -= parseInt(combination.cart_qty);
+        const unavailableQty = await VariantMixin._getUnavailableQty(combination);
+        combination.free_qty -= unavailableQty;
         $addQtyInput.data('max', combination.free_qty || 1);
         if (combination.free_qty < 0) {
             combination.free_qty = 0;
@@ -61,23 +58,37 @@ VariantMixin._onChangeCombinationStock = function (ev, $parent, combination) {
             $addQtyInput.val(qty);
         }
         if (combination.free_qty < 1) {
-            $parent.find('#add_to_cart').addClass('disabled out_of_stock');
-            $parent.find('.o_we_buy_now').addClass('disabled out_of_stock');
+            ctaWrapper.classList.replace('d-flex', 'd-none');
+            ctaWrapper.classList.add('out_of_stock');
         }
     }
 
-    loadXml().then(function (result) {
-        $('.oe_website_sale')
-            .find('.availability_message_' + combination.product_template)
-            .remove();
-        combination.has_out_of_stock_message = $(combination.out_of_stock_message).text() !== '';
-        combination.out_of_stock_message = Markup(combination.out_of_stock_message);
-        const $message = $(QWeb.render(
-            'website_sale_stock.product_availability',
-            combination
-        ));
-        $('div.availability_messages').html($message);
-    });
+    // needed xml-side for formatting of remaining qty
+    combination.formatQuantity = (qty) => {
+        if (Number.isInteger(qty)) {
+            return qty;
+        } else {
+            const decimals = Math.max(
+                0,
+                Math.ceil(-Math.log10(combination.uom_rounding))
+            );
+            return formatFloat(qty, {digits: [false, decimals]});
+        }
+    }
+
+    $('.oe_website_sale')
+        .find('.availability_message_' + combination.product_template)
+        .remove();
+    combination.has_out_of_stock_message = $(combination.out_of_stock_message).text() !== '';
+    combination.out_of_stock_message = markup(combination.out_of_stock_message);
+    $('div.availability_messages').append(renderToFragment(
+        'website_sale_stock.product_availability',
+        combination
+    ));
+};
+
+VariantMixin._getUnavailableQty = async function (combination) {
+    return parseInt(combination.cart_qty);
 };
 
 publicWidget.registry.WebsiteSale.include({
@@ -102,6 +113,4 @@ publicWidget.registry.WebsiteSale.include({
     }
 });
 
-return VariantMixin;
-
-});
+export default VariantMixin;

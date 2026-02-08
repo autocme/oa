@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-from odoo.fields import Command
+from odoo.fields import Command, Datetime
 from odoo.exceptions import ValidationError
 from odoo.tests import tagged
 
@@ -27,7 +27,7 @@ class TestTaskDependencies(TestProjectCommon):
 
     def flush_tracking(self):
         """ Force the creation of tracking values. """
-        self.env['base'].flush()
+        self.env.flush_all()
         self.cr.precommit.run()
 
     def test_task_dependencies(self):
@@ -93,43 +93,6 @@ class TestTaskDependencies(TestProjectCommon):
             })
         self.assertEqual(len(self.task_2.depend_on_ids), 1, "The number of dependencies should no change in the task 2 because of a cyclic dependency.")
 
-    def test_tracking_dependencies(self):
-        # Enable the company setting
-        self.env['res.config.settings'].create({
-            'group_project_task_dependencies': True
-        }).execute()
-        # `depend_on_ids` is tracked
-        self.task_1.with_context(mail_notrack=True).write({
-            'depend_on_ids': [Command.link(self.task_2.id)]
-        })
-        self.cr.precommit.clear()
-        # Check that changing a dependency tracked field in task_2 logs a message in task_1.
-        self.task_2.write({'date_deadline': date(1983, 3, 1)}) # + 1 message in task_1 and task_2
-        self.flush_tracking()
-        self.assertEqual(len(self.task_1.message_ids), 1,
-            'Changing the deadline on task 2 should have logged a message in task 1.')
-
-        # Check that changing a dependency tracked field in task_1 does not log a message in task_2.
-        self.task_1.date_deadline = date(2020, 1, 2) # + 1 message in task_1
-        self.flush_tracking()
-        self.assertEqual(len(self.task_2.message_ids), 1,
-            'Changing the deadline on task 1 should not have logged a message in task 2.')
-
-        # Check that changing a field that is not tracked at all on task 2 does not impact task 1.
-        self.task_2.color = 100 # no new message
-        self.flush_tracking()
-        self.assertEqual(len(self.task_1.message_ids), 2,
-            'Changing the color on task 2 should not have logged a message in task 1 since it is not tracked.')
-
-        # Check that changing multiple fields does not log more than one message.
-        self.task_2.write({
-            'date_deadline': date(2020, 1, 1),
-            'kanban_state': 'blocked',
-        }) # + 1 message in task_1 and task_2
-        self.flush_tracking()
-        self.assertEqual(len(self.task_1.message_ids), 3,
-            'Changing multiple fields on task 2 should only log one message in task 1.')
-
     def test_task_dependencies_settings_change(self):
 
         def set_task_dependencies_setting(enabled):
@@ -140,7 +103,7 @@ class TestTaskDependencies(TestProjectCommon):
             'allow_task_dependencies': False,
         })
 
-        # As the the Project General Setting group_project_task_dependencies needs to be toggled in order
+        # As the Project General Setting group_project_task_dependencies needs to be toggled in order
         # to be applied on the existing projects we need to force it so that it does not depends on anything
         # (like demo data for instance)
         set_task_dependencies_setting(False)
@@ -161,9 +124,9 @@ class TestTaskDependencies(TestProjectCommon):
         self.assertFalse(self.project_ducks.allow_task_dependencies, "New Projects allow_task_dependencies should default to group_project_task_dependencies")
 
     def test_duplicate_project_with_task_dependencies(self):
-
         self.project_pigs.allow_task_dependencies = True
         self.task_1.depend_on_ids = self.task_2
+        self.task_1.date_deadline = Datetime.now()
         pigs_copy = self.project_pigs.copy()
 
         task1_copy = pigs_copy.task_ids.filtered(lambda t: t.name == 'Pigs UserTask')
@@ -174,6 +137,7 @@ class TestTaskDependencies(TestProjectCommon):
 
         self.assertEqual(task1_copy.depend_on_ids.ids, [task2_copy.id],
                          "Copy should only create a relation between both copy if they are both part of the project")
+        self.assertEqual(task1_copy.date_deadline, self.task_1.date_deadline, "date_deadline should be copied")
 
         task1_copy.depend_on_ids = self.task_1
 
@@ -182,3 +146,53 @@ class TestTaskDependencies(TestProjectCommon):
 
         self.assertEqual(task1_copy_copy.depend_on_ids.ids, [self.task_1.id],
                          "Copy should not alter the relation if the other task is in a different project")
+
+    def test_duplicate_project_with_subtask_dependencies(self):
+        self.project_goats.allow_task_dependencies = True
+        parent_task = self.env['project.task'].with_context({'mail_create_nolog': True}).create({
+            'name': 'Parent Task',
+            'project_id': self.project_goats.id,
+            'child_ids': [
+                Command.create({'name': 'Node 1', 'project_id': self.project_goats.id}),
+                Command.create({'name': 'SuperNode 2', 'project_id': self.project_goats.id, 'child_ids': [Command.create({'name': 'Node 2', 'project_id': self.project_goats.id})]}),
+                Command.create({'name': 'Node 3', 'project_id': self.project_goats.id}),
+            ],
+        })
+
+        node1 = parent_task.child_ids[0]
+        node2 = parent_task.child_ids[1].child_ids
+        node3 = parent_task.child_ids[2]
+
+        node1.dependent_ids = node2
+        node2.dependent_ids = node3
+
+        # Test copying the whole Node tree
+        parent_task_copy = parent_task.copy()
+        parent_copy_node1 = parent_task_copy.child_ids[0]
+        parent_copy_node2 = parent_task_copy.child_ids[1].child_ids
+        parent_copy_node3 = parent_task_copy.child_ids[2]
+
+        # Relation should only be copied between the newly created node
+        self.assertEqual(len(parent_copy_node1.dependent_ids), 1)
+        self.assertEqual(parent_copy_node1.dependent_ids.ids, parent_copy_node2.ids, 'Node1copy - Node2copy relation should be present')
+        self.assertEqual(len(parent_copy_node2.dependent_ids), 1)
+        self.assertEqual(parent_copy_node2.dependent_ids.ids, parent_copy_node3.ids, 'Node2copy - Node3copy relation should be present')
+
+        # Original Node should not have new relation
+        self.assertEqual(len(node1.dependent_ids), 1)
+        self.assertEqual(node1.dependent_ids.ids, node2.ids, 'Only Node1 - Node2 relation should be present')
+        self.assertEqual(len(node2.dependent_ids), 1)
+        self.assertEqual(node2.dependent_ids.ids, node3.ids, 'Only Node2 - Node3 relation should be present')
+
+        # Test copying Node inside the chain
+        single_copy_node2 = node2.copy()
+
+        # Relation should be present between the other original node and the newly copied node
+        self.assertEqual(len(single_copy_node2.depend_on_ids), 1)
+        self.assertEqual(single_copy_node2.depend_on_ids.ids, node1.ids, 'Node1 - Node2copy relation should be present')
+        self.assertEqual(len(single_copy_node2.dependent_ids), 1)
+        self.assertEqual(single_copy_node2.dependent_ids.ids, node3.ids, 'Node2copy - Node3 relation should be present')
+
+        # Original Node should have new relations
+        self.assertEqual(len(node1.dependent_ids), 2)
+        self.assertEqual(len(node3.depend_on_ids), 2)

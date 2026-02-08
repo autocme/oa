@@ -75,7 +75,6 @@ class TestCertificationBadge(common.TestSurveyCommon):
                     'certification_give_badge': True,
                     'certification_badge_id': self.certification_badge.id
                 })
-                self.certification_survey.flush()
 
     def test_badge_configuration(self):
         """ Test badge synchronization """
@@ -145,9 +144,9 @@ class TestCertificationBadge(common.TestSurveyCommon):
         with self.assertRaises(AccessError):
             self.certification_badge.with_user(self.user_emp).write({'description': "I'm a dude who think that has every right on the Iron Throne"})
         with self.assertRaises(AccessError):
-            self.certification_badge.with_user(self.user_portal).write({'description': "Guy, you just can't do that !"})
+            self.certification_badge.with_user(self.user_portal).write({'description': "Guy, you just can't do that!"})
         with self.assertRaises(AccessError):
-            self.certification_badge.with_user(self.user_public).write({'description': "What did you expect ? Schwepps !"})
+            self.certification_badge.with_user(self.user_public).write({'description': "What did you expect ? Schwepps!"})
 
     def test_badge_configuration_multi(self):
         vals = {

@@ -1,12 +1,19 @@
 # -*- coding: utf-8 -*-
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
 
-from werkzeug.urls import url_quote
+from urllib.parse import quote
 
 from odoo import api, models, fields, tools
 
-SUPPORTED_IMAGE_MIMETYPES = ['image/gif', 'image/jpe', 'image/jpeg', 'image/jpg', 'image/png', 'image/svg+xml']
-SUPPORTED_IMAGE_EXTENSIONS = ['.gif', '.jpe', '.jpeg', '.jpg', '.png', '.svg']
+SUPPORTED_IMAGE_MIMETYPES = {
+    'image/gif': '.gif',
+    'image/jpe': '.jpe',
+    'image/jpeg': '.jpeg',
+    'image/jpg': '.jpg',
+    'image/png': '.png',
+    'image/svg+xml': '.svg',
+    'image/webp': '.webp',
+}
 
 
 class IrAttachment(models.Model):
@@ -17,7 +24,7 @@ class IrAttachment(models.Model):
     image_src = fields.Char(compute='_compute_image_src')
     image_width = fields.Integer(compute='_compute_image_size')
     image_height = fields.Integer(compute='_compute_image_size')
-    original_id = fields.Many2one('ir.attachment', string="Original (unoptimized, unresized) attachment", index=True)
+    original_id = fields.Many2one('ir.attachment', string="Original (unoptimized, unresized) attachment")
 
     def _compute_local_url(self):
         for attachment in self:
@@ -30,12 +37,17 @@ class IrAttachment(models.Model):
     def _compute_image_src(self):
         for attachment in self:
             # Only add a src for supported images
-            if attachment.mimetype not in SUPPORTED_IMAGE_MIMETYPES:
+            if not attachment.mimetype or attachment.mimetype.split(';')[0] not in SUPPORTED_IMAGE_MIMETYPES:
                 attachment.image_src = False
                 continue
 
             if attachment.type == 'url':
-                attachment.image_src = attachment.url
+                if attachment.url.startswith('/'):
+                    # Local URL
+                    attachment.image_src = attachment.url
+                else:
+                    name = quote(attachment.name)
+                    attachment.image_src = '/web/image/%s-redirect/%s' % (attachment.id, name)
             else:
                 # Adding unique in URLs for cache-control
                 unique = attachment.checksum[:8]
@@ -45,7 +57,7 @@ class IrAttachment(models.Model):
                     separator = '&' if '?' in attachment.url else '?'
                     attachment.image_src = '%s%sunique=%s' % (attachment.url, separator, unique)
                 else:
-                    name = url_quote(attachment.name)
+                    name = quote(attachment.name)
                     attachment.image_src = '/web/image/%s-%s/%s' % (attachment.id, unique, name)
 
     @api.depends('datas')
@@ -63,3 +75,12 @@ class IrAttachment(models.Model):
         """Return a dict with the values that we need on the media dialog."""
         self.ensure_one()
         return self._read_format(['id', 'name', 'description', 'mimetype', 'checksum', 'url', 'type', 'res_id', 'res_model', 'public', 'access_token', 'image_src', 'image_width', 'image_height', 'original_id'])[0]
+
+    def _can_bypass_rights_on_media_dialog(self, **attachment_data):
+        """ This method is meant to be overridden, for instance to allow to
+        create image attachment despite the user not allowed to create
+        attachment, eg:
+        - Portal user uploading an image on the forum (bypass acl)
+        - Non admin user uploading an unsplash image (bypass binary/url check)
+        """
+        return False

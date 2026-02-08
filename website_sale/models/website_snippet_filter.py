@@ -14,14 +14,14 @@ class WebsiteSnippetFilter(models.Model):
 
     @api.model
     def _get_website_currency(self):
-        pricelist = self.env['website'].get_current_website().get_current_pricelist()
-        return pricelist.currency_id
+        website = self.env['website'].get_current_website()
+        return website.currency_id
 
     def _get_hardcoded_sample(self, model):
         samples = super()._get_hardcoded_sample(model)
         if model._name == 'product.product':
             data = [{
-                'image_512': b'/product/static/img/product_chair.png',
+                'image_512': b'/product/static/img/product_chair.jpg',
                 'display_name': _('Chair'),
                 'description_sale': _('Sit comfortably'),
             }, {
@@ -33,7 +33,7 @@ class WebsiteSnippetFilter(models.Model):
                 'display_name': _('Whiteboard'),
                 'description_sale': _('With three feet'),
             }, {
-                'image_512': b'/product/static/img/product_product_27-image.png',
+                'image_512': b'/product/static/img/product_product_27-image.jpg',
                 'display_name': _('Drawer'),
                 'description_sale': _('On wheels'),
             }, {
@@ -41,7 +41,7 @@ class WebsiteSnippetFilter(models.Model):
                 'display_name': _('Box'),
                 'description_sale': _('Reinforced for heavy loads'),
             }, {
-                'image_512': b'/product/static/img/product_product_9-image.png',
+                'image_512': b'/product/static/img/product_product_9-image.jpg',
                 'display_name': _('Bin'),
                 'description_sale': _('Pedal-based opening system'),
             }]
@@ -71,7 +71,7 @@ class WebsiteSnippetFilter(models.Model):
         search_domain = context.get('search_domain')
         limit = context.get('limit')
         domain = expression.AND([
-            [('website_published', '=', True)],
+            [('website_published', '=', True)] if self.env.user._is_public() or self.env.user._is_portal() else [],
             website.website_domain(),
             [('company_id', 'in', [False, website.company_id.id])],
             search_domain or [],
@@ -83,7 +83,7 @@ class WebsiteSnippetFilter(models.Model):
         products = []
         sale_orders = self.env['sale.order'].sudo().search([
             ('website_id', '=', website.id),
-            ('state', 'in', ('sale', 'done')),
+            ('state', '=', 'sale'),
         ], limit=8, order='date_order DESC')
         if sale_orders:
             sold_products = [p.product_id.id for p in sale_orders.order_line]
@@ -102,16 +102,22 @@ class WebsiteSnippetFilter(models.Model):
         visitor = self.env['website.visitor']._get_visitor_from_request()
         if visitor:
             excluded_products = website.sale_get_order().order_line.product_id.ids
-            tracked_products = self.env['website.track'].sudo().read_group(
+            tracked_products = self.env['website.track'].sudo()._read_group(
                 [('visitor_id', '=', visitor.id), ('product_id', '!=', False), ('product_id.website_published', '=', True), ('product_id', 'not in', excluded_products)],
-                ['product_id', 'visit_datetime:max'], ['product_id'], limit=limit, orderby='visit_datetime DESC')
-            products_ids = [product['product_id'][0] for product in tracked_products]
+                ['product_id'], limit=limit, order='visit_datetime:max DESC')
+            products_ids = [product.id for [product] in tracked_products]
             if products_ids:
                 domain = expression.AND([
                     domain,
                     [('id', 'in', products_ids)],
                 ])
-                products = self.env['product.product'].with_context(display_default_code=False, add2cart_rerender=True).search(domain, limit=limit)
+                filtered_ids = set(self.env['product.product']._search(domain, limit=limit))
+                # `search` will not keep the order of tracked products; however, we want to keep
+                # that order (latest viewed first).
+                products = self.env['product.product'].with_context(
+                    display_default_code=False, add2cart_rerender=True,
+                ).browse([product_id for product_id in products_ids if product_id in filtered_ids])
+
         return products
 
     def _get_products_recently_sold_with(self, website, limit, domain, context):
@@ -121,7 +127,7 @@ class WebsiteSnippetFilter(models.Model):
             current_id = int(current_id)
             sale_orders = self.env['sale.order'].sudo().search([
                 ('website_id', '=', website.id),
-                ('state', 'in', ('sale', 'done')),
+                ('state', '=', 'sale'),
                 ('order_line.product_id.product_tmpl_id', '=', current_id),
             ], limit=8, order='date_order DESC')
             if sale_orders:
@@ -157,4 +163,23 @@ class WebsiteSnippetFilter(models.Model):
                         [('id', 'in', products_ids)],
                     ])
                     products = self.env['product.product'].with_context(display_default_code=False).search(domain, limit=limit)
+        return products
+
+    def _get_products_alternative_products(self, website, limit, domain, context):
+        products = self.env['product.product']
+        current_id = context.get('product_template_id')
+        if not current_id:
+            return products
+        current_template = self.env['product.template'].browse(int(current_id))
+        if current_template.exists():
+            excluded_products = website.sale_get_order().order_line.product_id
+            excluded_products |= current_template.product_variant_ids
+            included_products = current_template.alternative_product_ids.product_variant_ids
+            products = included_products - excluded_products
+            if products:
+                domain = expression.AND([
+                    domain,
+                    [('id', 'in', products.ids)],
+                ])
+                products = self.env['product.product'].with_context(display_default_code=False).search(domain, limit=limit)
         return products

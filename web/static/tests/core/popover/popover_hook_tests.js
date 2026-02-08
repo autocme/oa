@@ -3,15 +3,15 @@
 import { usePopover } from "@web/core/popover/popover_hook";
 import { popoverService } from "@web/core/popover/popover_service";
 import { registry } from "@web/core/registry";
-import { registerCleanup } from "../../helpers/cleanup";
 import { clearRegistryWithCleanup, makeTestEnv } from "../../helpers/mock_env";
-import { getFixture, nextTick } from "../../helpers/utils";
+import { click, destroy, getFixture, mount, nextTick } from "../../helpers/utils";
 
-const { Component, mount } = owl;
-const { xml } = owl.tags;
+import { Component, xml } from "@odoo/owl";
+import { hotkeyService } from "@web/core/hotkeys/hotkey_service";
+import { makeFakeLocalizationService } from "../../helpers/mock_services";
 
 let env;
-let fixture;
+let target;
 let popoverTarget;
 
 const mainComponents = registry.category("main_components");
@@ -36,18 +36,15 @@ PseudoWebClient.template = xml`
 QUnit.module("Popover hook", {
     async beforeEach() {
         clearRegistryWithCleanup(mainComponents);
-        registry.category("services").add("popover", popoverService);
-
-        fixture = getFixture();
+        registry
+            .category("services")
+            .add("popover", popoverService)
+            .add("localization", makeFakeLocalizationService())
+            .add("hotkey", hotkeyService);
+        target = getFixture();
         env = await makeTestEnv();
-        const pseudoWebClient = await mount(PseudoWebClient, {
-            env,
-            target: fixture,
-        });
-        registerCleanup(() => {
-            pseudoWebClient.destroy();
-        });
-        popoverTarget = fixture.querySelector("#anchor");
+        await mount(PseudoWebClient, target, { env });
+        popoverTarget = target.querySelector("#anchor");
     },
 });
 
@@ -57,34 +54,85 @@ QUnit.test("close popover when component is unmounted", async (assert) => {
 
     class CompWithPopover extends Component {
         setup() {
-            this.popover = usePopover();
+            this.popover = usePopover(Comp);
         }
     }
     CompWithPopover.template = xml`<div />`;
 
-    const comp1 = await mount(CompWithPopover, { env, target: fixture });
-    comp1.popover.add(popoverTarget, Comp, { id: "comp1" });
+    const comp1 = await mount(CompWithPopover, target, { env });
+    comp1.popover.open(popoverTarget, { id: "comp1" });
     await nextTick();
 
-    const comp2 = await mount(CompWithPopover, { env, target: fixture });
-    comp2.popover.add(popoverTarget, Comp, { id: "comp2" });
+    const comp2 = await mount(CompWithPopover, target, { env });
+    comp2.popover.open(popoverTarget, { id: "comp2" });
     await nextTick();
 
-    assert.containsN(fixture, ".o_popover", 2);
-    assert.containsOnce(fixture, ".o_popover #comp1");
-    assert.containsOnce(fixture, ".o_popover #comp2");
+    assert.containsN(target, ".o_popover", 2);
+    assert.containsOnce(target, ".o_popover #comp1");
+    assert.containsOnce(target, ".o_popover #comp2");
 
-    comp1.destroy();
+    destroy(comp1);
     await nextTick();
 
-    assert.containsOnce(fixture, ".o_popover");
-    assert.containsNone(fixture, ".o_popover #comp1");
-    assert.containsOnce(fixture, ".o_popover #comp2");
+    assert.containsOnce(target, ".o_popover");
+    assert.containsNone(target, ".o_popover #comp1");
+    assert.containsOnce(target, ".o_popover #comp2");
 
-    comp2.destroy();
+    destroy(comp2);
     await nextTick();
 
-    assert.containsNone(fixture, ".o_popover");
-    assert.containsNone(fixture, ".o_popover #comp1");
-    assert.containsNone(fixture, ".o_popover #comp2");
+    assert.containsNone(target, ".o_popover");
+    assert.containsNone(target, ".o_popover #comp1");
+    assert.containsNone(target, ".o_popover #comp2");
+});
+
+QUnit.test("popover opened from another", async (assert) => {
+    class Comp extends Component {
+        static id = 0;
+        static template = xml`
+            <div class="p-4">
+                <button class="pop-open" t-on-click="(ev) => this.popover.open(ev.target, {})">open popover</button>
+            </div>
+        `;
+        setup() {
+            this.popover = usePopover(Comp, {
+                popoverClass: `popover-${++Comp.id}`,
+            });
+        }
+    }
+
+    await mount(Comp, target, { env });
+
+    await click(target, ".pop-open");
+    assert.containsOnce(target, ".popover-1", "open first popover");
+
+    await click(target, ".popover-1 .pop-open");
+    assert.containsN(target, ".o_popover", 2, "open second popover from the first one");
+    assert.containsOnce(target, ".popover-1");
+    assert.containsOnce(target, ".popover-2");
+
+    await click(target, ".popover-2 .pop-open");
+    assert.containsN(target, ".o_popover", 3, "open third popover from the second one");
+    assert.containsOnce(target, ".popover-1");
+    assert.containsOnce(target, ".popover-2");
+    assert.containsOnce(target, ".popover-3");
+
+    await click(target, ".popover-3");
+    assert.containsN(target, ".o_popover", 3, "clicking inside third popover closes nothing");
+    assert.containsOnce(target, ".popover-1");
+    assert.containsOnce(target, ".popover-2");
+    assert.containsOnce(target, ".popover-3");
+
+    await click(target, ".popover-2");
+    assert.containsN(
+        target,
+        ".o_popover",
+        2,
+        "clicking inside second popover closes third popover"
+    );
+    assert.containsOnce(target, ".popover-1");
+    assert.containsOnce(target, ".popover-2");
+
+    await click(target, "#close");
+    assert.containsNone(target, ".o_popover", "clicking out of any popover closes them all");
 });

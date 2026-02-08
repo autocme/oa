@@ -2,30 +2,8 @@
 /// This file contains all variables and mixins that are specific to the editor.
 ///
 
-// OVERRIDES FOR EDITOR WITH SNIPPETS
-body.editor_enable.editor_has_snippets {
-    padding-right: $o-we-sidebar-width !important;
-
-    #web_editor-top-edit .note-popover .popover {
-        right: $o-we-sidebar-width !important;
-    }
-
-    .modal:not(.o_technical_modal) {
-        top: 0 !important;
-        // set z-index so customize options visible on dialog.
-        z-index: $o-we-overlay-zindex - 1;
-        // just for fake backdrop effect
-        background-color: rgba(66, 66, 66, 0.4);
-    }
-    > .oe_overlay.ui-draggable {
-        .o_handles {
-            display: none;
-        }
-    }
-}
-
 // Mobile fix for mass mailing
-@include media-breakpoint-down(md) {
+@include media-breakpoint-down(lg) {
     body.editor_enable.editor_has_snippets {
         #web_editor-top-edit {
             position: initial !important;
@@ -47,7 +25,7 @@ body.editor_enable.editor_has_snippets {
     width: 77px;
     background-color: $o-we-sidebar-blocks-content-snippet-bg;
 
-    &.ui-draggable-dragging {
+    &.o_draggable_dragging {
         transform: rotate(-3deg) scale(1.2);
         box-shadow: 0 5px 25px -10px black;
         transition: transform 0.3s, box-shadow 0.3s;
@@ -164,12 +142,13 @@ body.editor_enable.editor_has_snippets {
     border-radius: $o-we-sidebar-content-field-border-radius;
     background-color: $o-we-sidebar-content-field-clickable-bg;
     color: $o-we-sidebar-content-field-clickable-color;
+    text-align: center;
 
     &:not([disabled]):hover, &.active:not(.o_we_no_toggle) {
         @include we-svg-icon($o-we-sidebar-content-field-pressed-color, $subdle-opacity: .75);
     }
 
-    &.active:not(.o_we_no_toggle) {
+    &.active:not(.o_we_no_toggle, .o_we_collapse_toggler) {
         background-color: $o-we-sidebar-content-field-pressed-bg;
     }
 }
@@ -225,8 +204,7 @@ body.editor_enable.editor_has_snippets {
 
 // SNIPPET PANEL
 #oe_snippets {
-    @include o-w-preserve-btn;
-
+    @include o-input-number-no-arrows();
     @include o-position-absolute(var(--o-we-toolbar-height), 0, 0, auto);
     position: fixed;
     z-index: $o-we-zindex;
@@ -243,18 +221,6 @@ body.editor_enable.editor_has_snippets {
 
     transition: transform 400ms ease 0s;
     transform: translateX(100%);
-
-    &.o_loaded {
-        transform: none;
-        > .o_we_customize_panel .oe-toolbar {
-            #style.dropdown, #font-size.dropdown {
-                > .dropdown-menu {
-                    overflow-y: scroll;
-                    max-height: 280px;
-                }
-            }
-        }
-    }
 
     *::selection {
         background: lighten($o-we-accent, 9);
@@ -294,7 +260,7 @@ body.editor_enable.editor_has_snippets {
             }
             &:focus, &:active, &:focus:active {
                 outline: none;
-                box-shadow: none;
+                box-shadow: none !important;
             }
         }
 
@@ -304,16 +270,44 @@ body.editor_enable.editor_has_snippets {
         }
     }
 
+    %o_we_sublevel > we-title::before {
+        content: "└"; // TODO The size and look of this depends on the
+                      // browser default font, we should use a SVG instead.
+        display: inline-block;
+        margin-right: 0.4em;
+
+        .o_rtl & {
+            transform: scaleX(-1);
+        }
+    }
+    @for $level from 1 through 3 {
+        .o_we_sublevel_#{$level} {
+            @extend %o_we_sublevel;
+
+            @if $level > 1 {
+                > we-title {
+                    padding-left: ($level - 1) * 0.6em;
+                }
+            }
+        }
+    }
+
     #snippets_menu {
         flex: 0 0 auto;
         display: flex;
+        align-items: end;
         background-color: $o-we-sidebar-tabs-bg;
         box-shadow: $o-we-item-standup-top rgba($o-we-item-standup-color-light, .2);
         color: $o-we-sidebar-tabs-color;
+        height: $o-we-sidebar-tabs-height;
 
         > button {
             @extend %we-generic-tab-button;
         }
+    }
+
+    .tooltip {
+        pointer-events: none !important;
     }
 
     // Snippet filter input
@@ -398,6 +392,7 @@ body.editor_enable.editor_has_snippets {
                 &.o_snippet_install {
                     .btn.o_install_btn {
                         @include o-position-absolute($top: 10px);
+                        @include text-truncate();
                     }
 
                     &:not(:hover) .btn.o_install_btn {
@@ -458,6 +453,7 @@ body.editor_enable.editor_has_snippets {
                     @extend %we-generic-clickable;
                     cursor: pointer;
                     flex: 1 1 auto;
+                    padding: 0 $o-we-sidebar-content-field-button-group-button-spacing;
                     line-height: 17px;
                     text-align: center;
 
@@ -497,7 +493,7 @@ body.editor_enable.editor_has_snippets {
             @extend %we-generic-button;
         }
 
-        #removeFormat, #oe-table-delete-table, .o_we_highlight_animated_text {
+        #removeFormat, #oe-table-delete-table {
             @extend %we-generic-link;
         }
 
@@ -506,9 +502,21 @@ body.editor_enable.editor_has_snippets {
             background: transparent;
             margin-top: $o-we-sidebar-content-field-spacing;
             padding: 0 $o-we-sidebar-content-padding-base 0 $o-we-sidebar-content-indent;
-            grid-template-areas: "typo typo style colors" "size align list link" "options options options options" "options2 options2 options2 options2";
-            grid-template-columns: 1fr 1fr 1fr 1fr;
-            grid-template-rows: minmax($o-we-sidebar-content-field-height, auto) minmax($o-we-sidebar-content-field-height, auto) auto auto ;
+            grid-template-areas:
+                "typo typo style style colors"
+                "size align list list link"
+                "ai animate animate hilight hilight"
+                "options options options options options"
+                "options2 options2 options2 options2 options2"
+                "options3 options3 options3 options3 options3";
+            grid-template-columns: 1fr 1fr 1fr 1fr 1fr;
+            grid-template-rows:
+                minmax($o-we-sidebar-content-field-height, auto)
+                minmax($o-we-sidebar-content-field-height, auto)
+                minmax($o-we-sidebar-content-field-height, auto)
+                auto
+                auto
+                auto;
             row-gap: $o-we-sidebar-content-field-spacing;
             column-gap: $o-we-sidebar-content-field-multi-spacing;
             width: 100%;
@@ -517,10 +525,71 @@ body.editor_enable.editor_has_snippets {
                 display: none; // remove ballon
             }
 
+            .fa {
+                font-size: $o-we-sidebar-font-size;
+            }
+
             .btn {
                 @extend %we-generic-button;
                 display: flex;
-                padding: ($o-we-sidebar-content-field-height * .12) ($o-we-sidebar-content-field-button-group-button-spacing - 2);
+                padding: ($o-we-sidebar-content-field-height * .12) ($o-we-sidebar-content-field-button-group-button-spacing - 2.5);
+            }
+
+            .dropdown-menu {
+                border-color: $o-we-sidebar-content-field-dropdown-border-color;
+                padding: 0;
+
+                > li ~ li {
+                    border-top: $o-we-sidebar-content-field-dropdown-item-spacing solid transparent;
+                }
+            }
+
+            .dropdown-item {
+                @include we-icon-button('', $align: left); // Always a padding on the left
+                background-color: $o-we-sidebar-content-field-dropdown-item-bg;
+                color: $o-we-sidebar-content-field-dropdown-item-color;
+                border-radius: 0;
+                padding-top: 5px;
+                padding-bottom: 5px;
+
+                &:hover, &:focus {
+                    background: $o-we-dropdown-item-bg-hover;
+                    color: $o-we-dropdown-item-hover-color;
+                }
+                &.active {
+                    background: $o-we-dropdown-item-active-bg;
+                    color: $o-we-dropdown-item-active-color;
+                }
+            }
+
+            .o_we_font_size_badge {
+                opacity: 0.6;
+            }
+
+            #font-size > button {
+                &:focus-within {
+                    @extend %we-generic-text-input;
+                    // Cancel the height of the border:
+                    margin-top: -1px;
+                    margin-bottom: -1px;
+
+                    input {
+                        padding: 0 !important;
+                        width: calc(2ch + #{$o-we-sidebar-content-field-clickable-spacing * 2} - #{$o-we-sidebar-content-field-border-width * 2});
+                    }
+                }
+                &.dropdown-toggle::after {
+                    display: none;
+                }
+
+                input {
+                    background-color: unset;
+                    border: none;
+                    color: unset;
+                    padding: 0;
+                    text-align: center;
+                    width: calc(2ch + #{$o-we-sidebar-content-field-clickable-spacing * 2});
+                }
             }
 
             we-customizeblock-option {
@@ -536,7 +605,11 @@ body.editor_enable.editor_has_snippets {
                     &.o_long_title {
                         width: fit-content !important;
                         padding-right: 10px !important;
+                        flex: 1 1 auto;
                     }
+                }
+                we-button .o_switch {
+                    min-width: fit-content;
                 }
                 .highlighted-text {
                     color: white;
@@ -545,11 +618,11 @@ body.editor_enable.editor_has_snippets {
                 }
                 .dropdown {
                     position: unset;
-                    width: -webkit-fill-available;
+                    width: 100%;
 
                     .dropdown-toggle {
                         padding: 0;
-                        width: inherit;
+                        width: 100%;
 
                         &::after {
                             display: none;
@@ -558,16 +631,29 @@ body.editor_enable.editor_has_snippets {
                     .dropdown-menu.show {
                         position: absolute !important;
                         padding: 0;
+                        width: 100%;
+                        border-color: $o-we-dropdown-border-color;
+
+                        &[data-popper-placement$="start"] {
+                            left: -$o-we-sidebar-content-padding-base !important;
+                        }
 
                         we-button:not(.fa) {
+                            display: flex;
+                            align-items: center;
+                            height: $o-we-sidebar-content-field-dropdown-item-height;
                             text-align: left;
-                            font-family: Roboto, "Montserrat", "Segoe UI", "Helvetica Neue", Helvetica, Arial, sans-serif;
+                            font-family: $o-we-font-family;
                             font-size: 12px;
                             font-weight: 400;
 
                             div {
                                 width: 100%;
                             }
+                        }
+
+                        .dropdown-item::before {
+                            display: none;
                         }
                     }
                 }
@@ -580,8 +666,12 @@ body.editor_enable.editor_has_snippets {
                     }
                 }
 
-                & + we-customizeblock-option {
+                & ~ we-customizeblock-option {
                     grid-area: options2;
+
+                    & ~ we-customizeblock-option {
+                        grid-area: options3;
+                    }
                 }
             }
 
@@ -601,20 +691,20 @@ body.editor_enable.editor_has_snippets {
 
                 #oe-text-color {
                     border-right:0;
-                    @include border-right-radius(0);
+                    @include border-end-radius(0);
                 }
 
                 #oe-fore-color {
-                    @include border-left-radius(0);
+                    @include border-start-radius(0);
                 }
             }
 
             .btn + .btn {
-                @include border-left-radius(0);
+                @include border-start-radius(0);
             }
 
             .btn-group > .btn:not(:last-of-type) {
-                @include border-right-radius(0);
+                @include border-end-radius(0);
             }
 
             #list {
@@ -644,6 +734,8 @@ body.editor_enable.editor_has_snippets {
                     justify-content: space-between;
 
                     span {
+                        overflow: hidden;
+                        text-overflow: ellipsis;
                         color: white;
 
                         pre, blockquote {
@@ -674,6 +766,21 @@ body.editor_enable.editor_has_snippets {
                             border-left-width: 1px;
                         }
                     }
+                }
+            }
+
+            #chatgpt {
+                grid-area: ai;
+            }
+            #animate {
+                grid-area: animate;
+            }
+            #highlight {
+                grid-area: hilight;
+            }
+            #chatgpt, #animate, #highlight {
+                .fa {
+                    margin-right: $o-we-item-spacing * 0.25;
                 }
             }
 
@@ -732,6 +839,11 @@ body.editor_enable.editor_has_snippets {
 
         we-toggler {
             @include we-icon-button('\f0d7');
+
+            &.o_we_toggler_pager {
+                @include we-icon-button('\f105');
+            }
+
             text-align: left;
 
             > img, > svg {
@@ -739,7 +851,7 @@ body.editor_enable.editor_has_snippets {
             }
 
             + * {
-                display: none !important;
+                display: none;
                 border: $o-we-sidebar-content-field-dropdown-border-width solid $o-we-sidebar-content-field-dropdown-border-color;
                 border-radius: $o-we-item-border-radius;
                 background-color: $o-we-sidebar-content-field-dropdown-bg;
@@ -748,7 +860,12 @@ body.editor_enable.editor_has_snippets {
             &.active {
                 @include we-icon-button('\f0d8');
                 + * {
-                    display: block !important;
+                    display: block;
+                }
+
+                + .o_we_has_pager {
+                    display: flex;
+                    flex-direction: column;
                 }
             }
         }
@@ -766,13 +883,14 @@ body.editor_enable.editor_has_snippets {
 
         we-title {
             display: block;
+            text-align: left;
         }
 
         // TODO in master, remove the text-transform rule entirely and rely on
         // developers writing their label with the intended "design". The
         // "where" change here was added as a way to minimize the impact of this
         // fix in stable. That CSS style was breaking translations.
-        :where(html[lang^="en-"]) & we-title {
+        we-title:where(:lang(en)) {
             text-transform: capitalize;
         }
 
@@ -781,14 +899,12 @@ body.editor_enable.editor_has_snippets {
             display: block;
             padding: 0 0 ($o-we-sidebar-content-block-spacing * 1.5) 0;
             background-color: $o-we-bg-lighter;
-            box-shadow: $o-we-item-standup-bottom rgba($o-we-item-standup-color-dark, 0.8);
 
             > we-title {
                 display: flex;
                 align-items: center;
                 padding: $o-we-sidebar-content-block-spacing * .3 $o-we-sidebar-content-padding-base 0 $o-we-sidebar-content-indent;
                 background-color: $o-we-bg-light;
-                box-shadow: $o-we-item-standup-top rgba($o-we-item-standup-color-light, .2), $o-we-item-standup-bottom rgba($o-we-item-standup-color-dark, .5);
                 font-size: $o-we-sidebar-content-main-title-font-size;
 
                 > span {
@@ -826,6 +942,22 @@ body.editor_enable.editor_has_snippets {
                             text-align: center;
                             justify-content: center;
                         }
+                    }
+                }
+            }
+
+            &.o_we_outdated_block_options {
+                // Outdated block options
+                padding: 0 !important;
+
+                > we-customizeblock-option {
+                    &:not(.snippet-option-VersionControl) {
+                        display: none !important;
+                    }
+
+                    &.snippet-option-VersionControl {
+                        // Outdated snippet alert
+                        padding: 0 !important;
                     }
                 }
             }
@@ -890,12 +1022,9 @@ body.editor_enable.editor_has_snippets {
             }
         }
 
-        // TODO: Keep only the first class in master
-        .o_we_large, .o_we_large_input {
-            > div {
-                flex: 1 1 auto !important;
-                width: 100%;
-            }
+        .o_we_large > div {
+            flex: 1 1 auto !important;
+            width: 100%;
         }
 
         // Buttons
@@ -914,8 +1043,10 @@ body.editor_enable.editor_has_snippets {
                     margin-bottom: 2px; // Not sure why but not really centered otherwise
                 }
             }
-            &.fa > div {
-                display: none;
+            &.fa, &.oi {
+                > div {
+                    display: none;
+                }
             }
         }
 
@@ -925,7 +1056,7 @@ body.editor_enable.editor_has_snippets {
                 flex: 0 0 auto;
             }
             // Buttons being `fa-fw`, prevent font-awesome hardcoded width
-            &.fa-fw {
+            &.fa-fw, &.oi-fw {
                 padding: 0 .5em;
                 width: 2.29em; // .fa-fw = 1.28571429em (font-awesome.css)
                 justify-content: center;
@@ -965,7 +1096,6 @@ body.editor_enable.editor_has_snippets {
                     height: $o-we-sidebar-content-field-toggle-control-height;
                     border-radius: 10rem;
                     background-color: $o-we-sidebar-content-field-toggle-control-bg;
-                    box-shadow: $o-we-sidebar-content-field-toggle-control-shadow;
                 }
             }
             &.active we-checkbox {
@@ -981,6 +1111,7 @@ body.editor_enable.editor_has_snippets {
         we-selection-items {
             .o_we_user_value_widget {
                 margin-top: 0;
+                flex-grow: 1;
             }
         }
 
@@ -988,10 +1119,17 @@ body.editor_enable.editor_has_snippets {
         we-select.o_we_user_value_widget {
             position: relative;
 
+            &[data-disabled] {
+                we-toggler {
+                    opacity: .5;
+                    cursor: not-allowed;
+                }
+            }
+
             &:not(.o_we_icon_select) we-toggler {
                 @include large-component();
             }
-            &.o_we_widget_opened .o_we_dropdown_caret {
+            &:not(.o_we_select_pager).o_we_widget_opened .o_we_dropdown_caret {
                 position: relative;
                 display: block;
                 align-self: flex-end;
@@ -1013,22 +1151,70 @@ body.editor_enable.editor_has_snippets {
                     border-right-width: ($o-we-item-spacing - 1px);
                 }
             }
-            &:not(.o_we_so_color_palette) + we-button:not(:hover) {
+            // Special buttons (e.g. remove/position) next to the we-select
+            // should be toned down. Also makes sure that only one button is
+            // targeted, and that should be the last one.
+            &:not(.o_we_so_color_palette) ~ we-button:not(:hover):not(.o_we_image_shape_remove):last-child {
                 background: none;
             }
 
             we-toggler:empty::before {
-                content: '/';
+                content: attr(data-placeholder-text);
             }
             we-selection-items {
-                @include o-position-absolute(100%, 0, auto, 0);
-                z-index: $zindex-dropdown;
-                margin-top: $o-we-sidebar-content-field-dropdown-spacing !important;
-
-                &:not(.o_we_has_pager) {
+                &:not(.o_we_has_pager)  {
+                    @include o-position-absolute(100%, 0, auto, 0);
+                    z-index: $zindex-dropdown;
                     max-height: 600px;
                     overflow-y: auto;
                 }
+                &.o_we_has_pager {
+                    $o-offset-total-topbar: calc(#{$o-we-sidebar-top-height} + #{$o-we-sidebar-tabs-height});
+
+                    width: $o-we-sidebar-width;
+                    max-height: calc(100% - #{$o-offset-total-topbar});
+                    margin-top: $o-offset-total-topbar;
+
+                    we-title {
+                        padding: $o-we-sidebar-content-block-spacing * .3 $o-we-sidebar-content-padding-base 0 $o-we-sidebar-content-indent;
+                        background-color: $o-we-bg-light;
+                        line-height: $o-we-sidebar-content-main-title-height;
+                    }
+                    .o_pager_nav {
+                        background-color: $o-we-bg-light;
+
+                        > div:first-child {
+                            padding-left: $o-we-item-spacing * 1.5;
+                            padding-top: $o-we-item-spacing;
+                        }
+                    }
+                    .o_pager_nav_title {
+                        padding-left: $o-we-item-spacing * 1.5;
+                    }
+                    .o_pager_nav_angle {
+                        @extend %we-generic-clickable;
+                        @include button-variant($o-we-bg-light, $o-we-bg-light);
+                        padding: $o-we-item-spacing / 2;
+                        font-size: $o-we-sidebar-font-size * 1.4;
+                    }
+                    .o_pager_nav_btn {
+                        @extend %we-generic-tab-button;
+
+                        &:focus {
+                            box-shadow: none;
+                        }
+                    }
+                    .o_pager_container {
+                        overflow-y: scroll;
+                        scroll-behavior: smooth;
+                        background-color: $o-we-bg-lighter;
+                    }
+                }
+
+                &:not(.dropdown-menu):not(.o_we_has_pager) {
+                    margin-top: $o-we-sidebar-content-field-dropdown-spacing;
+                }
+
                 &:empty {
                     line-height: $o-we-sidebar-content-field-dropdown-item-height;
                     background-color: $o-we-sidebar-content-field-dropdown-item-bg;
@@ -1037,7 +1223,7 @@ body.editor_enable.editor_has_snippets {
                     padding-left: 2 * $o-we-sidebar-content-field-control-item-spacing + $o-we-sidebar-content-field-control-item-size;
 
                     &::before {
-                        content: '/';
+                        content: attr(data-placeholder-text);
                     }
                 }
                 > we-title {
@@ -1052,6 +1238,7 @@ body.editor_enable.editor_has_snippets {
                     background-color: $o-we-sidebar-content-field-dropdown-item-bg;
                     color: $o-we-sidebar-content-field-dropdown-item-color;
                     border-radius: 0;
+                    text-align: left;
 
                     > we-title {
                         flex-grow: 1;
@@ -1063,6 +1250,12 @@ body.editor_enable.editor_has_snippets {
                         img, svg {
                             max-width: 100%;
                         }
+                    }
+
+                    &.o_we_badge_at_end > div {
+                        display: flex;
+                        width: 100%;
+                        justify-content: space-between;
                     }
 
                     &:not(.d-none) ~ we-button {
@@ -1089,75 +1282,103 @@ body.editor_enable.editor_has_snippets {
                     }
                 }
             }
-            .o_we_pager_header {
-                display: flex;
-                align-items: center;
-                justify-content: space-between;
-                background-color: $o-we-sidebar-content-field-dropdown-item-bg;
-                margin-bottom: 1px;
 
-                & > b {
-                    padding: $o-we-sidebar-content-field-label-spacing;
-                    color: $o-we-fg-lighter;
+            // When the dropdown or the colorpicker is displayed above the
+            // selector.
+            &.o_we_select_dropdown_up {
+
+                we-selection-items {
+                    top: auto !important;
+                    bottom: 100% !important;
+                    margin-bottom: $o-we-sidebar-content-field-dropdown-spacing !important;
+                }
+                .o_we_dropdown_caret {
+                    align-self: flex-start !important;
+
+                    &::before, &::after {
+                        top: auto !important;
+                        bottom: 100% !important;
+                        margin-bottom: $o-we-dropdown-caret-spacing;
+                        transform: rotate(180deg) translateX(-50%) !important;
+                    }
+                }
+                &.o_we_so_color_palette .o_we_dropdown_caret {
+
+                    &::before, &::after {
+                        margin-bottom: $o-we-dropdown-caret-spacing / 2;
+                    }
                 }
             }
-            .o_we_pager_controls {
-                display: flex;
-                align-items: center;
 
-                > span {
-                    margin: 0 $o-we-sidebar-content-field-label-spacing;
-                }
-            }
-            .o_we_pager_next, .o_we_pager_prev {
-                margin: 0.3em;
-                padding: $o-we-sidebar-content-field-label-spacing;
-                cursor: pointer;
-                border: $o-we-item-border-width solid currentColor;
-                border-radius: $o-we-item-border-radius;
-            }
             we-select-page {
-                display: none;
-                width: 100%;
-                // Cut the last visible option in the list to understand that we can scroll.
-                max-height: 75px * 7.5;
-                overflow-y: auto;
+                display: grid;
+                grid-template-columns: repeat(4, 1fr);
+                gap: $o-we-item-spacing / 2;
+                padding: $o-we-item-spacing;
+                background-color: $o-we-bg-lighter;
 
-                &.active {
-                    display: block;
+                we-button {
+                    @extend %o-preview-alpha-background;
+                    padding: $o-we-item-spacing;
+                    background-color: transparent;
+                }
+                // For background shapes
+                we-button[data-shape] {
+                    grid-column: span 4;
+                    padding: 0;
+
+                    div {
+                        width: 100%;
+                        height: 75px;
+                    }
+                }
+                we-button.active {
+                    outline: 4px solid $o-we-color-success;
+                    outline-offset: -4px;
+                    background-color: rgba($o-we-color-success, 0.2);
+                }
+                img {
+                    width: 100%;
+                    aspect-ratio: 1;
+                    object-fit: contain;
                 }
             }
-        }
-        we-select.o_we_user_value_widget.o_we_select_grid {
-            we-select-page {
-
-                we-button img {
-                    height: $o-we-sidebar-content-field-dropdown-grid-item-height;
-                    width: $o-we-sidebar-content-field-dropdown-grid-item-width;
-                }
-                &.active {
-                    display: flex;
-                    flex-wrap: wrap;
+            // A modifier applied on `<we-select/>` to give it a grid appearance.
+            &.o_we_select_grid {
+                we-selection-items {
                     we-button {
-                        width: percentage(1 / 3);
-                        padding: 0;
+                        padding: $o-we-sidebar-content-padding-base * 2 $o-we-sidebar-content-padding-base / 2;
+                        border: $o-we-item-border-width solid $o-we-bg-darkest;
+                        border-radius: 2px;
                         justify-content: center;
-                        img {
-                            padding: $o-we-sidebar-content-field-spacing;
+
+                        &.active {
+                            border: 2px solid $o-we-color-success !important;
+                        }
+                        // Text highlight related style.
+                        &[data-set-text-highlight] {
+                            --text-highlight-width: .15em;
+                            --text-highlight-color: #{$o-we-fg-light};
+
+                            > div {
+                                flex: none;
+                                position: relative;
+                                width: 60%;
+                                font-size: $o-we-sidebar-font-size * 1.3;
+                                font-weight: bold;
+                                overflow: visible;
+                                isolation: isolate;
+
+                                svg {
+                                    z-index: -1;
+                                }
+                            }
                         }
                     }
-                    we-button.active {
-                        border: 2px solid $o-we-color-success !important;
-                    }
-                }
-            }
-            &.o_we_fake_transparent_background {
-                we-button {
-                    background-image: url(/web/static/img/transparent.png);
-                    background-size: 10px auto;
                 }
             }
         }
+
         we-button.o_we_image_shape_remove {
             div {
                 display: flex;
@@ -1168,6 +1389,7 @@ body.editor_enable.editor_has_snippets {
         we-button-group.o_we_user_value_widget {
             we-selection-items {
                 display: flex;
+                flex-grow: 1;
                 max-width: 100%;
 
                 we-button {
@@ -1178,10 +1400,10 @@ body.editor_enable.editor_has_snippets {
                         border-left: none;
                     }
                     &:first-child, .active:first-child {
-                        @include border-left-radius($o-we-sidebar-content-field-border-radius);
+                        @include border-start-radius($o-we-sidebar-content-field-border-radius);
                     }
                     &:last-child, .active:last-child {
-                        @include border-right-radius($o-we-sidebar-content-field-border-radius);
+                        @include border-end-radius($o-we-sidebar-content-field-border-radius);
                     }
                 }
             }
@@ -1193,9 +1415,8 @@ body.editor_enable.editor_has_snippets {
             we-button {
                 display: flex;
                 justify-content: center;
-                flex: 0 1 percentage(1/4);
+                flex: 1 1 percentage(1/4);
                 padding: ($o-we-sidebar-content-field-button-group-button-spacing / 4) ($o-we-sidebar-content-field-button-group-button-spacing / 3);
-                text-align: center;
             }
         }
 
@@ -1216,6 +1437,9 @@ body.editor_enable.editor_has_snippets {
                 &::placeholder {
                     color: $o-we-sidebar-content-field-control-item-color;
                 }
+                &.datetimepicker-input.text-primary {
+                    color: inherit !important;
+                }
             }
             span {
                 flex: 0 0 auto;
@@ -1227,14 +1451,13 @@ body.editor_enable.editor_has_snippets {
 
         // Color Pickers
         .o_we_so_color_palette.o_we_user_value_widget {
-
             .o_we_color_preview {
                 @extend %o-preview-alpha-background;
                 flex: 0 0 auto;
                 display: block;
                 width: $o-we-sidebar-content-field-colorpicker-size;
                 height: $o-we-sidebar-content-field-colorpicker-size;
-                border: $o-we-sidebar-content-field-border-width solid $o-we-sidebar-content-field-border-color;
+                border: $o-we-sidebar-content-field-border-width solid $o-we-bg-darkest;
                 border-radius: 10rem;
                 cursor: pointer;
 
@@ -1248,7 +1471,9 @@ body.editor_enable.editor_has_snippets {
                 .o_we_color_preview {
                     border: 2px solid $o-we-accent;
                 }
-                .o_we_dropdown_caret {
+
+                // "span" added to make the selector more specific
+                span.o_we_dropdown_caret {
                     &::before, &::after {
                         right: $o-we-sidebar-content-field-colorpicker-size / 2;
                     }
@@ -1301,7 +1526,15 @@ body.editor_enable.editor_has_snippets {
 
         // Progress bar widget
         we-range.o_we_user_value_widget {
-
+            &[data-display-range-value] {
+                input[type="range"] {
+                    // Needed because without it the output overflows to the right
+                    // and makes a horizontal scrollbar appear on
+                    // 'o_we_customize_panel' if 'o_we_customize_panel' already has
+                    // a vertical scrollbar.
+                    min-width: 0;
+                }
+            }
             input[type="range"] {
                 @include large-component();
                 height: $o-we-sidebar-content-field-height;
@@ -1402,7 +1635,7 @@ body.editor_enable.editor_has_snippets {
                 &::-ms-fill-lower {
                     background-color: $o-we-sidebar-content-field-progress-active-color;
                     border-radius: 10rem;
-                    @include border-radius($custom-range-track-border-radius);
+                    @include border-radius($form-range-track-border-radius);
                 }
                 &::-ms-fill-upper {
                     background-color: $o-we-sidebar-content-field-progress-color;
@@ -1437,13 +1670,15 @@ body.editor_enable.editor_has_snippets {
                 width: 100%;
                 max-height: 200px;
                 overflow-y: auto;
-                margin-bottom: $o-we-sidebar-content-field-spacing / 2;
 
                 table {
-                    @include o-input-number-no-arrows();
                     table-layout: auto;
                     width: 100%;
+                    margin-bottom: $o-we-sidebar-content-field-spacing / 2;
 
+                    &:empty {
+                        margin-bottom: 0;
+                    }
                     input {
                         width: 100%;
                         border: $o-we-sidebar-content-field-border-width solid $o-we-sidebar-content-field-border-color;
@@ -1550,6 +1785,9 @@ body.editor_enable.editor_has_snippets {
                 margin-top: 0;
                 max-width: 100%;
             }
+            we-title {
+                align-self: flex-start;
+            }
         }
 
         //----------------------------------------------------------------------
@@ -1565,9 +1803,19 @@ body.editor_enable.editor_has_snippets {
                 margin-top: 0;
                 min-width: 4em; // Ideally rely on actual natural min-width, but does not work...
             }
-            we-button, .o_we_so_color_palette {
+            we-button, .o_we_so_color_palette, we-button-group {
                 &.o_we_user_value_widget {
                     min-width: auto; // ... except for these ones
+                }
+            }
+
+            &.o_we_header_font_row > div {
+                justify-content: space-between;
+
+                we-select {
+                    max-width: fit-content;
+                    min-width: fit-content;
+                    margin-right: 0px !important;
                 }
             }
 
@@ -1587,6 +1835,38 @@ body.editor_enable.editor_has_snippets {
             &.o_we_full_row > div {
                 flex: 1 1 auto;
             }
+
+            &.o_short_title we-title, .o_short_title we-title {
+                width: unset !important;
+                padding-right: 0 !important;
+            }
+            &.o_long_title we-title, .o_long_title we-title {
+                width: fit-content !important;
+                padding-right: 10px !important;
+            }
+            &.o_design_tab_title {
+                margin-top: 15px;
+
+                we-title {
+                    font-weight: 600;
+                }
+            }
+
+            // Add a margin between color pickers and button groups / widgets
+            // when next to another without impacting the margin of sibling
+            // color pickers
+            .o_we_so_color_palette.o_we_user_value_widget + .o_we_user_value_widget:not(.o_we_so_color_palette) {
+                margin-left: $o-we-sidebar-content-field-multi-spacing * 4 !important;
+            }
+
+            // For layout having button-group + we-select, to avoid the long
+            // text to overflow the row.
+            &:has(div > we-button-group + we-select.o_grid) {
+                we-button-group we-selection-items {
+                    display: grid !important;
+                    grid-template-columns: auto auto;
+                }
+            }
         }
 
         %o-we-inline {
@@ -1597,14 +1877,22 @@ body.editor_enable.editor_has_snippets {
                 width: 100%;
             }
             > div {
-                flex: 0 1 auto;
+                flex: 1 1 auto;
                 min-width: 0;
                 margin-top: $o-we-sidebar-content-field-spacing;
+
+                svg {
+                    margin: 0 auto;
+                }
             }
 
             &:not(.o_we_fw) {
                 flex-flow: row nowrap;
                 align-items: center;
+
+                &:not(we-input):not(.o_we_so_color_palette) {
+                    flex-grow: 1;
+                }
 
                 > we-title {
                     flex: 0 0 auto;
@@ -1650,10 +1938,10 @@ body.editor_enable.editor_has_snippets {
                     content: '\f0da';
                     position: static;
                     transform: none;
-                }
 
-                &.o_we_collapse_toggler_rtl::after {
-                    scale: -1 1;
+                    .o_rtl & {
+                        transform: scaleX(-1);
+                    }
                 }
 
                 &.active {
@@ -1669,11 +1957,13 @@ body.editor_enable.editor_has_snippets {
                 }
             }
             &.active {
-                background-color: $o-we-sidebar-content-fold-block-bg;
-                box-shadow: $o-we-item-standup-top rgba($o-we-item-standup-color-dark, .5), $o-we-item-standup-bottom rgba($o-we-item-standup-color-light, .2);
-
-                we-collapse.active, we-collapse.active .o_we_collapse_toggler {
-                    background-color: $o-we-bg-lighter;
+                we-collapse.active {
+                    &, we-toggler.o_we_collapse_toggler {
+                        background-color: $o-we-bg-lighter;
+                    }
+                }
+                &, we-collapse.active we-collapse.active, we-collapse.active we-collapse.active .o_we_collapse_toggler {
+                        background-color: $o-we-sidebar-content-fold-block-bg;
                 }
             }
             .o_we_collapse_toggler {
@@ -1683,6 +1973,10 @@ body.editor_enable.editor_has_snippets {
 
         .o_we_image_weight {
             margin-left: $o-we-sidebar-content-field-label-spacing * 2;
+        }
+
+        we-button + .o_we_image_weight {
+            margin-left: $o-we-sidebar-content-field-label-spacing;
         }
 
         .o_we_tag {
@@ -1738,7 +2032,11 @@ body.editor_enable.editor_has_snippets {
             // does not make a scrollbar appear for no reason
             flex: 1 1 auto;
 
-            &::after {
+            // The backdrop is not added for "o_we_select_pager". This is
+            // because it covers the entire panel, making it unnecessary.
+            // Additionally, using the backdrop with an "o_we_select_pager"
+            // causes a CSS bug on Safari.
+            &:not(:has(.o_we_select_pager.o_we_widget_opened))::after {
                 content: "";
                 // We use a "sticky" position because it ensures that the
                 // backdrop covers the entire "customize panel" element, even
@@ -1793,6 +2091,9 @@ body.editor_enable.editor_has_snippets {
     margin-bottom: 2px;
     border-width: 4px;
     border-bottom: none !important;
+}
+we-select.o_we_border_preview_aligned_select {
+    width: $o-we-sidebar-content-field-input-max-width;
 }
 #oe_snippets .colorpicker {
     $-wb-txt: $o-we-sidebar-content-field-colorpicker-dropdown-color;
@@ -1888,7 +2189,6 @@ body.editor_enable.editor_has_snippets {
 
                 input[type=range] {
                     pointer-events: none;
-                    focusable: false;
                     grid-column: 1/span 2;
                     grid-row: 3;
                     background: none;
@@ -1955,23 +2255,31 @@ body.editor_enable.editor_has_snippets {
 // DROPZONES
 @keyframes dropZoneInsert {
     to {
-        background-color: rgba($o-brand-odoo, 0.3);
+        box-shadow: inset 0 0 $o-we-dropzone-size 0 scale-color($o-we-dropzone-accent-color, $alpha: -50%);
     }
 }
 
 .oe_drop_zone {
-    background-color: rgba($o-brand-odoo, 0.15);
+    background: $o-we-dropzone-bg-color;
     animation: dropZoneInsert 1s linear 0s infinite alternate;
 
     &.oe_insert {
         position: relative;
-        z-index: $o-we-overlay-zindex;
         width: 100%;
+        border-radius: $border-radius-lg;
+        outline: $o-we-dropzone-border-width dashed $o-we-dropzone-accent-color;
+        outline-offset: -$o-we-dropzone-border-width;
+        z-index: $o-we-overlay-zindex;
+    }
+}
+
+.oe_drop_zone:not(.oe_grid_zone) {
+    &.oe_insert {
         min-width: $o-we-dropzone-size;
         height: $o-we-dropzone-size;
         min-height: $o-we-dropzone-size;
         margin: (-$o-we-dropzone-size/2) 0;
-        border: 2px dashed $o-we-border-color;
+        padding: 0;
 
         &.oe_vertical {
             width: $o-we-dropzone-size;
@@ -1999,10 +2307,11 @@ body.editor_enable.editor_has_snippets {
         border-color: $o-we-handles-accent-color;
         background: transparent;
         text-align: center;
+        font-size: 16px;
         transition: opacity 400ms linear 0s;
 
         &.o_overlay_hidden {
-            opacity: 0;
+            opacity: 0 !important;
             transition: none;
         }
         &.oe_active {
@@ -2016,142 +2325,188 @@ body.editor_enable.editor_has_snippets {
             border-color: inherit;
             pointer-events: auto;
 
-            &:hover > .o_handle {
-                background-color: rgba($o-we-handles-accent-color, 0.05);
-            }
             > .o_handle {
-                position: relative;
-                border: 0 solid transparent;
-                border-color: inherit;
-                transition: background 300ms ease 0s;
+                position: absolute;
 
-                &.w {
-                    @include o-position-absolute($o-we-handles-offset-to-hide, auto, -$o-we-handles-offset-to-hide, 0);
+                &.o_side_y {
+                    height: $o-we-handle-edge-size;
+                }
+                &.o_side_x {
                     width: $o-we-handle-edge-size;
-                    border-width: $o-we-handle-border-width;
-                    border-right-width: 0;
-                    cursor: e-resize;
+                }
+                &.w {
+                    inset: $o-we-handles-offset-to-hide auto $o-we-handles-offset-to-hide * -1 $o-we-handle-border-width * 0.5;
+                    transform: translateX(-50%);
+                    cursor: ew-resize;
 
-                    &:after {
-                        @include o-position-absolute($top: 50%, $left: 40%);
-                        margin-top: -$o-we-handles-btn-size/2;
+                    body[is-rtl-backend="true"] & {
+                        transform: translateX(50%);
                     }
                 }
                 &.e {
-                    @include o-position-absolute($o-we-handles-offset-to-hide, 0, -$o-we-handles-offset-to-hide, auto);
-                    width: $o-we-handle-edge-size;
-                    border-right-width: $o-we-handle-border-width;
-                    cursor: w-resize;
+                    inset: $o-we-handles-offset-to-hide $o-we-handle-border-width * 0.5 $o-we-handles-offset-to-hide * -1 auto;
+                    transform: translateX(50%);
+                    cursor: ew-resize;
 
-                    &:after {
-                        @include o-position-absolute($top: 50%, $right: 40%);
-                        margin-top: -$o-we-handles-btn-size/2;
+                    body[is-rtl-backend="true"] & {
+                        transform: translateX(-50%);
                     }
                 }
                 &.n {
-                    @include o-position-absolute($o-we-handles-offset-to-hide, 0, auto, 0);
-                    height: $o-we-handle-edge-size;
-                    border-top-width: $o-we-handle-border-width;
+                    inset: $o-we-handles-offset-to-hide 0 auto 0;
                     cursor: ns-resize;
 
-                    &:after {
-                        @include o-position-absolute($left: 50%, $top: 40%);
-                        margin-left: -$o-we-handles-btn-size/2;
+                    &.o_grid_handle {
+                        transform: translateY(-50%);
+
+                        &:before {
+                            transform: translateY($o-we-handle-border-width * 0.5);
+                        }
                     }
                 }
                 &.s {
-                    @include o-position-absolute(auto, 0, -$o-we-handles-offset-to-hide, 0);
-                    height: $o-we-handle-edge-size;
-                    border-bottom-width: $o-we-handle-border-width;
+                    inset: auto 0 $o-we-handles-offset-to-hide * -1 0;
                     cursor: ns-resize;
 
-                    &:after {
-                        @include o-position-absolute($left: 50%, $bottom: 40%);
-                        margin-left: -$o-we-handles-btn-size/2;
+                    &.o_grid_handle {
+                        transform: translateY(50%);
+
+                        &:before {
+                            transform: translateY($o-we-handle-border-width * -0.5);
+                        }
                     }
                 }
-
-                &::after {
-                    z-index: 1;
+                &.ne {
+                    inset: ($o-we-handles-offset-to-hide + $o-we-handle-border-width * 0.5) $o-we-handle-border-width * 0.5 auto auto;
+                    transform: translate(50%, -50%);
+                    cursor: nesw-resize;
+                    body[is-rtl-backend="true"] & {
+                        cursor: nwse-resize;
+                    }
+                }
+                &.se {
+                    inset: auto $o-we-handle-border-width * 0.5 ($o-we-handles-offset-to-hide * -1 + $o-we-handle-border-width * 0.5) auto;
+                    transform: translate(50%, 50%);
+                    cursor: nwse-resize;
+                    body[is-rtl-backend="true"] & {
+                        cursor: nesw-resize;
+                    }
+                }
+                &.sw {
+                    inset: auto auto ($o-we-handles-offset-to-hide * -1 + $o-we-handle-border-width * 0.5) $o-we-handle-border-width * 0.5;
+                    transform: translate(-50%, 50%);
+                    cursor: nesw-resize;
+                    body[is-rtl-backend="true"] & {
+                        cursor: nwse-resize;
+                    }
+                }
+                &.nw {
+                    inset: ($o-we-handles-offset-to-hide + $o-we-handle-border-width * 0.5) auto auto $o-we-handle-border-width * 0.5;
+                    transform: translate(-50%, -50%);
+                    cursor: nwse-resize;
+                    body[is-rtl-backend="true"] & {
+                        cursor: nesw-resize;
+                    }
+                }
+                .o_handle_indicator {
+                    position: absolute;
+                    inset: $o-we-handles-btn-size * -0.5;
                     display: block;
                     width: $o-we-handles-btn-size;
                     height: $o-we-handles-btn-size;
-                    border: solid 1px darken($o-we-handles-accent-color, 20%);
-                    line-height: $o-we-handles-btn-size - 2;
-                    font-size: 14px;
-                    font-family: FontAwesome;
-                    background-color: darken($o-we-handles-accent-color, 10%);
-                    color: white;
+                    margin: auto;
+                    border: solid $o-we-handle-border-width $o-we-handles-accent-color;
+                    border-radius: $o-we-handles-btn-size;
+                    background: $o-we-fg-lighter;
+                    outline: $o-we-handle-inside-line-width solid $o-we-fg-lighter;
+                    outline-offset: -($o-we-handles-btn-size * 0.5);
+                    transition: $transition-base;
+
+                    &::before {
+                        content: '';
+                        position: absolute;
+                        inset: -$o-we-handles-btn-size;
+                        display: block;
+                        border-radius: inherit;
+                    }
                 }
 
-                &.o_handle_start:after {
-                    background-color: rgba($o-we-sidebar-content-field-clickable-bg, .6);
-                    border-color: rgba($o-we-sidebar-content-field-border-color, .2);
-                }
-
-                &:hover,
-                &.o_active {
-                    background-color: rgba($o-we-handles-accent-color, 0.2);
+                &.o_column_handle.o_side_y {
+                    background-color: rgba($o-we-handles-accent-color, .1);
 
                     &::after {
-                        border-color: darken($o-we-handles-accent-color, 10%);
-                        background-color: darken($o-we-handles-accent-color, 20%);
+                        content: '';
+                        position: absolute;
+                        height: $o-we-handles-btn-size;
+                    }
+                    &.n {
+                        border-bottom: dashed $o-we-handle-border-width * 0.5 rgba($o-we-handles-accent-color, 0.5);
+
+                        &::after {
+                            inset: 0 0 auto 0;
+                            transform: translateY(-50%);
+                        }
+                    }
+                    &.s {
+                        border-top: dashed $o-we-handle-border-width * 0.5 rgba($o-we-handles-accent-color, 0.5);
+
+                        &::after {
+                            inset: auto 0 0 0;
+                            transform: translateY(50%);
+                        }
                     }
                 }
-
-                &.w:after,
-                &.e:after {
-                    content: "\f07e";
-                }
-
-                &.s:after,
-                &.n:after {
-                    content: "\f07d";
-                }
-
-                &.o_handle_start {
-
-                    &.w:after,
-                    &.e:after {
-                        content: '\f061';
+                &.o_side {
+                    &::before {
+                        content: '';
+                        position: absolute;
+                        inset: 0;
+                        background: $o-we-handles-accent-color;
                     }
+                    &.o_side_x {
 
-                    &.n:after,
-                    &.s:after {
-                        content: '\f063';
+                        &::before {
+                            width: $o-we-handle-border-width;
+                            margin: 0 auto;
+                        }
                     }
-                }
+                    &.o_side_y {
 
-                &.o_handle_end {
-
-                    &.w:after,
-                    &.e:after {
-                        content: '\f060';
+                        &::before {
+                            height: $o-we-handle-border-width;
+                            margin: auto 0;
+                        }
                     }
+                    &.o_column_handle {
 
-                    &.n:after,
-                    &.s:after {
-                        content: '\f062';
+                        &.n::before {
+                            margin: 0 auto auto;
+                        }
+
+                        &.s::before {
+                            margin: auto auto 0;
+                        }
                     }
                 }
 
                 &.readonly {
-                    cursor: auto !important;
+                    cursor: default;
                     pointer-events: none;
 
-                    &:after {
-                        display: none !important;
+                    &.o_column_handle.o_side_y {
+                        border: none;
+                        background: none;
                     }
 
-                    &:hover {
-                        opacity: 0.5;
+                    &::after, .o_handle_indicator {
+                        display: none;
                     }
                 }
             }
 
             > .o_overlay_options_wrap {
                 @include o-position-absolute($o-we-handles-offset-to-hide, $left: 50%);
-                transform: translate(-50%, -110%);
+                transform: translate(-50%, -150%);
 
                 &.o_we_hidden_overlay_options {
                     display: none;
@@ -2159,47 +2514,40 @@ body.editor_enable.editor_has_snippets {
                 &, > .o_overlay_move_options, .o_overlay_edit_options {
                     display: flex;
                 }
-                .o_overlay_move_options > *, .o_overlay_edit_options > *, > we-button {
+                .o_overlay_move_options > *, .o_overlay_edit_options > *:not(span), .o_overlay_edit_options > span > *, > we-button {
                     @extend %we-generic-button;
                     margin: 0 1px 0;
                     min-width: 22px;
                     padding: 0 $o-we-sidebar-content-field-button-group-button-spacing * .5;
                     color: $o-we-fg-lighter;
-                    // TODO In master: restore `.oe_snippet_remove`.
-                    &.fa-trash {
+                    &.oe_snippet_remove {
                         background-color: mix($o-we-color-danger, $o-we-sidebar-content-field-clickable-bg);
-                        // TODO In master: use `.o_disabled`.
-                        &:not(.oe_snippet_remove) {
-                            opacity: 0.5;
-                        }
                     }
                 }
                 > .o_overlay_move_options > .o_move_handle {
                     cursor: move;
                     width: 30px;
                     height: 22px;
-                    background-image: url('/web_editor/static/src/img/snippets_options/o_overlay_move_drag.svg');
+                    background-position: center;
+                    background-repeat: no-repeat;
+                }
+                > .o_overlay_move_options > .o_send_back {
+                    width: 30px;
+                    height: 22px;
+                    background-image: url('/web_editor/static/src/img/snippets_options/bring-backward.svg');
+                    background-position: center;
+                    background-repeat: no-repeat;
+                }
+                > .o_overlay_move_options > .o_bring_front {
+                    width: 30px;
+                    height: 22px;
+                    background-image: url('/web_editor/static/src/img/snippets_options/bring-forward.svg');
                     background-position: center;
                     background-repeat: no-repeat;
                 }
                 &:hover {
-                    .o_overlay_move_options > *, .o_overlay_edit_options > *, > we-button {
+                    .o_overlay_move_options > *, .o_overlay_edit_options > *:not(span), > we-button {
                         @include o-hover-opacity(.6);
-
-                        &:hover {
-                            border-color: mix($o-we-handles-accent-color, $o-we-sidebar-content-field-pressed-bg, .4);
-                            background-color: $o-we-sidebar-content-field-pressed-bg;
-
-                            // TODO In master: restore `.oe_snippet_remove`.
-                            &.fa-trash {
-                                border-color: mix($o-we-color-danger, $o-we-sidebar-content-field-pressed-bg, .4);
-                                background-color: $o-we-color-danger;
-                                // TODO In master: use `.o_disabled`.
-                                &:not(.oe_snippet_remove) {
-                                    opacity: 0.5;
-                                }
-                            }
-                        }
                     }
                 }
             }
@@ -2235,6 +2583,15 @@ body.editor_enable.editor_has_snippets {
                 }
             }
 
+            .o_we_overlay_buttons {
+                .btn-primary {
+                    @include button-variant($o-brand-primary, $o-brand-primary);
+                }
+                .btn-secondary {
+                    @include button-variant($o-we-color-danger, $o-we-color-danger);
+                }
+            }
+
             .o_overlay_background > * {
                 display: block !important;
                 top: 0 !important;
@@ -2244,30 +2601,73 @@ body.editor_enable.editor_has_snippets {
                 transform: none !important;
                 max-width: unset !important;
                 max-height: unset !important;
+                z-index: 0 !important;
+            }
+        }
+
+        // HANDLES - ACTIVE AND HOVER STATES
+        // By using `o_handlers_idle` class, we can avoid hovering another
+        // handle when we're already dragging another one.
+        &.o_handlers_idle .o_handle:hover, .o_handle:active {
+
+            .o_handle_indicator {
+                outline-color: $o-we-handles-accent-color;
+            }
+        }
+
+        &.o_handlers_idle .o_corner_handle:hover, .o_corner_handle:active {
+
+            .o_handle_indicator {
+                transform: scale(1.25);
+            }
+        }
+
+        &.o_handlers_idle .o_column_handle.o_side_y:hover, .o_column_handle.o_side_y:active {
+            background: repeating-linear-gradient(
+                            45deg,
+                            rgba($o-we-handles-accent-color, .1),
+                            rgba($o-we-handles-accent-color, .1) 5px,
+                            darken(rgba($o-we-handles-accent-color, .25), 5%) 5px,
+                            darken(rgba($o-we-handles-accent-color, .25), 5%) 10px
+                        );
+        }
+
+        &.o_handlers_idle .o_side_x:hover, .o_side_x:active {
+
+            &::before {
+                width: $o-we-handle-border-width * 2;
+            }
+            .o_handle_indicator {
+                height: $o-we-handles-btn-size * 2;
+            }
+        }
+
+        &.o_handlers_idle .o_side_y:hover, .o_side_y:active {
+
+            &::before {
+                height: $o-we-handle-border-width * 2;
+            }
+            .o_handle_indicator {
+                width: $o-we-handles-btn-size * 2;
             }
         }
     }
+
+    .o_edit_menu_popover {
+        pointer-events: auto;
+    }
+}
+.oe_overlay.o_draggable_dragging .o_handles {
+    display: none;
 }
 
-.s-resize-important * {
-    cursor: s-resize !important;
+/* rtl:begin:ignore */
+@each $cursor in (nesw-resize, nwse-resize, ns-resize, ew-resize, move) {
+    .#{$cursor}-important * {
+        cursor: $cursor !important;
+    }
 }
-
-.n-resize-important * {
-    cursor: n-resize !important;
-}
-
-.e-resize-important * {
-    cursor: e-resize !important;
-}
-
-.w-resize-important * {
-    cursor: w-resize !important;
-}
-
-.move-important * {
-    cursor: move !important;
-}
+/* rtl:end:ignore */
 
 .dropdown-menu label .o_switch {
     margin: 0;
@@ -2367,26 +2767,9 @@ body.editor_enable.editor_has_snippets {
     outline: 2px dashed $o-we-handles-accent-color;
 }
 
-we-select.o_we_shape_menu {
-    we-button[data-shape] {
-        padding: 0 !important;
-
-        &.active {
-            border: 1px solid $o-we-color-success !important;
-        }
-        div {
-            width: 100%;
-        }
-        .o_we_shape_btn_content {
-            @extend %o-preview-alpha-background;
-            width: 100%;
-            height: 75px;
-        }
-    }
-}
 .o_we_shape_animated_label {
     @include o-position-absolute(0, 0);
-    padding: 0 6px;
+    padding: 0 4px;
     background: $o-we-color-success;
     color: white;
 
@@ -2395,9 +2778,16 @@ we-select.o_we_shape_menu {
         max-width: 0;
     }
 }
-we-button:hover .o_we_shape_animated_label > span {
-    max-width: 150px;
-    transition: max-width 0.5s ease 0s;
+
+we-button:hover .o_we_shape_animated_label {
+    i {
+        padding-right: $o-we-item-spacing / 2;
+    }
+
+    > span {
+        max-width: $o-we-sidebar-width / 2;
+        transition: max-width 0.5s ease 0s;
+    }
 }
 
 .o_we_ui_loading {
@@ -2411,7 +2801,6 @@ we-button:hover .o_we_shape_animated_label > span {
     // be over the content being reloaded (with a covering similar to the editor
     // overlay covering).
     position: fixed;
-    right: $o-we-sidebar-width;
 }
 
 .o_we_force_no_transition {
@@ -2420,4 +2809,80 @@ we-button:hover .o_we_shape_animated_label > span {
     // code evolves. We may need to increase the CSS priority of this. It will
     // also not work to override important inline style... this is a limitation.
     transition: none !important;
+}
+
+// GRID LAYOUT
+we-button.o_grid {
+    min-width: fit-content;
+    padding-left: 4.5px !important;
+    padding-right: 4.5px !important;
+}
+
+we-select.o_grid we-toggler {
+    width: fit-content !important;
+}
+
+// Background grid.
+.o_we_background_grid {
+    padding: 0 !important;
+
+    .o_we_cell {
+        fill: $o-we-fg-lighter;
+        fill-opacity: .1;
+        stroke: $o-we-bg-darkest;
+        stroke-opacity: .2;
+        stroke-width: 1px;
+        filter: drop-shadow(-1px -1px 0px rgba(255, 255, 255, 0.3));
+    }
+
+    &.o_we_grid_preview {
+        @include media-breakpoint-down(lg) {
+            // Hiding the preview in mobile view (-> no grid in mobile view). We
+            // cannot use `display: none` because it would prevent the animation
+            // to be played and so its listener would not remove the preview.
+            height: 0;
+        }
+        pointer-events: none;
+
+        .o_we_cell {
+            animation: gridPreview 2s 0.5s;
+        }
+    }
+}
+
+// Grid preview.
+@keyframes gridPreview {
+    to {
+        fill-opacity: 0;
+        stroke-opacity: 0;
+    }
+}
+
+.o_we_drag_helper {
+    padding: 0;
+    border: $o-we-handle-border-width * 2 solid $o-we-accent;
+    border-radius: $o-we-item-border-radius;
+}
+
+// Highlight of the grid items padding.
+@keyframes highlightPadding {
+    from {
+        border: solid rgba($o-we-handles-accent-color, 0.2);
+        border-width: var(--grid-item-padding-y) var(--grid-item-padding-x);
+    }
+    to {
+        border: solid rgba($o-we-handles-accent-color, 0);
+        border-width: var(--grid-item-padding-y) var(--grid-item-padding-x);
+    }
+}
+
+.o_we_padding_highlight.o_grid_item {
+    position: relative;
+
+    &::after {
+        content: "";
+        @include o-position-absolute(0, 0, 0, 0);
+        animation: highlightPadding 2s;
+        pointer-events: none;
+    }
 }

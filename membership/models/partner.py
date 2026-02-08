@@ -109,9 +109,17 @@ class Partner(models.Model):
             invoice_vals_list.append({
                 'move_type': 'out_invoice',
                 'partner_id': partner.id,
-                'invoice_payment_term_id': partner.property_payment_term_id.id,
                 'invoice_line_ids': [
-                    (0, None, {'product_id': product.id, 'quantity': 1, 'price_unit': amount, 'tax_ids': [(6, 0, product.taxes_id.ids)]})
+                    (
+                        0,
+                        None,
+                        {
+                            'product_id': product.id,
+                            'quantity': 1,
+                            'price_unit': amount,
+                            'tax_ids': [(6, 0, product.taxes_id.filtered_domain(self.env['account.tax']._check_company_domain(self.env.company)).ids)]
+                        }
+                     )
                 ]
             })
 

@@ -13,13 +13,14 @@ Allow the user to select if he wants to receive email notifications when a produ
         'website_sale_wishlist',
     ],
     'data': [
-        'views/templates.xml',
-        'data/template_email.xml',
-        'data/ir_cron_data.xml',
+        'views/website_sale_stock_wishlist_templates.xml',
     ],
     'assets': {
         'web.assets_frontend': [
             'website_sale_stock_wishlist/static/src/**/*',
+        ],
+        'web.assets_tests': [
+            'website_sale_stock_wishlist/static/tests/tours/website_sale_stock_wishlist_stock_notification.js',
         ],
     },
     'auto_install': True,

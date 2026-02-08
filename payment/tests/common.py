@@ -1,21 +1,24 @@
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
 
 import logging
-from contextlib import contextmanager
 from unittest.mock import patch
-from odoo.addons.account.models.account_payment_method import AccountPaymentMethod
-from odoo.fields import Command
 
-from odoo.addons.payment.tests.utils import PaymentTestUtils
+from lxml import objectify
+
+from odoo.fields import Command
+from odoo.osv.expression import AND
+from odoo.tools.misc import hmac as hmac_tool
+
+from odoo.addons.base.tests.common import BaseCommon
 
 _logger = logging.getLogger(__name__)
 
 
-class PaymentCommon(PaymentTestUtils):
+class PaymentCommon(BaseCommon):
 
     @classmethod
-    def setUpClass(cls, chart_template_ref=None):
-        super().setUpClass(chart_template_ref=chart_template_ref)
+    def setUpClass(cls):
+        super().setUpClass()
 
         cls.currency_euro = cls._prepare_currency('EUR')
         cls.currency_usd = cls._prepare_currency('USD')
@@ -58,7 +61,7 @@ class PaymentCommon(PaymentTestUtils):
             'country_id': cls.country_belgium.id,
         })
 
-        # Create a dummy acquirer to allow basic tests without any specific acquirer implementation
+        # Create a dummy provider to allow basic tests without any specific provider implementation
         arch = """
         <form action="dummy" method="post">
             <input type="hidden" name="view_id" t-att-value="viewid"/>
@@ -71,76 +74,51 @@ class PaymentCommon(PaymentTestUtils):
             'arch': arch,
         })
 
-        with cls.mocked_get_payment_method_information(cls):
-            cls.dummy_acquirer_method = cls.env['account.payment.method'].sudo().create({
-                'name': 'Dummy method',
-                'code': 'none',
-                'payment_type': 'inbound'
-            })
-            with cls.mocked_get_default_payment_method_id(cls):
-                cls.dummy_acquirer = cls.env['payment.acquirer'].create({
-                    'name': "Dummy Acquirer",
-                    'provider': 'none',
-                    'state': 'test',
-                    'allow_tokenization': True,
-                    'redirect_form_view_id': redirect_form.id,
-                    'journal_id': cls.company_data['default_journal_bank'].id,
-                })
+        cls.dummy_provider = cls.env['payment.provider'].create({
+            'name': "Dummy Provider",
+            'code': 'none',
+            'state': 'test',
+            'is_published': True,
+            'payment_method_ids': [Command.set([cls.env.ref('payment.payment_method_unknown').id])],
+            'allow_tokenization': True,
+            'redirect_form_view_id': redirect_form.id,
+            'available_currency_ids': [Command.set(
+                (cls.currency_euro + cls.currency_usd + cls.env.company.currency_id).ids
+            )],
+        })
+        # Activate pm
+        cls.env.ref('payment.payment_method_unknown').write({
+            'active': True,
+            'support_tokenization': True,
+        })
 
-            # The bank journal has been updated.
-            # Trigger the constraints with the 'flush' to have them evaluated with the mocked payment method.
-            cls.env['account.journal'].flush()
-
-        cls.acquirer = cls.dummy_acquirer
+        cls.provider = cls.dummy_provider
+        cls.payment_methods = cls.provider.payment_method_ids
+        cls.payment_method = cls.payment_methods[:1]
+        cls.payment_method_id = cls.payment_method.id
+        cls.payment_method_code = cls.payment_method.code
         cls.amount = 1111.11
         cls.company = cls.env.company
+        cls.company_id = cls.company.id
         cls.currency = cls.currency_euro
         cls.partner = cls.default_partner
         cls.reference = "Test Transaction"
-        cls.account = cls.company.account_journal_payment_credit_account_id
-        cls.invoice = cls.env['account.move'].create({
-            'move_type': 'entry',
-            'date': '2019-01-01',
-            'line_ids': [
-                (0, 0, {
-                    'account_id': cls.account.id,
-                    'currency_id': cls.currency_euro.id,
-                    'debit': 100.0,
-                    'credit': 0.0,
-                    'amount_currency': 200.0,
-                }),
-                (0, 0, {
-                    'account_id': cls.account.id,
-                    'currency_id': cls.currency_euro.id,
-                    'debit': 0.0,
-                    'credit': 100.0,
-                    'amount_currency': -200.0,
-                }),
-            ],
-        })
+
+        account_payment_module = cls.env['ir.module.module']._get('account_payment')
+        cls.account_payment_installed = account_payment_module.state in ('installed', 'to upgrade')
+        cls.enable_reconcile_after_done_patcher = True
+
+    def setUp(self):
+        super().setUp()
+        if self.account_payment_installed and self.enable_reconcile_after_done_patcher:
+            # disable account payment generation if account_payment is installed
+            # because the accounting setup of providers is not managed in this common
+            self.reconcile_after_done_patcher = patch(
+                'odoo.addons.account_payment.models.payment_transaction.PaymentTransaction._reconcile_after_done',
+            )
+            self.startPatcher(self.reconcile_after_done_patcher)
 
     #=== Utils ===#
-
-    @contextmanager
-    def mocked_get_payment_method_information(self):
-        Method_get_payment_method_information = AccountPaymentMethod._get_payment_method_information
-
-        def _get_payment_method_information(record):
-            res = Method_get_payment_method_information(record)
-            res['none'] = {'mode': 'electronic', 'domain': [('type', '=', 'bank')]}
-            return res
-
-        with patch.object(AccountPaymentMethod, '_get_payment_method_information', _get_payment_method_information):
-            yield
-
-    @contextmanager
-    def mocked_get_default_payment_method_id(self):
-
-        def _get_default_payment_method_id(record):
-            return self.dummy_acquirer_method.id
-
-        with patch.object(self.env.registry['payment.acquirer'], '_get_default_payment_method_id', _get_default_payment_method_id):
-            yield
 
     @classmethod
     def _prepare_currency(cls, currency_code):
@@ -151,75 +129,73 @@ class PaymentCommon(PaymentTestUtils):
         return currency
 
     @classmethod
-    def _prepare_user(cls, user, group_xmlid):
-        user.groups_id = [Command.link(cls.env.ref(group_xmlid).id)]
-        # Flush and invalidate the cache to allow checking access rights.
-        user.flush()
-        user.invalidate_cache()
-        return user
+    def _prepare_provider(cls, code='none', company=None, update_values=None):
+        """ Prepare and return the first provider matching the given provider and company.
 
-    @classmethod
-    def _prepare_acquirer(cls, provider='none', company=None, update_values=None):
-        """ Prepare and return the first acquirer matching the given provider and company.
+        If no provider is found in the given company, we duplicate the one from the base company.
 
-        If no acquirer is found in the given company, we duplicate the one from the base company.
+        All other providers belonging to the same company are disabled to avoid any interferences.
 
-        All other acquirers belonging to the same company are disabled to avoid any interferences.
-
-        :param str provider: The provider of the acquirer to prepare
-        :param recordset company: The company of the acquirer to prepare, as a `res.company` record
-        :param dict update_values: The values used to update the acquirer
-        :return: The acquirer to prepare, if found
-        :rtype: recordset of `payment.acquirer`
+        :param str code: The code of the provider to prepare
+        :param recordset company: The company of the provider to prepare, as a `res.company` record
+        :param dict update_values: The values used to update the provider
+        :return: The provider to prepare, if found
+        :rtype: recordset of `payment.provider`
         """
         company = company or cls.env.company
         update_values = update_values or {}
+        provider_domain = cls._get_provider_domain(code)
 
-        acquirer = cls.env['payment.acquirer'].sudo().search(
-            [('provider', '=', provider), ('company_id', '=', company.id)], limit=1
+        provider = cls.env['payment.provider'].sudo().search(
+            AND([provider_domain, [('company_id', '=', company.id)]]), limit=1
         )
-        if not acquirer:
-            base_acquirer = cls.env['payment.acquirer'].sudo().search(
-                [('provider', '=', provider)], limit=1
-            )
-            if not base_acquirer:
-                _logger.error("no payment.acquirer found for provider %s", provider)
-                return cls.env['payment.acquirer']
+        if not provider:
+            if code != 'none':
+                base_provider = cls.env['payment.provider'].sudo().search(provider_domain, limit=1)
             else:
-                acquirer = base_acquirer.copy({'company_id': company.id})
+                base_provider = cls.provider
+            if not base_provider:
+                _logger.error("no payment.provider found for code %s", code)
+                return cls.env['payment.provider']
+            else:
+                provider = base_provider.copy({'company_id': company.id})
 
-        acquirer.write(update_values)
-        if not acquirer.journal_id:
-            acquirer.journal_id = cls.env['account.journal'].search([
-                ('company_id', '=', company.id),
-                ('type', '=', 'bank')
-            ], limit=1)
-        acquirer.state = 'test'
+        update_values['state'] = 'test'
+        provider.write(update_values)
+        return provider
 
-        with cls.mocked_get_payment_method_information(cls):
-            # The bank journal has been updated and the payment lines accordingly.
-            # Trigger the constraints with the 'flush' to have them evaluated with the mocked payment method.
-            cls.env['account.journal'].flush()
+    @classmethod
+    def _get_provider_domain(cls, code):
+        return [('code', '=', code)]
 
-        return acquirer
+    @classmethod
+    def _prepare_user(cls, user, group_xmlid):
+        user.groups_id = [Command.link(cls.env.ref(group_xmlid).id)]
+        # Flush and invalidate the cache to allow checking access rights.
+        user.flush_recordset()
+        user.invalidate_recordset()
+        return user
 
-    def create_transaction(self, flow, sudo=True, **values):
+    def _create_transaction(self, flow, sudo=True, **values):
         default_values = {
+            'payment_method_id': self.payment_method_id,
             'amount': self.amount,
             'currency_id': self.currency.id,
-            'acquirer_id': self.acquirer.id,
+            'provider_id': self.provider.id,
             'reference': self.reference,
             'operation': f'online_{flow}',
             'partner_id': self.partner.id,
         }
         return self.env['payment.transaction'].sudo(sudo).create(dict(default_values, **values))
 
-    def create_token(self, sudo=True, **values):
+    def _create_token(self, sudo=True, **values):
         default_values = {
-            'name': "XXXXXXXXXXXXXXX-2565 (TEST)",
-            'acquirer_id': self.acquirer.id,
+            'provider_id': self.provider.id,
+            'payment_method_id': self.payment_method_id,
+            'payment_details': "1234",
             'partner_id': self.partner.id,
-            'acquirer_ref': "Acquirer Ref (TEST)",
+            'provider_ref': "provider Ref (TEST)",
+            'active': True,
         }
         return self.env['payment.token'].sudo(sudo).create(dict(default_values, **values))
 
@@ -228,29 +204,39 @@ class PaymentCommon(PaymentTestUtils):
             ('reference', '=', reference),
         ])
 
-    def _prepare_transaction_values(self, payment_option_id, flow):
-        """ Prepare the basic payment/transaction route values.
+    def _generate_test_access_token(self, *values):
+        """ Generate an access token based on the provided values for testing purposes.
 
-        :param int payment_option_id: The payment option handling the transaction, as a
-                                      `payment.acquirer` id or a `payment.token` id
-        :param str flow: The payment flow
-        :return: The route values
-        :rtype: dict
+        This methods returns a token identical to that generated by
+        payment.utils.generate_access_token but uses the test class environment rather than the
+        environment of odoo.http.request.
+
+        See payment.utils.generate_access_token for additional details.
+
+        :param list values: The values to use for the generation of the token
+        :return: The generated access token
+        :rtype: str
         """
+        token_str = '|'.join(str(val) for val in values)
+        access_token = hmac_tool(self.env(su=True), 'generate_access_token', token_str)
+        return access_token
+
+    def _extract_values_from_html_form(self, html_form):
+        """ Extract the transaction rendering values from an HTML form.
+
+        :param str html_form: The HTML form
+        :return: The extracted information (action & inputs)
+        :rtype: dict[str:str]
+        """
+        html_tree = objectify.fromstring(html_form)
+        if hasattr(html_tree, 'input'):
+            inputs = {input_.get('name'): input_.get('value') for input_ in html_tree.input}
+        else:
+            inputs = {}
         return {
-            'amount': self.amount,
-            'currency_id': self.currency.id,
-            'partner_id': self.partner.id,
-            'access_token': self._generate_test_access_token(
-                self.partner.id, self.amount, self.currency.id
-            ),
-            'payment_option_id': payment_option_id,
-            'reference_prefix': 'test',
-            'tokenization_requested': True,
-            'landing_route': 'Test',
-            'is_validation': False,
-            'invoice_id': self.invoice.id,
-            'flow': flow,
+            'action': html_tree.get('action'),
+            'method': html_tree.get('method'),
+            'inputs': inputs,
         }
 
     def _assert_does_not_raise(self, exception_class, func, *args, **kwargs):
@@ -273,3 +259,8 @@ class PaymentCommon(PaymentTestUtils):
             self.fail(f"{func.__name__} should not raise error of class {exception_class.__name__}")
         except Exception:
             pass  # Any exception whose class is not monitored is caught and ignored.
+
+    def _skip_if_account_payment_is_not_installed(self):
+        """ Skip current test if `account_payment` module is not installed. """
+        if not self.account_payment_installed:
+            self.skipTest("account_payment module is not installed")

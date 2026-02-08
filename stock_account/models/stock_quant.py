@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
 
+import itertools
 from odoo import api, fields, models, _
 from odoo.tools.float_utils import float_is_zero
 from odoo.tools.misc import groupby
@@ -16,6 +17,7 @@ class StockQuant(models.Model):
         help="Date at which the accounting entries will be created"
              " in case of automated inventory valuation."
              " If empty, the inventory date will be used.")
+    cost_method = fields.Selection(related="product_categ_id.property_cost_method")
 
     @api.model
     def _should_exclude_for_valuation(self):
@@ -28,47 +30,52 @@ class StockQuant(models.Model):
 
     @api.depends('company_id', 'location_id', 'owner_id', 'product_id', 'quantity')
     def _compute_value(self):
-        """ For standard and AVCO valuation, compute the current accounting
-        valuation of the quants by multiplying the quantity by
-        the standard price. Instead for FIFO, use the quantity times the
-        average cost (valuation layers are not manage by location so the
-        average cost is the same for all location and the valuation field is
-        a estimation more than a real value).
+        """ (Product.value_svl / Product.quantity_svl) * quant.quantity, i.e. average unit cost * on hand qty
         """
+        self.fetch(['company_id', 'location_id', 'owner_id', 'product_id', 'quantity'])
         for quant in self:
             quant.currency_id = quant.company_id.currency_id
-            # If the user didn't enter a location yet while enconding a quant.
-            if not quant.location_id:
-                quant.value = 0
-                return
-
-            if not quant.location_id._should_be_valued() or quant._should_exclude_for_valuation():
+            if not quant.location_id or not quant.product_id or\
+                    not quant.location_id._should_be_valued() or\
+                    quant._should_exclude_for_valuation() or\
+                    float_is_zero(quant.quantity, precision_rounding=quant.product_id.uom_id.rounding):
                 quant.value = 0
                 continue
-            if quant.product_id.cost_method == 'fifo':
-                quantity = quant.product_id.with_company(quant.company_id).quantity_svl
-                if float_is_zero(quantity, precision_rounding=quant.product_id.uom_id.rounding):
-                    quant.value = 0.0
-                    continue
-                average_cost = quant.product_id.with_company(quant.company_id).value_svl / quantity
-                quant.value = quant.quantity * average_cost
-            else:
-                quant.value = quant.quantity * quant.product_id.with_company(quant.company_id).standard_price
+            quantity = quant.product_id.with_company(quant.company_id).quantity_svl
+            if float_is_zero(quantity, precision_rounding=quant.product_id.uom_id.rounding):
+                quant.value = 0.0
+                continue
+            quant.value = quant.quantity * quant.product_id.with_company(quant.company_id).value_svl / quantity
 
     @api.model
-    def read_group(self, domain, fields, groupby, offset=0, limit=None, orderby=False, lazy=True):
+    def _read_group(self, domain, groupby=(), aggregates=(), having=(), offset=0, limit=None, order=None):
         """ This override is done in order for the grouped list view to display the total value of
         the quants inside a location. This doesn't work out of the box because `value` is a computed
         field.
         """
-        if 'value' not in fields:
-            return super(StockQuant, self).read_group(domain, fields, groupby, offset=offset, limit=limit, orderby=orderby, lazy=lazy)
-        res = super(StockQuant, self).read_group(domain, fields, groupby, offset=offset, limit=limit, orderby=orderby, lazy=lazy)
-        for group in res:
-            if group.get('__domain'):
-                quants = self.search(group['__domain'])
-                group['value'] = sum(quant.value for quant in quants)
-        return res
+        SPECIAL = {'value:sum'}
+        if SPECIAL.isdisjoint(aggregates):
+            return super()._read_group(domain, groupby, aggregates, having, offset, limit, order)
+
+        base_aggregates = [*(agg for agg in aggregates if agg not in SPECIAL), 'id:recordset']
+        base_result = super()._read_group(domain, groupby, base_aggregates, having, offset, limit, order)
+
+        # base_result = [(a1, b1, records), (a2, b2, records), ...]
+        result = []
+        for *other, records in base_result:
+            for index, spec in enumerate(itertools.chain(groupby, aggregates)):
+                if spec in SPECIAL:
+                    field_name = spec.split(':')[0]
+                    other.insert(index, sum(records.mapped(field_name)))
+            result.append(tuple(other))
+
+        return result
+
+    @api.model
+    def read_group(self, domain, fields, *args, **kwargs):
+        if 'value' in fields:
+            fields = ['value:sum' if f == 'value' else f for f in fields]
+        return super().read_group(domain, fields, *args, **kwargs)
 
     def _apply_inventory(self):
         for accounting_date, inventory_ids in groupby(self, key=lambda q: q.accounting_date):
@@ -78,6 +85,14 @@ class StockQuant(models.Model):
                 inventories.accounting_date = False
             else:
                 super(StockQuant, inventories)._apply_inventory()
+
+    def _get_inventory_move_values(self, qty, location_id, location_dest_id, package_id=False, package_dest_id=False):
+        res_move = super()._get_inventory_move_values(qty, location_id, location_dest_id, package_id, package_dest_id)
+        if not self.env.context.get('inventory_name'):
+            force_period_date = self.env.context.get('force_period_date', False)
+            if force_period_date:
+                res_move['name'] += _(' [Accounted on %s]', force_period_date)
+        return res_move
 
     @api.model
     def _get_inventory_fields_write(self):

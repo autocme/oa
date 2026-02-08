@@ -1,51 +1,59 @@
 # Translation of Odoo Server.
 # This file contains the translation of the following modules:
-# 	* hr_fleet
-# 
+# * hr_fleet
+#
 # Translators:
-# Martin Trigaux, 2022
-# Monika Raciunaite <monika.raciunaite@gmail.com>, 2022
-# Antanas Muliuolis <an.muliuolis@gmail.com>, 2022
-# Linas Versada <linaskrisiukenas@gmail.com>, 2022
-# Ramunė ViaLaurea <ramune.vialaurea@gmail.com>, 2022
-# Jonas Zinkevicius <jozi@odoo.com>, 2022
-# 
+# Ramunė ViaLaurea <ramune.vialaurea@gmail.com>, 2023
+# Antanas Muliuolis <an.muliuolis@gmail.com>, 2023
+# Linas Versada <linaskrisiukenas@gmail.com>, 2023
+# Monika Raciunaite <monika.raciunaite@gmail.com>, 2023
+# Martin Trigaux, 2023
+# Jonas Zinkevicius <jozi@odoo.com>, 2023
+# Greta Šeštokė, 2024
+# Weblate <noreply-mt-weblate@weblate.org>, 2025.
 msgid ""
 msgstr ""
-"Project-Id-Version: Odoo Server 15.0\n"
+"Project-Id-Version: Odoo Server 17.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2022-01-24 08:19+0000\n"
-"PO-Revision-Date: 2021-09-14 12:22+0000\n"
-"Last-Translator: Jonas Zinkevicius <jozi@odoo.com>, 2022\n"
-"Language-Team: Lithuanian (https://app.transifex.com/odoo/teams/41243/lt/)\n"
+"POT-Creation-Date: 2025-12-29 18:37+0000\n"
+"PO-Revision-Date: 2025-11-17 08:58+0000\n"
+"Last-Translator: Weblate <noreply-mt-weblate@weblate.org>\n"
+"Language-Team: Lithuanian <https://translate.odoo.com/projects/odoo-17/"
+"hr_fleet/lt/>\n"
+"Language: lt\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: \n"
-"Language: lt\n"
-"Plural-Forms: nplurals=4; plural=(n % 10 == 1 && (n % 100 > 19 || n % 100 < 11) ? 0 : (n % 10 >= 2 && n % 10 <=9) && (n % 100 > 19 || n % 100 < 11) ? 1 : n % 1 != 0 ? 2: 3);\n"
-
-#. module: hr_fleet
-#: code:addons/hr_fleet/controllers/main.py:0
-#, python-format
-msgid "%(car_name)s (driven from: %(date_start)s to %(date_end)s)"
-msgstr ""
+"Plural-Forms: nplurals=4; plural=(n % 10 == 1 && (n % 100 > 19 || n % 100 < "
+"11) ? 0 : (n % 10 >= 2 && n % 10 <=9) && (n % 100 > 19 || n % 100 < 11) ? "
+"1 : n % 1 != 0 ? 2: 3);\n"
+"X-Generator: Weblate 5.12.2\n"
 
 #. module: hr_fleet
 #: model_terms:ir.ui.view,arch_db:hr_fleet.fleet_vehicle_view_form_inherit_hr
-msgid "<span class=\"o_stat_text\">Employee</span>"
-msgstr "<span class=\"o_stat_text\">Darbuotojas</span>"
-
-#. module: hr_fleet
-#: model_terms:ir.ui.view,arch_db:hr_fleet.view_employee_form
-msgid "Application Settings"
+msgid ""
+"<span class=\"o_stat_value\">1</span>\n"
+"                        <span class=\"o_stat_text\">Employee</span>"
 msgstr ""
 
 #. module: hr_fleet
+#: model:ir.model,name:hr_fleet.model_mail_activity_plan_template
+msgid "Activity plan template"
+msgstr ""
+
+#. module: hr_fleet
+#: model:ir.model.fields,field_description:hr_fleet.field_mail_activity_plan_template__responsible_type
+msgid "Assignment"
+msgstr "Užduotis"
+
+#. module: hr_fleet
+#: model_terms:ir.ui.view,arch_db:hr_fleet.fleet_vehicle_assignation_log_employee_view_list
 #: model_terms:ir.ui.view,arch_db:hr_fleet.fleet_vehicle_assignation_log_view_list
 msgid "Attachments"
 msgstr "Prisegtukai"
 
 #. module: hr_fleet
+#. odoo-python
 #: code:addons/hr_fleet/models/employee.py:0
 #, python-format
 msgid "Cannot remove address from employees with linked cars."
@@ -58,20 +66,14 @@ msgid "Cars"
 msgstr "Automobiliai"
 
 #. module: hr_fleet
-#: model_terms:ir.ui.view,arch_db:hr_fleet.res_users_view_form_preferences
-#: model_terms:ir.ui.view,arch_db:hr_fleet.view_employee_form
-msgid "Claim Car Report"
-msgstr ""
-
-#. module: hr_fleet
 #: model_terms:ir.ui.view,arch_db:hr_fleet.hr_departure_wizard_view_form
 msgid "Company Car"
 msgstr ""
 
 #. module: hr_fleet
-#: model_terms:ir.ui.view,arch_db:hr_fleet.fleet_vehicle_view_search_inherit_hr
-msgid "Current Driver (Employee)"
-msgstr "Dabartinis vairuotojas (Darbuotojas)"
+#: model_terms:ir.ui.view,arch_db:hr_fleet.fleet_vehicle_assignation_log_employee_view_list
+msgid "Current Driver"
+msgstr "Dabartinis vairuotojas"
 
 #. module: hr_fleet
 #: model:ir.model,name:hr_fleet.model_hr_departure_wizard
@@ -105,9 +107,28 @@ msgid "Employee"
 msgstr "Darbuotojas"
 
 #. module: hr_fleet
+#. odoo-python
+#: code:addons/hr_fleet/models/mail_activity_plan_template.py:0
+#, python-format
+msgid "Employee %s is not linked to a vehicle."
+msgstr ""
+
+#. module: hr_fleet
 #: model:ir.model.fields,field_description:hr_fleet.field_fleet_vehicle__driver_employee_name
 msgid "Employee Name"
 msgstr "Darbuotojo vardas"
+
+#. module: hr_fleet
+#: model:ir.model.fields.selection,name:hr_fleet.selection__mail_activity_plan_template__responsible_type__fleet_manager
+msgid "Fleet Manager"
+msgstr "Automobilių parko vadovas"
+
+#. module: hr_fleet
+#. odoo-python
+#: code:addons/hr_fleet/models/mail_activity_plan_template.py:0
+#, python-format
+msgid "Fleet Manager is limited to Employee plans."
+msgstr ""
 
 #. module: hr_fleet
 #: model_terms:ir.ui.view,arch_db:hr_fleet.view_employee_form
@@ -116,12 +137,18 @@ msgstr "Automobilių parko mobilumo kortelė"
 
 #. module: hr_fleet
 #: model:ir.model.fields,field_description:hr_fleet.field_fleet_vehicle__future_driver_employee_id
-#: model_terms:ir.ui.view,arch_db:hr_fleet.fleet_vehicle_view_search_inherit_hr
 msgid "Future Driver (Employee)"
 msgstr "Sekantis vairuotojas (Darbuotojas)"
 
 #. module: hr_fleet
-#: model_terms:ir.ui.view,arch_db:hr_fleet.view_employee_filter
+#. odoo-python
+#: code:addons/hr_fleet/models/employee.py:0
+#, python-format
+msgid "History Employee Cars"
+msgstr ""
+
+#. module: hr_fleet
+#: model:ir.model.fields,field_description:hr_fleet.field_hr_employee__license_plate
 msgid "License Plate"
 msgstr "Valstybinis numeris"
 
@@ -145,9 +172,10 @@ msgstr "Automobilio odometro žurnalas"
 #. module: hr_fleet
 #: model:ir.model,name:hr_fleet.model_hr_employee_public
 msgid "Public Employee"
-msgstr ""
+msgstr "Valstybės tarnautojas"
 
 #. module: hr_fleet
+#. odoo-python
 #: code:addons/hr_fleet/models/fleet_vehicle.py:0
 #, python-format
 msgid "Related Employee"
@@ -159,33 +187,28 @@ msgid "Release Company Car"
 msgstr ""
 
 #. module: hr_fleet
-#: model:ir.model.fields,help:hr_fleet.field_hr_departure_wizard__release_campany_car
-msgid "Release the company car."
-msgstr ""
-
-#. module: hr_fleet
 #: model:ir.model,name:hr_fleet.model_fleet_vehicle_log_services
 msgid "Services for vehicles"
 msgstr "Paslaugos automobiliams"
 
 #. module: hr_fleet
-#: code:addons/hr_fleet/controllers/main.py:0
+#. odoo-python
+#: code:addons/hr_fleet/models/mail_activity_plan_template.py:0
 #, python-format
-msgid "There is no pdf attached to generate a claim report."
+msgid "The vehicle of employee %(employee)s is not linked to a fleet manager."
 msgstr ""
 
 #. module: hr_fleet
-#: model_terms:ir.ui.view,arch_db:hr_fleet.res_users_view_form_preferences
-#: model_terms:ir.ui.view,arch_db:hr_fleet.view_employee_form
-msgid ""
-"This report will contain only PDF files. If you want all documents, please "
-"go on vehicle page. Do you want to proceed?"
-msgstr ""
+#. odoo-javascript
+#: code:addons/hr_fleet/static/src/views/hr_fleet_kanban/hr_fleet_kanban_controller.xml:0
+#, python-format
+msgid "Upload"
+msgstr "Įkelti"
 
 #. module: hr_fleet
 #: model:ir.model,name:hr_fleet.model_res_users
-msgid "Users"
-msgstr "Vartotojai"
+msgid "User"
+msgstr "Vartotojas"
 
 #. module: hr_fleet
 #: model:ir.model,name:hr_fleet.model_fleet_vehicle

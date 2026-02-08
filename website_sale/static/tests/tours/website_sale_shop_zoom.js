@@ -1,18 +1,16 @@
-odoo.define('website_sale.tour_shop_zoom', function (require) {
-'use strict';
+/** @odoo-module **/
 
-var tour = require('web_tour.tour');
+import { registry } from "@web/core/registry";
 
 var imageSelector = '#o-carousel-product .carousel-item.active img';
 var imageName = "A Colorful Image";
 var nameGreen = "Forest Green";
 
 // This tour relies on a data created from the python test.
-tour.register('shop_zoom', {
+registry.category("web_tour.tours").add('shop_zoom', {
     test: true,
-    url: '/shop?search=' + imageName,
-},
-[
+    url: '/shop?debug=1&search=' + imageName,
+    steps: () => [
     {
         content: "select " + imageName,
         trigger: '.oe_product_cart a:containsExact("' + imageName + '")',
@@ -23,8 +21,13 @@ tour.register('shop_zoom', {
         run: 'clicknoleave',
     },
     {
-        content: "check there is no zoom on that small image",
-        trigger: 'body:not(:has(.zoomodoo-flyout img))',
+        content: "check that the image viewer opened",
+        trigger: '.o_wsale_image_viewer',
+        run: () => {},
+    },
+    {
+        content: "close the image viewer",
+        trigger: '.o_wsale_image_viewer_header span.fa-times',
     },
     {
         content: "change variant",
@@ -42,7 +45,7 @@ tour.register('shop_zoom', {
     },
     {
         content: "check there is a zoom on that big image",
-        trigger: '.zoomodoo-flyout img',
+        trigger: '.o_wsale_image_viewer',
+        run: () => {},
     },
-]);
-});
+]});

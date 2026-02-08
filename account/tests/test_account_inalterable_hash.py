@@ -1,6 +1,7 @@
 from odoo.addons.account.tests.common import AccountTestInvoicingCommon
 from odoo.models import Model
 from odoo.tests import tagged
+from odoo.tests.common import Form
 from odoo import fields
 from odoo.exceptions import UserError
 from odoo.tools import format_date
@@ -39,7 +40,7 @@ class TestAccountMoveInalterableHash(AccountTestInvoicingCommon):
             move.line_ids[0].partner_id = 666
 
         # The following fields are not part of the hash so they can be modified
-        move.invoice_date_due = fields.Date.from_string('2023-01-02')
+        move.ref = "bla"
         move.line_ids[0].date_maturity = fields.Date.from_string('2023-01-02')
 
     def test_account_move_hash_integrity_report(self):
@@ -80,8 +81,12 @@ class TestAccountMoveInalterableHash(AccountTestInvoicingCommon):
         integrity_check = moves.company_id._check_hash_integrity()['results'][0]
         self.assertEqual(integrity_check['msg_cover'], f'Corrupted data on journal entry with id {moves[4].id}.')
 
+        # Revert the previous change
+        Model.write(moves[4], {'date': fields.Date.from_string("2023-01-05")})
+        integrity_check = moves.company_id._check_hash_integrity()['results'][0]
+        self.assertRegex(integrity_check['msg_cover'], f'Entries are hashed from {moves[2].name}.*')
+
         # Let's try with the one of the subfields
-        Model.write(moves[4], {'date': fields.Date.from_string("2023-01-05")})  # Revert the previous change
         Model.write(moves[-1].line_ids[0], {'partner_id': self.partner_b.id})
         integrity_check = moves.company_id._check_hash_integrity()['results'][0]
         self.assertEqual(integrity_check['msg_cover'], f'Corrupted data on journal entry with id {moves[-1].id}.')
@@ -184,3 +189,81 @@ class TestAccountMoveInalterableHash(AccountTestInvoicingCommon):
         moves_v1_bis.with_context(hash_version=1).action_post()
         integrity_check = moves.company_id._check_hash_integrity()['results'][0]
         self.assertEqual(integrity_check['msg_cover'], f'Corrupted data on journal entry with id {moves_v1_bis[0].id}.')
+
+    def test_account_move_hash_versioning_3(self):
+        """
+        Version 2 does not take into account floating point representation issues.
+        Test that version 3 covers correctly this case
+        """
+        self.init_invoice("out_invoice", self.partner_a, "2023-01-01", amounts=[1000, 2000],
+                          post=True)  # Not hashed
+        self.company_data['default_journal_sale'].restrict_mode_hash_table = True
+        moves_v3 = (
+            self.init_invoice("out_invoice", self.partner_a, "2023-01-01", amounts=[30*0.17, 2000])
+            | self.init_invoice("out_invoice", self.partner_b, "2023-01-02", amounts=[1000, 2000])
+            | self.init_invoice("out_invoice", self.partner_b, "2023-01-03", amounts=[1000, 2000])
+        )
+        moves_v3.action_post()
+
+        # invalidate cache
+        moves_v3[0].line_ids[0].invalidate_recordset()
+
+        integrity_check_v3 = moves_v3.company_id._check_hash_integrity()['results'][0]
+        self.assertRegex(integrity_check_v3['msg_cover'], f'Entries are hashed from {moves_v3[0].name}.*')
+
+    def test_account_move_hash_versioning_v2_to_v3(self):
+        """
+        We are updating the hash algorithm. We want to make sure that we do not break the integrity report.
+        This test focuses on the case with version 2 and version 3.
+        """
+        self.init_invoice("out_invoice", self.partner_a, "2023-01-01", amounts=[1000, 2000],
+                          post=True)  # Not hashed
+        self.company_data['default_journal_sale'].restrict_mode_hash_table = True
+        moves_v2 = (
+            self.init_invoice("out_invoice", self.partner_a, "2023-01-01", amounts=[1000, 2000])
+            | self.init_invoice("out_invoice", self.partner_b, "2023-01-02", amounts=[1000, 2000])
+            | self.init_invoice("out_invoice", self.partner_b, "2023-01-03", amounts=[1000, 2000])
+        )
+        moves_v2.with_context(hash_version=2).action_post()
+
+        moves_v3 = (
+            self.init_invoice("out_invoice", self.partner_a, "2023-01-01", amounts=[1000, 2000])
+            | self.init_invoice("out_invoice", self.partner_b, "2023-01-02", amounts=[1000, 2000])
+            | self.init_invoice("out_invoice", self.partner_b, "2023-01-03", amounts=[1000, 2000])
+        )
+        moves_v3.with_context(hash_version=3).action_post()
+
+        moves = moves_v2 | moves_v3
+        integrity_check = moves.company_id._check_hash_integrity()['results'][0]
+        self.assertRegex(integrity_check['msg_cover'], f'Entries are hashed from {moves[0].name}.*')
+        self.assertEqual(integrity_check['first_move_date'],
+                         format_date(self.env, fields.Date.to_string(moves[0].date)))
+        self.assertEqual(integrity_check['last_move_date'],
+                         format_date(self.env, fields.Date.to_string(moves[-1].date)))
+
+        Model.write(moves[1], {'date': fields.Date.from_string('2023-01-07')})
+        integrity_check = moves.company_id._check_hash_integrity()['results'][0]
+        self.assertEqual(integrity_check['msg_cover'], f'Corrupted data on journal entry with id {moves[1].id}.')
+
+    def test_account_move_hash_with_cash_rounding(self):
+        # Enable inalterable hash
+        self.company_data['default_journal_sale'].restrict_mode_hash_table = True
+        # Required for `invoice_cash_rounding_id` to be visible in the view
+        self.env.user.groups_id += self.env.ref('account.group_cash_rounding')
+        # Test 'add_invoice_line' rounding
+        invoice = self.init_invoice('out_invoice', products=self.product_a+self.product_b)
+        move_form = Form(invoice)
+        # Add a cash rounding having 'add_invoice_line'.
+        move_form.invoice_cash_rounding_id = self.cash_rounding_a
+        with move_form.invoice_line_ids.edit(0) as line_form:
+            line_form.price_unit = 999.99
+        move_form.save()
+
+        # Should not raise
+        invoice.action_post()
+
+        self.assertEqual(invoice.amount_total, 1410.0)
+        self.assertEqual(invoice.amount_untaxed, 1200.0)
+        self.assertEqual(invoice.amount_tax, 210)
+        self.assertEqual(len(invoice.invoice_line_ids), 2)
+        self.assertEqual(len(invoice.line_ids), 6)

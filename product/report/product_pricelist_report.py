@@ -14,7 +14,7 @@ class ProductPricelistReport(models.AbstractModel):
     @api.model
     def get_html(self, data):
         render_values = self._get_report_data(data, 'html')
-        return self.env.ref('product.report_pricelist_page')._render(render_values)
+        return self.env['ir.qweb']._render('product.report_pricelist_page', render_values)
 
     def _get_report_data(self, data, report_type='html'):
         quantities = data.get('quantities', [1])
@@ -39,7 +39,7 @@ class ProductPricelistReport(models.AbstractModel):
         return {
             'is_html_type': report_type == 'html',
             'is_product_tmpl': is_product_tmpl,
-            'is_visible_title': data.get('is_visible_title', False) and bool(data['is_visible_title']),
+            'display_pricelist_title': data.get('display_pricelist_title', False) and bool(data['display_pricelist_title']),
             'pricelist': pricelist,
             'products': products_data,
             'quantities': quantities,
@@ -53,7 +53,7 @@ class ProductPricelistReport(models.AbstractModel):
             'uom': product.uom_id.name,
         }
         for qty in quantities:
-            data['price'][qty] = pricelist.get_product_price(product, qty, False)
+            data['price'][qty] = pricelist._get_product_price(product, qty)
 
         if is_product_tmpl and product.product_variant_count > 1:
             data['variants'] = [

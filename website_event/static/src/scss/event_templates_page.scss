@@ -1,4 +1,6 @@
 .o_wevent_event {
+    min-height: calc(95vh - 70px);
+
     // Multi-line event title, even in mobile mode
     nav > div > a.navbar-brand {
         text-overflow: revert;
@@ -11,16 +13,20 @@
     #o_wevent_event_submenu {
         li.nav-item {
             white-space: nowrap;
+            
+            > a {
+                padding: 0;
+                padding-right: 1rem;
+            }
         }
     }
 
     .o_wevent_event_title {
-        margin: 3rem 0;
 
         .o_wevent_event_name {
-            font-weight: $display4-weight;
+            font-weight: $display-font-weight;
             line-height: $display-line-height;
-            @include font-size($display4-size);
+            @include font-size(map-get($display-font-sizes, 4));
         }
         .o_wevent_event_subtitle {
             font-weight: $lead-font-weight;
@@ -50,43 +56,32 @@
             flex: 0 0 33%;
         }
     }
-
-    .o_wevent_sidebar_title {
-        margin-bottom: $spacer;
-        opacity: .5;
-        text-transform: uppercase;
-    }
-
-    .o_wevent_sidebar_block {
-        padding: $spacer * 3;
-        border-bottom: $border-width solid $border-color;
-
-        &:last-child {
-            border-bottom: 0;
-        }
-    }
 }
 
 .o_wevent_event {
     .o_record_cover_container {
         overflow: hidden;
         z-index: 0;
+        color: white;
 
         .o_record_cover_component {
             z-index: -1;
         }
-        &.o_record_has_cover {
-            .o_record_cover_image {
-                background-attachment: fixed;
+    }
+}
 
-                &::after {
-                    content: "";
-                    display: block;
-                    @include o-position-absolute(0,0,50%,0);
-                }
-            }
-            .o_wevent_event_title {
-                color: white;
+#modal_ticket_registration {
+    // Handle overflow behaviors.
+    #registration_form, #o_wevent_tickets, #o_wevent_tickets_collapse {
+        position: relative;
+        flex: 1 1 auto;
+        display: flex;
+        flex-direction: column;
+
+        @include media-breakpoint-up(sm) {
+            :not(.s_popup) > & {
+                overflow: auto;
+                min-height: 0;
             }
         }
     }
@@ -97,8 +92,8 @@
  */
 
 .o_wevent_event .event_color_0 {
-    background-color: white;
-    color: #5a5a5a;
+    background-color: $o-wevent-bg-color-base;
+    color: $o-wevent-color;
 }
 .o_wevent_event .event_color_1 {
     background-color: #cccccc;
@@ -141,8 +136,6 @@
  * SPONSORS
  */
 
-// small hack to hide sponsors on specific views
-.o_wevent_hide_sponsors .container.mt32.mb16.d-none.d-md-block.d-print-none {
-    // Not a very accurate way to target the 'sponsors' block -> improve in master
+.o_wevent_hide_sponsors .o_wevent_sponsor_wrapper {
     display: none !important;
 }

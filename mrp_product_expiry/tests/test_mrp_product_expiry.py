@@ -7,11 +7,11 @@ from odoo.tests.common import Form
 from odoo.exceptions import UserError
 
 
-class TestStockProductionLot(TestStockCommon):
+class TestStockLot(TestStockCommon):
 
     @classmethod
     def setUpClass(cls):
-        super(TestStockProductionLot, cls).setUpClass()
+        super().setUpClass()
         # Creates a tracked product using expiration dates.
         cls.product_apple = cls.ProductObj.create({
             'name': 'Apple',
@@ -60,7 +60,7 @@ class TestStockProductionLot(TestStockCommon):
         # Creation of a routing
         cls.workcenter = cls.env['mrp.workcenter'].create({
             'name': 'Bakery',
-            'capacity': 2,
+            'default_capacity': 2,
             'time_start': 10,
             'time_stop': 5,
             'time_efficiency': 80,
@@ -82,7 +82,7 @@ class TestStockProductionLot(TestStockCommon):
         mo = mo_form.save()
         details_operation_form = Form(mo.move_raw_ids[0], view=self.env.ref('stock.view_stock_move_operations'))
         with details_operation_form.move_line_ids.new() as ml:
-            ml.qty_done = 3
+            ml.quantity = 3
             ml.lot_id = self.lot_good_apple
         details_operation_form.save()
         res = mo.button_mark_done()
@@ -105,11 +105,10 @@ class TestStockProductionLot(TestStockCommon):
         mo = mo_form.save()
         details_operation_form = Form(mo.move_raw_ids[0], view=self.env.ref('stock.view_stock_move_operations'))
         with details_operation_form.move_line_ids.new() as ml:
-            ml.qty_done = 3
+            ml.quantity = 3
             ml.lot_id = self.lot_expired_apple
         details_operation_form.save()
         res = mo.button_mark_done()
         # Producing must return a confirmation wizard.
         self.assertNotEqual(res, None)
         self.assertEqual(res['res_model'], 'expiry.picking.confirmation')
-

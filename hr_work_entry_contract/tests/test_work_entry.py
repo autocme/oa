@@ -6,30 +6,33 @@ from dateutil.relativedelta import relativedelta
 from psycopg2 import IntegrityError
 import pytz
 
-from odoo.tests.common import tagged
+from odoo.exceptions import ValidationError
+from odoo.tests.common import tagged, Form
 from odoo.tools import mute_logger
 from odoo.addons.hr_work_entry_contract.tests.common import TestWorkEntryBase
 
 
 @tagged('work_entry')
 class TestWorkEntry(TestWorkEntryBase):
-    def setUp(self):
-        super(TestWorkEntry, self).setUp()
-        self.tz = pytz.timezone(self.richard_emp.tz)
-        self.start = datetime(2015, 11, 1, 1, 0, 0)
-        self.end = datetime(2015, 11, 30, 23, 59, 59)
-        self.resource_calendar_id = self.env['resource.calendar'].create({'name': 'My Calendar'})
-        contract = self.env['hr.contract'].create({
-            'date_start': self.start.date() - relativedelta(days=5),
+
+    @classmethod
+    def setUpClass(cls):
+        super(TestWorkEntry, cls).setUpClass()
+        cls.tz = pytz.timezone(cls.richard_emp.tz)
+        cls.start = datetime(2015, 11, 1, 1, 0, 0)
+        cls.end = datetime(2015, 11, 30, 23, 59, 59)
+        cls.resource_calendar_id = cls.env['resource.calendar'].create({'name': 'My Calendar'})
+        contract = cls.env['hr.contract'].create({
+            'date_start': cls.start.date() - relativedelta(days=5),
             'name': 'dodo',
-            'resource_calendar_id': self.resource_calendar_id.id,
+            'resource_calendar_id': cls.resource_calendar_id.id,
             'wage': 1000,
-            'employee_id': self.richard_emp.id,
+            'employee_id': cls.richard_emp.id,
             'state': 'open',
-            'date_generated_from': self.end.date() + relativedelta(days=5),
+            'date_generated_from': cls.end.date() + relativedelta(days=5),
         })
-        self.richard_emp.resource_calendar_id = self.resource_calendar_id
-        self.richard_emp.contract_id = contract
+        cls.richard_emp.resource_calendar_id = cls.resource_calendar_id
+        cls.richard_emp.contract_id = contract
 
     def test_no_duplicate(self):
         self.richard_emp.generate_work_entries(self.start, self.end)
@@ -94,6 +97,7 @@ class TestWorkEntry(TestWorkEntryBase):
             'date_start': self.start,
             'date_stop': self.end,
         })
+        work_entry1.work_entry_type_id = False
         self.assertFalse(work_entry1.action_validate(), "It should not validate work_entries without a type")
         self.assertEqual(work_entry1.state, 'conflict', "It should change to conflict state")
         work_entry1.work_entry_type_id = self.work_entry_type
@@ -102,13 +106,23 @@ class TestWorkEntry(TestWorkEntryBase):
     def test_outside_calendar(self):
         """ Test leave work entries outside schedule are conflicting """
         # Outside but not a leave
-        work_entry_1 = self.create_work_entry(datetime(2018, 10, 10, 3, 0), datetime(2018, 10, 10, 4, 0))
-        # Outside and a leave
-        work_entry_2 = self.create_work_entry(datetime(2018, 10, 10, 1, 0), datetime(2018, 10, 10, 2, 0), work_entry_type=self.work_entry_type_leave)
-        # Overlapping and a leave
-        work_entry_3 = self.create_work_entry(datetime(2018, 10, 10, 7, 0), datetime(2018, 10, 10, 10, 0), work_entry_type=self.work_entry_type_leave)
-        # Overlapping and not a leave
-        work_entry_4 = self.create_work_entry(datetime(2018, 10, 10, 11, 0), datetime(2018, 10, 10, 13, 0))
+        # work_entry_1 = self.create_work_entry(datetime(2018, 10, 10, 3, 0), datetime(2018, 10, 10, 4, 0))
+        # # Outside and a leave
+        # work_entry_2 = self.create_work_entry(datetime(2018, 10, 10, 1, 0), datetime(2018, 10, 10, 2, 0), work_entry_type=self.work_entry_type_leave)
+        # # Overlapping and a leave
+        # work_entry_3 = self.create_work_entry(datetime(2018, 10, 10, 7, 0), datetime(2018, 10, 10, 10, 0), work_entry_type=self.work_entry_type_leave)
+        # # Overlapping and not a leave
+        # work_entry_4 = self.create_work_entry(datetime(2018, 10, 10, 11, 0), datetime(2018, 10, 10, 13, 0))
+        work_entry_1, work_entry_2, work_entry_3, work_entry_4 = self.create_work_entries([
+            # Outside but not a leave
+            (datetime(2018, 10, 10, 3, 0), datetime(2018, 10, 10, 4, 0)),
+            # Outside and a leave
+            (datetime(2018, 10, 10, 1, 0), datetime(2018, 10, 10, 2, 0), self.work_entry_type_leave),
+            # Overlapping and a leave
+            (datetime(2018, 10, 10, 7, 0), datetime(2018, 10, 10, 10, 0), self.work_entry_type_leave),
+            # Overlapping and not a leave
+            (datetime(2018, 10, 10, 11, 0), datetime(2018, 10, 10, 13, 0)),
+        ])
         (work_entry_1 | work_entry_2 | work_entry_3 | work_entry_4)._mark_leaves_outside_schedule()
         self.assertEqual(work_entry_2.state, 'conflict', "It should conflict")
         self.assertNotEqual(work_entry_1.state, 'conflict', "It should not conflict")
@@ -117,8 +131,12 @@ class TestWorkEntry(TestWorkEntryBase):
 
     def test_write_conflict(self):
         """ Test updating work entries dates recomputes conflicts """
-        work_entry_1 = self.create_work_entry(datetime(2018, 10, 10, 9, 0), datetime(2018, 10, 10, 12, 0))
-        work_entry_2 = self.create_work_entry(datetime(2018, 10, 10, 12, 0), datetime(2018, 10, 10, 18, 0))
+        # work_entry_1 = self.create_work_entry(datetime(2018, 10, 10, 9, 0), datetime(2018, 10, 10, 12, 0))
+        # work_entry_2 = self.create_work_entry(datetime(2018, 10, 10, 12, 0), datetime(2018, 10, 10, 18, 0))
+        work_entry_1, work_entry_2 = self.create_work_entries([
+            (datetime(2018, 10, 10, 9, 0), datetime(2018, 10, 10, 12, 0)),
+            (datetime(2018, 10, 10, 12, 0), datetime(2018, 10, 10, 18, 0)),
+        ])
         self.assertNotEqual(work_entry_1.state, 'conflict', "It should not conflict")
         self.assertNotEqual(work_entry_2.state, 'conflict', "It should not conflict")
         work_entry_1.date_stop = datetime(2018, 10, 10, 14, 0)
@@ -131,9 +149,14 @@ class TestWorkEntry(TestWorkEntryBase):
 
     def test_write_move(self):
         """ Test completely moving a work entry recomputes conflicts """
-        work_entry_1 = self.create_work_entry(datetime(2018, 10, 10, 9, 0), datetime(2018, 10, 10, 12, 0))
-        work_entry_2 = self.create_work_entry(datetime(2018, 10, 18, 9, 0), datetime(2018, 10, 18, 12, 0))
-        work_entry_3 = self.create_work_entry(datetime(2018, 10, 18, 10, 0), datetime(2018, 10, 18, 12, 0))
+        # work_entry_1 = self.create_work_entry(datetime(2018, 10, 10, 9, 0), datetime(2018, 10, 10, 12, 0))
+        # work_entry_2 = self.create_work_entry(datetime(2018, 10, 18, 9, 0), datetime(2018, 10, 18, 12, 0))
+        # work_entry_3 = self.create_work_entry(datetime(2018, 10, 18, 10, 0), datetime(2018, 10, 18, 12, 0))
+        work_entry_1, work_entry_2, work_entry_3 = self.create_work_entries([
+            (datetime(2018, 10, 10, 9, 0), datetime(2018, 10, 10, 12, 0)),
+            (datetime(2018, 10, 18, 9, 0), datetime(2018, 10, 18, 12, 0)),
+            (datetime(2018, 10, 18, 10, 0), datetime(2018, 10, 18, 12, 0)),
+        ])
         work_entry_2.write({
             'date_start': datetime(2018, 10, 10, 9, 0),
             'date_stop': datetime(2018, 10, 10, 10, 0),
@@ -152,8 +175,12 @@ class TestWorkEntry(TestWorkEntryBase):
 
     def test_unarchive_conflict(self):
         """ Test archive/unarchive a work entry recomputes conflicts """
-        work_entry_1 = self.create_work_entry(datetime(2018, 10, 10, 9, 0), datetime(2018, 10, 10, 12, 0))
-        work_entry_2 = self.create_work_entry(datetime(2018, 10, 10, 10, 0), datetime(2018, 10, 10, 18, 0))
+        # work_entry_1 = self.create_work_entry(datetime(2018, 10, 10, 9, 0), datetime(2018, 10, 10, 12, 0))
+        # work_entry_2 = self.create_work_entry(datetime(2018, 10, 10, 10, 0), datetime(2018, 10, 10, 18, 0))
+        work_entry_1, work_entry_2 = self.create_work_entries([
+            (datetime(2018, 10, 10, 9, 0), datetime(2018, 10, 10, 12, 0)),
+            (datetime(2018, 10, 10, 10, 0), datetime(2018, 10, 10, 18, 0)),
+        ])
         work_entry_2.active = False
         self.assertNotEqual(work_entry_1.state, 'conflict', "It should not conflict")
         self.assertEqual(work_entry_2.state, 'cancelled', "It should be cancelled")
@@ -180,3 +207,153 @@ class TestWorkEntry(TestWorkEntryBase):
             with self.assertRaises(IntegrityError):
                 with self.cr.savepoint():
                     (work_entry_1 + work_entry_2).write({'state': 'validated'})
+
+    def test_work_entry_timezone(self):
+        """ Test work entries with different timezone """
+        hk_resource_calendar_id = self.env['resource.calendar'].create({
+            'name': 'HK Calendar',
+            'tz': 'Asia/Hong_Kong',
+            'hours_per_day': 8,
+            'attendance_ids': [(5, 0, 0),
+                (0, 0, {'name': 'Monday Morning', 'dayofweek': '0', 'hour_from': 7, 'hour_to': 11, 'day_period': 'morning'}),
+                (0, 0, {'name': 'Monday Afternoon', 'dayofweek': '0', 'hour_from': 13, 'hour_to': 17, 'day_period': 'afternoon'}),
+                (0, 0, {'name': 'Tuesday Morning', 'dayofweek': '1', 'hour_from': 7, 'hour_to': 11, 'day_period': 'morning'}),
+                (0, 0, {'name': 'Tuesday Afternoon', 'dayofweek': '1', 'hour_from': 13, 'hour_to': 17, 'day_period': 'afternoon'}),
+                (0, 0, {'name': 'Wednesday Morning', 'dayofweek': '2', 'hour_from': 7, 'hour_to': 11, 'day_period': 'morning'}),
+                (0, 0, {'name': 'Wednesday Afternoon', 'dayofweek': '2', 'hour_from': 13, 'hour_to': 17, 'day_period': 'afternoon'}),
+                (0, 0, {'name': 'Thursday Morning', 'dayofweek': '3', 'hour_from': 7, 'hour_to': 11, 'day_period': 'morning'}),
+                (0, 0, {'name': 'Thursday Afternoon', 'dayofweek': '3', 'hour_from': 13, 'hour_to': 17, 'day_period': 'afternoon'}),
+                (0, 0, {'name': 'Friday Morning', 'dayofweek': '4', 'hour_from': 7, 'hour_to': 11, 'day_period': 'morning'}),
+                (0, 0, {'name': 'Friday Afternoon', 'dayofweek': '4', 'hour_from': 13, 'hour_to': 17, 'day_period': 'afternoon'})
+            ]
+        })
+        hk_employee = self.env['hr.employee'].create({
+            'name': 'HK Employee',
+            'resource_calendar_id': hk_resource_calendar_id.id,
+        })
+        self.env.company.resource_calendar_id = hk_resource_calendar_id
+        self.env['hr.contract'].create({
+            'date_start': datetime(2023, 8, 1),
+            'name': 'Test Contract',
+            'resource_calendar_id': hk_resource_calendar_id.id,
+            'wage': 1000,
+            'employee_id': hk_employee.id,
+            'state': 'open',
+        })
+        hk_employee.generate_work_entries(datetime(2023, 8, 1), datetime(2023, 8, 1))
+        work_entries = self.env['hr.work.entry'].search([('employee_id', '=', hk_employee.id)])
+        self.assertEqual(work_entries[0].date_start, datetime(2023, 7, 31, 23, 0))
+
+    def test_work_entry_employee_without_contract(self):
+        """ Test work entries by creating an employee without contract which leads to trigger a constraint. """
+        new_employee = self.env['hr.employee'].create({
+            'name': 'New employee'
+        })
+        work_entry = Form(self.env['hr.work.entry'])
+        work_entry.date_start = self.start
+        work_entry.employee_id = new_employee
+        work_entry.work_entry_type_id = self.work_entry_type_leave
+        work_entry.date_stop = self.end
+
+        with self.assertRaises(ValidationError):
+            work_entry.save()
+        self.assertEqual(work_entry.employee_id.id, new_employee.id)
+        self.assertEqual(work_entry.duration, 0.0)
+
+    def test_separate_overlapping_work_entries_by_type(self):
+        employee = self.env['hr.employee'].create({'name': 'Test'})
+        calendar = self.env['resource.calendar'].create({'name': 'Calendar', 'tz': 'Europe/Brussels'})
+        calendar.attendance_ids -= calendar.attendance_ids.filtered(lambda attendance: attendance.dayofweek == '0')
+
+        self.env['hr.contract'].create({
+            'employee_id': employee.id,
+            'resource_calendar_id': calendar.id,
+            'date_start': datetime(2024, 9, 1),
+            'date_end': datetime(2024, 9, 30),
+            'name': 'Contract',
+            'wage': 5000.0,
+            'state': 'open',
+        })
+
+        entry_type_1, entry_type_2 = self.env['hr.work.entry.type'].create([
+            {'name': 'Work type 1', 'is_leave': False, 'code': 'ENTRY_TYPE1'},
+            {'name': 'Work type 2', 'is_leave': False, 'code': 'ENTRY_TYPE2'},
+        ])
+
+        self.env['resource.calendar.attendance'].create([
+            {
+                'calendar_id': calendar.id,
+                'dayofweek': '0',
+                'name': 'Same type 1',
+                'hour_from': 8,
+                'hour_to': 11,
+                'day_period': 'morning',
+                'work_entry_type_id': entry_type_1.id,
+            },
+            {
+                'calendar_id': calendar.id,
+                'dayofweek': '0',
+                'name': 'Same type 2',
+                'hour_from': 11,
+                'hour_to': 12,
+                'day_period': 'morning',
+                'work_entry_type_id': entry_type_1.id,
+            },
+            {
+                'calendar_id': calendar.id,
+                'dayofweek': '0',
+                'name': 'Different types 1',
+                'hour_from': 13,
+                'hour_to': 16,
+                'day_period': 'afternoon',
+                'work_entry_type_id': entry_type_1.id,
+            },
+            {
+                'calendar_id': calendar.id,
+                'dayofweek': '0',
+                'name': 'Different types 2',
+                'hour_from': 16,
+                'hour_to': 17,
+                'day_period': 'afternoon',
+                'work_entry_type_id': entry_type_2.id,
+            },
+        ])
+
+        employee.generate_work_entries(datetime(2024, 9, 2), datetime(2024, 9, 2))
+        result_entries = self.env['hr.work.entry'].search([('employee_id', '=', employee.id)])
+        work_entry_types = [entry.work_entry_type_id for entry in result_entries]
+        self.assertEqual(len(result_entries), 4, 'A shift should be created for each attendance')
+        self.assertEqual(work_entry_types, [entry_type_1, entry_type_1, entry_type_1, entry_type_2])
+
+    def test_work_entry_duration(self):
+        """ Test the duration of a work entry is rounded to the nearest minute and correctly calculated """
+        work_entry, one_day_entry, multi_day_entry = self.env['hr.work.entry'].create([
+            {
+                'name': 'Test Work Entry',
+                'employee_id': self.richard_emp.id,
+                'contract_id': self.richard_emp.contract_id.id,
+                'date_start': datetime(2023, 10, 1, 9, 0, 0),
+                'date_stop': datetime(2023, 10, 1, 9, 59, 59, 999999),
+                'work_entry_type_id': self.work_entry_type.id,
+            },
+            {
+                'name': 'Test One Day Entry',
+                'employee_id': self.richard_emp.id,
+                'contract_id': self.richard_emp.contract_id.id,
+                'date_start': datetime(2023, 10, 1, 9, 0, 0),
+                'date_stop': datetime(2023, 10, 2, 9, 30, 0),
+                'work_entry_type_id': self.work_entry_type.id,
+            },
+            {
+                'name': 'Multi-Day Entry',
+                'employee_id': self.richard_emp.id,
+                'contract_id': self.richard_emp.contract_id.id,
+                'date_start': datetime(2023, 10, 1, 0, 0, 0),
+                'date_stop': datetime(2023, 10, 8, 1, 0, 0),
+                'work_entry_type_id': self.work_entry_type.id,
+            }
+        ])
+
+        self.assertEqual(work_entry.duration, 1, "The duration should be 1 hour")
+        self.assertEqual(one_day_entry.duration, 24.5, "Duration should be 24 hours and half an hour")
+        self.assertEqual(multi_day_entry.duration, 169, "Duration should be 169 hours (7 days and one hour)")

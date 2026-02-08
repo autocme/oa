@@ -14,12 +14,13 @@ class WebsitePartnerPage(http.Controller):
         _, partner_id = unslug(partner_id)
         if partner_id:
             partner_sudo = request.env['res.partner'].sudo().browse(partner_id)
-            is_website_publisher = request.env['res.users'].has_group('website.group_website_publisher')
-            if partner_sudo.exists() and (partner_sudo.website_published or is_website_publisher):
+            is_website_restricted_editor = request.env['res.users'].has_group('website.group_website_restricted_editor')
+            if partner_sudo.exists() and (partner_sudo.website_published or is_website_restricted_editor):
                 if slug(partner_sudo) != current_slug:
                     return request.redirect('/partners/%s' % slug(partner_sudo))
                 values = {
-                    'main_object': partner_sudo,
+                    # See REVIEW_CAN_PUBLISH_UNSUDO
+                    'main_object': partner_sudo.with_context(can_publish_unsudo_main_object=True),
                     'partner': partner_sudo,
                     'edit_page': False
                 }

@@ -25,7 +25,7 @@ class ProjectSharingChatter(PortalChatter):
         can_access = project_sudo and res_model == 'project.task' and project_sudo.with_user(request.env.user)._check_project_sharing_access()
         task = None
         if can_access:
-            task = request.env['project.task'].sudo().search([('id', '=', res_id), ('project_id', '=', project_sudo.id)])
+            task = request.env['project.task'].sudo().with_context(active_test=False).search([('id', '=', res_id), ('project_id', '=', project_sudo.id)])
         if not can_access or not task:
             raise Forbidden()
         return task[task._mail_post_token_field]
@@ -96,6 +96,6 @@ class ProjectSharingChatter(PortalChatter):
         project_sharing_id = kw.get('project_sharing_id')
         if project_sharing_id:
             token = self._check_project_access_and_get_token(project_sharing_id, res_model, res_id, kw.get('token'))
-            if token:
-                kw['token'] = token
+            if token is not None:
+                kw['token'] = token # Update token (either string which contains token value or False)
         return super().portal_message_fetch(res_model, res_id, domain=domain, limit=limit, offset=offset, **kw)

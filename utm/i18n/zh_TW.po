@@ -1,27 +1,35 @@
 # Translation of Odoo Server.
 # This file contains the translation of the following modules:
 # 	* utm
-# 
+#
 # Translators:
-# 敬雲 林 <chingyun@yuanchih-consult.com>, 2022
-# Wil Odoo, 2024
 # Tony Ng, 2024
-# 
+# Wil Odoo, 2025
+#
 msgid ""
 msgstr ""
-"Project-Id-Version: Odoo Server saas~14.5\n"
+"Project-Id-Version: Odoo Server 17.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2021-09-14 10:29+0000\n"
-"PO-Revision-Date: 2021-09-14 12:27+0000\n"
-"Last-Translator: Tony Ng, 2024\n"
-"Language-Team: Chinese (Taiwan) (https://app.transifex.com/odoo/teams/41243/zh_TW/)\n"
+"POT-Creation-Date: 2025-12-29 18:38+0000\n"
+"PO-Revision-Date: 2023-10-26 23:09+0000\n"
+"Last-Translator: Wil Odoo, 2025\n"
+"Language-Team: Chinese (Taiwan) (https://app.transifex.com/odoo/teams/41243/"
+"zh_TW/)\n"
+"Language: zh_TW\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: \n"
-"Language: zh_TW\n"
 "Plural-Forms: nplurals=1; plural=0;\n"
 
 #. module: utm
+#. odoo-python
+#: code:addons/utm/models/utm_source.py:0
+#, python-format
+msgid "%(content)s (%(model_description)s created on %(create_date)s)"
+msgstr "%(content)s (%(model_description)s，於 %(create_date)s 建立)"
+
+#. module: utm
+#: model:ir.model.fields,field_description:utm.field_utm_campaign__active
 #: model:ir.model.fields,field_description:utm.field_utm_medium__active
 msgid "Active"
 msgstr "啟用"
@@ -32,23 +40,30 @@ msgid "Allows us to filter relevant Campaigns"
 msgstr "允許我們過濾相關行銷活動"
 
 #. module: utm
-#. openerp-web
+#. odoo-javascript
 #: code:addons/utm/static/src/js/utm_campaign_kanban_examples.js:0
 #, python-format
 msgid "Approval-based Flow"
 msgstr "審批基礎流程"
 
 #. module: utm
-#. openerp-web
+#. odoo-javascript
 #: code:addons/utm/static/src/js/utm_campaign_kanban_examples.js:0
 #, python-format
 msgid "Approved"
-msgstr "已批准"
+msgstr "已審批"
 
 #. module: utm
+#: model_terms:ir.ui.view,arch_db:utm.utm_campaign_view_kanban
+msgid "Archive"
+msgstr "封存"
+
+#. module: utm
+#: model_terms:ir.ui.view,arch_db:utm.utm_campaign_view_form
 #: model_terms:ir.ui.view,arch_db:utm.utm_medium_view_search
+#: model_terms:ir.ui.view,arch_db:utm.view_utm_campaign_view_search
 msgid "Archived"
-msgstr "已歸檔"
+msgstr "已封存"
 
 #. module: utm
 #: model_terms:ir.actions.act_window,help:utm.action_view_utm_tag
@@ -56,7 +71,7 @@ msgid "Assign tags to your campaigns to organize, filter and track them."
 msgstr "為您的行銷活動設置標籤來組織、過濾和跟踪它們。"
 
 #. module: utm
-#. openerp-web
+#. odoo-javascript
 #: code:addons/utm/static/src/js/utm_campaign_kanban_examples.js:0
 #, python-format
 msgid "Audience-driven Flow"
@@ -70,10 +85,15 @@ msgstr "自動生成的活動"
 #. module: utm
 #: model:ir.model.fields,field_description:utm.field_utm_mixin__campaign_id
 msgid "Campaign"
-msgstr "行銷"
+msgstr "行銷活動"
 
 #. module: utm
 #: model:ir.model.fields,field_description:utm.field_utm_campaign__name
+msgid "Campaign Identifier"
+msgstr "活動標識"
+
+#. module: utm
+#: model:ir.model.fields,field_description:utm.field_utm_campaign__title
 #: model_terms:ir.ui.view,arch_db:utm.utm_campaign_view_form
 #: model_terms:ir.ui.view,arch_db:utm.utm_campaign_view_form_quick_create
 msgid "Campaign Name"
@@ -105,12 +125,17 @@ msgid ""
 msgstr "行銷活動用於集中您的營銷工作並跟踪其結果。"
 
 #. module: utm
-#: model:utm.campaign,name:utm.utm_campaign_christmas_special
+#: model_terms:ir.ui.view,arch_db:utm.view_utm_campaign_view_search
+msgid "Campaigns that are assigned to me"
+msgstr "分配給我的活動"
+
+#. module: utm
+#: model:utm.campaign,title:utm.utm_campaign_christmas_special
 msgid "Christmas Special"
 msgstr "聖誕節特價"
 
 #. module: utm
-#. openerp-web
+#. odoo-javascript
 #: code:addons/utm/static/src/js/utm_campaign_kanban_examples.js:0
 #, python-format
 msgid "Collect ideas, design creative content and publish it once reviewed."
@@ -123,16 +148,11 @@ msgid "Color Index"
 msgstr "顏色索引"
 
 #. module: utm
-#. openerp-web
+#. odoo-javascript
 #: code:addons/utm/static/src/js/utm_campaign_kanban_examples.js:0
 #, python-format
 msgid "Copywriting"
 msgstr "文案"
-
-#. module: utm
-#: model:utm.source,name:utm.utm_source_craigslist
-msgid "Craigslist"
-msgstr ""
 
 #. module: utm
 #: model_terms:ir.actions.act_window,help:utm.utm_medium_action
@@ -161,7 +181,7 @@ msgstr "在您的行銷活動中建立作業流程"
 #: model:ir.model.fields,field_description:utm.field_utm_stage__create_uid
 #: model:ir.model.fields,field_description:utm.field_utm_tag__create_uid
 msgid "Created by"
-msgstr "創立者"
+msgstr "建立人員"
 
 #. module: utm
 #: model:ir.model.fields,field_description:utm.field_utm_campaign__create_date
@@ -173,7 +193,7 @@ msgid "Created on"
 msgstr "建立於"
 
 #. module: utm
-#. openerp-web
+#. odoo-javascript
 #: code:addons/utm/static/src/js/utm_campaign_kanban_examples.js:0
 #, python-format
 msgid "Creative Flow"
@@ -185,22 +205,21 @@ msgid "Delete"
 msgstr "刪除"
 
 #. module: utm
-#. openerp-web
+#. odoo-javascript
 #: code:addons/utm/static/src/js/utm_campaign_kanban_examples.js:0
 #, python-format
 msgid "Deploy"
 msgstr "部署"
 
 #. module: utm
-#. openerp-web
+#. odoo-javascript
 #: code:addons/utm/static/src/js/utm_campaign_kanban_examples.js:0
 #, python-format
 msgid "Deployed"
 msgstr "已部署"
 
 #. module: utm
-#. openerp-web
-#: code:addons/utm/static/src/js/utm_campaign_kanban_examples.js:0
+#. odoo-javascript
 #: code:addons/utm/static/src/js/utm_campaign_kanban_examples.js:0
 #: model:utm.stage,name:utm.campaign_stage_2
 #, python-format
@@ -217,9 +236,7 @@ msgid "Display Name"
 msgstr "顯示名稱"
 
 #. module: utm
-#. openerp-web
-#: code:addons/utm/static/src/js/utm_campaign_kanban_examples.js:0
-#: code:addons/utm/static/src/js/utm_campaign_kanban_examples.js:0
+#. odoo-javascript
 #: code:addons/utm/static/src/js/utm_campaign_kanban_examples.js:0
 #, python-format
 msgid "Done"
@@ -227,56 +244,41 @@ msgstr "完成"
 
 #. module: utm
 #: model_terms:ir.ui.view,arch_db:utm.utm_campaign_view_kanban
-msgid "Dropdown menu"
-msgstr "下拉選單"
-
-#. module: utm
-#: model_terms:ir.ui.view,arch_db:utm.utm_campaign_view_kanban
 msgid "Edit"
 msgstr "編輯"
 
 #. module: utm
-#: model:utm.campaign,name:utm.utm_campaign_email_campaign_products
+#: model:utm.campaign,title:utm.utm_campaign_email_campaign_products
 msgid "Email Campaign - Products"
-msgstr "電郵廣告-產品"
+msgstr "電郵推廣活動 - 產品"
 
 #. module: utm
-#: model:utm.campaign,name:utm.utm_campaign_email_campaign_services
+#: model:utm.campaign,title:utm.utm_campaign_email_campaign_services
 msgid "Email Campaign - Services"
-msgstr "電郵行銷 - 服務"
+msgstr "電郵推廣活動 - 服務"
 
 #. module: utm
-#. openerp-web
+#. odoo-javascript
 #: code:addons/utm/static/src/js/utm_campaign_kanban_examples.js:0
 #, python-format
 msgid "Event-driven Flow"
 msgstr "營銷活動轉換流程"
 
 #. module: utm
-#: model:utm.source,name:utm.utm_source_facebook
-msgid "Facebook"
-msgstr "Facebook"
-
-#. module: utm
-#. openerp-web
+#. odoo-javascript
 #: code:addons/utm/static/src/js/utm_campaign_kanban_examples.js:0
 #, python-format
 msgid "Gather Data"
 msgstr "收集資料"
 
 #. module: utm
-#. openerp-web
+#. odoo-javascript
 #: code:addons/utm/static/src/js/utm_campaign_kanban_examples.js:0
 #, python-format
 msgid ""
 "Gather data, build a recipient list and write content based on your "
 "Marketing target."
 msgstr "收集資料、建立收件人列表並根據您的營銷目標編寫內容。"
-
-#. module: utm
-#: model:utm.source,name:utm.utm_source_glassdoor
-msgid "Glassdoor"
-msgstr ""
 
 #. module: utm
 #: model_terms:ir.ui.view,arch_db:utm.view_utm_campaign_view_search
@@ -295,24 +297,14 @@ msgstr "HTTP 路由"
 #: model:ir.model.fields,field_description:utm.field_utm_stage__id
 #: model:ir.model.fields,field_description:utm.field_utm_tag__id
 msgid "ID"
-msgstr "ID"
+msgstr "識別號"
 
 #. module: utm
-#. openerp-web
-#: code:addons/utm/static/src/js/utm_campaign_kanban_examples.js:0
+#. odoo-javascript
 #: code:addons/utm/static/src/js/utm_campaign_kanban_examples.js:0
 #, python-format
 msgid "Ideas"
-msgstr "創意"
-
-#. module: utm
-#: model:ir.model.fields,field_description:utm.field_utm_campaign____last_update
-#: model:ir.model.fields,field_description:utm.field_utm_medium____last_update
-#: model:ir.model.fields,field_description:utm.field_utm_source____last_update
-#: model:ir.model.fields,field_description:utm.field_utm_stage____last_update
-#: model:ir.model.fields,field_description:utm.field_utm_tag____last_update
-msgid "Last Modified on"
-msgstr "最後修改於"
+msgstr "想法"
 
 #. module: utm
 #: model:ir.model.fields,field_description:utm.field_utm_campaign__write_uid
@@ -333,16 +325,11 @@ msgid "Last Updated on"
 msgstr "最後更新於"
 
 #. module: utm
-#. openerp-web
+#. odoo-javascript
 #: code:addons/utm/static/src/js/utm_campaign_kanban_examples.js:0
 #, python-format
 msgid "Later"
 msgstr "稍後"
-
-#. module: utm
-#: model:utm.source,name:utm.utm_source_mailing
-msgid "Lead Recall"
-msgstr "回覆潛在商機"
 
 #. module: utm
 #: model:ir.ui.menu,name:utm.menu_link_tracker_root
@@ -350,12 +337,7 @@ msgid "Link Tracker"
 msgstr "連結追蹤"
 
 #. module: utm
-#: model:utm.source,name:utm.utm_source_linkedin
-msgid "LinkedIn"
-msgstr "LinkedIn"
-
-#. module: utm
-#. openerp-web
+#. odoo-javascript
 #: code:addons/utm/static/src/js/utm_campaign_kanban_examples.js:0
 #, python-format
 msgid "List-Building"
@@ -364,7 +346,7 @@ msgstr "列表構建"
 #. module: utm
 #: model:utm.tag,name:utm.utm_tag_1
 msgid "Marketing"
-msgstr "市場行銷"
+msgstr "市場推廣"
 
 #. module: utm
 #: model:ir.model.fields,field_description:utm.field_utm_mixin__medium_id
@@ -385,13 +367,15 @@ msgid "Mediums"
 msgstr "媒體"
 
 #. module: utm
-#: model:utm.source,name:utm.utm_source_monster
-msgid "Monster"
-msgstr "魔爪（Monster）"
+#: model_terms:ir.ui.view,arch_db:utm.view_utm_campaign_view_search
+msgid "My Campaigns"
+msgstr "我的活動"
 
 #. module: utm
+#: model:ir.model.fields,field_description:utm.field_utm_source_mixin__name
 #: model:ir.model.fields,field_description:utm.field_utm_stage__name
 #: model:ir.model.fields,field_description:utm.field_utm_tag__name
+#: model_terms:ir.ui.view,arch_db:utm.utm_campaign_view_tree
 msgid "Name"
 msgstr "名稱"
 
@@ -401,31 +385,26 @@ msgid "New"
 msgstr "新增"
 
 #. module: utm
-#: model:utm.source,name:utm.utm_source_newsletter
-msgid "Newsletter"
-msgstr "電子報"
-
-#. module: utm
 #: model_terms:ir.actions.act_window,help:utm.utm_source_action
 msgid "No Sources yet!"
 msgstr "還沒有來源！"
 
 #. module: utm
-#. openerp-web
+#. odoo-javascript
 #: code:addons/utm/static/src/js/utm_campaign_kanban_examples.js:0
 #, python-format
 msgid "Pre-Launch"
 msgstr "預先轉換"
 
 #. module: utm
-#. openerp-web
+#. odoo-javascript
 #: code:addons/utm/static/src/js/utm_campaign_kanban_examples.js:0
 #, python-format
 msgid "Prepare Campaigns and get them approved before making them go live."
 msgstr "準備行銷活動並在使其上線前獲得批准"
 
 #. module: utm
-#. openerp-web
+#. odoo-javascript
 #: code:addons/utm/static/src/js/utm_campaign_kanban_examples.js:0
 #, python-format
 msgid ""
@@ -434,7 +413,7 @@ msgid ""
 msgstr "準備您的營銷活動，與部分受眾進行測試，然後完成部署"
 
 #. module: utm
-#. openerp-web
+#. odoo-javascript
 #: code:addons/utm/static/src/js/utm_campaign_kanban_examples.js:0
 #, python-format
 msgid "Report"
@@ -447,29 +426,33 @@ msgid "Responsible"
 msgstr "負責人"
 
 #. module: utm
-#. openerp-web
-#: code:addons/utm/static/src/js/utm_campaign_kanban_examples.js:0
+#: model_terms:ir.ui.view,arch_db:utm.utm_campaign_view_kanban
+msgid "Restore"
+msgstr "還原"
+
+#. module: utm
+#. odoo-javascript
 #: code:addons/utm/static/src/js/utm_campaign_kanban_examples.js:0
 #, python-format
 msgid "Review"
 msgstr "審查"
 
 #. module: utm
-#. openerp-web
+#. odoo-javascript
 #: code:addons/utm/static/src/js/utm_campaign_kanban_examples.js:0
 #, python-format
 msgid "Running"
 msgstr "執行中"
 
 #. module: utm
-#: model:utm.campaign,name:utm.utm_campaign_fall_drive
+#: model:utm.campaign,title:utm.utm_campaign_fall_drive
 msgid "Sale"
 msgstr "銷售"
 
 #. module: utm
 #: model:utm.stage,name:utm.campaign_stage_1
 msgid "Schedule"
-msgstr "安排"
+msgstr "預約"
 
 #. module: utm
 #: model_terms:ir.ui.view,arch_db:utm.utm_medium_view_search
@@ -477,41 +460,34 @@ msgid "Search UTM Medium"
 msgstr "搜尋 UTM 媒介"
 
 #. module: utm
-#: model:utm.source,name:utm.utm_source_search_engine
-msgid "Search engine"
-msgstr "搜尋引擎"
-
-#. module: utm
-#. openerp-web
-#: code:addons/utm/static/src/js/utm_campaign_kanban_examples.js:0
+#. odoo-javascript
 #: code:addons/utm/static/src/js/utm_campaign_kanban_examples.js:0
 #, python-format
 msgid "Send"
 msgstr "發送"
 
 #. module: utm
-#. openerp-web
-#: code:addons/utm/static/src/js/utm_campaign_kanban_examples.js:0
+#. odoo-javascript
 #: code:addons/utm/static/src/js/utm_campaign_kanban_examples.js:0
 #: model:utm.stage,name:utm.campaign_stage_3
 #, python-format
 msgid "Sent"
-msgstr "已發送"
+msgstr "發送"
 
 #. module: utm
 #: model:ir.model.fields,field_description:utm.field_utm_stage__sequence
 msgid "Sequence"
-msgstr "序號"
+msgstr "序列號"
 
 #. module: utm
-#. openerp-web
+#. odoo-javascript
 #: code:addons/utm/static/src/js/utm_campaign_kanban_examples.js:0
 #, python-format
 msgid "Soft-Launch"
 msgstr "軟轉換"
 
 #. module: utm
-#. openerp-web
+#. odoo-javascript
 #: code:addons/utm/static/src/js/utm_campaign_kanban_examples.js:0
 #, python-format
 msgid "Soft-Launch Flow"
@@ -519,6 +495,7 @@ msgstr "軟轉換流程"
 
 #. module: utm
 #: model:ir.model.fields,field_description:utm.field_utm_mixin__source_id
+#: model:ir.model.fields,field_description:utm.field_utm_source_mixin__source_id
 #: model_terms:ir.ui.view,arch_db:utm.utm_source_view_form
 #: model_terms:ir.ui.view,arch_db:utm.utm_source_view_tree
 msgid "Source"
@@ -542,6 +519,7 @@ msgid "Stage"
 msgstr "階段"
 
 #. module: utm
+#: model_terms:ir.ui.view,arch_db:utm.utm_stage_view_form
 #: model_terms:ir.ui.view,arch_db:utm.utm_stage_view_search
 #: model_terms:ir.ui.view,arch_db:utm.utm_stage_view_tree
 msgid "Stages"
@@ -550,9 +528,11 @@ msgstr "階段"
 #. module: utm
 #: model_terms:ir.actions.act_window,help:utm.action_view_utm_stage
 msgid ""
-"Stages allow you to organize your workflow  (e.g. : plan, design, in "
-"progress,  done, …)."
-msgstr "階段允許您組織作業流程（例如：計畫、設計、進行中、完成...）。"
+"Stages allow you to organize your workflow  (e.g. plan, design, in progress, "
+"done, …)."
+msgstr ""
+"利用不同「階段」，你可細分和整理工作流程（例如：規劃、設計、進行中、已完成，"
+"等等）。"
 
 #. module: utm
 #: model:ir.model.fields,help:utm.field_utm_tag__color
@@ -563,23 +543,41 @@ msgstr "標籤顏色。沒有顏色意味著看板中沒有顯示以區分內部
 
 #. module: utm
 #: model:ir.model.constraint,message:utm.constraint_utm_tag_name_uniq
-msgid "Tag name already exists !"
-msgstr "標籤名已存在!"
+msgid "Tag name already exists!"
+msgstr "標籤名稱已存在!"
 
 #. module: utm
 #: model:ir.model.fields,field_description:utm.field_utm_campaign__tag_ids
+#: model_terms:ir.ui.view,arch_db:utm.view_utm_campaign_view_search
 msgid "Tags"
 msgstr "標籤"
 
 #. module: utm
-#. openerp-web
+#. odoo-python
+#: code:addons/utm/models/utm_medium.py:0
+#, python-format
+msgid ""
+"The UTM medium '%s' cannot be deleted as it is used in some main functional "
+"flows, such as the recruitment and the mass mailing."
+msgstr ""
+"UTM 媒介「%s」不可刪除，因為它用於一些主要功能流程，例如招聘及群發郵件。"
+
+#. module: utm
+#: model:ir.model.constraint,message:utm.constraint_utm_campaign_unique_name
+#: model:ir.model.constraint,message:utm.constraint_utm_medium_unique_name
+#: model:ir.model.constraint,message:utm.constraint_utm_source_unique_name
+msgid "The name must be unique"
+msgstr "名稱必須獨一無二"
+
+#. module: utm
+#. odoo-javascript
 #: code:addons/utm/static/src/js/utm_campaign_kanban_examples.js:0
 #, python-format
 msgid "This Month"
 msgstr "本月"
 
 #. module: utm
-#. openerp-web
+#. odoo-javascript
 #: code:addons/utm/static/src/js/utm_campaign_kanban_examples.js:0
 #, python-format
 msgid "This Week"
@@ -588,42 +586,37 @@ msgstr "本周"
 #. module: utm
 #: model:ir.model.fields,help:utm.field_utm_mixin__campaign_id
 msgid ""
-"This is a name that helps you keep track of your different campaign efforts,"
-" e.g. Fall_Drive, Christmas_Special"
-msgstr "這是一個幫助您追蹤不同行銷活動的名稱，例如，Fall_Drive、Christmas_Special"
+"This is a name that helps you keep track of your different campaign efforts, "
+"e.g. Fall_Drive, Christmas_Special"
+msgstr "此名稱可幫助你追蹤不同行銷活動，例：秋季推廣、聖誕特別優惠"
 
 #. module: utm
 #: model:ir.model.fields,help:utm.field_utm_mixin__medium_id
 msgid "This is the method of delivery, e.g. Postcard, Email, or Banner Ad"
-msgstr "這是傳達方法，例如，明信片、電子信件或橫幅廣告"
+msgstr "傳遞方式，例：明信片、電子郵件、橫幅廣告"
 
 #. module: utm
 #: model:ir.model.fields,help:utm.field_utm_mixin__source_id
 msgid ""
 "This is the source of the link, e.g. Search Engine, another domain, or name "
 "of email list"
-msgstr "這是連結來源，例如，搜尋引擎、其他域名或電子信件列表名稱"
+msgstr "連結的來源，例：搜尋引擎、其他網站，或電郵清單的名稱"
 
 #. module: utm
-#. openerp-web
+#. odoo-javascript
 #: code:addons/utm/static/src/js/utm_campaign_kanban_examples.js:0
 #, python-format
 msgid "To be Approved"
 msgstr "待批准"
 
 #. module: utm
-#. openerp-web
+#. odoo-javascript
 #: code:addons/utm/static/src/js/utm_campaign_kanban_examples.js:0
 #, python-format
 msgid ""
-"Track incoming events (e.g. : Christmas, Black Friday, ...) and publish "
-"timely content."
-msgstr "跟踪傳入事件（例如：聖誕節、黑色星期五……）並及時發佈內容"
-
-#. module: utm
-#: model:utm.source,name:utm.utm_source_twitter
-msgid "Twitter"
-msgstr "Twitter"
+"Track incoming events (e.g. Christmas, Black Friday, ...) and publish timely "
+"content."
+msgstr "追蹤將會發生的事件（例如：聖誕節、黑色星期五，等等），發佈適時的內容。"
 
 #. module: utm
 #: model:ir.model,name:utm.model_utm_campaign
@@ -652,7 +645,7 @@ msgstr "「UTM 媒介」追蹤吸引訪客流量的方式及媒介（例如：�
 #. module: utm
 #: model:ir.model,name:utm.model_utm_mixin
 msgid "UTM Mixin"
-msgstr "UTM Mixin"
+msgstr "UTM混入程式"
 
 #. module: utm
 #: model:ir.model,name:utm.model_utm_source
@@ -660,11 +653,16 @@ msgid "UTM Source"
 msgstr "UTM來源"
 
 #. module: utm
+#: model:ir.model,name:utm.model_utm_source_mixin
+msgid "UTM Source Mixin"
+msgstr "UTM 來源混入"
+
+#. module: utm
 #: model_terms:ir.actions.act_window,help:utm.utm_source_action
 msgid ""
-"UTM Sources track where traffic comes from  (e.g. \"May Newsletter\", \"\", "
-"...)."
-msgstr "UTM Sources 追蹤流量來自何處（例如“May Newsletter”、“”、...）。"
+"UTM Sources track where traffic comes from  (e.g. \"May Newsletter\", "
+"\"\", ...)."
+msgstr "「UTM 來源」追蹤流量從何而來（例：五月電子報）。"
 
 #. module: utm
 #: model:ir.actions.act_window,name:utm.action_view_utm_stage
@@ -682,11 +680,35 @@ msgid "UTMs"
 msgstr "UTMs"
 
 #. module: utm
-#. openerp-web
+#. odoo-javascript
 #: code:addons/utm/static/src/js/utm_campaign_kanban_examples.js:0
 #, python-format
 msgid "Use This For My Campaigns"
 msgstr "將此用於我的行銷活動"
+
+#. module: utm
+#. odoo-python
+#: code:addons/utm/models/utm_source.py:0
+#, python-format
+msgid ""
+"You cannot update multiple records with the same name. The name should be "
+"unique!"
+msgstr "不可更新擁有相同名稱的多項記錄。名稱應該獨一無二。"
+
+#. module: utm
+#: model_terms:ir.ui.view,arch_db:utm.utm_stage_view_form
+msgid "e.g. \"Brainstorming\""
+msgstr "例：腦力激盪構思"
+
+#. module: utm
+#: model_terms:ir.ui.view,arch_db:utm.utm_source_view_tree
+msgid "e.g. \"Christmas Mailing\""
+msgstr "例：聖誕郵件"
+
+#. module: utm
+#: model_terms:ir.ui.view,arch_db:utm.utm_medium_view_tree
+msgid "e.g. \"Email\""
+msgstr "例：電郵"
 
 #. module: utm
 #: model_terms:ir.ui.view,arch_db:utm.utm_campaign_view_form

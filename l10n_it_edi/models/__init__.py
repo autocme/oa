@@ -3,8 +3,8 @@
 
 from . import res_partner
 from . import res_company
-from . import account_invoice
-from . import account_edi_format
-from . import account_chart_template
-from . import ir_mail_server
+from . import res_config_settings
+from . import account_move
 from . import ddt
+from . import ir_attachment
+from . import account_edi_proxy_user

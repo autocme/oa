@@ -1,7 +1,9 @@
-# -*- coding: utf-8 -*-
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
 
-from odoo import fields, models
+from collections import defaultdict
+from dateutil.relativedelta import relativedelta
+
+from odoo import api, fields, models
 
 
 class HrWorkEntry(models.Model):
@@ -10,16 +12,8 @@ class HrWorkEntry(models.Model):
     leave_id = fields.Many2one('hr.leave', string='Time Off')
     leave_state = fields.Selection(related='leave_id.state')
 
-    def _get_duration(self, date_start, date_stop):
-        if not date_start or not date_stop:
-            return 0
-        if not self.work_entry_type_id and self.leave_id:
-            calendar = self.contract_id.resource_calendar_id
-            employee = self.contract_id.employee_id
-            contract_data = employee._get_work_days_data_batch(
-                date_start, date_stop, compute_leaves=False, calendar=calendar)[employee.id]
-            return contract_data.get('hours', 0)
-        return super()._get_duration(date_start, date_stop)
+    def _is_duration_computed_from_calendar(self):
+        return super()._is_duration_computed_from_calendar() or bool(not self.work_entry_type_id and self.leave_id)
 
     def write(self, vals):
         if 'state' in vals and vals['state'] == 'cancelled':
@@ -40,8 +34,8 @@ class HrWorkEntry(models.Model):
         if not self:
             return False
 
-        self.flush(['date_start', 'date_stop', 'employee_id'])
-        self.env['hr.leave'].flush(['date_from', 'date_to', 'state', 'employee_id'])
+        self.flush_recordset(['date_start', 'date_stop', 'employee_id', 'active'])
+        self.env['hr.leave'].flush_model(['date_from', 'date_to', 'state', 'employee_id'])
 
         query = """
             SELECT
@@ -84,6 +78,27 @@ class HrWorkEntry(models.Model):
         if leave_sudo:
             leave_sudo.action_refuse()
 
+    @api.model
+    def _get_leaves_duration_between_two_dates(self, employee_id, date_from, date_to):
+        date_from += relativedelta(hour=0, minute=0, second=0)
+        date_to += relativedelta(hour=23, minute=59, second=59)
+        leaves_work_entries = self.env['hr.work.entry'].search([
+            ('employee_id', '=', employee_id.id),
+            ('date_start', '>=', date_from),
+            ('date_stop', '<=', date_to),
+            ('state', '!=', 'cancelled'),
+            ('leave_id', '!=', False),
+            ('leave_state', '=', 'validate'),
+        ])
+        entries_by_leave_type = defaultdict(lambda: self.env['hr.work.entry'])
+        for work_entry in leaves_work_entries:
+            entries_by_leave_type[work_entry.leave_id.holiday_status_id] |= work_entry
+
+        durations_by_leave_type = {}
+        for leave_type, work_entries in entries_by_leave_type.items():
+            durations_by_leave_type[leave_type] = sum(work_entries.mapped('duration'))
+        return durations_by_leave_type
+
 
 class HrWorkEntryType(models.Model):
     _inherit = 'hr.work.entry.type'
@@ -91,4 +106,4 @@ class HrWorkEntryType(models.Model):
 
     leave_type_ids = fields.One2many(
         'hr.leave.type', 'work_entry_type_id', string='Time Off Type',
-        help="Every new time off type in this list will be reported as select work entry in payslip.")
+        help="Work entry used in the payslip.")

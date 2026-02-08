@@ -1,12 +1,14 @@
 # -*- coding: utf-8 -*-
 import markupsafe
+import os
 from markupsafe import Markup
+from math import ceil
 
 from odoo import api, fields, models, tools
 
 from odoo.addons.base.models.ir_qweb_fields import nl2br
-from odoo.modules import get_resource_path
-from odoo.tools import is_html_empty
+from odoo.tools import html2plaintext, is_html_empty
+from odoo.tools.misc import file_path
 
 try:
     import sass as libsass
@@ -63,6 +65,7 @@ class BaseDocumentLayout(models.TransientModel):
     report_header = fields.Html(related='company_id.report_header', readonly=False)
     report_footer = fields.Html(related='company_id.report_footer', readonly=False, default=_default_report_footer)
     company_details = fields.Html(related='company_id.company_details', readonly=False, default=_default_company_details)
+    is_company_details_empty = fields.Boolean(compute='_compute_empty_company_details')
 
     # The paper format changes won't be reflected in the preview.
     paperformat_id = fields.Many2one(related='company_id.paperformat_id', readonly=False)
@@ -215,7 +218,7 @@ class BaseDocumentLayout(models.TransientModel):
             return False, False
 
         base_w, base_h = image.size
-        w = int(50 * base_w / base_h)
+        w = ceil(50 * base_w / base_h)
         h = 50
 
         # Converts to RGBA (if already RGBA, this is a noop)
@@ -249,14 +252,6 @@ class BaseDocumentLayout(models.TransientModel):
 
         return tools.rgb_to_hex(primary), tools.rgb_to_hex(secondary)
 
-    @api.model
-    def action_open_base_document_layout(self, action_ref=None):
-        if not action_ref:
-            action_ref = 'web.action_base_document_layout_configurator'
-        res = self.env["ir.actions.actions"]._for_xml_id(action_ref)
-        self.env[res["res_model"]].check_access_rights('write')
-        return res
-
     def document_layout_save(self):
         # meant to be overridden
         return self.env.context.get('report_action') or {'type': 'ir.actions.act_window_close'}
@@ -268,13 +263,9 @@ class BaseDocumentLayout(models.TransientModel):
         '_get_css_for_preview' processing later.
         :return:
         """
-        template_style = self.env.ref('web.styles_company_report', raise_if_not_found=False)
-        if not template_style:
-            return b''
-
-        company_styles = template_style._render({
+        company_styles = self.env['ir.qweb']._render('web.styles_company_report', {
             'company_ids': self,
-        })
+        }, raise_if_not_found=False)
 
         return company_styles
 
@@ -294,13 +285,21 @@ class BaseDocumentLayout(models.TransientModel):
         Simply copied and adapted slightly
         """
 
+        def scss_importer(path, *args):
+            *parent_path, file = os.path.split(path)
+            try:
+                parent_path = file_path(os.path.join(*parent_path))
+            except FileNotFoundError:
+                parent_path = file_path(os.path.join(bootstrap_path, *parent_path))
+            return [(os.path.join(parent_path, file),)]
+
         # No scss ? still valid, returns empty css
         if not scss_source.strip():
             return ""
 
         precision = 8
         output_style = 'expanded'
-        bootstrap_path = get_resource_path('web', 'static', 'lib', 'bootstrap', 'scss')
+        bootstrap_path = file_path('web/static/lib/bootstrap/scss')
 
         try:
             return libsass.compile(
@@ -308,8 +307,16 @@ class BaseDocumentLayout(models.TransientModel):
                 include_paths=[
                     bootstrap_path,
                 ],
+                importers=[(0, scss_importer)],
                 output_style=output_style,
                 precision=precision,
             )
         except libsass.CompileError as e:
             raise libsass.CompileError(e.args[0])
+
+    @api.depends('company_details')
+    def _compute_empty_company_details(self):
+        # In recent change when an html field is empty a <p> balise remains with a <br> in it,
+        # but when company details is empty we want to put the info of the company
+        for record in self:
+            record.is_company_details_empty = not html2plaintext(record.company_details or '')

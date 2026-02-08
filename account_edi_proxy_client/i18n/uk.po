@@ -1,24 +1,27 @@
 # Translation of Odoo Server.
 # This file contains the translation of the following modules:
 # 	* account_edi_proxy_client
-# 
+#
 # Translators:
-# Martin Trigaux, 2021
-# Alina Lisnenko <alina.lisnenko@erp.co.ua>, 2021
-# 
+# Wil Odoo, 2023
+# Alina Lisnenko <alina.lisnenko@erp.co.ua>, 2025
+#
 msgid ""
 msgstr ""
-"Project-Id-Version: Odoo Server 15.0\n"
+"Project-Id-Version: Odoo Server 17.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2021-11-16 13:18+0000\n"
-"PO-Revision-Date: 2021-09-14 12:19+0000\n"
-"Last-Translator: Alina Lisnenko <alina.lisnenko@erp.co.ua>, 2021\n"
+"POT-Creation-Date: 2026-01-15 18:37+0000\n"
+"PO-Revision-Date: 2023-10-26 23:09+0000\n"
+"Last-Translator: Alina Lisnenko <alina.lisnenko@erp.co.ua>, 2025\n"
 "Language-Team: Ukrainian (https://app.transifex.com/odoo/teams/41243/uk/)\n"
+"Language: uk\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: \n"
-"Language: uk\n"
-"Plural-Forms: nplurals=4; plural=(n % 1 == 0 && n % 10 == 1 && n % 100 != 11 ? 0 : n % 1 == 0 && n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 12 || n % 100 > 14) ? 1 : n % 1 == 0 && (n % 10 ==0 || (n % 10 >=5 && n % 10 <=9) || (n % 100 >=11 && n % 100 <=14 )) ? 2: 3);\n"
+"Plural-Forms: nplurals=4; plural=(n % 1 == 0 && n % 10 == 1 && n % 100 != "
+"11 ? 0 : n % 1 == 0 && n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 12 || n % "
+"100 > 14) ? 1 : n % 1 == 0 && (n % 10 ==0 || (n % 10 >=5 && n % 10 <=9) || "
+"(n % 100 >=11 && n % 100 <=14 )) ? 2: 3);\n"
 
 #. module: account_edi_proxy_client
 #: model:ir.model,name:account_edi_proxy_client.model_account_edi_proxy_client_user
@@ -31,14 +34,14 @@ msgid "Account Edi Proxy Client"
 msgstr "Проксі клієнт облікового запису Edi"
 
 #. module: account_edi_proxy_client
+#: model_terms:ir.ui.view,arch_db:account_edi_proxy_client.view_form_account_edi_proxy_client_user
+msgid "Account Journal"
+msgstr "Журнал бухобліку"
+
+#. module: account_edi_proxy_client
 #: model:ir.model.fields,field_description:account_edi_proxy_client.field_account_edi_proxy_client_user__active
 msgid "Active"
 msgstr "Активно"
-
-#. module: account_edi_proxy_client
-#: model:ir.model.fields,field_description:account_edi_proxy_client.field_account_edi_proxy_client_user__edi_format_code
-msgid "Code"
-msgstr "Код"
 
 #. module: account_edi_proxy_client
 #: model:ir.model,name:account_edi_proxy_client.model_res_company
@@ -61,19 +64,29 @@ msgid "Created on"
 msgstr "Створено"
 
 #. module: account_edi_proxy_client
+#: model:ir.model.fields.selection,name:account_edi_proxy_client.selection__account_edi_proxy_client_user__edi_mode__demo
+msgid "Demo mode"
+msgstr "Демо режим"
+
+#. module: account_edi_proxy_client
 #: model:ir.model.fields,field_description:account_edi_proxy_client.field_account_edi_proxy_client_user__display_name
 msgid "Display Name"
-msgstr "Відобразити назву"
+msgstr "Назва для відображення"
 
 #. module: account_edi_proxy_client
-#: model:ir.model,name:account_edi_proxy_client.model_account_edi_format
-msgid "EDI format"
-msgstr "Формат EDI"
+#: model:ir.actions.act_window,name:account_edi_proxy_client.action_tree_account_edi_proxy_client_user
+msgid "EDI Proxy User"
+msgstr "Користувач EDI Proxy"
 
 #. module: account_edi_proxy_client
-#: model:ir.model.fields,field_description:account_edi_proxy_client.field_account_edi_proxy_client_user__edi_format_id
-msgid "Edi Format"
-msgstr "Формат Edi"
+#: model:ir.ui.menu,name:account_edi_proxy_client.menu_account_proxy_client_user
+msgid "EDI Proxy Users"
+msgstr "Користувачі EDI Proxy"
+
+#. module: account_edi_proxy_client
+#: model:ir.model.fields,field_description:account_edi_proxy_client.field_account_edi_proxy_client_user__edi_mode
+msgid "EDI operating mode"
+msgstr "Операційний режим EDI"
 
 #. module: account_edi_proxy_client
 #: model:ir.model.fields,field_description:account_edi_proxy_client.field_account_edi_proxy_client_user__edi_identification
@@ -91,9 +104,21 @@ msgid "Id Client"
 msgstr "Id клієнт"
 
 #. module: account_edi_proxy_client
-#: model:ir.model.fields,field_description:account_edi_proxy_client.field_account_edi_proxy_client_user____last_update
-msgid "Last Modified on"
-msgstr "Останні зміни"
+#. odoo-python
+#: code:addons/account_edi_proxy_client/models/account_edi_proxy_user.py:0
+#, python-format
+msgid ""
+"Invalid signature for request. This might be due to another connection to "
+"odoo Access Point server. It can occur if you have duplicated your "
+"database. \n"
+"\n"
+"If you are not sure how to fix this, please contact our support."
+msgstr ""
+"Недійсний підпис для запиту. Це може бути пов’язано з іншим підключенням до "
+"сервера точки доступу odoo. Це може статися, якщо ви дублюєте свою базу "
+"даних.\n"
+"\n"
+"Якщо ви не впевнені, як це виправити, зверніться до нашої служби підтримки."
 
 #. module: account_edi_proxy_client
 #: model:ir.model.fields,field_description:account_edi_proxy_client.field_account_edi_proxy_client_user__write_uid
@@ -111,9 +136,29 @@ msgid "Private Key"
 msgstr "Приватний ключ"
 
 #. module: account_edi_proxy_client
+#: model:ir.model.fields,field_description:account_edi_proxy_client.field_account_edi_proxy_client_user__private_key_filename
+msgid "Private Key Filename"
+msgstr "Ім'я файлу закритого ключа"
+
+#. module: account_edi_proxy_client
+#: model:ir.model.fields.selection,name:account_edi_proxy_client.selection__account_edi_proxy_client_user__edi_mode__prod
+msgid "Production mode"
+msgstr "Робочий режим"
+
+#. module: account_edi_proxy_client
+#: model:ir.model.fields,field_description:account_edi_proxy_client.field_account_edi_proxy_client_user__proxy_type
+msgid "Proxy Type"
+msgstr "Тип проксі"
+
+#. module: account_edi_proxy_client
 #: model:ir.model.fields,field_description:account_edi_proxy_client.field_account_edi_proxy_client_user__refresh_token
 msgid "Refresh Token"
 msgstr "Оновити токен"
+
+#. module: account_edi_proxy_client
+#: model:ir.model.fields.selection,name:account_edi_proxy_client.selection__account_edi_proxy_client_user__edi_mode__test
+msgid "Test mode"
+msgstr "Тестовий режим"
 
 #. module: account_edi_proxy_client
 #: model:ir.model.fields,help:account_edi_proxy_client.field_account_edi_proxy_client_user__private_key
@@ -122,14 +167,11 @@ msgstr "Ключ для шифрування всіх даних користу�
 
 #. module: account_edi_proxy_client
 #: model:ir.model.fields,help:account_edi_proxy_client.field_account_edi_proxy_client_user__edi_identification
-msgid ""
-"The unique id that identifies this user for on the edi format, typically the"
-" vat"
-msgstr ""
-"Унікальний ідентифікатор, який ідентифікує цього користувача у форматі edi, "
-"як правило, пдв"
+msgid "The unique id that identifies this user, typically the vat"
+msgstr "Унікальний id, який ідентифікує цього користувача, як правило за пдв"
 
 #. module: account_edi_proxy_client
+#. odoo-python
 #: code:addons/account_edi_proxy_client/models/account_edi_proxy_user.py:0
 #, python-format
 msgid ""
@@ -140,6 +182,7 @@ msgstr ""
 "вона намагалася зв’язатися, була %s"
 
 #. module: account_edi_proxy_client
+#. odoo-python
 #: code:addons/account_edi_proxy_client/models/account_edi_proxy_user.py:0
 #, python-format
 msgid ""
@@ -150,20 +193,24 @@ msgstr ""
 "вона намагалася зв’язатися, була %s. %s"
 
 #. module: account_edi_proxy_client
+#. odoo-python
 #: code:addons/account_edi_proxy_client/models/account_edi_proxy_user.py:0
 #, python-format
 msgid ""
 "The url that this service tried to contact does not exist. The url was %r"
 msgstr ""
-"URL-адреса, з якою намагалася зв’язатися ця служба, не існує. URL-адреса "
-"була"
+"URL-адреса, з якою намагалася зв’язатися ця служба, не існує. URL-адреса була"
 
 #. module: account_edi_proxy_client
-#: model:ir.model.constraint,message:account_edi_proxy_client.constraint_account_edi_proxy_client_user_unique_edi_identification_per_format
-msgid "This edi identification is already assigned to a user"
-msgstr "Цей ідентифікатор edi вже призначено користувачеві"
+#: model:ir.model.constraint,message:account_edi_proxy_client.constraint_account_edi_proxy_client_user_unique_active_company_proxy
+msgid "This company has an active user already created for this EDI type"
+msgstr "Ця компанія вже має активного користувача для цього типу EDI"
 
 #. module: account_edi_proxy_client
 #: model:ir.model.constraint,message:account_edi_proxy_client.constraint_account_edi_proxy_client_user_unique_id_client
 msgid "This id_client is already used on another user."
 msgstr "Цей id_client вже використовує інший користувач."
+
+#~ msgid "This edi identification is already assigned to an active user"
+#~ msgstr ""
+#~ "Цей ідентифікатор редагування вже призначено активному користувачеві"

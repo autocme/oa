@@ -1,8 +1,7 @@
 /** @odoo-module **/
 
+import { _t } from "@web/core/l10n/translation";
 import { browser } from "../browser/browser";
-import { isIOS } from "../browser/feature_detection";
-import { session } from "../../session";
 import { ConnectionLostError, RPCError } from "../network/rpc_service";
 import { registry } from "../registry";
 import {
@@ -21,55 +20,6 @@ import { UncaughtClientError, UncaughtCorsError, UncaughtPromiseError } from "./
 const errorHandlerRegistry = registry.category("error_handlers");
 const errorDialogRegistry = registry.category("error_dialogs");
 const errorNotificationRegistry = registry.category("error_notifications");
-
-// -----------------------------------------------------------------------------
-// CORS errors
-// -----------------------------------------------------------------------------
-
-/**
- * @param {OdooEnv} env
- * @param {UncaughError} error
- * @returns {boolean}
- */
-function corsErrorHandler(env, error) {
-    if (error instanceof UncaughtCorsError) {
-        // In Safari 16.4+ (as of Jun 14th 2023), an error occurs
-        // when going back and forward through the browser when the
-        // cache is enabled. A feedback has been reported but in the
-        // meantime, hide any script error in these versions.
-        if (isIOS() && session.is_frontend && odoo.debug !== "assets") {
-            return true;
-        }
-        env.services.dialog.add(NetworkErrorDialog, {
-            traceback: error.traceback,
-            message: error.message,
-            name: error.name,
-        });
-        return true;
-    }
-}
-errorHandlerRegistry.add("corsErrorHandler", corsErrorHandler, { sequence: 95 });
-
-// -----------------------------------------------------------------------------
-// Client errors
-// -----------------------------------------------------------------------------
-
-/**
- * @param {OdooEnv} env
- * @param {UncaughError} error
- * @returns {boolean}
- */
-function clientErrorHandler(env, error) {
-    if (error instanceof UncaughtClientError) {
-        env.services.dialog.add(ClientErrorDialog, {
-            traceback: error.traceback,
-            message: error.message,
-            name: error.name,
-        });
-        return true;
-    }
-}
-errorHandlerRegistry.add("clientErrorHandler", clientErrorHandler, { sequence: 96 });
 
 // -----------------------------------------------------------------------------
 // RPC errors
@@ -126,6 +76,7 @@ export function rpcErrorHandler(env, error, originalError) {
         return true;
     }
 }
+
 errorHandlerRegistry.add("rpcErrorHandler", rpcErrorHandler, { sequence: 97 });
 
 // -----------------------------------------------------------------------------
@@ -150,7 +101,7 @@ export function lostConnectionHandler(env, error, originalError) {
             return true;
         }
         connectionLostNotifRemove = env.services.notification.add(
-            env._t("Connection lost. Trying to reconnect..."),
+            _t("Connection lost. Trying to reconnect..."),
             { sticky: true }
         );
         let delay = 2000;
@@ -162,12 +113,9 @@ export function lostConnectionHandler(env, error, originalError) {
                         connectionLostNotifRemove();
                         connectionLostNotifRemove = null;
                     }
-                    env.services.notification.add(
-                        env._t("Connection restored. You are back online."),
-                        {
-                            type: "info",
-                        }
-                    );
+                    env.services.notification.add(_t("Connection restored. You are back online."), {
+                        type: "info",
+                    });
                 })
                 .catch(() => {
                     // exponential backoff, with some jitter
@@ -181,40 +129,26 @@ export function lostConnectionHandler(env, error, originalError) {
 errorHandlerRegistry.add("lostConnectionHandler", lostConnectionHandler, { sequence: 98 });
 
 // -----------------------------------------------------------------------------
-// Empty rejection errors
-// -----------------------------------------------------------------------------
-
-/**
- * @param {OdooEnv} env
- * @param {UncaughError} error
- * @returns {boolean}
- */
-function emptyRejectionErrorHandler(env, error) {
-    if (!(error instanceof UncaughtPromiseError)) {
-        return false;
-    }
-    env.services.dialog.add(ClientErrorDialog, {
-        traceback: error.traceback,
-        message: error.message,
-        name: error.name,
-    });
-    return true;
-}
-errorHandlerRegistry.add("emptyRejectionErrorHandler", emptyRejectionErrorHandler, {
-    sequence: 99,
-});
-
-// -----------------------------------------------------------------------------
 // Default handler
 // -----------------------------------------------------------------------------
 
+const defaultDialogs = new Map([
+    [UncaughtClientError, ClientErrorDialog],
+    [UncaughtPromiseError, ClientErrorDialog],
+    [UncaughtCorsError, NetworkErrorDialog],
+]);
+
 /**
+ * Handles the errors based on the very general error categories emitted by the
+ * error service. Notice how we do not look at the original error at all.
+ *
  * @param {OdooEnv} env
  * @param {UncaughError} error
  * @returns {boolean}
  */
-function defaultHandler(env, error) {
-    env.services.dialog.add(ErrorDialog, {
+export function defaultHandler(env, error) {
+    const DialogComponent = defaultDialogs.get(error.constructor) || ErrorDialog;
+    env.services.dialog.add(DialogComponent, {
         traceback: error.traceback,
         message: error.message,
         name: error.name,

@@ -46,19 +46,19 @@ class ResPartner(models.Model):
         """ proxy for function field towards actual implementation """
         result = self.sudo()._get_signup_url_for_action()
         for partner in self:
-            if any(u.has_group('base.group_user') for u in partner.user_ids if u != self.env.user):
+            if any(u._is_internal() for u in partner.user_ids if u != self.env.user):
                 self.env['res.users'].check_access_rights('write')
             if any(u.has_group('base.group_portal') for u in partner.user_ids if u != self.env.user):
                 self.env['res.partner'].check_access_rights('write')
             partner.signup_url = result.get(partner.id, False)
 
     def _compute_token(self):
-        for partner in self.filtered('id'):
+        for partner in self:
             self.env.cr.execute('SELECT signup_token FROM res_partner WHERE id=%s', (partner._origin.id,))
             partner.signup_token = self.env.cr.fetchone()[0]
 
     def _inverse_token(self):
-        for partner in self.filtered('id'):
+        for partner in self:
             self.env.cr.execute('UPDATE res_partner SET signup_token = %s WHERE id=%s', (partner.signup_token or None, partner.id))
 
     def _get_signup_url_for_action(self, url=None, action=None, view_type=None, menu_id=None, res_id=None, model=None):
@@ -74,7 +74,10 @@ class ResPartner(models.Model):
 
             route = 'login'
             # the parameters to encode for the query
-            query = dict(db=self.env.cr.dbname)
+            query = {'db': self.env.cr.dbname}
+            if self.env.context.get('create_user'):
+                query['signup_email'] = partner.email
+
             signup_type = self.env.context.get('signup_force_type_in_url', partner.sudo().signup_type or '')
             if signup_type:
                 route = 'reset_password' if signup_type == 'reset' else signup_type
@@ -121,7 +124,7 @@ class ResPartner(models.Model):
         """ Get a signup token related to the partner if signup is enabled.
             If the partner already has a user, get the login parameter.
         """
-        if not self.env.user.has_group('base.group_user') and not self.env.is_admin():
+        if not self.env.user._is_internal() and not self.env.is_admin():
             raise exceptions.AccessDenied()
 
         res = defaultdict(dict)

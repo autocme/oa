@@ -50,7 +50,7 @@
     <li class="s_product_catalog_dish" data-name="Product">
         <p class="s_product_catalog_dish_title d-flex align-items-baseline pb-2">
             <span t-esc="name" class="s_product_catalog_dish_name s_product_catalog_dish_dot_leaders"/>
-            <span t-esc="price" class="s_product_catalog_dish_price ml-auto pl-2"/>
+            <span t-esc="price" class="s_product_catalog_dish_price ms-auto ps-2"/>
         </p>
     </li>
 </template>
@@ -66,7 +66,7 @@
 </template>
 
 <template id="s_product_catalog_options" inherit_id="website.snippet_options">
-    <xpath expr="//t[@t-call='web_editor.snippet_options_background_options']" position="before">
+    <xpath expr="//t[@t-call='website.snippet_options_background_options']" position="before">
         <div data-js="MultipleItems"
              data-selector=".s_product_catalog">
             <t t-call="website.s_product_catalog_add_product_widget">
@@ -97,10 +97,9 @@
     </xpath>
 </template>
 
-<record id="website.s_product_catalog_001_scss" model="ir.asset">
-    <field name="name">Product catalog 001 SCSS</field>
-    <field name="bundle">web.assets_frontend</field>
-    <field name="path">website/static/src/snippets/s_product_catalog/001.scss</field>
-</record>
+<asset id="website.s_product_catalog_001_scss" name="Product catalog 001 SCSS">
+    <bundle>web.assets_frontend</bundle>
+    <path>website/static/src/snippets/s_product_catalog/001.scss</path>
+</asset>
 
 </odoo>

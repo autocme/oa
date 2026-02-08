@@ -1,51 +1,58 @@
 # Translation of Odoo Server.
 # This file contains the translation of the following modules:
 # 	* product_images
-# 
+#
 # Translators:
-# 敬雲 林 <chingyun@yuanchih-consult.com>, 2021
-# 
+# Wil Odoo, 2023
+# Tony Ng, 2024
+#
 msgid ""
 msgstr ""
-"Project-Id-Version: Odoo Server saas~14.5\n"
+"Project-Id-Version: Odoo Server 17.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2021-09-14 10:29+0000\n"
-"PO-Revision-Date: 2021-09-14 12:25+0000\n"
-"Last-Translator: 敬雲 林 <chingyun@yuanchih-consult.com>, 2021\n"
-"Language-Team: Chinese (Taiwan) (https://app.transifex.com/odoo/teams/41243/zh_TW/)\n"
+"POT-Creation-Date: 2025-12-29 18:38+0000\n"
+"PO-Revision-Date: 2023-10-26 23:09+0000\n"
+"Last-Translator: Tony Ng, 2024\n"
+"Language-Team: Chinese (Taiwan) (https://app.transifex.com/odoo/teams/41243/"
+"zh_TW/)\n"
+"Language: zh_TW\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: \n"
-"Language: zh_TW\n"
 "Plural-Forms: nplurals=1; plural=0;\n"
 
 #. module: product_images
+#. odoo-python
 #: code:addons/product_images/wizard/product_fetch_image_wizard.py:0
 #, python-format
 msgid ""
 "%(matching_images_count)s matching images have been found for "
 "%(product_count)s products."
-msgstr "已為 %(product_count)s 個產品找到 %(matching_images_count)s 個匹配的圖片。"
+msgstr ""
+"已為 %(product_count)s 個產品找到 %(matching_images_count)s 個匹配的圖片。"
 
 #. module: product_images
 #: model_terms:ir.ui.view,arch_db:product_images.product_fetch_image_wizard_view_form
 msgid ""
-"<span attrs=\"{'invisible': [('nb_products_selected', '&lt;=', 10000)]}\">\n"
-"                            As only 10,000 products can be processed per day, the remaining will be\n"
+"<span invisible=\"nb_products_selected &lt;= 10000\">\n"
+"                            As only 10,000 products can be processed per "
+"day, the remaining will be\n"
 "                            done tomorrow.\n"
 "                        </span>"
 msgstr ""
-"<span attrs=\"{'invisible': [('nb_products_selected', '&lt;=', 10000)]}\">\n"
-"                            由於每天只能處理 10,000 個產品，其餘的將在明天完成。\n"
-"                            </span>"
+"<span invisible=\"nb_products_selected &lt;= 10000\">\n"
+"                            由於每天只能處理 10,000 件產品，\n"
+"                            其餘產品將於明天處理。\n"
+"                        </span>"
 
 #. module: product_images
+#. odoo-python
 #: code:addons/product_images/wizard/product_fetch_image_wizard.py:0
 #, python-format
 msgid ""
 "A task to process products in the background is already running. Please try "
 "againlater."
-msgstr "在背景處理產品的任務已經在執行。請稍後再試。"
+msgstr "在背景處理產品的任務已經在運行。請稍後再試。"
 
 #. module: product_images
 #: model_terms:ir.ui.view,arch_db:product_images.res_config_settings_view_form
@@ -60,12 +67,12 @@ msgstr "取消"
 #. module: product_images
 #: model:ir.model,name:product_images.model_res_config_settings
 msgid "Config Settings"
-msgstr "設定"
+msgstr "配置設定"
 
 #. module: product_images
 #: model:ir.model.fields,field_description:product_images.field_product_fetch_image_wizard__create_uid
 msgid "Created by"
-msgstr "創立者"
+msgstr "建立人員"
 
 #. module: product_images
 #: model:ir.model.fields,field_description:product_images.field_product_fetch_image_wizard__create_date
@@ -98,22 +105,17 @@ msgstr "從 Google 圖片獲取圖片"
 #. module: product_images
 #: model:ir.model.fields,field_description:product_images.field_res_config_settings__google_custom_search_key
 msgid "Google Custom Search API Key"
-msgstr "Google 自訂搜索 API 密鑰"
+msgstr "Google 自定義搜索 API 密鑰"
 
 #. module: product_images
 #: model:ir.model.fields,field_description:product_images.field_product_fetch_image_wizard__id
 msgid "ID"
-msgstr "ID"
+msgstr "識別號"
 
 #. module: product_images
 #: model:ir.model.fields,field_description:product_images.field_product_product__image_fetch_pending
 msgid "Image Fetch Pending"
-msgstr "圖像擷取待處理"
-
-#. module: product_images
-#: model:ir.model.fields,field_description:product_images.field_product_fetch_image_wizard____last_update
-msgid "Last Modified on"
-msgstr "最後修改於"
+msgstr "圖像提取待處理"
 
 #. module: product_images
 #: model:ir.model.fields,field_description:product_images.field_product_fetch_image_wizard__write_uid
@@ -150,18 +152,17 @@ msgstr ""
 "                        在您的網站上發布這些內容。"
 
 #. module: product_images
-#: model:ir.model,name:product_images.model_product_product
-msgid "Product"
-msgstr "商品"
-
-#. module: product_images
 #: model:ir.actions.server,name:product_images.ir_cron_fetch_image_ir_actions_server
-#: model:ir.cron,cron_name:product_images.ir_cron_fetch_image
-#: model:ir.cron,name:product_images.ir_cron_fetch_image
 msgid "Product Images: Get product images from Google"
 msgstr "產品圖片：從 Google 獲取產品圖片"
 
 #. module: product_images
+#: model:ir.model,name:product_images.model_product_product
+msgid "Product Variant"
+msgstr "產品款式"
+
+#. module: product_images
+#. odoo-python
 #: code:addons/product_images/wizard/product_fetch_image_wizard.py:0
 #, python-format
 msgid "Product images"
@@ -173,6 +174,7 @@ msgid "Products To Process"
 msgstr "要執行的產品"
 
 #. module: product_images
+#. odoo-python
 #: code:addons/product_images/wizard/product_fetch_image_wizard.py:0
 #, python-format
 msgid ""
@@ -186,12 +188,14 @@ msgid "Search Engine ID"
 msgstr "搜索引擎 ID"
 
 #. module: product_images
+#. odoo-python
 #: code:addons/product_images/wizard/product_fetch_image_wizard.py:0
 #, python-format
 msgid "The API Key and Search Engine ID must be set in the General Settings."
 msgstr "API Key 和 Search Engine ID 必須在 General Settings 中設置。"
 
 #. module: product_images
+#. odoo-python
 #: code:addons/product_images/wizard/product_fetch_image_wizard.py:0
 #, python-format
 msgid ""
@@ -199,8 +203,8 @@ msgid ""
 "your Google Cloud Platform project page and enable it, then retry. If you "
 "enabled this API recently, please wait a few minutes and retry."
 msgstr ""
-"您的 Google 項目中未啟用自訂搜索 API。請訪問您的 Google Cloud Platform 項目頁面並啟用它，然後重試。如果您最近啟用了此"
-" API，請等待幾分鐘並重試。"
+"您的 Google 項目中未啟用自定義搜索 API。請訪問您的 Google Cloud Platform 項目"
+"頁面並啟用它，然後重試。如果您最近啟用了此 API，請等待幾分鐘並重試。"
 
 #. module: product_images
 #: model:ir.model.fields,field_description:product_images.field_res_config_settings__google_pse_id
@@ -215,16 +219,19 @@ msgid ""
 msgstr "符合條件的選定產品列表（有條碼且無圖像）"
 
 #. module: product_images
-#: code:addons/product_images/wizard/product_fetch_image_wizard.py:0
+#. odoo-python
 #: code:addons/product_images/wizard/product_fetch_image_wizard.py:0
 #, python-format
 msgid ""
 "The scheduled action \"Product Images: Get product images from Google\" has "
 "been deleted. Please contact your administrator to have the action restored "
 "or to reinstall the module \"product_images\"."
-msgstr "操作規劃“產品圖片：從 Google 獲取產品圖片”已被刪除。請聯繫您的管理員以恢復操作或重新安裝模組“product_images”。"
+msgstr ""
+"操作規劃“產品圖片：從 Google 獲取產品圖片”已被刪除。請聯繫您的管理員以恢復操"
+"作或重新安裝模塊“product_images”。"
 
 #. module: product_images
+#. odoo-python
 #: code:addons/product_images/models/ir_cron_trigger.py:0
 #, python-format
 msgid "This action is already scheduled. Please try again later."
@@ -246,6 +253,7 @@ msgid "You selected"
 msgstr "您選擇的"
 
 #. module: product_images
+#. odoo-python
 #: code:addons/product_images/wizard/product_fetch_image_wizard.py:0
 #, python-format
 msgid "Your API Key or your Search Engine ID is incorrect."
@@ -260,7 +268,8 @@ msgstr "其中將被處理。"
 #: model_terms:ir.ui.view,arch_db:product_images.product_fetch_image_wizard_view_form
 msgid ""
 "products will not be\n"
-"                            processed because they either already have an image or their barcode\n"
+"                            processed because they either already have an "
+"image or their barcode\n"
 "                            number is not set."
 msgstr ""
 "產品將無法\n"

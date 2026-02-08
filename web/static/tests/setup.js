@@ -1,63 +1,29 @@
 /** @odoo-module **/
 
-import LegacyBus from "web.Bus";
-import session from "web.session";
-import { _t, qweb } from "web.core";
+import { assets, templates } from "@web/core/assets";
 import { browser, makeRAMLocalStorage } from "@web/core/browser/browser";
-import { patchWithCleanup } from "@web/../tests/helpers/utils";
-import { legacyProm } from "web.test_legacy";
+import { patchTimeZone, patchWithCleanup } from "@web/../tests/helpers/utils";
+import { memoize } from "@web/core/utils/functions";
 import { registerCleanup } from "./helpers/cleanup";
 import { prepareRegistriesWithCleanup } from "./helpers/mock_env";
 import { session as sessionInfo } from "@web/session";
-import { prepareLegacyRegistriesWithCleanup } from "./helpers/legacy_env_utils";
+import { config as transitionConfig } from "@web/core/transition";
+import { loadLanguages } from "@web/core/l10n/translation";
 
-const { whenReady, loadFile } = owl.utils;
+transitionConfig.disabled = true;
 
-owl.config.enableTransitions = false;
-owl.QWeb.dev = true;
-
-function stringifyObjectValues(obj, properties) {
-    let res = "";
-    for (const dotted of properties) {
-        const keys = dotted.split(".");
-        let val = obj;
-        for (const k of keys) {
-            val = val[k];
-        }
-        res += JSON.stringify(val);
-    }
-    return res;
-}
-
-function checkGlobalObjectsIntegrity() {
-    const objects = [
-        [session, ["user_context", "currencies"]],
-        [_t, ["database.multi_lang", "database.parameters"]],
-    ];
-    const initials = objects.map((obj) => stringifyObjectValues(obj[0], obj[1]));
-
-    registerCleanup((infos) => {
-        const finals = objects.map((obj) => stringifyObjectValues(obj[0], obj[1]));
-        for (const index in initials) {
-            if (initials[index] !== finals[index]) {
-                const [global, keys] = objects[index];
-                throw new Error(
-                    `The keys "${keys}" of some global objects (usually session or _t) may have been polluted by the test "${infos.testName}" in module "${infos.moduleName}"`
-                );
-            }
-        }
-    });
-}
+import { patch } from "@web/core/utils/patch";
+import { App, EventBus, whenReady } from "@odoo/owl";
+import { currencies } from "@web/core/currency";
+import { cookie } from "@web/core/browser/cookie";
 
 function forceLocaleAndTimezoneWithCleanup() {
     const originalLocale = luxon.Settings.defaultLocale;
     luxon.Settings.defaultLocale = "en";
-    const originalZoneName = luxon.Settings.defaultZoneName;
-    luxon.Settings.defaultZoneName = "Europe/Brussels";
     registerCleanup(() => {
         luxon.Settings.defaultLocale = originalLocale;
-        luxon.Settings.defaultZoneName = originalZoneName;
     });
+    patchTimeZone(60);
 }
 
 function makeMockLocation(hasListeners = () => true) {
@@ -94,57 +60,145 @@ function makeMockLocation(hasListeners = () => true) {
     });
 }
 
+function patchOwlApp() {
+    patchWithCleanup(App.prototype, {
+        destroy() {
+            if (!this.destroyed) {
+                super.destroy(...arguments);
+                this.destroyed = true;
+            }
+        },
+    });
+}
+
+function patchCookie() {
+    const cookieJar = {};
+
+    patchWithCleanup(cookie, {
+        get _cookieMonster() {
+            return Object.entries(cookieJar)
+                .filter(([, value]) => value !== "kill")
+                .map((cookie) => cookie.join("="))
+                .join("; ");
+        },
+        set _cookieMonster(value) {
+            const cookies = value.split("; ");
+            for (const cookie of cookies) {
+                const [key, value] = cookie.split(/=(.*)/);
+                if (!["path", "max-age"].includes(key)) {
+                    cookieJar[key] = value;
+                }
+            }
+        },
+    });
+}
+
 function patchBrowserWithCleanup() {
     const originalAddEventListener = browser.addEventListener;
     const originalRemoveEventListener = browser.removeEventListener;
+    const originalSetTimeout = browser.setTimeout;
+    const originalClearTimeout = browser.clearTimeout;
+    const originalSetInterval = browser.setInterval;
+    const originalClearInterval = browser.clearInterval;
 
     let hasHashChangeListeners = false;
+    let nextAnimationFrameHandle = 1;
+    const animationFrameHandles = new Set();
     const mockLocation = makeMockLocation(() => hasHashChangeListeners);
-    patchWithCleanup(
-        browser,
-        {
-            // patch addEventListner to automatically remove listeners bound (via
-            // browser.addEventListener) during a test (e.g. during the deployment of a service)
-            addEventListener(evName) {
-                if (evName === "hashchange") {
-                    hasHashChangeListeners = true;
-                }
-                originalAddEventListener(...arguments);
-                registerCleanup(() => {
-                    originalRemoveEventListener(...arguments);
-                });
-            },
-            navigator: {
-                userAgent: browser.navigator.userAgent.replace(/\([^)]*\)/, "(X11; Linux x86_64)"),
-            },
-            // in tests, we never want to interact with the real url or reload the page
-            location: mockLocation,
-            history: {
-                pushState(state, title, url) {
-                    mockLocation.assign(url);
-                },
-                replaceState(state, title, url) {
-                    mockLocation.assign(url);
-                },
-            },
-            // in tests, we never want to interact with the real local/session storages.
-            localStorage: makeRAMLocalStorage(),
-            sessionStorage: makeRAMLocalStorage(),
-        },
-        { pure: true }
-    );
-}
-
-function patchLegacyBus() {
-    // patch core.bus.on to automatically remove listners bound on the legacy bus
-    // during a test (e.g. during the deployment of a service)
-    patchWithCleanup(LegacyBus.prototype, {
-        on() {
-            this._super(...arguments);
+    patchWithCleanup(browser, {
+        // patch addEventListner to automatically remove listeners bound (via
+        // browser.addEventListener) during a test (e.g. during the deployment of a service)
+        addEventListener(evName) {
+            if (evName === "hashchange") {
+                hasHashChangeListeners = true;
+            }
+            originalAddEventListener(...arguments);
             registerCleanup(() => {
-                this.off(...arguments);
+                originalRemoveEventListener(...arguments);
             });
         },
+        // patch setTimeout to automatically remove timeouts bound (via
+        // browser.setTimeout) during a test (e.g. during the deployment of a service)
+        setTimeout() {
+            const timeout = originalSetTimeout(...arguments);
+            registerCleanup(() => {
+                originalClearTimeout(timeout);
+            });
+            return timeout;
+        },
+        // patch setInterval to automatically remove callbacks registered (via
+        // browser.setInterval) during a test (e.g. during the deployment of a service)
+        setInterval() {
+            const interval = originalSetInterval(...arguments);
+            registerCleanup(() => {
+                originalClearInterval(interval);
+            });
+            return interval;
+        },
+        // patch BeforeInstallPromptEvent to prevent the installPrompt service to return an uncontrolled
+        // canPromptToInstall value depending the browser settings (we ensure the value is always falsy)
+        BeforeInstallPromptEvent: undefined,
+        navigator: {
+            mediaDevices: browser.navigator.mediaDevices,
+            permissions: browser.navigator.permissions,
+            userAgent: browser.navigator.userAgent.replace(/\([^)]*\)/, "(X11; Linux x86_64)"),
+            sendBeacon: () => {
+                throw new Error("sendBeacon called in test but not mocked");
+            },
+        },
+        // in tests, we never want to interact with the real url or reload the page
+        location: mockLocation,
+        history: {
+            pushState(state, title, url) {
+                mockLocation.assign(url);
+            },
+            replaceState(state, title, url) {
+                mockLocation.assign(url);
+            },
+        },
+        // in tests, we never want to interact with the real local/session storages.
+        localStorage: makeRAMLocalStorage(),
+        sessionStorage: makeRAMLocalStorage(),
+        // Don't want original animation frames in tests
+        requestAnimationFrame: (fn) => {
+            const handle = nextAnimationFrameHandle++;
+            animationFrameHandles.add(handle);
+
+            Promise.resolve().then(() => {
+                if (animationFrameHandles.has(handle)) {
+                    fn(16);
+                }
+            });
+
+            return handle;
+        },
+        cancelAnimationFrame: (handle) => {
+            animationFrameHandles.delete(handle);
+        },
+        // BroadcastChannels need to be closed to be garbage collected
+        BroadcastChannel: class SelfClosingBroadcastChannel extends BroadcastChannel {
+            constructor() {
+                super(...arguments);
+                registerCleanup(() => this.close());
+            }
+        },
+    });
+}
+
+function patchBodyAddEventListener() {
+    // In some cases, e.g. tooltip service, event handlers are registered on document.body and not
+    // browser, because the events we listen to aren't triggered on window. We want to clear those
+    // handlers as well after each test.
+    const originalBodyAddEventListener = document.body.addEventListener;
+    const originalBodyRemoveEventListener = document.body.removeEventListener;
+    document.body.addEventListener = function () {
+        originalBodyAddEventListener.call(this, ...arguments);
+        registerCleanup(() => {
+            originalBodyRemoveEventListener.call(this, ...arguments);
+        });
+    };
+    registerCleanup(() => {
+        document.body.addEventListener = originalBodyAddEventListener;
     });
 }
 
@@ -154,15 +208,17 @@ function patchOdoo() {
     });
 }
 
+function cleanLoadedLanguages() {
+    registerCleanup(() => {
+        loadLanguages.installedLanguages = null;
+    });
+}
+
 function patchSessionInfo() {
     patchWithCleanup(sessionInfo, {
         cache_hashes: {
             load_menus: "161803",
             translations: "314159",
-        },
-        currencies: {
-            1: { name: "USD", digits: [69, 2], position: "before", symbol: "$" },
-            2: { name: "EUR", digits: [69, 2], position: "after", symbol: "€" },
         },
         user_context: {
             lang: "en",
@@ -184,7 +240,11 @@ function patchSessionInfo() {
         },
         db: "test",
         server_version: "1.0",
-        server_version_info: ["1.0"],
+        server_version_info: [1, 0, 0, "final", 0, ""],
+    });
+    patchWithCleanup(currencies, {
+        1: { name: "USD", digits: [69, 2], position: "before", symbol: "$" },
+        2: { name: "EUR", digits: [69, 2], position: "after", symbol: "€" },
     });
 }
 
@@ -196,14 +256,14 @@ function patchSessionInfo() {
  * @param {Document} templates Document containing the templates to
  * process.
  */
-function removeUnwantedAttrsFromTemplates(templates, attrs) {
+function removeUnwantedAttrsFromTemplates(attrs) {
     function replaceAttr(attrName, prefix, element) {
         const attrKey = `${prefix}${attrName}`;
         const attrValue = element.getAttribute(attrKey);
         element.removeAttribute(attrKey);
         element.setAttribute(`${prefix}data-${attrName}`, attrValue);
     }
-    const attrPrefixes = ['', 't-att-', 't-attf-'];
+    const attrPrefixes = ["", "t-att-", "t-attf-"];
     for (const attrName of attrs) {
         for (const prefix of attrPrefixes) {
             for (const element of templates.querySelectorAll(`*[${prefix}${attrName}]`)) {
@@ -213,45 +273,130 @@ function removeUnwantedAttrsFromTemplates(templates, attrs) {
     }
 }
 
+function patchAssets() {
+    const { getBundle, loadJS, loadCSS } = assets;
+    patch(assets, {
+        getBundle: memoize(async function (xmlID) {
+            console.log(
+                "%c[assets] fetch libs from xmlID: " + xmlID,
+                "color: #66e; font-weight: bold;"
+            );
+            return getBundle(xmlID);
+        }),
+        loadJS: memoize(async function (ressource) {
+            if (ressource.match(/\/static(\/\S+\/|\/)libs?/)) {
+                console.log(
+                    "%c[assets] fetch (mock) JS ressource: " + ressource,
+                    "color: #66e; font-weight: bold;"
+                );
+                return Promise.resolve();
+            }
+            console.log(
+                "%c[assets] fetch JS ressource: " + ressource,
+                "color: #66e; font-weight: bold;"
+            );
+            return loadJS(ressource);
+        }),
+        loadCSS: memoize(async function (ressource) {
+            if (ressource.match(/\/static(\/\S+\/|\/)libs?/)) {
+                console.log(
+                    "%c[assets] fetch (mock) CSS ressource: " + ressource,
+                    "color: #66e; font-weight: bold;"
+                );
+                return Promise.resolve();
+            }
+            console.log(
+                "%c[assets] fetch CSS ressource: " + ressource,
+                "color: #66e; font-weight: bold;"
+            );
+            return loadCSS(ressource);
+        }),
+    });
+}
+
+function patchEventBus() {
+    patchWithCleanup(EventBus.prototype, {
+        addEventListener() {
+            super.addEventListener(...arguments);
+            registerCleanup(() => this.removeEventListener(...arguments));
+        },
+    });
+}
+
 export async function setupTests() {
+    if (window.gc) {
+        // uncomment to debug memory leaks in qunit suite
+        // let memoryBeforeModule;
+        QUnit.moduleStart(({ tests }) => {
+            if (tests.length) {
+                window.gc();
+                // memoryBeforeModule = window.performance.memory.usedJSHeapSize;
+            }
+        });
+        // QUnit.moduleDone(({ name }) => {
+        //     if (memoryBeforeModule) {
+        //         window.gc();
+        //         const afterGc = window.performance.memory.usedJSHeapSize;
+        //         console.log(
+        //             `MEMINFO - After suite "${name}" - after gc: ${afterGc} delta: ${
+        //                 afterGc - memoryBeforeModule
+        //             }`
+        //         );
+        //         memoryBeforeModule = null;
+        //     }
+        // });
+    }
+
     QUnit.testStart(() => {
-        checkGlobalObjectsIntegrity();
         prepareRegistriesWithCleanup();
-        prepareLegacyRegistriesWithCleanup();
         forceLocaleAndTimezoneWithCleanup();
+        cleanLoadedLanguages();
         patchBrowserWithCleanup();
-        patchLegacyBus();
+        patchCookie();
+        patchBodyAddEventListener();
+        patchEventBus();
         patchOdoo();
         patchSessionInfo();
+        patchOwlApp();
     });
 
-    const templatesUrl = `/web/webclient/qweb/${new Date().getTime()}?bundle=web.assets_qweb`;
-    // TODO replace by `processTemplates` when the legacy system is removed
-    let templates = await loadFile(templatesUrl);
-    // as we currently have two qweb engines (owl and legacy), owl templates are
-    // flagged with attribute `owl="1"`. The following lines removes the 'owl'
-    // attribute from the templates, so that it doesn't appear in the DOM. For now,
-    // we make the assumption that 'templates' only contains owl templates. We
-    // might need at some point to handle the case where we have both owl and
-    // legacy templates. At the end, we'll get rid of all this.
-    const doc = new DOMParser().parseFromString(templates, "text/xml");
+    await whenReady();
+
     // alt attribute causes issues with scroll tests. Indeed, alt is
     // displayed between the time we scroll programatically and the time
     // we assert for the scroll position. The src attribute is removed
     // as well to make sure images won't trigger a GET request on the
     // server.
-    removeUnwantedAttrsFromTemplates(doc, ['alt', 'src']);
-    // at this point, templates might already be loaded in qweb, so remove unwanted attrs there
-    for (const template of Object.values(qweb.templates)) {
-        removeUnwantedAttrsFromTemplates(template, ["alt", "src"]);
-    }
-    const owlTemplates = [];
-    for (let child of doc.querySelectorAll("templates > [owl]")) {
-        child.removeAttribute("owl");
-        owlTemplates.push(child.outerHTML);
-    }
-    templates = `<templates> ${owlTemplates.join("\n")} </templates>`;
-    window.__ODOO_TEMPLATES__ = templates;
-    session.owlTemplates = templates;
-    await Promise.all([whenReady(), legacyProm]);
+    // Clean up templates that have already been added.
+    removeUnwantedAttrsFromTemplates(["alt", "src"]);
+    patchAssets();
+
+    // make sure images do not trigger a GET on the server
+    new MutationObserver((mutations) => {
+        const nodes = mutations.flatMap(({ target }) => {
+            if (target.nodeName === "IMG" || target.nodeName === "IFRAME") {
+                return target;
+            }
+            return [
+                ...target.getElementsByTagName("img"),
+                ...target.getElementsByTagName("iframe"),
+            ];
+        });
+        for (const node of nodes) {
+            const src = node.getAttribute("src");
+            if (src && src !== "about:blank") {
+                node.dataset.src = src;
+                if (node.nodeName === "IMG") {
+                    node.removeAttribute("src");
+                } else {
+                    node.setAttribute("src", "about:blank");
+                }
+                node.dispatchEvent(new Event("load"));
+            }
+        }
+    }).observe(document.body, {
+        subtree: true,
+        childList: true,
+        attributeFilter: ["src"],
+    });
 }

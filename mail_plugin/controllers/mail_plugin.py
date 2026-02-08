@@ -5,6 +5,7 @@ import base64
 import json
 import logging
 import requests
+from markupsafe import Markup
 from werkzeug.exceptions import Forbidden
 
 from odoo import http, tools, _
@@ -44,7 +45,7 @@ class MailPluginController(http.Controller):
 
         normalized_email = partner.email_normalized
         if not normalized_email:
-            return {'error': _('Contact has no valid email')}
+            return {'error': _('The email of this contact is not valid and we can not enrich it')}
 
         company, enrichment_info = self._create_company_from_iap(normalized_email)
 
@@ -71,7 +72,7 @@ class MailPluginController(http.Controller):
 
         normalized_email = partner.email_normalized
         if not normalized_email:
-            return {'error': 'Contact has no valid email'}
+            return {'error': 'The email of this contact is not valid and we can not enrich it'}
 
         domain = tools.email_domain_extract(normalized_email)
         iap_data = self._iap_enrich(domain)
@@ -117,10 +118,10 @@ class MailPluginController(http.Controller):
 
         partner.write(partner_values)
 
-        partner.message_post_with_view(
+        partner.message_post_with_source(
             'iap_mail.enrich_company',
-            values=iap_data,
-            subtype_id=request.env.ref('mail.mt_note').id,
+            render_values=iap_data,
+            subtype_xmlid='mail.mt_note',
         )
 
         return {
@@ -151,6 +152,18 @@ class MailPluginController(http.Controller):
         normalized_email = tools.email_normalize(email)
         if not normalized_email:
             return {'error': _('Bad Email.')}
+
+        notification_emails = request.env['mail.alias.domain'].sudo().search([]).mapped('default_from_email')
+        if normalized_email in notification_emails:
+            return {
+                'partner': {
+                    'name': _('Notification'),
+                    'email': normalized_email,
+                    'enrichment_info': {
+                        'type': 'odoo_custom_error', 'info': _('This is your notification address. Search the Contact manually to link this email to a record.'),
+                    },
+                },
+            }
 
         # Search for the partner based on the email.
         # If multiple are found, take the first one.
@@ -193,7 +206,7 @@ class MailPluginController(http.Controller):
         if normalized_email:
             filter_domain = [('email_normalized', 'ilike', search_term)]
         else:
-            filter_domain = ['|', '|', ('display_name', 'ilike', search_term), ('ref', '=', search_term),
+            filter_domain = ['|', '|', ('complete_name', 'ilike', search_term), ('ref', '=', search_term),
                              ('email', 'ilike', search_term)]
 
         # Search for the partner based on the email.
@@ -214,6 +227,9 @@ class MailPluginController(http.Controller):
         params name: name of the new partner
         params company: parent company id of the new partner
         """
+        notification_emails = request.env['mail.alias.domain'].sudo().search([]).mapped('default_from_email')
+        if tools.email_normalize(email) in notification_emails:
+            raise Forbidden()
         # old route name "/mail_client_extension/partner/create is deprecated as of saas-14.3,it is not needed for newer
         # versions of the mail plugin but necessary for supporting older versions
         # TODO search the company again instead of relying on the one provided here?
@@ -250,7 +266,7 @@ class MailPluginController(http.Controller):
                 for name, content in attachments
             ]
 
-        request.env[model].browse(res_id).message_post(body=message, attachments=attachments)
+        request.env[model].browse(res_id).message_post(body=Markup(message), attachments=attachments)
         return True
 
     @http.route('/mail_plugin/get_translations', type="json", auth="outlook", cors="*")
@@ -341,7 +357,7 @@ class MailPluginController(http.Controller):
                 if response.ok:
                     new_company_info['image_1920'] = base64.b64encode(response.content)
             except Exception as e:
-                _logger.warning('Download of image for new company %s failed, error %s', new_company_info.name, e)
+                _logger.warning('Download of image for new company %s failed, error %s', new_company_info['name'], e)
 
         if iap_data.get('country_code'):
             country = request.env['res.country'].search([('code', '=', iap_data['country_code'].upper())])
@@ -362,10 +378,10 @@ class MailPluginController(http.Controller):
 
         new_company = request.env['res.partner'].create(new_company_info)
 
-        new_company.message_post_with_view(
+        new_company.message_post_with_source(
             'iap_mail.enrich_company',
-            values=iap_data,
-            subtype_id=request.env.ref('mail.mt_note').id,
+            render_values=iap_data,
+            subtype_xmlid='mail.mt_note',
         )
 
         return new_company, {'type': 'company_created'}
@@ -388,9 +404,8 @@ class MailPluginController(http.Controller):
 
         if not partner_values['name']:
             # Always ensure that the partner has a name
-            name, email = request.env['res.partner']._parse_partner_name(
-                partner_values['email'])
-            partner_values['name'] = name or email
+            name, email_normalized = tools.parse_contact_from_email(partner_values['email'])
+            partner_values['name'] = name or email_normalized
 
         return partner_values
 
@@ -443,7 +458,7 @@ class MailPluginController(http.Controller):
 
     def _prepare_translations(self):
         lang = request.env['res.users'].browse(request.uid).lang
-        translations_per_module = request.env["ir.translation"].get_translations_for_webclient(
+        translations_per_module = request.env["ir.http"].get_translations_for_webclient(
             self._translation_modules_whitelist(), lang)[0]
         translations_dict = {}
         for module in self._translation_modules_whitelist():

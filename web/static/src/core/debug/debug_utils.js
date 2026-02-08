@@ -8,7 +8,6 @@ export function editModelDebug(env, title, model, id) {
         type: "ir.actions.act_window",
         views: [[false, "form"]],
         view_mode: "form",
-        target: "new",
-        flags: { action_buttons: true, headless: true },
+        target: "current",
     });
 }

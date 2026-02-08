@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
+from odoo import Command
 from odoo.addons.l10n_account_edi_ubl_cii_tests.tests.common import TestUBLCommon
 from odoo.tests import tagged
+from odoo.exceptions import UserError
 import base64
 
 
@@ -8,11 +10,8 @@ import base64
 class TestUBLDE(TestUBLCommon):
 
     @classmethod
-    def setUpClass(cls,
-                   chart_template_ref="l10n_de_skr03.l10n_de_chart_template",
-                   edi_format_ref="account_edi_ubl_cii.ubl_de",
-                   ):
-        super().setUpClass(chart_template_ref=chart_template_ref, edi_format_ref=edi_format_ref)
+    def setUpClass(cls, chart_template_ref="de_skr03"):
+        super().setUpClass(chart_template_ref=chart_template_ref)
 
         cls.partner_1 = cls.env['res.partner'].create({
             'name': "partner_1",
@@ -67,6 +66,16 @@ class TestUBLDE(TestUBLCommon):
         )
         return res
 
+    def _detach_attachment(self, attachment):
+        # attachments are protected from being edited because of the audit trail
+        # in the tests, we are reusing the ame attachment coming from another invoice, which would then switch invoice
+        self.env.cr.execute("UPDATE ir_attachment SET res_id = NULL WHERE id = %s", (attachment.id,))
+        attachment.invalidate_recordset()
+
+    def _assert_imported_invoice_from_etree(self, invoice, attachment):
+        self._detach_attachment(attachment)
+        return super()._assert_imported_invoice_from_etree(invoice, attachment)
+
     ####################################################
     # Test export - import
     ####################################################
@@ -101,9 +110,9 @@ class TestUBLDE(TestUBLCommon):
                 },
             ],
         )
-        xml_etree, xml_filename = self._assert_invoice_attachment(
-            invoice,
-            xpaths='''
+        attachment = self._assert_invoice_attachment(
+            invoice.ubl_cii_xml_id,
+            xpaths=f'''
                 <xpath expr="./*[local-name()='ID']" position="replace">
                     <ID>___ignore___</ID>
                 </xpath>
@@ -119,11 +128,55 @@ class TestUBLDE(TestUBLCommon):
                 <xpath expr=".//*[local-name()='PaymentMeans']/*[local-name()='PaymentID']" position="replace">
                     <PaymentID>___ignore___</PaymentID>
                 </xpath>
+                <xpath expr=".//*[local-name()='AdditionalDocumentReference']/*[local-name()='Attachment']/*[local-name()='EmbeddedDocumentBinaryObject']" position="attributes">
+                    <attribute name="mimeCode">application/pdf</attribute>
+                    <attribute name="filename">{invoice.invoice_pdf_report_id.name}</attribute>
+                </xpath>
             ''',
-            expected_file='from_odoo/xrechnung_ubl_out_invoice.xml',
+            expected_file_path='from_odoo/xrechnung_ubl_out_invoice.xml',
         )
-        self.assertEqual(xml_filename[-10:], "ubl_de.xml")
-        self._assert_imported_invoice_from_etree(invoice, xml_etree, xml_filename)
+        self.assertEqual(attachment.name[-10:], "ubl_de.xml")
+        self._assert_imported_invoice_from_etree(invoice, attachment)
+
+    def test_export_import_invoice_without_vat_and_peppol_endpoint(self):
+        self.partner_2.write({
+            'vat': False,
+            'peppol_endpoint': False,
+            'email': 'partner_2@test.test',
+        })
+        invoice = self._generate_move(
+            self.partner_1,
+            self.partner_2,
+            move_type='out_invoice',
+            invoice_line_ids=[
+                {
+                    'product_id': self.product_a.id,
+                    'quantity': 1.0,
+                    'price_unit': 100.0,
+                    'tax_ids': [Command.set(self.tax_19.ids)],
+                },
+            ],
+        )
+        attachment = self._assert_invoice_attachment(
+            invoice.ubl_cii_xml_id,
+            xpaths=f'''
+                <xpath expr="./*[local-name()='ID']" position="replace">
+                    <ID>___ignore___</ID>
+                </xpath>
+                <xpath expr=".//*[local-name()='InvoiceLine'][1]/*[local-name()='ID']" position="replace">
+                    <ID>___ignore___</ID>
+                </xpath>
+                <xpath expr=".//*[local-name()='PaymentMeans']/*[local-name()='PaymentID']" position="replace">
+                    <PaymentID>___ignore___</PaymentID>
+                </xpath>
+                <xpath expr=".//*[local-name()='AdditionalDocumentReference']/*[local-name()='Attachment']/*[local-name()='EmbeddedDocumentBinaryObject']" position="attributes">
+                    <attribute name="mimeCode">application/pdf</attribute>
+                    <attribute name="filename">{invoice.invoice_pdf_report_id.name}</attribute>
+                </xpath>
+            ''',
+            expected_file_path='from_odoo/xrechnung_ubl_out_invoice_without_vat.xml',
+        )
+        self._assert_imported_invoice_from_etree(invoice, attachment)
 
     def test_export_import_refund(self):
         refund = self._generate_move(
@@ -155,9 +208,9 @@ class TestUBLDE(TestUBLCommon):
                 },
             ],
         )
-        xml_etree, xml_filename = self._assert_invoice_attachment(
-            refund,
-            xpaths='''
+        attachment = self._assert_invoice_attachment(
+            refund.ubl_cii_xml_id,
+            xpaths=f'''
                 <xpath expr="./*[local-name()='ID']" position="replace">
                     <ID>___ignore___</ID>
                 </xpath>
@@ -173,11 +226,15 @@ class TestUBLDE(TestUBLCommon):
                 <xpath expr=".//*[local-name()='PaymentMeans']/*[local-name()='PaymentID']" position="replace">
                     <PaymentID>___ignore___</PaymentID>
                 </xpath>
+                <xpath expr=".//*[local-name()='AdditionalDocumentReference']/*[local-name()='Attachment']/*[local-name()='EmbeddedDocumentBinaryObject']" position="attributes">
+                    <attribute name="mimeCode">application/pdf</attribute>
+                    <attribute name="filename">{refund.invoice_pdf_report_id.name}</attribute>
+                </xpath>
             ''',
-            expected_file='from_odoo/xrechnung_ubl_out_refund.xml',
+            expected_file_path='from_odoo/xrechnung_ubl_out_refund.xml',
         )
-        self.assertEqual(xml_filename[-10:], "ubl_de.xml")
-        self._assert_imported_invoice_from_etree(refund, xml_etree, xml_filename)
+        self.assertEqual(attachment.name[-10:], "ubl_de.xml")
+        self._assert_imported_invoice_from_etree(refund, attachment)
 
     ####################################################
     # Test import
@@ -197,28 +254,30 @@ class TestUBLDE(TestUBLCommon):
             'acc_number': 'BE15001559627232',
             'partner_id': self.company_data['company'].partner_id.id,
         })
-        invoice = self.env['account.move'].create({
-            'move_type': 'out_invoice',
-            'journal_id': self.journal.id,
-            'partner_id': self.partner_1.id,
-            'partner_bank_id': acc_bank,
-            'invoice_date': '2017-01-01',
-            'date': '2017-01-01',
-            'currency_id': self.currency_data['currency'].id,
-            'invoice_line_ids': [(0, 0, {
+
+        invoice = self._generate_move(
+            self.partner_1,
+            self.partner_2,
+            move_type='out_invoice',
+            partner_id=self.partner_1.id,
+            partner_bank_id=acc_bank.id,
+            invoice_date='2017-01-01',
+            date='2017-01-01',
+            invoice_line_ids=[{
                 'product_id': self.product_a.id,
                 'product_uom_id': self.env.ref('uom.product_uom_dozen').id,
                 'price_unit': 275.0,
                 'quantity': 5,
                 'discount': 20.0,
                 'tax_ids': [(6, 0, self.tax_19.ids)],
-            })],
-        })
+            }],
+        )
 
         partner = invoice.commercial_partner_id
-        invoice.action_post()
-        attachment = invoice._get_edi_attachment(self.edi_format)
+        attachment = invoice.ubl_cii_xml_id
+
         self.assertTrue(attachment)
+
         xml_content = base64.b64decode(attachment.with_context(bin_size=False).datas)
         xml_etree = self.get_xml_tree_from_string(xml_content)
 
@@ -230,5 +289,35 @@ class TestUBLDE(TestUBLCommon):
         )
 
         created_bill = self.env['account.move'].create({'move_type': 'in_invoice'})
+        self._detach_attachment(attachment)
         created_bill.message_post(attachment_ids=[attachment.id])
         self.assertTrue(created_bill)
+
+    def test_leitweg_id(self):
+        partner = self.partner_2
+        partner.write({
+            'peppol_eas': '0204',
+            'peppol_endpoint': '123456789',
+        })
+
+        acc_bank = self.env['res.partner.bank'].create({
+            'acc_number': 'DE15001559627232',
+            'partner_id': partner.id,
+        })
+
+        invoice = self._generate_move(
+            self.partner_1,
+            partner,
+            move_type='out_invoice',
+            partner_id=partner.id,
+            partner_bank_id=acc_bank.id,
+            invoice_date='2025-12-01',
+            invoice_line_ids=[{'product_id': self.product_a.id}],
+        )
+        attachment = invoice.ubl_cii_xml_id
+
+        self.assertTrue(attachment)
+
+        xml_content = base64.b64decode(attachment.with_context(bin_size=False).datas)
+        xml_etree = self.get_xml_tree_from_string(xml_content)
+        self.assertEqual(xml_etree.find('{*}BuyerReference').text, '123456789')

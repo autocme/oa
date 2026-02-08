@@ -2,9 +2,14 @@
 
 from . import controllers
 from . import models
+from . import wizards
 
-from odoo.addons.payment import reset_payment_acquirer
+from odoo.addons.payment import setup_provider, reset_payment_provider
 
 
-def uninstall_hook(cr, registry):
-    reset_payment_acquirer(cr, registry, 'adyen')
+def post_init_hook(env):
+    setup_provider(env, 'adyen')
+
+
+def uninstall_hook(env):
+    reset_payment_provider(env, 'adyen')

@@ -10,7 +10,6 @@ from odoo.tests.common import tagged, TransactionCase
 
 @tagged('post_install', '-at_install')
 class TestWebsiteFormEditor(HttpCaseWithUserPortal):
-
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
@@ -20,13 +19,13 @@ class TestWebsiteFormEditor(HttpCaseWithUserPortal):
             'phone': "+1 555-555-5555",
         })
 
-    def test_00_tour(self):
-        self.start_tour("/", 'website_form_editor_tour', login="admin", timeout=150)
-        self.start_tour("/", 'website_form_editor_tour_submit')
-        self.start_tour("/", 'website_form_editor_tour_results', login="admin")
+    def test_tour(self):
+        self.start_tour(self.env['website'].get_client_action_url('/'), 'website_form_editor_tour', login='admin', timeout=240)
+        self.start_tour('/', 'website_form_editor_tour_submit')
+        self.start_tour('/', 'website_form_editor_tour_results', login="admin")
 
     def test_website_form_contact_us_edition_with_email(self):
-        self.start_tour('/contactus', 'website_form_contactus_edition_with_email', login="admin")
+        self.start_tour('/web', 'website_form_contactus_edition_with_email', login="admin")
         self.start_tour('/contactus', 'website_form_contactus_submit', login="portal")
         mail = self.env['mail.mail'].search([], order='id desc', limit=1)
         self.assertEqual(
@@ -36,7 +35,7 @@ class TestWebsiteFormEditor(HttpCaseWithUserPortal):
 
     def test_website_form_contact_us_edition_no_email(self):
         self.env.company.email = 'website_form_contactus_edition_no_email@mail.com'
-        self.start_tour('/contactus', 'website_form_contactus_edition_no_email', login="admin")
+        self.start_tour('/web', 'website_form_contactus_edition_no_email', login="admin")
         self.start_tour('/contactus', 'website_form_contactus_submit', login="portal")
         mail = self.env['mail.mail'].search([], order='id desc', limit=1)
         self.assertEqual(
@@ -64,6 +63,8 @@ class TestWebsiteFormEditor(HttpCaseWithUserPortal):
         self.assertIn('Test1&#34;&#39;', mail.body_html, 'The single quotes and double quotes characters should be visible on the received mail')
         self.assertIn('Test2`\\', mail.body_html, 'The backtick and backslash characters should be visible on the received mail')
 
+    def test_website_form_nested_forms(self):
+        self.start_tour('/my/account', 'website_form_nested_forms', login='admin')
 
 @tagged('post_install', '-at_install')
 class TestWebsiteForm(TransactionCase):

@@ -8,7 +8,7 @@ class ConfirmExpiry(models.TransientModel):
     _name = 'expiry.picking.confirmation'
     _description = 'Confirm Expiry'
 
-    lot_ids = fields.Many2many('stock.production.lot', readonly=True, required=True)
+    lot_ids = fields.Many2many('stock.lot', readonly=True, required=True)
     picking_ids = fields.Many2many('stock.picking', readonly=True)
     description = fields.Char('Description', compute='_compute_descriptive_fields')
     show_lots = fields.Boolean('Show Lots', compute='_compute_descriptive_fields')
@@ -21,13 +21,13 @@ class ConfirmExpiry(models.TransientModel):
             # For multiple expired lots, they are listed in the wizard view.
             self.description = _(
                 "You are going to deliver some product expired lots."
-                "\nDo you confirm you want to proceed ?"
+                "\nDo you confirm you want to proceed?"
             )
         else:
             # For one expired lot, its name is written in the wizard message.
             self.description = _(
                 "You are going to deliver the product %(product_name)s, %(lot_name)s which is expired."
-                "\nDo you confirm you want to proceed ?",
+                "\nDo you confirm you want to proceed?",
                 product_name=self.lot_ids.product_id.display_name,
                 lot_name=self.lot_ids.name
             )

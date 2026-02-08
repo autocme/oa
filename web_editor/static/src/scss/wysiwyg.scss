@@ -1,19 +1,6 @@
 $o-we-overlay-zindex: ($zindex-fixed + $zindex-modal-backdrop) / 2 !default;
 $o-we-zindex: $o-we-overlay-zindex + 1 !default;
 
-// Floating Toolbar Variables
-$o-we-toolbar-entries-gap: $o-we-sidebar-content-field-control-item-spacing * .7;
-$o-we-toolbar-entries-border-width: 1px;
-$o-we-toolbar-entries-padding: $o-we-sidebar-content-padding-base * .7;
-
-$o-we-toolbar-bg: #FFF;
-$o-we-toolbar-bg-active: rgba($o-we-fg-light, .2);
-$o-we-toolbar-border: $o-we-fg-light;
-$o-we-toolbar-color-text: $o-we-bg-light;
-$o-we-toolbar-color-accent: #018597;
-$o-we-toolbar-color-clickable: $o-we-bg-lightest;
-$o-we-toolbar-color-clickable-active: $o-we-bg-darkest;
-
 // Use css variables to control the default style of the editor so that an
 // external assets bundle can influence it without duplicating the css.
 :root {
@@ -122,11 +109,11 @@ $o-we-toolbar-color-clickable-active: $o-we-bg-darkest;
             .o_color_picker_inputs we-button {
                 border: 1px solid black;
                 padding: 0 6px;
+                color: white;
             }
 
             .o_color_picker_inputs we-button.active {
                 background-color: #2b2b33;
-
             }
         }
 
@@ -163,6 +150,12 @@ $o-we-toolbar-color-clickable-active: $o-we-bg-darkest;
         }
 
         .o_colorpicker_section {
+            &.o_custom_gradient_editor{
+                .o_custom_gradient_btn{
+                    border: 1px solid var(--o-we-toolbar-border);
+                }
+            }
+
             &::after {
                 content: "";
                 display: table;
@@ -184,7 +177,8 @@ $o-we-toolbar-color-clickable-active: $o-we-bg-darkest;
 
 // Toolbar - Generic rules shared among backend & frontend
 .oe-toolbar {
-    display: grid;
+    display: flex;
+    align-items: center;
 
     .btn {
         display: flex;
@@ -212,25 +206,20 @@ $o-we-toolbar-color-clickable-active: $o-we-bg-darkest;
 
 // Floating Toolbar
 .oe-toolbar.oe-floating {
-    gap: 0 $o-we-sidebar-content-field-control-item-spacing * .7;
-    grid-auto-flow: column;
+    gap: $o-we-sidebar-content-field-control-item-spacing * .7;
     align-items: stretch;
-    height: auto;
     min-height: $o-we-toolbar-height;
-    max-width: none;
-    border-radius: $o-we-item-border-radius;
     padding: 0 $o-we-sidebar-content-field-control-item-spacing;
-    background-color: $o-we-toolbar-bg;
-    box-shadow: 0 0 4px rgba(#000, .1), 0 4px 18px rgba(#000, .25);
-    color: $o-we-toolbar-color-text;
+    background-color: var(--o-we-toolbar-bg, #{$o-we-toolbar-bg});
+    color: var(--o-we-toolbar-color-text, #{$o-we-toolbar-color-text});
     font-family: $o-we-font-family;
 
     &.toolbar-bottom:before {
-        border-bottom-color: $o-we-toolbar-bg;
+        border-bottom-color: var(--o-we-toolbar-bg, #{$o-we-toolbar-bg});
     }
 
     &:not(.toolbar-bottom):before {
-        border-top-color: $o-we-toolbar-bg;
+        border-top-color: var(--o-we-toolbar-bg, #{$o-we-toolbar-bg});
     }
 
     &.noarrow::before {
@@ -242,29 +231,24 @@ $o-we-toolbar-color-clickable-active: $o-we-bg-darkest;
             content: "";
             width: $o-we-toolbar-entries-border-width;
             margin-right: calc(#{$o-we-toolbar-entries-gap} - #{$o-we-toolbar-entries-border-width});
-            background: $o-we-toolbar-border;
+            background: var(--o-we-toolbar-border, #{$o-we-toolbar-border});
             transform: scaleY(.6)
-        }
-
-        // Adjust dropdown-menu position, but not when already handled in js
-        .dropdown-menu:not([x-placement]) {
-            margin-left: $o-we-toolbar-entries-gap;
         }
     }
 
     // Main layout of buttons
     .btn, .dropdown-item {
         padding: ($o-we-toolbar-entries-padding * .5) $o-we-toolbar-entries-padding;
-        color: $o-we-toolbar-color-clickable;
+        color: var(--o-we-toolbar-color-clickable, #{$o-we-toolbar-color-clickable});
 
         &:hover:not(.active) {
-            color: $o-we-toolbar-color-clickable-active;
+            color: var(--o-we-toolbar-color-clickable-active, #{$o-we-toolbar-color-clickable-active});
             background-color: transparent;
         }
 
         &.active {
-            background: $o-we-toolbar-bg-active;
-            box-shadow: inset 0 0 3px rgba($o-we-toolbar-bg-active, .5);
+            background: var(--o-we-toolbar-bg-active, #{$o-we-toolbar-bg-active});
+            box-shadow: inset 0 0 3px RGBA(var(--o-we-toolbar-bg-active, #{$o-we-toolbar-bg-active}), .5);
         }
     }
 
@@ -275,7 +259,7 @@ $o-we-toolbar-color-clickable-active: $o-we-bg-darkest;
         font-weight: 400;
 
         &.active {
-            color: $o-we-toolbar-color-accent;
+            color: var(--o-we-toolbar-color-accent, #{$o-we-toolbar-color-accent});
         }
     }
 
@@ -289,7 +273,7 @@ $o-we-toolbar-color-clickable-active: $o-we-bg-darkest;
 
     .show > .btn {
         &, &:hover, &:focus {
-            color: $o-we-toolbar-color-clickable-active;
+            color: var(--o-we-toolbar-color-clickable-active, #{$o-we-toolbar-color-clickable-active});
         }
     }
 
@@ -304,9 +288,9 @@ $o-we-toolbar-color-clickable-active: $o-we-bg-darkest;
         padding: 0;
         max-height: none;
         overflow: visible;
-        border-top: 1px solid $o-we-toolbar-border;
-        background-color: $o-we-toolbar-bg;
-        box-shadow: 0 18px 18px rgba(#000, .23);
+        border-top: 1px solid var(--o-we-toolbar-border, #{$o-we-toolbar-border});
+        background-color: var(--o-we-toolbar-bg, #{$o-we-toolbar-bg});
+        box-shadow: $box-shadow;
         @include border-top-radius(0);
         @include border-bottom-radius($o-we-item-border-radius);
 
@@ -320,7 +304,6 @@ $o-we-toolbar-color-clickable-active: $o-we-bg-darkest;
 
         &.colorpicker-menu {
             margin-top: 0;
-            margin-bottom: 0.125rem;
             min-width: 222px !important;
         }
     }
@@ -337,8 +320,8 @@ $o-we-toolbar-color-clickable-active: $o-we-bg-darkest;
         }
 
         &.active {
-            &, &:hover, &:focus {
-                color: $o-we-bg-darker;
+            & > * , &:hover, &:focus {
+                color: var(--o-we-toolbar-color-clickable-active, #{$o-we-toolbar-color-clickable-active});
 
                 &:before {
                     top: 0;
@@ -372,26 +355,27 @@ $o-we-toolbar-color-clickable-active: $o-we-bg-darkest;
             display: none;
         }
 
-        .colorpicker-menu {
-            bottom: 100%;
-        }
-
         .o_we_colorpicker_switch_panel button {
-            @extend .btn;
             margin-bottom: -1px;
+            border: 0;
+            padding: $btn-padding-y-sm $btn-padding-x-sm;
+            background: transparent;
+            color: var(--o-we-toolbar-color-clickable, #{$o-we-toolbar-color-clickable});
+
+            &:hover {
+                color: var(--o-we-toolbar-color-clickable-active, #{$o-we-toolbar-color-clickable-active});
+            }
 
             &.active {
-                border-bottom: 1px solid $o-we-toolbar-color-accent;
-                background: none;
-                box-shadow: none;
-                color: $o-we-toolbar-color-clickable-active;
+                box-shadow: inset 0 ($border-width * -1) 0 var(--o-we-toolbar-color-accent, #{$o-we-toolbar-color-accent});
+                color: var(--o-we-toolbar-color-clickable-active, #{$o-we-toolbar-color-clickable-active});
             }
 
             &.o_colorpicker_reset {
                 background: $o-brand-primary;
 
                 &, &:hover {
-                    color: color-yiq($o-brand-primary);
+                    color: color-contrast($o-brand-primary);
                 }
 
                 &:hover {
@@ -402,14 +386,25 @@ $o-we-toolbar-color-clickable-active: $o-we-bg-darkest;
     }
 
     .colorpicker {
-        background: $o-we-toolbar-bg;
-        box-shadow: 0px 3px 9px rgba(0, 0, 0, 0.2);
+        background: var(--o-we-toolbar-bg, #{$o-we-toolbar-bg});
+        box-shadow: $box-shadow;
     }
 
     .o_image_alt {
         @include o-text-overflow();
         max-width: 150px;
     }
+
+    input#fontSizeCurrentValue {
+        width: 20px;
+        border: none;
+    }
+}
+
+// Toolbar in Sidebar (website editor, mass mailing)
+#oe_snippets > .o_we_customize_panel .oe-toolbar {
+    display: grid;
+    align-items: stretch;
 }
 
 // Floating Table Picker
@@ -418,7 +413,7 @@ $o-we-toolbar-color-clickable-active: $o-we-bg-darkest;
         border-radius: 0;
 
         &.active {
-            background: $o-we-toolbar-color-accent;
+            background: var(--o-we-toolbar-color-accent, #{$o-we-toolbar-color-accent});
         }
     }
 }
@@ -426,12 +421,13 @@ $o-we-toolbar-color-clickable-active: $o-we-bg-darkest;
 
 body:not(.editor_has_snippets) {
     > .oe-toolbar {
-        // Bootstrap sets .modal z-index at 1050. Ensure toolbar is visible in
+        // Bootstrap sets .modal z-index at 1055. Ensure toolbar is visible in
         // modals. Only apply this to the toolbar if it's not in a snippets menu.
-        z-index: 1051;
+        z-index: 1056;
     }
 }
-@media only screen and (max-width: 767px) {
+
+@include media-breakpoint-down(md) {
     .oe-toolbar {
         background-color: white;
 
@@ -498,138 +494,6 @@ body:not(.editor_has_snippets) {
 
 // MODALS
 body .modal {
-
-    // SELECT MEDIA
-    .o_select_media_dialog {
-        max-width: 80%;
-
-        .modal-body {
-            .tab-pane {
-                min-height: 300px;
-            }
-
-            .o_we_images > .o_existing_attachment_cell .o_we_media_dialog_img_wrapper {
-                @extend %o-preview-alpha-background;
-
-                &, > img {
-                    width: 100%;
-                }
-            }
-
-            .o_existing_attachment_cell {
-                cursor: pointer;
-                margin: 1px;
-
-                .o_existing_attachment_optimize, .o_existing_attachment_remove {
-                    background-color: rgba(white, 0.4);
-                    opacity: 0;
-                    cursor: pointer;
-                    transition: color 0.2s ease;
-                }
-
-                .o_existing_attachment_optimize {
-                    @include o-position-absolute($top: 0, $left: 0);
-                    border-radius: 0 0 2px 0;
-                }
-
-                .o_existing_attachment_remove {
-                    @include o-position-absolute($top: 0, $right: 0);
-                    z-index: 1;
-                    border-radius: 0 0 0 2px;
-                    &:hover {
-                        color: $o-we-color-danger;
-                    }
-                }
-
-                .o_file_name {
-                    @include o-text-overflow;
-                }
-
-                &:hover {
-                    .o_existing_attachment_optimize, .o_existing_attachment_remove {
-                        opacity: 1;
-                    }
-                    &.o_we_attachment_highlight, .o_we_attachment_highlight {
-                        border-color: $card-border-color;
-                        box-shadow: 0px 0px 2px 2px $card-border-color;
-                    }
-                }
-            }
-
-            .o_we_attachment_selected {
-                @include o-we-active-wrapper($top: 5px, $left: 5px);
-            }
-
-            .o_we_attachment_optimized .badge {
-                position: absolute;
-                bottom: 0;
-                right: 0;
-                margin: 2px;
-            }
-
-            .font-icons-icons {
-                > span {
-                    text-align: center;
-                    font-size: 22px;
-                    margin: 5px;
-                    width: 50px;
-                    height: 50px;
-                    padding: 15px 0; // 0 allows to center properly
-                    cursor: pointer;
-                }
-            }
-
-            #editor-media-image,
-            #editor-media-document {
-                .o_we_url_input {
-                    width: 300px;
-                }
-            }
-
-            // VIDEO TAB
-            #editor-media-video {
-                .o_video_dialog_form {
-                    #o_video_form_group {
-                        position: relative;
-                        width: 100%;
-
-                        > textarea {
-                            width: 100%;
-                            min-height: 95px;
-                            padding-bottom: 25px;
-                            overflow-y: scroll;
-                        }
-                    }
-                }
-
-                #video-preview {
-                    position: relative;
-                    @include o-we-preview-box();
-                    border: none;
-
-                    .media_iframe_video {
-                        width: 100%;
-                    }
-
-                    .o_video_dialog_iframe {
-                        @include o-we-preview-content;
-                        max-width: 100%;
-                        max-height: 100%;
-
-                        &.alert {
-                            animation: fadeInDownSmall 700ms forwards;
-                            margin: 0 auto;
-                        }
-                    }
-                }
-
-                #video-suggestion > .o_sample_video {
-                    cursor: pointer;
-                }
-            }
-        }
-    }
-
     // LINK EDITOR DIALOG COLOR SELECTOR
     .o_link_dialog {
         input.link-style:checked + span::after {
@@ -640,7 +504,7 @@ body .modal {
         }
 
         .o_link_dialog_preview {
-            border-left: 1px solid gray('200');
+            border-left: var(--o-link-dialog-preview-border, #{$border-width} solid #{$border-color});
         }
     }
 }
@@ -663,11 +527,7 @@ img.o_we_selected_image {
 .fa.o_we_selected_image::before {
     @extend %o-we-selected-image;
 }
-// Override default image selection color from portal. It prevents your from
-// seeing the images' quality clearly in the wysiwyg.
-img::selection {
-    background: transparent;
-}
+
 .o_we_media_author {
     font-size: 11px;
     @include o-position-absolute($bottom: 0, $left: 0, $right: 0);
@@ -678,7 +538,7 @@ img::selection {
     background-color: rgba(255, 255, 255, .7);
 }
 
-@include media-breakpoint-down(md) {
+@include media-breakpoint-down(lg) {
     #web_editor-top-edit {
         position: initial !important;
         height: initial !important;
@@ -687,7 +547,6 @@ img::selection {
     }
 
     .oe-toolbar.oe-floating {
-        box-shadow: 0 10px 10px -5px rgba(0, 0, 0, 0.1);
         display: flex;
         flex-wrap: wrap;
         margin-bottom: 1rem;
@@ -705,7 +564,7 @@ img::selection {
 }
 
 // User modal in edit mode
-.editor_enable, .note-editable {
+.note-editable {
     .modal:not(.o_technical_modal) {
         top: 40px;
         right: 0;
@@ -742,15 +601,13 @@ img::selection {
 .note-editable {
     border: $o-we-border-width solid $o-we-fg-light;
     overflow: auto;
-    background: white;
-    color: black;
     height: 100%;
     padding: 4px 40px 4px 4px;
     min-height: 10px;
     border-radius: 3px;
 }
 
-.oe-bordered-editor>.note-editable {
+.oe-bordered-editor .note-editable {
     border-width: 1px;
     padding: 4px 40px 4px 4px;
     min-height: 180px;
@@ -775,6 +632,7 @@ img::selection {
         margin-top: 0.5rem;
         display: flex;
         flex-wrap: wrap;
+        bottom: 1rem;
 
         input[type=radio] {
             display: none;
@@ -835,6 +693,19 @@ img::selection {
     // Prevent the edited link from being deselected when clicking between
     // buttons in the popover
     user-select: none;
+    box-shadow: $box-shadow;
+    border-color: rgba(0,0,0,0.025);
+
+    .popover-arrow::before {
+        border-right-color: rgba(0, 0, 0, 0.05);
+    }
+    // As the popover is displayed both in the frontend and the backend,
+    // the font styles need to be uniformized.
+    font-size: 12px;
+    font-weight: 400 !important;
+    .fw-bold {
+        font-weight: 500 !important;
+    }
 
     .o_we_preview_favicon > img {
         max-height: 16px;
@@ -861,4 +732,44 @@ img::selection {
             -webkit-line-clamp: unset;
         }
     }
+}
+textarea.o_codeview {
+    min-height: 400px;
+}
+
+@keyframes fade {
+    0%,100% { opacity: 0 }
+    30%,70% { opacity: 1 }
+  }
+.o-chatgpt-content {
+    position: absolute;
+    background: rgba(1, 186, 210, 0.5);
+    opacity: 0;
+    animation: fade 1.5s ease-in-out;
+    z-index: 1;
+    outline: 2px dashed #01bad2;
+    outline-offset: -2px;
+}
+
+.o-prompt-input {
+    position: relative;
+    // see .o-mail-Composer-input
+    > textarea {
+        padding-top: 10px; // carefully crafted to have the text in the middle in chat window
+        padding-bottom: 10px;
+        min-height: 40px;
+        max-height: 110px;
+        resize: none;
+    }
+}
+button.o-message-insert {
+    line-height: 1;
+}
+.o-chatgpt-message > div > *:last-child, .o-chatgpt-alternative > *:last-child {
+    margin-bottom: 0;
+}
+.o-message-error {
+    color: #d44c59;
+    font-weight: bold;
+    --bg-opacity: 0.25;
 }

@@ -1,10 +1,10 @@
-odoo.define('web.Widget', function (require) {
-"use strict";
+/** @odoo-module **/
 
-var ajax = require('web.ajax');
-var core = require('web.core');
-var mixins = require('web.mixins');
-var ServicesMixin = require('web.ServicesMixin');
+import Class from "@web/legacy/js/core/class";
+import mixins from "@web/legacy/js/core/mixins";
+import ServicesMixin from "@web/legacy/js/core/service_mixins";
+import { loadBundle } from "@web/core/assets";
+import { renderToElement } from "@web/core/utils/render";
 
 /**
  * Base class for all visual components. Provides a lot of functions helpful
@@ -62,7 +62,7 @@ var ServicesMixin = require('web.ServicesMixin');
  * That will kill the widget in a clean way and erase its content from the dom.
  */
 
-var Widget = core.Class.extend(mixins.PropertiesMixin, ServicesMixin, {
+export var Widget = Class.extend(mixins.PropertiesMixin, ServicesMixin, {
     // Backbone-ish API
     tagName: 'div',
     id: null,
@@ -76,14 +76,6 @@ var Widget = core.Class.extend(mixins.PropertiesMixin, ServicesMixin, {
      * @type {null|string}
      */
     template: null,
-    /**
-     * List of paths to xml files that need to be loaded before the widget can
-     * be rendered. This will not induce loading anything that has already been
-     * loaded.
-     *
-     * @type {null|string[]}
-     */
-    xmlDependencies: null,
     /**
      * List of paths to css files that need to be loaded before the widget can
      * be rendered. This will not induce loading anything that has already been
@@ -142,13 +134,8 @@ var Widget = core.Class.extend(mixins.PropertiesMixin, ServicesMixin, {
      */
     willStart: function () {
         var proms = [];
-        if (this.xmlDependencies) {
-            proms.push.apply(proms, _.map(this.xmlDependencies, function (xmlPath) {
-                return ajax.loadXML(xmlPath, core.qweb);
-            }));
-        }
         if (this.jsLibs || this.cssLibs || this.assetLibs) {
-            proms.push(this._loadLibs(this));
+            proms.push(loadBundle(this));
         }
         return Promise.all(proms);
     },
@@ -231,7 +218,7 @@ var Widget = core.Class.extend(mixins.PropertiesMixin, ServicesMixin, {
      * @param {boolean} [display] use true to show the widget or false to hide it
      */
     do_toggle: function (display) {
-        if (_.isBoolean(display)) {
+        if (typeof display === "boolean") {
             display ? this.do_show() : this.do_hide();
         } else if (this.$el) {
             this.$el.hasClass('o_hidden') ? this.do_show() : this.do_hide();
@@ -283,7 +270,7 @@ var Widget = core.Class.extend(mixins.PropertiesMixin, ServicesMixin, {
     renderElement: function () {
         var $el;
         if (this.template) {
-            $el = $(core.qweb.render(this.template, {widget: this}).trim());
+            $el = $(renderToElement(this.template, { widget: this }));
         } else {
             $el = this._makeDescriptive();
         }
@@ -296,9 +283,9 @@ var Widget = core.Class.extend(mixins.PropertiesMixin, ServicesMixin, {
      * @returns {Promise}
      */
     replace: function (target) {
-        return this._widgetRenderAndInsert(_.bind(function (t) {
+        return this._widgetRenderAndInsert((t) => {
             this.$el.replaceAll(t);
-        }, this), target);
+        }, target);
     },
     /**
      * Re-sets the widget's root element (el/$el/$el).
@@ -350,7 +337,7 @@ var Widget = core.Class.extend(mixins.PropertiesMixin, ServicesMixin, {
      */
     _delegateEvents: function () {
         var events = this.events;
-        if (_.isEmpty(events)) { return; }
+        if (Object.keys(events || {}).length === 0) { return; }
 
         for(var key in events) {
             if (!events.hasOwnProperty(key)) { continue; }
@@ -377,7 +364,7 @@ var Widget = core.Class.extend(mixins.PropertiesMixin, ServicesMixin, {
      * @return {jQuery}
      */
     _makeDescriptive: function () {
-        var attrs = _.extend({}, this.attributes || {});
+        var attrs = Object.assign({}, this.attributes || {});
         if (this.id) {
             attrs.id = this.id;
         }
@@ -385,7 +372,7 @@ var Widget = core.Class.extend(mixins.PropertiesMixin, ServicesMixin, {
             attrs['class'] = this.className;
         }
         var $el = $(document.createElement(this.tagName));
-        if (!_.isEmpty(attrs)) {
+        if (Object.keys(attrs || {}).length > 0) {
             $el.attr(attrs);
         }
         return $el;
@@ -442,6 +429,4 @@ var Widget = core.Class.extend(mixins.PropertiesMixin, ServicesMixin, {
     },
 });
 
-return Widget;
-
-});
+export default Widget;

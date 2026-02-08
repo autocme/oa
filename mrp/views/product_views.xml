@@ -7,12 +7,6 @@
             <field name="model">product.template</field>
             <field name="inherit_id" ref="stock.view_template_property_form"/>
             <field name="arch" type="xml">
-                <xpath expr="//label[@for='sale_delay']" position="before">
-                    <label for="produce_delay" string="Manuf. Lead Time" attrs="{'invisible':[('type','=','service')]}"/>
-                    <div attrs="{'invisible':[('type','=','service')]}">
-                        <field name="produce_delay" class="oe_inline"/> days
-                    </div>
-                </xpath>
                 <xpath expr="//field[@name='product_variant_count']" position="after">
                     <field name="is_kits" invisible="1"/>
                 </xpath>
@@ -84,21 +78,23 @@
             <field name="name">product.template.procurement</field>
             <field name="model">product.template</field>
             <field name="inherit_id" ref="stock.product_template_form_view_procurement_button"/>
-            <field name="groups_id" eval="[(4, ref('mrp.group_mrp_user'))]"/>
             <field name="arch" type="xml">
                 <xpath expr="//button[@name='action_open_product_lot']" position="after">
                     <button class="oe_stat_button" name="%(template_open_bom)d" type="action"
-                        attrs="{'invisible':[('type', 'not in', ['product', 'consu'])]}" icon="fa-flask">
+                        groups="mrp.group_mrp_user"
+                        invisible="type not in ['product', 'consu']" icon="fa-flask">
                         <field string="Bill of Materials" name="bom_count" widget="statinfo" />
                     </button>
                     <button class="oe_stat_button" name="action_used_in_bom" type="object"
-                        attrs="{'invisible':['|',('type', 'not in', ['product', 'consu']), ('used_in_bom_count', '=', 0)]}" icon="fa-level-up">
+                        groups="mrp.group_mrp_user"
+                        invisible="type not in ['product', 'consu'] or used_in_bom_count == 0" icon="fa-level-up">
                         <field string="Used In" name="used_in_bom_count" widget="statinfo" />
                     </button>
                     <button class="oe_stat_button" name="action_view_mos" type="object"
-                        attrs="{'invisible': ['|', '|', ('type', 'not in', ['product', 'consu']), ('bom_count', '=', 0), ('mrp_product_qty', '=', 0)]}" icon="fa-list-alt" help="Manufactured in the last 365 days">
+                        groups="mrp.group_mrp_user"
+                        invisible="type not in ['product', 'consu'] or bom_count == 0 or mrp_product_qty == 0" icon="fa-list-alt" help="Manufactured in the last 365 days">
                         <div class="o_field_widget o_stat_info">
-                            <span class="o_stat_value">
+                            <span class="o_stat_value d-flex gap-1">
                                 <field name="mrp_product_qty" widget="statinfo" nolabel="1" class="mr4"/>
                                 <field name="uom_name"/>
                             </span>
@@ -113,21 +109,23 @@
             <field name="name">product.product.procurement</field>
             <field name="model">product.product</field>
             <field name="inherit_id" ref="stock.product_form_view_procurement_button"/>
-            <field name="groups_id" eval="[(4, ref('mrp.group_mrp_user'))]"/>
             <field name="arch" type="xml">
                 <xpath expr="//button[@name='action_open_product_lot']" position="after">
                     <button class="oe_stat_button" name="action_view_bom" type="object"
-                        attrs="{'invisible':[('type', 'not in', ['product', 'consu'])]}" icon="fa-flask">
+                        groups="mrp.group_mrp_user"
+                        invisible="type not in ['product', 'consu']" icon="fa-flask">
                         <field string="Bill of Materials" name="bom_count" widget="statinfo" />
                     </button>
                     <button class="oe_stat_button" name="action_used_in_bom" type="object"
-                        attrs="{'invisible':['|',('type', 'not in', ['product', 'consu']), ('used_in_bom_count', '=', 0)]}" icon="fa-level-up">
+                        groups="mrp.group_mrp_user"
+                        invisible="type not in ['product', 'consu'] or used_in_bom_count == 0" icon="fa-level-up">
                         <field string="Used In" name="used_in_bom_count" widget="statinfo" />
                     </button>
                     <button class="oe_stat_button" name="action_view_mos" type="object"
-                        attrs="{'invisible': ['|', '|', ('type', 'not in', ['product', 'consu']), ('bom_count', '=', 0), ('mrp_product_qty', '=', 0)]}" icon="fa-list-alt" help="Manufactured in the last 365 days">
+                        groups="mrp.group_mrp_user"
+                        invisible="type not in ['product', 'consu'] or bom_count == 0 or mrp_product_qty == 0" icon="fa-list-alt" help="Manufactured in the last 365 days">
                         <div class="o_field_widget o_stat_info">
-                            <span class="o_stat_value">
+                            <span class="o_stat_value d-flex gap-1">
                                 <field name="mrp_product_qty" widget="statinfo" nolabel="1" class="mr4"/>
                                 <field name="uom_name"/>
                             </span>

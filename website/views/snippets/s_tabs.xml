@@ -7,14 +7,14 @@
             <div class="s_tabs_main">
                 <div class="s_tabs_nav mb-3">
                     <ul class="nav nav-pills" role="tablist">
-                        <li class="nav-item">
-                            <a class="nav-link active" id="nav_tabs_link_1" data-toggle="tab" href="#nav_tabs_content_1" role="tab" aria-controls="nav_tabs_content_1" aria-selected="true">Home</a>
+                        <li class="nav-item" role="presentation">
+                            <a class="nav-link active" id="nav_tabs_link_1" data-bs-toggle="tab" href="#nav_tabs_content_1" role="tab" aria-controls="nav_tabs_content_1" aria-selected="true">Home</a>
                         </li>
-                        <li class="nav-item">
-                            <a class="nav-link" id="nav_tabs_link_2" data-toggle="tab" href="#nav_tabs_content_2" role="tab" aria-controls="nav_tabs_content_2" aria-selected="false">Profile</a>
+                        <li class="nav-item" role="presentation">
+                            <a class="nav-link" id="nav_tabs_link_2" data-bs-toggle="tab" href="#nav_tabs_content_2" role="tab" aria-controls="nav_tabs_content_2" aria-selected="false">Profile</a>
                         </li>
-                        <li class="nav-item">
-                            <a class="nav-link" id="nav_tabs_link_3" data-toggle="tab" href="#nav_tabs_content_3" role="tab" aria-controls="nav_tabs_content_3" aria-selected="false">Contact</a>
+                        <li class="nav-item" role="presentation">
+                            <a class="nav-link" id="nav_tabs_link_3" data-bs-toggle="tab" href="#nav_tabs_content_3" role="tab" aria-controls="nav_tabs_content_3" aria-selected="false">Contact</a>
                         </li>
                     </ul>
                 </div>
@@ -55,10 +55,10 @@
 <template id="s_tabs_options" inherit_id="website.snippet_options">
     <xpath expr="." position="inside">
         <div data-js="NavTabs" data-selector="section.s_tabs">
-            <we-button data-add-item="" data-item=".tab-pane.active" data-no-preview="true" class="o_we_text_success ml-0" title="Add Tab" aria-label="Add Tab">
+            <we-button data-add-item="" data-item=".tab-pane.active" data-no-preview="true" class="o_we_text_success ms-0" title="Add Tab" aria-label="Add Tab">
                 <i class="fa fa-fw fa-plus"/>
             </we-button>
-            <we-button data-remove-item="" data-item=".tab-pane.active" data-name="remove_tab_opt" data-no-preview="true" class="o_we_text_danger mr-3" title="Remove Tab" aria-label="Remove Tab">
+            <we-button data-remove-item="" data-item=".tab-pane.active" data-name="remove_tab_opt" data-no-preview="true" class="o_we_text_danger me-3" title="Remove Tab" aria-label="Remove Tab">
                 <i class="fa fa-fw fa-minus"/>
             </we-button>
         </div>
@@ -94,10 +94,9 @@
     </xpath>
 </template>
 
-<record id="website.s_tabs_001_scss" model="ir.asset">
-    <field name="name">Tabs 001 SCSS</field>
-    <field name="bundle">web.assets_frontend</field>
-    <field name="path">website/static/src/snippets/s_tabs/001.scss</field>
-</record>
+<asset id="website.s_tabs_001_scss" name="Tabs 001 SCSS">
+    <bundle>web.assets_frontend</bundle>
+    <path>website/static/src/snippets/s_tabs/001.scss</path>
+</asset>
 
 </odoo>

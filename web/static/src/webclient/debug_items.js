@@ -1,15 +1,16 @@
-/** @odoo-module */
+/** @odoo-module **/
+
+import { _t } from "@web/core/l10n/translation";
 import { registry } from "@web/core/registry";
 import { browser } from "@web/core/browser/browser";
 
-import dialogs from "web.view_dialogs";
-import { ComponentAdapter } from "web.OwlCompatibility";
+import { SelectCreateDialog } from "@web/views/view_dialogs/select_create_dialog";
 
 function runJSTestsItem({ env }) {
-    const runTestsURL = browser.location.origin + "/web/tests?mod=*";
+    const runTestsURL = browser.location.origin + "/web/tests?debug=assets";
     return {
         type: "item",
-        description: env._t("Run JS Tests"),
+        description: _t("Run JS Tests"),
         href: runTestsURL,
         callback: () => {
             browser.open(runTestsURL);
@@ -19,10 +20,10 @@ function runJSTestsItem({ env }) {
 }
 
 function runJSTestsMobileItem({ env }) {
-    const runTestsMobileURL = browser.location.origin + "/web/tests/mobile?mod=*";
+    const runTestsMobileURL = browser.location.origin + "/web/tests/mobile?debug=assets";
     return {
         type: "item",
-        description: env._t("Run JS Mobile Tests"),
+        description: _t("Run JS Mobile Tests"),
         href: runTestsMobileURL,
         callback: () => {
             browser.open(runTestsMobileURL);
@@ -35,7 +36,7 @@ export function openViewItem({ env }) {
     async function onSelected(records) {
         const views = await env.services.orm.searchRead(
             "ir.ui.view",
-            [["id", "=", records[0].id]],
+            [["id", "=", records[0]]],
             ["name", "model", "type"],
             { limit: 1 }
         );
@@ -51,21 +52,18 @@ export function openViewItem({ env }) {
 
     return {
         type: "item",
-        description: env._t("Open View"),
+        description: _t("Open View"),
         callback: () => {
-            const adapterParent = new ComponentAdapter(null, { Component: owl.Component });
-            const selectCreateDialog = new dialogs.SelectCreateDialog(adapterParent, {
-                res_model: "ir.ui.view",
-                title: env._t("Select a view"),
-                disable_multiple_selection: true,
+            env.services.dialog.add(SelectCreateDialog, {
+                resModel: "ir.ui.view",
+                title: _t("Select a view"),
+                multiSelect: false,
                 domain: [
                     ["type", "!=", "qweb"],
                     ["type", "!=", "search"],
                 ],
-                on_selected: onSelected,
+                onSelected,
             });
-
-            selectCreateDialog.open();
         },
         sequence: 40,
     };

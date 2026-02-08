@@ -62,9 +62,9 @@ class MicrosoftService(models.AbstractModel):
             req = requests.post(self._get_token_endpoint(), data=data, headers=headers, timeout=TIMEOUT)
             req.raise_for_status()
             content = req.json()
-        except IOError:
+        except requests.exceptions.RequestException as exc:
             error_msg = _("Something went wrong during your token generation. Maybe your Authorization Code is invalid or already expired")
-            raise self.env['res.config.settings'].get_config_warning(error_msg)
+            raise self.env['res.config.settings'].get_config_warning(error_msg) from exc
 
         return content.get('refresh_token')
 
@@ -169,6 +169,6 @@ class MicrosoftService(models.AbstractModel):
                 status = error.response.status_code
                 response = {}
             else:
-                _logger.exception("Bad microsoft request : %s !", error.response.content)
+                _logger.exception("Bad microsoft request: %s!", error.response.content)
                 raise error
         return (status, response, ask_time)

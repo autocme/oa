@@ -24,11 +24,11 @@ class SeoMetadata(models.AbstractModel):
     _description = 'SEO metadata'
 
     is_seo_optimized = fields.Boolean("SEO optimized", compute='_compute_is_seo_optimized')
-    website_meta_title = fields.Char("Website meta title", translate=True)
-    website_meta_description = fields.Text("Website meta description", translate=True)
-    website_meta_keywords = fields.Char("Website meta keywords", translate=True)
+    website_meta_title = fields.Char("Website meta title", translate=True, prefetch="website_meta")
+    website_meta_description = fields.Text("Website meta description", translate=True, prefetch="website_meta")
+    website_meta_keywords = fields.Char("Website meta keywords", translate=True, prefetch="website_meta")
     website_meta_og_img = fields.Char("Website opengraph image")
-    seo_name = fields.Char("Seo name", translate=True)
+    seo_name = fields.Char("Seo name", translate=True, prefetch=True)
 
     def _compute_is_seo_optimized(self):
         for record in self:
@@ -57,7 +57,7 @@ class SeoMetadata(models.AbstractModel):
             'og:type': 'website',
             'og:title': title,
             'og:site_name': site_name,
-            'og:url': url_join(request.httprequest.url_root, url_for(request.httprequest.path)),
+            'og:url': url_join(request.website.domain or request.httprequest.url_root, url_for(request.httprequest.path)),
             'og:image': request.website.image_url(request.website, img_field),
         }
         # Default meta for Twitter
@@ -83,7 +83,7 @@ class SeoMetadata(models.AbstractModel):
             override `_default_website_meta` method instead of this method. This
             method only replaces user custom values in defaults.
         """
-        root_url = request.httprequest.url_root.strip('/')
+        root_url = request.website.domain or request.httprequest.url_root.strip('/')
         default_meta = self._default_website_meta()
         opengraph_meta, twitter_meta = default_meta['default_opengraph'], default_meta['default_twitter']
         if self.website_meta_title:
@@ -201,19 +201,12 @@ class WebsitePublishedMixin(models.AbstractModel):
         return self.write({'website_published': not self.website_published})
 
     def open_website_url(self):
-        return {
-            'type': 'ir.actions.act_url',
-            'url': self.website_url,
-            'target': 'self',
-        }
+        return self.env['website'].get_client_action(self.website_url)
 
     @api.model_create_multi
     def create(self, vals_list):
         records = super(WebsitePublishedMixin, self).create(vals_list)
-        is_publish_modified = any(
-            [set(v.keys()) & {'is_published', 'website_published'} for v in vals_list]
-        )
-        if is_publish_modified and any(not record.can_publish for record in records):
+        if any(record.is_published and not record.can_publish for record in records):
             raise AccessError(self._get_can_publish_error_message())
 
         return records
@@ -227,12 +220,27 @@ class WebsitePublishedMixin(models.AbstractModel):
     def create_and_get_website_url(self, **kwargs):
         return self.create(kwargs).website_url
 
+    @api.depends_context('uid')
     def _compute_can_publish(self):
-        """ This method can be overridden if you need more complex rights management than just 'website_publisher'
-        The publish widget will be hidden and the user won't be able to change the 'website_published' value
-        if this method sets can_publish False """
+        """ This method can be overridden if you need more complex rights
+        management than just write access to the model.
+        The publish widget will be hidden and the user won't be able to change
+        the 'website_published' value if this method sets can_publish False """
         for record in self:
-            record.can_publish = True
+            try:
+                # Some main_record might be in sudo because their content needs
+                # to be rendered by a template even if they were not supposed
+                # to be accessible
+                # TODO in master, instead of this we should ensure main_object
+                # (which calls can_publish) is ensured to not be in sudo for all
+                # renderings, and sudo() only the required operations if needed.
+                # See REVIEW_CAN_PUBLISH_UNSUDO
+                plain_record = record.sudo(flag=False) if self._context.get('can_publish_unsudo_main_object', False) else record
+                plain_record.check_access_rights('write')
+                plain_record.check_access_rule('write')
+                record.can_publish = True
+            except AccessError:
+                record.can_publish = False
 
     @api.model
     def _get_can_publish_error_message(self):
@@ -283,11 +291,18 @@ class WebsitePublishedMultiMixin(WebsitePublishedMixin):
             return is_published
 
     def open_website_url(self):
-        return {
-            'type': 'ir.actions.act_url',
-            'url': url_join(self.website_id._get_http_domain(), self.website_url) if self.website_id else self.website_url,
-            'target': 'self',
-        }
+        website_id = False
+        if self.website_id:
+            website_id = self.website_id.id
+            if self.website_id.domain:
+                client_action_url = self.env['website'].get_client_action_url(self.website_url)
+                client_action_url = f'{client_action_url}&website_id={website_id}'
+                return {
+                    'type': 'ir.actions.act_url',
+                    'url': url_join(self.website_id.domain, client_action_url),
+                    'target': 'self',
+                }
+        return self.env['website'].get_client_action(self.website_url, False, website_id)
 
 
 class WebsiteSearchableMixin(models.AbstractModel):
@@ -353,7 +368,7 @@ class WebsiteSearchableMixin(models.AbstractModel):
             limit=limit,
             order=search_detail.get('order', order)
         )
-        count = model.search_count(domain)
+        count = model.search_count(domain) if limit and limit == len(results) else len(results)
         return results, count
 
     def _search_render_results(self, fetch_fields, mapping, icon, limit):
@@ -369,7 +384,6 @@ class WebsiteSearchableMixin(models.AbstractModel):
                         if html_field == 'arch':
                             # Undo second escape of text nodes from wywsiwyg.js _getEscapedElement.
                             data[html_field] = re.sub(r'&amp;(?=\w+;)', '&', data[html_field])
-                        text = text_from_html(data[html_field])
-                        text = re.sub('\\s+', ' ', text).strip()
+                        text = text_from_html(data[html_field], True)
                         data[html_field] = text
         return results_data

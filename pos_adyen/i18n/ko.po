@@ -1,29 +1,27 @@
 # Translation of Odoo Server.
 # This file contains the translation of the following modules:
 # 	* pos_adyen
-# 
+#
 # Translators:
-# JH CHOI <hwangtog@gmail.com>, 2021
-# 조성현 (jaymz9634) <jaymz9634@gmail.com>, 2021
-# Sarah Park, 2023
-# Wil Odoo, 2024
-# 
+# Wil Odoo, 2023
+# Sarah Park, 2024
+#
 msgid ""
 msgstr ""
-"Project-Id-Version: Odoo Server 15.0\n"
+"Project-Id-Version: Odoo Server 17.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-08-14 15:42+0000\n"
-"PO-Revision-Date: 2021-09-14 12:24+0000\n"
-"Last-Translator: Wil Odoo, 2024\n"
+"POT-Creation-Date: 2025-12-29 18:37+0000\n"
+"PO-Revision-Date: 2023-10-26 23:09+0000\n"
+"Last-Translator: Sarah Park, 2024\n"
 "Language-Team: Korean (https://app.transifex.com/odoo/teams/41243/ko/)\n"
+"Language: ko\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: \n"
-"Language: ko\n"
 "Plural-Forms: nplurals=1; plural=0;\n"
 
 #. module: pos_adyen
-#: model_terms:ir.ui.view,arch_db:pos_adyen.pos_config_view_form
+#: model_terms:ir.ui.view,arch_db:pos_adyen.res_config_settings_view_form
 msgid "Add tip through payment terminal (Adyen)"
 msgstr "결제단말기 (Adyen)으로 팁 추가하기"
 
@@ -33,8 +31,8 @@ msgid "Adyen API key"
 msgstr "Adyen API 키"
 
 #. module: pos_adyen
-#. openerp-web
-#: code:addons/pos_adyen/static/src/js/payment_adyen.js:0
+#. odoo-javascript
+#: code:addons/pos_adyen/static/src/app/payment_adyen.js:0
 #, python-format
 msgid "Adyen Error"
 msgstr "Adyen 오류"
@@ -52,7 +50,7 @@ msgstr "Adyen 최신 응답"
 #. module: pos_adyen
 #: model:ir.model.fields,field_description:pos_adyen.field_pos_payment_method__adyen_terminal_identifier
 msgid "Adyen Terminal Identifier"
-msgstr "Adyen 터미널 식별자"
+msgstr "Adyen 터미널 식별 기호"
 
 #. module: pos_adyen
 #: model:ir.model.fields,field_description:pos_adyen.field_pos_payment_method__adyen_test_mode
@@ -60,8 +58,8 @@ msgid "Adyen Test Mode"
 msgstr "Adyen 테스트 모드"
 
 #. module: pos_adyen
-#. openerp-web
-#: code:addons/pos_adyen/static/src/js/payment_adyen.js:0
+#. odoo-javascript
+#: code:addons/pos_adyen/static/src/app/payment_adyen.js:0
 #, python-format
 msgid "An unexpected error occurred. Message from Adyen: %s"
 msgstr "예상치 못한 오류가 발생했습니다. Adyen 메시지: %s"
@@ -72,15 +70,15 @@ msgid "Ask Customers For Tip"
 msgstr "고객에게 팁 요청"
 
 #. module: pos_adyen
-#. openerp-web
-#: code:addons/pos_adyen/static/src/js/payment_adyen.js:0
+#. odoo-javascript
+#: code:addons/pos_adyen/static/src/app/payment_adyen.js:0
 #, python-format
 msgid "Authentication failed. Please check your Adyen credentials."
 msgstr "인증 실패. Adyen 자격 증명을 확인하십시오."
 
 #. module: pos_adyen
-#. openerp-web
-#: code:addons/pos_adyen/static/src/js/payment_adyen.js:0
+#. odoo-javascript
+#: code:addons/pos_adyen/static/src/app/payment_adyen.js:0
 #, python-format
 msgid ""
 "Cancelling the payment failed. Please cancel it manually on the payment "
@@ -88,36 +86,43 @@ msgid ""
 msgstr "결제 취소에 실패했습니다. 결제단말기에서 수기로 취소하시기 바랍니다."
 
 #. module: pos_adyen
-#. openerp-web
-#: code:addons/pos_adyen/static/src/js/payment_adyen.js:0
+#. odoo-javascript
+#: code:addons/pos_adyen/static/src/app/payment_adyen.js:0
 #, python-format
 msgid "Cannot process transactions with negative amount."
 msgstr "거래 금액이 마이너스인 경우 처리할 수 없습니다."
 
 #. module: pos_adyen
-#. openerp-web
-#: code:addons/pos_adyen/static/src/js/payment_adyen.js:0
+#: model:ir.model,name:pos_adyen.model_res_config_settings
+msgid "Config Settings"
+msgstr "환경 설정"
+
+#. module: pos_adyen
+#. odoo-javascript
+#: code:addons/pos_adyen/static/src/app/payment_adyen.js:0
 #, python-format
 msgid ""
 "Could not connect to the Odoo server, please check your internet connection "
 "and try again."
-msgstr "Odoo 서버에 연결할 수 없습니다. 인터넷 연결을 확인한 후 다시 시도하세요."
+msgstr ""
+"Odoo 서버에 연결할 수 없습니다. 인터넷 연결을 확인한 후 다시 시도하세요."
 
 #. module: pos_adyen
-#: code:addons/pos_adyen/models/pos_payment_method.py:0
+#. odoo-python
 #: code:addons/pos_adyen/models/pos_payment_method.py:0
 #, python-format
 msgid "Invalid Adyen request"
 msgstr "잘못된 Adyen 요청"
 
 #. module: pos_adyen
-#. openerp-web
-#: code:addons/pos_adyen/static/src/js/payment_adyen.js:0
+#. odoo-javascript
+#: code:addons/pos_adyen/static/src/app/payment_adyen.js:0
 #, python-format
 msgid "Message from Adyen: %s"
 msgstr "Adyen의 메시지 : %s"
 
 #. module: pos_adyen
+#. odoo-python
 #: code:addons/pos_adyen/models/pos_config.py:0
 #, python-format
 msgid ""
@@ -127,7 +132,7 @@ msgstr "%s POS에 대한 팁 상품을 구성하십시오. Adyen 팁을 지원�
 #. module: pos_adyen
 #: model:ir.model,name:pos_adyen.model_pos_config
 msgid "Point of Sale Configuration"
-msgstr "점포판매시스템 환경 설정"
+msgstr "POS 환경 설정"
 
 #. module: pos_adyen
 #: model:ir.model,name:pos_adyen.model_pos_payment_method
@@ -135,9 +140,14 @@ msgid "Point of Sale Payment Methods"
 msgstr "POS 결제 수단"
 
 #. module: pos_adyen
-#: model:ir.model.fields,help:pos_adyen.field_pos_config__adyen_ask_customer_for_tip
-msgid "Prompt the customer to tip."
-msgstr "고객에게 팁을 요청합니다."
+#: model:ir.model,name:pos_adyen.model_pos_session
+msgid "Point of Sale Session"
+msgstr "점포판매시스템 기간"
+
+#. module: pos_adyen
+#: model:ir.model.fields,field_description:pos_adyen.field_res_config_settings__pos_adyen_ask_customer_for_tip
+msgid "Pos Adyen Ask Customer For Tip"
+msgstr "POS Adyen에서 고객에게 팁 요청"
 
 #. module: pos_adyen
 #: model:ir.model.fields,help:pos_adyen.field_pos_payment_method__adyen_test_mode
@@ -145,24 +155,14 @@ msgid "Run transactions in the test environment."
 msgstr "테스트 환경에서 트랜잭션을 실행하십시오."
 
 #. module: pos_adyen
-#: model:ir.model.fields,help:pos_adyen.field_pos_payment_method__adyen_latest_response
-msgid ""
-"Technical field used to buffer the latest asynchronous notification from "
-"Adyen."
-msgstr "Adyen의 최신 비동기 알림을 버퍼링하는 데 사용되는 기술 필드입니다."
-
-#. module: pos_adyen
-#: model:ir.model.fields,help:pos_adyen.field_pos_payment_method__adyen_latest_diagnosis
-msgid "Technical field used to determine if the terminal is still connected."
-msgstr "터미널이 여전히 연결되어 있는지 확인하는 데 사용되는 기술 필드."
-
-#. module: pos_adyen
+#. odoo-python
 #: code:addons/pos_adyen/models/pos_payment_method.py:0
 #, python-format
 msgid "Terminal %s is already used in company %s on payment method %s."
 msgstr "%s 단말기는 이미 %s 회사에서 %s 결제 방법으로 사용 중입니다."
 
 #. module: pos_adyen
+#. odoo-python
 #: code:addons/pos_adyen/models/pos_payment_method.py:0
 #, python-format
 msgid "Terminal %s is already used on payment method %s."
@@ -171,13 +171,13 @@ msgstr "터미널 %s는 결제 방법 %s에 이미 사용되고 있습니다."
 #. module: pos_adyen
 #: model:ir.model.fields,help:pos_adyen.field_pos_payment_method__adyen_api_key
 msgid ""
-"Used when connecting to Adyen: https://docs.adyen.com/user-management/how-"
-"to-get-the-api-key/#description"
+"Used when connecting to Adyen: https://docs.adyen.com/user-management/how-to-"
+"get-the-api-key/#description"
 msgstr ""
-"Adyen에 연결할 때 사용 : https://docs.adyen.com/user-management/how-to-get-the-api-"
-"key/#description"
+"Adyen에 연결할 때 사용 : https://docs.adyen.com/user-management/how-to-get-"
+"the-api-key/#description"
 
 #. module: pos_adyen
 #: model:ir.model.fields,help:pos_adyen.field_pos_payment_method__adyen_terminal_identifier
 msgid "[Terminal model]-[Serial number], for example: P400Plus-123456789"
-msgstr "[터미널 모델]-[일련 번호] (예 : P400Plus-123456789)"
+msgstr "[터미널 모델]-[일련번호] (예: P400Plus-123456789)"

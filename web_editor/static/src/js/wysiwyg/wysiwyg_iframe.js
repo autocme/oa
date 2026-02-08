@@ -1,83 +1,55 @@
-odoo.define('web_editor.wysiwyg.iframe', function (require) {
-'use strict';
+/** @odoo-module **/
 
-var Wysiwyg = require('web_editor.wysiwyg');
-var ajax = require('web.ajax');
-var core = require('web.core');
-var config = require('web.config');
+import { Wysiwyg } from '@web_editor/js/wysiwyg/wysiwyg';
+import { patch } from "@web/core/utils/patch";
+import { getBundle } from "@web/core/assets";
+import { isMobileOS } from "@web/core/browser/feature_detection";
 
-var qweb = core.qweb;
-var promiseCommon;
-var promiseWysiwyg;
-
+var promiseJsAssets;
 
 /**
  * Add option (inIframe) to load Wysiwyg in an iframe.
  **/
-Wysiwyg.include({
+
+patch(Wysiwyg.prototype, {
     /**
      * Add options to load Wysiwyg in an iframe.
      *
      * @override
      * @param {boolean} options.inIframe
      **/
-    init: function (parent, options) {
-        this._super.apply(this, arguments);
+    init() {
+        super.init();
         if (this.options.inIframe) {
             this._onUpdateIframeId = 'onLoad_' + this.id;
         }
     },
     /**
-     * Load assets to inject into iframe.
-     *
      * @override
      **/
-    willStart: async function () {
+    async startEdition() {
         if (!this.options.inIframe) {
-            return this._super();
-        }
-
-        var defAsset;
-        if (this.options.iframeCssAssets) {
-            defAsset = ajax.loadAsset(this.options.iframeCssAssets);
+            if (this.options.iframe) {
+                this.$iframe = $(this.options.iframe);
+                this.options.inIframe = true;
+            }
+            return super.startEdition();
         } else {
-            defAsset = Promise.resolve({
-                cssLibs: [],
-                cssContents: []
-            });
-        }
-
-        promiseWysiwyg = promiseWysiwyg || ajax.loadAsset('web_editor.wysiwyg_iframe_editor_assets');
-        this.defAsset = Promise.all([promiseWysiwyg, defAsset]);
-
-        this.$target = this.$el;
-        const _super = this._super.bind(this);
-
-        await this.defAsset;
-        await _super();
-    },
-
-    /**
-     * @override
-     **/
-    start: async function () {
-        const _super = this._super.bind(this);
-        if (!this.options.inIframe) {
-            return _super();
-        } else {
+            this.defAsset = this._getAssets();
+            await this.defAsset;
             await this._loadIframe();
-            return _super();
+            return super.startEdition();
         }
     },
 
     /**
      * @override
      **/
-    destroy: function() {
-        if (this.options.inIframe && this.options.document) {
-            this.options.document.removeEventListener('scroll', this._onScroll, true);
+    destroy() {
+        if (this.options.inIframe) {
+            this.$iframe?.[0].contentDocument.removeEventListener('scroll', this._onScroll, true);
         }
-        this._super.apply(this, arguments);
+        super.destroy();
     },
 
     //--------------------------------------------------------------------------
@@ -87,11 +59,16 @@ Wysiwyg.include({
     /**
      * @override
      **/
-    _editorOptions: function () {
-        let options = this._super.apply(this, arguments);
-        options.getContextFromParentRect = () => {
-            return this.$iframe && this.$iframe.length ? this.$iframe[0].getBoundingClientRect() : { top: 0, left: 0 };
-        };
+    _getEditorOptions() {
+        const options = super._getEditorOptions(...arguments);
+        if (!("getContextFromParentRect" in options)) {
+            options.getContextFromParentRect = () => {
+                return this.$iframe && this.$iframe.length ? this.$iframe[0].getBoundingClientRect() : { top: 0, left: 0 };
+            };
+        }
+        if (this.$iframe && this.$iframe.length) {
+            options.document = this.$iframe[0].contentWindow.document;
+        }
         return options;
     },
     /**
@@ -101,10 +78,15 @@ Wysiwyg.include({
      * @private
      * @returns {Promise}
      */
-    _loadIframe: function () {
+    _loadIframe() {
         var self = this;
-        this.$iframe = $('<iframe class="wysiwyg_iframe">').css({
-            'min-height': '55vh',
+        const isEditableRoot = this.$editable === this.$root;
+        this.$editable = $('<div class="note-editable oe_structure odoo-editor-editable"></div>');
+        this.$el.removeClass('note-editable oe_structure odoo-editor-editable');
+        if (isEditableRoot) {
+            this.$root = this.$editable;
+        }
+        this.$iframe = $('<iframe class="wysiwyg_iframe o_iframe">').css({
             width: '100%'
         });
         var avoidDoubleLoad = 0; // this bug only appears on some configurations.
@@ -124,7 +106,7 @@ Wysiwyg.include({
                 $targetClone.find('script').remove();
                 $iframeTarget.html($targetClone.html());
                 self.$iframeBody = $iframeTarget;
-                $iframeTarget.attr("isMobile", config.device.isMobile);
+                $iframeTarget.attr("isMobile", isMobileOS());
                 const $utilsZone = $('<div class="iframe-utils-zone">');
                 self.$utilsZone = $utilsZone;
 
@@ -159,28 +141,63 @@ Wysiwyg.include({
                     return;
                 }
 
-                var iframeContent = qweb.render('wysiwyg.iframeContent', {
+                const iframeContent = getWysiwygIframeContent({
                     assets: assets,
                     updateIframeId: self._onUpdateIframeId,
                     avoidDoubleLoad: _avoidDoubleLoad
                 });
                 self.$iframe[0].contentWindow.document
                     .open("text/html", "replace")
-                    .write(`<!DOCTYPE html><html>${iframeContent}</html>`);
+                    .write(`<!DOCTYPE html><html${
+                        self.options.iframeHtmlClass ? ' class="' + self.options.iframeHtmlClass +'"' : ''
+                    }>${iframeContent}</html>`);
+                // Closing the document might trigger a new 'load' event.
+                self.$iframe.off('load', onLoad);
+                self.$iframe[0].contentWindow.document.close();
             });
             self.options.document = self.$iframe[0].contentWindow.document;
         });
 
-        this.$iframe.insertAfter(this.$editable);
+        this.$el.append(this.$iframe);
 
-        return def;
+        return def.then(() => {
+            this.options.onIframeUpdated();
+        });
     },
 
-    _insertSnippetMenu: function () {
+    _insertSnippetMenu() {
         if (this.options.inIframe) {
             return this.snippetsMenu.appendTo(this.$utilsZone);
         } else {
-            return this._super.apply(this, arguments);
+            return super._insertSnippetMenu(...arguments);
+        }
+    },
+    /**
+     * Get assets for the iframe.
+     *
+     * @private
+     * @returns {Promise}
+     */
+    async _getAssets() {
+        promiseJsAssets = promiseJsAssets || await getBundle('web_editor.wysiwyg_iframe_editor_assets');
+        const assetsPromises = [promiseJsAssets];
+        if (this.options.iframeCssAssets) {
+            assetsPromises.push(getBundle(this.options.iframeCssAssets));
+        }
+        return Promise.all(assetsPromises);
+    },
+
+    /**
+     * Bind the blur event on the iframe so that it would not blur when using
+     * the sidebar.
+     *
+     * @override
+     */
+    _bindOnBlur() {
+        if (!this.options.inIframe) {
+            super._bindOnBlur(...arguments);
+        } else {
+            this.$iframe[0].contentWindow.addEventListener('blur', this._onBlur);
         }
     },
 
@@ -192,8 +209,8 @@ Wysiwyg.include({
      * 2. scroll event in the iframe's document.
      * 
      * @override
-     **/
-    _onScroll: function(ev) {
+     */
+    _onScroll(ev) {
         if (this.options.inIframe) {
             const iframeDocument = this.$iframe[0].contentDocument;
             const scrollInIframe = ev.target === iframeDocument || ev.target.ownerDocument === iframeDocument;
@@ -206,19 +223,72 @@ Wysiwyg.include({
                 this.odooEditor.updateToolbarPosition();
             }
         } else {
-            return this._super.apply(this, arguments);
+            return super._onScroll(...arguments);
         }
     },
 
     /**
      * @override
-     **/
-    _configureToolbar: function () {
-        this._super.apply(this, arguments);
-        if (this.options.inIframe && !this.options.snippets) {
-            this.options.document.addEventListener('scroll', this._onScroll, true);
+     */
+    _configureToolbar(options) {
+        super._configureToolbar(...arguments);
+        if (this.options.inIframe && !options.snippets) {
+            this.$iframe[0].contentDocument.addEventListener('scroll', this._onScroll, true);
         }
     },
 });
 
-});
+function getWysiwygIframeContent(params) {
+    const assets = {
+        cssLibs: [],
+        cssContents: [],
+        jsLibs: [],
+        jsContents: [],
+    };
+    for (const asset of params.assets) {
+        for (const cssLib of asset.cssLibs) {
+            assets.cssLibs.push(`<link type="text/css" rel="stylesheet" href="${cssLib}"/>`);
+        }
+        for (const cssContent of asset.cssContents) {
+            assets.cssContents.push(`<style type="text/css">${cssContent}</style>`);
+        }
+        for (const jsLib of asset.jsLibs) {
+            assets.jsLibs.push(`<script type="text/javascript" src="${jsLib}"/>`);
+        }
+        for (const jsContent of asset.jsContents) {
+            if (jsContent.indexOf('inline asset') !== -1) {
+                assets.jsContents.push(`<script type="text/javascript">${jsContent}</script>`);
+            }
+        }
+    }
+    return `
+        <meta charset="utf-8"/>
+        <meta http-equiv="X-UA-Compatible" content="IE=edge"/>
+        <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no"/>
+        ${assets.cssLibs.join('\n')}
+        ${assets.cssContents.join('\n')}
+        ${assets.jsLibs.join('\n')}
+        ${assets.jsContents.join('\n')}
+
+        <script type="text/javascript">
+            odoo.define('root.widget', ['@web/legacy/js/core/widget'], function (require) {
+                'use strict';
+                var Widget = require('@web/legacy/js/core/widget')[Symbol.for("default")];
+                var widget = new Widget();
+                widget.appendTo(document.body);
+                return widget;
+            });
+        </script>
+    </head>
+    <body class="o_in_iframe">
+        <div id="iframe_target"/>
+        <script type="text/javascript">
+            odoo.define('web_editor.wysiwyg.iniframe', [], function (require) {
+                'use strict';
+                if (window.top.${params.updateIframeId}) {
+                    window.top.${params.updateIframeId}(${params.avoidDoubleLoad});
+                }
+            });
+        </script>
+    </body>`;
+}

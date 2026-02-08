@@ -1,8 +1,12 @@
 # -*- coding: utf-8 -*-
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
 
+import logging
+
 from odoo import models, fields, api, SUPERUSER_ID
 from odoo.http import request
+
+_logger = logging.getLogger(__name__)
 
 
 class website_form_config(models.Model):
@@ -60,21 +64,21 @@ class website_form_model(models.Model):
         for field in [f for f in fields_get if f in default_values]:
             fields_get[field]['required'] = False
 
-        # Remove readonly and magic fields
+        # Remove readonly, JSON, and magic fields
         # Remove string domains which are supposed to be evaluated
         # (e.g. "[('product_id', '=', product_id)]")
-        MAGIC_FIELDS = models.MAGIC_COLUMNS + [model.CONCURRENCY_CHECK_FIELD]
         for field in list(fields_get):
             if 'domain' in fields_get[field] and isinstance(fields_get[field]['domain'], str):
                 del fields_get[field]['domain']
-            if fields_get[field].get('readonly') or field in MAGIC_FIELDS or fields_get[field]['type'] == 'many2one_reference':
+            if fields_get[field].get('readonly') or field in models.MAGIC_COLUMNS or \
+                    fields_get[field]['type'] in ['many2one_reference', 'properties', 'json']:
                 del fields_get[field]
 
         return fields_get
 
     @api.model
     def get_compatible_form_models(self):
-        if not self.env.user.has_group('website.group_website_publisher'):
+        if not self.env.user.has_group('website.group_website_restricted_editor'):
             return []
         return self.sudo().search_read(
             [('website_form_access', '=', True)],
@@ -109,11 +113,17 @@ class website_form_model_fields(models.Model):
         :return: nothing of import
         """
         # postgres does *not* like ``in [EMPTY TUPLE]`` queries
-        if not fields: return False
+        if not fields:
+            return False
 
         # only allow users who can change the website structure
         if not self.env['res.users'].has_group('website.group_website_designer'):
             return False
+
+        unexisting_fields = [field for field in fields if field not in self.env[model]._fields.keys()]
+        if unexisting_fields:
+            # TODO in master: Raise instead of log
+            _logger.error("Unable to whitelist field(s) %r for model %r.", unexisting_fields, model)
 
         # the ORM only allows writing on custom fields and will trigger a
         # registry reload once that's happened. We want to be able to
@@ -126,6 +136,6 @@ class website_form_model_fields(models.Model):
         return True
 
     website_form_blacklisted = fields.Boolean(
-        'Blacklisted in web forms', default=True, index=True, # required=True,
+        'Blacklisted in web forms', default=True, index=True,
         help='Blacklist this field for web forms'
     )

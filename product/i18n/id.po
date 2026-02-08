@@ -1,38 +1,37 @@
 # Translation of Odoo Server.
 # This file contains the translation of the following modules:
 # 	* product
-# 
+#
 # Translators:
-# Abdul Munif Hanafi <amunifhanafi@gmail.com>, 2022
-# William Surya Permana <zarambie_game@yahoo.com>, 2022
-# pnyet <david@zeromail.us>, 2022
-# firman firman <firman.olxbpn@gmail.com>, 2022
-# Ikhsanul Wirsa <iwirsa02@outlook.co.id>, 2022
-# Febrasari Almania <febrasari.almania@gmail.com>, 2022
-# Dedi Santoso <dedisantoso@yahoo.com>, 2022
-# PAS IRVANUS <ipankbiz@gmail.com>, 2022
-# oon arfiandwi (OonID) <oon.arfiandwi@gmail.com>, 2022
-# Deddy Ddr <deddy.ddr@gmail.com>, 2022
-# Bonny Useful <bonny.useful@gmail.com>, 2022
-# Martin Trigaux, 2022
-# Wahyu Setiawan <wahyusetiaaa@gmail.com>, 2022
-# whenwesober, 2022
-# Ryanto The <ry.the77@gmail.com>, 2022
-# Abe Manyo, 2023
-# 
+# Wil Odoo, 2023
+# Abe Manyo, 2024
+#
 msgid ""
 msgstr ""
-"Project-Id-Version: Odoo Server 15.0\n"
+"Project-Id-Version: Odoo Server 17.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-08-14 15:43+0000\n"
-"PO-Revision-Date: 2021-09-14 12:25+0000\n"
-"Last-Translator: Abe Manyo, 2023\n"
+"POT-Creation-Date: 2025-12-29 18:38+0000\n"
+"PO-Revision-Date: 2023-10-26 23:09+0000\n"
+"Last-Translator: Abe Manyo, 2024\n"
 "Language-Team: Indonesian (https://app.transifex.com/odoo/teams/41243/id/)\n"
+"Language: id\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: \n"
-"Language: id\n"
 "Plural-Forms: nplurals=1; plural=0;\n"
+
+#. module: product
+#. odoo-python
+#: code:addons/product/models/product_product.py:0
+#, python-format
+msgid ""
+"\n"
+"\n"
+"Note: products that you don't have access to will not be shown above."
+msgstr ""
+"\n"
+"\n"
+"Ingat: produk yang aksesnya tidak Anda miliki tidak akan ditunjukkan di atas."
 
 #. module: product
 #: model:ir.model.fields,field_description:product.field_product_product__product_variant_count
@@ -46,41 +45,63 @@ msgid "# Products"
 msgstr "# Produk"
 
 #. module: product
-#: code:addons/product/models/product_pricelist.py:0
+#: model_terms:ir.ui.view,arch_db:product.report_pricelist_page
+msgid "$14.00"
+msgstr "$14.00"
+
+#. module: product
+#: model_terms:ir.ui.view,arch_db:product.report_pricelist_page
+msgid "$15.00"
+msgstr "$15.00"
+
+#. module: product
+#. odoo-python
+#: code:addons/product/models/product_pricelist_item.py:0
 #, python-format
 msgid ""
 "%(base)s with a %(discount)s %% discount and %(surcharge)s extra fee\n"
-"Example: %(amount)s * %(discount_charge)s + %(price_surcharge)s → %(total_amount)s"
+"Example: %(amount)s * %(discount_charge)s + %(price_surcharge)s → "
+"%(total_amount)s"
 msgstr ""
 "%(base)s dengan %(discount)s %% diskon dan %(surcharge)s biaya tambahan\n"
-"Contoh: %(amount)s * %(discount_charge)s + %(price_surcharge)s → %(total_amount)s"
+"Contoh: %(amount)s * %(discount_charge)s + %(price_surcharge)s → "
+"%(total_amount)s"
 
 #. module: product
-#: code:addons/product/models/product_pricelist.py:0
+#. odoo-python
+#: code:addons/product/models/product_pricelist_item.py:0
 #, python-format
 msgid "%(percentage)s %% discount and %(price)s surcharge"
 msgstr "%(percentage)s %% diskon dan %(price)s biaya tambahan"
 
 #. module: product
-#: code:addons/product/models/product_pricelist.py:0
+#. odoo-python
+#: code:addons/product/models/product_pricelist_item.py:0
 #, python-format
 msgid "%s %% discount"
 msgstr "%s%% diskon"
 
 #. module: product
+#. odoo-python
+#: code:addons/product/models/product_pricelist.py:0
+#: code:addons/product/models/product_tag.py:0
 #: code:addons/product/models/product_template.py:0
 #, python-format
 msgid "%s (copy)"
-msgstr "%s (salinan)"
+msgstr "%s (salin)"
 
 #. module: product
-#: code:addons/product/models/product_pricelist.py:0
+#. odoo-python
+#: code:addons/product/models/product_pricelist_item.py:0
 #, python-format
-msgid "%s : end date (%s) should be greater than start date (%s)"
-msgstr ""
+msgid "%s: end date (%s) should be greater than start date (%s)"
+msgstr "%s: tanggal akhir (%s) harus lebih besar dari tanggal mulai (%s)"
 
 #. module: product
-#: model:ir.actions.report,print_report_name:product.report_product_template_label
+#: model:ir.actions.report,print_report_name:product.report_product_template_label_2x7
+#: model:ir.actions.report,print_report_name:product.report_product_template_label_4x12
+#: model:ir.actions.report,print_report_name:product.report_product_template_label_4x12_noprice
+#: model:ir.actions.report,print_report_name:product.report_product_template_label_4x7
 #: model:ir.actions.report,print_report_name:product.report_product_template_label_dymo
 msgid "'Products Labels - %s' % (object.name)"
 msgstr "'Label Produk - %s' % (object.name)"
@@ -91,17 +112,37 @@ msgid "'Products packaging - %s' % (object.name)"
 msgstr "'Pengemasan produk - %s' % (object.name)"
 
 #. module: product
+#. odoo-python
+#: code:addons/product/models/product_template.py:0
+#, python-format
+msgid "(e.g: product description, ebook, legal notice, ...)."
+msgstr "(contoh: keterangan produk, ebook, pemberitahuan hukum, ...)."
+
+#. module: product
+#. odoo-python
+#: code:addons/product/models/product_product.py:0
+#, python-format
+msgid "- Barcode \"%s\" already assigned to product(s): %s"
+msgstr "- Barcode \"%s\" sudah ditetapkan ke produk: %s"
+
+#. module: product
 #: model:ir.model.fields,help:product.field_product_attribute__create_variant
 msgid ""
-"- Instantly: All possible variants are created as soon as the attribute and its values are added to a product.\n"
-"        - Dynamically: Each variant is created only when its corresponding attributes and values are added to a sales order.\n"
+"- Instantly: All possible variants are created as soon as the attribute and "
+"its values are added to a product.\n"
+"        - Dynamically: Each variant is created only when its corresponding "
+"attributes and values are added to a sales order.\n"
 "        - Never: Variants are never created for the attribute.\n"
-"        Note: the variants creation mode cannot be changed once the attribute is used on at least one product."
+"        Note: the variants creation mode cannot be changed once the "
+"attribute is used on at least one product."
 msgstr ""
-"- Secara Instan: Semua kemungkinan varian dibuat langsung setelah atribut dan value-nya ditambahkan ke produk.\n"
-"        - Secara Dinamik: Setiap varian dibuat hanya saat atribut dan value yang sesuai ditambahkan ke sales order.\n"
+"- Secara Instan: Semua kemungkinan varian dibuat langsung setelah atribut "
+"dan value-nya ditambahkan ke produk.\n"
+"        - Secara Dinamik: Setiap varian dibuat hanya saat atribut dan value "
+"yang sesuai ditambahkan ke sales order.\n"
 "        - Tidak Pernah: Varian tidak pernah dibuat untuk atribut.\n"
-"        Catat: mode pembuatan varian tidak dapat diubah setelah atribut digunakan setidaknya pada satu produk."
+"        Catat: mode pembuatan varian tidak dapat diubah setelah atribut "
+"digunakan setidaknya pada satu produk."
 
 #. module: product
 #: model:product.attribute.value,name:product.product_attribute_value_5
@@ -109,9 +150,21 @@ msgid "1 year"
 msgstr "1 tahun"
 
 #. module: product
-#: model:product.product,description_sale:product.product_product_4
-#: model:product.product,description_sale:product.product_product_4b
-#: model:product.product,description_sale:product.product_product_4c
+#: model_terms:ir.ui.view,arch_db:product.report_packagingbarcode
+msgid "10"
+msgstr "10"
+
+#. module: product
+#: model_terms:ir.ui.view,arch_db:product.report_pricelist_page
+msgid "10 Units"
+msgstr "10 Unit"
+
+#. module: product
+#: model_terms:ir.ui.view,arch_db:product.report_packagingbarcode
+msgid "123456789012"
+msgstr "123456789012"
+
+#. module: product
 #: model:product.template,description_sale:product.product_product_4_product_template
 msgid "160x80cm, with large legs."
 msgstr "160x80cm, dengan kaki besar."
@@ -152,19 +205,31 @@ msgstr ""
 
 #. module: product
 #: model_terms:ir.ui.view,arch_db:product.product_pricelist_view_kanban
-msgid "<i class=\"fa fa-money\" role=\"img\" aria-label=\"Currency\" title=\"Currency\"/>"
-msgstr "<i class=\"fa fa-money\" role=\"img\" aria-label=\"Currency\" title=\"Mata Uang\"/>"
+msgid ""
+"<i class=\"fa fa-money\" role=\"img\" aria-label=\"Currency\" "
+"title=\"Currency\"/>"
+msgstr ""
+"<i class=\"fa fa-money\" role=\"img\" aria-label=\"Currency\" title=\"Mata "
+"Uang\"/>"
 
 #. module: product
 #: model_terms:ir.ui.view,arch_db:product.product_template_form_view
 msgid ""
-"<span attrs=\"{'invisible': [('pricelist_item_count', '=', 1)]}\">\n"
+"<span class=\"o_stat_text\" invisible=\"pricelist_item_count == 1\">\n"
 "                                        Extra Prices\n"
 "                                    </span>\n"
-"                                    <span attrs=\"{'invisible': [('pricelist_item_count', '!=', 1)]}\">\n"
+"                                    <span class=\"o_stat_text\" "
+"invisible=\"pricelist_item_count != 1\">\n"
 "                                        Extra Price\n"
 "                                    </span>"
 msgstr ""
+"<span class=\"o_stat_text\" invisible=\"pricelist_item_count == 1\">\n"
+"                                        Harga-Harga Ekstra\n"
+"                                    </span>\n"
+"                                    <span class=\"o_stat_text\" "
+"invisible=\"pricelist_item_count != 1\">\n"
+"                                        Harga Ekstra\n"
+"                                    </span>"
 
 #. module: product
 #: model_terms:ir.ui.view,arch_db:product.product_category_form_view
@@ -177,6 +242,16 @@ msgid "<span class=\"o_stat_text\">Related Products</span>"
 msgstr "<span class=\"o_stat_text\">Produk-Produk Terkait</span>"
 
 #. module: product
+#: model_terms:ir.ui.view,arch_db:product.product_document_kanban
+msgid "<span class=\"text-bg-danger\">Archived</span>"
+msgstr "<span class=\"text-bg-danger\">Diarsip</span>"
+
+#. module: product
+#: model_terms:ir.ui.view,arch_db:product.product_document_kanban
+msgid "<span class=\"text-bg-secondary\">Variant</span>"
+msgstr "<span class=\"text-bg-secondary\">Varian</span>"
+
+#. module: product
 #: model_terms:ir.ui.view,arch_db:product.product_pricelist_item_form_view
 msgid "<span>%</span>"
 msgstr "<span>%</span>"
@@ -187,21 +262,23 @@ msgid "<span>All general settings about this product are managed on</span>"
 msgstr "<span>Semua pengaturan umum mengenai produk ini ditangani pada</span>"
 
 #. module: product
+#: model_terms:ir.ui.view,arch_db:product.product_document_kanban
+msgid "<span>Variant </span>"
+msgstr "<span>Varian </span>"
+
+#. module: product
 #: model_terms:ir.ui.view,arch_db:product.report_packagingbarcode
 msgid "<strong>Qty: </strong>"
 msgstr "<strong>Jml:</strong>"
 
 #. module: product
-#: model_terms:ir.ui.view,arch_db:product.report_pricelist_page
-msgid "<strong>Sales Order Line Quantities (price per unit)</strong>"
-msgstr ""
-
-#. module: product
 #: model_terms:ir.ui.view,arch_db:product.res_config_settings_view_form
 msgid ""
 "<strong>Save</strong> this page and come back\n"
-"                                    here to set up the feature."
+"                                here to set up the feature."
 msgstr ""
+"<strong>Simpan</strong> halaman ini dan kembali lagi\n"
+"                                nanti untuk setup fitur."
 
 #. module: product
 #: model_terms:ir.ui.view,arch_db:product.product_template_only_form_view
@@ -210,21 +287,21 @@ msgid ""
 "                        will delete and recreate existing variants and lead\n"
 "                        to the loss of their possible customizations."
 msgstr ""
-"<strong>Peringatan</strong>: menambah atau mengurangi atribut akan menghapus"
-" dan membuat ulang varian yang sudah ada dan membuat hilangnya pilihan "
+"<strong>Peringatan</strong>: menambah atau mengurangi atribut akan menghapus "
+"dan membuat ulang varian yang sudah ada dan membuat hilangnya pilihan "
 "spesifikasi."
 
 #. module: product
-#: model:ir.model.constraint,message:product.constraint_product_product_barcode_uniq
-msgid "A barcode can only be assigned to one product !"
-msgstr "Sebuah barcode hanya dapat ditetapkan untuk satu produk !"
+#: model:ir.model.constraint,message:product.constraint_product_packaging_barcode_uniq
+msgid "A barcode can only be assigned to one packaging."
+msgstr "Barcode hanya dapat ditetapkan ke satu paket."
 
 #. module: product
 #: model:ir.model.fields,help:product.field_product_product__description_sale
 #: model:ir.model.fields,help:product.field_product_template__description_sale
 msgid ""
-"A description of the Product that you want to communicate to your customers."
-" This description will be copied to every Sales Order, Delivery Order and "
+"A description of the Product that you want to communicate to your customers. "
+"This description will be copied to every Sales Order, Delivery Order and "
 "Customer Invoice/Credit Note"
 msgstr ""
 "Deskripsi dari produk yang ingin Anda sampaikan ke pelanggan. Deskripsi ini "
@@ -232,78 +309,140 @@ msgstr ""
 "Kredit"
 
 #. module: product
+#. odoo-python
+#: code:addons/product/models/product_product.py:0
+#, python-format
+msgid "A packaging already uses the barcode"
+msgstr "Ada paket yang sudah menggunakan barcode"
+
+#. module: product
 #: model_terms:ir.actions.act_window,help:product.product_pricelist_action2
 msgid ""
-"A price is a set of sales prices or rules to compute the price of sales order lines based on products, product categories, dates and ordered quantities.\n"
-"                This is the perfect tool to handle several pricings, seasonal discounts, etc."
+"A price is a set of sales prices or rules to compute the price of sales "
+"order lines based on products, product categories, dates and ordered "
+"quantities.\n"
+"            This is the perfect tool to handle several pricings, seasonal "
+"discounts, etc."
 msgstr ""
+"Harga adalah kelompok harga sale atau peraturan untuk menghitung harga baris-"
+"baris sale order berdasarkan produk, kategori produk, tanggal dan kuantitas "
+"dipesan.\n"
+"            Ini adalah tool sempurna untuk menangani beberapa pricing, "
+"diskon musiman, dsb."
+
+#. module: product
+#. odoo-python
+#: code:addons/product/models/product_packaging.py:0
+#, python-format
+msgid "A product already uses the barcode"
+msgstr "Produk sudah menggunakan barcode"
 
 #. module: product
 #: model:ir.model.fields,help:product.field_product_product__detailed_type
 #: model:ir.model.fields,help:product.field_product_template__detailed_type
 msgid ""
-"A storable product is a product for which you manage stock. The Inventory app has to be installed.\n"
+"A storable product is a product for which you manage stock. The Inventory "
+"app has to be installed.\n"
 "A consumable product is a product for which stock is not managed.\n"
 "A service is a non-material product you provide."
 msgstr ""
-"Produk yang bisa disimpan adalah produk yang mana Anda mengelola stoknya. Aplikasi Inventaris harus diinstal.\n"
-"Produk yang bisa dipakai adalah produk yang stoknya tidak akan dikelola.\n"
+"Produk storable adalah produk yang bisa disimpan yang mana Anda kelola "
+"stoknya. Aplikasi Inventaris harus diinstal.\n"
+"Produk consumable adalah produk yang akan digunakan dan stoknya tidak akan "
+"dikelola.\n"
 "Layanan adalah produk non-material yang Anda sediakan."
 
 #. module: product
-#: model:product.product,name:product.product_product_25
+#: model:ir.model.fields,field_description:product.field_product_document__access_token
+msgid "Access Token"
+msgstr "Token Akses"
+
+#. module: product
+#: model_terms:ir.ui.view,arch_db:product.report_pricelist_page
+msgid "Acme Widget"
+msgstr "Widget Acme"
+
+#. module: product
+#: model_terms:ir.ui.view,arch_db:product.report_pricelist_page
+msgid "Acme Widget - Blue"
+msgstr "Widget Acme - Biru"
+
+#. module: product
 #: model:product.template,name:product.product_product_25_product_template
 msgid "Acoustic Bloc Screens"
 msgstr "Layar Acoustic Bloc"
 
 #. module: product
+#: model:ir.model.fields,field_description:product.field_product_pricelist__message_needaction
 #: model:ir.model.fields,field_description:product.field_product_product__message_needaction
 #: model:ir.model.fields,field_description:product.field_product_template__message_needaction
 msgid "Action Needed"
-msgstr "Perlu Tindakan"
+msgstr "Tindakan Diperluka"
 
 #. module: product
+#: model:ir.model.fields,field_description:product.field_product_document__active
 #: model:ir.model.fields,field_description:product.field_product_pricelist__active
-#: model:ir.model.fields,field_description:product.field_product_pricelist_item__active
 #: model:ir.model.fields,field_description:product.field_product_product__active
 #: model:ir.model.fields,field_description:product.field_product_template__active
 #: model:ir.model.fields,field_description:product.field_product_template_attribute_line__active
 #: model:ir.model.fields,field_description:product.field_product_template_attribute_value__ptav_active
+#: model_terms:ir.ui.view,arch_db:product.product_pricelist_item_view_search
 #: model_terms:ir.ui.view,arch_db:product.product_supplierinfo_search_view
 #: model_terms:ir.ui.view,arch_db:product.product_template_attribute_value_view_search
 msgid "Active"
 msgstr "Aktif"
 
 #. module: product
+#: model_terms:ir.ui.view,arch_db:product.product_supplierinfo_search_view
+msgid "Active Products"
+msgstr "Produk-Produk Aktif"
+
+#. module: product
+#: model:ir.model.fields,field_description:product.field_product_pricelist__activity_ids
 #: model:ir.model.fields,field_description:product.field_product_product__activity_ids
 #: model:ir.model.fields,field_description:product.field_product_template__activity_ids
 msgid "Activities"
 msgstr "Aktivitas"
 
 #. module: product
+#: model:ir.model.fields,field_description:product.field_product_pricelist__activity_exception_decoration
 #: model:ir.model.fields,field_description:product.field_product_product__activity_exception_decoration
 #: model:ir.model.fields,field_description:product.field_product_template__activity_exception_decoration
 msgid "Activity Exception Decoration"
 msgstr "Dekorasi Pengecualian Aktivitas"
 
 #. module: product
+#: model:ir.model.fields,field_description:product.field_product_pricelist__activity_state
 #: model:ir.model.fields,field_description:product.field_product_product__activity_state
 #: model:ir.model.fields,field_description:product.field_product_template__activity_state
 msgid "Activity State"
 msgstr "Status Aktivitas"
 
 #. module: product
+#: model:ir.model.fields,field_description:product.field_product_pricelist__activity_type_icon
 #: model:ir.model.fields,field_description:product.field_product_product__activity_type_icon
 #: model:ir.model.fields,field_description:product.field_product_template__activity_type_icon
 msgid "Activity Type Icon"
 msgstr "Ikon Jenis Aktifitas"
 
 #. module: product
-#. openerp-web
-#: code:addons/product/static/src/xml/pricelist_report.xml:0
+#. odoo-javascript
+#: code:addons/product/static/src/product_catalog/order_line/order_line.xml:0
+#, python-format
+msgid "Add"
+msgstr "Tambahkan"
+
+#. module: product
+#. odoo-javascript
+#: code:addons/product/static/src/js/pricelist_report/product_pricelist_report.xml:0
 #, python-format
 msgid "Add a quantity"
 msgstr "Tambah kuantitas"
+
+#. module: product
+#: model:ir.model.fields,field_description:product.field_product_product__additional_product_tag_ids
+msgid "Additional Product Tags"
+msgstr "Tag Produk Tambahan"
 
 #. module: product
 #: model:ir.model.fields,field_description:product.field_res_config_settings__group_sale_pricelist
@@ -317,11 +456,30 @@ msgid "Advanced price rules (discounts, formulas)"
 msgstr "Peraturan harga advanced (diskon, formula)"
 
 #. module: product
-#: code:addons/product/models/product_pricelist.py:0
+#: model:ir.model.fields,field_description:product.field_product_product__all_product_tag_ids
+msgid "All Product Tag"
+msgstr "Semua Tag Produk"
+
+#. module: product
+#: model:ir.model.fields,field_description:product.field_product_tag__product_ids
+msgid "All Product Variants using this Tag"
+msgstr "Semua Varian Produk yang menggunakan Tag ini"
+
+#. module: product
+#. odoo-python
+#: code:addons/product/models/product_pricelist_item.py:0
 #: model:ir.model.fields.selection,name:product.selection__product_pricelist_item__applied_on__3_global
+#: model_terms:ir.ui.view,arch_db:product.product_tag_form_view
 #, python-format
 msgid "All Products"
 msgstr "Semua Produk"
+
+#. module: product
+#. odoo-python
+#: code:addons/product/controllers/product_document.py:0
+#, python-format
+msgid "All files uploaded"
+msgstr "Semua file terunggah"
 
 #. module: product
 #: model:ir.model.fields,help:product.field_product_attribute_value__is_custom
@@ -333,20 +491,19 @@ msgstr "Izinkan user untuk menginput value custom untuk nilai atribut ini"
 #: model:ir.model.fields,help:product.field_res_config_settings__group_sale_pricelist
 msgid ""
 "Allows to manage different prices based on rules per category of customers.\n"
-"                Example: 10% for retailers, promotion of 5 EUR on this product, etc."
+"                Example: 10% for retailers, promotion of 5 EUR on this "
+"product, etc."
 msgstr ""
 "Ijinkan mengelola daftar harga yang berbeda-beda tiap kategori pelanggan.\n"
 "Contoh: 10% untuk toko, promo 5 EUR untuk produk ini, dll."
 
 #. module: product
 #: model:product.attribute.value,name:product.product_attribute_value_2
-#: model:product.template.attribute.value,name:product.product_11_attribute_1_value_2
-#: model:product.template.attribute.value,name:product.product_4_attribute_1_value_2
 msgid "Aluminium"
 msgstr "Aluminium"
 
 #. module: product
-#: model_terms:ir.ui.view,arch_db:product.product_pricelist_view_inherit
+#: model_terms:ir.ui.view,arch_db:product.product_pricelist_view
 msgid "Applicable On"
 msgstr "Berlaku Pada"
 
@@ -362,7 +519,7 @@ msgid "Apply On"
 msgstr "Terapkan Pada"
 
 #. module: product
-#: model_terms:ir.ui.view,arch_db:product.product_pricelist_item_view_search
+#: model_terms:ir.ui.view,arch_db:product.product_document_search
 #: model_terms:ir.ui.view,arch_db:product.product_pricelist_view
 #: model_terms:ir.ui.view,arch_db:product.product_pricelist_view_search
 #: model_terms:ir.ui.view,arch_db:product.product_supplierinfo_search_view
@@ -378,19 +535,37 @@ msgid "Assigns the priority to the list of product vendor."
 msgstr "Tetapkan prioritas untuk daftar pemasok produk."
 
 #. module: product
-#. openerp-web
-#: code:addons/product/static/src/js/product_pricelist_report.js:0
+#. odoo-javascript
+#: code:addons/product/static/src/js/pricelist_report/product_pricelist_report.js:0
 #, python-format
 msgid ""
-"At most %d quantities can be displayed simultaneously. Remove a selected "
+"At most %s quantities can be displayed simultaneously. Remove a selected "
 "quantity to add others."
 msgstr ""
+"Paling banyak %s kuantitas dapat ditampilkan bersamaan. Hapus kuantitas yang "
+"dipilih untuk menambahkan yang lain."
 
 #. module: product
+#: model_terms:ir.ui.view,arch_db:product.product_document_form
+msgid "Attached To"
+msgstr "Dilampirkan Pada"
+
+#. module: product
+#: model:ir.model,name:product.model_ir_attachment
+msgid "Attachment"
+msgstr "Lampiran"
+
+#. module: product
+#: model:ir.model.fields,field_description:product.field_product_pricelist__message_attachment_count
 #: model:ir.model.fields,field_description:product.field_product_product__message_attachment_count
 #: model:ir.model.fields,field_description:product.field_product_template__message_attachment_count
 msgid "Attachment Count"
 msgstr "Hitungan Lampiran"
+
+#. module: product
+#: model:ir.model.fields,field_description:product.field_product_document__local_url
+msgid "Attachment URL"
+msgstr "URL Lampiran"
 
 #. module: product
 #: model:ir.model.fields,field_description:product.field_product_attribute__name
@@ -422,6 +597,7 @@ msgstr "Nilai Atribut"
 #. module: product
 #: model:ir.model.fields,field_description:product.field_product_product__product_template_attribute_value_ids
 #: model:ir.model.fields,field_description:product.field_product_template_attribute_exclusion__value_ids
+#: model_terms:ir.ui.view,arch_db:product.product_attribute_value_list
 #: model_terms:ir.ui.view,arch_db:product.product_attribute_view_form
 msgid "Attribute Values"
 msgstr "Nilai-nilai Atribut"
@@ -430,6 +606,7 @@ msgstr "Nilai-nilai Atribut"
 #: model:ir.actions.act_window,name:product.attribute_action
 #: model_terms:ir.ui.view,arch_db:product.product_template_attribute_value_view_tree
 #: model_terms:ir.ui.view,arch_db:product.product_template_search_view
+#: model_terms:ir.ui.view,arch_db:product.product_view_search_catalog
 msgid "Attributes"
 msgstr "Atribut"
 
@@ -442,6 +619,20 @@ msgstr "Atribut & Varian"
 #: model_terms:ir.ui.view,arch_db:product.product_pricelist_view
 msgid "Availability"
 msgstr "Ketersediaan"
+
+#. module: product
+#. odoo-javascript
+#: code:addons/product/static/src/product_catalog/kanban_controller.js:0
+#, python-format
+msgid "Back to Order"
+msgstr "Kembali ke Pesanan"
+
+#. module: product
+#. odoo-javascript
+#: code:addons/product/static/src/product_catalog/kanban_controller.js:0
+#, python-format
+msgid "Back to Quotation"
+msgstr "Kembali ke Quotation"
 
 #. module: product
 #: model:ir.model.fields,field_description:product.field_product_packaging__barcode
@@ -460,13 +651,31 @@ msgstr ""
 "transfer di app Barcode untuk memindahkan semua unit didalamnya"
 
 #. module: product
+#. odoo-python
+#: code:addons/product/models/product_product.py:0
+#, python-format
+msgid ""
+"Barcode(s) already assigned:\n"
+"\n"
+"%s"
+msgstr ""
+"Barcode sudah ditetapkan:\n"
+"\n"
+"%s"
+
+#. module: product
 #: model:ir.model.fields,help:product.field_product_pricelist_item__base
 msgid ""
 "Base price for computation.\n"
 "Sales Price: The base price will be the Sales Price.\n"
-"Cost Price : The base price will be the cost price.\n"
-"Other Pricelist : Computation of the base price based on another Pricelist."
+"Cost Price: The base price will be the cost price.\n"
+"Other Pricelist: Computation of the base price based on another Pricelist."
 msgstr ""
+"Harga dasar untuk perhitungan.\n"
+"Harga Sales: Harga dasar akan menjadi Harga Sales.\n"
+"Harga Biaya: Harga dasar akan menjadi harga biaya.\n"
+"Daftar Harga Lainnya: Perhitungan harga dasar berdasarkan daftar harga "
+"lainnya."
 
 #. module: product
 #: model:ir.model.fields,field_description:product.field_product_pricelist_item__base
@@ -480,12 +689,10 @@ msgstr "Daftar Harga Dasar"
 
 #. module: product
 #: model:product.attribute.value,name:product.product_attribute_value_4
-#: model:product.template.attribute.value,name:product.product_4_attribute_2_value_2
 msgid "Black"
 msgstr "Hitam"
 
 #. module: product
-#: model:product.product,name:product.product_product_10
 #: model:product.template,name:product.product_product_10_product_template
 msgid "Cabinet with Doors"
 msgstr "Kabinet dengan Pintu"
@@ -521,10 +728,16 @@ msgid "Category"
 msgstr "Kategori"
 
 #. module: product
-#: code:addons/product/models/product_pricelist.py:0
+#. odoo-python
+#: code:addons/product/models/product_pricelist_item.py:0
 #, python-format
 msgid "Category: %s"
 msgstr "Kategori: %s"
+
+#. module: product
+#: model:ir.model.fields,field_description:product.field_product_document__checksum
+msgid "Checksum/SHA1"
+msgstr "Checksum/SHA1"
 
 #. module: product
 #: model:ir.model.fields,field_description:product.field_product_category__child_id
@@ -548,6 +761,7 @@ msgstr "Kode"
 
 #. module: product
 #: model:ir.model.fields,field_description:product.field_product_attribute_value__html_color
+#: model:ir.model.fields,field_description:product.field_product_tag__color
 #: model:ir.model.fields,field_description:product.field_product_template_attribute_value__color
 #: model:ir.model.fields.selection,name:product.selection__product_attribute__display_type__color
 #: model:product.attribute,name:product.product_attribute_2
@@ -577,6 +791,7 @@ msgid "Companies"
 msgstr "Perusahaan"
 
 #. module: product
+#: model:ir.model.fields,field_description:product.field_product_document__company_id
 #: model:ir.model.fields,field_description:product.field_product_packaging__company_id
 #: model:ir.model.fields,field_description:product.field_product_pricelist__company_id
 #: model:ir.model.fields,field_description:product.field_product_pricelist_item__company_id
@@ -607,14 +822,11 @@ msgid "Conditions"
 msgstr "Kondisi"
 
 #. module: product
-#: model:product.product,name:product.product_product_11
-#: model:product.product,name:product.product_product_11b
 #: model:product.template,name:product.product_product_11_product_template
 msgid "Conference Chair"
 msgstr "Kursi Konferensi"
 
 #. module: product
-#: model:product.product,description_sale:product.consu_delivery_02
 #: model:product.template,description_sale:product.consu_delivery_02_product_template
 msgid "Conference room table"
 msgstr "Meja ruangan konferensi"
@@ -632,7 +844,13 @@ msgstr "Konfigurasi"
 #. module: product
 #: model_terms:ir.ui.view,arch_db:product.product_template_only_form_view
 msgid "Configure"
-msgstr "Atur"
+msgstr "Konfigurasi"
+
+#. module: product
+#: model_terms:ir.ui.view,arch_db:product.product_template_form_view
+#: model_terms:ir.ui.view,arch_db:product.product_variant_easy_edit_view
+msgid "Configure tags"
+msgstr "Konfigurasikan Tag"
 
 #. module: product
 #: model_terms:ir.ui.view,arch_db:product.product_label_layout_form
@@ -643,16 +861,17 @@ msgstr "Konfirmasi"
 #: model:ir.model.fields.selection,name:product.selection__product_template__detailed_type__consu
 #: model:ir.model.fields.selection,name:product.selection__product_template__type__consu
 msgid "Consumable"
-msgstr "Produk Konsumsi"
+msgstr "Consumable"
 
 #. module: product
+#. odoo-python
 #: code:addons/product/models/product_template.py:0
 #, python-format
 msgid ""
 "Consumables are physical products for which you don't manage the inventory "
 "level: they are always available."
 msgstr ""
-"Konsumi adalah produk fisik yang mana persediaan inventarisnya Anda tidak "
+"Consumable adalah produk fisik yang mana persediaan inventarisnya Anda tidak "
 "perlu kelola: mereka akan selalu tersedia."
 
 #. module: product
@@ -661,9 +880,6 @@ msgid "Contact"
 msgstr "Kontak"
 
 #. module: product
-#: model_terms:product.product,website_description:product.product_product_4
-#: model_terms:product.product,website_description:product.product_product_4b
-#: model_terms:product.product,website_description:product.product_product_4c
 #: model_terms:product.template,website_description:product.product_product_4_product_template
 msgid "Contact Us"
 msgstr "Hubungi Kami"
@@ -684,13 +900,11 @@ msgid "Contained quantity"
 msgstr "Kuantitas didalam"
 
 #. module: product
-#: model:product.product,name:product.product_product_13
 #: model:product.template,name:product.product_product_13_product_template
 msgid "Corner Desk Left Sit"
 msgstr "Meja Sudut Kiri"
 
 #. module: product
-#: model:product.product,name:product.product_product_5
 #: model:product.template,name:product.product_product_5_product_template
 msgid "Corner Desk Right Sit"
 msgstr "Meja Sudut Kanan"
@@ -737,16 +951,25 @@ msgid "Create a new product variant"
 msgstr "Buat varian produk baru"
 
 #. module: product
+#. odoo-javascript
+#: code:addons/product/static/src/product_catalog/kanban_renderer.xml:0
+#, python-format
+msgid "Create a product"
+msgstr "Buat produk"
+
+#. module: product
 #: model:ir.model.fields,field_description:product.field_product_attribute__create_uid
 #: model:ir.model.fields,field_description:product.field_product_attribute_custom_value__create_uid
 #: model:ir.model.fields,field_description:product.field_product_attribute_value__create_uid
 #: model:ir.model.fields,field_description:product.field_product_category__create_uid
+#: model:ir.model.fields,field_description:product.field_product_document__create_uid
 #: model:ir.model.fields,field_description:product.field_product_label_layout__create_uid
 #: model:ir.model.fields,field_description:product.field_product_packaging__create_uid
 #: model:ir.model.fields,field_description:product.field_product_pricelist__create_uid
 #: model:ir.model.fields,field_description:product.field_product_pricelist_item__create_uid
 #: model:ir.model.fields,field_description:product.field_product_product__create_uid
 #: model:ir.model.fields,field_description:product.field_product_supplierinfo__create_uid
+#: model:ir.model.fields,field_description:product.field_product_tag__create_uid
 #: model:ir.model.fields,field_description:product.field_product_template__create_uid
 #: model:ir.model.fields,field_description:product.field_product_template_attribute_exclusion__create_uid
 #: model:ir.model.fields,field_description:product.field_product_template_attribute_line__create_uid
@@ -759,18 +982,25 @@ msgstr "Dibuat oleh"
 #: model:ir.model.fields,field_description:product.field_product_attribute_custom_value__create_date
 #: model:ir.model.fields,field_description:product.field_product_attribute_value__create_date
 #: model:ir.model.fields,field_description:product.field_product_category__create_date
+#: model:ir.model.fields,field_description:product.field_product_document__create_date
 #: model:ir.model.fields,field_description:product.field_product_label_layout__create_date
 #: model:ir.model.fields,field_description:product.field_product_packaging__create_date
 #: model:ir.model.fields,field_description:product.field_product_pricelist__create_date
 #: model:ir.model.fields,field_description:product.field_product_pricelist_item__create_date
 #: model:ir.model.fields,field_description:product.field_product_product__create_date
 #: model:ir.model.fields,field_description:product.field_product_supplierinfo__create_date
+#: model:ir.model.fields,field_description:product.field_product_tag__create_date
 #: model:ir.model.fields,field_description:product.field_product_template__create_date
 #: model:ir.model.fields,field_description:product.field_product_template_attribute_exclusion__create_date
 #: model:ir.model.fields,field_description:product.field_product_template_attribute_line__create_date
 #: model:ir.model.fields,field_description:product.field_product_template_attribute_value__create_date
 msgid "Created on"
 msgstr "Dibuat pada"
+
+#. module: product
+#: model_terms:ir.ui.view,arch_db:product.product_document_form
+msgid "Creation"
+msgstr "Pembuatan"
 
 #. module: product
 #: model:ir.model.fields.selection,name:product.selection__res_config_settings__product_volume_volume_in_cubic_feet__1
@@ -804,18 +1034,14 @@ msgid "Customer Ref"
 msgstr "Ref Pelanggan"
 
 #. module: product
-#: model:product.product,name:product.product_product_4
-#: model:product.product,name:product.product_product_4b
-#: model:product.product,name:product.product_product_4c
 #: model:product.template,name:product.product_product_4_product_template
 msgid "Customizable Desk"
 msgstr "Meja yang Customizable"
 
 #. module: product
-#: model:product.product,uom_name:product.expense_hotel
-#: model:product.template,uom_name:product.expense_hotel_product_template
-msgid "Days"
-msgstr "Hari"
+#: model:ir.model.fields,field_description:product.field_product_document__db_datas
+msgid "Database Data"
+msgstr "Data Database"
 
 #. module: product
 #: model:ir.model,name:product.model_decimal_precision
@@ -823,11 +1049,16 @@ msgid "Decimal Precision"
 msgstr "Tingkat Ketelitian Desimal"
 
 #. module: product
-#: code:addons/product/models/res_company.py:0
+#. odoo-python
 #: code:addons/product/models/res_company.py:0
 #, python-format
-msgid "Default %(currency)s pricelist"
-msgstr ""
+msgid "Default %s pricelist"
+msgstr "Daftar harga %s default"
+
+#. module: product
+#: model:ir.model.fields,field_description:product.field_product_attribute_value__default_extra_price
+msgid "Default Extra Price"
+msgstr "Harga Ekstra Default"
 
 #. module: product
 #: model:ir.model.fields,help:product.field_product_packaging__product_uom_id
@@ -838,24 +1069,24 @@ msgstr "Satuan unit default yang digunakan untuk semua operasi stok."
 
 #. module: product
 #: model:ir.model.fields,help:product.field_product_product__uom_po_id
+#: model:ir.model.fields,help:product.field_product_supplierinfo__product_uom
 #: model:ir.model.fields,help:product.field_product_template__uom_po_id
 msgid ""
 "Default unit of measure used for purchase orders. It must be in the same "
 "category as the default unit of measure."
 msgstr ""
-"Satuan ukuran default yang digunakan untuk purchase order. Harus di kategori"
-" yang sama dengan satuan ukuran default."
+"Satuan ukuran default yang digunakan untuk purchase order. Harus di kategori "
+"yang sama dengan satuan ukuran default."
 
 #. module: product
-#: model:ir.model.fields,help:product.field_product_product__seller_ids
-#: model:ir.model.fields,help:product.field_product_template__seller_ids
-msgid "Define vendor pricelists."
-msgstr ""
+#: model_terms:ir.actions.act_window,help:product.product_tag_action
+msgid "Define a new tag"
+msgstr "Definisikan tag baru"
 
 #. module: product
 #: model_terms:ir.ui.view,arch_db:product.res_config_settings_view_form
 msgid "Define your volume unit of measure"
-msgstr "Definisikan satuan ukuran volume"
+msgstr "Definisikan satuan ukuran volume Anda"
 
 #. module: product
 #: model_terms:ir.ui.view,arch_db:product.res_config_settings_view_form
@@ -863,30 +1094,33 @@ msgid "Define your weight unit of measure"
 msgstr "Definisikan satuan ukuran bobot Anda"
 
 #. module: product
+#: model_terms:ir.ui.view,arch_db:product.product_document_kanban
+msgid "Delete"
+msgstr "Hapus"
+
+#. module: product
 #: model:ir.model.fields,field_description:product.field_product_supplierinfo__delay
 msgid "Delivery Lead Time"
 msgstr "Lama Waktu Pengiriman"
 
 #. module: product
+#: model:ir.model.fields,field_description:product.field_product_document__description
 #: model:ir.model.fields,field_description:product.field_product_product__description
 #: model:ir.model.fields,field_description:product.field_product_template__description
 msgid "Description"
 msgstr "Deskripsi"
 
 #. module: product
-#: model:product.product,name:product.product_product_3
 #: model:product.template,name:product.product_product_3_product_template
 msgid "Desk Combination"
 msgstr "Kombinasi Meja"
 
 #. module: product
-#: model:product.product,name:product.product_product_22
 #: model:product.template,name:product.product_product_22_product_template
 msgid "Desk Stand with Screen"
 msgstr "Desk Stand dengan Layar"
 
 #. module: product
-#: model:product.product,description_sale:product.product_product_3
 #: model:product.template,description_sale:product.product_product_3_product_template
 msgid "Desk combination, black-brown: chair + desk + drawer."
 msgstr "Kombinasi meja, hitam-coklat: kursi + meja + laci."
@@ -900,13 +1134,18 @@ msgstr "Menentukan urutan tampilan"
 #. module: product
 #: model_terms:ir.ui.view,arch_db:product.product_label_layout_form
 msgid "Discard"
-msgstr "Abaikan"
+msgstr "Buang"
 
 #. module: product
 #: model:ir.model.fields.selection,name:product.selection__product_pricelist_item__compute_price__percentage
 #: model_terms:ir.ui.view,arch_db:product.product_pricelist_item_form_view
 msgid "Discount"
 msgstr "Diskon"
+
+#. module: product
+#: model:ir.model.fields,field_description:product.field_product_supplierinfo__discount
+msgid "Discount (%)"
+msgstr "Diskon (%)"
 
 #. module: product
 #: model:ir.model.fields,field_description:product.field_product_pricelist__discount_policy
@@ -924,6 +1163,11 @@ msgid "Discount on lines"
 msgstr "Diskon pada baris"
 
 #. module: product
+#: model:ir.model.fields,field_description:product.field_product_supplierinfo__price_discounted
+msgid "Discounted Price"
+msgstr "Harga dengan Diskon"
+
+#. module: product
 #: model:ir.model.fields,field_description:product.field_res_config_settings__group_discount_per_so_line
 #: model_terms:ir.ui.view,arch_db:product.product_pricelist_view
 msgid "Discounts"
@@ -934,12 +1178,14 @@ msgstr "Diskon"
 #: model:ir.model.fields,field_description:product.field_product_attribute_custom_value__display_name
 #: model:ir.model.fields,field_description:product.field_product_attribute_value__display_name
 #: model:ir.model.fields,field_description:product.field_product_category__display_name
+#: model:ir.model.fields,field_description:product.field_product_document__display_name
 #: model:ir.model.fields,field_description:product.field_product_label_layout__display_name
 #: model:ir.model.fields,field_description:product.field_product_packaging__display_name
 #: model:ir.model.fields,field_description:product.field_product_pricelist__display_name
 #: model:ir.model.fields,field_description:product.field_product_pricelist_item__display_name
 #: model:ir.model.fields,field_description:product.field_product_product__display_name
 #: model:ir.model.fields,field_description:product.field_product_supplierinfo__display_name
+#: model:ir.model.fields,field_description:product.field_product_tag__display_name
 #: model:ir.model.fields,field_description:product.field_product_template__display_name
 #: model:ir.model.fields,field_description:product.field_product_template_attribute_exclusion__display_name
 #: model:ir.model.fields,field_description:product.field_product_template_attribute_line__display_name
@@ -948,8 +1194,8 @@ msgid "Display Name"
 msgstr "Nama Tampilan"
 
 #. module: product
-#. openerp-web
-#: code:addons/product/static/src/xml/pricelist_report.xml:0
+#. odoo-javascript
+#: code:addons/product/static/src/js/pricelist_report/product_pricelist_report.xml:0
 #, python-format
 msgid "Display Pricelist"
 msgstr "Tampilkan Daftar Harga"
@@ -962,24 +1208,54 @@ msgid "Display Type"
 msgstr "Display Type"
 
 #. module: product
-#: model_terms:ir.ui.view,arch_db:product.res_config_settings_view_form
-msgid "Documentation"
-msgstr "Dokumentasi"
+#: model_terms:ir.ui.view,arch_db:product.product_document_kanban
+msgid "Document"
+msgstr "Dokumen"
 
 #. module: product
-#: model:product.product,name:product.product_product_27
+#. odoo-python
+#: code:addons/product/models/product_template.py:0
+#: model:ir.model.fields,field_description:product.field_product_product__product_document_ids
+#: model:ir.model.fields,field_description:product.field_product_template__product_document_ids
+#: model_terms:ir.ui.view,arch_db:product.product_template_form_view
+#, python-format
+msgid "Documents"
+msgstr "Dokumen"
+
+#. module: product
+#: model:ir.model.fields,field_description:product.field_product_product__product_document_count
+#: model:ir.model.fields,field_description:product.field_product_template__product_document_count
+msgid "Documents Count"
+msgstr "Jumlah Dokumen"
+
+#. module: product
+#: model_terms:ir.ui.view,arch_db:product.product_document_search
+msgid "Documents of this variant"
+msgstr "Dokumen-dokumen varian ini"
+
+#. module: product
+#: model_terms:ir.ui.view,arch_db:product.product_document_kanban
+msgid "Download"
+msgstr "Unduh"
+
+#. module: product
+#. odoo-python
+#: code:addons/product/models/product_template.py:0
+#, python-format
+msgid "Download examples"
+msgstr "Unduh contoh"
+
+#. module: product
 #: model:product.template,name:product.product_product_27_product_template
 msgid "Drawer"
 msgstr "Laci"
 
 #. module: product
-#: model:product.product,name:product.product_product_16
 #: model:product.template,name:product.product_product_16_product_template
 msgid "Drawer Black"
 msgstr "Drawer Black"
 
 #. module: product
-#: model_terms:product.product,description:product.product_product_27
 #: model_terms:product.template,description:product.product_product_27_product_template
 msgid "Drawer with two routing possiblities."
 msgstr "Laci dengan dua kemungkinan rute."
@@ -1005,6 +1281,17 @@ msgid "Each value should be defined only once per attribute per product."
 msgstr "Setiap value harus dedifinisikan hanya sekali per atribut per produk."
 
 #. module: product
+#: model_terms:ir.ui.view,arch_db:product.report_packagingbarcode
+msgid "Eco-friendly Wooden Chair"
+msgstr "Kursi Kayu ramah lingkungan"
+
+#. module: product
+#: model_terms:ir.ui.view,arch_db:product.product_document_kanban
+#: model_terms:ir.ui.view,arch_db:product.product_view_kanban_catalog
+msgid "Edit"
+msgstr "Edit"
+
+#. module: product
 #: model:ir.model.fields,field_description:product.field_product_pricelist_item__date_end
 #: model:ir.model.fields,field_description:product.field_product_supplierinfo__date_end
 msgid "End Date"
@@ -1022,12 +1309,10 @@ msgid ""
 "The displayed value depends on the timezone set in your preferences."
 msgstr ""
 "Tanggalwaktu akhir untuk validasi item daftar harga\n"
-"Value yang ditampilkan tergantung pada zona waktu yang ditetapkan di preferensi Anda."
+"Value yang ditampilkan tergantung pada zona waktu yang ditetapkan di "
+"preferensi Anda."
 
 #. module: product
-#: model_terms:product.product,website_description:product.product_product_4
-#: model_terms:product.product,website_description:product.product_product_4b
-#: model_terms:product.product,website_description:product.product_product_4c
 #: model_terms:product.template,website_description:product.product_product_4_product_template
 msgid "Ergonomic"
 msgstr "Ergonomik"
@@ -1056,11 +1341,11 @@ msgstr "Biaya Tambahan"
 #. module: product
 #: model:ir.model.fields,help:product.field_product_template_attribute_value__price_extra
 msgid ""
-"Extra price for the variant with this attribute value on sale price. eg. 200"
-" price extra, 1000 + 200 = 1200."
+"Extra price for the variant with this attribute value on sale price. eg. 200 "
+"price extra, 1000 + 200 = 1200."
 msgstr ""
-"Harga tambahan untuk varian dengan value atribut ini pada harga sale. contoh"
-" 200 harga tambahan, 1000 + 200 = 1200."
+"Harga tambahan untuk varian dengan value atribut ini pada harga sale. contoh "
+"200 harga tambahan, 1000 + 200 = 1200."
 
 #. module: product
 #: model:ir.model.fields,field_description:product.field_product_product__priority
@@ -1071,8 +1356,24 @@ msgstr "Favorit"
 
 #. module: product
 #: model_terms:ir.ui.view,arch_db:product.product_template_search_view
+#: model_terms:ir.ui.view,arch_db:product.product_view_search_catalog
 msgid "Favorites"
 msgstr "Favorit"
+
+#. module: product
+#: model:ir.model.fields,field_description:product.field_product_document__datas
+msgid "File Content (base64)"
+msgstr "Konten File (base64)"
+
+#. module: product
+#: model:ir.model.fields,field_description:product.field_product_document__raw
+msgid "File Content (raw)"
+msgstr "Konten File (raw)"
+
+#. module: product
+#: model:ir.model.fields,field_description:product.field_product_document__file_size
+msgid "File Size"
+msgstr "Ukuran File"
 
 #. module: product
 #: model:ir.model.fields,field_description:product.field_product_pricelist_item__fixed_price
@@ -1081,24 +1382,26 @@ msgid "Fixed Price"
 msgstr "Harga Tetap"
 
 #. module: product
-#: model:product.product,name:product.product_product_20
 #: model:product.template,name:product.product_product_20_product_template
 msgid "Flipover"
 msgstr "Putar balik"
 
 #. module: product
+#: model:ir.model.fields,field_description:product.field_product_pricelist__message_follower_ids
 #: model:ir.model.fields,field_description:product.field_product_product__message_follower_ids
 #: model:ir.model.fields,field_description:product.field_product_template__message_follower_ids
 msgid "Followers"
-msgstr "Pengikut"
+msgstr "Follower"
 
 #. module: product
+#: model:ir.model.fields,field_description:product.field_product_pricelist__message_partner_ids
 #: model:ir.model.fields,field_description:product.field_product_product__message_partner_ids
 #: model:ir.model.fields,field_description:product.field_product_template__message_partner_ids
 msgid "Followers (Partners)"
-msgstr "Pengikut (Rekanan)"
+msgstr "Follower (Mitra)"
 
 #. module: product
+#: model:ir.model.fields,help:product.field_product_pricelist__activity_type_icon
 #: model:ir.model.fields,help:product.field_product_product__activity_type_icon
 #: model:ir.model.fields,help:product.field_product_template__activity_type_icon
 msgid "Font awesome icon e.g. fa-tasks"
@@ -1107,10 +1410,12 @@ msgstr "Ikon font awesome, misalnya fa-tasks"
 #. module: product
 #: model:ir.model.fields,help:product.field_product_pricelist_item__min_quantity
 msgid ""
-"For the rule to apply, bought/sold quantity must be greater than or equal to the minimum quantity specified in this field.\n"
+"For the rule to apply, bought/sold quantity must be greater than or equal to "
+"the minimum quantity specified in this field.\n"
 "Expressed in the default unit of measure of the product."
 msgstr ""
-"Untuk menerapkan aturan, kuantitas yang dibeli/dijual harus lebih besar atau sama dengan kuantitas minimum yang ditentukan pada kolom ini.\n"
+"Untuk menerapkan aturan, kuantitas yang dibeli/dijual harus lebih besar atau "
+"sama dengan kuantitas minimum yang ditentukan pada kolom ini.\n"
 "Dinyatakan dalam satuan standar dari produk."
 
 #. module: product
@@ -1124,16 +1429,14 @@ msgid "Formula"
 msgstr "Rumus"
 
 #. module: product
-#: model:product.product,name:product.consu_delivery_03
 #: model:product.template,name:product.consu_delivery_03_product_template
 msgid "Four Person Desk"
 msgstr "Meja Empat Orang"
 
 #. module: product
-#: model:product.product,description_sale:product.consu_delivery_03
 #: model:product.template,description_sale:product.consu_delivery_03_product_template
 msgid "Four person modern office workstation"
-msgstr "Stasiun kerja kantor modern empat orang"
+msgstr "Station kerja kantor modern empat orang"
 
 #. module: product
 #: model_terms:ir.ui.view,arch_db:product.product_template_search_view
@@ -1147,10 +1450,6 @@ msgstr "Informasi Umum"
 
 #. module: product
 #: model:ir.actions.server,name:product.action_product_price_list_report
-msgid "Generate Pricelist"
-msgstr ""
-
-#. module: product
 #: model:ir.actions.server,name:product.action_product_template_price_list_report
 msgid "Generate Pricelist Report"
 msgstr "Buat Laporan Daftar Harga"
@@ -1173,6 +1472,11 @@ msgid "Gives the sequence order when displaying a product list"
 msgstr "Menggunakan penomoran ketika menampilkan daftar produk"
 
 #. module: product
+#: model_terms:ir.ui.view,arch_db:product.report_pricelist_page
+msgid "Gold Member Pricelist"
+msgstr "Daftar Harga Gold Member"
+
+#. module: product
 #: model_terms:ir.ui.view,arch_db:product.res_config_settings_view_form
 msgid "Google Images"
 msgstr "Google Image"
@@ -1181,6 +1485,7 @@ msgstr "Google Image"
 #: model_terms:ir.ui.view,arch_db:product.product_pricelist_item_view_search
 #: model_terms:ir.ui.view,arch_db:product.product_supplierinfo_search_view
 #: model_terms:ir.ui.view,arch_db:product.product_template_search_view
+#: model_terms:ir.ui.view,arch_db:product.product_view_search_catalog
 msgid "Group By"
 msgstr "Dikelompokkan berdasarkan"
 
@@ -1190,6 +1495,7 @@ msgid "HTML Color Index"
 msgstr "Indeks warna"
 
 #. module: product
+#: model:ir.model.fields,field_description:product.field_product_pricelist__has_message
 #: model:ir.model.fields,field_description:product.field_product_product__has_message
 #: model:ir.model.fields,field_description:product.field_product_template__has_message
 msgid "Has Message"
@@ -1206,30 +1512,28 @@ msgstr ""
 "untuk menampilkan warna bila tipe atribut adalah 'Warna'."
 
 #. module: product
-#: model:product.product,name:product.expense_hotel
+#: model_terms:ir.ui.view,arch_db:product.product_document_form
+msgid "History"
+msgstr "Riwayat"
+
+#. module: product
 #: model:product.template,name:product.expense_hotel_product_template
 msgid "Hotel Accommodation"
 msgstr "Akomodasi Hotel"
-
-#. module: product
-#: model:product.product,uom_name:product.product_product_1
-#: model:product.product,uom_name:product.product_product_2
-#: model:product.template,uom_name:product.product_product_1_product_template
-#: model:product.template,uom_name:product.product_product_2_product_template
-msgid "Hours"
-msgstr "Jam"
 
 #. module: product
 #: model:ir.model.fields,field_description:product.field_product_attribute__id
 #: model:ir.model.fields,field_description:product.field_product_attribute_custom_value__id
 #: model:ir.model.fields,field_description:product.field_product_attribute_value__id
 #: model:ir.model.fields,field_description:product.field_product_category__id
+#: model:ir.model.fields,field_description:product.field_product_document__id
 #: model:ir.model.fields,field_description:product.field_product_label_layout__id
 #: model:ir.model.fields,field_description:product.field_product_packaging__id
 #: model:ir.model.fields,field_description:product.field_product_pricelist__id
 #: model:ir.model.fields,field_description:product.field_product_pricelist_item__id
 #: model:ir.model.fields,field_description:product.field_product_product__id
 #: model:ir.model.fields,field_description:product.field_product_supplierinfo__id
+#: model:ir.model.fields,field_description:product.field_product_tag__id
 #: model:ir.model.fields,field_description:product.field_product_template__id
 #: model:ir.model.fields,field_description:product.field_product_template_attribute_exclusion__id
 #: model:ir.model.fields,field_description:product.field_product_template_attribute_line__id
@@ -1238,26 +1542,28 @@ msgid "ID"
 msgstr "ID"
 
 #. module: product
+#: model:ir.model.fields,field_description:product.field_product_pricelist__activity_exception_icon
 #: model:ir.model.fields,field_description:product.field_product_product__activity_exception_icon
 #: model:ir.model.fields,field_description:product.field_product_template__activity_exception_icon
 msgid "Icon"
 msgstr "Ikon"
 
 #. module: product
+#: model:ir.model.fields,help:product.field_product_pricelist__activity_exception_icon
 #: model:ir.model.fields,help:product.field_product_product__activity_exception_icon
 #: model:ir.model.fields,help:product.field_product_template__activity_exception_icon
 msgid "Icon to indicate an exception activity."
 msgstr "Ikon untuk menunjukkan sebuah aktivitas pengecualian."
 
 #. module: product
+#: model:ir.model.fields,help:product.field_product_pricelist__message_needaction
 #: model:ir.model.fields,help:product.field_product_product__message_needaction
-#: model:ir.model.fields,help:product.field_product_product__message_unread
 #: model:ir.model.fields,help:product.field_product_template__message_needaction
-#: model:ir.model.fields,help:product.field_product_template__message_unread
 msgid "If checked, new messages require your attention."
 msgstr "Jika dicentang, pesan baru memerlukan penanganan dan perhatian Anda."
 
 #. module: product
+#: model:ir.model.fields,help:product.field_product_pricelist__message_has_error
 #: model:ir.model.fields,help:product.field_product_product__message_has_error
 #: model:ir.model.fields,help:product.field_product_template__message_has_error
 msgid "If checked, some messages have a delivery error."
@@ -1273,7 +1579,6 @@ msgstr ""
 
 #. module: product
 #: model:ir.model.fields,help:product.field_product_pricelist__active
-#: model:ir.model.fields,help:product.field_product_pricelist_item__active
 msgid ""
 "If unchecked, it will allow you to hide the pricelist without removing it."
 msgstr ""
@@ -1290,8 +1595,10 @@ msgstr ""
 "menghapusnya."
 
 #. module: product
+#: model:ir.model.fields,field_description:product.field_product_attribute_value__image
 #: model:ir.model.fields,field_description:product.field_product_product__image_1920
 #: model:ir.model.fields,field_description:product.field_product_template__image_1920
+#: model:ir.model.fields,field_description:product.field_product_template_attribute_value__image
 msgid "Image"
 msgstr "Gambar"
 
@@ -1320,36 +1627,45 @@ msgid "Image 512"
 msgstr "Gambar 512"
 
 #. module: product
+#: model:ir.model.fields,field_description:product.field_product_document__image_height
+msgid "Image Height"
+msgstr "Tinggi Gambar"
+
+#. module: product
+#: model:ir.model.fields,field_description:product.field_product_document__image_src
+msgid "Image Src"
+msgstr "Sumber Gambar"
+
+#. module: product
+#: model:ir.model.fields,field_description:product.field_product_document__image_width
+msgid "Image Width"
+msgstr "Lebar Gambar"
+
+#. module: product
+#: model_terms:ir.ui.view,arch_db:product.product_document_kanban
+msgid "Image is a link"
+msgstr "Gambar adalah link"
+
+#. module: product
+#. odoo-python
 #: code:addons/product/models/product_pricelist.py:0
 #, python-format
 msgid "Import Template for Pricelists"
 msgstr "Impor Templat untuk Daftar Harga"
 
 #. module: product
+#. odoo-python
 #: code:addons/product/models/product_template.py:0
 #, python-format
 msgid "Import Template for Products"
 msgstr "Impor Templat untuk Produk"
 
 #. module: product
-#: code:addons/product/models/product.py:0
+#. odoo-python
+#: code:addons/product/models/product_supplierinfo.py:0
 #, python-format
 msgid "Import Template for Vendor Pricelists"
 msgstr "Impor Templat untuk Daftar Harga Vendor"
-
-#. module: product
-#: model:ir.model.fields,help:product.field_product_product__standard_price
-#: model:ir.model.fields,help:product.field_product_template__standard_price
-msgid ""
-"In Standard Price & AVCO: value of the product (automatically computed in AVCO).\n"
-"        In FIFO: value of the next unit that will leave the stock (automatically computed).\n"
-"        Used to value the product when the purchase cost is not known (e.g. inventory adjustment).\n"
-"        Used to compute margins on sale orders."
-msgstr ""
-"Di Harga Standard & AVCO: nilai dari produk (secara otomatis dihitung pada AVCO).\n"
-"        Di FIFO: nilai dari unit berikutnya yang akan keluar dari stok (secara otomatis dihitung).\n"
-"        Digunakan untuk menilai produk saat harga pembelian tidak diketahui (misalnya penyesuaiaan inventaris).\n"
-"        Digunakan untuk menghitung margin pada sale order."
 
 #. module: product
 #: model_terms:ir.ui.view,arch_db:product.product_template_attribute_value_view_search
@@ -1357,7 +1673,11 @@ msgid "Inactive"
 msgstr "Tidak Aktif"
 
 #. module: product
-#: model:product.product,name:product.product_product_24
+#: model:ir.model.fields,field_description:product.field_product_document__index_content
+msgid "Indexed Content"
+msgstr "Konten Terindeks"
+
+#. module: product
 #: model:product.template,name:product.product_product_24_product_template
 msgid "Individual Workplace"
 msgstr "Templat Kerja Individu"
@@ -1389,10 +1709,11 @@ msgid "Inventory"
 msgstr "Stok Persediaan"
 
 #. module: product
+#: model:ir.model.fields,field_description:product.field_product_pricelist__message_is_follower
 #: model:ir.model.fields,field_description:product.field_product_product__message_is_follower
 #: model:ir.model.fields,field_description:product.field_product_template__message_is_follower
 msgid "Is Follower"
-msgstr "Pengikut"
+msgstr "Adalah Follower"
 
 #. module: product
 #: model:ir.model.fields,field_description:product.field_product_product__is_product_variant
@@ -1417,81 +1738,68 @@ msgid "Is custom value"
 msgstr "Apakah value custom"
 
 #. module: product
+#: model:ir.model.fields,field_description:product.field_product_document__public
+msgid "Is public document"
+msgstr "Dokumen publik"
+
+#. module: product
 #: model:ir.model.fields.selection,name:product.selection__res_config_settings__product_weight_in_lbs__0
 msgid "Kilograms"
 msgstr "Kilogram"
 
 #. module: product
-#: model:product.product,name:product.product_product_6
 #: model:product.template,name:product.product_product_6_product_template
 msgid "Large Cabinet"
 msgstr "Kabinet Besar"
 
 #. module: product
-#: model:product.product,name:product.product_product_8
 #: model:product.template,name:product.product_product_8_product_template
 msgid "Large Desk"
 msgstr "Meja Besar"
 
 #. module: product
-#: model:product.product,name:product.consu_delivery_02
 #: model:product.template,name:product.consu_delivery_02_product_template
 msgid "Large Meeting Table"
 msgstr "Meja Meeting Besar"
-
-#. module: product
-#: model:ir.model.fields,field_description:product.field_product_attribute____last_update
-#: model:ir.model.fields,field_description:product.field_product_attribute_custom_value____last_update
-#: model:ir.model.fields,field_description:product.field_product_attribute_value____last_update
-#: model:ir.model.fields,field_description:product.field_product_category____last_update
-#: model:ir.model.fields,field_description:product.field_product_label_layout____last_update
-#: model:ir.model.fields,field_description:product.field_product_packaging____last_update
-#: model:ir.model.fields,field_description:product.field_product_pricelist____last_update
-#: model:ir.model.fields,field_description:product.field_product_pricelist_item____last_update
-#: model:ir.model.fields,field_description:product.field_product_product____last_update
-#: model:ir.model.fields,field_description:product.field_product_supplierinfo____last_update
-#: model:ir.model.fields,field_description:product.field_product_template____last_update
-#: model:ir.model.fields,field_description:product.field_product_template_attribute_exclusion____last_update
-#: model:ir.model.fields,field_description:product.field_product_template_attribute_line____last_update
-#: model:ir.model.fields,field_description:product.field_product_template_attribute_value____last_update
-msgid "Last Modified on"
-msgstr "Terakhir diubah pada"
 
 #. module: product
 #: model:ir.model.fields,field_description:product.field_product_attribute__write_uid
 #: model:ir.model.fields,field_description:product.field_product_attribute_custom_value__write_uid
 #: model:ir.model.fields,field_description:product.field_product_attribute_value__write_uid
 #: model:ir.model.fields,field_description:product.field_product_category__write_uid
+#: model:ir.model.fields,field_description:product.field_product_document__write_uid
 #: model:ir.model.fields,field_description:product.field_product_label_layout__write_uid
 #: model:ir.model.fields,field_description:product.field_product_packaging__write_uid
 #: model:ir.model.fields,field_description:product.field_product_pricelist__write_uid
 #: model:ir.model.fields,field_description:product.field_product_pricelist_item__write_uid
 #: model:ir.model.fields,field_description:product.field_product_product__write_uid
 #: model:ir.model.fields,field_description:product.field_product_supplierinfo__write_uid
+#: model:ir.model.fields,field_description:product.field_product_tag__write_uid
 #: model:ir.model.fields,field_description:product.field_product_template__write_uid
 #: model:ir.model.fields,field_description:product.field_product_template_attribute_exclusion__write_uid
 #: model:ir.model.fields,field_description:product.field_product_template_attribute_line__write_uid
 #: model:ir.model.fields,field_description:product.field_product_template_attribute_value__write_uid
 msgid "Last Updated by"
-msgstr "Terakhir diperbarui oleh"
+msgstr "Terakhir Diperbarui oleh"
 
 #. module: product
 #: model:ir.model.fields,field_description:product.field_product_attribute__write_date
 #: model:ir.model.fields,field_description:product.field_product_attribute_custom_value__write_date
 #: model:ir.model.fields,field_description:product.field_product_attribute_value__write_date
 #: model:ir.model.fields,field_description:product.field_product_category__write_date
+#: model:ir.model.fields,field_description:product.field_product_document__write_date
 #: model:ir.model.fields,field_description:product.field_product_label_layout__write_date
 #: model:ir.model.fields,field_description:product.field_product_packaging__write_date
 #: model:ir.model.fields,field_description:product.field_product_pricelist__write_date
 #: model:ir.model.fields,field_description:product.field_product_pricelist_item__write_date
-#: model:ir.model.fields,field_description:product.field_product_product__write_date
 #: model:ir.model.fields,field_description:product.field_product_supplierinfo__write_date
+#: model:ir.model.fields,field_description:product.field_product_tag__write_date
 #: model:ir.model.fields,field_description:product.field_product_template__write_date
 #: model:ir.model.fields,field_description:product.field_product_template_attribute_exclusion__write_date
 #: model:ir.model.fields,field_description:product.field_product_template_attribute_line__write_date
 #: model:ir.model.fields,field_description:product.field_product_template_attribute_value__write_date
 msgid "Last Updated on"
-msgstr "Terakhir diperbarui pada"
+msgstr "Terakhir Diperbarui pada"
 
 #. module: product
 #: model_terms:ir.ui.view,arch_db:product.product_template_search_view
@@ -1521,9 +1829,6 @@ msgid "Lines"
 msgstr "Baris"
 
 #. module: product
-#: model_terms:product.product,website_description:product.product_product_4
-#: model_terms:product.product,website_description:product.product_product_4b
-#: model_terms:product.product,website_description:product.product_product_4c
 #: model_terms:product.template,website_description:product.product_product_4_product_template
 msgid "Locally handmade"
 msgstr "Dibuat lokal"
@@ -1535,9 +1840,6 @@ msgid "Logistics"
 msgstr "Logistik"
 
 #. module: product
-#: model_terms:product.product,website_description:product.product_product_4
-#: model_terms:product.product,website_description:product.product_product_4b
-#: model_terms:product.product,website_description:product.product_product_4c
 #: model_terms:product.template,website_description:product.product_product_4_product_template
 msgid ""
 "Looking for a custom bamboo stain to match existing furniture? Contact us "
@@ -1547,16 +1849,10 @@ msgstr ""
 "untuk mendapatkan quote."
 
 #. module: product
-#: model:ir.model.fields,field_description:product.field_product_product__message_main_attachment_id
-#: model:ir.model.fields,field_description:product.field_product_template__message_main_attachment_id
-msgid "Main Attachment"
-msgstr "Lampiran Utama"
-
-#. module: product
 #: model:ir.model.fields,help:product.field_product_template_attribute_value__exclude_for
 msgid ""
-"Make this attribute value not compatible with other values of the product or"
-" some attribute values of optional and accessory products."
+"Make this attribute value not compatible with other values of the product or "
+"some attribute values of optional and accessory products."
 msgstr ""
 "Buat nilai atribut ini tidak kompatibel dengan nilai-nilai produk lain atau "
 "beberapa nilai atribut produk yang bersifat opsional dan pelengkap."
@@ -1587,16 +1883,23 @@ msgid "Max. Price Margin"
 msgstr "Margin Harga Maks."
 
 #. module: product
+#: model:ir.model.fields,field_description:product.field_product_pricelist__message_has_error
 #: model:ir.model.fields,field_description:product.field_product_product__message_has_error
 #: model:ir.model.fields,field_description:product.field_product_template__message_has_error
 msgid "Message Delivery error"
 msgstr "Kesalahan Pengiriman Pesan"
 
 #. module: product
+#: model:ir.model.fields,field_description:product.field_product_pricelist__message_ids
 #: model:ir.model.fields,field_description:product.field_product_product__message_ids
 #: model:ir.model.fields,field_description:product.field_product_template__message_ids
 msgid "Messages"
 msgstr "Pesan"
+
+#. module: product
+#: model:ir.model.fields,field_description:product.field_product_document__mimetype
+msgid "Mime Type"
+msgstr "Jenis MIME"
 
 #. module: product
 #: model_terms:ir.ui.view,arch_db:product.product_pricelist_item_form_view
@@ -1614,6 +1917,17 @@ msgid "Min. Quantity"
 msgstr "Kuantitas Min."
 
 #. module: product
+#: model:ir.model.fields.selection,name:product.selection__product_attribute__display_type__multi
+msgid "Multi-checkbox (option)"
+msgstr "Multi-checkbox (opsi)"
+
+#. module: product
+#: model:ir.model.constraint,message:product.constraint_product_attribute_check_multi_checkbox_no_variant
+msgid ""
+"Multi-checkbox display type is not compatible with the creation of variants"
+msgstr "Tipe tampilan multi-checkbox tidak kompatibel dengan pembuatan varian"
+
+#. module: product
 #: model:ir.model.fields.selection,name:product.selection__res_config_settings__product_pricelist_setting__basic
 msgid "Multiple prices per product"
 msgstr "Lebih dari satu harge per produk"
@@ -1624,10 +1938,12 @@ msgid ""
 "Multiple prices: Pricelists with fixed price rules by product,\n"
 "Advanced rules: enables advanced price rules for pricelists."
 msgstr ""
-"Lebih dari satu harga: Daftar harga dengan peraturan harga tetap berdasarkan produk,\n"
+"Lebih dari satu harga: Daftar harga dengan peraturan harga tetap berdasarkan "
+"produk,\n"
 "Peraturan advanced: aktifkan peraturan harga advanced untuk daftar harga."
 
 #. module: product
+#: model:ir.model.fields,field_description:product.field_product_pricelist__my_activity_date_deadline
 #: model:ir.model.fields,field_description:product.field_product_product__my_activity_date_deadline
 #: model:ir.model.fields,field_description:product.field_product_template__my_activity_date_deadline
 msgid "My Activity Deadline"
@@ -1636,8 +1952,10 @@ msgstr "Deadline Kegiatan Saya"
 #. module: product
 #: model:ir.model.fields,field_description:product.field_product_attribute_custom_value__name
 #: model:ir.model.fields,field_description:product.field_product_category__name
+#: model:ir.model.fields,field_description:product.field_product_document__name
 #: model:ir.model.fields,field_description:product.field_product_pricelist_item__name
 #: model:ir.model.fields,field_description:product.field_product_product__name
+#: model:ir.model.fields,field_description:product.field_product_tag__name
 #: model:ir.model.fields,field_description:product.field_product_template__name
 msgid "Name"
 msgstr "Nama"
@@ -1648,30 +1966,35 @@ msgid "Never (option)"
 msgstr "Tidak pernah (opsi)"
 
 #. module: product
+#: model:ir.model.fields,field_description:product.field_product_pricelist__activity_calendar_event_id
 #: model:ir.model.fields,field_description:product.field_product_product__activity_calendar_event_id
 #: model:ir.model.fields,field_description:product.field_product_template__activity_calendar_event_id
 msgid "Next Activity Calendar Event"
 msgstr "Kalender Acara Aktivitas Berikutnya"
 
 #. module: product
+#: model:ir.model.fields,field_description:product.field_product_pricelist__activity_date_deadline
 #: model:ir.model.fields,field_description:product.field_product_product__activity_date_deadline
 #: model:ir.model.fields,field_description:product.field_product_template__activity_date_deadline
 msgid "Next Activity Deadline"
 msgstr "Batas Waktu Aktivitas Berikutnya"
 
 #. module: product
+#: model:ir.model.fields,field_description:product.field_product_pricelist__activity_summary
 #: model:ir.model.fields,field_description:product.field_product_product__activity_summary
 #: model:ir.model.fields,field_description:product.field_product_template__activity_summary
 msgid "Next Activity Summary"
 msgstr "Ringkasan Aktivitas Berikutnya"
 
 #. module: product
+#: model:ir.model.fields,field_description:product.field_product_pricelist__activity_type_id
 #: model:ir.model.fields,field_description:product.field_product_product__activity_type_id
 #: model:ir.model.fields,field_description:product.field_product_template__activity_type_id
 msgid "Next Activity Type"
 msgstr "Tipe Aktivitas Berikutnya"
 
 #. module: product
+#. odoo-python
 #: code:addons/product/wizard/product_label_layout.py:0
 #, python-format
 msgid ""
@@ -1680,6 +2003,13 @@ msgid ""
 msgstr ""
 "Tidak ada produk untuk dicetak, bila produk diarsip mohon batalkan "
 "pengarsipan sebelum mencetak labelnya."
+
+#. module: product
+#. odoo-javascript
+#: code:addons/product/static/src/product_catalog/kanban_renderer.xml:0
+#, python-format
+msgid "No products could be found."
+msgstr "Tidak ada produk yang dapat ditemukan."
 
 #. module: product
 #: model_terms:ir.actions.act_window,help:product.product_supplierinfo_type_action
@@ -1692,7 +2022,8 @@ msgid "Normal"
 msgstr "Biasa"
 
 #. module: product
-#: code:addons/product/models/product.py:0
+#. odoo-python
+#: code:addons/product/models/product_product.py:0
 #: code:addons/product/models/product_template.py:0
 #, python-format
 msgid "Note:"
@@ -1704,28 +2035,32 @@ msgid "Number Related Products"
 msgstr "Jumlah Produk-Produk Terkait"
 
 #. module: product
+#: model:ir.model.fields,field_description:product.field_product_pricelist__message_needaction_counter
 #: model:ir.model.fields,field_description:product.field_product_product__message_needaction_counter
 #: model:ir.model.fields,field_description:product.field_product_template__message_needaction_counter
 msgid "Number of Actions"
-msgstr "Jumlah Tindakan"
+msgstr "Jumlah Action"
 
 #. module: product
+#: model:ir.model.fields,field_description:product.field_product_pricelist__message_has_error_counter
 #: model:ir.model.fields,field_description:product.field_product_product__message_has_error_counter
 #: model:ir.model.fields,field_description:product.field_product_template__message_has_error_counter
 msgid "Number of errors"
 msgstr "Jumlah kesalahan"
 
 #. module: product
+#: model:ir.model.fields,help:product.field_product_pricelist__message_needaction_counter
 #: model:ir.model.fields,help:product.field_product_product__message_needaction_counter
 #: model:ir.model.fields,help:product.field_product_template__message_needaction_counter
-msgid "Number of messages which requires an action"
-msgstr "Jumlah pesan yang butuh tindakan"
+msgid "Number of messages requiring action"
+msgstr "Jumlah pesan yang membutuhkan tindakan"
 
 #. module: product
+#: model:ir.model.fields,help:product.field_product_pricelist__message_has_error_counter
 #: model:ir.model.fields,help:product.field_product_product__message_has_error_counter
 #: model:ir.model.fields,help:product.field_product_template__message_has_error_counter
 msgid "Number of messages with delivery error"
-msgstr "Jumlah dari pesan dengan kesalahan pengiriman"
+msgstr "Jumlah pesan dengan kesalahan pengiriman"
 
 #. module: product
 #: model:ir.model.fields,field_description:product.field_product_product__pricelist_item_count
@@ -1734,56 +2069,62 @@ msgid "Number of price rules"
 msgstr "Jumlah peraturan harga"
 
 #. module: product
-#: model:ir.model.fields,help:product.field_product_product__message_unread_counter
-#: model:ir.model.fields,help:product.field_product_template__message_unread_counter
-msgid "Number of unread messages"
-msgstr "Jumlah pesan yang belum dibaca"
-
-#. module: product
-#: model:product.product,name:product.product_delivery_01
 #: model:product.template,name:product.product_delivery_01_product_template
 msgid "Office Chair"
 msgstr "Kursi Kantor"
 
 #. module: product
-#: model:product.product,name:product.product_product_12
 #: model:product.template,name:product.product_product_12_product_template
 msgid "Office Chair Black"
 msgstr "Kursi Kantor Hitam"
 
 #. module: product
-#: model:product.product,name:product.product_order_01
 #: model:product.template,name:product.product_order_01_product_template
 msgid "Office Design Software"
 msgstr "Software Design Kantor"
 
 #. module: product
-#: model:product.product,name:product.product_delivery_02
 #: model:product.template,name:product.product_delivery_02_product_template
 msgid "Office Lamp"
 msgstr "Lampu Kantor"
 
 #. module: product
-#: code:addons/product/models/product_attribute.py:0
+#. odoo-python
+#: code:addons/product/models/product_template_attribute_line.py:0
 #, python-format
 msgid ""
-"On the product %s you cannot associate the value %s with the attribute %s "
-"because they do not match."
+"On the product %(product)s you cannot associate the value %(value)s with the "
+"attribute %(attribute)s because they do not match."
 msgstr ""
+"Pada produk %(product)s Anda tidak dapat mengkaitkan nilai %(value)s dengan "
+"atribut %(attribute)s karena mereka tidak cocok."
 
 #. module: product
-#: code:addons/product/models/product_attribute.py:0
+#. odoo-python
+#: code:addons/product/models/product_template_attribute_line.py:0
 #, python-format
 msgid ""
-"On the product %s you cannot transform the attribute %s into the attribute "
-"%s."
+"On the product %(product)s you cannot transform the attribute "
+"%(attribute_src)s into the attribute %(attribute_dest)s."
 msgstr ""
+"Pada produk %(product)s Anda tidak dapat mentransform atribut "
+"%(attribute_src)s menjadi atribut %(attribute_dest)s."
+
+#. module: product
+#: model:ir.model.fields,field_description:product.field_product_document__original_id
+msgid "Original (unoptimized, unresized) attachment"
+msgstr "Lampiran (tanpa optimalisasi, tanpa perubahan ukuran) Original"
 
 #. module: product
 #: model:ir.model.fields,field_description:product.field_product_pricelist_item__base_pricelist_id
 #: model:ir.model.fields.selection,name:product.selection__product_pricelist_item__base__pricelist
 msgid "Other Pricelist"
 msgstr "Daftar Harga Lain"
+
+#. module: product
+#: model_terms:ir.ui.view,arch_db:product.report_packagingbarcode
+msgid "Package Type A"
+msgstr "Tipe Paket A"
 
 #. module: product
 #: model_terms:ir.ui.view,arch_db:product.product_packaging_form_view
@@ -1804,7 +2145,6 @@ msgid "Parent Path"
 msgstr "Parent Path"
 
 #. module: product
-#: model:product.product,name:product.product_product_9
 #: model:product.template,name:product.product_product_9_product_template
 msgid "Pedal Bin"
 msgstr "Pedal Bin"
@@ -1820,26 +2160,44 @@ msgid "Pills"
 msgstr "Pil-Pil"
 
 #. module: product
-#. openerp-web
-#: code:addons/product/static/src/js/product_pricelist_report.js:0
+#. odoo-javascript
+#: code:addons/product/static/src/js/pricelist_report/product_pricelist_report.js:0
 #, python-format
-msgid "Please enter a positive whole number"
-msgstr ""
+msgid "Please enter a positive whole number."
+msgstr "Mohon masukkan bilangan bulat positif."
 
 #. module: product
-#: code:addons/product/models/product_pricelist.py:0
+#. odoo-python
+#: code:addons/product/models/product_document.py:0
+#, python-format
+msgid ""
+"Please enter a valid URL.\n"
+"Example: https://www.odoo.com\n"
+"\n"
+"Invalid URL: %s"
+msgstr ""
+"Silakan masukkan URL valid.\n"
+"Contoh: https://www.odoo.com\n"
+"\n"
+"URL Tidak Valid: %s"
+
+#. module: product
+#. odoo-python
+#: code:addons/product/models/product_pricelist_item.py:0
 #, python-format
 msgid "Please specify the category for which this rule should be applied"
 msgstr "Mohon tentukan kategori di mana peraturan ini akan diterapkan"
 
 #. module: product
-#: code:addons/product/models/product_pricelist.py:0
+#. odoo-python
+#: code:addons/product/models/product_pricelist_item.py:0
 #, python-format
 msgid "Please specify the product for which this rule should be applied"
 msgstr "Mohon tetapkan produk di mana peraturan ini akan diterapkan"
 
 #. module: product
-#: code:addons/product/models/product_pricelist.py:0
+#. odoo-python
+#: code:addons/product/models/product_pricelist_item.py:0
 #, python-format
 msgid ""
 "Please specify the product variant for which this rule should be applied"
@@ -1851,9 +2209,6 @@ msgid "Pounds"
 msgstr "Pound"
 
 #. module: product
-#: model_terms:product.product,website_description:product.product_product_4
-#: model_terms:product.product,website_description:product.product_product_4b
-#: model_terms:product.product,website_description:product.product_product_4c
 #: model_terms:product.template,website_description:product.product_product_4_product_template
 msgid ""
 "Press a button and watch your desk glide effortlessly from sitting to "
@@ -1864,12 +2219,9 @@ msgstr ""
 
 #. module: product
 #: model:ir.model.fields,field_description:product.field_product_pricelist_item__price
-#: model:ir.model.fields,field_description:product.field_product_product__price
 #: model:ir.model.fields,field_description:product.field_product_supplierinfo__price
-#: model:ir.model.fields,field_description:product.field_product_template__price
 #: model_terms:ir.ui.view,arch_db:product.product_pricelist_item_tree_view_from_product
 #: model_terms:ir.ui.view,arch_db:product.product_pricelist_view
-#: model_terms:ir.ui.view,arch_db:product.product_pricelist_view_inherit
 #: model_terms:ir.ui.view,arch_db:product.product_supplierinfo_tree_view
 msgid "Price"
 msgstr "Harga"
@@ -1890,7 +2242,8 @@ msgid "Price Rounding"
 msgstr "Pembulatan Harga"
 
 #. module: product
-#: code:addons/product/models/product.py:0
+#. odoo-python
+#: code:addons/product/models/product_product.py:0
 #: code:addons/product/models/product_template.py:0
 #: model:ir.actions.act_window,name:product.product_pricelist_item_action
 #: model_terms:ir.ui.view,arch_db:product.product_pricelist_item_tree_view
@@ -1917,16 +2270,18 @@ msgid "Price:"
 msgstr "Harga:"
 
 #. module: product
+#. odoo-javascript
+#: code:addons/product/static/src/js/pricelist_report/product_pricelist_report.xml:0
 #: model:ir.actions.report,name:product.action_report_pricelist
 #: model:ir.model,name:product.model_product_pricelist
+#: model:ir.model.fields,field_description:product.field_product_label_layout__pricelist_id
 #: model:ir.model.fields,field_description:product.field_product_pricelist_item__pricelist_id
-#: model:ir.model.fields,field_description:product.field_product_product__pricelist_id
-#: model:ir.model.fields,field_description:product.field_product_template__pricelist_id
 #: model:ir.model.fields,field_description:product.field_res_partner__property_product_pricelist
 #: model:ir.model.fields,field_description:product.field_res_users__property_product_pricelist
 #: model_terms:ir.ui.view,arch_db:product.product_pricelist_item_tree_view_from_product
 #: model_terms:ir.ui.view,arch_db:product.product_pricelist_item_view_search
 #: model_terms:ir.ui.view,arch_db:product.product_supplierinfo_form_view
+#, python-format
 msgid "Pricelist"
 msgstr "Daftar Harga"
 
@@ -1941,8 +2296,8 @@ msgid "Pricelist Name"
 msgstr "Nama Daftar harga"
 
 #. module: product
-#. openerp-web
-#: code:addons/product/static/src/js/product_pricelist_report.js:0
+#. odoo-javascript
+#: code:addons/product/static/src/js/pricelist_report/product_pricelist_report.js:0
 #: model:ir.model,name:product.model_report_product_report_pricelist
 #, python-format
 msgid "Pricelist Report"
@@ -1958,15 +2313,11 @@ msgstr "Peraturan Daftar Harga"
 #: model:ir.model.fields,field_description:product.field_product_pricelist__item_ids
 #: model_terms:ir.ui.view,arch_db:product.product_pricelist_item_tree_view_from_product
 #: model_terms:ir.ui.view,arch_db:product.product_pricelist_view
-#: model_terms:ir.ui.view,arch_db:product.product_pricelist_view_inherit
 msgid "Pricelist Rules"
 msgstr "Peraturan Daftar Harga"
 
 #. module: product
-#. openerp-web
-#: code:addons/product/static/src/xml/pricelist_report.xml:0
 #: model_terms:ir.ui.view,arch_db:product.report_pricelist_page
-#, python-format
 msgid "Pricelist:"
 msgstr "Daftar harga:"
 
@@ -1993,8 +2344,8 @@ msgid "Pricing"
 msgstr "Harga"
 
 #. module: product
-#. openerp-web
-#: code:addons/product/static/src/js/product_pricelist_report.js:0
+#. odoo-javascript
+#: code:addons/product/static/src/js/pricelist_report/product_pricelist_report.xml:0
 #, python-format
 msgid "Print"
 msgstr "Cetak"
@@ -2008,7 +2359,7 @@ msgid "Print Labels"
 msgstr "Cetak Label"
 
 #. module: product
-#: model:ir.model,name:product.model_product_product
+#: model:ir.model,name:product.model_product_template
 #: model:ir.model.fields,field_description:product.field_product_label_layout__product_ids
 #: model:ir.model.fields,field_description:product.field_product_packaging__product_id
 #: model:ir.model.fields,field_description:product.field_product_pricelist_item__product_tmpl_id
@@ -2025,6 +2376,8 @@ msgstr "Cetak Label"
 #: model_terms:ir.ui.view,arch_db:product.product_template_kanban_view
 #: model_terms:ir.ui.view,arch_db:product.product_template_search_view
 #: model_terms:ir.ui.view,arch_db:product.product_template_tree_view
+#: model_terms:ir.ui.view,arch_db:product.product_view_kanban_catalog
+#: model_terms:ir.ui.view,arch_db:product.product_view_search_catalog
 msgid "Product"
 msgstr "Produk"
 
@@ -2057,6 +2410,11 @@ msgid "Product Attributes"
 msgstr "Atribut produk"
 
 #. module: product
+#: model:ir.model,name:product.model_product_catalog_mixin
+msgid "Product Catalog Mixin"
+msgstr "Mixin Katalog Produk"
+
+#. module: product
 #: model:ir.actions.act_window,name:product.product_category_action_form
 #: model_terms:ir.ui.view,arch_db:product.product_category_list_view
 #: model_terms:ir.ui.view,arch_db:product.product_category_search_view
@@ -2072,25 +2430,64 @@ msgstr "Kategori Produk"
 #: model_terms:ir.ui.view,arch_db:product.product_category_list_view
 #: model_terms:ir.ui.view,arch_db:product.product_template_form_view
 #: model_terms:ir.ui.view,arch_db:product.product_template_search_view
+#: model_terms:ir.ui.view,arch_db:product.product_view_search_catalog
 msgid "Product Category"
 msgstr "Kategori Produk"
 
 #. module: product
-#: model:ir.model.fields,field_description:product.field_res_config_settings__module_sale_product_configurator
-msgid "Product Configurator"
-msgstr "Konfigurator Produk"
+#: model:ir.model,name:product.model_product_document
+msgid "Product Document"
+msgstr "Dokumen Produk"
 
 #. module: product
-#: model:ir.actions.report,name:product.report_product_template_label
 #: model:ir.actions.report,name:product.report_product_template_label_dymo
 msgid "Product Label (PDF)"
 msgstr "Label Produk (PDF)"
 
 #. module: product
-#: model:ir.model,name:product.model_report_product_report_producttemplatelabel
+#: model:ir.actions.report,name:product.report_product_template_label_2x7
+msgid "Product Label 2x7 (PDF)"
+msgstr "label Produk 2x7 (PDF)"
+
+#. module: product
+#: model:ir.actions.report,name:product.report_product_template_label_4x12
+msgid "Product Label 4x12 (PDF)"
+msgstr "Label Produk 4x12 (PDF)"
+
+#. module: product
+#: model:ir.actions.report,name:product.report_product_template_label_4x12_noprice
+msgid "Product Label 4x12 No Price (PDF)"
+msgstr "Label Produk 4x12 Tanpa Harga (PDF)"
+
+#. module: product
+#: model:ir.actions.report,name:product.report_product_template_label_4x7
+msgid "Product Label 4x7 (PDF)"
+msgstr "Label Produk 4x7 (PDF)"
+
+#. module: product
 #: model:ir.model,name:product.model_report_product_report_producttemplatelabel_dymo
 msgid "Product Label Report"
 msgstr "Laporan Label Produk"
+
+#. module: product
+#: model:ir.model,name:product.model_report_product_report_producttemplatelabel2x7
+msgid "Product Label Report 2x7"
+msgstr "Laporan Label Produk 2x7"
+
+#. module: product
+#: model:ir.model,name:product.model_report_product_report_producttemplatelabel4x12
+msgid "Product Label Report 4x12"
+msgstr "Laporan Label Produk 4x12"
+
+#. module: product
+#: model:ir.model,name:product.model_report_product_report_producttemplatelabel4x12noprice
+msgid "Product Label Report 4x12 No Price"
+msgstr "Laporan Label Produk 4x12 Tanpa Harga"
+
+#. module: product
+#: model:ir.model,name:product.model_report_product_report_producttemplatelabel4x7
+msgid "Product Label Report 4x7"
+msgstr "Laporan Label Produk 4x7"
 
 #. module: product
 #: model_terms:ir.ui.view,arch_db:product.product_template_form_view
@@ -2125,13 +2522,30 @@ msgid "Product Packagings"
 msgstr "Kemasan Produk"
 
 #. module: product
-#: model:ir.model,name:product.model_product_template
+#: model:ir.model.fields,field_description:product.field_product_category__product_properties_definition
+msgid "Product Properties"
+msgstr "Properti Produk"
+
+#. module: product
+#: model:ir.model,name:product.model_product_tag
+#: model_terms:ir.ui.view,arch_db:product.product_tag_form_view
+msgid "Product Tag"
+msgstr "Tag Produk"
+
+#. module: product
+#: model:ir.actions.act_window,name:product.product_tag_action
+#: model_terms:ir.ui.view,arch_db:product.product_tag_tree_view
+msgid "Product Tags"
+msgstr "Tag-Tag Produk"
+
+#. module: product
 #: model:ir.model.fields,field_description:product.field_product_product__product_tmpl_id
 #: model:ir.model.fields,field_description:product.field_product_supplierinfo__product_tmpl_id
 #: model:ir.model.fields,field_description:product.field_product_template_attribute_exclusion__product_tmpl_id
 #: model:ir.model.fields,field_description:product.field_product_template_attribute_line__product_tmpl_id
 #: model:ir.model.fields,field_description:product.field_product_template_attribute_value__product_tmpl_id
 #: model_terms:ir.ui.view,arch_db:product.product_search_form_view
+#: model_terms:ir.ui.view,arch_db:product.product_view_search_catalog
 msgid "Product Template"
 msgstr "Templete Produk"
 
@@ -2143,12 +2557,25 @@ msgstr "Pengecualian Atribut Templat Produk"
 #. module: product
 #: model:ir.model,name:product.model_product_template_attribute_line
 msgid "Product Template Attribute Line"
-msgstr "Garis Atribut Templat Produ"
+msgstr "Garis Atribut Templat Produk"
 
 #. module: product
 #: model:ir.model,name:product.model_product_template_attribute_value
 msgid "Product Template Attribute Value"
 msgstr "Nilai Atribut Templat Produk"
+
+#. module: product
+#: model:ir.model.fields,field_description:product.field_product_product__product_tag_ids
+#: model:ir.model.fields,field_description:product.field_product_template__product_tag_ids
+msgid "Product Template Tags"
+msgstr "Tag Templat Produk"
+
+#. module: product
+#: model:ir.model.fields,field_description:product.field_product_tag__product_template_ids
+#: model_terms:ir.ui.view,arch_db:product.product_tag_form_view
+#: model_terms:ir.ui.view,arch_db:product.product_template_view_tree_tag
+msgid "Product Templates"
+msgstr "Templat Produk"
 
 #. module: product
 #: model:ir.model.fields,field_description:product.field_product_label_layout__product_tmpl_ids
@@ -2165,6 +2592,7 @@ msgstr "Tooltip Produk"
 #: model:ir.model.fields,field_description:product.field_product_product__detailed_type
 #: model:ir.model.fields,field_description:product.field_product_template__detailed_type
 #: model_terms:ir.ui.view,arch_db:product.product_template_search_view
+#: model_terms:ir.ui.view,arch_db:product.product_view_search_catalog
 msgid "Product Type"
 msgstr "Tipe Produk"
 
@@ -2174,15 +2602,19 @@ msgid "Product Unit of Measure"
 msgstr "Satuan Produk"
 
 #. module: product
+#: model:ir.model,name:product.model_product_product
 #: model:ir.model.fields,field_description:product.field_product_pricelist_item__product_id
 #: model:ir.model.fields,field_description:product.field_product_supplierinfo__product_id
 #: model:ir.model.fields.selection,name:product.selection__product_pricelist_item__applied_on__0_product_variant
+#: model_terms:ir.ui.view,arch_db:product.product_document_form
 #: model_terms:ir.ui.view,arch_db:product.product_normal_form_view
+#: model_terms:ir.ui.view,arch_db:product.product_tag_tree_view
 msgid "Product Variant"
 msgstr "Varian Produk"
 
 #. module: product
-#: code:addons/product/models/product_attribute.py:0
+#. odoo-python
+#: code:addons/product/models/product_template_attribute_line.py:0
 #, python-format
 msgid "Product Variant Values"
 msgstr "Nilai Varian Produk"
@@ -2191,24 +2623,31 @@ msgstr "Nilai Varian Produk"
 #: model:ir.actions.act_window,name:product.product_normal_action
 #: model:ir.actions.act_window,name:product.product_normal_action_sell
 #: model:ir.actions.act_window,name:product.product_variant_action
+#: model:ir.model.fields,field_description:product.field_product_tag__product_product_ids
 #: model_terms:ir.ui.view,arch_db:product.product_product_tree_view
 #: model_terms:ir.ui.view,arch_db:product.product_product_view_activity
+#: model_terms:ir.ui.view,arch_db:product.product_product_view_tree_tag
+#: model_terms:ir.ui.view,arch_db:product.product_tag_form_view
 msgid "Product Variants"
 msgstr "Varian Produk"
 
 #. module: product
+#. odoo-python
 #: code:addons/product/report/product_label_report.py:0
 #, python-format
 msgid "Product model not defined, Please contact your administrator."
 msgstr "Model produk tidak didefinisikan, Mohon hubungi administrator Anda."
 
 #. module: product
-#: code:addons/product/models/product_pricelist.py:0
+#. odoo-python
+#: code:addons/product/models/product_pricelist_item.py:0
 #, python-format
 msgid "Product: %s"
 msgstr "Produk: %s"
 
 #. module: product
+#. odoo-python
+#: code:addons/product/models/product_catalog_mixin.py:0
 #: model:ir.actions.act_window,name:product.product_template_action
 #: model:ir.actions.act_window,name:product.product_template_action_all
 #: model:ir.model.fields,field_description:product.field_product_product__product_variant_ids
@@ -2216,7 +2655,9 @@ msgstr "Produk: %s"
 #: model_terms:ir.ui.view,arch_db:product.product_pricelist_view
 #: model_terms:ir.ui.view,arch_db:product.product_template_search_view
 #: model_terms:ir.ui.view,arch_db:product.product_template_view_activity
+#: model_terms:ir.ui.view,arch_db:product.product_view_search_catalog
 #: model_terms:ir.ui.view,arch_db:product.report_pricelist_page
+#, python-format
 msgid "Products"
 msgstr "Produk"
 
@@ -2242,15 +2683,22 @@ msgid "Products Price Search"
 msgstr "Cari Harga Produk"
 
 #. module: product
-#: code:addons/product/models/product.py:0
+#. odoo-python
+#: code:addons/product/models/product_product.py:0
 #, python-format
 msgid "Products: %(category)s"
 msgstr "Produk-produk: %(category)s"
 
 #. module: product
-#: model:product.pricelist,name:product.list0
-msgid "Public Pricelist"
-msgstr "Daftar Harga Umum"
+#: model:ir.model.fields,field_description:product.field_res_config_settings__module_loyalty
+msgid "Promotions, Coupons, Gift Card & Loyalty Program"
+msgstr "Promosi, Kupon, Gift Card & Program Loyalitas"
+
+#. module: product
+#: model:ir.model.fields,field_description:product.field_product_product__product_properties
+#: model:ir.model.fields,field_description:product.field_product_template__product_properties
+msgid "Properties"
+msgstr "Properti-Properti"
 
 #. module: product
 #: model_terms:ir.ui.view,arch_db:product.product_template_form_view
@@ -2270,11 +2718,16 @@ msgid "Purchase UoM"
 msgstr "Satuan Ukuran Pembelian"
 
 #. module: product
-#. openerp-web
-#: code:addons/product/static/src/xml/pricelist_report.xml:0
+#. odoo-javascript
+#: code:addons/product/static/src/js/pricelist_report/product_pricelist_report.xml:0
 #, python-format
-msgid "Quantities:"
-msgstr ""
+msgid "Quantities"
+msgstr "Kuantitas"
+
+#. module: product
+#: model_terms:ir.ui.view,arch_db:product.report_pricelist_page
+msgid "Quantities (Price)"
+msgstr "Kuantitas (Harga)"
 
 #. module: product
 #: model:ir.model.fields,field_description:product.field_product_label_layout__custom_quantity
@@ -2283,11 +2736,11 @@ msgid "Quantity"
 msgstr "Kuantitas"
 
 #. module: product
-#. openerp-web
-#: code:addons/product/static/src/js/product_pricelist_report.js:0
+#. odoo-javascript
+#: code:addons/product/static/src/js/pricelist_report/product_pricelist_report.js:0
 #, python-format
-msgid "Quantity already present (%d)."
-msgstr ""
+msgid "Quantity already present (%s)."
+msgstr "Kuantitas sudah tersedia (%s)."
 
 #. module: product
 #: model:ir.model.fields,help:product.field_product_packaging__qty
@@ -2307,13 +2760,14 @@ msgstr "Referensi"
 #. module: product
 #: model_terms:ir.actions.act_window,help:product.product_supplierinfo_type_action
 msgid ""
-"Register the prices requested by your vendors for each product, based on the"
-" quantity and the period."
+"Register the prices requested by your vendors for each product, based on the "
+"quantity and the period."
 msgstr ""
 "Daftarkan harga yang diminta oleh vendor Anda untuk setiap produk, "
 "berdasarkan kuantitas dan periode."
 
 #. module: product
+#. odoo-python
 #: code:addons/product/models/product_attribute.py:0
 #: model:ir.model.fields,field_description:product.field_product_attribute__product_tmpl_ids
 #, python-format
@@ -2326,20 +2780,52 @@ msgid "Related Variants"
 msgstr "Varian-Varian Terkait"
 
 #. module: product
-#. openerp-web
-#: code:addons/product/static/src/xml/pricelist_report.xml:0
+#: model:ir.model.fields,field_description:product.field_product_document__ir_attachment_id
+msgid "Related attachment"
+msgstr "Lampiran terkait"
+
+#. module: product
+#. odoo-javascript
+#: code:addons/product/static/src/product_catalog/order_line/order_line.xml:0
+#, python-format
+msgid "Remove"
+msgstr "Hapus"
+
+#. module: product
+#. odoo-javascript
+#: code:addons/product/static/src/js/pricelist_report/product_pricelist_report.xml:0
 #, python-format
 msgid "Remove quantity"
 msgstr "Hapus kuantitas"
 
 #. module: product
+#: model:ir.model.fields,field_description:product.field_product_document__res_field
+msgid "Resource Field"
+msgstr "Kolom Sumber Daya"
+
+#. module: product
+#: model:ir.model.fields,field_description:product.field_product_document__res_id
+msgid "Resource ID"
+msgstr "ID Sumber Daya"
+
+#. module: product
+#: model:ir.model.fields,field_description:product.field_product_document__res_model
+msgid "Resource Model"
+msgstr "Model Sumber Daya"
+
+#. module: product
+#: model:ir.model.fields,field_description:product.field_product_document__res_name
+msgid "Resource Name"
+msgstr "Nama Sumber Daya"
+
+#. module: product
+#: model:ir.model.fields,field_description:product.field_product_pricelist__activity_user_id
 #: model:ir.model.fields,field_description:product.field_product_product__activity_user_id
 #: model:ir.model.fields,field_description:product.field_product_template__activity_user_id
 msgid "Responsible User"
 msgstr "Tanggung-jawab"
 
 #. module: product
-#: model:product.product,name:product.expense_product
 #: model:product.template,name:product.expense_product_product_template
 msgid "Restaurant Expenses"
 msgstr "Pengeluaran Restoran"
@@ -2397,12 +2883,6 @@ msgid "Select"
 msgstr "Pilih"
 
 #. module: product
-#: model:ir.model.fields,help:product.field_product_product__categ_id
-#: model:ir.model.fields,help:product.field_product_template__categ_id
-msgid "Select category for the current product"
-msgstr "Pilih kategori untuk produk ini"
-
-#. module: product
 #: model:ir.model.fields,field_description:product.field_product_attribute__sequence
 #: model:ir.model.fields,field_description:product.field_product_attribute_value__sequence
 #: model:ir.model.fields,field_description:product.field_product_packaging__sequence
@@ -2410,6 +2890,7 @@ msgstr "Pilih kategori untuk produk ini"
 #: model:ir.model.fields,field_description:product.field_product_product__sequence
 #: model:ir.model.fields,field_description:product.field_product_supplierinfo__sequence
 #: model:ir.model.fields,field_description:product.field_product_template__sequence
+#: model:ir.model.fields,field_description:product.field_product_template_attribute_line__sequence
 msgid "Sequence"
 msgstr "Urutan"
 
@@ -2417,12 +2898,13 @@ msgstr "Urutan"
 #: model:ir.model.fields.selection,name:product.selection__product_template__detailed_type__service
 #: model:ir.model.fields.selection,name:product.selection__product_template__type__service
 msgid "Service"
-msgstr "Jasa"
+msgstr "Layanan"
 
 #. module: product
 #: model_terms:ir.ui.view,arch_db:product.product_template_search_view
+#: model_terms:ir.ui.view,arch_db:product.product_view_search_catalog
 msgid "Services"
-msgstr "Jasa"
+msgstr "Layanan"
 
 #. module: product
 #: model:ir.model.fields,help:product.field_product_pricelist_item__price_round
@@ -2433,7 +2915,8 @@ msgid ""
 msgstr ""
 "Menetapkan harga sehingga merupakan kelipatan dari nilai ini.\n"
 "Pembulatan diterapkan setelah diskon dan sebelum biaya tambahan.\n"
-"Untuk memiliki harga yang berakhir pada 9,99, pembulatan 10 set, biaya tambahan -0,01"
+"Untuk memiliki harga yang berakhir pada 9,99, pembulatan 10 set, biaya "
+"tambahan -0,01"
 
 #. module: product
 #: model_terms:ir.ui.view,arch_db:product.product_template_search_view
@@ -2475,9 +2958,11 @@ msgstr ""
 #. module: product
 #: model:ir.model.fields,help:product.field_product_pricelist_item__price_surcharge
 msgid ""
-"Specify the fixed amount to add or subtract(if negative) to the amount "
+"Specify the fixed amount to add or subtract (if negative) to the amount "
 "calculated with the discount."
 msgstr ""
+"Tentukan jumlah tetap untuk menambah atau mengurangi (jika negatif) jumlah "
+"yang dihitung dengan diskon."
 
 #. module: product
 #: model:ir.model.fields,help:product.field_product_pricelist_item__price_max_margin
@@ -2507,9 +2992,11 @@ msgid ""
 "The displayed value depends on the timezone set in your preferences."
 msgstr ""
 "Tanggalwaktu awal untuk validasi item daftar harga\n"
-"Value yang ditampilkan tergantung pada zona waktu yang ditetapkan di preferensi Anda."
+"Value yang ditampilkan tergantung pada zona waktu yang ditetapkan di "
+"preferensi Anda."
 
 #. module: product
+#: model:ir.model.fields,help:product.field_product_pricelist__activity_state
 #: model:ir.model.fields,help:product.field_product_product__activity_state
 #: model:ir.model.fields,help:product.field_product_template__activity_state
 msgid ""
@@ -2525,16 +3012,18 @@ msgstr ""
 
 #. module: product
 #: model:product.attribute.value,name:product.product_attribute_value_1
-#: model:product.template.attribute.value,name:product.product_11_attribute_1_value_1
-#: model:product.template.attribute.value,name:product.product_4_attribute_1_value_1
 msgid "Steel"
 msgstr "Baja"
 
 #. module: product
-#: model:product.product,name:product.product_product_7
 #: model:product.template,name:product.product_product_7_product_template
 msgid "Storage Box"
 msgstr "Kotak Penyimpanan"
+
+#. module: product
+#: model:ir.model.fields,field_description:product.field_product_document__store_fname
+msgid "Stored Filename"
+msgstr "Nama File yang Disimpan"
 
 #. module: product
 #: model:ir.model,name:product.model_product_supplierinfo
@@ -2542,38 +3031,45 @@ msgid "Supplier Pricelist"
 msgstr "Daftar harga Supplier"
 
 #. module: product
-#: model:ir.model.fields,help:product.field_product_product__valid_product_template_attribute_line_ids
-#: model:ir.model.fields,help:product.field_product_template__valid_product_template_attribute_line_ids
-msgid "Technical compute"
-msgstr ""
+#: model:ir.model.constraint,message:product.constraint_product_tag_name_uniq
+msgid "Tag name already exists!"
+msgstr "Nama tag sudah ada!"
 
 #. module: product
-#: model:ir.model.fields,help:product.field_product_product__pricelist_id
-#: model:ir.model.fields,help:product.field_product_template__pricelist_id
-msgid ""
-"Technical field. Used for searching on pricelists, not stored in database."
-msgstr ""
-"Kolom teknis. Digunakan untuk pencarian daftar harga, tidak tersimpan di "
-"database."
+#: model_terms:ir.ui.view,arch_db:product.product_variant_easy_edit_view
+msgid "Tags"
+msgstr "Label"
 
 #. module: product
-#: code:addons/product/models/product.py:0
+#: model_terms:ir.actions.act_window,help:product.product_tag_action
+msgid "Tags are used to search product for a given theme."
+msgstr "Tag yang digunakan untuk mencari produk untuk tema tertentu."
+
+#. module: product
+#. odoo-python
+#: code:addons/product/models/product_product.py:0
 #: code:addons/product/models/product_template.py:0
 #, python-format
 msgid "The Internal Reference '%s' already exists."
 msgstr "Referensi Internal '%s' sudah tersedia."
 
 #. module: product
+#. odoo-python
 #: code:addons/product/models/product_template.py:0
 #, python-format
 msgid "The Type of this product doesn't match the Detailed Type"
 msgstr "Tipe produk ini tidak cocok dengan Tipe Detail"
 
 #. module: product
-#: code:addons/product/models/product_attribute.py:0
+#. odoo-python
+#: code:addons/product/models/product_template_attribute_line.py:0
 #, python-format
-msgid "The attribute %s must have at least one value for the product %s."
+msgid ""
+"The attribute %(attribute)s must have at least one value for the product "
+"%(product)s."
 msgstr ""
+"Atribut %(attribute)s harus memiliki setidaknya satu value untuk produk "
+"%(product)s."
 
 #. module: product
 #: model:ir.model.fields,help:product.field_product_attribute_value__attribute_id
@@ -2592,6 +3088,7 @@ msgid ""
 msgstr "Harga terhitung dinyatakan dalam satuan standar produk."
 
 #. module: product
+#. odoo-python
 #: code:addons/product/models/product_template.py:0
 #, python-format
 msgid ""
@@ -2614,19 +3111,17 @@ msgid "The first in the sequence is the default one."
 msgstr "Urutan pertama adalah yang terstandar."
 
 #. module: product
-#: model_terms:product.product,website_description:product.product_product_4
-#: model_terms:product.product,website_description:product.product_product_4b
-#: model_terms:product.product,website_description:product.product_product_4c
 #: model_terms:product.template,website_description:product.product_product_4_product_template
 msgid ""
 "The minimum height is 65 cm, and for standing work the maximum height "
 "position is 125 cm."
 msgstr ""
-"Tinggi minimal adalah 65 cm, dan untuk posisi berdiri tinggi maksimal adalah"
-" 125 cm."
+"Tinggi minimal adalah 65 cm, dan untuk posisi berdiri tinggi maksimal adalah "
+"125 cm."
 
 #. module: product
-#: code:addons/product/models/product_pricelist.py:0
+#. odoo-python
+#: code:addons/product/models/product_pricelist_item.py:0
 #, python-format
 msgid "The minimum margin should be lower than the maximum margin."
 msgstr "Margin minimal harus lebih rendah dari margin maksimal."
@@ -2639,15 +3134,16 @@ msgid ""
 msgstr "Jumlah produk di kategori ini (Tidak termasuk sub-kategori)"
 
 #. module: product
+#. odoo-python
 #: code:addons/product/models/product_template.py:0
 #, python-format
 msgid ""
-"The number of variants to generate is too high. You should either not "
-"generate variants for each combination or generate them on demand from the "
-"sales order. To do so, open the form view of attributes and change the mode "
-"of *Create Variants*."
+"The number of variants to generate is above allowed limit. You should either "
+"not generate variants for each combination or generate them on demand from "
+"the sales order. To do so, open the form view of attributes and change the "
+"mode of *Create Variants*."
 msgstr ""
-"Jumlah varian untuk dibuat terlalu tinggi. Anda harus berhenti membuat "
+"Jumlah varian untuk dibuat melampaui batas. Anda harus berhenti membuat "
 "varian untuk setiap kombinasi atau membuat mereka saat dibutuhkan sales "
 "order. Untuk melakukan hal tersebut, buka tampilan formulir atribut dan "
 "ganti mode dari \"Buat Varian\"."
@@ -2658,16 +3154,11 @@ msgid "The price to purchase a product"
 msgstr "Harga beli dari sebuah produk"
 
 #. module: product
+#. odoo-python
 #: code:addons/product/models/product_template.py:0
 #, python-format
 msgid "The product template is archived so no combination is possible."
 msgstr "Templat produk diarsipkan sehingga tidak ada kombinasi yang mungkin."
-
-#. module: product
-#: code:addons/product/models/product.py:0
-#, python-format
-msgid "The product variant must be a variant of the product template."
-msgstr ""
 
 #. module: product
 #: model:ir.model.fields,help:product.field_product_supplierinfo__min_qty
@@ -2681,7 +3172,8 @@ msgstr ""
 "ditunjukkan di satuan ukuran default produk."
 
 #. module: product
-#: code:addons/product/models/product_pricelist.py:0
+#. odoo-python
+#: code:addons/product/models/product_pricelist_item.py:0
 #, python-format
 msgid "The rounding method must be strictly positive."
 msgstr "Metode pembulatan harus selalu positif."
@@ -2689,42 +3181,46 @@ msgstr "Metode pembulatan harus selalu positif."
 #. module: product
 #: model:ir.model.fields,help:product.field_product_product__lst_price
 msgid ""
-"The sale price is managed from the product template. Click on the 'Configure"
-" Variants' button to set the extra attribute prices."
+"The sale price is managed from the product template. Click on the 'Configure "
+"Variants' button to set the extra attribute prices."
 msgstr ""
 "Harga sale dikelola dari templat produk. Klik pada tombol 'Konfigurasi "
 "Varian' untuk menetapkan harga atribut ekstra."
 
 #. module: product
-#: code:addons/product/models/product_attribute.py:0
+#. odoo-python
+#: code:addons/product/models/product_template_attribute_value.py:0
 #, python-format
-msgid "The value %s is not defined for the attribute %s on the product %s."
+msgid ""
+"The value %(value)s is not defined for the attribute %(attribute)s on the "
+"product %(product)s."
 msgstr ""
+"Value %(value)s tidak didefinisikan untuk atribut %(attribute)s pada produk "
+"%(product)s."
 
 #. module: product
+#. odoo-python
 #: code:addons/product/models/product_template.py:0
 #, python-format
 msgid "There are no possible combination."
 msgstr "Tidak ada kombinasi yang mungkin."
 
 #. module: product
+#. odoo-python
 #: code:addons/product/models/product_template.py:0
 #, python-format
 msgid "There are no remaining closest combination."
 msgstr "Tidak ada kombinasi terdekat yang tersisa."
 
 #. module: product
+#. odoo-python
 #: code:addons/product/models/product_template.py:0
 #, python-format
 msgid "There are no remaining possible combination."
 msgstr "Tidak ada kemungkinan kombinasi yang tersisa."
 
 #. module: product
-#: model:ir.model.fields,help:product.field_product_supplierinfo__product_uom
-msgid "This comes from the product form."
-msgstr "Ini berasal dari detail produk."
-
-#. module: product
+#. odoo-python
 #: code:addons/product/models/product_template.py:0
 #, python-format
 msgid ""
@@ -2762,6 +3258,7 @@ msgstr ""
 "rekanan saat ini"
 
 #. module: product
+#. odoo-python
 #: code:addons/product/models/uom_uom.py:0
 #, python-format
 msgid ""
@@ -2770,7 +3267,7 @@ msgid ""
 "Please set a precision between %s and 1."
 msgstr ""
 "Ketepatan pembulatan lebih tinggi dari Tingkat Akurasi Desimal (%s angka).\n"
-"Ini dapat menghasil ketidakkonsistenan di perhitungan.\n"
+"Ini dapat menghasilkan ketidakkonsistenan di perhitungan.\n"
 "Mohon tetapkan ketepatan di antara %s dan 1. "
 
 #. module: product
@@ -2792,13 +3289,11 @@ msgstr ""
 "Kosongkan untuk menggunakan nama internal."
 
 #. module: product
-#: model:product.product,description_sale:product.consu_delivery_01
 #: model:product.template,description_sale:product.consu_delivery_01_product_template
 msgid "Three Seater Sofa with Lounger in Steel Grey Colour"
 msgstr "Sofa Tiga Dudukan dengan Lounger dalam Warna Steel Grey"
 
 #. module: product
-#: model:product.product,name:product.consu_delivery_01
 #: model:product.template,name:product.consu_delivery_01_product_template
 msgid "Three-Seat Sofa"
 msgstr "Sofa Tiga Dudukan"
@@ -2809,22 +3304,36 @@ msgid "Today Activities"
 msgstr "Aktivitas Hari ini"
 
 #. module: product
+#: model:ir.model.fields,field_description:product.field_product_document__type
 #: model:ir.model.fields,field_description:product.field_product_product__type
 #: model:ir.model.fields,field_description:product.field_product_template__type
 msgid "Type"
 msgstr "Jenis"
 
 #. module: product
+#: model:ir.model.fields,help:product.field_product_pricelist__activity_exception_decoration
 #: model:ir.model.fields,help:product.field_product_product__activity_exception_decoration
 #: model:ir.model.fields,help:product.field_product_template__activity_exception_decoration
 msgid "Type of the exception activity on record."
 msgstr "Jenis dari aktivitas pengecualian pada rekaman data."
 
 #. module: product
+#: model_terms:ir.ui.view,arch_db:product.report_pricelist_page
+msgid "UOM"
+msgstr "Satuan Ukuran"
+
+#. module: product
+#. odoo-python
 #: code:addons/product/wizard/product_label_layout.py:0
 #, python-format
 msgid "Unable to find report template for %s format"
 msgstr "Tidak dapat menemukan laporan templat untuk format %s"
+
+#. module: product
+#: model_terms:ir.ui.view,arch_db:product.product_product_tree_view
+#: model_terms:ir.ui.view,arch_db:product.product_template_tree_view
+msgid "Unit"
+msgstr "Unit"
 
 #. module: product
 #: model_terms:ir.ui.view,arch_db:product.product_supplierinfo_form_view
@@ -2837,7 +3346,7 @@ msgstr "Harga Satuan"
 #: model:ir.model.fields,field_description:product.field_product_supplierinfo__product_uom
 #: model:ir.model.fields,field_description:product.field_product_template__uom_id
 msgid "Unit of Measure"
-msgstr "Satuan"
+msgstr "Satuan Ukuran"
 
 #. module: product
 #: model:ir.model.fields,field_description:product.field_product_product__uom_name
@@ -2846,57 +3355,14 @@ msgid "Unit of Measure Name"
 msgstr "Nama Satuan Ukuran"
 
 #. module: product
-#: model:product.product,uom_name:product.consu_delivery_01
-#: model:product.product,uom_name:product.consu_delivery_02
-#: model:product.product,uom_name:product.consu_delivery_03
-#: model:product.product,uom_name:product.expense_product
-#: model:product.product,uom_name:product.product_delivery_01
-#: model:product.product,uom_name:product.product_delivery_02
-#: model:product.product,uom_name:product.product_order_01
-#: model:product.product,uom_name:product.product_product_10
-#: model:product.product,uom_name:product.product_product_11
-#: model:product.product,uom_name:product.product_product_11b
-#: model:product.product,uom_name:product.product_product_12
-#: model:product.product,uom_name:product.product_product_13
-#: model:product.product,uom_name:product.product_product_16
-#: model:product.product,uom_name:product.product_product_20
-#: model:product.product,uom_name:product.product_product_22
-#: model:product.product,uom_name:product.product_product_24
-#: model:product.product,uom_name:product.product_product_25
-#: model:product.product,uom_name:product.product_product_27
-#: model:product.product,uom_name:product.product_product_3
-#: model:product.product,uom_name:product.product_product_4
-#: model:product.product,uom_name:product.product_product_4b
-#: model:product.product,uom_name:product.product_product_4c
-#: model:product.product,uom_name:product.product_product_5
-#: model:product.product,uom_name:product.product_product_6
-#: model:product.product,uom_name:product.product_product_7
-#: model:product.product,uom_name:product.product_product_8
-#: model:product.product,uom_name:product.product_product_9
-#: model:product.template,uom_name:product.consu_delivery_01_product_template
-#: model:product.template,uom_name:product.consu_delivery_02_product_template
-#: model:product.template,uom_name:product.consu_delivery_03_product_template
-#: model:product.template,uom_name:product.expense_product_product_template
-#: model:product.template,uom_name:product.product_delivery_01_product_template
-#: model:product.template,uom_name:product.product_delivery_02_product_template
-#: model:product.template,uom_name:product.product_order_01_product_template
-#: model:product.template,uom_name:product.product_product_10_product_template
-#: model:product.template,uom_name:product.product_product_11_product_template
-#: model:product.template,uom_name:product.product_product_12_product_template
-#: model:product.template,uom_name:product.product_product_13_product_template
-#: model:product.template,uom_name:product.product_product_16_product_template
-#: model:product.template,uom_name:product.product_product_20_product_template
-#: model:product.template,uom_name:product.product_product_22_product_template
-#: model:product.template,uom_name:product.product_product_24_product_template
-#: model:product.template,uom_name:product.product_product_25_product_template
-#: model:product.template,uom_name:product.product_product_27_product_template
-#: model:product.template,uom_name:product.product_product_3_product_template
-#: model:product.template,uom_name:product.product_product_4_product_template
-#: model:product.template,uom_name:product.product_product_5_product_template
-#: model:product.template,uom_name:product.product_product_6_product_template
-#: model:product.template,uom_name:product.product_product_7_product_template
-#: model:product.template,uom_name:product.product_product_8_product_template
-#: model:product.template,uom_name:product.product_product_9_product_template
+#. odoo-javascript
+#: code:addons/product/static/src/product_catalog/order_line/order_line.xml:0
+#, python-format
+msgid "Unit price:"
+msgstr "Harga unit:"
+
+#. module: product
+#: model_terms:ir.ui.view,arch_db:product.report_packagingbarcode
 msgid "Units"
 msgstr "Unit"
 
@@ -2904,24 +3370,21 @@ msgstr "Unit"
 #: model:ir.model.fields,field_description:product.field_res_config_settings__group_uom
 #: model_terms:ir.ui.view,arch_db:product.res_config_settings_view_form
 msgid "Units of Measure"
-msgstr "Satuan"
+msgstr "Satuan Ukuran"
 
 #. module: product
-#: model:ir.model.fields,field_description:product.field_product_product__message_unread
-#: model:ir.model.fields,field_description:product.field_product_template__message_unread
-msgid "Unread Messages"
-msgstr "Pesan Belum Dibaca"
+#. odoo-javascript
+#: code:addons/product/static/src/js/product_document_kanban/product_document_kanban_controller.xml:0
+#, python-format
+msgid "Upload"
+msgstr "Unggah"
 
 #. module: product
-#: model:ir.model.fields,field_description:product.field_product_product__message_unread_counter
-#: model:ir.model.fields,field_description:product.field_product_template__message_unread_counter
-msgid "Unread Messages Counter"
-msgstr "Penghitung Pesan yang Belum Dibaca"
-
-#. module: product
-#: model_terms:ir.ui.view,arch_db:product.report_pricelist_page
-msgid "UoM"
-msgstr "Satuan"
+#. odoo-python
+#: code:addons/product/models/product_template.py:0
+#, python-format
+msgid "Upload files to your product"
+msgstr "Unggah file ke produk Anda"
 
 #. module: product
 #: model_terms:ir.ui.view,arch_db:product.product_template_form_view
@@ -2929,9 +3392,32 @@ msgid "Upsell & Cross-Sell"
 msgstr "Upsell & Cross-Sell"
 
 #. module: product
+#: model:ir.model.fields,field_description:product.field_product_document__url
+msgid "Url"
+msgstr "Url"
+
+#. module: product
+#. odoo-python
+#: code:addons/product/models/product_template.py:0
+#, python-format
+msgid ""
+"Use this feature to store any files you would like to share with your "
+"customers"
+msgstr ""
+"Guynakan fitur ini untuk menyimpan file-file apapun yang Anda ingin bagikan "
+"dengan pelanggan Anda"
+
+#. module: product
 #: model:ir.model.fields,field_description:product.field_product_attribute_value__is_used_on_products
 msgid "Used on Products"
 msgstr "Digunakan pada Produk-Produk"
+
+#. module: product
+#. odoo-javascript
+#: code:addons/product/static/src/js/pricelist_report/product_pricelist_report.xml:0
+#, python-format
+msgid "Username"
+msgstr "Nama Pengguna"
 
 #. module: product
 #: model:ir.model.fields,field_description:product.field_product_product__valid_product_template_attribute_line_ids
@@ -2949,7 +3435,7 @@ msgstr "Masa Berlaku"
 #: model:ir.model.fields,field_description:product.field_product_attribute_value__name
 #: model:ir.model.fields,field_description:product.field_product_template_attribute_value__name
 msgid "Value"
-msgstr "Nilai"
+msgstr "Value"
 
 #. module: product
 #: model:ir.model.fields,field_description:product.field_product_template_attribute_line__value_count
@@ -2960,6 +3446,20 @@ msgstr "Jumlah Value"
 #: model:ir.model.fields,field_description:product.field_product_template_attribute_value__price_extra
 msgid "Value Price Extra"
 msgstr "Value Harga Tambahan"
+
+#. module: product
+#: model:ir.model.fields,help:product.field_product_product__standard_price
+#: model:ir.model.fields,help:product.field_product_template__standard_price
+msgid ""
+"Value of the product (automatically computed in AVCO).\n"
+"        Used to value the product when the purchase cost is not known (e.g. "
+"inventory adjustment).\n"
+"        Used to compute margins on sale orders."
+msgstr ""
+"Value produk (otomatis dihitung di AVCO).\n"
+"        Digunakan untuk menilai produk saat biaya pembelian tidak diketahui "
+"(contoh penyesuaian inventaris).\n"
+"        Digunakan untuk menghitung margin pada sale order."
 
 #. module: product
 #: model:ir.model.fields,field_description:product.field_product_attribute__value_ids
@@ -3027,7 +3527,8 @@ msgid "Variant Values"
 msgstr "Nilai-nilai varian"
 
 #. module: product
-#: code:addons/product/models/product_pricelist.py:0
+#. odoo-python
+#: code:addons/product/models/product_pricelist_item.py:0
 #, python-format
 msgid "Variant: %s"
 msgstr "Varian: %s"
@@ -3046,7 +3547,7 @@ msgid "Variants Creation Mode"
 msgstr "Mode Pembuatan Varian"
 
 #. module: product
-#: model:ir.model.fields,field_description:product.field_product_supplierinfo__name
+#: model:ir.model.fields,field_description:product.field_product_supplierinfo__partner_id
 #: model_terms:ir.ui.view,arch_db:product.product_supplierinfo_form_view
 #: model_terms:ir.ui.view,arch_db:product.product_supplierinfo_search_view
 msgid "Vendor"
@@ -3055,7 +3556,7 @@ msgstr "Pemasok"
 #. module: product
 #: model_terms:ir.ui.view,arch_db:product.product_template_form_view
 msgid "Vendor Bills"
-msgstr "Tagihan Pemasok"
+msgstr "Tagihan Vendor"
 
 #. module: product
 #: model_terms:ir.ui.view,arch_db:product.product_supplierinfo_form_view
@@ -3079,27 +3580,26 @@ msgid "Vendor Product Name"
 msgstr "Nama Produk Pemasok"
 
 #. module: product
-#: model:ir.model.fields,help:product.field_product_supplierinfo__name
-msgid "Vendor of this product"
-msgstr "Pemasok produk ini"
-
-#. module: product
 #: model:ir.model.fields,field_description:product.field_product_product__seller_ids
 #: model:ir.model.fields,field_description:product.field_product_template__seller_ids
 msgid "Vendors"
 msgstr "Pemasok"
 
 #. module: product
-#: model:product.product,name:product.product_product_2
 #: model:product.template,name:product.product_product_2_product_template
 msgid "Virtual Home Staging"
 msgstr "Virtual Home Staging"
 
 #. module: product
-#: model:product.product,name:product.product_product_1
 #: model:product.template,name:product.product_product_1_product_template
+#: model_terms:ir.ui.view,arch_db:product.report_pricelist_page
 msgid "Virtual Interior Design"
 msgstr "Virtual Interior Design"
+
+#. module: product
+#: model:ir.model.fields,field_description:product.field_product_document__voice_ids
+msgid "Voice"
+msgstr "Suara"
 
 #. module: product
 #: model:ir.model.fields,field_description:product.field_product_product__volume
@@ -3121,6 +3621,7 @@ msgid "Volume unit of measure label"
 msgstr "Satuan volume dari label ukuran"
 
 #. module: product
+#. odoo-python
 #: code:addons/product/models/decimal_precision.py:0
 #: code:addons/product/models/uom_uom.py:0
 #, python-format
@@ -3133,13 +3634,10 @@ msgid "Warnings"
 msgstr "Peringatan"
 
 #. module: product
-#: model_terms:product.product,website_description:product.product_product_4
-#: model_terms:product.product,website_description:product.product_product_4b
-#: model_terms:product.product,website_description:product.product_product_4c
 #: model_terms:product.template,website_description:product.product_product_4_product_template
 msgid ""
-"We pay special attention to detail, which is why our desks are of a superior"
-" quality."
+"We pay special attention to detail, which is why our desks are of a superior "
+"quality."
 msgstr ""
 "Kami memberikan perhatian khusus untuk detail, oleh karena itu meja kami "
 "memiliki kualitas yang superior."
@@ -3164,23 +3662,42 @@ msgstr "Satuan berat dari label ukuran"
 
 #. module: product
 #: model:product.attribute.value,name:product.product_attribute_value_3
-#: model:product.template.attribute.value,name:product.product_4_attribute_2_value_1
 msgid "White"
 msgstr "Putih"
 
 #. module: product
+#: model:ir.model.fields,field_description:product.field_product_product__write_date
+msgid "Write Date"
+msgstr "Tulis Tanggal"
+
+#. module: product
+#. odoo-python
+#: code:addons/product/models/res_config_settings.py:0
+#, python-format
+msgid ""
+"You are deactivating the pricelist feature. Every active pricelist will be "
+"archived."
+msgstr ""
+"Anda menonaktifkan fitur daftar harga. Setiap daftar harga aktif akan "
+"diarsip."
+
+#. module: product
+#. odoo-python
 #: code:addons/product/models/decimal_precision.py:0
 #, python-format
 msgid ""
 "You are setting a Decimal Accuracy less precise than the UOMs:\n"
 "%s\n"
 "This may cause inconsistencies in computations.\n"
-"Please increase the rounding of those units of measure, or the digits of this Decimal Accuracy."
+"Please increase the rounding of those units of measure, or the digits of "
+"this Decimal Accuracy."
 msgstr ""
-"Anda menetapkan Tingkat Akurasi Desimal kurang tepat dibandingkan Satuan Ukuran:\n"
+"Anda menetapkan Tingkat Akurasi Desimal kurang tepat dibandingkan Satuan "
+"Ukuran:\n"
 "%s\n"
 "Ini dapat menghasilkan ketidakkonsistenan di perhitungan.\n"
-"Mohon tingkatkan pembulatan satuan ukuran tersebut, atau angka pada Tingkat Akurasi Desimal ini."
+"Mohon tingkatkan pembulatan satuan ukuran tersebut, atau angka pada Tingkat "
+"Akurasi Desimal ini."
 
 #. module: product
 #: model:ir.model.fields,help:product.field_product_pricelist_item__percent_price
@@ -3198,7 +3715,34 @@ msgstr ""
 "satu saat membuat kutipan penjualan baru."
 
 #. module: product
-#: code:addons/product/models/product_pricelist.py:0
+#: model:ir.model.fields,help:product.field_product_document__type
+msgid ""
+"You can either upload a file from your computer or copy/paste an internet "
+"link to your file."
+msgstr ""
+"Anda dapat mengunggah file dari komputer Anda maupun salin/tempel dari "
+"tautan internet ke file Anda."
+
+#. module: product
+#: model:ir.model.fields,help:product.field_product_attribute_value__image
+#: model:ir.model.fields,help:product.field_product_template_attribute_value__image
+msgid ""
+"You can upload an image that will be used as the color of the attribute "
+"value."
+msgstr ""
+"Anda dapat mengunggah gambar yang akan digunakan sebagai warna dari value "
+"atribut."
+
+#. module: product
+#. odoo-javascript
+#: code:addons/product/static/src/product_catalog/order_line/order_line.xml:0
+#, python-format
+msgid "You can't edit this product in the catalog."
+msgstr "Anda tidak dapat mengedit produk ini di katalog."
+
+#. module: product
+#. odoo-python
+#: code:addons/product/models/product_pricelist_item.py:0
 #, python-format
 msgid ""
 "You cannot assign the Main Pricelist as Other Pricelist in PriceList Item"
@@ -3207,48 +3751,67 @@ msgstr ""
 "Item PriceList"
 
 #. module: product
+#. odoo-python
 #: code:addons/product/models/product_attribute.py:0
 #, python-format
 msgid ""
-"You cannot change the Variants Creation Mode of the attribute %s because it is used on the following products:\n"
-"%s"
+"You cannot change the Variants Creation Mode of the attribute %(attribute)s "
+"because it is used on the following products:\n"
+"%(products)s"
 msgstr ""
+"Anda tidak dapat mengubah Mode Pembuatan Varian dari atribut %(attribute)s "
+"karena digunakan pada produk-produk berikut:\n"
+"%(products)s"
 
 #. module: product
-#: code:addons/product/models/product_attribute.py:0
+#. odoo-python
+#: code:addons/product/models/product_attribute_value.py:0
 #, python-format
 msgid ""
-"You cannot change the attribute of the value %s because it is used on the "
-"following products:%s"
+"You cannot change the attribute of the value %(value)s because it is used on "
+"the following products: %(products)s"
 msgstr ""
+"Anda tidak dapat mengubah atribut dari value %(value)s karena digunakan pada "
+"produk-produk berikut: %(products)s"
 
 #. module: product
-#: code:addons/product/models/product_attribute.py:0
+#. odoo-python
+#: code:addons/product/models/product_template_attribute_value.py:0
 #, python-format
-msgid "You cannot change the product of the value %s set on product %s."
+msgid ""
+"You cannot change the product of the value %(value)s set on product "
+"%(product)s."
 msgstr ""
+"Anda tidak dapat mengubah produk dari value %(value)s yang ditetapkan pada "
+"produk %(product)s."
 
 #. module: product
-#: code:addons/product/models/product_attribute.py:0
+#. odoo-python
+#: code:addons/product/models/product_template_attribute_value.py:0
 #, python-format
-msgid "You cannot change the value of the value %s set on product %s."
+msgid ""
+"You cannot change the value of the value %(value)s set on product "
+"%(product)s."
 msgstr ""
+"Anda tidak dapat mengubah value dari value %(value)s yang ditetapkan pada "
+"produk %(product)s."
 
 #. module: product
-#: code:addons/product/models/product.py:0
+#. odoo-python
+#: code:addons/product/models/product_category.py:0
 #, python-format
 msgid "You cannot create recursive categories."
 msgstr "Anda tidak dapat membuat kategori rekursif."
 
 #. module: product
 #: model:ir.model.constraint,message:product.constraint_product_attribute_value_value_company_uniq
-msgid ""
-"You cannot create two values with the same name for the same attribute."
+msgid "You cannot create two values with the same name for the same attribute."
 msgstr ""
 "Anda tidak dapat membuat dua nilai dengan nama yang sama untuk atribut yang "
 "sama."
 
 #. module: product
+#. odoo-python
 #: code:addons/product/models/decimal_precision.py:0
 #, python-format
 msgid ""
@@ -3259,30 +3822,45 @@ msgstr ""
 "dari faktor pembulatan mata uang perusahaan"
 
 #. module: product
-#: code:addons/product/models/product.py:0
+#. odoo-python
+#: code:addons/product/models/product_category.py:0
 #, python-format
 msgid "You cannot delete the %s product category."
 msgstr "Anda tidak dapat menghapus kategori produk %s."
 
 #. module: product
+#. odoo-python
 #: code:addons/product/models/product_attribute.py:0
 #, python-format
 msgid ""
-"You cannot delete the attribute %s because it is used on the following products:\n"
-"%s"
+"You cannot delete the attribute %(attribute)s because it is used on the "
+"following products:\n"
+"%(products)s"
 msgstr ""
+"Anda tidak dapat menghapus atribut %(attribute)s karena digunakan pada "
+"produk-produk berikut:\n"
+"%(products)s"
 
 #. module: product
-#: code:addons/product/models/product_attribute.py:0
+#. odoo-python
+#: code:addons/product/models/product_attribute_value.py:0
 #, python-format
 msgid ""
-"You cannot delete the value %s because it is used on the following products:\n"
-"%s\n"
-" If the value has been associated to a product in the past, you will not be able to delete it."
+"You cannot delete the value %(value)s because it is used on the following "
+"products:\n"
+"%(products)s\n"
+" If the value has been associated to a product in the past, you will not be "
+"able to delete it."
 msgstr ""
+"Anda tidak dapat menghapus value %(value)s karena digunakan pada produk-"
+"produk berikut:\n"
+"%(products)s\n"
+" Bila value telah dikaitkan ke produk di masa lalu, Anda tidak akan dapat "
+"menghapusnya."
 
 #. module: product
-#: code:addons/product/models/product.py:0
+#. odoo-python
+#: code:addons/product/models/product_category.py:0
 #, python-format
 msgid ""
 "You cannot delete this product category, it is the default generic category."
@@ -3291,6 +3869,7 @@ msgstr ""
 "bawaan."
 
 #. module: product
+#. odoo-python
 #: code:addons/product/models/product_pricelist.py:0
 #, python-format
 msgid ""
@@ -3305,30 +3884,27 @@ msgstr ""
 "%s"
 
 #. module: product
-#: code:addons/product/models/product_attribute.py:0
+#. odoo-python
+#: code:addons/product/models/product_attribute_value.py:0
 #, python-format
 msgid "You cannot delete value %s because it was used in some products."
 msgstr ""
 "Anda tidak dapat menghapus value %s karena digunakan di beberapa produk."
 
 #. module: product
-#: code:addons/product/models/product_pricelist.py:0
+#. odoo-python
+#: code:addons/product/models/product_template_attribute_line.py:0
 #, python-format
 msgid ""
-"You cannot disable a pricelist rule, please delete it or archive its "
-"pricelist instead."
+"You cannot move the attribute %(attribute)s from the product %(product_src)s "
+"to the product %(product_dest)s."
 msgstr ""
+"Anda tidak dapat memindahkan atribut %(attribute)s dari produk "
+"%(product_src)s ke produk %(product_dest)s."
 
 #. module: product
-#: code:addons/product/models/product_attribute.py:0
-#, python-format
-msgid ""
-"You cannot move the attribute %s from the product %s to the product %s."
-msgstr ""
-
-#. module: product
-#: code:addons/product/models/product_attribute.py:0
-#: code:addons/product/models/product_attribute.py:0
+#. odoo-python
+#: code:addons/product/models/product_template_attribute_value.py:0
 #, python-format
 msgid ""
 "You cannot update related variants from the values. Please update related "
@@ -3338,6 +3914,20 @@ msgstr ""
 "value terkait dari varian."
 
 #. module: product
+#. odoo-javascript
+#: code:addons/product/static/src/product_catalog/kanban_renderer.xml:0
+#, python-format
+msgid ""
+"You must define a product for everything you sell or purchase,\n"
+"                            whether it's a storable product, a consumable or "
+"a service."
+msgstr ""
+"Anda harus mendefinisikan produk untuk segala sesuatu yang Anda jual atau "
+"beli,\n"
+"                            baik itu produk yang storable, consumable atau "
+"layanan."
+
+#. module: product
 #: model_terms:ir.actions.act_window,help:product.product_normal_action
 #: model_terms:ir.actions.act_window,help:product.product_template_action
 msgid ""
@@ -3345,35 +3935,53 @@ msgid ""
 "                whether it's a storable product, a consumable or a service."
 msgstr ""
 "Anda harus mendefinisikan produk untuk semua yang Anda jual atau beli,\n"
-"                baik itu produk yang bisa disimpan, produk konsumsi atau layanan."
+"                baik itu produk storable, produk consumable atau layanan."
 
 #. module: product
 #: model_terms:ir.actions.act_window,help:product.product_variant_action
 msgid ""
 "You must define a product for everything you sell or purchase,\n"
 "                whether it's a storable product, a consumable or a service.\n"
-"                The product form contains information to simplify the sale process:\n"
-"                price, notes in the quotation, accounting data, procurement methods, etc."
+"                The product form contains information to simplify the sale "
+"process:\n"
+"                price, notes in the quotation, accounting data, procurement "
+"methods, etc."
 msgstr ""
 "Anda harus mendefinisikan produk untuk semua yang Anda jual atau beli,\n"
 "                baik itu produk storable, produk consumable atau layanan.\n"
-"                Formulir produk memiliki informasi untuk menyederhanakan proses sales:\n"
-"                harga, catatan di quotation, data akuntansi, metode pengadaan, dsb."
+"                Formulir produk memiliki informasi untuk menyederhanakan "
+"proses sales:\n"
+"                harga, catatan di quotation, data akuntansi, metode "
+"pengadaan, dsb."
 
 #. module: product
 #: model_terms:ir.actions.act_window,help:product.product_normal_action_sell
 msgid ""
-"You must define a product for everything you sell, whether it's a physical product,\n"
+"You must define a product for everything you sell, whether it's a physical "
+"product,\n"
 "                a consumable or a service you offer to customers.\n"
-"                The product form contains information to simplify the sale process:\n"
-"                price, notes in the quotation, accounting data, procurement methods, etc."
+"                The product form contains information to simplify the sale "
+"process:\n"
+"                price, notes in the quotation, accounting data, procurement "
+"methods, etc."
 msgstr ""
-"Anda harus mendefinisikan produk untuk semua yang Anda jual atau beli, baik itu produk fisik,\n"
+"Anda harus mendefinisikan produk untuk semua yang Anda jual atau beli, baik "
+"itu produk fisik,\n"
 "                consumable atau layanan yang Anda tawarkan ke pelanggan.\n"
-"                Formulir produk memiliki informasi untuk menyederhanakan proses sales:\n"
-"                harga, catatan di quotation, data akuntansi, metode pengadaan, dsb."
+"                Formulir produk memiliki informasi untuk menyederhanakan "
+"proses sales:\n"
+"                harga, catatan di quotation, data akuntansi, metode "
+"pengadaan, dsb."
 
 #. module: product
+#. odoo-javascript
+#: code:addons/product/static/src/js/pricelist_report/product_pricelist_report.js:0
+#, python-format
+msgid "You must leave at least one quantity."
+msgstr "Anda harus meninggalkan setidaknya satu kuantitas."
+
+#. module: product
+#. odoo-python
 #: code:addons/product/wizard/product_label_layout.py:0
 #, python-format
 msgid "You need to set a positive quantity."
@@ -3406,12 +4014,18 @@ msgid "e.g. USD Retailers"
 msgstr "contoh Retailer USD"
 
 #. module: product
+#: model_terms:ir.ui.view,arch_db:product.product_document_form
+msgid "on"
+msgstr "pada"
+
+#. module: product
 #: model_terms:ir.ui.view,arch_db:product.product_template_form_view
 msgid "per"
 msgstr "per"
 
 #. module: product
-#: code:addons/product/models/product.py:0
+#. odoo-python
+#: code:addons/product/models/product_product.py:0
 #: code:addons/product/models/product_template.py:0
 #, python-format
 msgid "product"

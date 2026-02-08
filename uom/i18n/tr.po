@@ -1,52 +1,58 @@
 # Translation of Odoo Server.
 # This file contains the translation of the following modules:
-# 	* uom
-# 
+# * uom
+#
 # Translators:
-# Martin Trigaux, 2021
-# Levent Karakaş <levent@mektup.at>, 2021
-# Murat Kaplan <muratk@projetgrup.com>, 2021
-# Umur Akın <umura@projetgrup.com>, 2021
-# Nadir Gazioglu <nadirgazioglu@gmail.com>, 2021
-# Ozlem Cikrikci <ozlemc@eskayazilim.com.tr>, 2021
-# Ediz Duman <neps1192@gmail.com>, 2022
-# Tugay Hatıl <tugayh@projetgrup.com>, 2022
-# Ertuğrul Güreş <ertugrulg@projetgrup.com>, 2022
-# 
+# Ozlem Cikrikci <ozlemc@eskayazilim.com.tr>, 2023
+# Levent Karakaş <levent@mektup.at>, 2023
+# Umur Akın <umura@projetgrup.com>, 2023
+# Ediz Duman <neps1192@gmail.com>, 2023
+# Murat Kaplan <muratk@projetgrup.com>, 2023
+# Ertuğrul Güreş <ertugrulg@projetgrup.com>, 2023
+# Martin Trigaux, 2023
+# Nadir Gazioglu <nadirgazioglu@gmail.com>, 2023
+# Tugay Hatıl <tugayh@projetgrup.com>, 2023
+# Weblate <noreply-mt-weblate@weblate.org>, 2026.
 msgid ""
 msgstr ""
-"Project-Id-Version: Odoo Server saas~14.4\n"
+"Project-Id-Version: Odoo Server 17.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2021-07-12 07:50+0000\n"
-"PO-Revision-Date: 2021-09-14 12:27+0000\n"
-"Last-Translator: Ertuğrul Güreş <ertugrulg@projetgrup.com>, 2022\n"
-"Language-Team: Turkish (https://app.transifex.com/odoo/teams/41243/tr/)\n"
+"POT-Creation-Date: 2026-01-15 18:38+0000\n"
+"PO-Revision-Date: 2026-01-17 17:00+0000\n"
+"Last-Translator: Weblate <noreply-mt-weblate@weblate.org>\n"
+"Language-Team: Turkish <https://translate.odoo.com/projects/odoo-17/uom/tr/>"
+"\n"
+"Language: tr\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: \n"
-"Language: tr\n"
 "Plural-Forms: nplurals=2; plural=(n > 1);\n"
+"X-Generator: Weblate 5.14.3\n"
 
 #. module: uom
 #: model_terms:ir.ui.view,arch_db:uom.product_uom_form_view
 msgid ""
 "<span class=\"oe_grey oe_inline\">\n"
-"                                    e.g: 1*(reference unit)=ratio*(this unit)\n"
+"                                    e.g: 1*(reference unit)=ratio*(this "
+"unit)\n"
 "                                </span>"
 msgstr ""
 "<span class=\"oe_grey oe_inline\">\n"
-"                                    e.g: 1*(reference unit)=ratio*(this unit)\n"
+"                                    e.g: 1*(reference unit)=ratio*(this "
+"unit)\n"
 "                                </span>"
 
 #. module: uom
 #: model_terms:ir.ui.view,arch_db:uom.product_uom_form_view
 msgid ""
 "<span class=\"oe_grey oe_inline\">\n"
-"                                    e.g: 1*(this unit)=ratio*(reference unit)\n"
+"                                    e.g: 1*(this unit)=ratio*(reference "
+"unit)\n"
 "                                </span>"
 msgstr ""
 "<span class=\"oe_grey oe_inline\">\n"
-"                                    e.g: 1*(this unit)=ratio*(reference unit)\n"
+"                                    e.g: 1*(this unit)=ratio*(reference "
+"unit)\n"
 "                                </span>"
 
 #. module: uom
@@ -133,9 +139,9 @@ msgid "Dozens"
 msgstr "Düzine"
 
 #. module: uom
-#: model:ir.model.fields,help:uom.field_uom_category__reference_uom_id
-msgid "Dummy field to keep track of reference uom change"
-msgstr "Referans ölçü birimi değişikliğini takip etmek için boş alan"
+#: model:uom.category,name:uom.product_uom_categ_energy
+msgid "Energy"
+msgstr "Enerji"
 
 #. module: uom
 #: model_terms:ir.ui.view,arch_db:uom.uom_uom_view_search
@@ -172,10 +178,9 @@ msgid "ID"
 msgstr "ID"
 
 #. module: uom
-#: model:ir.model.fields,field_description:uom.field_uom_category____last_update
-#: model:ir.model.fields,field_description:uom.field_uom_uom____last_update
-msgid "Last Modified on"
-msgstr "Son Düzenleme"
+#: model:uom.uom,name:uom.product_uom_kwh
+msgid "KWH"
+msgstr ""
 
 #. module: uom
 #: model:ir.model.fields,field_description:uom.field_uom_category__write_uid
@@ -198,6 +203,11 @@ msgstr "Uzunluk / Mesafe"
 #: model:res.groups,name:uom.group_uom
 msgid "Manage Multiple Units of Measure"
 msgstr "Çoklu Ölçü Birim Yönetimi"
+
+#. module: uom
+#: model:uom.uom,name:uom.product_uom_minute
+msgid "Minutes"
+msgstr "Dakika"
 
 #. module: uom
 #: model:ir.model,name:uom.model_uom_uom
@@ -246,24 +256,29 @@ msgid "Smaller than the reference Unit of Measure"
 msgstr "Ölçü referans Biriminden daha küçük"
 
 #. module: uom
+#. odoo-python
 #: code:addons/uom/models/uom_uom.py:0
 #, python-format
 msgid ""
 "Some critical fields have been modified on %s.\n"
 "Note that existing data WON'T be updated by this change.\n"
 "\n"
-"As units of measure impact the whole system, this may cause critical issues.\n"
+"As units of measure impact the whole system, this may cause critical "
+"issues.\n"
 "E.g. modifying the rounding could disturb your inventory balance.\n"
 "\n"
-"Therefore, changing core units of measure in a running database is not recommended."
+"Therefore, changing core units of measure in a running database is not "
+"recommended."
 msgstr ""
 "Bazı kritik alanlar değiştirildi %s.\n"
 "Mevcut verilerin bu değişiklikle güncelleştirilmeyeceğini unutmayın.\n"
 "\n"
-"Ölçü birimleri tüm sistemi etkilediğinden, bu kritik sorunlara neden olabilir.\n"
+"Ölçü birimleri tüm sistemi etkilediğinden, bu kritik sorunlara neden "
+"olabilir.\n"
 "Örn. yuvarlamayı değiştirmek envanter bakiyenizi bozabilir.\n"
 "\n"
-"Bu nedenle, çalışan bir veritabanında temel ölçü birimlerinin değiştirilmesi önerilmez."
+"Bu nedenle, çalışan bir veritabanında temel ölçü birimlerinin değiştirilmesi "
+"önerilmez."
 
 #. module: uom
 #: model:uom.category,name:uom.uom_categ_surface
@@ -285,10 +300,12 @@ msgid "The conversion ratio for a unit of measure cannot be 0!"
 msgstr "Ölçü birimi çevrimi için çevrim oranı 0 olamaz !"
 
 #. module: uom
+#. odoo-python
 #: code:addons/uom/models/uom_uom.py:0
 #, python-format
 msgid ""
-"The following units of measure are used by the system and cannot be deleted: %s\n"
+"The following units of measure are used by the system and cannot be deleted: "
+"%s\n"
 "You can archive them instead."
 msgstr ""
 "Aşağıdaki ölçü birimleri sistem tarafından kullanılır ve silinemez: %s\n"
@@ -305,13 +322,14 @@ msgid "The rounding precision must be strictly positive."
 msgstr "Yuvarlama hassasiyeti kesinlikle pozitif olmalıdır."
 
 #. module: uom
+#. odoo-python
 #: code:addons/uom/models/uom_uom.py:0
 #, python-format
 msgid ""
 "The unit of measure %s defined on the order line doesn't belong to the same "
 "category as the unit of measure %s defined on the product. Please correct "
-"the unit of measure defined on the order line or on the product, they should"
-" belong to the same category."
+"the unit of measure defined on the order line or on the product, they should "
+"belong to the same category."
 msgstr ""
 "Sipariş satırında tanımlanan %s ölçü birimi, ürün üzerinde tanımlanan ölçü "
 "birimi ile aynı kategoriye ait değildir. Lütfen sipariş satırında veya "
@@ -319,6 +337,7 @@ msgstr ""
 "olmalıdır."
 
 #. module: uom
+#. odoo-python
 #: code:addons/uom/models/uom_uom.py:0
 #, python-format
 msgid "The value of ratio could not be Zero"
@@ -340,7 +359,7 @@ msgstr ""
 #. module: uom
 #: model:uom.category,name:uom.product_uom_categ_unit
 msgid "Unit"
-msgstr "Adet"
+msgstr "Birim"
 
 #. module: uom
 #: model:ir.model.fields,field_description:uom.field_uom_uom__name
@@ -355,7 +374,7 @@ msgstr "Ölçü Birim Kategorisi"
 #. module: uom
 #: model:uom.uom,name:uom.product_uom_unit
 msgid "Units"
-msgstr "Adet"
+msgstr "Birim"
 
 #. module: uom
 #: model:ir.actions.act_window,name:uom.product_uom_form_action
@@ -384,17 +403,28 @@ msgid ""
 "            <i>'Time'</i>, you will have the following units of measure:\n"
 "            Hours, Days."
 msgstr ""
-"Aynı kategoriye ait ölçü birimleri birbirleri arasında dönüştürülebilir. Örneğin,  bu kategoride\n"
-"            <i>'Zaman'</i>, bu ölçü birimlerini elde edeceksiniz:\n"
-"            Saat. Gün."
+"Aynı kategoriye ait ölçü birimleri kendi aralarında dönüştürülebilir. \n"
+"Örneğin, <i>'Zaman'</i> kategorisinde şu ölçü birimlerine sahip "
+"olacaksınız: \n"
+"Saat, Gün."
 
 #. module: uom
-#: code:addons/uom/models/uom_uom.py:0 code:addons/uom/models/uom_uom.py:0
+#. odoo-python
+#: code:addons/uom/models/uom_uom.py:0
+#, python-format
+msgid "UoM category %s must have at least one reference unit of measure."
+msgstr ""
+"Ölçü birimi kategorisi %s, en az bir referans ölçü birimine sahip olmalıdır."
+
+#. module: uom
+#. odoo-python
+#: code:addons/uom/models/uom_uom.py:0
 #, python-format
 msgid "UoM category %s should have a reference unit of measure."
 msgstr "%s Ölçü birimi kategorisinin bir referans ölçü birimi olmalıdır."
 
 #. module: uom
+#. odoo-python
 #: code:addons/uom/models/uom_uom.py:0
 #, python-format
 msgid "UoM category %s should only have one reference unit of measure."
@@ -411,16 +441,11 @@ msgid "Volume"
 msgstr "Hacim"
 
 #. module: uom
+#. odoo-python
 #: code:addons/uom/models/uom_uom.py:0
 #, python-format
 msgid "Warning for %s"
 msgstr "%s için uyarı"
-
-#. module: uom
-#: code:addons/uom/models/uom_uom.py:0
-#, python-format
-msgid "Warning!"
-msgstr "Uyarı!"
 
 #. module: uom
 #: model:uom.category,name:uom.product_uom_categ_kgm
@@ -438,8 +463,8 @@ msgid ""
 "You must define a conversion rate between several Units of\n"
 "            Measure within the same category."
 msgstr ""
-"Birkaç Birim arasında bir dönüştürme oranı tanımlamanız gerekir.\n"
-"            Aynı kategoride ölçün."
+"Aynı kategorideki birkaç Ölçü Birimi arasında bir \n"
+"dönüştürme oranı tanımlamanız gerekir."
 
 #. module: uom
 #: model:uom.uom,name:uom.product_uom_cm
@@ -525,3 +550,8 @@ msgstr "ons"
 #: model:uom.uom,name:uom.product_uom_qt
 msgid "qt (US)"
 msgstr "çeyrek(Amerikan)"
+
+#. module: uom
+#: model:uom.uom,name:uom.product_uom_yard
+msgid "yd"
+msgstr "yd"

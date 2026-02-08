@@ -21,17 +21,24 @@ class TestReInvoice(TestCommonSaleTimesheet):
             'service_type': 'timesheet',
             'service_tracking': 'task_in_project'
         }
+        cls.company_data['product_order_no'].write(service_values)
+        service_values['expense_policy'] = 'cost'
         cls.company_data['product_order_cost'].write(service_values)
         cls.company_data['product_delivery_cost'].write(service_values)
+        service_values['expense_policy'] = 'sales_price'
         cls.company_data['product_order_sales_price'].write(service_values)
         cls.company_data['product_delivery_sales_price'].write(service_values)
-        cls.company_data['product_order_no'].write(service_values)
 
         # create AA, SO and invoices
+        cls.analytic_plan = cls.env['account.analytic.plan'].create({
+            'name': 'Timesheet Plan',
+        })
+
         cls.analytic_account = cls.env['account.analytic.account'].create({
             'name': 'Test AA',
             'code': 'TESTSALE_TIMESHEET_REINVOICE',
             'company_id': cls.company_data['company'].id,
+            'plan_id': cls.analytic_plan.id,
             'partner_id': cls.partner_a.id
         })
 
@@ -52,28 +59,20 @@ class TestReInvoice(TestCommonSaleTimesheet):
 
     def test_at_cost(self):
         """ Test vendor bill at cost for product based on ordered and delivered quantities. """
+        # Required for `analytic_account_id` to be visible in the view
+        self.env.user.groups_id += self.env.ref('analytic.group_analytic_accounting')
         # create SO line and confirm SO (with only one line)
         sale_order_line1 = self.env['sale.order.line'].create({
-            'name': self.company_data['product_order_cost'].name,
             'product_id': self.company_data['product_order_cost'].id,
             'product_uom_qty': 2,
-            'product_uom': self.company_data['product_order_cost'].uom_id.id,
-            'price_unit': self.company_data['product_order_cost'].list_price,
             'order_id': self.sale_order.id,
         })
-        sale_order_line1.product_id_change()
         sale_order_line2 = self.env['sale.order.line'].create({
-            'name': self.company_data['product_delivery_cost'].name,
             'product_id': self.company_data['product_delivery_cost'].id,
             'product_uom_qty': 4,
-            'product_uom': self.company_data['product_delivery_cost'].uom_id.id,
-            'price_unit': self.company_data['product_delivery_cost'].list_price,
             'order_id': self.sale_order.id,
         })
-        sale_order_line2.product_id_change()
 
-        self.sale_order.onchange_partner_id()
-        self.sale_order._compute_tax_id()
         self.sale_order.action_confirm()
 
         self.assertEqual(sale_order_line1.qty_delivered_method, 'timesheet', "Delivered quantity of 'service' SO line should be computed by timesheet amount")
@@ -92,14 +91,14 @@ class TestReInvoice(TestCommonSaleTimesheet):
 
         move_form = Form(self.Invoice)
         move_form.partner_id = self.partner_a
-        with move_form.line_ids.new() as line_form:
+        with move_form.invoice_line_ids.new() as line_form:
             line_form.product_id = self.company_data['product_order_cost']
             line_form.quantity = 3.0
-            line_form.analytic_account_id = self.analytic_account
-        with move_form.line_ids.new() as line_form:
+            line_form.analytic_distribution = {self.analytic_account.id: 100}
+        with move_form.invoice_line_ids.new() as line_form:
             line_form.product_id = self.company_data['product_delivery_cost']
             line_form.quantity = 3.0
-            line_form.analytic_account_id = self.analytic_account
+            line_form.analytic_distribution = {self.analytic_account.id: 100}
         invoice_a = move_form.save()
         invoice_a.action_post()
 
@@ -127,14 +126,14 @@ class TestReInvoice(TestCommonSaleTimesheet):
         # create second invoice lines and validate it
         move_form = Form(self.Invoice)
         move_form.partner_id = self.partner_a
-        with move_form.line_ids.new() as line_form:
+        with move_form.invoice_line_ids.new() as line_form:
             line_form.product_id = self.company_data['product_order_cost']
             line_form.quantity = 2.0
-            line_form.analytic_account_id = self.analytic_account
-        with move_form.line_ids.new() as line_form:
+            line_form.analytic_distribution = {self.analytic_account.id: 100}
+        with move_form.invoice_line_ids.new() as line_form:
             line_form.product_id = self.company_data['product_delivery_cost']
             line_form.quantity = 2.0
-            line_form.analytic_account_id = self.analytic_account
+            line_form.analytic_distribution = {self.analytic_account.id: 100}
         invoice_b = move_form.save()
         invoice_b.action_post()
 
@@ -154,28 +153,21 @@ class TestReInvoice(TestCommonSaleTimesheet):
         """ Test invoicing vendor bill at sales price for products based on delivered and ordered quantities. Check no existing SO line is incremented, but when invoicing a
             second time, increment only the delivered so line.
         """
+        # Required for `analytic_account_id` to be visible in the view
+        self.env.user.groups_id += self.env.ref('analytic.group_analytic_accounting')
         # create SO line and confirm SO (with only one line)
         sale_order_line1 = self.env['sale.order.line'].create({
-            'name': self.company_data['product_delivery_sales_price'].name,
             'product_id': self.company_data['product_delivery_sales_price'].id,
             'product_uom_qty': 2,
             'qty_delivered': 1,
-            'product_uom': self.company_data['product_delivery_sales_price'].uom_id.id,
-            'price_unit': self.company_data['product_delivery_sales_price'].list_price,
             'order_id': self.sale_order.id,
         })
-        sale_order_line1.product_id_change()
         sale_order_line2 = self.env['sale.order.line'].create({
-            'name': self.company_data['product_order_sales_price'].name,
             'product_id': self.company_data['product_order_sales_price'].id,
             'product_uom_qty': 3,
             'qty_delivered': 1,
-            'product_uom': self.company_data['product_order_sales_price'].uom_id.id,
-            'price_unit': self.company_data['product_order_sales_price'].list_price,
             'order_id': self.sale_order.id,
         })
-        sale_order_line2.product_id_change()
-        self.sale_order._compute_tax_id()
         self.sale_order.action_confirm()
 
         # let's log some timesheets (on the project created by sale_order_line1)
@@ -191,14 +183,14 @@ class TestReInvoice(TestCommonSaleTimesheet):
         # create invoice lines and validate it
         move_form = Form(self.Invoice)
         move_form.partner_id = self.partner_a
-        with move_form.line_ids.new() as line_form:
+        with move_form.invoice_line_ids.new() as line_form:
             line_form.product_id = self.company_data['product_delivery_sales_price']
             line_form.quantity = 3.0
-            line_form.analytic_account_id = self.analytic_account
-        with move_form.line_ids.new() as line_form:
+            line_form.analytic_distribution = {self.analytic_account.id: 100}
+        with move_form.invoice_line_ids.new() as line_form:
             line_form.product_id = self.company_data['product_order_sales_price']
             line_form.quantity = 3.0
-            line_form.analytic_account_id = self.analytic_account
+            line_form.analytic_distribution = {self.analytic_account.id: 100}
         invoice_a = move_form.save()
         invoice_a.action_post()
 
@@ -226,14 +218,14 @@ class TestReInvoice(TestCommonSaleTimesheet):
         # create second invoice lines and validate it
         move_form = Form(self.Invoice)
         move_form.partner_id = self.partner_a
-        with move_form.line_ids.new() as line_form:
+        with move_form.invoice_line_ids.new() as line_form:
             line_form.product_id = self.company_data['product_delivery_sales_price']
             line_form.quantity = 2.0
-            line_form.analytic_account_id = self.analytic_account
-        with move_form.line_ids.new() as line_form:
+            line_form.analytic_distribution = {self.analytic_account.id: 100}
+        with move_form.invoice_line_ids.new() as line_form:
             line_form.product_id = self.company_data['product_order_sales_price']
             line_form.quantity = 2.0
-            line_form.analytic_account_id = self.analytic_account
+            line_form.analytic_distribution = {self.analytic_account.id: 100}
         invoice_b = move_form.save()
         invoice_b.action_post()
 
@@ -250,26 +242,24 @@ class TestReInvoice(TestCommonSaleTimesheet):
 
     def test_no_expense(self):
         """ Test invoicing vendor bill with no policy. Check nothing happen. """
+        # Required for `analytic_account_id` to be visible in the view
+        self.env.user.groups_id += self.env.ref('analytic.group_analytic_accounting')
         # confirm SO
         sale_order_line = self.env['sale.order.line'].create({
-            'name': self.company_data['product_order_no'].name,
             'product_id': self.company_data['product_order_no'].id,
             'product_uom_qty': 2,
             'qty_delivered': 1,
-            'product_uom': self.company_data['product_order_no'].uom_id.id,
-            'price_unit': self.company_data['product_order_no'].list_price,
             'order_id': self.sale_order.id,
         })
-        self.sale_order._compute_tax_id()
         self.sale_order.action_confirm()
 
         # create invoice lines and validate it
         move_form = Form(self.Invoice)
         move_form.partner_id = self.partner_a
-        with move_form.line_ids.new() as line_form:
+        with move_form.invoice_line_ids.new() as line_form:
             line_form.product_id = self.company_data['product_order_no']
             line_form.quantity = 3.0
-            line_form.analytic_account_id = self.analytic_account
+            line_form.analytic_distribution = {self.analytic_account.id: 100}
         invoice_a = move_form.save()
         invoice_a.action_post()
 
@@ -343,7 +333,6 @@ class TestReInvoice(TestCommonSaleTimesheet):
             "active_model": 'sale.order',
             "active_ids": [sale_order.id],
             "active_id": sale_order.id,
-            'open_invoices': True,
         }
         # Invoice the 1
         wizard = self.env['sale.advance.payment.inv'].with_context(context).create({
@@ -362,10 +351,9 @@ class TestReInvoice(TestCommonSaleTimesheet):
         }
         refund_invoice_wiz = self.env['account.move.reversal'].with_context(wiz_context).create({
             'reason': 'please reverse :c',
-            'refund_method': 'refund',
             'date': today,
         })
-        refund_invoice = self.env['account.move'].browse(refund_invoice_wiz.reverse_moves()['res_id'])
+        refund_invoice = self.env['account.move'].browse(refund_invoice_wiz.refund_moves()['res_id'])
         refund_invoice.action_post()
         # reversing with action_reverse and then action_post does not reset the invoice_status to 'to invoice' in tests
 
@@ -378,3 +366,47 @@ class TestReInvoice(TestCommonSaleTimesheet):
 
         # The actual test :
         wizard.create_invoices()  # No exception should be raised, there is indeed something to be invoiced since it was reversed
+
+    def test_project_update_reinvoiced_vendor_bill_product(self):
+        project_product, expense_product = self.env['product.product'].create([{
+            'name': 'Project creation',
+            'type': 'service',
+            'service_tracking': 'task_in_project',
+        }, {
+            'name': 'Expense Product',
+            'expense_policy': 'sales_price',
+            'list_price': 20,
+        }])
+        sale_order = self.env['sale.order'].create({'partner_id': self.partner_a.id})
+        self.env['sale.order.line'].create({
+            'product_id': project_product.id,
+            'order_id': sale_order.id,
+        })
+        sale_order.action_confirm()
+        project = sale_order.project_ids
+        self.assertTrue(project, 'Project should have been created on sale order confirmation')
+
+        vendor_bill = self.env['account.move'].create({
+            'partner_id': self.partner_a.id,
+            'invoice_date': sale_order.date_order,
+            'journal_id': self.env['account.journal'].search([('code', '=', 'BILL'), ('company_id', '=', self.env.company.id)]).id,
+            'move_type': 'in_invoice',
+        })
+        self.env['account.move.line'].create({
+            'product_id': expense_product.id,
+            'move_id': vendor_bill.id,
+            'account_id': self.env['account.account'].search([('code', '=', '600000'), ('company_id', '=', self.env.company.id)]).id,
+            'analytic_distribution': {project.analytic_account_id.id: 100},
+            'price_unit': 20,
+        })
+        vendor_bill.action_post()  # An analytic line is created for the vendor bill move line
+        self.assertEqual(project.analytic_account_id.vendor_bill_count, 1, 'Vendor bill should be linked to project account')
+        self.assertTrue(vendor_bill.line_ids.analytic_line_ids, 'Analytic line should be created for the account move line')
+        self.assertTrue(sale_order.order_line.analytic_line_ids, 'Analytic line should be linked to the sale order line created by the re-invoiced expense product')
+
+        # Only the original vendor bill amount should appear on the project update, to stay consistent with the corresponding hr_expense behavior
+        updates = project._get_profitability_items()
+        data_line = updates['costs']['data'][0]
+        self.assertEqual(data_line['id'], 'other_purchase_costs')
+        self.assertEqual(data_line['billed'], -20)
+        self.assertEqual(updates['costs']['total']['billed'], -20, 'Only the vendor bill should be deducted')

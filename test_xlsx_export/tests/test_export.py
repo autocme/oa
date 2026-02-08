@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
 
 import json
@@ -8,7 +7,7 @@ from unittest.mock import patch
 from odoo import http
 from odoo.tests import common, tagged
 from odoo.tools.misc import get_lang
-from odoo.addons.web.controllers.main import ExportXlsxWriter
+from odoo.addons.web.controllers.export import ExportXlsxWriter, Export
 from odoo.addons.mail.tests.common import mail_new_test_user
 
 
@@ -62,8 +61,7 @@ class XlsxCreatorCase(common.HttpCase):
         with patch.object(ExportXlsxWriter, 'write', self._mock_write):
             self.url_open('/web/export/xlsx', data={
                 'data': json.dumps(dict(self.default_params, **params)),
-                'token': 'dummy',
-                'csrf_token': http.WebRequest.csrf_token(self),
+                'csrf_token': http.Request.csrf_token(self),
             })
         return self.worksheet
 
@@ -92,8 +90,8 @@ class TestGroupedExport(XlsxCreatorCase):
         export = self.export(values, fields=['int_sum', 'active'], params={'groupby': ['int_sum']})
 
         self.assertExportEqual(export, [
-            ['Int Sum'          ,'Active'],
-            ['1 (1)'            ,''],
+            ['Int Sum', 'Active'],
+            ['1 (1)', ''],
         ])
 
     def test_int_sum_max(self):
@@ -408,3 +406,46 @@ class TestGroupedExport(XlsxCreatorCase):
             ['    86420.864 (1)','86420.86'],
             ['1'                ,'86420.86'],
         ])
+
+    def test_groupby_properties_type_field(self):
+        """Test that exporting works for record grouped by a property field."""
+
+        property_def = [{'name': 'date', 'type': 'date', 'string': 'Date', 'default': '2025-11-11'}]
+        record = self.env['export.group_operator'].create({'definition_properties': property_def})
+        values = [
+            {'int_sum': 10, 'properties': {'date': '2025-11-09'}, 'parent_id': record.id, 'float_min': 86.8},
+            {'int_sum': 10, 'properties': {'date': '2025-11-12'}, 'parent_id': record.id, 'float_min': 82.8},
+            {'int_sum': 10, 'properties': {'date': '2025-09-09'}, 'parent_id': record.id, 'float_min': 20.8},
+        ]
+        export = self.export(
+            values,
+            fields=['int_sum', 'properties'],
+            params={
+                'groupby': ['properties.date:month'],
+                'domain': [('int_sum', '=', 10)],
+            },
+        )
+
+        self.assertExportEqual(export, [
+            ['Int Sum', 'Properties'],
+            ['September 2025 (1)', ''],
+            ['10', "{'date': '2025-09-09'}"],
+            ['November 2025 (2)', ''],
+            ['10', "{'date': '2025-11-09'}"],
+            ['10', "{'date': '2025-11-12'}"],
+        ])
+
+@tagged('-at_install', 'post_install')
+class TestExport(common.HttpCase):
+
+    def test_properties_type_fields_not_selectable_with_import_compat(self):
+        with patch.object(Export, 'fields_get', return_value={
+            'id': {'string': 'ID', 'type': 'integer'},
+            'name': {'string': 'Name', 'type': 'char'},
+            'properties': {'string': 'Properties', 'type': 'properties'},
+            'properties_definition': {'string': 'Properties Definition', 'type': 'properties_definition'}
+        }):
+            fields = Export().get_fields("mock_model", import_compat=True)
+            field_names = [field['id'] for field in fields]
+            self.assertNotIn('properties', field_names)
+            self.assertNotIn('properties_definition', field_names)

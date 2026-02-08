@@ -9,14 +9,7 @@ class StockPicking(models.Model):
     _inherit = 'stock.picking'
 
     def _compute_is_dropship(self):
-        dropship_subcontract_pickings = self.filtered(lambda p:
-            p.location_id.usage == 'supplier'
-            and any(m.location_dest_id == m.partner_id.property_stock_subcontractor
-                    or (m.partner_id.property_stock_subcontractor.parent_path
-                        and m.location_dest_id.parent_path
-                        and m.partner_id.property_stock_subcontractor.parent_path in m.location_dest_id.parent_path)
-                    for m in p.move_lines)
-        )
+        dropship_subcontract_pickings = self.filtered(lambda p: p.location_dest_id.is_subcontracting_location and p.location_id.usage == 'supplier')
         dropship_subcontract_pickings.is_dropship = True
         super(StockPicking, self - dropship_subcontract_pickings)._compute_is_dropship()
 
@@ -27,9 +20,10 @@ class StockPicking(models.Model):
 
     def _action_done(self):
         res = super()._action_done()
+
         # If needed, create a compensation layer, so we add the MO cost to the dropship one
         svls = self.env['stock.valuation.layer']
-        for move in self.move_lines:
+        for move in self.move_ids:
             if not (move.is_subcontract and move._is_dropshipped() and move.state == 'done'):
                 continue
 
@@ -37,7 +31,19 @@ class StockPicking(models.Model):
             if not dropship_svls:
                 continue
 
-            subcontract_svls = move.move_orig_ids.stock_valuation_layer_ids
+            # In a backorder chain, only generate SVLs for the latest backorder, or else their
+            # value will be cumulative.
+            if any(move.move_orig_ids.production_id.mapped('backorder_sequence')):
+                moves_with_svls = move.move_orig_ids.filtered('stock_valuation_layer_ids')
+                subcontract_svls = max(
+                    moves_with_svls,
+                    key=lambda sm: sm.production_id.backorder_sequence
+                ).stock_valuation_layer_ids
+            else:
+                subcontract_svls = move.move_orig_ids.stock_valuation_layer_ids
+            # the subcontract_svls should not have a remaining_value or remaining_qty because they are part of a dropship
+            subcontract_svls.remaining_value = 0
+            subcontract_svls.remaining_qty = 0
             subcontract_value = sum(subcontract_svls.mapped('value'))
             dropship_value = abs(sum(dropship_svls.mapped('value')))
             diff = subcontract_value - dropship_value
@@ -63,7 +69,7 @@ class StockPicking(models.Model):
         res = super()._prepare_subcontract_mo_vals(subcontract_move, bom)
         if not res.get('picking_type_id') and (
                 subcontract_move.location_dest_id.usage == 'customer'
-                or subcontract_move.partner_id.property_stock_subcontractor.parent_path in subcontract_move.location_dest_id.parent_path
+                or subcontract_move.location_dest_id.is_subcontracting_location
         ):
             # If the if-condition is respected, it means that `subcontract_move` is not
             # related to a specific warehouse. This can happen if, for instance, the user

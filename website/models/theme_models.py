@@ -119,7 +119,6 @@ class ThemeAttachment(models.Model):
     url = fields.Char()
     copy_ids = fields.One2many('ir.attachment', 'theme_template_id', 'Attachment using a copy of me', copy=False, readonly=True)
 
-
     def _convert_to_base_model(self, website, **kwargs):
         self.ensure_one()
         new_attach = {
@@ -145,12 +144,22 @@ class ThemeMenu(models.Model):
     new_window = fields.Boolean('New Window')
     sequence = fields.Integer()
     parent_id = fields.Many2one('theme.website.menu', index=True, ondelete="cascade")
+    mega_menu_content = fields.Html()
+    mega_menu_classes = fields.Char()
+
+    use_main_menu_as_parent = fields.Boolean(default=True)
     copy_ids = fields.One2many('website.menu', 'theme_template_id', 'Menu using a copy of me', copy=False, readonly=True)
 
     def _convert_to_base_model(self, website, **kwargs):
         self.ensure_one()
         page_id = self.page_id.copy_ids.filtered(lambda x: x.website_id == website)
-        parent_id = self.parent_id.copy_ids.filtered(lambda x: x.website_id == website)
+
+        parent_id = False
+        if self.parent_id:
+            parent_id = self.parent_id.copy_ids.filtered(lambda x: x.website_id == website)
+        elif self.use_main_menu_as_parent:
+            parent_id = website.menu_id
+
         new_menu = {
             'name': self.name,
             'url': self.url,
@@ -159,6 +168,8 @@ class ThemeMenu(models.Model):
             'sequence': self.sequence,
             'parent_id': parent_id and parent_id.id or False,
             'website_id': website.id,
+            'mega_menu_content': self.mega_menu_content,
+            'mega_menu_classes': self.mega_menu_classes,
             'theme_template_id': self.id,
         }
         return new_menu
@@ -171,6 +182,14 @@ class ThemePage(models.Model):
     url = fields.Char()
     view_id = fields.Many2one('theme.ir.ui.view', required=True, ondelete="cascade")
     website_indexed = fields.Boolean('Page Indexed', default=True)
+    is_published = fields.Boolean()
+
+    # Page options
+    header_overlay = fields.Boolean()
+    header_color = fields.Char()
+    header_visible = fields.Boolean(default=True)
+    footer_visible = fields.Boolean(default=True)
+
     copy_ids = fields.One2many('website.page', 'theme_template_id', 'Page using a copy of me', copy=False, readonly=True)
 
     def _convert_to_base_model(self, website, **kwargs):
@@ -184,7 +203,11 @@ class ThemePage(models.Model):
             'url': self.url,
             'view_id': view_id.id,
             'website_indexed': self.website_indexed,
-            'website_id': website.id,
+            'is_published': self.is_published,
+            'header_overlay': self.header_overlay,
+            'header_color': self.header_color,
+            'header_visible': self.header_visible,
+            'footer_visible': self.footer_visible,
             'theme_template_id': self.id,
         }
         return new_page
@@ -199,13 +222,13 @@ class Theme(models.AbstractModel):
         'website.template_header_hamburger',
         'website.template_header_vertical',
         'website.template_header_sidebar',
-        'website.template_header_slogan',
-        'website.template_header_contact',
         'website.template_header_boxed',
-        'website.template_header_centered_logo',
-        'website.template_header_image',
-        'website.template_header_hamburger_full',
-        'website.template_header_magazine',
+        'website.template_header_stretch',
+        'website.template_header_search',
+        'website.template_header_sales_one',
+        'website.template_header_sales_two',
+        'website.template_header_sales_three',
+        'website.template_header_sales_four',
         # Default one, keep it last
         'website.template_header_default',
     ]
@@ -250,8 +273,8 @@ class Theme(models.AbstractModel):
         )
 
         # Reinitialize effets
-        self.disable_asset('Ripple effect SCSS')
-        self.disable_asset('Ripple effect JS')
+        self.disable_asset("website.ripple_effect_scss")
+        self.disable_asset("website.ripple_effect_js")
 
         # Reinitialize header templates
         for view in self._header_templates[:-1]:
@@ -266,17 +289,16 @@ class Theme(models.AbstractModel):
         # Reinitialize footer scrolltop template
         self.disable_view('website.option_footer_scrolltop')
 
-    # TODO Rename name in key and search with the key in master
     @api.model
-    def _toggle_asset(self, name, active):
+    def _toggle_asset(self, key, active):
         ThemeAsset = self.env['theme.ir.asset'].sudo().with_context(active_test=False)
-        obj = ThemeAsset.search([('name', '=', name)])
+        obj = ThemeAsset.search([('key', '=', key)])
         website = self.env['website'].get_current_website()
         if obj:
             obj = obj.copy_ids.filtered(lambda x: x.website_id == website)
         else:
             Asset = self.env['ir.asset'].sudo().with_context(active_test=False)
-            obj = Asset.search([('name', '=', name)], limit=1)
+            obj = Asset.search([('key', '=', key)], limit=1)
             has_specific = obj.key and Asset.search_count([
                 ('key', '=', obj.key),
                 ('website_id', '=', website.id)
@@ -329,16 +351,6 @@ class Theme(models.AbstractModel):
     def disable_view(self, xml_id):
         self._toggle_view(xml_id, False)
 
-    @api.model
-    def enable_header_off_canvas(self):
-        """ Enabling off canvas require to enable quite a lot of template so
-            this shortcut was made to make it easier.
-        """
-        self.enable_view("website.option_header_off_canvas")
-        self.enable_view("website.option_header_off_canvas_template_header_hamburger")
-        self.enable_view("website.option_header_off_canvas_template_header_sidebar")
-        self.enable_view("website.option_header_off_canvas_template_header_hamburger_full")
-
 
 class IrUiView(models.Model):
     _inherit = 'ir.ui.view'
@@ -366,10 +378,12 @@ class IrUiView(models.Model):
             res &= super(IrUiView, no_arch_updated_views).write(vals)
         return res
 
+
 class IrAsset(models.Model):
     _inherit = 'ir.asset'
 
     theme_template_id = fields.Many2one('theme.ir.asset', copy=False)
+
 
 class IrAttachment(models.Model):
     _inherit = 'ir.attachment'

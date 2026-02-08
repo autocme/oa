@@ -1,28 +1,30 @@
-odoo.define('website.utils', function (require) {
-'use strict';
+/** @odoo-module **/
 
-var ajax = require('web.ajax');
-var core = require('web.core');
-
-const { qweb, _t } = core;
+import { intersection } from "@web/core/utils/arrays";
+import { _t } from "@web/core/l10n/translation";
+import { renderToElement } from "@web/core/utils/render";
+import { App, Component } from "@odoo/owl";
+import { templates } from "@web/core/assets";
+import { UrlAutoComplete } from "@website/components/autocomplete_with_pages/url_autocomplete";
 
 /**
  * Allows to load anchors from a page.
  *
  * @param {string} url
+ * @param {Node} body the editable for which to recover anchors
  * @returns {Deferred<string[]>}
  */
-function loadAnchors(url) {
+function loadAnchors(url, body) {
     return new Promise(function (resolve, reject) {
         if (url === window.location.pathname || url[0] === '#') {
-            resolve(document.body.outerHTML);
+            resolve(body ? body : document.body.outerHTML);
         } else if (url.length && !url.startsWith("http")) {
             $.get(window.location.origin + url).then(resolve, reject);
         } else { // avoid useless query
             resolve();
         }
     }).then(function (response) {
-        const anchors = _.map($(response).find('[id][data-anchor=true]'), function (el) {
+        const anchors = $(response).find('[id][data-anchor=true], .modal[id][data-display="onClick"]').toArray().map((el) => {
             return '#' + el.id;
         });
         // Always suggest the top and the bottom of the page as internal link
@@ -45,77 +47,30 @@ function loadAnchors(url) {
 /**
  * Allows the given input to propose existing website URLs.
  *
- * @param {ServicesMixin|Widget} self - an element capable to trigger an RPC
- * @param {jQuery} $input
+ * @param {HTMLInputElement} input
  */
-function autocompleteWithPages(self, $input, options) {
-    $.widget("website.urlcomplete", $.ui.autocomplete, {
-        options: options || {},
-        _create: function () {
-            this._super();
-            this.widget().menu("option", "items", "> :not(.ui-autocomplete-category)");
+function autocompleteWithPages(input, options= {}) {
+    const owlApp = new App(UrlAutoComplete, {
+        env: Component.env,
+        dev: Component.env.debug,
+        templates,
+        props: {
+            options,
+            loadAnchors,
+            targetDropdown: input,
         },
-        _renderMenu: function (ul, items) {
-            const self = this;
-            items.forEach(item => {
-                if (item.separator) {
-                    self._renderSeparator(ul, item);
-                }
-                else {
-                    self._renderItem(ul, item);
-                }
-            });
-        },
-        _renderSeparator: function (ul, item) {
-            return $("<li class='ui-autocomplete-category font-weight-bold text-capitalize p-2'>")
-                   .append(`<div>${item.separator}</div>`)
-                   .appendTo(ul);
-        },
-        _renderItem: function (ul, item) {
-            return $("<li>")
-                   .data('ui-autocomplete-item', item)
-                   .append(`<div>${item.label}</div>`)
-                   .appendTo(ul);
-        },
+        translatableAttributes: ["data-tooltip"],
+        translateFn: _t,
     });
-    $input.urlcomplete({
-        source: function (request, response) {
-            if (request.term[0] === '#') {
-                loadAnchors(request.term).then(function (anchors) {
-                    response(anchors);
-                });
-            } else if (request.term.startsWith('http') || request.term.length === 0) {
-                // avoid useless call to /website/get_suggested_links
-                response();
-            } else {
-                return self._rpc({
-                    route: '/website/get_suggested_links',
-                    params: {
-                        needle: request.term,
-                        limit: 15,
-                    }
-                }).then(function (res) {
-                    let choices = res.matching_pages;
-                    res.others.forEach(other => {
-                        if (other.values.length) {
-                            choices = choices.concat(
-                                [{separator: other.title}],
-                                other.values,
-                            );
-                        }
-                    });
-                    response(choices);
-                });
-            }
-        },
-        select: function (ev, ui) {
-            // choose url in dropdown with arrow change ev.target.value without trigger_up
-            // so cannot check here if value has been updated
-            ev.target.value = ui.item.value;
-            self.trigger_up('website_url_chosen');
-            ev.preventDefault();
-        },
-    });
+
+    const container = document.createElement("div");
+    container.classList.add("ui-widget", "ui-autocomplete", "ui-widget-content", "border-0");
+    document.body.appendChild(container);
+    owlApp.mount(container)
+    return () => {
+        owlApp.destroy();
+        container.remove();
+    }
 }
 
 /**
@@ -123,7 +78,7 @@ function autocompleteWithPages(self, $input, options) {
  * @param {jQuery} [$excluded]
  */
 function onceAllImagesLoaded($element, $excluded) {
-    var defs = _.map($element.find('img').addBack('img'), function (img) {
+    var defs = Array.from($element.find("img").addBack("img")).map((img) => {
         if (img.complete || $excluded && ($excluded.is(img) || $excluded.has(img).length)) {
             return; // Already loaded
         }
@@ -149,7 +104,7 @@ function prompt(options, _qweb) {
      *
      * Usage Ex:
      *
-     * website.prompt("What... is your quest ?").then(function (answer) {
+     * website.prompt("What... is your quest?").then(function (answer) {
      *     arthur.reply(answer || "To seek the Holy Grail.");
      * });
      *
@@ -175,12 +130,10 @@ function prompt(options, _qweb) {
             text: options
         };
     }
-    var xmlDef;
-    if (_.isUndefined(_qweb)) {
+    if (typeof _qweb === "undefined") {
         _qweb = 'website.prompt';
-        xmlDef = ajax.loadXML('/website/static/src/xml/website.xml', core.qweb);
     }
-    options = _.extend({
+    options = Object.assign({
         window_title: '',
         field_name: '',
         'default': '', // dict notation for IE<9
@@ -189,56 +142,54 @@ function prompt(options, _qweb) {
         btn_secondary_title: _t('Cancel'),
     }, options || {});
 
-    var type = _.intersection(Object.keys(options), ['input', 'textarea', 'select']);
+    var type = intersection(Object.keys(options), ['input', 'textarea', 'select']);
     type = type.length ? type[0] : 'input';
     options.field_type = type;
     options.field_name = options.field_name || options[type];
 
     var def = new Promise(function (resolve, reject) {
-        Promise.resolve(xmlDef).then(function () {
-            var dialog = $(qweb.render(_qweb, options)).appendTo('body');
-            options.$dialog = dialog;
-            var field = dialog.find(options.field_type).first();
-            field.val(options['default']); // dict notation for IE<9
-            field.fillWith = function (data) {
-                if (field.is('select')) {
-                    var select = field[0];
-                    data.forEach(function (item) {
-                        select.options[select.options.length] = new window.Option(item[1], item[0]);
-                    });
-                } else {
-                    field.val(data);
-                }
-            };
-            var init = options.init(field, dialog);
-            Promise.resolve(init).then(function (fill) {
-                if (fill) {
-                    field.fillWith(fill);
-                }
-                dialog.modal('show');
-                field.focus();
-                dialog.on('click', '.btn-primary', function () {
-                    var backdrop = $('.modal-backdrop');
-                    resolve({ val: field.val(), field: field, dialog: dialog });
-                    dialog.modal('hide').remove();
-                        backdrop.remove();
+        var dialog = $(renderToElement(_qweb, options)).appendTo('body');
+        options.$dialog = dialog;
+        var field = dialog.find(options.field_type).first();
+        field.val(options['default']); // dict notation for IE<9
+        field.fillWith = function (data) {
+            if (field.is('select')) {
+                var select = field[0];
+                data.forEach(function (item) {
+                    select.options[select.options.length] = new window.Option(item[1], item[0]);
                 });
-            });
-            dialog.on('hidden.bs.modal', function () {
-                    var backdrop = $('.modal-backdrop');
-                reject();
-                dialog.remove();
+            } else {
+                field.val(data);
+            }
+        };
+        var init = options.init(field, dialog);
+        Promise.resolve(init).then(function (fill) {
+            if (fill) {
+                field.fillWith(fill);
+            }
+            dialog.modal('show');
+            field.focus();
+            dialog.on('click', '.btn-primary', function () {
+                var backdrop = $('.modal-backdrop');
+                resolve({ val: field.val(), field: field, dialog: dialog });
+                dialog.modal('hide').remove();
                     backdrop.remove();
             });
-            if (field.is('input[type="text"], select')) {
-                field.keypress(function (e) {
-                    if (e.which === 13) {
-                        e.preventDefault();
-                        dialog.find('.btn-primary').trigger('click');
-                    }
-                });
-            }
         });
+        dialog.on('hidden.bs.modal', function () {
+                var backdrop = $('.modal-backdrop');
+            reject();
+            dialog.remove();
+                backdrop.remove();
+        });
+        if (field.is('input[type="text"], select')) {
+            field.keypress(function (e) {
+                if (e.key === "Enter") {
+                    e.preventDefault();
+                    dialog.find('.btn-primary').trigger('click');
+                }
+            });
+        }
     });
 
     return def;
@@ -254,6 +205,28 @@ function websiteDomain(self) {
     return ['|', ['website_id', '=', false], ['website_id', '=', websiteID]];
 }
 
+/**
+ * Checks if the 2 given URLs are the same, to prevent redirecting uselessly
+ * from one to another.
+ * It will consider naked URL and `www` URL as the same URL.
+ * It will consider `https` URL `http` URL as the same URL.
+ *
+ * @param {string} url1
+ * @param {string} url2
+ * @returns {Boolean}
+ */
+function isHTTPSorNakedDomainRedirection(url1, url2) {
+    try {
+        url1 = new URL(url1).host;
+        url2 = new URL(url2).host;
+    } catch {
+        // Incorrect URL, `false` URL..
+        return false;
+    }
+    return url1 === url2 ||
+           url1.replace(/^www\./, '') === url2.replace(/^www\./, '');
+}
+
 function sendRequest(route, params) {
     function _addInput(form, name, value) {
         let param = document.createElement('input');
@@ -266,9 +239,14 @@ function sendRequest(route, params) {
     let form = document.createElement('form');
     form.setAttribute('action', route);
     form.setAttribute('method', params.method || 'POST');
+    // This is an exception for the 404 page create page button, in backend we
+    // want to open the response in the top window not in the iframe.
+    if (params.forceTopWindow) {
+        form.setAttribute('target', '_top');
+    }
 
-    if (core.csrf_token) {
-        _addInput(form, 'csrf_token', core.csrf_token);
+    if (odoo.csrf_token) {
+        _addInput(form, 'csrf_token', odoo.csrf_token);
     }
 
     for (const key in params) {
@@ -294,7 +272,33 @@ function sendRequest(route, params) {
  *      efficient in that second case.
  * @returns {Promise<string>} a base64 PNG (as result of a Promise)
  */
-async function svgToPNG(src) {
+export async function svgToPNG(src) {
+    return _exportToPNG(src, "svg+xml");
+}
+
+/**
+ * Converts a base64 WEBP into a base64 PNG.
+ *
+ * @param {string|HTMLImageElement} src - an URL to a WEBP or a *loaded* image
+ *     with such an URL. This allows the call to potentially be a bit more
+ *     efficient in that second case.
+ * @returns {Promise<string>} a base64 PNG (as result of a Promise)
+ */
+export async function webpToPNG(src) {
+    return _exportToPNG(src, "webp");
+}
+
+/**
+ * Converts a formatted base64 image into a base64 PNG.
+ *
+ * @private
+ * @param {string|HTMLImageElement} src - an URL to a image or a *loaded* image
+ *     with such an URL. This allows the call to potentially be a bit more
+ *     efficient in that second case.
+ * @param {string} format - the format of the image
+ * @returns {Promise<string>} a base64 PNG (as result of a Promise)
+ */
+async function _exportToPNG(src, format) {
     function checkImg(imgEl) {
         // Firefox does not support drawing SVG to canvas unless it has width
         // and height attributes set on the root <svg>.
@@ -323,7 +327,7 @@ async function svgToPNG(src) {
     return new Promise(resolve => {
         const imgEl = new Image();
         imgEl.onload = () => {
-            if (checkImg(imgEl)) {
+            if (format !== "svg+xml" || checkImg(imgEl)) {
                 resolve(imgEl);
                 return;
             }
@@ -363,26 +367,62 @@ async function svgToPNG(src) {
 }
 
 /**
+ * Bootstraps an "empty" Google Maps iframe.
+ *
+ * @returns {HTMLIframeElement}
+ */
+export function generateGMapIframe() {
+    const iframeEl = document.createElement('iframe');
+    iframeEl.classList.add('s_map_embedded', 'o_not_editable');
+    iframeEl.setAttribute('width', '100%');
+    iframeEl.setAttribute('height', '100%');
+    iframeEl.setAttribute('frameborder', '0');
+    iframeEl.setAttribute('scrolling', 'no');
+    iframeEl.setAttribute('marginheight', '0');
+    iframeEl.setAttribute('marginwidth', '0');
+    iframeEl.setAttribute('src', 'about:blank');
+    return iframeEl;
+}
+
+/**
  * Generates a Google Maps URL based on the given parameter.
  *
  * @param {DOMStringMap} dataset
  * @returns {string} a Google Maps URL
  */
-function generateGMapLink(dataset) {
+export function generateGMapLink(dataset) {
     return 'https://maps.google.com/maps?q=' + encodeURIComponent(dataset.mapAddress)
-            + '&t=' + encodeURIComponent(dataset.mapType)
-            + '&z=' + encodeURIComponent(dataset.mapZoom)
-            + '&ie=UTF8&iwloc=&output=embed';
+        + '&t=' + encodeURIComponent(dataset.mapType)
+        + '&z=' + encodeURIComponent(dataset.mapZoom)
+        + '&ie=UTF8&iwloc=&output=embed';
+}
+
+/**
+ * Checks if the edited content is currently previewed as in a mobile device.
+ *
+ * @param {Object} self - context object ("this")
+ * @returns {boolean}
+ */
+function isMobile(self) {
+    let isMobile;
+    self.trigger_up("service_context_get", {
+        callback: (ctx) => {
+            isMobile = ctx["isMobile"];
+        },
+    });
+
+    return isMobile;
 }
 
 /**
  * Returns the parsed data coming from the data-for element for the given form.
  *
  * @param {string} formId
+ * @param {HTMLElement} parentEl
  * @returns {Object|undefined} the parsed data
  */
-function getParsedDataFor(formId) {
-    const dataForEl = document.querySelector(`[data-for='${formId}']`);
+function getParsedDataFor(formId, parentEl) {
+    const dataForEl = parentEl.querySelector(`[data-for='${formId}']`);
     if (!dataForEl) {
         return;
     }
@@ -406,7 +446,7 @@ function getParsedDataFor(formId) {
  * @param {Boolean} [keepScripts=false] - whether to keep script tags or not.
  * @returns {DocumentFragment}
  */
-function cloneContentEls(content, keepScripts = false) {
+export function cloneContentEls(content, keepScripts = false) {
     let copyFragment;
     if (typeof content === "string") {
         copyFragment = new Range().createContextualFragment(content);
@@ -421,16 +461,19 @@ function cloneContentEls(content, keepScripts = false) {
     return copyFragment;
 }
 
-return {
+export default {
     loadAnchors: loadAnchors,
     autocompleteWithPages: autocompleteWithPages,
     onceAllImagesLoaded: onceAllImagesLoaded,
     prompt: prompt,
     sendRequest: sendRequest,
     websiteDomain: websiteDomain,
+    isHTTPSorNakedDomainRedirection: isHTTPSorNakedDomainRedirection,
     svgToPNG: svgToPNG,
+    webpToPNG: webpToPNG,
+    generateGMapIframe: generateGMapIframe,
     generateGMapLink: generateGMapLink,
+    isMobile: isMobile,
     getParsedDataFor: getParsedDataFor,
     cloneContentEls: cloneContentEls,
 };
-});

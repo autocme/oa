@@ -1,19 +1,21 @@
 /** @odoo-module **/
 
-const { Component, tags } = owl;
-
-export class NotUpdatable extends Component {
-    shouldUpdate() {
-        return false;
-    }
-}
-NotUpdatable.template = tags.xml`<t t-slot="default" />`;
+import { Component, onError, xml, useSubEnv } from "@odoo/owl";
 
 export class ErrorHandler extends Component {
-    catchError(error) {
-        if (this.props.onError) {
+    setup() {
+        onError((error) => {
             this.props.onError(error);
-        }
+        });
     }
 }
-ErrorHandler.template = tags.xml`<t t-slot="default" />`;
+ErrorHandler.template = xml`<t t-slot="default" />`;
+ErrorHandler.props = ["onError", "slots"];
+
+export class WithEnv extends Component {
+    setup() {
+        useSubEnv(this.props.env);
+    }
+}
+WithEnv.template = xml`<t t-slot="default"/>`;
+WithEnv.props = ["env", "slots"];

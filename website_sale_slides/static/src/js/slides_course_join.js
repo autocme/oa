@@ -1,13 +1,11 @@
-odoo.define('website_sale_slides.course.join.widget', function (require) {
-"use strict";
+/** @odoo-module **/
 
-var CourseJoinWidget = require('@website_slides/js/slides_course_join')[Symbol.for("default")].courseJoinWidget;
-const wUtils = require('website.utils');
+import CourseJoin from "@website_slides/js/slides_course_join";
+import wUtils from "@website/js/utils";
+
+const CourseJoinWidget = CourseJoin.courseJoinWidget;
 
 CourseJoinWidget.include({
-    xmlDependencies: (CourseJoinWidget.prototype.xmlDependencies || []).concat(
-        ["/website_sale_slides/static/src/xml/slide_course_join.xml"]
-    ),
     init: function (parent, options) {
         this._super.apply(this, arguments);
         this.productId = options.channel.productId || false;
@@ -42,6 +40,4 @@ CourseJoinWidget.include({
     },
 });
 
-return CourseJoinWidget;
-
-});
+export default CourseJoinWidget;

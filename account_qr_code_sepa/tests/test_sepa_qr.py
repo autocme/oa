@@ -25,6 +25,8 @@ class TestSEPAQRCode(AccountTestInvoicingCommon):
             'partner_id': cls.company_data['company'].partner_id.id,
         })
 
+        cls.env.ref('base.EUR').active = True
+
         cls.sepa_qr_invoice = cls.env['account.move'].create({
             'move_type': 'out_invoice',
             'partner_id': cls.partner_a.id,
@@ -43,36 +45,93 @@ class TestSEPAQRCode(AccountTestInvoicingCommon):
         self.sepa_qr_invoice.qr_code_method = 'sct_qr'
 
         # Using a SEPA IBAN should work
-        self.sepa_qr_invoice.generate_qr_code()
+        self.sepa_qr_invoice._generate_qr_code()
 
         # Using a non-SEPA IBAN shouldn't
         self.sepa_qr_invoice.partner_bank_id = self.acc_non_sepa_iban
         with self.assertRaises(UserError, msg="It shouldn't be possible to generate a SEPA QR-code for IBAN of countries outside SEPA zone."):
-            self.sepa_qr_invoice.generate_qr_code()
+            self.sepa_qr_invoice._generate_qr_code()
 
         # Changing the currency should break it as well
         self.sepa_qr_invoice.partner_bank_id = self.acc_sepa_iban
         self.sepa_qr_invoice.currency_id = self.env.ref('base.USD').id
         with self.assertRaises(UserError, msg="It shouldn't be possible to generate a SEPA QR-code for another currency as EUR."):
-            self.sepa_qr_invoice.generate_qr_code()
+            self.sepa_qr_invoice._generate_qr_code()
 
     def test_sepa_qr_code_detection(self):
         """ Checks SEPA QR-code auto-detection when no specific QR-method
         is given to the invoice.
         """
-        self.sepa_qr_invoice.generate_qr_code()
+        self.sepa_qr_invoice._generate_qr_code()
         self.assertEqual(self.sepa_qr_invoice.qr_code_method, 'sct_qr', "SEPA QR-code generator should have been chosen for this invoice.")
 
     def test_out_invoice_create_refund_qr_code(self):
-        self.sepa_qr_invoice.generate_qr_code()
+        self.sepa_qr_invoice._generate_qr_code()
         self.sepa_qr_invoice.action_post()
         move_reversal = self.env['account.move.reversal'].with_context(active_model="account.move", active_ids=self.sepa_qr_invoice.ids).create({
             'date': fields.Date.from_string('2019-02-01'),
             'reason': 'no reason',
-            'refund_method': 'refund',
             'journal_id': self.sepa_qr_invoice.journal_id.id,
         })
-        reversal = move_reversal.reverse_moves()
+        reversal = move_reversal.refund_moves()
         reverse_move = self.env['account.move'].browse(reversal['res_id'])
 
         self.assertFalse(reverse_move.qr_code_method, "qr_code_method for credit note should be None")
+
+    def test_get_qr_vals_communication(self):
+        """ The aim of this test is making sure that we only provide a structured
+            reference (or communication) in the qr code values if the communication
+            is well-structured. If the communication is not structured, we provide
+            it through the unstructured communication value.
+        """
+        result = self.acc_sepa_iban._get_qr_vals(
+            qr_method='sct_qr',
+            amount=100.0,
+            currency=self.env.ref('base.EUR'),
+            debtor_partner=None,
+            free_communication='A free communication',
+            structured_communication='A free communication',
+        )
+        self.assertEqual(
+            result,
+            [
+                'BCD',
+                '002',
+                '1',
+                'SCT',
+                '',
+                'company_1_data',
+                'BE15001559627230',
+                'EUR100.0',
+                '',
+                '',
+                'A free communication',
+                '',
+            ]
+        )
+
+        result = self.acc_sepa_iban._get_qr_vals(
+            qr_method='sct_qr',
+            amount=100.0,
+            currency=self.env.ref('base.EUR'),
+            debtor_partner=None,
+            free_communication=' 5 000 0567 89012345 ',  # NL Structured reference
+            structured_communication=' 5 000 0567 89012345 ',  # NL Structured reference
+        )
+        self.assertEqual(
+            result,
+            [
+                'BCD',
+                '002',
+                '1',
+                'SCT',
+                '',
+                'company_1_data',
+                'BE15001559627230',
+                'EUR100.0',
+                '',
+                '5000056789012345',
+                '',
+                '',
+            ]
+        )

@@ -1,59 +1,136 @@
-.o_content {
-    .o_expense_card {
-        border-bottom: 1px solid darken($o-control-panel-background-color, 20%);
-        border-right: 1px solid darken($o-control-panel-background-color, 20%);
-        text-align: center;
-        padding: 10px;
-        .content_center {
-            margin-top: auto;
-            margin-bottom: auto;
-        }
-        div {
-            line-height: 1;
-        }
-    }
-
-    .o_expense_container {
-        @include o-position-sticky($left: 0px);
-        &.o_form_statusbar {
-            margin: 0;  // reset margins for correct view of title header in dashboard
-        }
-    }
-
-    .o_expense_card_last {
-        border-right: 0px;
-    }
-
-    .o_expense_purple {
-        color: $o-enterprise-color;
-    }
-}
 .hr_expense {
-    &.o_list_view, &.o_kanban_view {
-        height: auto;
-        min-height: auto;
+    @include media-breakpoint-up(md) {
+        &.o_list_view, &.o_kanban_view .o_kanban_renderer {
+            min-height: auto;
+        }
     }
 
-    &.o_kanban_view {
-        position: relative;
-    }
-}
-.hr_expense .o_view_nocontent {
-    top: 10%;
-}
-.o_view_nocontent {
-    .o_nocontent_help {
+    .o_view_nocontent {
+        top: 10%;
+
         .o_view_nocontent_expense_receipt:before {
             @extend %o-nocontent-init-image;
-            @include size(300px, 230px);
+            width: 300px;
+            height: 230px;
             background: transparent url(/hr_expense/static/img/nocontent.png) no-repeat center;
             background-size: 300px 230px;
-            margin-bottom: 1rem;
+            margin-bottom: 0.75rem;
         }
     }
 }
-.o_control_panel .o_list_buttons {
-    .o_button_upload_expense {
-        margin-left: 3px;
+
+.o_center_attachment .o-mail-Attachment-imgContainer {
+    display: flex;
+    justify-content: center;
+    z-index: -1;
+
+    img {
+        max-height: 100%;
     }
+}
+
+.o_expense_container {
+    @include media-breakpoint-down(sm) {
+        overflow: auto visible;
+    }
+}
+
+.o_dropzone {
+    width: 100%;
+    height: 100%;
+    position: absolute;
+    background-color: #AAAA;
+    z-index: 2;
+    left: 0;
+    top: 0;
+    i {
+      justify-content: center;
+      display: flex;
+      align-items: center;
+      height: 100%;
+    }
+}
+
+.o_expense_categories td[name="description"] p:last-child {
+    margin-bottom: 0;
+}
+
+/**************
+    PDF EXPORT
+***************/
+.o_content_pdf {
+    .o_header {
+        vertical-align: middle;
+        .col-6 {
+            .row:first-child{
+                padding-top: 15px;
+            }
+
+            .row:last-child{
+                padding-bottom: 15px;
+            }
+        }
+    }
+    .o_table {
+        width: 100%;
+        thead, tbody, tfoot, tr, td, th {
+            border-style: none;
+        }
+
+        /*****************
+            Header of the main table
+        *****************/
+        thead > tr > th {
+            padding: 10px 5px 10px 5px;
+            font-weight: bold;
+            font-size: 1rem;
+            border-bottom: 1px solid black;
+            white-space: nowrap;
+        }
+
+        tbody > tr {
+            white-space: nowrap;
+            td:not(:last-child) {
+                padding: 5px;
+            }
+            td:last-child {
+                padding: 5px 5px 20px 5px;
+            }
+        }
+    }
+    .o_total {
+        page-break-inside: avoid;
+        position:relative;
+        .o_subtable {
+            width: 100%;
+            page-break-inside: avoid;
+            position:relative;
+            tbody, tr, td{
+                border-style: none;
+                padding: 10px 0 10px 0;
+            }
+
+            tr:first-child {
+                border-top: 1px solid black;
+            }
+
+            tr:last-child {
+                border-top:1px solid black;
+            }
+        }
+    }
+}
+
+.o_end_page {
+    page-break-after: always;
+}
+
+.o_attachment_pdf {
+    max-height: 700px;
+    max-width: 700px;
+}
+
+.o_overflow {
+    white-space: normal !important;
+    overflow-wrap: break-word;
 }

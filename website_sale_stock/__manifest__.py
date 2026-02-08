@@ -14,12 +14,16 @@ Then it can be made specific at the product level.
     'depends': [
         'website_sale',
         'sale_stock',
+        'stock_delivery',
     ],
     'data': [
         'views/product_template_views.xml',
         'views/res_config_settings_views.xml',
         'views/website_sale_stock_templates.xml',
-        'views/stock_picking_views.xml'
+        'views/stock_picking_views.xml',
+        'views/website_pages_views.xml',
+        'data/template_email.xml',
+        'data/ir_cron_data.xml',
     ],
     'demo': [
         'data/website_sale_stock_demo.xml',
@@ -28,6 +32,12 @@ Then it can be made specific at the product level.
     'assets': {
         'web.assets_frontend': [
             'website_sale_stock/static/src/js/**/*',
+            'website_sale_stock/static/src/xml/**/*',
+        ],
+        'web.assets_tests': [
+            'website_sale_stock/static/tests/tours/website_sale_stock_multilang.js',
+            'website_sale_stock/static/tests/tours/website_sale_stock_stock_notification.js',
+            'website_sale_stock/static/tests/tours/website_sale_stock_message_after_close_configurator_modal.js'
         ],
     },
     'license': 'LGPL-3',

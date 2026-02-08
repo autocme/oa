@@ -6,13 +6,12 @@
         <field name="inherit_id" ref="mass_mailing.mailing_trace_report_view_tree"/>
         <field name="priority" eval="50"/>
         <field name="mode">primary</field>
-        <field name="type">tree</field>
         <field name="arch" type="xml">
             <xpath expr="//field[@name='opened']" position="attributes">
-                <attribute name="invisible">1</attribute>
+                <attribute name="column_invisible">1</attribute>
             </xpath>
             <xpath expr="//field[@name='replied']" position="attributes">
-                <attribute name="invisible">1</attribute>
+                <attribute name="column_invisible">1</attribute>
             </xpath>
         </field>
     </record>
@@ -23,7 +22,6 @@
         <field name="inherit_id" ref="mass_mailing.mailing_trace_report_view_pivot"/>
         <field name="priority" eval="50"/>
         <field name="mode">primary</field>
-        <field name="type">pivot</field>
         <field name="arch" type="xml">
             <xpath expr="//field[@name='opened']" position="attributes">
                 <attribute name="invisible">1</attribute>
@@ -82,10 +80,5 @@
         <field name="view_mode">tree</field>
         <field name="act_window_id" ref="mailing_trace_report_action_sms"/>
         <field name="view_id" ref="mailing_trace_report_sms_view_tree"/>
-    </record>
-
-    <!-- SMS Marketing / Reporting -->
-    <record id="mass_mailing_sms_menu_reporting" model="ir.ui.menu">
-        <field name="action" ref="mailing_trace_report_action_sms"/>
     </record>
 </odoo>

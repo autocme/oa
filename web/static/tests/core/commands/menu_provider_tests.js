@@ -1,17 +1,20 @@
 /** @odoo-module **/
 
+import { Component, xml } from "@odoo/owl";
 import { createWebClient, getActionManagerServerData } from "@web/../tests/webclient/helpers";
 import { browser } from "@web/core/browser/browser";
+import { Dialog } from "@web/core/dialog/dialog";
 import { registry } from "@web/core/registry";
-import { click, nextTick, patchWithCleanup, triggerHotkey } from "../../helpers/utils";
+import { click, getFixture, nextTick, patchWithCleanup, triggerHotkey } from "../../helpers/utils";
 import { editSearchBar } from "./command_service_tests";
 
 let serverData;
+let target;
 QUnit.module("Menu Command Provider", {
     async beforeEach() {
         patchWithCleanup(browser, {
             clearTimeout: () => {},
-            setTimeout: (later, wait) => {
+            setTimeout: (later) => {
                 later();
             },
         });
@@ -62,75 +65,106 @@ QUnit.module("Menu Command Provider", {
             type: "ir.actions.client",
             params: { description: "Report" },
         };
+
+        target = getFixture();
     },
     afterEach() {},
 });
 
 QUnit.test("displays only apps if the search value is '/'", async (assert) => {
-    const webClient = await createWebClient({ serverData });
-    assert.containsNone(webClient, ".o_menu_brand");
+    await createWebClient({ serverData });
+    assert.containsNone(target, ".o_menu_brand");
 
     triggerHotkey("control+k");
     await nextTick();
     await editSearchBar("/");
-    assert.containsOnce(webClient, ".o_command_palette");
-    assert.containsOnce(webClient, ".o_command_category");
-    assert.containsN(webClient, ".o_command", 2);
+    assert.containsOnce(target, ".o_command_palette");
+    assert.containsOnce(target, ".o_command_category");
+    assert.containsN(target, ".o_command", 2);
     assert.deepEqual(
-        [...webClient.el.querySelectorAll(".o_command")].map((el) => el.textContent),
+        [...target.querySelectorAll(".o_command_name")].map((el) => el.textContent),
         ["Contact", "Sales"]
     );
 });
 
 QUnit.test("displays apps and menu items if the search value is not only '/'", async (assert) => {
-    const webClient = await createWebClient({ serverData });
+    await createWebClient({ serverData });
 
     triggerHotkey("control+k");
     await nextTick();
     await editSearchBar("/sal");
-    assert.containsOnce(webClient, ".o_command_palette");
-    assert.containsN(webClient, ".o_command", 3);
+    assert.containsOnce(target, ".o_command_palette");
+    assert.containsN(target, ".o_command", 3);
     assert.deepEqual(
-        [...webClient.el.querySelectorAll(".o_command")].map((el) => el.textContent),
+        [...target.querySelectorAll(".o_command_name")].map((el) => el.textContent),
         ["Sales", "Sales / Info", "Sales / Report"]
     );
 });
 
 QUnit.test("opens an app", async (assert) => {
-    const webClient = await createWebClient({ serverData });
-    assert.containsNone(webClient, ".o_menu_brand");
+    await createWebClient({ serverData });
+    assert.containsNone(target, ".o_menu_brand");
 
     triggerHotkey("control+k");
     await nextTick();
     await editSearchBar("/");
-    assert.containsOnce(webClient, ".o_command_palette");
+    assert.containsOnce(target, ".o_command_palette");
 
     triggerHotkey("enter");
     await nextTick();
     await nextTick();
-    assert.strictEqual(webClient.el.querySelector(".o_menu_brand").textContent, "Contact");
+    // empty screen for now, wait for actual action to show up
+    await nextTick();
+    assert.strictEqual(target.querySelector(".o_menu_brand").textContent, "Contact");
     assert.strictEqual(
-        webClient.el.querySelector(".test_client_action").textContent,
+        target.querySelector(".test_client_action").textContent,
         " ClientAction_Id 1"
     );
 });
 
 QUnit.test("opens a menu items", async (assert) => {
-    const webClient = await createWebClient({ serverData });
-    assert.containsNone(webClient, ".o_menu_brand");
+    await createWebClient({ serverData });
+    assert.containsNone(target, ".o_menu_brand");
 
     triggerHotkey("control+k");
     await nextTick();
     await editSearchBar("/sal");
-    assert.containsOnce(webClient, ".o_command_palette");
-    assert.containsN(webClient, ".o_command_category", 2);
+    assert.containsOnce(target, ".o_command_palette");
+    assert.containsN(target, ".o_command_category", 2);
 
-    click(webClient.el, "#o_command_2");
+    click(target, "#o_command_2");
     await nextTick();
     await nextTick();
-    assert.strictEqual(webClient.el.querySelector(".o_menu_brand").textContent, "Sales");
+    // empty screen for now, wait for actual action to show up
+    await nextTick();
+    assert.strictEqual(target.querySelector(".o_menu_brand").textContent, "Sales");
     assert.strictEqual(
-        webClient.el.querySelector(".test_client_action").textContent,
+        target.querySelector(".test_client_action").textContent,
         " ClientAction_Report"
     );
+});
+
+QUnit.test("open a menu item when a dialog is displayed", async (assert) => {
+    class CustomDialog extends Component {}
+    CustomDialog.components = { Dialog };
+    CustomDialog.template = xml`<Dialog contentClass="'test'">content</Dialog>`;
+
+    const webclient = await createWebClient({ serverData });
+    assert.containsNone(target, ".o_menu_brand");
+    assert.containsNone(target, ".modal .test");
+
+    webclient.env.services.dialog.add(CustomDialog);
+    await nextTick();
+    assert.containsOnce(target, ".modal .test");
+
+    triggerHotkey("control+k");
+    await nextTick();
+    await editSearchBar("/sal");
+    assert.containsOnce(target, ".o_command_palette");
+    assert.containsOnce(target, ".modal .test");
+
+    await click(target, "#o_command_2");
+    await nextTick();
+    assert.strictEqual(target.querySelector(".o_menu_brand").textContent, "Sales");
+    assert.containsNone(target, ".modal .test");
 });

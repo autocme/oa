@@ -3,7 +3,6 @@
 
 from datetime import datetime
 import random
-import re
 
 from odoo import api, models, fields, _
 from odoo.addons.http_routing.models.ir_http import slug, unslug
@@ -131,7 +130,7 @@ class BlogTagCategory(models.Model):
     tag_ids = fields.One2many('blog.tag', 'category_id', string='Tags')
 
     _sql_constraints = [
-        ('name_uniq', 'unique (name)', "Tag category already exists !"),
+        ('name_uniq', 'unique (name)', "Tag category already exists!"),
     ]
 
 
@@ -146,7 +145,7 @@ class BlogTag(models.Model):
     post_ids = fields.Many2many('blog.post', string='Posts')
 
     _sql_constraints = [
-        ('name_uniq', 'unique (name)', "Tag name already exists !"),
+        ('name_uniq', 'unique (name)', "Tag name already exists!"),
     ]
 
 
@@ -169,11 +168,11 @@ class BlogPost(models.Model):
         '''
     name = fields.Char('Title', required=True, translate=True, default='')
     subtitle = fields.Char('Sub Title', translate=True)
-    author_id = fields.Many2one('res.partner', 'Author', default=lambda self: self.env.user.partner_id)
+    author_id = fields.Many2one('res.partner', 'Author', default=lambda self: self.env.user.partner_id, index='btree_not_null')
     author_avatar = fields.Binary(related='author_id.image_128', string="Avatar", readonly=False)
     author_name = fields.Char(related='author_id.display_name', string="Author Name", readonly=False, store=True)
     active = fields.Boolean('Active', default=True)
-    blog_id = fields.Many2one('blog.blog', 'Blog', required=True, ondelete='cascade')
+    blog_id = fields.Many2one('blog.blog', 'Blog', required=True, ondelete='cascade', default=lambda self: self.env['blog.blog'].search([], limit=1))
     tag_ids = fields.Many2many('blog.tag', string='Tags')
     content = fields.Html('Content', default=_default_content, translate=html_translate, sanitize=False)
     teaser = fields.Text('Teaser', compute='_compute_teaser', inverse='_set_teaser')
@@ -182,14 +181,14 @@ class BlogPost(models.Model):
     website_message_ids = fields.One2many(domain=lambda self: [('model', '=', self._name), ('message_type', '=', 'comment')])
 
     # creation / update stuff
-    create_date = fields.Datetime('Created on', index=True, readonly=True)
+    create_date = fields.Datetime('Created on', readonly=True)
     published_date = fields.Datetime('Published Date')
     post_date = fields.Datetime('Publishing date', compute='_compute_post_date', inverse='_set_post_date', store=True,
                                 help="The blog post will be visible for your visitors as of this date on the website if it is set as published.")
-    create_uid = fields.Many2one('res.users', 'Created by', index=True, readonly=True)
-    write_date = fields.Datetime('Last Updated on', index=True, readonly=True)
-    write_uid = fields.Many2one('res.users', 'Last Contributor', index=True, readonly=True)
-    visits = fields.Integer('No of Views', copy=False, default=0)
+    create_uid = fields.Many2one('res.users', 'Created by', readonly=True)
+    write_date = fields.Datetime('Last Updated on', readonly=True)
+    write_uid = fields.Many2one('res.users', 'Last Contributor', readonly=True)
+    visits = fields.Integer('No of Views', copy=False, default=0, readonly=True)
     website_id = fields.Many2one(related='blog_id.website_id', readonly=True, store=True)
 
     @api.depends('content', 'teaser_manual')
@@ -198,8 +197,7 @@ class BlogPost(models.Model):
             if blog_post.teaser_manual:
                 blog_post.teaser = blog_post.teaser_manual
             else:
-                content = text_from_html(blog_post.content)
-                content = re.sub('\\s+', ' ', content).strip()
+                content = text_from_html(blog_post.content, True)
                 blog_post.teaser = content[:200] + '...'
 
     def _set_teaser(self):
@@ -218,24 +216,26 @@ class BlogPost(models.Model):
         for blog_post in self:
             blog_post.published_date = blog_post.post_date
             if not blog_post.published_date:
-                blog_post._write(dict(post_date=blog_post.create_date)) # dont trigger inverse function
+                blog_post.post_date = blog_post.create_date
 
     def _check_for_publication(self, vals):
         if vals.get('is_published'):
             for post in self.filtered(lambda p: p.active):
-                post.blog_id.message_post_with_view(
+                post.blog_id.message_post_with_source(
                     'website_blog.blog_post_template_new_post',
                     subject=post.name,
-                    values={'post': post},
-                    subtype_id=self.env['ir.model.data']._xmlid_to_res_id('website_blog.mt_blog_blog_published'))
+                    render_values={'post': post},
+                    subtype_xmlid='website_blog.mt_blog_blog_published',
+                )
             return True
         return False
 
-    @api.model
-    def create(self, vals):
-        post_id = super(BlogPost, self.with_context(mail_create_nolog=True)).create(vals)
-        post_id._check_for_publication(vals)
-        return post_id
+    @api.model_create_multi
+    def create(self, vals_list):
+        posts = super(BlogPost, self.with_context(mail_create_nolog=True)).create(vals_list)
+        for post, vals in zip(posts, vals_list):
+            post._check_for_publication(vals)
+        return posts
 
     def write(self, vals):
         result = True
@@ -259,13 +259,13 @@ class BlogPost(models.Model):
         default = dict(default or {}, name=name)
         return super(BlogPost, self).copy_data(default)
 
-    def get_access_action(self, access_uid=None):
+    def _get_access_action(self, access_uid=None, force_website=False):
         """ Instead of the classic form view, redirect to the post on website
         directly if user is an employee or if the post is published. """
         self.ensure_one()
-        user = access_uid and self.env['res.users'].sudo().browse(access_uid) or self.env.user
-        if user.share and not self.sudo().website_published:
-            return super(BlogPost, self).get_access_action(access_uid)
+        user = self.env['res.users'].sudo().browse(access_uid) if access_uid else self.env.user
+        if not force_website and user.share and not self.sudo().website_published:
+            return super(BlogPost, self)._get_access_action(access_uid=access_uid, force_website=force_website)
         return {
             'type': 'ir.actions.act_url',
             'url': self.website_url,
@@ -274,23 +274,30 @@ class BlogPost(models.Model):
             'res_id': self.id,
         }
 
-    def _notify_get_groups(self, msg_vals=None):
+    def _notify_get_recipients_groups(self, message, model_description, msg_vals=None):
         """ Add access button to everyone if the document is published. """
-        groups = super(BlogPost, self)._notify_get_groups(msg_vals=msg_vals)
+        groups = super()._notify_get_recipients_groups(
+            message, model_description, msg_vals=msg_vals
+        )
+        if not self:
+            return groups
 
+        self.ensure_one()
         if self.website_published:
-            for group_name, group_method, group_data in groups:
+            for _group_name, _group_method, group_data in groups:
                 group_data['has_button_access'] = True
 
         return groups
 
-    def _notify_record_by_inbox(self, message, recipients_data, msg_vals=False, **kwargs):
+    def _notify_thread_by_inbox(self, message, recipients_data, msg_vals=False, **kwargs):
         """ Override to avoid keeping all notified recipients of a comment.
         We avoid tracking needaction on post comments. Only emails should be
         sufficient. """
+        if msg_vals is None:
+            msg_vals = {}
         if msg_vals.get('message_type', message.message_type) == 'comment':
             return
-        return super(BlogPost, self)._notify_record_by_inbox(message, recipients_data, msg_vals=msg_vals, **kwargs)
+        return super(BlogPost, self)._notify_thread_by_inbox(message, recipients_data, msg_vals=msg_vals, **kwargs)
 
     def _default_website_meta(self):
         res = super(BlogPost, self)._default_website_meta()

@@ -2,8 +2,7 @@
 import base64
 
 from odoo.tests.common import TransactionCase
-from odoo.modules.module import get_module_resource
-
+from odoo.tools.misc import file_open
 
 class TestProductConfiguratorCommon(TransactionCase):
 
@@ -27,16 +26,19 @@ class TestProductConfiguratorCommon(TransactionCase):
         })
         product_attribute_2 = cls.env['product.attribute'].create({
             'name': 'Color',
+            'display_type': 'color',
             'sequence': 20,
         })
         product_attribute_value_3 = cls.env['product.attribute.value'].create({
             'name': 'White',
             'attribute_id': product_attribute_2.id,
+            'html_color': '#FFFFFF',
             'sequence': 1,
         })
         product_attribute_value_4 = cls.env['product.attribute.value'].create({
             'name': 'Black',
             'attribute_id': product_attribute_2.id,
+            'html_color': '#000000',
             'sequence': 2,
         })
 
@@ -75,8 +77,8 @@ class TestProductConfiguratorCommon(TransactionCase):
         cls.product_product_custo_desk.product_variant_ids[3].active = False
 
         # Setup a first optional product
-        img_path = get_module_resource('product', 'static', 'img', 'product_product_11-image.png')
-        img_content = base64.b64encode(open(img_path, "rb").read())
+        img_path = 'product/static/img/product_product_11-image.png'
+        img_content = base64.b64encode(file_open(img_path, "rb").read())
         cls.product_product_conf_chair = cls.env['product.template'].create({
             'name': 'Conference Chair (TEST)',
             'image_1920': img_content,
@@ -93,12 +95,25 @@ class TestProductConfiguratorCommon(TransactionCase):
 
         # Setup a second optional product
         cls.product_product_conf_chair_floor_protect = cls.env['product.template'].create({
-            'name': 'Chair floor protection',
+            'name': 'Chair floor protection (TEST)',
             'list_price': 12.0,
         })
         cls.product_product_conf_chair.optional_product_ids = [(4, cls.product_product_conf_chair_floor_protect.id)]
 
+        cls.custom_pricelist = cls.env['product.pricelist'].create({
+            'name': 'Custom pricelist (TEST)',
+            'sequence': 4,
+            'item_ids': [(0, 0, {
+                'base': 'list_price',
+                'applied_on': '1_product',
+                'product_tmpl_id': cls.product_product_custo_desk.id,
+                'price_discount': 20,
+                'min_quantity': 2,
+                'compute_price': 'formula'
+            })]
+        })
 
+    @classmethod
     def _create_pricelist(cls, pricelists):
         for pricelist in pricelists:
             if not pricelist.item_ids.filtered(lambda i: i.product_tmpl_id == cls.product_product_custo_desk and i.price_discount == 20):

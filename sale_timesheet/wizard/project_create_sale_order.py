@@ -59,8 +59,8 @@ class ProjectCreateSalesOrder(models.TransientModel):
     def _compute_info_invoice(self):
         for line in self:
             domain = self.env['sale.order.line']._timesheet_compute_delivered_quantity_domain()
-            timesheet = self.env['account.analytic.line'].read_group(domain + [('task_id', 'in', line.project_id.tasks.ids), ('so_line', '=', False), ('timesheet_invoice_id', '=', False)], ['unit_amount'], ['task_id'])
-            unit_amount = round(sum(t.get('unit_amount', 0) for t in timesheet), 2) if timesheet else 0
+            timesheet = self.env['account.analytic.line']._read_group(domain + [('task_id', 'in', line.project_id.tasks.ids), ('so_line', '=', False), ('timesheet_invoice_id', '=', False)], aggregates=['unit_amount:sum'])
+            [unit_amount] = timesheet[0]
             if not unit_amount:
                 line.info_invoice = False
                 continue
@@ -68,7 +68,7 @@ class ProjectCreateSalesOrder(models.TransientModel):
             label = _("hours")
             if company_uom == self.env.ref('uom.product_uom_day'):
                 label = _("days")
-            line.info_invoice = _("%(amount)s %(label)s will be added to the new Sales Order.", amount=unit_amount, label=label)
+            line.info_invoice = _("%(amount)s %(label)s will be added to the new Sales Order.", amount=round(unit_amount, 2), label=label)
 
     @api.onchange('partner_id')
     def _onchange_partner_id(self):
@@ -88,10 +88,10 @@ class ProjectCreateSalesOrder(models.TransientModel):
             map_employees = self.line_ids.mapped('employee_id')
             missing_meployees = timesheet_employees - map_employees
             if missing_meployees:
-                raise UserError(_('The Sales Order cannot be created because you did not enter some employees that entered timesheets on this project. Please list all the relevant employees before creating the Sales Order.\nMissing employee(s): %s') % (', '.join(missing_meployees.mapped('name'))))
+                raise UserError(_('The Sales Order cannot be created because you did not enter some employees that entered timesheets on this project. Please list all the relevant employees before creating the Sales Order.\nMissing employee(s): %s', ', '.join(missing_meployees.mapped('name'))))
 
         # check here if timesheet already linked to SO line
-        timesheet_with_so_line = self.env['account.analytic.line'].search_count([('task_id', 'in', self.project_id.tasks.ids), ('so_line', '!=', False)])
+        timesheet_with_so_line = self.env['account.analytic.line'].search_count([('task_id', 'in', self.project_id.tasks.ids), ('so_line', '!=', False)], limit=1)
         if timesheet_with_so_line:
             raise UserError(_('The sales order cannot be created because some timesheets of this project are already linked to another sales order.'))
 
@@ -115,19 +115,17 @@ class ProjectCreateSalesOrder(models.TransientModel):
             'partner_id': self.partner_id.id,
             'analytic_account_id': self.project_id.analytic_account_id.id,
             'client_order_ref': self.project_id.name,
-            'company_id': self.project_id.company_id.id,
+            'company_id': self.project_id.company_id.id or self.env.company.id,
         })
-        sale_order.onchange_partner_id()
-        sale_order.onchange_partner_shipping_id()
         # rewrite the user as the onchange_partner_id erases it
         sale_order.write({'user_id': self.project_id.user_id.id})
-        sale_order.onchange_user_id()
 
         # create the sale lines, the map (optional), and assign existing timesheet to sale lines
         self._make_billable(sale_order)
 
         # confirm SO
-        sale_order.action_confirm()
+        if sale_order.state != 'sale':
+            sale_order.action_confirm()
         return sale_order
 
     def _make_billable(self, sale_order):
@@ -162,7 +160,6 @@ class ProjectCreateSalesOrder(models.TransientModel):
             task_ids.write({
                 'sale_line_id': sale_order_line.id,
                 'partner_id': sale_order.partner_id.id,
-                'email_from': sale_order.partner_id.email,
             })
 
             # assign SOL to timesheets
@@ -170,9 +167,11 @@ class ProjectCreateSalesOrder(models.TransientModel):
             self.env['account.analytic.line'].search(search_domain).write({
                 'so_line': sale_order_line.id
             })
-            sale_order_line.with_context({'no_update_planned_hours': True}).write({
+            sale_order_line.with_context({'no_update_allocated_hours': True}).write({
                 'product_uom_qty': sale_order_line.qty_delivered
             })
+            # Avoid recomputing price_unit
+            self.env.remove_to_compute(self.env['sale.order.line']._fields['price_unit'], sale_order_line)
 
         self.project_id.write({
             'sale_order_id': sale_order.id,
@@ -235,7 +234,6 @@ class ProjectCreateSalesOrder(models.TransientModel):
         })
         non_billable_tasks.write({
             'partner_id': sale_order.partner_id.id,
-            'email_from': sale_order.partner_id.email,
         })
 
         # assign SOL to timesheets
@@ -244,10 +242,11 @@ class ProjectCreateSalesOrder(models.TransientModel):
             self.env['account.analytic.line'].search(search_domain).write({
                 'so_line': map_entry.sale_line_id.id
             })
-            map_entry.sale_line_id.with_context({'no_update_planned_hours': True}).write({
-                'product_uom_qty': map_entry.sale_line_id.qty_delivered
+            map_entry.sale_line_id.with_context({'no_update_allocated_hours': True}).write({
+                'product_uom_qty': map_entry.sale_line_id.qty_delivered,
             })
-
+            # Avoid recomputing price_unit
+            self.env.remove_to_compute(self.env['sale.order.line']._fields['price_unit'], map_entry.sale_line_id)
         return map_entries
 
 

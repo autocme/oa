@@ -1,8 +1,7 @@
-odoo.define('website.s_table_of_content', function (require) {
-'use strict';
+/** @odoo-module **/
 
-const publicWidget = require('web.public.widget');
-const {extraMenuUpdateCallbacks} = require('website.content.menu');
+import publicWidget from "@web/legacy/js/public/public_widget";
+import {extraMenuUpdateCallbacks} from "@website/js/content/menu";
 
 const TableOfContent = publicWidget.Widget.extend({
     selector: 'section .s_table_of_content_navbar_sticky',
@@ -13,28 +12,24 @@ const TableOfContent = publicWidget.Widget.extend({
      */
     async start() {
         this._stripNavbarStyles();
-
-        // Those links will be recreated when entering edit mode, see
-        // `_generateNav`. No need to recreate those.
-        this.$target.find('.table_of_content_link:hidden').remove();
-
         await this._super(...arguments);
         this.$scrollingElement = this.$target.closest(".s_table_of_content").closestScrollable();
         this.$scrollingTarget = $().getScrollingTarget(this.$scrollingElement);
         this.previousPosition = -1;
         this._updateTableOfContentNavbarPosition();
-
-        this.boundUpdateNavbar = this._updateTableOfContentNavbarPosition.bind(this);
-        extraMenuUpdateCallbacks.push(this.boundUpdateNavbar);
+        this._updateTableOfContentNavbarPositionBound = this._updateTableOfContentNavbarPosition.bind(this);
+        extraMenuUpdateCallbacks.push(this._updateTableOfContentNavbarPositionBound);
     },
     /**
      * @override
      */
     destroy() {
-        const indexOfCallback = extraMenuUpdateCallbacks.indexOf(this.boundUpdateNavbar);
-        extraMenuUpdateCallbacks.splice(indexOfCallback, 1);
-        this.$target.css('top', '');
-        this.$target.find('.s_table_of_content_navbar').css({top: '', maxHeight: ''});
+        const indexCallback = extraMenuUpdateCallbacks.indexOf(this._updateTableOfContentNavbarPositionBound);
+        if (indexCallback >= 0) {
+            extraMenuUpdateCallbacks.splice(indexCallback, 1);
+        }
+        this.$el.css('top', '');
+        this.$el.find('.s_table_of_content_navbar').css({top: '', maxHeight: ''});
         this._super(...arguments);
     },
 
@@ -46,15 +41,13 @@ const TableOfContent = publicWidget.Widget.extend({
      * @private
      */
     _stripNavbarStyles() {
-        // TODO Introduce a `disabledInTranslateMode` flag instead.
-        // Ignore in translation mode.
-        if (this.el.querySelector('[data-oe-translation-id]')) {
-            return;
-        }
-
         // This is needed for styles added on translations when the master text
         // has no style.
-        for (const el of this.el.querySelectorAll('.s_table_of_content_navbar .table_of_content_link')) {
+        for (let el of this.el.querySelectorAll('.s_table_of_content_navbar .table_of_content_link')) {
+            const translationEl = el.querySelector('span[data-oe-translation-state]');
+            if (translationEl) {
+                el = translationEl;
+            }
             const text = el.textContent; // Get text from el.
             el.textContent = text; // Replace all of el's content with that text.
         }
@@ -63,30 +56,25 @@ const TableOfContent = publicWidget.Widget.extend({
      * @private
      */
     _updateTableOfContentNavbarPosition() {
+        if (!this.el.querySelector('a.table_of_content_link')) {
+            // Do not start the scrollspy if the TOC is empty.
+            return;
+        }
         let position = 0;
         const $fixedElements = $('.o_top_fixed_element');
-        _.each($fixedElements, el => position += $(el).outerHeight());
-        const isHorizontalNavbar = this.$target.hasClass('s_table_of_content_horizontal_navbar');
-        this.$target.css('top', isHorizontalNavbar ? position : '');
-        this.$target.find('.s_table_of_content_navbar').css('top', isHorizontalNavbar ? '' : position + 20);
-        const $mainNavBar = $('#oe_main_menu_navbar');
-        const mainNavBarHidden = document.body.classList.contains('o_fullscreen') || this.editableMode;
-        position += !mainNavBarHidden && $mainNavBar.length ? $mainNavBar.outerHeight() : 0;
-        position += isHorizontalNavbar ? this.$target.outerHeight() : 0;
-        this.$target.find('.s_table_of_content_navbar').css('maxHeight', isHorizontalNavbar ? '' : `calc(100vh - ${position + 40}px)`);
+        $fixedElements.toArray().forEach((el) => position += $(el).outerHeight());
+        const isHorizontalNavbar = this.$el.hasClass('s_table_of_content_horizontal_navbar');
+        this.$el.css('top', isHorizontalNavbar ? position : '');
+        this.$el.find('.s_table_of_content_navbar').css('top', isHorizontalNavbar ? '' : position + 20);
+        position += isHorizontalNavbar ? this.$el.outerHeight() : 0;
+        this.$el.find('.s_table_of_content_navbar').css('maxHeight', isHorizontalNavbar ? '' : `calc(100vh - ${position + 40}px)`);
         if (this.previousPosition !== position) {
-            // The scrollSpy must be destroyed before calling it again.
-            // Otherwise the call has no effect. We also need to be sure that
-            // a scrollSpy instance exists to avoid targeting elements outside
-            // the table of content navbar on scrollSpy methods.
-            if (this.$scrollingTarget.data('bs.scrollspy')) {
-                this.$scrollingTarget.scrollspy('dispose');
-            }
-            this.$scrollingTarget.scrollspy({
-                target: '.s_table_of_content_navbar',
+            const target = this.$scrollingTarget[0];
+            new ScrollSpy(target instanceof Window ? target.document.body : target, {
+                target: this.$el.find('.s_table_of_content_navbar'),
                 method: 'offset',
                 offset: position + 100,
-                alwaysKeepFirstActive: true,
+                alwaysKeepFirstActive: true
             });
             this.previousPosition = position;
         }
@@ -120,5 +108,4 @@ publicWidget.registry.anchorSlide.include({
 
 publicWidget.registry.snippetTableOfContent = TableOfContent;
 
-return TableOfContent;
-});
+export default TableOfContent;

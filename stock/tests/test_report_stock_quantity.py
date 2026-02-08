@@ -5,66 +5,66 @@ from datetime import datetime, timedelta
 
 from odoo import fields, tests
 from odoo.tests.common import Form
+from freezegun import freeze_time
 
 
 class TestReportStockQuantity(tests.TransactionCase):
-    def setUp(self):
-        super().setUp()
-        self.product1 = self.env['product.product'].create({
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        # freeze time to avoid test errors due to the class being initialized before 00:00:00 and the test run after
+        cls.fake_today = fields.Date.today()
+        cls.startClassPatcher(freeze_time(cls.fake_today))
+        cls.product1 = cls.env['product.product'].create({
             'name': 'Mellohi',
             'default_code': 'C418',
             'type': 'product',
-            'categ_id': self.env.ref('product.product_category_all').id,
+            'categ_id': cls.env.ref('product.product_category_all').id,
             'tracking': 'lot',
             'barcode': 'scan_me'
         })
-        self.wh = self.env['stock.warehouse'].create({
+        cls.wh = cls.env['stock.warehouse'].create({
             'name': 'Base Warehouse',
             'code': 'TESTWH'
         })
-        self.categ_unit = self.env.ref('uom.product_uom_categ_unit')
-        self.uom_unit = self.env['uom.uom'].search([('category_id', '=', self.categ_unit.id), ('uom_type', '=', 'reference')], limit=1)
-        self.customer_location = self.env.ref('stock.stock_location_customers')
-        self.supplier_location = self.env.ref('stock.stock_location_suppliers')
+        cls.categ_unit = cls.env.ref('uom.product_uom_categ_unit')
+        cls.uom_unit = cls.env['uom.uom'].search([('category_id', '=', cls.categ_unit.id), ('uom_type', '=', 'reference')], limit=1)
+        cls.customer_location = cls.env.ref('stock.stock_location_customers')
+        cls.supplier_location = cls.env.ref('stock.stock_location_suppliers')
         # replenish
-        self.move1 = self.env['stock.move'].create({
+        cls.move1 = cls.env['stock.move'].create({
             'name': 'test_in_1',
-            'location_id': self.supplier_location.id,
-            'location_dest_id': self.wh.lot_stock_id.id,
-            'product_id': self.product1.id,
-            'product_uom': self.uom_unit.id,
+            'location_id': cls.supplier_location.id,
+            'location_dest_id': cls.wh.lot_stock_id.id,
+            'product_id': cls.product1.id,
+            'product_uom': cls.uom_unit.id,
             'product_uom_qty': 100.0,
+            'quantity': 100.0,
             'state': 'done',
             'date': fields.Datetime.now(),
         })
-        self.quant1 = self.env['stock.quant'].create({
-            'product_id': self.product1.id,
-            'location_id': self.wh.lot_stock_id.id,
-            'quantity': 100.0,
-        })
         # ship
-        self.move2 = self.env['stock.move'].create({
+        cls.move2 = cls.env['stock.move'].create({
             'name': 'test_out_1',
-            'location_id': self.wh.lot_stock_id.id,
-            'location_dest_id': self.customer_location.id,
-            'product_id': self.product1.id,
-            'product_uom': self.uom_unit.id,
+            'location_id': cls.wh.lot_stock_id.id,
+            'location_dest_id': cls.customer_location.id,
+            'product_id': cls.product1.id,
+            'product_uom': cls.uom_unit.id,
             'product_uom_qty': 120.0,
             'state': 'partially_available',
             'date': fields.Datetime.add(fields.Datetime.now(), days=3),
             'date_deadline': fields.Datetime.add(fields.Datetime.now(), days=3),
         })
-        self.env['base'].flush()
 
     def test_report_stock_quantity(self):
         from_date = fields.Date.to_string(fields.Date.add(fields.Date.today(), days=-1))
         to_date = fields.Date.to_string(fields.Date.add(fields.Date.today(), days=4))
-        report = self.env['report.stock.quantity'].read_group(
+        report = self.env['report.stock.quantity']._read_group(
             [('date', '>=', from_date), ('date', '<=', to_date), ('product_id', '=', self.product1.id)],
-            ['product_qty', 'date', 'product_id', 'state'],
             ['date:day', 'product_id', 'state'],
-            lazy=False)
-        forecast_report = [x['product_qty'] for x in report if x['state'] == 'forecast']
+            ['product_qty:sum'])
+        forecast_report = [qty for __, __, state, qty in report if state == 'forecast']
         self.assertEqual(forecast_report, [0, 100, 100, 100, -20, -20])
 
     def test_report_stock_quantity_stansit(self):
@@ -94,27 +94,25 @@ class TestReportStockQuantity(tests.TransactionCase):
             'date_deadline': fields.Datetime.now(),
         })
 
-        self.env['base'].flush()
-        report = self.env['report.stock.quantity'].read_group(
+        self.env.flush_all()
+        report = self.env['report.stock.quantity']._read_group(
             [('date', '>=', fields.Date.today()), ('date', '<=', fields.Date.today()), ('product_id', '=', self.product1.id)],
-            ['product_qty', 'date', 'product_id', 'state'],
             ['date:day', 'product_id', 'state'],
-            lazy=False)
+            ['product_qty:sum'])
 
-        forecast_in_report = [x['product_qty'] for x in report if x['state'] == 'in']
+        forecast_in_report = [qty for __, __, state, qty in report if state == 'in']
         self.assertEqual(forecast_in_report, [25])
-        forecast_out_report = [x['product_qty'] for x in report if x['state'] == 'out']
+        forecast_out_report = [qty for __, __, state, qty in report if state == 'out']
         self.assertEqual(forecast_out_report, [-25])
 
     def test_report_stock_quantity_with_product_qty_filter(self):
         from_date = fields.Date.to_string(fields.Date.add(fields.Date.today(), days=-1))
         to_date = fields.Date.to_string(fields.Date.add(fields.Date.today(), days=4))
-        report = self.env['report.stock.quantity'].read_group(
+        report = self.env['report.stock.quantity']._read_group(
             [('product_qty', '<', 0), ('date', '>=', from_date), ('date', '<=', to_date), ('product_id', '=', self.product1.id)],
-            ['product_qty', 'date', 'product_id', 'state'],
             ['date:day', 'product_id', 'state'],
-            lazy=False)
-        forecast_report = [x['product_qty'] for x in report if x['state'] == 'forecast']
+            ['product_qty:sum'])
+        forecast_report = [qty for __, __, state, qty in report if state == 'forecast']
         self.assertEqual(forecast_report, [-20, -20])
 
     def test_replenishment_report_1(self):
@@ -128,7 +126,7 @@ class TestReportStockQuantity(tests.TransactionCase):
         self.env['stock.rule'].create({
             'name': 'Rule Supplier',
             'route_id': self.wh.reception_route_id.id,
-            'location_id': self.wh.lot_stock_id.id,
+            'location_dest_id': self.wh.lot_stock_id.id,
             'location_src_id': self.env.ref('stock.stock_location_suppliers').id,
             'action': 'pull',
             'delay': 1.0,
@@ -152,7 +150,7 @@ class TestReportStockQuantity(tests.TransactionCase):
         delivery_picking.action_confirm()
 
         # Trigger the manual orderpoint creation for missing product
-        self.env['stock.move'].flush()
+        self.env.flush_all()
         self.env['stock.warehouse.orderpoint'].action_open_orderpoints()
 
         orderpoint = self.env['stock.warehouse.orderpoint'].search([
@@ -219,20 +217,19 @@ class TestReportStockQuantity(tests.TransactionCase):
         } for date in (today, in_two_days)])
 
         (move01 + move02)._action_confirm()
-        move01.quantity_done = 1
+        move01.quantity = 1
+        move01.picked = True
         move01._action_done()
 
-        self.env['stock.move'].flush()
+        self.env.flush_all()
 
-        data = self.env['report.stock.quantity'].read_group(
+        data = self.env['report.stock.quantity']._read_group(
             [('state', '=', 'forecast'), ('product_id', '=', product.id), ('date', '>=', two_days_ago), ('date', '<=', in_two_days)],
-            ['product_qty', 'date', 'warehouse_id'],
             ['date:day', 'warehouse_id'],
-            orderby='date, warehouse_id',
-            lazy=False,
+            ['product_qty:sum'],
         )
 
-        for row, qty in zip(data, [
+        for (date_day, warehouse, qty_rd), qty in zip(data, [
             # wh01_qty, wh02_qty
             3.0, 0.0,   # two days ago
             3.0, 0.0,
@@ -240,4 +237,4 @@ class TestReportStockQuantity(tests.TransactionCase):
             2.0, 1.0,
             1.0, 2.0,   # in two days
         ]):
-            self.assertEqual(row['product_qty'], qty, "Incorrect qty for Date '%s' Warehouse '%s'" % (row['date:day'], row['warehouse_id'][1]))
+            self.assertEqual(qty_rd, qty, f"Incorrect qty for Date '{date_day}' Warehouse '{warehouse.display_name}'")

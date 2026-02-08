@@ -4,10 +4,10 @@
 #
 msgid ""
 msgstr ""
-"Project-Id-Version: Odoo Server saas~14.5\n"
+"Project-Id-Version: Odoo Server 17.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2021-09-14 10:28+0000\n"
-"PO-Revision-Date: 2021-09-14 10:28+0000\n"
+"POT-Creation-Date: 2025-12-29 18:37+0000\n"
+"PO-Revision-Date: 2025-12-29 18:37+0000\n"
 "Last-Translator: \n"
 "Language-Team: \n"
 "MIME-Version: 1.0\n"
@@ -16,12 +16,7 @@ msgstr ""
 "Plural-Forms: \n"
 
 #. module: hr_work_entry_holidays
-#: code:addons/hr_work_entry_holidays/models/hr_leave.py:0
-#, python-format
-msgid "%s: Time Off"
-msgstr ""
-
-#. module: hr_work_entry_holidays
+#. odoo-python
 #: code:addons/hr_work_entry_holidays/models/hr_leave.py:0
 #, python-format
 msgid ""
@@ -37,15 +32,25 @@ msgid ""
 msgstr ""
 
 #. module: hr_work_entry_holidays
-#: model:ir.model,name:hr_work_entry_holidays.model_hr_contract
-msgid "Employee Contract"
+#: model:ir.model,name:hr_work_entry_holidays.model_hr_employee_base
+msgid "Basic Employee"
 msgstr ""
 
 #. module: hr_work_entry_holidays
-#: model:ir.model.fields,help:hr_work_entry_holidays.field_hr_work_entry_type__leave_type_ids
+#. odoo-python
+#: code:addons/hr_work_entry_holidays/models/hr_contract.py:0
+#, python-format
 msgid ""
-"Every new time off type in this list will be reported as select work entry "
-"in payslip."
+"Changing the contract on this employee changes their working schedule in a "
+"period they already took leaves. Changing this working schedule changes the "
+"duration of these leaves in such a way the employee no longer has the "
+"required allocation for them. Please review these leaves and/or allocations "
+"before changing the contract."
+msgstr ""
+
+#. module: hr_work_entry_holidays
+#: model:ir.model,name:hr_work_entry_holidays.model_hr_contract
+msgid "Employee Contract"
 msgstr ""
 
 #. module: hr_work_entry_holidays
@@ -78,6 +83,7 @@ msgid ""
 msgstr ""
 
 #. module: hr_work_entry_holidays
+#. odoo-python
 #: code:addons/hr_work_entry_holidays/models/hr_leave.py:0
 #, python-format
 msgid ""
@@ -100,4 +106,9 @@ msgstr ""
 #. module: hr_work_entry_holidays
 #: model:ir.model.fields,field_description:hr_work_entry_holidays.field_hr_leave_type__work_entry_type_id
 msgid "Work Entry Type"
+msgstr ""
+
+#. module: hr_work_entry_holidays
+#: model:ir.model.fields,help:hr_work_entry_holidays.field_hr_work_entry_type__leave_type_ids
+msgid "Work entry used in the payslip."
 msgstr ""

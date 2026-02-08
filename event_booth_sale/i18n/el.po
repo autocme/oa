@@ -1,34 +1,48 @@
 # Translation of Odoo Server.
 # This file contains the translation of the following modules:
 # 	* event_booth_sale
-# 
+#
 # Translators:
-# George Tarasidis <george_tarasidis@yahoo.com>, 2022
-# Martin Trigaux, 2022
+# George Tarasidis <george_tarasidis@yahoo.com>, 2024
+# Martin Trigaux, 2024
 # Kostas Goutoudis <goutoudis@gmail.com>, 2024
-# 
+# Agapi Psyllou, 2025
+# Anastasia Mimou, 2025
+# Iasonas Polydoros <j.polydoros@dileanity.com>, 2025
+#
 msgid ""
 msgstr ""
-"Project-Id-Version: Odoo Server 15.0\n"
+"Project-Id-Version: Odoo Server 17.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-08-14 15:43+0000\n"
-"PO-Revision-Date: 2021-09-14 12:21+0000\n"
-"Last-Translator: Kostas Goutoudis <goutoudis@gmail.com>, 2024\n"
+"POT-Creation-Date: 2025-12-29 18:37+0000\n"
+"PO-Revision-Date: 2023-10-26 23:09+0000\n"
+"Last-Translator: Iasonas Polydoros <j.polydoros@dileanity.com>, 2025\n"
 "Language-Team: Greek (https://app.transifex.com/odoo/teams/41243/el/)\n"
+"Language: el\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: \n"
-"Language: el\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+#. module: event_booth_sale
+#: model_terms:ir.ui.view,arch_db:event_booth_sale.event_booth_view_form_from_event
+msgid "<span class=\"o_stat_text\">Sale Order</span>"
+msgstr "<span class=\"o_stat_text\">Εντολή Πώλησης</span>"
 
 #. module: event_booth_sale
 #: model:ir.model.fields,help:event_booth_sale.field_product_product__detailed_type
 #: model:ir.model.fields,help:event_booth_sale.field_product_template__detailed_type
 msgid ""
-"A storable product is a product for which you manage stock. The Inventory app has to be installed.\n"
+"A storable product is a product for which you manage stock. The Inventory "
+"app has to be installed.\n"
 "A consumable product is a product for which stock is not managed.\n"
 "A service is a non-material product you provide."
 msgstr ""
+"Ένα αποθηκεύσιμο προϊόν είναι ένα προϊόν για το οποίο διαχειρίζεστε το "
+"απόθεμα. Η εφαρμογή Αποθήκης πρέπει να είναι εγκατεστημένη..\n"
+"Ένα καταναλώσιμο προϊόν είναι ένα προϊόν για το οποίο δεν διαχειρίζεστε το "
+"απόθεμα.\n"
+"Μια υπηρεσία είναι ένα άυλο προϊόν που παρέχετε."
 
 #. module: event_booth_sale
 #: model:ir.model.fields,field_description:event_booth_sale.field_event_booth_configurator__event_booth_ids
@@ -99,11 +113,6 @@ msgid "Contact Email"
 msgstr "Email Επαφής"
 
 #. module: event_booth_sale
-#: model:ir.model.fields,field_description:event_booth_sale.field_event_booth_registration__contact_mobile
-msgid "Contact Mobile"
-msgstr ""
-
-#. module: event_booth_sale
 #: model:ir.model.fields,field_description:event_booth_sale.field_event_booth_registration__contact_name
 msgid "Contact Name"
 msgstr "Όνομα Επαφής"
@@ -111,7 +120,7 @@ msgstr "Όνομα Επαφής"
 #. module: event_booth_sale
 #: model:ir.model.fields,field_description:event_booth_sale.field_event_booth_registration__contact_phone
 msgid "Contact Phone"
-msgstr ""
+msgstr "Τηλέφωνο Επικοινωνίας"
 
 #. module: event_booth_sale
 #: model:ir.model.fields,field_description:event_booth_sale.field_event_booth_configurator__create_uid
@@ -156,7 +165,6 @@ msgstr "Συμβάν"
 #. module: event_booth_sale
 #: model:ir.model,name:event_booth_sale.model_event_booth
 #: model:ir.model.fields.selection,name:event_booth_sale.selection__product_template__detailed_type__event_booth
-#: model:product.product,name:event_booth_sale.product_product_event_booth
 msgid "Event Booth"
 msgstr ""
 
@@ -218,12 +226,6 @@ msgid "Journal Entry"
 msgstr "Εγγραφή Ημερολογίου"
 
 #. module: event_booth_sale
-#: model:ir.model.fields,field_description:event_booth_sale.field_event_booth_configurator____last_update
-#: model:ir.model.fields,field_description:event_booth_sale.field_event_booth_registration____last_update
-msgid "Last Modified on"
-msgstr "Τελευταία τροποποίηση στις"
-
-#. module: event_booth_sale
 #: model:ir.model.fields,field_description:event_booth_sale.field_event_booth_configurator__write_uid
 #: model:ir.model.fields,field_description:event_booth_sale.field_event_booth_registration__write_uid
 msgid "Last Updated by"
@@ -256,6 +258,15 @@ msgid "Pending Booths"
 msgstr ""
 
 #. module: event_booth_sale
+#. odoo-python
+#: code:addons/event_booth_sale/models/sale_order.py:0
+#, python-format
+msgid ""
+"Please make sure all your event-booth related lines are configured before "
+"confirming this order:%s"
+msgstr ""
+
+#. module: event_booth_sale
 #: model:ir.model.fields,field_description:event_booth_sale.field_event_booth__price
 #: model:ir.model.fields,field_description:event_booth_sale.field_event_booth_category__price
 #: model:ir.model.fields,field_description:event_booth_sale.field_event_type_booth__price
@@ -273,20 +284,18 @@ msgid "Price Reduce Tax inc"
 msgstr "Μείωση Τιμής με ΦΠΑ"
 
 #. module: event_booth_sale
-#: model:ir.model,name:event_booth_sale.model_product_product
+#: model:ir.model.fields,field_description:event_booth_sale.field_event_booth_category__price_incl
+msgid "Price incl"
+msgstr ""
+
+#. module: event_booth_sale
+#: model:ir.model,name:event_booth_sale.model_product_template
 #: model:ir.model.fields,field_description:event_booth_sale.field_event_booth__product_id
 #: model:ir.model.fields,field_description:event_booth_sale.field_event_booth_category__product_id
 #: model:ir.model.fields,field_description:event_booth_sale.field_event_booth_configurator__product_id
 #: model:ir.model.fields,field_description:event_booth_sale.field_event_type_booth__product_id
-#: model:ir.model.fields,field_description:event_booth_sale.field_sale_order_template_line__product_id
-#: model:ir.model.fields,field_description:event_booth_sale.field_sale_order_template_option__product_id
 msgid "Product"
 msgstr "Είδος"
-
-#. module: event_booth_sale
-#: model:ir.model,name:event_booth_sale.model_product_template
-msgid "Product Template"
-msgstr "Πρότυπο Είδους "
 
 #. module: event_booth_sale
 #: model:ir.model.fields,field_description:event_booth_sale.field_product_product__detailed_type
@@ -295,14 +304,9 @@ msgid "Product Type"
 msgstr "Τύπος Είδους"
 
 #. module: event_booth_sale
-#: model:ir.model,name:event_booth_sale.model_sale_order_template_line
-msgid "Quotation Template Line"
-msgstr ""
-
-#. module: event_booth_sale
-#: model:ir.model,name:event_booth_sale.model_sale_order_template_option
-msgid "Quotation Template Option"
-msgstr ""
+#: model:ir.model,name:event_booth_sale.model_product_product
+msgid "Product Variant"
+msgstr "Μεταβλητή Είδους"
 
 #. module: event_booth_sale
 #: model_terms:ir.ui.view,arch_db:event_booth_sale.event_booth_view_form_from_event
@@ -310,6 +314,7 @@ msgid "Registrations"
 msgstr ""
 
 #. module: event_booth_sale
+#. odoo-python
 #: code:addons/event_booth_sale/models/sale_order_line.py:0
 #, python-format
 msgid "Registrations from the same Order Line must belong to a single event."
@@ -319,11 +324,6 @@ msgstr ""
 #: model:ir.model.fields,field_description:event_booth_sale.field_event_booth__sale_order_line_registration_ids
 msgid "SO Lines with reservations"
 msgstr ""
-
-#. module: event_booth_sale
-#: model_terms:ir.ui.view,arch_db:event_booth_sale.event_booth_view_form_from_event
-msgid "Sale Order"
-msgstr "Παραγγελία"
 
 #. module: event_booth_sale
 #: model:ir.model.fields,field_description:event_booth_sale.field_event_booth_configurator__sale_order_line_id
@@ -347,6 +347,7 @@ msgid "Select an event booth"
 msgstr ""
 
 #. module: event_booth_sale
+#. odoo-python
 #: code:addons/event_booth_sale/models/sale_order_line.py:0
 #, python-format
 msgid ""
@@ -360,9 +361,9 @@ msgid "There can be only one registration for a booth by sale order line"
 msgstr ""
 
 #. module: event_booth_sale
-#: model:product.product,uom_name:event_booth_sale.product_product_event_booth
-msgid "Units"
-msgstr ""
+#: model_terms:ir.ui.view,arch_db:event_booth_sale.event_booth_view_tree_from_event
+msgid "Total"
+msgstr "Σύνολο"
 
 #. module: event_booth_sale
 #: model:ir.model.fields,help:event_booth_sale.field_sale_order_line__event_booth_pending_ids
@@ -370,6 +371,7 @@ msgid "Used to create registration when providing the desired event booth."
 msgstr ""
 
 #. module: event_booth_sale
+#. odoo-python
 #: code:addons/event_booth_sale/models/event_booth.py:0
 #, python-format
 msgid ""
@@ -378,15 +380,16 @@ msgid ""
 msgstr ""
 
 #. module: event_booth_sale
+#. odoo-python
 #: code:addons/event_booth_sale/wizard/event_booth_configurator.py:0
 #, python-format
 msgid "You have to select at least one booth."
 msgstr ""
 
 #. module: event_booth_sale
+#. odoo-python
 #: code:addons/event_booth_sale/models/event_booth_registration.py:0
 #, python-format
 msgid ""
-"Your order has been cancelled because the following booths have been "
-"reserved"
+"Your order has been cancelled because the following booths have been reserved"
 msgstr ""

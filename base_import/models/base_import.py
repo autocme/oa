@@ -5,6 +5,7 @@ import base64
 import binascii
 import codecs
 import collections
+import contextlib
 import difflib
 import unicodedata
 
@@ -56,7 +57,6 @@ except ImportError:
     odf_ods_reader = None
 
 try:
-    os.environ['OPENPYXL_DEFUSEDXML'] = 'False'
     from openpyxl import load_workbook
 except ImportError:
     load_workbook = None
@@ -288,7 +288,7 @@ class Import(models.TransientModel):
             return importable_fields
 
         model_fields = Model.fields_get()
-        blacklist = models.MAGIC_COLUMNS + [Model.CONCURRENCY_CHECK_FIELD]
+        blacklist = models.MAGIC_COLUMNS
         for name, field in model_fields.items():
             if name in blacklist:
                 continue
@@ -297,13 +297,7 @@ class Import(models.TransientModel):
             if field.get('deprecated', False) is not False:
                 continue
             if field.get('readonly'):
-                states = field.get('states')
-                if not states:
-                    continue
-                # states = {state: [(attr, value), (attr2, value2)], state2:...}
-                if not any(attr == 'readonly' and value is False
-                           for attr, value in itertools.chain.from_iterable(states.values())):
-                    continue
+                continue
             field_value = {
                 'id': name,
                 'name': name,
@@ -790,8 +784,15 @@ class Import(models.TransientModel):
 
         if '/' not in header:
             # Then, try exact match
-            IrTranslation = self.env['ir.translation']
-            translated_header = IrTranslation._get_source('ir.model.fields,field_description', 'model', self.env.lang, header).lower()
+            if header:
+                field_rec = (
+                    self.env['ir.model.fields'].sudo().with_context(lang='en_US')
+                    .search([('field_description', '=', header)], limit=1)
+                    .with_env(self.env)
+                )
+                translated_header = (field_rec.sudo().field_description or header).lower()
+            else:
+                translated_header = ""
             for field in fields_tree:
                 # exact match found based on the field technical name
                 if header.casefold() == field['name'].casefold():
@@ -1057,7 +1058,7 @@ class Import(models.TransientModel):
                 'advanced_mode': advanced_mode,
                 'debug': self.user_has_groups('base.group_no_one'),
                 'batch': batch,
-                'file_length': file_length
+                'file_length': len(rows),
             }
         except Exception as error:
             # Due to lazy generators, UnicodeDecodeError (for
@@ -1360,7 +1361,7 @@ class Import(models.TransientModel):
         :rtype: dict(ids: list(int), messages: list({type, message, record}))
         """
         self.ensure_one()
-        self._cr.execute('SAVEPOINT import')
+        sp = self.env.cr.savepoint(flush=False)
 
         try:
             input_file_data, import_fields = self._convert_import_data(fields, options)
@@ -1389,21 +1390,14 @@ class Import(models.TransientModel):
 
         # If transaction aborted, RELEASE SAVEPOINT is going to raise
         # an InternalError (ROLLBACK should work, maybe). Ignore that.
-        # TODO: to handle multiple errors, create savepoint around
-        #       write and release it in case of write error (after
-        #       adding error to errors array) => can keep on trying to
-        #       import stuff, and rollback at the end if there is any
-        #       error in the results.
-        try:
-            if dryrun:
-                self._cr.execute('ROLLBACK TO SAVEPOINT import')
-                # cancel all changes done to the registry/ormcache
-                self.pool.clear_caches()
-                self.pool.reset_changes()
-            else:
-                self._cr.execute('RELEASE SAVEPOINT import')
-        except psycopg2.InternalError:
-            pass
+        with contextlib.suppress(psycopg2.InternalError):
+            sp.close(rollback=dryrun)
+        if dryrun:
+            # cancel all changes done to the registry/ormcache
+            # we need to clear the cache in case any created id was added to an ormcache and would be missing afterward
+            self.pool.clear_all_caches()
+            # don't propagate to other workers since it was rollbacked
+            self.pool.reset_changes()
 
         # Insert/Update mapping columns when import complete successfully
         if import_result['ids'] and options.get('has_headers'):
@@ -1574,7 +1568,7 @@ class Import(models.TransientModel):
                     if fallback_values[field]['field_type'] == "boolean":
                         value = value if value.lower() in ('0', '1', 'true', 'false') else fallback_value
                     # Selection
-                    elif value.lower() not in fallback_values[field]["selection_values"]:
+                    elif fallback_values[field]['field_type'] == "selection" and value.lower() not in fallback_values[field]["selection_values"]:
                         value = fallback_value if fallback_value != 'skip' else None  # don't set any value if we skip
 
                     input_file_data[record_index][column_index] = value

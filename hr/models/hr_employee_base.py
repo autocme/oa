@@ -3,10 +3,11 @@
 
 from ast import literal_eval
 
-from odoo import api, fields, models
 from pytz import timezone, UTC, utc
-from datetime import timedelta
+from datetime import timedelta, datetime
 
+from odoo import _, api, fields, models
+from odoo.exceptions import UserError
 from odoo.tools import format_time
 
 
@@ -18,25 +19,33 @@ class HrEmployeeBase(models.AbstractModel):
     name = fields.Char()
     active = fields.Boolean("Active")
     color = fields.Integer('Color Index', default=0)
-    department_id = fields.Many2one('hr.department', 'Department', domain="['|', ('company_id', '=', False), ('company_id', '=', company_id)]")
-    job_id = fields.Many2one('hr.job', 'Job Position', domain="['|', ('company_id', '=', False), ('company_id', '=', company_id)]")
+    department_id = fields.Many2one('hr.department', 'Department', check_company=True)
+    member_of_department = fields.Boolean("Member of department", compute='_compute_part_of_department', search='_search_part_of_department',
+        help="Whether the employee is a member of the active user's department or one of it's child department.")
+    job_id = fields.Many2one('hr.job', 'Job Position', check_company=True)
     job_title = fields.Char("Job Title", compute="_compute_job_title", store=True, readonly=False)
     company_id = fields.Many2one('res.company', 'Company')
-    address_id = fields.Many2one('res.partner', 'Work Address', compute="_compute_address_id", store=True, readonly=False,
-        domain="['|', ('company_id', '=', False), ('company_id', '=', company_id)]")
+    address_id = fields.Many2one(
+        'res.partner',
+        string='Work Address',
+        compute="_compute_address_id",
+        precompute=True,
+        store=True,
+        readonly=False,
+        check_company=True)
     work_phone = fields.Char('Work Phone', compute="_compute_phones", store=True, readonly=False)
-    mobile_phone = fields.Char('Work Mobile')
-    work_email = fields.Char('Work Email')
-    work_location_id = fields.Many2one('hr.work.location', 'Work Location', compute="_compute_work_location_id", store=True, readonly=False,
-    domain="[('address_id', '=', address_id), '|', ('company_id', '=', False), ('company_id', '=', company_id)]")
+    mobile_phone = fields.Char('Work Mobile', compute="_compute_work_contact_details", store=True, inverse='_inverse_work_contact_details')
+    work_email = fields.Char('Work Email', compute="_compute_work_contact_details", store=True, inverse='_inverse_work_contact_details')
+    work_contact_id = fields.Many2one('res.partner', 'Work Contact', copy=False)
+    work_location_id = fields.Many2one('hr.work.location', 'Work Location', domain="[('address_id', '=', address_id)]")
     user_id = fields.Many2one('res.users')
     resource_id = fields.Many2one('resource.resource')
-    resource_calendar_id = fields.Many2one('resource.calendar', domain="['|', ('company_id', '=', False), ('company_id', '=', company_id)]")
+    resource_calendar_id = fields.Many2one('resource.calendar', check_company=True)
     parent_id = fields.Many2one('hr.employee', 'Manager', compute="_compute_parent_id", store=True, readonly=False,
-        domain="['|', ('company_id', '=', False), ('company_id', '=', company_id)]")
+        domain="['|', ('company_id', '=', False), ('company_id', 'in', allowed_company_ids)]")
     coach_id = fields.Many2one(
         'hr.employee', 'Coach', compute='_compute_coach', store=True, readonly=False,
-        domain="['|', ('company_id', '=', False), ('company_id', '=', company_id)]",
+        check_company=True,
         help='Select the "Employee" who is the coach of this employee.\n'
              'The "Coach" has no specific rights or responsibilities by default.')
     tz = fields.Selection(
@@ -54,14 +63,76 @@ class HrEmployeeBase(models.AbstractModel):
         ('presence_absent', 'Absent'),
         ('presence_to_define', 'To define'),
         ('presence_undetermined', 'Undetermined')], compute='_compute_presence_icon')
-    employee_type = fields.Selection([
-        ('employee', 'Employee'),
-        ('student', 'Student'),
-        ('trainee', 'Trainee'),
-        ('contractor', 'Contractor'),
-        ('freelance', 'Freelancer'),
-        ], string='Employee Type', default='employee', required=True,
-        help="The employee type. Although the primary purpose may seem to categorize employees, this field has also an impact in the Contract History. Only Employee type is supposed to be under contract and will have a Contract History.")
+    show_hr_icon_display = fields.Boolean(compute='_compute_presence_icon')
+    newly_hired = fields.Boolean('Newly Hired', compute='_compute_newly_hired', search='_search_newly_hired')
+
+    @api.model
+    def _get_new_hire_field(self):
+        return 'create_date'
+
+    def _compute_newly_hired(self):
+        new_hire_field = self._get_new_hire_field()
+        new_hire_date = fields.Datetime.now() - timedelta(days=90)
+        for employee in self:
+            if not employee[new_hire_field]:
+                employee.newly_hired = False
+            elif not isinstance(employee[new_hire_field], datetime):
+                employee.newly_hired = employee[new_hire_field] > new_hire_date.date()
+            else:
+                employee.newly_hired = employee[new_hire_field] > new_hire_date
+
+    def _search_newly_hired(self, operator, value):
+        new_hire_field = self._get_new_hire_field()
+        new_hires = self.env['hr.employee'].sudo().search([
+            (new_hire_field, '>', fields.Datetime.now() - timedelta(days=90))
+        ])
+
+        op = 'in' if value and operator == '=' or not value and operator != '=' else 'not in'
+        return [('id', op, new_hires.ids)]
+
+
+    def _get_valid_employee_for_user(self):
+        user = self.env.user
+        # retrieve the employee of the current active company for the user
+        employee = user.employee_id
+        if not employee:
+            # search for all employees as superadmin to not get blocked by multi-company rules
+            user_employees = user.employee_id.sudo().search([
+                ('user_id', '=', user.id)
+            ])
+            # the default company employee is most likely the correct one, but fallback to the first if not available
+            employee = user_employees.filtered(lambda r: r.company_id == user.company_id) or user_employees[:1]
+        return employee
+
+    @api.depends_context('uid', 'company')
+    @api.depends('department_id')
+    def _compute_part_of_department(self):
+        user_employee = self._get_valid_employee_for_user()
+        active_department = user_employee.department_id
+        if not active_department:
+            self.member_of_department = False
+        else:
+            def get_all_children(department):
+                children = department.child_ids
+                if not children:
+                    return self.env['hr.department']
+                return children + get_all_children(children)
+
+            child_departments = active_department + get_all_children(active_department)
+            for employee in self:
+                employee.member_of_department = employee.department_id in child_departments
+
+    def _search_part_of_department(self, operator, value):
+        if operator not in ('=', '!=') or not isinstance(value, bool):
+            raise UserError(_('Operation not supported'))
+
+        user_employee = self._get_valid_employee_for_user()
+        # Double negation
+        if not value:
+            operator = '!=' if operator == '=' else '='
+        if not user_employee.department_id:
+            return [('id', operator, user_employee.id)]
+        return (['!'] if operator == '!=' else []) + [('department_id', 'child_of', user_employee.department_id.id)]
 
     @api.depends('user_id.im_status')
     def _compute_presence_state(self):
@@ -76,9 +147,9 @@ class HrEmployeeBase(models.AbstractModel):
         for employee in self:
             state = 'to_define'
             if check_login:
-                if employee.user_id.im_status == 'online':
+                if employee.user_id.im_status in ['online', 'leave_online']:
                     state = 'present'
-                elif employee.user_id.im_status == 'offline' and employee.id not in working_now_list:
+                elif employee.user_id.im_status in ['offline', 'leave_offline'] and employee.id not in working_now_list:
                     state = 'absent'
             employee.hr_presence_state = state
 
@@ -125,6 +196,39 @@ class HrEmployeeBase(models.AbstractModel):
             else:
                 employee.work_phone = False
 
+    @api.depends('work_contact_id', 'work_contact_id.mobile', 'work_contact_id.email')
+    def _compute_work_contact_details(self):
+        for employee in self:
+            if employee.work_contact_id:
+                employee.mobile_phone = employee.work_contact_id.mobile
+                employee.work_email = employee.work_contact_id.email
+
+    def _create_work_contacts(self):
+        if any(employee.work_contact_id for employee in self):
+            raise UserError(_('Some employee already have a work contact'))
+        work_contacts = self.env['res.partner'].create([{
+            'email': employee.work_email,
+            'mobile': employee.mobile_phone,
+            'name': employee.name,
+            'image_1920': employee.image_1920,
+            'company_id': employee.company_id.id
+        } for employee in self])
+        for employee, work_contact in zip(self, work_contacts):
+            employee.work_contact_id = work_contact
+
+    def _inverse_work_contact_details(self):
+        employees_without_work_contact = self.env['hr.employee']
+        for employee in self:
+            if not employee.work_contact_id:
+                employees_without_work_contact += employee
+            else:
+                employee.work_contact_id.sudo().write({
+                    'email': employee.work_email,
+                    'mobile': employee.mobile_phone,
+                })
+        if employees_without_work_contact:
+            employees_without_work_contact.sudo()._create_work_contacts()
+
     @api.depends('company_id')
     def _compute_address_id(self):
         for employee in self:
@@ -144,6 +248,7 @@ class HrEmployeeBase(models.AbstractModel):
         """
         working_now_list = self.filtered(lambda e: e.hr_presence_state == 'present')._get_employee_working_now()
         for employee in self:
+            show_icon = True
             if employee.hr_presence_state == 'present':
                 if employee.id in working_now_list:
                     icon = 'presence_present'
@@ -155,18 +260,13 @@ class HrEmployeeBase(models.AbstractModel):
             else:
                 # without attendance, default employee state is 'to_define' without confirmed presence/absence
                 # we need to check why they are not there
-                if employee.user_id:
-                    # Display an orange icon on internal users.
-                    icon = 'presence_to_define'
-                else:
+                # Display an orange icon on internal users.
+                icon = 'presence_to_define'
+                if not employee.user_id:
                     # We don't want non-user employee to have icon.
-                    icon = 'presence_undetermined'
+                    show_icon = False
             employee.hr_icon_display = icon
-
-    @api.depends('address_id')
-    def _compute_work_location_id(self):
-        to_reset = self.filtered(lambda e: e.address_id != e.work_location_id.address_id)
-        to_reset.work_location_id = False
+            employee.show_hr_icon_display = show_icon
 
     @api.model
     def _get_employee_working_now(self):
@@ -191,3 +291,12 @@ class HrEmployeeBase(models.AbstractModel):
                     working_now += res_employee_ids.ids
         return working_now
 
+    def _get_calendar_periods(self, start, stop):
+        # This method can be overridden in other modules where it's possible
+        # to have different resource calendars for an employee depending on the
+        # date.
+        calendar_periods_by_employee = {}
+        for employee in self:
+            calendar = employee.resource_calendar_id or employee.company_id.resource_calendar_id
+            calendar_periods_by_employee[employee] = [(start, stop, calendar)]
+        return calendar_periods_by_employee

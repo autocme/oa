@@ -1,28 +1,30 @@
 # Translation of Odoo Server.
 # This file contains the translation of the following modules:
 # 	* pos_adyen
-# 
+#
 # Translators:
-# Martin Trigaux, 2021
-# Alina Lisnenko <alina.lisnenko@erp.co.ua>, 2023
-# Wil Odoo, 2024
-# 
+# Wil Odoo, 2023
+# Alina Lisnenko <alina.lisnenko@erp.co.ua>, 2024
+#
 msgid ""
 msgstr ""
-"Project-Id-Version: Odoo Server 15.0\n"
+"Project-Id-Version: Odoo Server 17.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-08-14 15:42+0000\n"
-"PO-Revision-Date: 2021-09-14 12:24+0000\n"
-"Last-Translator: Wil Odoo, 2024\n"
+"POT-Creation-Date: 2025-12-29 18:37+0000\n"
+"PO-Revision-Date: 2023-10-26 23:09+0000\n"
+"Last-Translator: Alina Lisnenko <alina.lisnenko@erp.co.ua>, 2024\n"
 "Language-Team: Ukrainian (https://app.transifex.com/odoo/teams/41243/uk/)\n"
+"Language: uk\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: \n"
-"Language: uk\n"
-"Plural-Forms: nplurals=4; plural=(n % 1 == 0 && n % 10 == 1 && n % 100 != 11 ? 0 : n % 1 == 0 && n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 12 || n % 100 > 14) ? 1 : n % 1 == 0 && (n % 10 ==0 || (n % 10 >=5 && n % 10 <=9) || (n % 100 >=11 && n % 100 <=14 )) ? 2: 3);\n"
+"Plural-Forms: nplurals=4; plural=(n % 1 == 0 && n % 10 == 1 && n % 100 != "
+"11 ? 0 : n % 1 == 0 && n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 12 || n % "
+"100 > 14) ? 1 : n % 1 == 0 && (n % 10 ==0 || (n % 10 >=5 && n % 10 <=9) || "
+"(n % 100 >=11 && n % 100 <=14 )) ? 2: 3);\n"
 
 #. module: pos_adyen
-#: model_terms:ir.ui.view,arch_db:pos_adyen.pos_config_view_form
+#: model_terms:ir.ui.view,arch_db:pos_adyen.res_config_settings_view_form
 msgid "Add tip through payment terminal (Adyen)"
 msgstr "Додайте чайові через платіжний термінал (Adyen)"
 
@@ -32,8 +34,8 @@ msgid "Adyen API key"
 msgstr "Ключ API Adyen"
 
 #. module: pos_adyen
-#. openerp-web
-#: code:addons/pos_adyen/static/src/js/payment_adyen.js:0
+#. odoo-javascript
+#: code:addons/pos_adyen/static/src/app/payment_adyen.js:0
 #, python-format
 msgid "Adyen Error"
 msgstr "Помилка Adyen"
@@ -59,8 +61,8 @@ msgid "Adyen Test Mode"
 msgstr "Тестовий режим Adyen"
 
 #. module: pos_adyen
-#. openerp-web
-#: code:addons/pos_adyen/static/src/js/payment_adyen.js:0
+#. odoo-javascript
+#: code:addons/pos_adyen/static/src/app/payment_adyen.js:0
 #, python-format
 msgid "An unexpected error occurred. Message from Adyen: %s"
 msgstr "Сталася неочікувана помилка. Повідомлення від Adyen: %s"
@@ -71,15 +73,15 @@ msgid "Ask Customers For Tip"
 msgstr "Попросіть клієнта чайові"
 
 #. module: pos_adyen
-#. openerp-web
-#: code:addons/pos_adyen/static/src/js/payment_adyen.js:0
+#. odoo-javascript
+#: code:addons/pos_adyen/static/src/app/payment_adyen.js:0
 #, python-format
 msgid "Authentication failed. Please check your Adyen credentials."
-msgstr "автентифікація не вдалася. Перевірте ваші облікові дані Adyen."
+msgstr "Автентифікація не вдалася. Перевірте ваші облікові дані Adyen."
 
 #. module: pos_adyen
-#. openerp-web
-#: code:addons/pos_adyen/static/src/js/payment_adyen.js:0
+#. odoo-javascript
+#: code:addons/pos_adyen/static/src/app/payment_adyen.js:0
 #, python-format
 msgid ""
 "Cancelling the payment failed. Please cancel it manually on the payment "
@@ -88,15 +90,20 @@ msgstr ""
 "Не вдалося скасувати платіж. Скасуйте його вручну на платіжному терміналі."
 
 #. module: pos_adyen
-#. openerp-web
-#: code:addons/pos_adyen/static/src/js/payment_adyen.js:0
+#. odoo-javascript
+#: code:addons/pos_adyen/static/src/app/payment_adyen.js:0
 #, python-format
 msgid "Cannot process transactions with negative amount."
 msgstr "Неможливо обробити транзакції з від’ємною сумою."
 
 #. module: pos_adyen
-#. openerp-web
-#: code:addons/pos_adyen/static/src/js/payment_adyen.js:0
+#: model:ir.model,name:pos_adyen.model_res_config_settings
+msgid "Config Settings"
+msgstr "Налаштування"
+
+#. module: pos_adyen
+#. odoo-javascript
+#: code:addons/pos_adyen/static/src/app/payment_adyen.js:0
 #, python-format
 msgid ""
 "Could not connect to the Odoo server, please check your internet connection "
@@ -106,20 +113,21 @@ msgstr ""
 "та повторіть спробу."
 
 #. module: pos_adyen
-#: code:addons/pos_adyen/models/pos_payment_method.py:0
+#. odoo-python
 #: code:addons/pos_adyen/models/pos_payment_method.py:0
 #, python-format
 msgid "Invalid Adyen request"
 msgstr "Недійсний запит Adyen"
 
 #. module: pos_adyen
-#. openerp-web
-#: code:addons/pos_adyen/static/src/js/payment_adyen.js:0
+#. odoo-javascript
+#: code:addons/pos_adyen/static/src/app/payment_adyen.js:0
 #, python-format
 msgid "Message from Adyen: %s"
 msgstr "Повідомлення від Adyen: %s"
 
 #. module: pos_adyen
+#. odoo-python
 #: code:addons/pos_adyen/models/pos_config.py:0
 #, python-format
 msgid ""
@@ -139,9 +147,14 @@ msgid "Point of Sale Payment Methods"
 msgstr "Способи оплати точки продажу"
 
 #. module: pos_adyen
-#: model:ir.model.fields,help:pos_adyen.field_pos_config__adyen_ask_customer_for_tip
-msgid "Prompt the customer to tip."
-msgstr "Запропонуйте клієнту залишити чайові."
+#: model:ir.model,name:pos_adyen.model_pos_session
+msgid "Point of Sale Session"
+msgstr "Сесія точки продажу"
+
+#. module: pos_adyen
+#: model:ir.model.fields,field_description:pos_adyen.field_res_config_settings__pos_adyen_ask_customer_for_tip
+msgid "Pos Adyen Ask Customer For Tip"
+msgstr "Adyen точки продажу запитує клієнта про чайові"
 
 #. module: pos_adyen
 #: model:ir.model.fields,help:pos_adyen.field_pos_payment_method__adyen_test_mode
@@ -149,28 +162,14 @@ msgid "Run transactions in the test environment."
 msgstr "Запустіть транзакції у тестовому середовищі."
 
 #. module: pos_adyen
-#: model:ir.model.fields,help:pos_adyen.field_pos_payment_method__adyen_latest_response
-msgid ""
-"Technical field used to buffer the latest asynchronous notification from "
-"Adyen."
-msgstr ""
-"Технічне поле, яке використовується для буферування останнього асинхронного "
-"повідомлення від Adyen."
-
-#. module: pos_adyen
-#: model:ir.model.fields,help:pos_adyen.field_pos_payment_method__adyen_latest_diagnosis
-msgid "Technical field used to determine if the terminal is still connected."
-msgstr ""
-"Технічне поле, яке використовується для визначення, чи термінал все ще "
-"підключений."
-
-#. module: pos_adyen
+#. odoo-python
 #: code:addons/pos_adyen/models/pos_payment_method.py:0
 #, python-format
 msgid "Terminal %s is already used in company %s on payment method %s."
 msgstr "Термінал %s вже використовується в компанії %s на способі оплати %s."
 
 #. module: pos_adyen
+#. odoo-python
 #: code:addons/pos_adyen/models/pos_payment_method.py:0
 #, python-format
 msgid "Terminal %s is already used on payment method %s."
@@ -179,8 +178,8 @@ msgstr "Термінал %s вже використовується у спос�
 #. module: pos_adyen
 #: model:ir.model.fields,help:pos_adyen.field_pos_payment_method__adyen_api_key
 msgid ""
-"Used when connecting to Adyen: https://docs.adyen.com/user-management/how-"
-"to-get-the-api-key/#description"
+"Used when connecting to Adyen: https://docs.adyen.com/user-management/how-to-"
+"get-the-api-key/#description"
 msgstr ""
 "Використовується при з'єднанні з Adyen: https://docs.adyen.com/user-"
 "management/how-to-get-the-api-key/#description"

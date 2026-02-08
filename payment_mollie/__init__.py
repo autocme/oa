@@ -1,11 +1,14 @@
-# -*- coding: utf-8 -*-
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
 
 from . import controllers
 from . import models
 
-from odoo.addons.payment import reset_payment_acquirer
+from odoo.addons.payment import setup_provider, reset_payment_provider
 
 
-def uninstall_hook(cr, registry):
-    reset_payment_acquirer(cr, registry, 'mollie')
+def post_init_hook(env):
+    setup_provider(env, 'mollie')
+
+
+def uninstall_hook(env):
+    reset_payment_provider(env, 'mollie')

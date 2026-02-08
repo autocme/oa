@@ -3,6 +3,7 @@ from odoo.addons.account.tests.common import AccountTestInvoicingCommon
 from odoo.addons.account_check_printing.models.account_payment import INV_LINES_PER_STUB
 from odoo.tests import tagged
 from odoo.tools.misc import NON_BREAKING_SPACE
+from odoo import Command
 
 import math
 
@@ -34,7 +35,11 @@ class TestPrintCheck(AccountTestInvoicingCommon):
             'partner_id': self.partner_a.id,
             'date': '2017-01-01',
             'invoice_date': '2017-01-01',
-            'invoice_line_ids': [(0, 0, {'product_id': self.product_a.id, 'price_unit': 100.0})]
+            'invoice_line_ids': [Command.create({
+                'product_id': self.product_a.id,
+                'price_unit': 100.0,
+                'tax_ids': []
+            })]
         } for i in range(nb_invoices_to_test)])
         in_invoices.action_post()
 
@@ -75,7 +80,11 @@ class TestPrintCheck(AccountTestInvoicingCommon):
             'partner_id': self.partner_a.id,
             'date': '2017-01-01',
             'invoice_date': '2017-01-01',
-            'invoice_line_ids': [(0, 0, {'product_id': self.product_a.id, 'price_unit': 100.0})]
+            'invoice_line_ids': [Command.create({
+                'product_id': self.product_a.id,
+                'price_unit': 100.0,
+                'tax_ids': []
+            })]
         } for i in range(nb_invoices_to_test)])
         out_refunds.action_post()
 
@@ -108,15 +117,19 @@ class TestPrintCheck(AccountTestInvoicingCommon):
             'partner_id': self.partner_a.id,
             'date': '2016-01-01',
             'invoice_date': '2016-01-01',
-            'invoice_line_ids': [(0, 0, {'product_id': self.product_a.id, 'price_unit': 100.0})]
+            'invoice_line_ids': [Command.create({
+                'product_id': self.product_a.id,
+                'price_unit': 150.0,
+                'tax_ids': []
+            })]
         })
         invoice.action_post()
 
-        # Partial payment in foreign currency: 100Gol = 33.33$.
+        # Partial payment in foreign currency.
         payment = self.env['account.payment.register'].with_context(active_model='account.move', active_ids=invoice.ids).create({
             'payment_method_line_id': self.payment_method_line_check.id,
             'currency_id': self.currency_data['currency'].id,
-            'amount': 100.0,
+            'amount': 150.0,
             'payment_date': '2017-01-01',
         })._create_payments()
 
@@ -125,8 +138,8 @@ class TestPrintCheck(AccountTestInvoicingCommon):
         self.assertEqual(stub_pages, [[{
             'due_date': '01/01/2016',
             'number': invoice.name,
-            'amount_total': f'${NON_BREAKING_SPACE}100.00',
-            'amount_residual': f'${NON_BREAKING_SPACE}50.00',
+            'amount_total': f'${NON_BREAKING_SPACE}150.00',
+            'amount_residual': f'${NON_BREAKING_SPACE}75.00',
             'amount_paid': f'150.000{NON_BREAKING_SPACE}☺',
             'currency': invoice.currency_id,
         }]])
@@ -147,7 +160,11 @@ class TestPrintCheck(AccountTestInvoicingCommon):
             'partner_id': self.partner_a.id,
             'date': '2017-01-01',
             'invoice_date': '2017-01-01',
-            'invoice_line_ids': [(0, 0, {'product_id': self.product_a.id, 'price_unit': 100.0})]
+            'invoice_line_ids': [Command.create({
+                'product_id': self.product_a.id,
+                'price_unit': 100.0,
+                'tax_ids': []
+            })]
         } for i in range(nb_invoices_to_test)])
         in_invoices.action_post()
 
@@ -179,3 +196,35 @@ class TestPrintCheck(AccountTestInvoicingCommon):
         payment_2.action_post()
         action_window = payment_2.print_checks()
         self.assertEqual(action_window['context']['default_next_check_number'], '2147483649', "Check number should have been incremented without error.")
+
+    def test_print_check_with_branch(self):
+        """
+        Test that we don't get access error when printing a check with a branch
+        """
+        company = self.env.company
+        branch = self.env['res.company'].create({
+            'name': 'Branch',
+            'parent_id': company.id,
+        })
+        self.cr.precommit.run()  # load the CoA
+        self.env.user.write({'company_id': company.id, 'company_ids': [Command.set(company.ids)]})
+
+        vals = {
+            'payment_type': 'outbound',
+            'partner_type': 'supplier',
+            'amount': 100.0,
+            'journal_id': self.company_data['default_journal_bank'].id,
+            'payment_method_line_id': self.payment_method_line_check.id,
+        }
+        payment = self.env['account.payment'].create(vals)
+        payment.action_post()
+        self.assertTrue(payment.write({'check_number': '00001'}))
+        payment.invalidate_recordset(['check_number'])
+
+        self.env.user.write({'company_id': branch.id, 'company_ids': [Command.set(branch.ids)]})
+
+        payment_2 = self.env['account.payment'].create(vals)
+        payment_2.action_post()
+
+        action_window = payment_2.print_checks()
+        self.assertTrue(action_window)
