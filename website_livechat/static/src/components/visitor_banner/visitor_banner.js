@@ -11,18 +11,16 @@ class VisitorBanner extends Component {
     //--------------------------------------------------------------------------
 
     /**
-     * @returns {website_livechat.visitor}
+     * @returns {Visitor}
      */
     get visitor() {
-        return this.messaging && this.messaging.models['website_livechat.visitor'].get(this.props.visitorLocalId);
+        return this.props.visitor;
     }
 
 }
 
 Object.assign(VisitorBanner, {
-    props: {
-        visitorLocalId: String,
-    },
+    props: { visitor: Object },
     template: 'website_livechat.VisitorBanner',
 });
 

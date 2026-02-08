@@ -6,7 +6,7 @@ from odoo.tests.common import Form
 from odoo.tools.float_utils import float_round, float_compare
 
 from odoo.addons.mrp_subcontracting.tests.common import TestMrpSubcontractingCommon
-from odoo.addons.mrp_account.tests.test_bom_price import TestBomPrice
+from odoo.addons.mrp_account.tests.test_bom_price import TestBomPriceCommon
 
 class TestAccountSubcontractingFlows(TestMrpSubcontractingCommon):
     def test_subcontracting_account_flow_1(self):
@@ -51,12 +51,12 @@ class TestAccountSubcontractingFlows(TestMrpSubcontractingCommon):
             move.product_id = self.finished
             move.product_uom_qty = 1
         picking_receipt = picking_form.save()
-        picking_receipt.move_lines.price_unit = 15.0
+        picking_receipt.move_ids.price_unit = 15.0
 
         picking_receipt.action_confirm()
         # Suppose the additional cost changes:
-        picking_receipt.move_lines.price_unit = 30.0
-        picking_receipt.move_lines.quantity_done = 1.0
+        picking_receipt.move_ids.price_unit = 30.0
+        picking_receipt.move_ids.quantity_done = 1.0
         picking_receipt._action_done()
 
         mo = picking_receipt._get_subcontract_production()
@@ -67,8 +67,8 @@ class TestAccountSubcontractingFlows(TestMrpSubcontractingCommon):
         # Additionnal cost = 30 (from the purchase order line or directly set on the stock move here)
         # Total cost of subcontracting 1 unit of finished = 30 + 30 = 60
         self.assertEqual(mo.move_finished_ids.stock_valuation_layer_ids.value, 60)
-        self.assertEqual(picking_receipt.move_lines.stock_valuation_layer_ids.value, 0)
-        self.assertEqual(picking_receipt.move_lines.product_id.value_svl, 60)
+        self.assertEqual(picking_receipt.move_ids.stock_valuation_layer_ids.value, 0)
+        self.assertEqual(picking_receipt.move_ids.product_id.value_svl, 60)
 
         # Do the same without any additionnal cost
         picking_form = Form(self.env['stock.picking'])
@@ -78,17 +78,17 @@ class TestAccountSubcontractingFlows(TestMrpSubcontractingCommon):
             move.product_id = self.finished
             move.product_uom_qty = 1
         picking_receipt = picking_form.save()
-        picking_receipt.move_lines.price_unit = 0
+        picking_receipt.move_ids.price_unit = 0
 
         picking_receipt.action_confirm()
-        picking_receipt.move_lines.quantity_done = 1.0
+        picking_receipt.move_ids.quantity_done = 1.0
         picking_receipt._action_done()
 
         mo = picking_receipt._get_subcontract_production()
         # In this case, since there isn't any additionnal cost, the total cost of the subcontracting
         # is the sum of the components' costs: 10 + 20 = 30
         self.assertEqual(mo.move_finished_ids.stock_valuation_layer_ids.value, 30)
-        self.assertEqual(picking_receipt.move_lines.product_id.value_svl, 90)
+        self.assertEqual(picking_receipt.move_ids.product_id.value_svl, 90)
 
     def test_subcontracting_account_backorder(self):
         """ This test uses tracked (serial and lot) component and tracked (serial) finished product
@@ -111,13 +111,13 @@ class TestAccountSubcontractingFlows(TestMrpSubcontractingCommon):
             move.product_uom_qty = todo_nb
         picking_receipt = picking_form.save()
         # Mimic the extra cost on the po line
-        picking_receipt.move_lines.price_unit = 50
+        picking_receipt.move_ids.price_unit = 50
         picking_receipt.action_confirm()
 
         # We should be able to call the 'record_components' button
         self.assertTrue(picking_receipt.display_action_record_components)
 
-        lot_comp2 = self.env['stock.production.lot'].create({
+        lot_comp2 = self.env['stock.lot'].create({
             'name': 'lot_comp2',
             'product_id': self.comp2.id,
             'company_id': self.env.company.id,
@@ -125,12 +125,12 @@ class TestAccountSubcontractingFlows(TestMrpSubcontractingCommon):
         serials_finished = []
         serials_comp1 = []
         for i in range(todo_nb):
-            serials_finished.append(self.env['stock.production.lot'].create({
+            serials_finished.append(self.env['stock.lot'].create({
                 'name': 'serial_fin_%s' % i,
                 'product_id': self.finished.id,
                 'company_id': self.env.company.id,
             }))
-            serials_comp1.append(self.env['stock.production.lot'].create({
+            serials_comp1.append(self.env['stock.lot'].create({
                 'name': 'serials_comp1_%s' % i,
                 'product_id': self.comp1.id,
                 'company_id': self.env.company.id,
@@ -170,7 +170,7 @@ class TestAccountSubcontractingFlows(TestMrpSubcontractingCommon):
         self.comp2.tracking = 'lot'
         self.comp2.standard_price = 20
 
-        lot01, lot02 = self.env['stock.production.lot'].create([{
+        lot01, lot02 = self.env['stock.lot'].create([{
             'name': "Lot of %s" % product.name,
             'product_id': product.id,
             'company_id': self.env.company.id,
@@ -184,7 +184,7 @@ class TestAccountSubcontractingFlows(TestMrpSubcontractingCommon):
             move.product_uom_qty = 10
         receipt = receipt_form.save()
         # add an extra cost
-        receipt.move_lines.price_unit = 50
+        receipt.move_ids.price_unit = 50
         receipt.action_confirm()
 
         for qty_producing in (5, 3, 2):
@@ -212,7 +212,7 @@ class TestAccountSubcontractingFlows(TestMrpSubcontractingCommon):
         ])
 
 
-class TestBomPriceSubcontracting(TestBomPrice):
+class TestBomPriceSubcontracting(TestBomPriceCommon):
 
     def test_01_compute_price_subcontracting_cost(self):
         """Test calculation of bom cost with subcontracting."""
@@ -226,11 +226,11 @@ class TestBomPriceSubcontracting(TestBomPrice):
         })
         suppliers = self.env['product.supplierinfo'].create([
             {
-                'name': partner.id,
+                'partner_id': partner.id,
                 'product_tmpl_id': self.dining_table.product_tmpl_id.id,
                 'price': 150.0,
             }, {
-                'name': partner.id,
+                'partner_id': partner.id,
                 'product_tmpl_id': self.table_head.product_tmpl_id.id,
                 'price': 120.0,  # 10 by Unit because uom_po_id is in dozen
             }
@@ -290,7 +290,7 @@ class TestBomPriceSubcontracting(TestBomPrice):
             'company_id': self.env.company.id,
         })
         supplier = self.env['product.supplierinfo'].create([{
-                'name': partner.id,
+                'partner_id': partner.id,
                 'product_tmpl_id': product.product_tmpl_id.id,
                 'price': 120.0,
                 'currency_id': currency_a.id,

@@ -6,13 +6,14 @@ from dateutil.relativedelta import relativedelta
 
 from odoo import Command
 from odoo.tests.common import users, tagged, TransactionCase, warmup
-from odoo.tools.misc import DEFAULT_SERVER_DATE_FORMAT, DEFAULT_SERVER_DATETIME_FORMAT
+from odoo.tools.misc import DEFAULT_SERVER_DATETIME_FORMAT
 
 
 @tagged('post_install', '-at_install')
 class TestDiscussFullPerformance(TransactionCase):
     def setUp(self):
         super().setUp()
+        self.group_user = self.env.ref('base.group_user')
         self.env['mail.shortcode'].search([]).unlink()
         self.shortcodes = self.env['mail.shortcode'].create([
             {'source': 'hello', 'substitution': 'Hello. How may I help you?'},
@@ -21,10 +22,11 @@ class TestDiscussFullPerformance(TransactionCase):
         self.users = self.env['res.users'].create([
             {
                 'email': 'e.e@example.com',
-                'groups_id': [Command.link(self.env.ref('base.group_user').id)],
+                'groups_id': [Command.link(self.group_user.id)],
                 'login': 'emp',
                 'name': 'Ernest Employee',
                 'notification_type': 'inbox',
+                'odoobot_state': 'disabled',
                 'signature': '--\nErnest',
             },
             {'name': 'test1', 'login': 'test1', 'email': 'test1@example.com'},
@@ -47,7 +49,6 @@ class TestDiscussFullPerformance(TransactionCase):
             'user_id': user.id,
         } for user in self.users])
         self.leave_type = self.env['hr.leave.type'].create({
-            'leave_validation_type': 'no_validation',
             'requires_allocation': 'no',
             'name': 'Legal Leaves',
             'time_type': 'leave',
@@ -63,730 +64,926 @@ class TestDiscussFullPerformance(TransactionCase):
     @warmup
     def test_init_messaging(self):
         """Test performance of `_init_messaging`."""
-        channel_general = self.env.ref('mail.channel_all_employees')  # Unfortunately #general cannot be deleted. Assertions below assume data from a fresh db with demo.
-        channel_general.message_ids.unlink() # Remove messages to avoid depending on demo data.
-        self.env['mail.channel'].sudo().search([('id', '!=', channel_general.id)]).unlink()
-        user_root = self.env.ref('base.user_root')
+        self.channel_general = self.env.ref('mail.channel_all_employees')  # Unfortunately #general cannot be deleted. Assertions below assume data from a fresh db.
+        self.channel_general.message_ids.unlink() # Remove messages to avoid depending on demo data.
+        self.env['mail.channel'].sudo().search([('id', '!=', self.channel_general.id)]).unlink()
+        self.user_root = self.env.ref('base.user_root')
         # create public channels
-        channel_channel_public_1 = self.env['mail.channel'].browse(self.env['mail.channel'].channel_create(name='public 1', privacy='public')['id'])
-        channel_channel_public_1.add_members((self.users[0] + self.users[2] + self.users[3] + self.users[4] + self.users[8]).partner_id.ids)
-        channel_channel_public_2 = self.env['mail.channel'].browse(self.env['mail.channel'].channel_create(name='public 2', privacy='public')['id'])
-        channel_channel_public_2.add_members((self.users[0] + self.users[2] + self.users[4] + self.users[7] + self.users[9]).partner_id.ids)
-        # create groups channels
-        channel_channel_group_1 = self.env['mail.channel'].browse(self.env['mail.channel'].channel_create(name='group 1', privacy='groups')['id'])
-        channel_channel_group_1.add_members((self.users[0] + self.users[2] + self.users[3] + self.users[6] + self.users[12]).partner_id.ids)
-        channel_channel_group_2 = self.env['mail.channel'].browse(self.env['mail.channel'].channel_create(name='group 2', privacy='groups')['id'])
-        channel_channel_group_2.add_members((self.users[0] + self.users[2] + self.users[6] + self.users[7] + self.users[13]).partner_id.ids)
-        # create private channels
-        channel_channel_private_1 = self.env['mail.channel'].browse(self.env['mail.channel'].channel_create(name='private 1', privacy='private')['id'])
-        channel_channel_private_1.add_members((self.users[0] + self.users[2] + self.users[3] + self.users[5] + self.users[10]).partner_id.ids)
-        channel_channel_private_2 = self.env['mail.channel'].browse(self.env['mail.channel'].channel_create(name='private 2', privacy='private')['id'])
-        channel_channel_private_2.add_members((self.users[0] + self.users[2] + self.users[5] + self.users[7] + self.users[11]).partner_id.ids)
+        self.channel_channel_public_1 = self.env['mail.channel'].browse(self.env['mail.channel'].channel_create(name='public channel 1', group_id=None)['id'])
+        self.channel_channel_public_1.add_members((self.users[0] + self.users[2] + self.users[3] + self.users[4] + self.users[8]).partner_id.ids)
+        self.channel_channel_public_2 = self.env['mail.channel'].browse(self.env['mail.channel'].channel_create(name='public channel 2', group_id=None)['id'])
+        self.channel_channel_public_2.add_members((self.users[0] + self.users[2] + self.users[4] + self.users[7] + self.users[9]).partner_id.ids)
+        # create group-restricted channels
+        self.channel_channel_group_1 = self.env['mail.channel'].browse(self.env['mail.channel'].channel_create(name='group restricted channel 1', group_id=self.env.ref('base.group_user').id)['id'])
+        self.channel_channel_group_1.add_members((self.users[0] + self.users[2] + self.users[3] + self.users[6] + self.users[12]).partner_id.ids)
+        self.channel_channel_group_2 = self.env['mail.channel'].browse(self.env['mail.channel'].channel_create(name='group restricted channel 2', group_id=self.env.ref('base.group_user').id)['id'])
+        self.channel_channel_group_2.add_members((self.users[0] + self.users[2] + self.users[6] + self.users[7] + self.users[13]).partner_id.ids)
         # create chats
-        channel_chat_1 = self.env['mail.channel'].browse(self.env['mail.channel'].channel_get((self.users[0] + self.users[14]).partner_id.ids)['id'])
-        channel_chat_2 = self.env['mail.channel'].browse(self.env['mail.channel'].channel_get((self.users[0] + self.users[15]).partner_id.ids)['id'])
-        channel_chat_3 = self.env['mail.channel'].browse(self.env['mail.channel'].channel_get((self.users[0] + self.users[2]).partner_id.ids)['id'])
-        channel_chat_4 = self.env['mail.channel'].browse(self.env['mail.channel'].channel_get((self.users[0] + self.users[3]).partner_id.ids)['id'])
+        self.channel_chat_1 = self.env['mail.channel'].browse(self.env['mail.channel'].channel_get((self.users[0] + self.users[14]).partner_id.ids)['id'])
+        self.channel_chat_2 = self.env['mail.channel'].browse(self.env['mail.channel'].channel_get((self.users[0] + self.users[15]).partner_id.ids)['id'])
+        self.channel_chat_3 = self.env['mail.channel'].browse(self.env['mail.channel'].channel_get((self.users[0] + self.users[2]).partner_id.ids)['id'])
+        self.channel_chat_4 = self.env['mail.channel'].browse(self.env['mail.channel'].channel_get((self.users[0] + self.users[3]).partner_id.ids)['id'])
         # create groups
-        channel_group_1 = self.env['mail.channel'].browse(self.env['mail.channel'].create_group((self.users[0] + self.users[12]).partner_id.ids)['id'])
+        self.channel_group_1 = self.env['mail.channel'].browse(self.env['mail.channel'].create_group((self.users[0] + self.users[12]).partner_id.ids)['id'])
         # create livechats
         im_livechat_channel = self.env['im_livechat.channel'].sudo().create({'name': 'support', 'user_ids': [Command.link(self.users[0].id)]})
         self.users[0].im_status = 'online'  # make available for livechat (ignore leave)
-        channel_livechat_1 = self.env['mail.channel'].browse(im_livechat_channel._open_livechat_mail_channel(anonymous_name='anon 1', previous_operator_id=self.users[0].partner_id.id, user_id=self.users[1].id, country_id=self.env.ref('base.in').id)['id'])
-        channel_livechat_1.with_user(self.users[1]).message_post(body="test")
-        channel_livechat_2 = self.env['mail.channel'].browse(im_livechat_channel.with_user(self.env.ref('base.public_user'))._open_livechat_mail_channel(anonymous_name='anon 2', previous_operator_id=self.users[0].partner_id.id, country_id=self.env.ref('base.be').id)['id'])
-        channel_livechat_2.with_user(self.env.ref('base.public_user')).sudo().message_post(body="test")
+        self.channel_livechat_1 = self.env['mail.channel'].browse(im_livechat_channel._open_livechat_mail_channel(anonymous_name='anon 1', previous_operator_id=self.users[0].partner_id.id, user_id=self.users[1].id, country_id=self.env.ref('base.in').id)['id'])
+        self.channel_livechat_1.with_user(self.users[1]).message_post(body="test")
+        self.channel_livechat_2 = self.env['mail.channel'].browse(im_livechat_channel.with_user(self.env.ref('base.public_user'))._open_livechat_mail_channel(anonymous_name='anon 2', previous_operator_id=self.users[0].partner_id.id, country_id=self.env.ref('base.be').id)['id'])
+        self.channel_livechat_2.with_user(self.env.ref('base.public_user')).sudo().message_post(body="test")
         # add needaction
         self.users[0].notification_type = 'inbox'
-        message = channel_channel_public_1.message_post(body='test', message_type='comment', author_id=self.users[2].partner_id.id, partner_ids=self.users[0].partner_id.ids)
+        message = self.channel_channel_public_1.message_post(body='test', message_type='comment', author_id=self.users[2].partner_id.id, partner_ids=self.users[0].partner_id.ids)
         # add star
         message.toggle_message_starred()
         self.env.company.sudo().name = 'YourCompany'
 
         self.maxDiff = None
-        self.users[0].flush()
-        self.users[0].invalidate_cache()
-        with self.assertQueryCount(emp=93):  # ent: 89
+        self.env.flush_all()
+        self.env.invalidate_all()
+        with self.assertQueryCount(emp=self._get_query_count()):
             init_messaging = self.users[0].with_user(self.users[0])._init_messaging()
 
-        self.assertEqual(init_messaging, {
-            'needaction_inbox_counter': 2,
+        self.assertEqual(init_messaging, self._get_init_messaging_result())
+
+    def _get_init_messaging_result(self):
+        """
+            Returns the result of a call to init_messaging.
+
+            The point of having a separate getter is to allow it to be overriden.
+        """
+        return {
+            'hasLinkPreviewFeature': True,
+            'needaction_inbox_counter': 1,
             'starred_counter': 1,
             'channels': [
                 {
-                    'avatarCacheKey': channel_general._get_avatar_cache_key(),
-                    'channel_type': 'channel',
-                    'create_uid': user_root.id,
-                    'custom_channel_name': False,
+                    'authorizedGroupFullName': self.group_user.full_name,
+                    'channel': {
+                        'anonymous_country': [('clear',)],
+                        'anonymous_name': False,
+                        'avatarCacheKey': self.channel_general._get_avatar_cache_key(),
+                        'channel_type': 'channel',
+                        'channelMembers': [('insert', sorted([{
+                            'channel': {
+                                'id': self.channel_general.id,
+                            },
+                            'id': self.channel_general.channel_member_ids.filtered(lambda m: m.partner_id == self.users[0].partner_id).id,
+                            'persona': {
+                                'partner': {
+                                    'active': True,
+                                    'email': 'e.e@example.com',
+                                    'id': self.users[0].partner_id.id,
+                                    'im_status': 'offline',
+                                    'name': 'Ernest Employee',
+                                    'out_of_office_date_end': False,
+                                    'user': {
+                                        'id': self.users[0].id,
+                                        'isInternalUser': True,
+                                    },
+                                },
+                            },
+                        }], key=lambda member_data: member_data['id']))],
+                        'custom_channel_name': False,
+                        'id': self.channel_general.id,
+                        'memberCount': len(self.group_user.users | self.user_root),
+                        'serverMessageUnreadCounter': 0,
+                    },
+                    'create_uid': self.user_root.id,
                     'defaultDisplayMode': False,
                     'description': 'General announcements for all employees.',
                     'group_based_subscription': True,
-                    'id': channel_general.id,
-                    'invitedGuests': [('insert', [])],
-                    'invitedPartners': [('insert', [])],
+                    'id': self.channel_general.id,
+                    'invitedMembers': [('insert', [])],
                     'is_minimized': False,
                     'is_pinned': True,
-                    'last_interest_dt': channel_general.channel_last_seen_partner_ids.filtered(lambda p: p.partner_id == self.users[0].partner_id).last_interest_dt.strftime(DEFAULT_SERVER_DATETIME_FORMAT),
+                    'last_interest_dt': self.channel_general.channel_member_ids.filtered(lambda m: m.partner_id == self.users[0].partner_id).last_interest_dt.strftime(DEFAULT_SERVER_DATETIME_FORMAT),
                     'last_message_id': False,
-                    'memberCount': len(self.env.ref('base.group_user').users | user_root),
                     'message_needaction_counter': 0,
-                    'message_unread_counter': 0,
                     'name': 'general',
-                    'public': 'groups',
                     'rtcSessions': [('insert', [])],
                     'seen_message_id': False,
                     'state': 'open',
-                    'uuid': channel_general.uuid,
+                    'uuid': self.channel_general.uuid,
                 },
                 {
-                    'avatarCacheKey': channel_channel_public_1._get_avatar_cache_key(),
-                    'channel_type': 'channel',
+                    'authorizedGroupFullName': False,
+                    'channel': {
+                        'anonymous_country': [('clear',)],
+                        'anonymous_name': False,
+                        'avatarCacheKey': self.channel_channel_public_1._get_avatar_cache_key(),
+                        'channel_type': 'channel',
+                        'channelMembers': [('insert', sorted([{
+                            'channel': {
+                                'id': self.channel_channel_public_1.id,
+                            },
+                            'id': self.channel_channel_public_1.channel_member_ids.filtered(lambda m: m.partner_id == self.users[0].partner_id).id,
+                            'persona': {
+                                'partner': {
+                                    'active': True,
+                                    'email': 'e.e@example.com',
+                                    'id': self.users[0].partner_id.id,
+                                    'im_status': 'offline',
+                                    'name': 'Ernest Employee',
+                                    'out_of_office_date_end': False,
+                                    'user': {
+                                        'id': self.users[0].id,
+                                        'isInternalUser': True,
+                                    },
+                                },
+                            },
+                        }], key=lambda member_data: member_data['id']))],
+                        'custom_channel_name': False,
+                        'id': self.channel_channel_public_1.id,
+                        'memberCount': 5,
+                        'serverMessageUnreadCounter': 0,
+                    },
                     'create_uid': self.env.user.id,
-                    'custom_channel_name': False,
                     'defaultDisplayMode': False,
                     'description': False,
                     'group_based_subscription': False,
-                    'id': channel_channel_public_1.id,
-                    'invitedGuests': [('insert', [])],
-                    'invitedPartners': [('insert', [])],
+                    'id': self.channel_channel_public_1.id,
+                    'invitedMembers': [('insert', [])],
                     'is_minimized': False,
                     'is_pinned': True,
-                    'last_interest_dt': channel_channel_public_1.channel_last_seen_partner_ids.filtered(lambda p: p.partner_id == self.users[0].partner_id).last_interest_dt.strftime(DEFAULT_SERVER_DATETIME_FORMAT),
-                    'last_message_id': next(res['message_id'] for res in channel_channel_public_1._channel_last_message_ids()),
+                    'last_interest_dt': self.channel_channel_public_1.channel_member_ids.filtered(lambda m: m.partner_id == self.users[0].partner_id).last_interest_dt.strftime(DEFAULT_SERVER_DATETIME_FORMAT),
+                    'last_message_id': next(res['message_id'] for res in self.channel_channel_public_1._channel_last_message_ids()),
                     'message_needaction_counter': 1,
-                    'memberCount': 5,
-                    'message_unread_counter': 0,
-                    'name': 'public 1',
-                    'public': 'public',
+                    'name': 'public channel 1',
                     'rtcSessions': [('insert', [])],
-                    'seen_message_id': next(res['message_id'] for res in channel_channel_public_1._channel_last_message_ids()),
+                    'seen_message_id': next(res['message_id'] for res in self.channel_channel_public_1._channel_last_message_ids()),
                     'state': 'open',
-                    'uuid': channel_channel_public_1.uuid,
+                    'uuid': self.channel_channel_public_1.uuid,
                 },
                 {
-                    'avatarCacheKey': channel_channel_public_2._get_avatar_cache_key(),
-                    'channel_type': 'channel',
+                    'authorizedGroupFullName': False,
+                    'channel': {
+                        'anonymous_country': [('clear',)],
+                        'anonymous_name': False,
+                        'avatarCacheKey': self.channel_channel_public_2._get_avatar_cache_key(),
+                        'channel_type': 'channel',
+                        'channelMembers': [('insert', sorted([{
+                            'channel': {
+                                'id': self.channel_channel_public_2.id,
+                            },
+                            'id': self.channel_channel_public_2.channel_member_ids.filtered(lambda m: m.partner_id == self.users[0].partner_id).id,
+                            'persona': {
+                                'partner': {
+                                    'active': True,
+                                    'email': 'e.e@example.com',
+                                    'id': self.users[0].partner_id.id,
+                                    'im_status': 'offline',
+                                    'name': 'Ernest Employee',
+                                    'out_of_office_date_end': False,
+                                    'user': {
+                                        'id': self.users[0].id,
+                                        'isInternalUser': True,
+                                    },
+                                },
+                            },
+                        }], key=lambda member_data: member_data['id']))],
+                        'custom_channel_name': False,
+                        'id': self.channel_channel_public_2.id,
+                        'memberCount': 5,
+                        'serverMessageUnreadCounter': 0,
+                    },
                     'create_uid': self.env.user.id,
-                    'custom_channel_name': False,
                     'defaultDisplayMode': False,
                     'description': False,
                     'group_based_subscription': False,
-                    'id': channel_channel_public_2.id,
-                    'invitedGuests': [('insert', [])],
-                    'invitedPartners': [('insert', [])],
+                    'id': self.channel_channel_public_2.id,
+                    'invitedMembers': [('insert', [])],
                     'is_minimized': False,
                     'is_pinned': True,
-                    'last_interest_dt': channel_channel_public_2.channel_last_seen_partner_ids.filtered(lambda p: p.partner_id == self.users[0].partner_id).last_interest_dt.strftime(DEFAULT_SERVER_DATETIME_FORMAT),
-                    'last_message_id': next(res['message_id'] for res in channel_channel_public_2._channel_last_message_ids()),
-                    'memberCount': 5,
+                    'last_interest_dt': self.channel_channel_public_2.channel_member_ids.filtered(lambda m: m.partner_id == self.users[0].partner_id).last_interest_dt.strftime(DEFAULT_SERVER_DATETIME_FORMAT),
+                    'last_message_id': next(res['message_id'] for res in self.channel_channel_public_2._channel_last_message_ids()),
                     'message_needaction_counter': 0,
-                    'message_unread_counter': 0,
-                    'name': 'public 2',
-                    'public': 'public',
+                    'name': 'public channel 2',
                     'rtcSessions': [('insert', [])],
-                    'seen_message_id': next(res['message_id'] for res in channel_channel_public_2._channel_last_message_ids()),
+                    'seen_message_id': next(res['message_id'] for res in self.channel_channel_public_2._channel_last_message_ids()),
                     'state': 'open',
-                    'uuid': channel_channel_public_2.uuid,
+                    'uuid': self.channel_channel_public_2.uuid,
                 },
                 {
-                    'avatarCacheKey': channel_channel_group_1._get_avatar_cache_key(),
-                    'channel_type': 'channel',
+                    'authorizedGroupFullName': self.group_user.full_name,
+                    'channel': {
+                        'anonymous_country': [('clear',)],
+                        'anonymous_name': False,
+                        'avatarCacheKey': self.channel_channel_group_1._get_avatar_cache_key(),
+                        'channel_type': 'channel',
+                        'channelMembers': [('insert', sorted([{
+                            'channel': {
+                                'id': self.channel_channel_group_1.id,
+                            },
+                            'id': self.channel_channel_group_1.channel_member_ids.filtered(lambda m: m.partner_id == self.users[0].partner_id).id,
+                            'persona': {
+                                'partner': {
+                                    'active': True,
+                                    'email': 'e.e@example.com',
+                                    'id': self.users[0].partner_id.id,
+                                    'im_status': 'offline',
+                                    'name': 'Ernest Employee',
+                                    'out_of_office_date_end': False,
+                                    'user': {
+                                        'id': self.users[0].id,
+                                        'isInternalUser': True,
+                                    },
+                                },
+                            },
+                        }], key=lambda member_data: member_data['id']))],
+                        'custom_channel_name': False,
+                        'id': self.channel_channel_group_1.id,
+                        'memberCount': 5,
+                        'serverMessageUnreadCounter': 0,
+                    },
                     'create_uid': self.env.user.id,
-                    'custom_channel_name': False,
                     'defaultDisplayMode': False,
                     'description': False,
                     'group_based_subscription': False,
-                    'id': channel_channel_group_1.id,
-                    'invitedGuests': [('insert', [])],
-                    'invitedPartners': [('insert', [])],
+                    'id': self.channel_channel_group_1.id,
+                    'invitedMembers': [('insert', [])],
                     'is_minimized': False,
                     'is_pinned': True,
-                    'last_interest_dt': channel_channel_group_1.channel_last_seen_partner_ids.filtered(lambda p: p.partner_id == self.users[0].partner_id).last_interest_dt.strftime(DEFAULT_SERVER_DATETIME_FORMAT),
-                    'last_message_id': next(res['message_id'] for res in channel_channel_group_1._channel_last_message_ids()),
-                    'memberCount': 5,
+                    'last_interest_dt': self.channel_channel_group_1.channel_member_ids.filtered(lambda m: m.partner_id == self.users[0].partner_id).last_interest_dt.strftime(DEFAULT_SERVER_DATETIME_FORMAT),
+                    'last_message_id': next(res['message_id'] for res in self.channel_channel_group_1._channel_last_message_ids()),
                     'message_needaction_counter': 0,
-                    'message_unread_counter': 0,
-                    'name': 'group 1',
-                    'public': 'groups',
+                    'name': 'group restricted channel 1',
                     'rtcSessions': [('insert', [])],
-                    'seen_message_id': next(res['message_id'] for res in channel_channel_group_1._channel_last_message_ids()),
+                    'seen_message_id': next(res['message_id'] for res in self.channel_channel_group_1._channel_last_message_ids()),
                     'state': 'open',
-                    'uuid': channel_channel_group_1.uuid,
+                    'uuid': self.channel_channel_group_1.uuid,
                 },
                 {
-                    'avatarCacheKey': channel_channel_group_2._get_avatar_cache_key(),
-                    'channel_type': 'channel',
+                    'authorizedGroupFullName': self.group_user.full_name,
+                    'channel': {
+                        'anonymous_country': [('clear',)],
+                        'anonymous_name': False,
+                        'avatarCacheKey': self.channel_channel_group_2._get_avatar_cache_key(),
+                        'channel_type': 'channel',
+                        'channelMembers': [('insert', sorted([{
+                            'channel': {
+                                'id': self.channel_channel_group_2.id,
+                            },
+                            'id': self.channel_channel_group_2.channel_member_ids.filtered(lambda m: m.partner_id == self.users[0].partner_id).id,
+                            'persona': {
+                                'partner': {
+                                    'active': True,
+                                    'email': 'e.e@example.com',
+                                    'id': self.users[0].partner_id.id,
+                                    'im_status': 'offline',
+                                    'name': 'Ernest Employee',
+                                    'out_of_office_date_end': False,
+                                    'user': {
+                                        'id': self.users[0].id,
+                                        'isInternalUser': True,
+                                    },
+                                },
+                            },
+                        }], key=lambda member_data: member_data['id']))],
+                        'custom_channel_name': False,
+                        'id': self.channel_channel_group_2.id,
+                        'memberCount': 5,
+                        'serverMessageUnreadCounter': 0,
+                    },
                     'create_uid': self.env.user.id,
-                    'custom_channel_name': False,
                     'defaultDisplayMode': False,
                     'description': False,
                     'group_based_subscription': False,
-                    'id': channel_channel_group_2.id,
-                    'invitedGuests': [('insert', [])],
-                    'invitedPartners': [('insert', [])],
+                    'id': self.channel_channel_group_2.id,
+                    'invitedMembers': [('insert', [])],
                     'is_minimized': False,
                     'is_pinned': True,
-                    'last_interest_dt': channel_channel_group_2.channel_last_seen_partner_ids.filtered(lambda p: p.partner_id == self.users[0].partner_id).last_interest_dt.strftime(DEFAULT_SERVER_DATETIME_FORMAT),
-                    'last_message_id': next(res['message_id'] for res in channel_channel_group_2._channel_last_message_ids()),
-                    'memberCount': 5,
+                    'last_interest_dt': self.channel_channel_group_2.channel_member_ids.filtered(lambda m: m.partner_id == self.users[0].partner_id).last_interest_dt.strftime(DEFAULT_SERVER_DATETIME_FORMAT),
+                    'last_message_id': next(res['message_id'] for res in self.channel_channel_group_2._channel_last_message_ids()),
                     'message_needaction_counter': 0,
-                    'message_unread_counter': 0,
-                    'name': 'group 2',
-                    'public': 'groups',
+                    'name': 'group restricted channel 2',
                     'rtcSessions': [('insert', [])],
-                    'seen_message_id': next(res['message_id'] for res in channel_channel_group_2._channel_last_message_ids()),
+                    'seen_message_id': next(res['message_id'] for res in self.channel_channel_group_2._channel_last_message_ids()),
                     'state': 'open',
-                    'uuid': channel_channel_group_2.uuid,
+                    'uuid': self.channel_channel_group_2.uuid,
                 },
                 {
-                    'avatarCacheKey': channel_channel_private_1._get_avatar_cache_key(),
-                    'channel_type': 'channel',
+                    'authorizedGroupFullName': False,
+                    'channel': {
+                        'anonymous_country': [('clear',)],
+                        'anonymous_name': False,
+                        'avatarCacheKey': self.channel_group_1._get_avatar_cache_key(),
+                        'channel_type': 'group',
+                        'channelMembers': [('insert', sorted([
+                            {
+                                'channel': {
+                                    'id': self.channel_group_1.id,
+                                },
+                                'id': self.channel_group_1.channel_member_ids.filtered(lambda m: m.partner_id == self.users[0].partner_id).id,
+                                'persona': {
+                                    'partner': {
+                                        'active': True,
+                                        'email': 'e.e@example.com',
+                                        'id': self.users[0].partner_id.id,
+                                        'im_status': 'offline',
+                                        'name': 'Ernest Employee',
+                                        'out_of_office_date_end': False,
+                                        'user': {
+                                            'id': self.users[0].id,
+                                            'isInternalUser': True,
+                                        },
+                                    },
+                                },
+                            },
+                            {
+                                'channel': {
+                                    'id': self.channel_group_1.id,
+                                },
+                                'id': self.channel_group_1.channel_member_ids.filtered(lambda m: m.partner_id == self.users[12].partner_id).id,
+                                'persona': {
+                                    'partner': {
+                                        'active': True,
+                                        'email': False,
+                                        'id': self.users[12].partner_id.id,
+                                        'im_status': 'offline',
+                                        'name': 'test12',
+                                        'out_of_office_date_end': False,
+                                        'user': {
+                                            'id': self.users[12].id,
+                                            'isInternalUser': True,
+                                        },
+                                    },
+                                },
+                            },
+                        ], key=lambda member_data: member_data['id']))],
+                        'custom_channel_name': False,
+                        'id': self.channel_group_1.id,
+                        'memberCount': 2,
+                        'serverMessageUnreadCounter': 0,
+                    },
                     'create_uid': self.env.user.id,
-                    'custom_channel_name': False,
                     'defaultDisplayMode': False,
                     'description': False,
                     'group_based_subscription': False,
-                    'id': channel_channel_private_1.id,
-                    'invitedGuests': [('insert', [])],
-                    'invitedPartners': [('insert', [])],
+                    'id': self.channel_group_1.id,
+                    'invitedMembers': [('insert', [])],
                     'is_minimized': False,
                     'is_pinned': True,
-                    'last_interest_dt': channel_channel_private_1.channel_last_seen_partner_ids.filtered(lambda p: p.partner_id == self.users[0].partner_id).last_interest_dt.strftime(DEFAULT_SERVER_DATETIME_FORMAT),
-                    'last_message_id': next(res['message_id'] for res in channel_channel_private_1._channel_last_message_ids()),
-                    'memberCount': 5,
-                    'message_needaction_counter': 0,
-                    'message_unread_counter': 0,
-                    'name': 'private 1',
-                    'public': 'private',
-                    'rtcSessions': [('insert', [])],
-                    'seen_message_id': next(res['message_id'] for res in channel_channel_private_1._channel_last_message_ids()),
-                    'state': 'open',
-                    'uuid': channel_channel_private_1.uuid,
-                },
-                {
-                    'avatarCacheKey': channel_channel_private_2._get_avatar_cache_key(),
-                    'channel_type': 'channel',
-                    'create_uid': self.env.user.id,
-                    'custom_channel_name': False,
-                    'defaultDisplayMode': False,
-                    'description': False,
-                    'group_based_subscription': False,
-                    'id': channel_channel_private_2.id,
-                    'invitedGuests': [('insert', [])],
-                    'invitedPartners': [('insert', [])],
-                    'is_minimized': False,
-                    'is_pinned': True,
-                    'last_interest_dt': channel_channel_private_2.channel_last_seen_partner_ids.filtered(lambda p: p.partner_id == self.users[0].partner_id).last_interest_dt.strftime(DEFAULT_SERVER_DATETIME_FORMAT),
-                    'last_message_id': next(res['message_id'] for res in channel_channel_private_2._channel_last_message_ids()),
-                    'memberCount': 5,
-                    'message_needaction_counter': 0,
-                    'message_unread_counter': 0,
-                    'name': 'private 2',
-                    'public': 'private',
-                    'rtcSessions': [('insert', [])],
-                    'seen_message_id': next(res['message_id'] for res in channel_channel_private_2._channel_last_message_ids()),
-                    'state': 'open',
-                    'uuid': channel_channel_private_2.uuid,
-                },
-                {
-                    'avatarCacheKey': channel_group_1._get_avatar_cache_key(),
-                    'channel_type': 'group',
-                    'create_uid': self.env.user.id,
-                    'custom_channel_name': False,
-                    'defaultDisplayMode': False,
-                    'description': False,
-                    'group_based_subscription': False,
-                    'guestMembers': [('insert', [])],
-                    'id': channel_group_1.id,
-                    'invitedGuests': [('insert', [])],
-                    'invitedPartners': [('insert', [])],
-                    'is_minimized': False,
-                    'is_pinned': True,
-                    'last_interest_dt': channel_group_1.channel_last_seen_partner_ids.filtered(lambda p: p.partner_id == self.users[0].partner_id).last_interest_dt.strftime(DEFAULT_SERVER_DATETIME_FORMAT),
+                    'last_interest_dt': self.channel_group_1.channel_member_ids.filtered(lambda m: m.partner_id == self.users[0].partner_id).last_interest_dt.strftime(DEFAULT_SERVER_DATETIME_FORMAT),
                     'last_message_id': False,
-                    'memberCount': 2,
-                    'members': [
-                        {
-                            'active': True,
-                            'display_name': 'Ernest Employee',
-                            'email': 'e.e@example.com',
-                            'id': self.users[0].partner_id.id,
-                            'im_status': 'leave_offline',
-                            'is_internal_user': True,
-                            'name': 'Ernest Employee',
-                            'out_of_office_date_end': self.leaves.filtered(lambda l: l.employee_id.user_id == self.users[0]).date_to.strftime(DEFAULT_SERVER_DATE_FORMAT),
-                            'user_id': self.users[0].id,
-                        },
-                        {
-                            'active': True,
-                            'display_name': 'test12',
-                            'email': False,
-                            'id': self.users[12].partner_id.id,
-                            'im_status': 'leave_offline',
-                            'is_internal_user': True,
-                            'name': 'test12',
-                            'out_of_office_date_end': self.leaves.filtered(lambda l: l.employee_id.user_id == self.users[12]).date_to.strftime(DEFAULT_SERVER_DATE_FORMAT),
-                            'user_id': self.users[12].id,
-                        },
-                    ],
                     'message_needaction_counter': 0,
-                    'message_unread_counter': 0,
                     'name': '',
-                    'public': 'private',
                     'rtcSessions': [('insert', [])],
                     'seen_message_id': False,
                     'seen_partners_info': [
                         {
                             'fetched_message_id': False,
-                            'id': channel_group_1.channel_last_seen_partner_ids.filtered(lambda p: p.partner_id == self.users[0].partner_id).id,
+                            'id': self.channel_group_1.channel_member_ids.filtered(lambda m: m.partner_id == self.users[0].partner_id).id,
                             'partner_id': self.users[0].partner_id.id,
                             'seen_message_id': False,
                         },
                         {
                             'fetched_message_id': False,
-                            'id': channel_group_1.channel_last_seen_partner_ids.filtered(lambda p: p.partner_id == self.users[12].partner_id).id,
+                            'id': self.channel_group_1.channel_member_ids.filtered(lambda m: m.partner_id == self.users[12].partner_id).id,
                             'partner_id': self.users[12].partner_id.id,
                             'seen_message_id': False,
                         }
                     ],
                     'state': 'open',
-                    'uuid': channel_group_1.uuid,
+                    'uuid': self.channel_group_1.uuid,
                 },
                 {
-                    'avatarCacheKey': channel_chat_1._get_avatar_cache_key(),
-                    'channel_type': 'chat',
+                    'authorizedGroupFullName': False,
+                    'channel': {
+                        'anonymous_country': [('clear',)],
+                        'anonymous_name': False,
+                        'avatarCacheKey': self.channel_chat_1._get_avatar_cache_key(),
+                        'channel_type': 'chat',
+                        'channelMembers': [('insert', sorted([
+                            {
+                                'channel': {
+                                    'id': self.channel_chat_1.id,
+                                },
+                                'id': self.channel_chat_1.channel_member_ids.filtered(lambda m: m.partner_id == self.users[0].partner_id).id,
+                                'persona': {
+                                    'partner': {
+                                        'active': True,
+                                        'email': 'e.e@example.com',
+                                        'id': self.users[0].partner_id.id,
+                                        'im_status': 'offline',
+                                        'name': 'Ernest Employee',
+                                        'out_of_office_date_end': False,
+                                        'user': {
+                                            'id': self.users[0].id,
+                                            'isInternalUser': True,
+                                        },
+                                    },
+                                },
+                            },
+                            {
+                                'channel': {
+                                    'id': self.channel_chat_1.id,
+                                },
+                                'id': self.channel_chat_1.channel_member_ids.filtered(lambda m: m.partner_id == self.users[14].partner_id).id,
+                                'persona': {
+                                    'partner': {
+                                        'active': True,
+                                        'email': False,
+                                        'id': self.users[14].partner_id.id,
+                                        'im_status': 'offline',
+                                        'name': 'test14',
+                                        'out_of_office_date_end': False,
+                                        'user': {
+                                            'id': self.users[14].id,
+                                            'isInternalUser': True,
+                                        },
+                                    },
+                                },
+                            },
+                        ], key=lambda member_data: member_data['id']))],
+                        'custom_channel_name': False,
+                        'id': self.channel_chat_1.id,
+                        'memberCount': 2,
+                        'serverMessageUnreadCounter': 0,
+                    },
                     'create_uid': self.env.user.id,
-                    'custom_channel_name': False,
                     'defaultDisplayMode': False,
                     'description': False,
                     'group_based_subscription': False,
-                    'guestMembers': [('insert', [])],
-                    'id': channel_chat_1.id,
-                    'invitedGuests': [('insert', [])],
-                    'invitedPartners': [('insert', [])],
+                    'id': self.channel_chat_1.id,
+                    'invitedMembers': [('insert', [])],
                     'is_minimized': False,
                     'is_pinned': True,
-                    'last_interest_dt': channel_chat_1.channel_last_seen_partner_ids.filtered(lambda p: p.partner_id == self.users[0].partner_id).last_interest_dt.strftime(DEFAULT_SERVER_DATETIME_FORMAT),
+                    'last_interest_dt': self.channel_chat_1.channel_member_ids.filtered(lambda m: m.partner_id == self.users[0].partner_id).last_interest_dt.strftime(DEFAULT_SERVER_DATETIME_FORMAT),
                     'last_message_id': False,
-                    'memberCount': 2,
-                    'members': [
-                        {
-                            'active': True,
-                            'display_name': 'Ernest Employee',
-                            'email': 'e.e@example.com',
-                            'id': self.users[0].partner_id.id,
-                            'im_status': 'leave_offline',
-                            'is_internal_user': True,
-                            'name': 'Ernest Employee',
-                            'out_of_office_date_end': self.leaves.filtered(lambda l: l.employee_id.user_id == self.users[0]).date_to.strftime(DEFAULT_SERVER_DATE_FORMAT),
-                            'user_id': self.users[0].id,
-                        },
-                        {
-                            'active': True,
-                            'display_name': 'test14',
-                            'email': False,
-                            'id': self.users[14].partner_id.id,
-                            'im_status': 'leave_offline',
-                            'is_internal_user': True,
-                            'name': 'test14',
-                            'out_of_office_date_end': self.leaves.filtered(lambda l: l.employee_id.user_id == self.users[14]).date_to.strftime(DEFAULT_SERVER_DATE_FORMAT),
-                            'user_id': self.users[14].id,
-                        },
-                    ],
                     'message_needaction_counter': 0,
-                    'message_unread_counter': 0,
                     'name': 'Ernest Employee, test14',
-                    'public': 'private',
                     'rtcSessions': [('insert', [])],
                     'seen_partners_info': [
                         {
                             'fetched_message_id': False,
-                            'id': channel_chat_1.channel_last_seen_partner_ids.filtered(lambda p: p.partner_id == self.users[0].partner_id).id,
+                            'id': self.channel_chat_1.channel_member_ids.filtered(lambda m: m.partner_id == self.users[0].partner_id).id,
                             'partner_id': self.users[0].partner_id.id,
                             'seen_message_id': False,
                         },
                         {
                             'fetched_message_id': False,
-                            'id': channel_chat_1.channel_last_seen_partner_ids.filtered(lambda p: p.partner_id == self.users[14].partner_id).id,
+                            'id': self.channel_chat_1.channel_member_ids.filtered(lambda m: m.partner_id == self.users[14].partner_id).id,
                             'partner_id': self.users[14].partner_id.id,
                             'seen_message_id': False,
                         },
                     ],
                     'seen_message_id': False,
                     'state': 'open',
-                    'uuid': channel_chat_1.uuid,
+                    'uuid': self.channel_chat_1.uuid,
                 },
                 {
-                    'avatarCacheKey': channel_chat_2._get_avatar_cache_key(),
-                    'channel_type': 'chat',
+                    'authorizedGroupFullName': False,
+                    'channel': {
+                        'anonymous_country': [('clear',)],
+                        'anonymous_name': False,
+                        'avatarCacheKey': self.channel_chat_2._get_avatar_cache_key(),
+                        'channel_type': 'chat',
+                        'channelMembers': [('insert', sorted([
+                            {
+                                'channel': {
+                                    'id': self.channel_chat_2.id,
+                                },
+                                'id': self.channel_chat_2.channel_member_ids.filtered(lambda m: m.partner_id == self.users[0].partner_id).id,
+                                'persona': {
+                                    'partner': {
+                                        'active': True,
+                                        'email': 'e.e@example.com',
+                                        'id': self.users[0].partner_id.id,
+                                        'im_status': 'offline',
+                                        'name': 'Ernest Employee',
+                                        'out_of_office_date_end': False,
+                                        'user': {
+                                            'id': self.users[0].id,
+                                            'isInternalUser': True,
+                                        },
+                                    },
+                                },
+                            },
+                            {
+                                'channel': {
+                                    'id': self.channel_chat_2.id,
+                                },
+                                'id': self.channel_chat_2.channel_member_ids.filtered(lambda m: m.partner_id == self.users[15].partner_id).id,
+                                'persona': {
+                                    'partner': {
+                                        'active': True,
+                                        'email': False,
+                                        'id': self.users[15].partner_id.id,
+                                        'im_status': 'offline',
+                                        'name': 'test15',
+                                        'out_of_office_date_end': False,
+                                        'user': {
+                                            'id': self.users[15].id,
+                                            'isInternalUser': True,
+                                        },
+                                    },
+                                },
+                            },
+                        ], key=lambda member_data: member_data['id']))],
+                        'custom_channel_name': False,
+                        'id': self.channel_chat_2.id,
+                        'memberCount': 2,
+                        'serverMessageUnreadCounter': 0,
+                    },
                     'create_uid': self.env.user.id,
-                    'custom_channel_name': False,
                     'defaultDisplayMode': False,
                     'description': False,
                     'group_based_subscription': False,
-                    'guestMembers': [('insert', [])],
-                    'id': channel_chat_2.id,
-                    'invitedGuests': [('insert', [])],
-                    'invitedPartners': [('insert', [])],
+                    'id': self.channel_chat_2.id,
+                    'invitedMembers': [('insert', [])],
                     'is_minimized': False,
                     'is_pinned': True,
-                    'last_interest_dt': channel_chat_2.channel_last_seen_partner_ids.filtered(lambda p: p.partner_id == self.users[0].partner_id).last_interest_dt.strftime(DEFAULT_SERVER_DATETIME_FORMAT),
+                    'last_interest_dt': self.channel_chat_2.channel_member_ids.filtered(lambda m: m.partner_id == self.users[0].partner_id).last_interest_dt.strftime(DEFAULT_SERVER_DATETIME_FORMAT),
                     'last_message_id': False,
-                    'memberCount': 2,
-                    'members': [
-                        {
-                            'active': True,
-                            'display_name': 'Ernest Employee',
-                            'email': 'e.e@example.com',
-                            'id': self.users[0].partner_id.id,
-                            'im_status': 'leave_offline',
-                            'is_internal_user': True,
-                            'name': 'Ernest Employee',
-                            'out_of_office_date_end': self.leaves.filtered(lambda l: l.employee_id.user_id == self.users[0]).date_to.strftime(DEFAULT_SERVER_DATE_FORMAT),
-                            'user_id': self.users[0].id,
-                        },
-                        {
-                            'active': True,
-                            'display_name': 'test15',
-                            'email': False,
-                            'id': self.users[15].partner_id.id,
-                            'im_status': 'leave_offline',
-                            'is_internal_user': True,
-                            'name': 'test15',
-                            'out_of_office_date_end': self.leaves.filtered(lambda l: l.employee_id.user_id == self.users[15]).date_to.strftime(DEFAULT_SERVER_DATE_FORMAT),
-                            'user_id': self.users[15].id,
-                        },
-                    ],
                     'message_needaction_counter': 0,
-                    'message_unread_counter': 0,
                     'name': 'Ernest Employee, test15',
-                    'public': 'private',
                     'rtcSessions': [('insert', [])],
                     'seen_partners_info': [
                         {
                             'fetched_message_id': False,
-                            'id': channel_chat_2.channel_last_seen_partner_ids.filtered(lambda p: p.partner_id == self.users[0].partner_id).id,
+                            'id': self.channel_chat_2.channel_member_ids.filtered(lambda m: m.partner_id == self.users[0].partner_id).id,
                             'partner_id': self.users[0].partner_id.id,
                             'seen_message_id': False,
                         },
                         {
                             'fetched_message_id': False,
-                            'id': channel_chat_2.channel_last_seen_partner_ids.filtered(lambda p: p.partner_id == self.users[15].partner_id).id,
+                            'id': self.channel_chat_2.channel_member_ids.filtered(lambda m: m.partner_id == self.users[15].partner_id).id,
                             'partner_id': self.users[15].partner_id.id,
                             'seen_message_id': False,
                         },
                     ],
                     'seen_message_id': False,
                     'state': 'open',
-                    'uuid': channel_chat_2.uuid,
+                    'uuid': self.channel_chat_2.uuid,
                 },
                 {
-                    'avatarCacheKey': channel_chat_3._get_avatar_cache_key(),
-                    'channel_type': 'chat',
+                    'authorizedGroupFullName': False,
+                    'channel': {
+                        'anonymous_country': [('clear',)],
+                        'anonymous_name': False,
+                        'avatarCacheKey': self.channel_chat_3._get_avatar_cache_key(),
+                        'channel_type': 'chat',
+                        'channelMembers': [('insert', sorted([
+                            {
+                                'channel': {
+                                    'id': self.channel_chat_3.id,
+                                },
+                                'id': self.channel_chat_3.channel_member_ids.filtered(lambda m: m.partner_id == self.users[0].partner_id).id,
+                                'persona': {
+                                    'partner': {
+                                        'active': True,
+                                        'email': 'e.e@example.com',
+                                        'id': self.users[0].partner_id.id,
+                                        'im_status': 'offline',
+                                        'name': 'Ernest Employee',
+                                        'out_of_office_date_end': False,
+                                        'user': {
+                                            'id': self.users[0].id,
+                                            'isInternalUser': True,
+                                        },
+                                    },
+                                },
+                            },
+                            {
+                                'channel': {
+                                    'id': self.channel_chat_3.id,
+                                },
+                                'id': self.channel_chat_3.channel_member_ids.filtered(lambda m: m.partner_id == self.users[2].partner_id).id,
+                                'persona': {
+                                    'partner': {
+                                        'active': True,
+                                        'email': 'test2@example.com',
+                                        'id': self.users[2].partner_id.id,
+                                        'im_status': 'offline',
+                                        'name': 'test2',
+                                        'out_of_office_date_end': False,
+                                        'user': {
+                                            'id': self.users[2].id,
+                                            'isInternalUser': True,
+                                        },
+                                    },
+                                },
+                            },
+                        ], key=lambda member_data: member_data['id']))],
+                        'custom_channel_name': False,
+                        'id': self.channel_chat_3.id,
+                        'memberCount': 2,
+                        'serverMessageUnreadCounter': 0,
+                    },
                     'create_uid': self.env.user.id,
-                    'custom_channel_name': False,
                     'defaultDisplayMode': False,
                     'description': False,
                     'group_based_subscription': False,
-                    'guestMembers': [('insert', [])],
-                    'id': channel_chat_3.id,
-                    'invitedGuests': [('insert', [])],
-                    'invitedPartners': [('insert', [])],
+                    'id': self.channel_chat_3.id,
+                    'invitedMembers': [('insert', [])],
                     'is_minimized': False,
                     'is_pinned': True,
-                    'last_interest_dt': channel_chat_3.channel_last_seen_partner_ids.filtered(lambda p: p.partner_id == self.users[0].partner_id).last_interest_dt.strftime(DEFAULT_SERVER_DATETIME_FORMAT),
+                    'last_interest_dt': self.channel_chat_3.channel_member_ids.filtered(lambda m: m.partner_id == self.users[0].partner_id).last_interest_dt.strftime(DEFAULT_SERVER_DATETIME_FORMAT),
                     'last_message_id': False,
-                    'memberCount': 2,
-                    'members': [
-                        {
-                            'active': True,
-                            'display_name': 'Ernest Employee',
-                            'email': 'e.e@example.com',
-                            'id': self.users[0].partner_id.id,
-                            'im_status': 'leave_offline',
-                            'is_internal_user': True,
-                            'name': 'Ernest Employee',
-                            'out_of_office_date_end': self.leaves.filtered(lambda l: l.employee_id.user_id == self.users[0]).date_to.strftime(DEFAULT_SERVER_DATE_FORMAT),
-                            'user_id': self.users[0].id,
-                        },
-                        {
-                            'active': True,
-                            'display_name': 'test2',
-                            'email': 'test2@example.com',
-                            'id': self.users[2].partner_id.id,
-                            'im_status': 'leave_offline',
-                            'is_internal_user': True,
-                            'name': 'test2',
-                            'out_of_office_date_end': self.leaves.filtered(lambda l: l.employee_id.user_id == self.users[2]).date_to.strftime(DEFAULT_SERVER_DATE_FORMAT),
-                            'user_id': self.users[2].id,
-                        },
-                    ],
                     'message_needaction_counter': 0,
-                    'message_unread_counter': 0,
                     'name': 'Ernest Employee, test2',
-                    'public': 'private',
                     'rtcSessions': [('insert', [])],
                     'seen_partners_info': [
                         {
                             'fetched_message_id': False,
-                            'id': channel_chat_3.channel_last_seen_partner_ids.filtered(lambda p: p.partner_id == self.users[0].partner_id).id,
+                            'id': self.channel_chat_3.channel_member_ids.filtered(lambda m: m.partner_id == self.users[0].partner_id).id,
                             'partner_id': self.users[0].partner_id.id,
                             'seen_message_id': False,
                         },
                         {
                             'fetched_message_id': False,
-                            'id': channel_chat_3.channel_last_seen_partner_ids.filtered(lambda p: p.partner_id == self.users[2].partner_id).id,
+                            'id': self.channel_chat_3.channel_member_ids.filtered(lambda m: m.partner_id == self.users[2].partner_id).id,
                             'partner_id': self.users[2].partner_id.id,
                             'seen_message_id': False,
                         },
                     ],
                     'seen_message_id': False,
                     'state': 'open',
-                    'uuid': channel_chat_3.uuid,
+                    'uuid': self.channel_chat_3.uuid,
                 },
                 {
-                    'avatarCacheKey': channel_chat_4._get_avatar_cache_key(),
-                    'channel_type': 'chat',
+                    'authorizedGroupFullName': False,
+                    'channel': {
+                        'anonymous_country': [('clear',)],
+                        'anonymous_name': False,
+                        'avatarCacheKey': self.channel_chat_4._get_avatar_cache_key(),
+                        'channel_type': 'chat',
+                        'channelMembers': [('insert', sorted([
+                            {
+                                'channel': {
+                                    'id': self.channel_chat_4.id,
+                                },
+                                'id': self.channel_chat_4.channel_member_ids.filtered(lambda m: m.partner_id == self.users[0].partner_id).id,
+                                'persona': {
+                                    'partner': {
+                                        'active': True,
+                                        'email': 'e.e@example.com',
+                                        'id': self.users[0].partner_id.id,
+                                        'im_status': 'offline',
+                                        'name': 'Ernest Employee',
+                                        'out_of_office_date_end': False,
+                                        'user': {
+                                            'id': self.users[0].id,
+                                            'isInternalUser': True,
+                                        },
+                                    },
+                                },
+                            },
+                            {
+                                'channel': {
+                                    'id': self.channel_chat_4.id,
+                                },
+                                'id': self.channel_chat_4.channel_member_ids.filtered(lambda m: m.partner_id == self.users[3].partner_id).id,
+                                'persona': {
+                                    'partner': {
+                                        'active': True,
+                                        'email': False,
+                                        'id': self.users[3].partner_id.id,
+                                        'im_status': 'offline',
+                                        'name': 'test3',
+                                        'out_of_office_date_end': False,
+                                        'user': {
+                                            'id': self.users[3].id,
+                                            'isInternalUser': True,
+                                        },
+                                    },
+                                },
+                            },
+                        ], key=lambda member_data: member_data['id']))],
+                        'custom_channel_name': False,
+                        'id': self.channel_chat_4.id,
+                        'memberCount': 2,
+                        'serverMessageUnreadCounter': 0,
+                    },
                     'create_uid': self.env.user.id,
-                    'custom_channel_name': False,
                     'defaultDisplayMode': False,
                     'description': False,
                     'group_based_subscription': False,
-                    'guestMembers': [('insert', [])],
-                    'id': channel_chat_4.id,
-                    'invitedGuests': [('insert', [])],
-                    'invitedPartners': [('insert', [])],
+                    'id': self.channel_chat_4.id,
+                    'invitedMembers': [('insert', [])],
                     'is_minimized': False,
                     'is_pinned': True,
-                    'last_interest_dt': channel_chat_4.channel_last_seen_partner_ids.filtered(lambda p: p.partner_id == self.users[0].partner_id).last_interest_dt.strftime(DEFAULT_SERVER_DATETIME_FORMAT),
+                    'last_interest_dt': self.channel_chat_4.channel_member_ids.filtered(lambda m: m.partner_id == self.users[0].partner_id).last_interest_dt.strftime(DEFAULT_SERVER_DATETIME_FORMAT),
                     'last_message_id': False,
-                    'memberCount': 2,
-                    'members': [
-                        {
-                            'active': True,
-                            'display_name': 'Ernest Employee',
-                            'email': 'e.e@example.com',
-                            'id': self.users[0].partner_id.id,
-                            'im_status': 'leave_offline',
-                            'is_internal_user': True,
-                            'name': 'Ernest Employee',
-                            'out_of_office_date_end': self.leaves.filtered(lambda l: l.employee_id.user_id == self.users[0]).date_to.strftime(DEFAULT_SERVER_DATE_FORMAT),
-                            'user_id': self.users[0].id,
-                        },
-                        {
-                            'active': True,
-                            'display_name': 'test3',
-                            'email': False,
-                            'id': self.users[3].partner_id.id,
-                            'im_status': 'leave_offline',
-                            'is_internal_user': True,
-                            'name': 'test3',
-                            'out_of_office_date_end': self.leaves.filtered(lambda l: l.employee_id.user_id == self.users[3]).date_to.strftime(DEFAULT_SERVER_DATE_FORMAT),
-                            'user_id': self.users[3].id,
-                        },
-                    ],
                     'message_needaction_counter': 0,
-                    'message_unread_counter': 0,
                     'name': 'Ernest Employee, test3',
-                    'public': 'private',
                     'rtcSessions': [('insert', [])],
                     'seen_partners_info': [
                         {
                             'fetched_message_id': False,
-                            'id': channel_chat_4.channel_last_seen_partner_ids.filtered(lambda p: p.partner_id == self.users[0].partner_id).id,
+                            'id': self.channel_chat_4.channel_member_ids.filtered(lambda m: m.partner_id == self.users[0].partner_id).id,
                             'partner_id': self.users[0].partner_id.id,
                             'seen_message_id': False,
                         },
                         {
                             'fetched_message_id': False,
-                            'id': channel_chat_4.channel_last_seen_partner_ids.filtered(lambda p: p.partner_id == self.users[3].partner_id).id,
+                            'id': self.channel_chat_4.channel_member_ids.filtered(lambda m: m.partner_id == self.users[3].partner_id).id,
                             'partner_id': self.users[3].partner_id.id,
                             'seen_message_id': False,
                         },
                     ],
                     'seen_message_id': False,
                     'state': 'open',
-                    'uuid': channel_chat_4.uuid,
+                    'uuid': self.channel_chat_4.uuid,
                 },
                 {
-                    'avatarCacheKey': channel_livechat_1._get_avatar_cache_key(),
-                    'channel_type': 'livechat',
+                    'authorizedGroupFullName': False,
+                    'channel': {
+                        'anonymous_country': {
+                            'code': 'IN',
+                            'id': self.env.ref('base.in').id,
+                            'name': 'India',
+                        },
+                        'anonymous_name': False,
+                        'avatarCacheKey': self.channel_livechat_1._get_avatar_cache_key(),
+                        'channel_type': 'livechat',
+                        'channelMembers': [('insert', sorted([
+                            {
+                                'channel': {
+                                    'id': self.channel_livechat_1.id,
+                                },
+                                'id': self.channel_livechat_1.channel_member_ids.filtered(lambda m: m.partner_id == self.users[0].partner_id).id,
+                                'persona': {
+                                    'partner': {
+                                        'active': True,
+                                        'country': [('clear',)],
+                                        'id': self.users[0].partner_id.id,
+                                        'is_public': False,
+                                        'name': 'Ernest Employee',
+                                    },
+                                },
+                            },
+                            {
+                                'channel': {
+                                    'id': self.channel_livechat_1.id,
+                                },
+                                'id': self.channel_livechat_1.channel_member_ids.filtered(lambda m: m.partner_id == self.users[1].partner_id).id,
+                                'persona': {
+                                    'partner': {
+                                        'active': True,
+                                        'country': [('clear',)],
+                                        'id': self.users[1].partner_id.id,
+                                        'is_public': False,
+                                        'name': 'test1',
+                                    },
+                                },
+                            },
+                        ], key=lambda member_data: member_data['id']))],
+                        'custom_channel_name': False,
+                        'id': self.channel_livechat_1.id,
+                        'memberCount': 2,
+                        'serverMessageUnreadCounter': 0,
+                    },
                     'create_uid': self.env.user.id,
-                    'custom_channel_name': False,
                     'defaultDisplayMode': False,
                     'description': False,
                     'group_based_subscription': False,
-                    'guestMembers': [('insert', [])],
-                    'id': channel_livechat_1.id,
-                    'invitedGuests': [('insert', [])],
-                    'invitedPartners': [('insert', [])],
+                    'id': self.channel_livechat_1.id,
+                    'invitedMembers': [('insert', [])],
                     'is_minimized': False,
                     'is_pinned': True,
-                    'last_interest_dt': channel_livechat_1.channel_last_seen_partner_ids.filtered(lambda p: p.partner_id == self.users[0].partner_id).last_interest_dt.strftime(DEFAULT_SERVER_DATETIME_FORMAT),
-                    'last_message_id': next(res['message_id'] for res in channel_livechat_1._channel_last_message_ids()),
-                    'memberCount': 2,
-                    'livechat_visitor': {
-                        'country': False,
-                        'id': self.users[1].partner_id.id,
-                        'name': 'test1',
-                    },
-                    'members': [
-                        {
-                            'active': True,
-                            'email': False,
-                            'id': self.users[0].partner_id.id,
-                            'im_status': False,
-                            'livechat_username': False,
-                            'name': 'Ernest Employee',
-                        },
-                        {
-                            'active': True,
-                            'email': False,
-                            'id': self.users[1].partner_id.id,
-                            'im_status': False,
-                            'livechat_username': False,
-                            'name': 'test1',
-                        },
-                    ],
+                    'last_interest_dt': self.channel_livechat_1.channel_member_ids.filtered(lambda m: m.partner_id == self.users[0].partner_id).last_interest_dt.strftime(DEFAULT_SERVER_DATETIME_FORMAT),
+                    'last_message_id': next(res['message_id'] for res in self.channel_livechat_1._channel_last_message_ids()),
                     'message_needaction_counter': 0,
-                    'message_unread_counter': 0,
                     'name': 'test1 Ernest Employee',
                     'operator_pid': (self.users[0].partner_id.id, 'Ernest Employee'),
-                    'public': 'private',
                     'rtcSessions': [('insert', [])],
                     'seen_partners_info': [
                         {
                             'fetched_message_id': False,
-                            'id': channel_livechat_1.channel_last_seen_partner_ids.filtered(lambda p: p.partner_id == self.users[0].partner_id).id,
+                            'id': self.channel_livechat_1.channel_member_ids.filtered(lambda m: m.partner_id == self.users[0].partner_id).id,
                             'partner_id': self.users[0].partner_id.id,
                             'seen_message_id': False,
                         },
                         {
-                            'fetched_message_id': next(res['message_id'] for res in channel_livechat_1._channel_last_message_ids()),
-                            'id': channel_livechat_1.channel_last_seen_partner_ids.filtered(lambda p: p.partner_id == self.users[1].partner_id).id,
+                            'fetched_message_id': next(res['message_id'] for res in self.channel_livechat_1._channel_last_message_ids()),
+                            'id': self.channel_livechat_1.channel_member_ids.filtered(lambda m: m.partner_id == self.users[1].partner_id).id,
                             'partner_id': self.users[1].partner_id.id,
-                            'seen_message_id': next(res['message_id'] for res in channel_livechat_1._channel_last_message_ids()),
+                            'seen_message_id': next(res['message_id'] for res in self.channel_livechat_1._channel_last_message_ids()),
                         },
                     ],
                     'seen_message_id': False,
                     'state': 'open',
-                    'uuid': channel_livechat_1.uuid,
+                    'uuid': self.channel_livechat_1.uuid,
                 },
                 {
-                    'avatarCacheKey': channel_livechat_2._get_avatar_cache_key(),
-                    'channel_type': 'livechat',
+                    'authorizedGroupFullName': False,
+                    'channel': {
+                        'anonymous_country': {
+                            'id': self.env.ref('base.be').id,
+                            'code': 'BE',
+                            'name': 'Belgium',
+                        },
+                        'anonymous_name': 'anon 2',
+                        'avatarCacheKey': self.channel_livechat_2._get_avatar_cache_key(),
+                        'channel_type': 'livechat',
+                        'channelMembers': [('insert', sorted([
+                            {
+                                'channel': {
+                                    'id': self.channel_livechat_2.id,
+                                },
+                                'id': self.channel_livechat_2.channel_member_ids.filtered(lambda m: m.partner_id == self.users[0].partner_id).id,
+                                'persona': {
+                                    'partner': {
+                                        'active': True,
+                                        'country': [('clear',)],
+                                        'id': self.users[0].partner_id.id,
+                                        'is_public': False,
+                                        'name': 'Ernest Employee',
+                                    },
+                                },
+                            },
+                            {
+                                'channel': {
+                                    'id': self.channel_livechat_2.id,
+                                },
+                                'id': self.channel_livechat_2.channel_member_ids.filtered(lambda m: m.partner_id == self.env.ref('base.public_partner')).id,
+                                'persona': {
+                                    'partner': {
+                                        'active': False,
+                                        'id': self.env.ref('base.public_partner').id,
+                                        'is_public': True,
+                                        'name': 'Public user',
+                                    },
+                                },
+                            },
+                        ], key=lambda member_data: member_data['id']))],
+                        'custom_channel_name': False,
+                        'id': self.channel_livechat_2.id,
+                        'memberCount': 2,
+                        'serverMessageUnreadCounter': 0,
+                    },
                     'create_uid': self.env.ref('base.public_user').id,
-                    'custom_channel_name': False,
                     'defaultDisplayMode': False,
                     'description': False,
                     'group_based_subscription': False,
-                    'guestMembers': [('insert', [])],
-                    'id': channel_livechat_2.id,
-                    'invitedGuests': [('insert', [])],
-                    'invitedPartners': [('insert', [])],
+                    'id': self.channel_livechat_2.id,
+                    'invitedMembers': [('insert', [])],
                     'is_minimized': False,
                     'is_pinned': True,
-                    'last_interest_dt': channel_livechat_2.channel_last_seen_partner_ids.filtered(lambda p: p.partner_id == self.users[0].partner_id).last_interest_dt.strftime(DEFAULT_SERVER_DATETIME_FORMAT),
-                    'last_message_id': next(res['message_id'] for res in channel_livechat_2._channel_last_message_ids()),
-                    'memberCount': 2,
-                    'livechat_visitor': {
-                        'country': (self.env.ref('base.be').id, 'Belgium'),
-                        'id': False,
-                        'name': 'anon 2',
-                    },
-                    'members': [
-                        {
-                            'active': False,
-                            'email': False,
-                            'id': self.env.ref('base.public_partner').id,
-                            'im_status': False,
-                            'livechat_username': False,
-                            'name': 'Public user',
-                        },
-                        {
-                            'active': True,
-                            'email': False,
-                            'id': self.users[0].partner_id.id,
-                            'im_status': False,
-                            'livechat_username': False,
-                            'name': 'Ernest Employee',
-                        },
-                    ],
+                    'last_interest_dt': self.channel_livechat_2.channel_member_ids.filtered(lambda m: m.partner_id == self.users[0].partner_id).last_interest_dt.strftime(DEFAULT_SERVER_DATETIME_FORMAT),
+                    'last_message_id': next(res['message_id'] for res in self.channel_livechat_2._channel_last_message_ids()),
                     'message_needaction_counter': 0,
-                    'message_unread_counter': 0,
                     'name': 'anon 2 Ernest Employee',
                     'operator_pid': (self.users[0].partner_id.id, 'Ernest Employee'),
-                    'public': 'private',
                     'rtcSessions': [('insert', [])],
                     'seen_partners_info': [
                         {
-                            'fetched_message_id': next(res['message_id'] for res in channel_livechat_2._channel_last_message_ids()),
-                            'id': channel_livechat_2.channel_last_seen_partner_ids.filtered(lambda p: p.partner_id == self.env.ref('base.public_partner')).id,
+                            'fetched_message_id': next(res['message_id'] for res in self.channel_livechat_2._channel_last_message_ids()),
+                            'id': self.channel_livechat_2.channel_member_ids.filtered(lambda m: m.partner_id == self.env.ref('base.public_partner')).id,
                             'partner_id': self.env.ref('base.public_user').partner_id.id,
-                            'seen_message_id': next(res['message_id'] for res in channel_livechat_2._channel_last_message_ids()),
+                            'seen_message_id': next(res['message_id'] for res in self.channel_livechat_2._channel_last_message_ids()),
                         },
                         {
                             'fetched_message_id': False,
-                            'id': channel_livechat_2.channel_last_seen_partner_ids.filtered(lambda p: p.partner_id == self.users[0].partner_id).id,
+                            'id': self.channel_livechat_2.channel_member_ids.filtered(lambda m: m.partner_id == self.users[0].partner_id).id,
                             'partner_id': self.users[0].partner_id.id,
                             'seen_message_id': False,
                         },
                     ],
                     'seen_message_id': False,
                     'state': 'open',
-                    'uuid': channel_livechat_2.uuid,
+                    'uuid': self.channel_livechat_2.uuid,
                 },
             ],
             'companyName': 'YourCompany',
-            'mail_failures': [],
             'shortcodes': [
                 {
-                    'description': False,
                     'id': self.shortcodes[0].id,
                     'source': 'hello',
                     'substitution': 'Hello. How may I help you?',
                 },
                 {
-                    'description': False,
                     'id': self.shortcodes[1].id,
                     'source': 'bye',
                     'substitution': 'Thanks for your feedback. Good bye!',
                 },
             ],
+            'internalUserGroupId': self.env.ref('base.group_user').id,
             'menu_id': self.env['ir.model.data']._xmlid_to_res_id('mail.menu_root_discuss'),
             'partner_root': {
                 'active': False,
-                'display_name': 'OdooBot',
                 'email': 'odoobot@example.com',
-                'id': user_root.partner_id.id,
+                'id': self.user_root.partner_id.id,
                 'im_status': 'bot',
-                'is_internal_user': True,
                 'name': 'OdooBot',
                 'out_of_office_date_end': False,
-                'user_id': False,
+                'user': [('clear',)],
             },
-            'public_partners': [{
-                'active': False,
-                'display_name': 'Public user',
-                'email': False,
-                'id': self.env.ref('base.public_partner').id,
-                'im_status': 'im_partner',
-                'is_internal_user': False,
-                'name': 'Public user',
-                'out_of_office_date_end': False,
-                'user_id': self.env.ref('base.public_user').id,
-            }],
             'currentGuest': False,
             'current_partner': {
                 'active': True,
-                'display_name': 'Ernest Employee',
                 'email': 'e.e@example.com',
                 'id': self.users[0].partner_id.id,
-                'im_status': 'leave_offline',
-                'is_internal_user': True,
+                'im_status': 'offline',
                 'name': 'Ernest Employee',
-                'out_of_office_date_end': self.leaves.filtered(lambda l: l.employee_id.user_id == self.users[0]).date_to.strftime(DEFAULT_SERVER_DATE_FORMAT),
-                'user_id': self.users[0].id,
+                'out_of_office_date_end': False,
+                'user': {
+                    'id': self.users[0].id,
+                    'isInternalUser': True,
+                },
             },
             'current_user_id': self.users[0].id,
             'current_user_settings': {
@@ -796,8 +993,15 @@ class TestDiscussFullPerformance(TransactionCase):
                 'is_discuss_sidebar_category_livechat_open': True,
                 'push_to_talk_key': False,
                 'use_push_to_talk': False,
-                'user_id': (self.users[0].id, 'Ernest Employee'),
+                'user_id': {'id': self.users[0].id},
                 'voice_active_duration': 0,
-                'volume_settings': [],
+                'volume_settings_ids': [('insert', [])],
             },
-        })
+        }
+
+    def _get_query_count(self):
+        """
+            Returns the expected query count.
+            The point of having a separate getter is to allow it to be overriden.
+        """
+        return 81

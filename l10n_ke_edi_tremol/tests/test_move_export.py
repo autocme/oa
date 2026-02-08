@@ -41,7 +41,7 @@ class TestKeMoveExport(AccountTestInvoicingCommon):
             line_dict.get('name', b''.ljust(36)),      # 36 characters for the name
             line_dict.get('vat_class', b'A'),          # 1 symbol for vat class (a because the tax is 16.0%)
             line_dict.get('price', b'1'),              # up to 15 symbols for the unit price, tax included (up to 5 decimal places)
-            line_dict.get('uom', b'   '),              # 3 symbols for uom
+            line_dict.get('uom', b'Uni'),              # 3 symbols for uom
             line_dict.get('item_code', b''.ljust(10)), # 10 symbols for item code (only reported when the tax is not 16.0%)
             line_dict.get('item_desc', b''.ljust(20)), # item description (only reported when the tex is not 16.0%)
             line_dict.get('vat_rate', b'16.0'),        # vat rate
@@ -184,3 +184,42 @@ class TestKeMoveExport(AccountTestInvoicingCommon):
         expected_double_negative_header = [b'01;     0;0;1;Sirius Cybernetics Corporation;A000123456F   ;Test StreetFurther Test Street;Test StreetFurther Test Street;00500Nairobi                  ;                              ;INV202300002   ']
         expected_messages = expected_double_negative_header + expected_messages[1:]
         self.assertEqual(generated_messages, expected_messages)
+
+    def test_export_multi_tax_line_invoice(self):
+        """ When handling invoices with multiple taxes per line, the export should handle the
+            reported amounts correctly. Using only the VAT taxes in its calculation and not, for
+            instance, the 2% tourism levy, or the 4% drinks service charge, or the 10% food service
+            charge.
+        """
+        tourism_levy = self.env['account.tax'].create({
+            'name': 'Tourism levy',
+            'amount': 2,
+            'company_id': self.company_data['company'].id,
+        })
+        multi_tax_line_invoice = self.env['account.move'].create({
+            'move_type': 'out_invoice',
+            'partner_id': self.partner_a.id,
+            'invoice_line_ids': [
+                (0, 0, {
+                    'product_id': self.product_a.id,
+                    'quantity': 10,
+                    'price_unit': 1000,
+                    'tax_ids': [
+                        (6, 0, [
+                            self.company_data['company'].account_sale_tax_id.id,
+                            tourism_levy.id,
+                        ]),
+                    ],
+                    'discount': 25,
+                }),
+            ],
+        })
+        multi_tax_line_invoice.action_post()
+        generated_messages = multi_tax_line_invoice._l10n_ke_cu_lines_messages()
+        expected_sale_line = self.line_dict_to_bytes({
+            'name': b'Infinite Improbability Drive        ',
+            'price': b'1160',  # This is the unit price, tax included, but only the 16% VAT
+            'quantity': b'10.0',
+            'discount': b'-25.0%',
+        })
+        self.assertEqual(generated_messages, [expected_sale_line])

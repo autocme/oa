@@ -89,10 +89,11 @@ record['name'] = record.name + 'X'""",
                 'active': True,
             }, {
                 'name': 'Base Automation: test send an email',
+                'mail_post_method': 'email',
                 'model_id': self.env.ref('test_base_automation.model_base_automation_lead_test').id,
                 'template_id': self.test_mail_template_automation.id,
                 'trigger_field_ids': [(4, self.env.ref('test_base_automation.field_base_automation_lead_test__deadline').id)],
-                'state': 'email',
+                'state': 'mail_post',
                 'code': """
 record = model.browse(env.context['active_id'])
 record['name'] = record.name + 'X'""",
@@ -183,7 +184,7 @@ record['name'] = record.name + 'X'""",
         self.assertEqual(lead.user_id, self.user_root, "Responsible should not change on creation of Lead with state from 'draft' to 'open'.")
         # change partner, recompute on lead should trigger the rule
         partner.write({'employee': True})
-        lead.flush()
+        self.env.flush_all()
         self.assertTrue(lead.employee, "Customer field should updated to True")
         self.assertEqual(lead.user_id, self.user_demo, "Responsible should be change on write of Lead when Customer becomes True.")
 
@@ -220,21 +221,19 @@ record['name'] = record.name + 'X'""",
             patch('odoo.addons.mail.models.mail_template.MailTemplate.send_mail', _patched_send_mail),
         ]
 
-        patchers[0].start()
+        self.startPatcher(patchers[0])
 
         lead = self.create_lead()
         self.assertFalse(lead.priority)
         self.assertFalse(lead.deadline)
 
-        patchers[1].start()
+        self.startPatcher(patchers[1])
 
         lead.write({'priority': True})
 
         self.assertTrue(lead.priority)
         self.assertTrue(lead.deadline)
 
-        for patcher in patchers:
-            patcher.stop()
 
         self.assertEqual(send_mail_count, 1)
 
@@ -423,7 +422,7 @@ class TestCompute(common.TransactionCase):
         # automatically assigned to project, too
         task = self.env['test_base_automation.task'].create({'project_id': project.id})
         subtasks = task.create([{'parent_id': task.id} for _ in range(10)])
-        subtasks.flush()
+        subtasks.flush_model()
 
         # This test checks what happens when a stored recursive computed field
         # is marked to compute on many records, and automated actions are

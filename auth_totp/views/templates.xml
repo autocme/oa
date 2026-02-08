@@ -9,13 +9,13 @@
                     <div class="mb-2 mt-2 text-muted">
                         To login, enter below the six-digit authentication code provided by your Authenticator app.
                         <br/>
-                        <a href="https://www.odoo.com/documentation/15.0/applications/general/auth/2fa.html"
+                        <a href="https://www.odoo.com/documentation/16.0/applications/general/auth/2fa.html"
                            title="Learn More" target="_blank">Learn More</a>
                     </div>
                     <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
                     <input type="hidden" name="redirect" t-att-value="redirect"/>
-                    <div class="form-group">
-                        <label class="font-weight-bold" for="totp_token">Authentication Code</label>
+                    <div class="mb-3">
+                        <label class="fw-bold" for="totp_token">Authentication Code</label>
                         <input id="totp_token" name="totp_token" class="form-control mb-2"
                                 autocomplete="off" inputmode="numeric" autofocus="autofocus" required="required" placeholder="e.g. 123456"/>
                     </div>
@@ -27,16 +27,16 @@
                         <input type="checkbox" name="remember" id="switch-remember" value="1"/>
                         <label for="switch-remember">Don't ask again on this device</label>
                     </div>
-                        <div t-attf-class="clearfix oe_login_buttons text-center mb-1">
-                            <button type="submit" class="btn btn-primary btn-block">
-                                Login
+                        <div t-attf-class="clearfix oe_login_buttons text-center d-grid mb-1">
+                            <button type="submit" class="btn btn-primary">
+                                Log in
                             </button>
                         </div>
 
                     </div>
                 </form>
 
-                <form method="POST" action="/web/session/logout" class="form-inline">
+                <form method="POST" action="/web/session/logout">
                     <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
                     <div class="w-100 text-center">
                         <button type="submit" class="btn btn-link btn-sm mb-2">

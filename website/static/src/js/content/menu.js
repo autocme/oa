@@ -2,11 +2,11 @@ odoo.define('website.content.menu', function (require) {
 'use strict';
 
 const config = require('web.config');
-var dom = require('web.dom');
 var publicWidget = require('web.public.widget');
 var animations = require('website.content.snippets.animation');
 const extraMenuUpdateCallbacks = [];
 const weUtils = require('web_editor.utils');
+const dom = require('web.dom');
 
 const BaseAnimatedHeader = animations.Animation.extend({
     disabledInEditableMode: false,
@@ -78,6 +78,9 @@ const BaseAnimatedHeader = animations.Animation.extend({
     //--------------------------------------------------------------------------
 
     /**
+     * Adapt the 'right' css property of the header by adding the size of a
+     * scrollbar if any.
+     *
      * @private
      */
     _adaptFixedHeaderPosition() {
@@ -224,8 +227,12 @@ const BaseAnimatedHeader = animations.Animation.extend({
         }
 
         if (this.closeOpenedMenus) {
-            this.$dropdowns.removeClass('show');
-            this.$navbarCollapses.removeClass('show').attr('aria-expanded', false);
+            // TODO master: make this.$dropdowns the .dropdown-toggle directly.
+            for (const dropdownMenuEl of this.$dropdowns) {
+                Dropdown.getOrCreateInstance(
+                    dropdownMenuEl.closest('.dropdown').querySelector('.dropdown-toggle')
+                ).hide();
+            }
         }
     },
     /**
@@ -476,7 +483,10 @@ publicWidget.registry.FadeOutHeader = BaseDisappearingHeader.extend({
  * Note: this works well with the affixMenu... by chance (menuDirection is
  * called after alphabetically).
  *
- * @todo check bootstrap v4: maybe handled automatically now ?
+ * @todo @deprecated For the moment, dynamic positioning of dropdown elements is
+ * explicitly disabled by Bootstrap on dropdowns that are in the navbar. In
+ * master, we will patch the BS dropdown to allow this and remove the following
+ * widget.
  */
 publicWidget.registry.menuDirection = publicWidget.Widget.extend({
     selector: 'header .navbar .nav',
@@ -489,10 +499,8 @@ publicWidget.registry.menuDirection = publicWidget.Widget.extend({
      * @override
      */
     start: function () {
-        const isRTL = !!this.el.closest('#wrapwrap.o_rtl');
-        this.right = isRTL ? 'left' : 'right';
-        this.left = isRTL ? 'right' : 'left';
-        this.defaultAlignment = this.$el.is('.ml-auto, .ml-auto ~ *') ? this.right : this.left;
+        this.defaultAlignment = this.$el.is('.ms-auto, .ms-auto ~ *') ? 'end' : 'start';
+        this.isRtl = !!this.el.closest('#wrapwrap.o_rtl');
         return this._super.apply(this, arguments);
     },
 
@@ -502,7 +510,7 @@ publicWidget.registry.menuDirection = publicWidget.Widget.extend({
 
     /**
      * @private
-     * @param {string} alignment - either 'left' or 'right'
+     * @param {string} alignment - either 'start' or 'end'
      * @param {integer} liOffset
      * @param {integer} liWidth
      * @param {integer} menuWidth
@@ -510,7 +518,7 @@ publicWidget.registry.menuDirection = publicWidget.Widget.extend({
      * @returns {boolean}
      */
     _checkOpening: function (alignment, liOffset, liWidth, menuWidth, pageWidth) {
-        if (alignment === this.left) {
+        if (alignment === 'start' && !this.isRtl || alignment === 'end' && this.isRtl) {
             // Check if ok to open the dropdown to the right (no window overflow)
             return (liOffset + menuWidth <= pageWidth);
         } else {
@@ -527,20 +535,20 @@ publicWidget.registry.menuDirection = publicWidget.Widget.extend({
      * @private
      */
     _onDropdownShow: function (ev) {
-        var $li = $(ev.target);
-        var $menu = $li.children('.dropdown-menu');
-        var liOffset = $li.offset().left;
-        var liWidth = $li.outerWidth();
+        const $dropdown = $(ev.target).closest('.dropdown, .dropup');
+        var $menu = $dropdown.children('.dropdown-menu');
+        var liOffset = $dropdown.offset().left;
+        var liWidth = $dropdown.outerWidth();
         var menuWidth = $menu.outerWidth();
         var pageWidth = $('#wrapwrap').outerWidth();
 
-        $menu.removeClass('dropdown-menu-left dropdown-menu-right');
+        $menu.removeClass('dropdown-menu-start dropdown-menu-end');
 
         var alignment = this.defaultAlignment;
-        if ($li.nextAll(':visible').length === 0) {
+        if ($dropdown.nextAll(':visible').length === 0) {
             // The dropdown is the last menu item, open to the left side
             // (right side with rtl languages).
-            alignment = this.right;
+            alignment = 'end';
         }
 
         // If can't open in the current direction because it would overflow the
@@ -548,7 +556,7 @@ publicWidget.registry.menuDirection = publicWidget.Widget.extend({
         // same, change back the direction.
         for (var i = 0; i < 2; i++) {
             if (!this._checkOpening(alignment, liOffset, liWidth, menuWidth, pageWidth)) {
-                alignment = (alignment === this.left ? this.right : this.left);
+                alignment = (alignment === 'start' ? 'end' : 'start');
             }
         }
 
@@ -586,12 +594,42 @@ publicWidget.registry.hoverableDropdown = animations.Animation.extend({
      * @private
      */
     _dropdownHover: function () {
+        this.$dropdownMenus.attr('data-bs-popper', 'none');
         if (config.device.size_class >= config.device.SIZES.LG) {
             this.$dropdownMenus.css('margin-top', '0');
             this.$dropdownMenus.css('top', 'unset');
         } else {
             this.$dropdownMenus.css('margin-top', '');
             this.$dropdownMenus.css('top', '');
+        }
+    },
+    /**
+     * Hides all opened dropdowns.
+     *
+     * TODO: Remove in master.
+     * @private
+     */
+    _hideDropdowns() {
+        for (const toggleEl of this.el.querySelectorAll('.dropdown-toggle.show')) {
+            Dropdown.getOrCreateInstance(toggleEl).hide();
+        }
+    },
+    /**
+     * @private
+     * @param {Event} ev
+     * @param {String} method bootstrap dropdowns method name
+     */
+    _updateDropdownVisibility: function (ev, method) {
+        const { currentTarget } = ev;
+        if (config.device.size_class < config.device.SIZES.LG) {
+            return;
+        }
+        if (currentTarget.classList.contains('o_extra_menu_items')) {
+            return;
+        }
+        const dropdownToggle = currentTarget.querySelector('.dropdown-toggle');
+        if (dropdownToggle) {
+            Dropdown.getOrCreateInstance(dropdownToggle)[method]();
         }
     },
 
@@ -604,24 +642,55 @@ publicWidget.registry.hoverableDropdown = animations.Animation.extend({
      * @param {Event} ev
      */
     _onMouseEnter: function (ev) {
+        if (this.editableMode) {
+            // Do not handle hover if another dropdown is opened.
+            if (this.el.querySelector('.dropdown-toggle.show')) {
+                return;
+            }
+        }
+        // Get the previously focused element of the page.
+        const focusedEl = this.el.ownerDocument.querySelector(":focus")
+            || window.frameElement && window.frameElement.ownerDocument.querySelector(":focus");
+
         // The user must click on the dropdown if he is on mobile (no way to
         // hover) or if the dropdown is the extra menu ('+').
-        if (config.device.size_class < config.device.SIZES.LG ||
-            ev.currentTarget.classList.contains('o_extra_menu_items')) {
-            return;
+        this._updateDropdownVisibility(ev, 'show');
+
+        // Keep the focus on the previously focused element if any, otherwise do
+        // not focus the dropdown on hover.
+        if (focusedEl) {
+            focusedEl.focus({preventScroll: true});
+        } else {
+            const dropdownToggleEl = ev.currentTarget.querySelector(".dropdown-toggle");
+            if (dropdownToggleEl) {
+                dropdownToggleEl.blur();
+            }
         }
-        $(ev.currentTarget.querySelector('.dropdown-toggle')).dropdown('show');
     },
     /**
      * @private
      * @param {Event} ev
      */
     _onMouseLeave: function (ev) {
-        if (config.device.size_class < config.device.SIZES.LG ||
-            ev.currentTarget.classList.contains('o_extra_menu_items')) {
+        if (this.editableMode) {
+            // Cancel handling from view mode.
             return;
         }
-        $(ev.currentTarget.querySelector('.dropdown-toggle')).dropdown('hide');
+        this._updateDropdownVisibility(ev, 'hide');
+    },
+    /**
+     * Called when the page is clicked anywhere.
+     * Closes the shown dropdown if the click is outside of it.
+     *
+     * TODO: Remove in master.
+     * @private
+     * @param {Event} ev
+     */
+    _onPageClick(ev) {
+        if (ev.target.closest('.dropdown-menu.show')) {
+            return;
+        }
+        this._hideDropdowns();
     },
 });
 

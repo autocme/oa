@@ -517,7 +517,7 @@ class test_convert_import_data(TransactionCase):
         """
         import_wizard = self.env['base_import.import'].create({
             'res_model': 'res.partner',
-            'file': u'name,parent_id/id,parent_id/date,parent_id/credit_limit\n'
+            'file': u'name,parent_id/id,parent_id/date,parent_id/partner_latitude\n'
                     u'"foo","__export__.res_partner_1","2017年10月12日","5,69"\n'.encode('utf-8'),
             'file_type': 'text/csv'
 
@@ -531,7 +531,7 @@ class test_convert_import_data(TransactionCase):
             'has_headers': True
         }
         data, import_fields = import_wizard._convert_import_data(
-            ['name', 'parent_id/.id', 'parent_id/date', 'parent_id/credit_limit'],
+            ['name', 'parent_id/.id', 'parent_id/date', 'parent_id/partner_latitude'],
             options
         )
         result = import_wizard._parse_import_data(data, import_fields, options)

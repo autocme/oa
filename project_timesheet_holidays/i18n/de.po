@@ -3,16 +3,15 @@
 # 	* project_timesheet_holidays
 # 
 # Translators:
-# Philipp Köhler <philipp.koehler@manatec.de>, 2021
 # Martin Trigaux, 2023
 # Larissa Manderfeld, 2023
 # 
 msgid ""
 msgstr ""
-"Project-Id-Version: Odoo Server 15.0\n"
+"Project-Id-Version: Odoo Server 16.0+e\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-08-14 15:43+0000\n"
-"PO-Revision-Date: 2021-09-14 12:25+0000\n"
+"POT-Creation-Date: 2022-12-15 12:51+0000\n"
+"PO-Revision-Date: 2022-09-22 05:54+0000\n"
 "Last-Translator: Larissa Manderfeld, 2023\n"
 "Language-Team: German (https://app.transifex.com/odoo/teams/41243/de/)\n"
 "MIME-Version: 1.0\n"
@@ -33,6 +32,7 @@ msgid "Analytic Lines"
 msgstr "Kostenstellenbuchungen"
 
 #. module: project_timesheet_holidays
+#. odoo-python
 #: code:addons/project_timesheet_holidays/models/hr_holidays.py:0
 #, python-format
 msgid ""
@@ -54,13 +54,6 @@ msgstr "Unternehmen"
 #: model:ir.model,name:project_timesheet_holidays.model_res_config_settings
 msgid "Config Settings"
 msgstr "Konfigurationseinstellungen"
-
-#. module: project_timesheet_holidays
-#: model:ir.model.fields,help:project_timesheet_holidays.field_res_config_settings__internal_project_id
-msgid "Default project value for timesheet generated from time off type."
-msgstr ""
-"Standardprojektwert für die aus der Abwesenheitsart generierte "
-"Zeiterfassung."
 
 #. module: project_timesheet_holidays
 #: model:ir.model,name:project_timesheet_holidays.model_hr_employee
@@ -87,8 +80,9 @@ msgstr ""
 "ein Zeiterfassungsbogen im Urlaubsprojekt des Unternehmens erstellt."
 
 #. module: project_timesheet_holidays
-#: code:addons/project_timesheet_holidays/__init__.py:0
-#: code:addons/project_timesheet_holidays/__init__.py:0
+#. odoo-python
+#: code:addons/project_timesheet_holidays/models/res_company.py:0
+#: code:addons/project_timesheet_holidays/models/res_company.py:0
 #, python-format
 msgid "Internal"
 msgstr "Intern"
@@ -99,9 +93,26 @@ msgid "Internal Project"
 msgstr "Internes Projekt"
 
 #. module: project_timesheet_holidays
+#: model:ir.model.fields,field_description:project_timesheet_holidays.field_project_task__is_timeoff_task
+msgid "Is Time off Task"
+msgstr "Ist Abwesenheitsaufgabe"
+
+#. module: project_timesheet_holidays
 #: model:ir.model.fields,field_description:project_timesheet_holidays.field_account_analytic_line__holiday_id
 msgid "Leave Request"
 msgstr "Urlaubsanfrage"
+
+#. module: project_timesheet_holidays
+#: model:ir.model.fields,field_description:project_timesheet_holidays.field_project_task__leave_types_count
+msgid "Leave Types Count"
+msgstr "Anzahl Urlaubsarten"
+
+#. module: project_timesheet_holidays
+#. odoo-python
+#: code:addons/project_timesheet_holidays/models/project_task.py:0
+#, python-format
+msgid "Operation not supported"
+msgstr "Vorgang nicht unterstützt"
 
 #. module: project_timesheet_holidays
 #: model:ir.model.fields,field_description:project_timesheet_holidays.field_hr_leave_type__timesheet_project_id
@@ -115,22 +126,37 @@ msgid "Resource Time Off Detail"
 msgstr "Abwesenheitsdetails der Ressource"
 
 #. module: project_timesheet_holidays
+#: model:ir.model,name:project_timesheet_holidays.model_project_task
+#: model:ir.model.fields,field_description:project_timesheet_holidays.field_account_analytic_line__task_id
 #: model:ir.model.fields,field_description:project_timesheet_holidays.field_hr_leave_type__timesheet_task_id
 #: model_terms:ir.ui.view,arch_db:project_timesheet_holidays.res_config_settings_view_form
 msgid "Task"
 msgstr "Aufgabe"
 
 #. module: project_timesheet_holidays
-#: model:ir.model.fields,help:project_timesheet_holidays.field_hr_leave_type__timesheet_project_id
+#: model:ir.model.fields,help:project_timesheet_holidays.field_res_config_settings__internal_project_id
 msgid ""
-"The project will contain the timesheet generated when a time off is "
-"validated."
+"The default project used when automatically generating timesheets via time "
+"off requests. You can specify another project on each time off type "
+"individually."
 msgstr ""
-"Dieses Projekt wird die erstellte Zeiterfassung enthalten, sobald die "
-"Abwesenheit überprüft wurde"
+"Das Standardprojekt, das bei der automatischen Erstellung von "
+"Zeiterfassungsbögen über Abwesenheitsanfragen verwendet wird. Sie können für"
+" jede Abwesenheitsart individuell ein anderes Projekt angeben."
 
 #. module: project_timesheet_holidays
-#: code:addons/project_timesheet_holidays/__init__.py:0
+#: model:ir.model.fields,help:project_timesheet_holidays.field_res_config_settings__leave_timesheet_task_id
+msgid ""
+"The default task used when automatically generating timesheets via time off "
+"requests. You can specify another task on each time off type individually."
+msgstr ""
+"Die Standardaufgabe, die bei der automatischen Erstellung von "
+"Zeiterfassungsbögen über Abwesenheitsanfragen verwendet wird. Sie können für"
+" jede Abwesenheitsart individuell eine andere Aufgabe angeben."
+
+#. module: project_timesheet_holidays
+#. odoo-python
+#: code:addons/project_timesheet_holidays/models/res_company.py:0
 #: code:addons/project_timesheet_holidays/models/res_company.py:0
 #: model:ir.model,name:project_timesheet_holidays.model_hr_leave
 #, python-format
@@ -138,6 +164,7 @@ msgid "Time Off"
 msgstr "Abwesenheit"
 
 #. module: project_timesheet_holidays
+#. odoo-python
 #: code:addons/project_timesheet_holidays/models/hr_holidays.py:0
 #: code:addons/project_timesheet_holidays/models/resource_calendar_leaves.py:0
 #, python-format
@@ -157,15 +184,41 @@ msgstr "Abwesenheitsart"
 
 #. module: project_timesheet_holidays
 #: model_terms:ir.ui.view,arch_db:project_timesheet_holidays.hr_holiday_status_view_form_inherit
-msgid "Timesheets"
-msgstr "Zeiterfassungen"
+msgid "Timesheet"
+msgstr "Zeiterfassung"
 
 #. module: project_timesheet_holidays
+#. odoo-python
 #: code:addons/project_timesheet_holidays/models/account_analytic.py:0
 #, python-format
 msgid ""
-"You cannot delete timesheets linked to time off. Please, cancel the time off"
-" instead."
+"You cannot create timesheets for a task that is linked to a time off type. "
+"Please use the Time Off application to request new time off instead."
 msgstr ""
-"Sie können keine Zeiterfassungen löschen, die mit einer Abwesenheit "
-"verbunden sind. Bitte stornieren Sie stattdessen die Abwesenheit."
+"Sie können keine Zeiterfassungen für eine Aufgabe erstellen, die mit einer "
+"Abwesenheitsart verknüpft ist. Bitte verwenden Sie stattdessen die "
+"„Abwesenheiten“-App, um eine neue Abwesenheit zu beantragen."
+
+#. module: project_timesheet_holidays
+#. odoo-python
+#: code:addons/project_timesheet_holidays/models/account_analytic.py:0
+#, python-format
+msgid ""
+"You cannot delete timesheets that are linked to time off requests. Please "
+"cancel your time off request from the Time Off application instead."
+msgstr ""
+"Sie können Zeiterfassungen, die mit einer Abwesenheitsanfrage verknüpft "
+"sind, nicht löschen. Bitte stornieren Sie stattdessen Ihre "
+"Abwesenheitsanfrage aus der Abwesenheiten-App."
+
+#. module: project_timesheet_holidays
+#. odoo-python
+#: code:addons/project_timesheet_holidays/models/account_analytic.py:0
+#, python-format
+msgid ""
+"You cannot modify timesheets that are linked to time off requests. Please "
+"use the Time Off application to modify your time off requests instead."
+msgstr ""
+"Sie können Zeiterfassungen, die mit einer Abwesenheitsart verknüpft sind, "
+"nicht ändern. Bitte verwenden Sie stattdessen die „Abwesenheiten“-App, um "
+"Ihre Abwesenheitsanfrage zu ändern."

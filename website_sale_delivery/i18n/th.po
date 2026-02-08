@@ -3,18 +3,17 @@
 # 	* website_sale_delivery
 # 
 # Translators:
-# Martin Trigaux, 2021
-# Pornvibool Tippayawat <pornvibool.t@gmail.com>, 2021
-# gsong <gsong2014@foxmail.com>, 2021
-# Wichanon Jamwutthipreecha, 2021
+# Martin Trigaux, 2022
+# Pornvibool Tippayawat <pornvibool.t@gmail.com>, 2022
+# Wichanon Jamwutthipreecha, 2022
 # Rasareeyar Lappiam, 2024
 # 
 msgid ""
 msgstr ""
-"Project-Id-Version: Odoo Server 15.0\n"
+"Project-Id-Version: Odoo Server 16.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-08-14 15:43+0000\n"
-"PO-Revision-Date: 2021-09-14 12:29+0000\n"
+"POT-Creation-Date: 2025-06-13 18:37+0000\n"
+"PO-Revision-Date: 2022-09-22 05:57+0000\n"
 "Last-Translator: Rasareeyar Lappiam, 2024\n"
 "Language-Team: Thai (https://app.transifex.com/odoo/teams/41243/th/)\n"
 "MIME-Version: 1.0\n"
@@ -40,6 +39,14 @@ msgstr ""
 "และใบกำกับสินค้า/ใบลดหนี้ลูกค้า"
 
 #. module: website_sale_delivery
+#. odoo-python
+#: code:addons/website_sale_delivery/controllers/main.py:0
+#: code:addons/website_sale_delivery/controllers/main.py:0
+#, python-format
+msgid "Anonymous express checkout partner for order %s"
+msgstr "พาร์ทเนอร์ชำระเงินด่วนแบบไม่ระบุชื่อสำหรับคำสั่งซื้อ %s"
+
+#. module: website_sale_delivery
 #: model:ir.model.fields,field_description:website_sale_delivery.field_delivery_carrier__can_publish
 msgid "Can Publish"
 msgstr "สามารถเผยแพร่"
@@ -53,11 +60,6 @@ msgstr "เลือกวิธีการจัดส่ง"
 #: model:ir.model,name:website_sale_delivery.model_res_country
 msgid "Country"
 msgstr "ประเทศ"
-
-#. module: website_sale_delivery
-#: model_terms:ir.ui.view,arch_db:website_sale_delivery.res_config_settings_view_form
-msgid "DHL Shipping Methods"
-msgstr "วิธีการการจัดส่ง DHL "
 
 #. module: website_sale_delivery
 #: model:ir.model.fields,field_description:website_sale_delivery.field_sale_order__amount_delivery
@@ -76,11 +78,6 @@ msgstr "การจัดส่ง:"
 
 #. module: website_sale_delivery
 #: model_terms:ir.ui.view,arch_db:website_sale_delivery.view_delivery_carrier_form_website_delivery
-msgid "Description"
-msgstr "รายละเอียด"
-
-#. module: website_sale_delivery
-#: model_terms:ir.ui.view,arch_db:website_sale_delivery.view_delivery_carrier_form_website_delivery
 msgid "Description displayed on the eCommerce and on online quotations."
 msgstr "คำอธิบายที่แสดงบนอีคอมเมิร์ซและในใบเสนอราคาออนไลน์"
 
@@ -95,12 +92,7 @@ msgid "Easypost Shipping Methods"
 msgstr "วิธีการการจัดส่ง Easypost "
 
 #. module: website_sale_delivery
-#: model_terms:ir.ui.view,arch_db:website_sale_delivery.res_config_settings_view_form
-msgid "FedEx Shipping Methods"
-msgstr "วิธีการการจัดส่ง FedEx "
-
-#. module: website_sale_delivery
-#. openerp-web
+#. odoo-javascript
 #: code:addons/website_sale_delivery/static/src/js/website_sale_delivery.js:0
 #, python-format
 msgid "Free"
@@ -109,9 +101,10 @@ msgstr "ฟรี"
 #. module: website_sale_delivery
 #: model:ir.model.fields,field_description:website_sale_delivery.field_delivery_carrier__is_published
 msgid "Is Published"
-msgstr "เผยแพร่แล้ว"
+msgstr "เผยแพร่"
 
 #. module: website_sale_delivery
+#. odoo-python
 #: code:addons/website_sale_delivery/controllers/main.py:0
 #, python-format
 msgid ""
@@ -122,6 +115,7 @@ msgstr ""
 "โปรดรีเฟรชหน้าแล้วลองอีกครั้ง"
 
 #. module: website_sale_delivery
+#. odoo-python
 #: code:addons/website_sale_delivery/controllers/main.py:0
 #, python-format
 msgid ""
@@ -132,6 +126,7 @@ msgstr ""
 "คุณไม่สามารถเปลี่ยนวิธีการจัดส่งได้อีกต่อไป"
 
 #. module: website_sale_delivery
+#. odoo-python
 #: code:addons/website_sale_delivery/controllers/main.py:0
 #, python-format
 msgid ""
@@ -142,6 +137,7 @@ msgstr ""
 "โปรดติดต่อเราเพื่อขอข้อมูลเพิ่มเติม"
 
 #. module: website_sale_delivery
+#. odoo-python
 #: code:addons/website_sale_delivery/controllers/main.py:0
 #, python-format
 msgid "No shipping method is selected."
@@ -150,7 +146,7 @@ msgstr "ไม่ได้เลือกวิธีการจัดส่ง
 #. module: website_sale_delivery
 #: model_terms:ir.ui.view,arch_db:website_sale_delivery.view_delivery_carrier_search_inherit_website_sale_delivery
 msgid "Published"
-msgstr "เผยแพร่"
+msgstr "เผยแพร่แล้ว"
 
 #. module: website_sale_delivery
 #: model:ir.model.fields,help:website_sale_delivery.field_delivery_carrier__website_id
@@ -160,7 +156,12 @@ msgstr "จำกัดการเผยแพร่ในเว็บไซต
 #. module: website_sale_delivery
 #: model:ir.model,name:website_sale_delivery.model_sale_order
 msgid "Sales Order"
-msgstr "ใบสั่งขาย"
+msgstr "คำสั่งขาย"
+
+#. module: website_sale_delivery
+#: model:ir.model,name:website_sale_delivery.model_sale_order_line
+msgid "Sales Order Line"
+msgstr "ไลน์คำสั่งขาย"
 
 #. module: website_sale_delivery
 #: model_terms:ir.ui.view,arch_db:website_sale_delivery.payment_delivery_methods
@@ -175,6 +176,7 @@ msgid "Shipping Methods"
 msgstr "วิธีการการจัดส่ง"
 
 #. module: website_sale_delivery
+#. odoo-python
 #: code:addons/website_sale_delivery/controllers/main.py:0
 #, python-format
 msgid "Sorry, we are unable to ship your order"
@@ -191,11 +193,6 @@ msgid "The full URL to access the document through the website."
 msgstr "URL แบบเต็มเพื่อเข้าถึงเอกสารผ่านเว็บไซต์"
 
 #. module: website_sale_delivery
-#: model_terms:ir.ui.view,arch_db:website_sale_delivery.res_config_settings_view_form
-msgid "USPS Shipping Methods"
-msgstr "วิธีการการจัดส่ง USPS "
-
-#. module: website_sale_delivery
 #: model:ir.model.fields,field_description:website_sale_delivery.field_delivery_carrier__website_published
 msgid "Visible on current website"
 msgstr "ปรากฏบนเว็บไซต์ปัจจุบัน"
@@ -208,7 +205,7 @@ msgstr "เว็บไซต์"
 #. module: website_sale_delivery
 #: model:ir.model.fields,field_description:website_sale_delivery.field_delivery_carrier__website_url
 msgid "Website URL"
-msgstr "URL เว็บไซต์"
+msgstr "เว็บไซต์ URL"
 
 #. module: website_sale_delivery
 #: model_terms:ir.ui.view,arch_db:website_sale_delivery.res_config_settings_view_form

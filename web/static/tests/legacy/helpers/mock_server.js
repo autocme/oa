@@ -51,7 +51,14 @@ var MockServer = Class.extend({
                 });
             }
         }
+        // used to prevent _updateComodelRelationalFields to be trigerred during
+        // initial record creation.
+        this.isInitialized = true;
 
+        // fill relational fields' inverse.
+        for (const modelName in this.data) {
+            this.data[modelName].records.forEach(record => this._updateComodelRelationalFields(modelName, record));
+        }
         this.debug = options.debug;
 
         this.currentDate = options.currentDate || moment().format("YYYY-MM-DD");
@@ -59,6 +66,11 @@ var MockServer = Class.extend({
         this.actions = options.actions || [];
         this.archs = options.archs || {};
     },
+
+    /**
+     * Perform asynchronous setup after the initialization of the mockServer.
+     */
+    setup: async function () {},
 
     //--------------------------------------------------------------------------
     // Public
@@ -75,7 +87,7 @@ var MockServer = Class.extend({
     },
     /**
      * helper: read a string describing an arch, and returns a simulated
-     * 'field_view_get' call to the server. Calls processViews() of data_manager
+     * 'view_get' call to the server. Calls processViews() of data_manager
      * to mimick the real behavior of a call to loadViews().
      *
      * @param {Object} params
@@ -86,7 +98,7 @@ var MockServer = Class.extend({
      * @param {Object} [params.viewOptions] the view options set in the test (optional)
      * @returns {Object} an object with 2 keys: arch and fields
      */
-    fieldsViewGet: function (params) {
+    getView: function (params) {
         var model = params.model;
         var toolbar = params.toolbar;
         var viewId = params.view_id;
@@ -95,14 +107,14 @@ var MockServer = Class.extend({
             throw new Error('Model ' + model + ' was not defined in mock server data');
         }
         var fields = $.extend(true, {}, this.data[model].fields);
-        var fvg = this._fieldsViewGet(params.arch, model, fields, viewOptions.context || {});
+        var view = this._getView(params.arch, model, fields, viewOptions.context || {});
         if (toolbar) {
-            fvg.toolbar = toolbar;
+            view.toolbar = toolbar;
         }
         if (viewId) {
-            fvg.view_id = viewId;
+            view.id = viewId;
         }
-        return fvg;
+        return view;
     },
     /**
      * Simulates a complete fetch call.
@@ -264,7 +276,7 @@ var MockServer = Class.extend({
     },
     /**
      * helper: read a string describing an arch, and returns a simulated
-     * 'fields_view_get' call to the server.
+     * 'get_view' call to the server.
      *
      * @private
      * @param {string} arch a string OR a parsed xml document
@@ -274,12 +286,13 @@ var MockServer = Class.extend({
      * @returns {Object} an object with 2 keys: arch and fields (the fields
      *   appearing in the views)
      */
-    _fieldsViewGet: function (arch, model, fields, context) {
+    _getView: function (arch, model, fields, context) {
         var self = this;
         var modifiersNames = ['invisible', 'readonly', 'required'];
         var onchanges = this.data[model].onchanges || {};
         var fieldNodes = {};
         var groupbyNodes = {};
+        const relatedModels = new Set([model]);
 
         var doc;
         if (typeof arch === 'string') {
@@ -392,7 +405,7 @@ var MockServer = Class.extend({
             return !isField;
         });
 
-        var relModel, relFields;
+        let relModel, relFields;
         _.each(fieldNodes, function (node, name) {
             var field = fields[name];
             if (field.type === "many2one" || field.type === "many2many") {
@@ -402,13 +415,16 @@ var MockServer = Class.extend({
                 node.setAttribute('can_write', canWrite || "true");
             }
             if (field.type === "one2many" || field.type === "many2many") {
-                field.views = {};
-                _.each(node.childNodes, function (children) {
-                    if (children.tagName) { // skip text nodes
-                        relModel = field.relation;
+                relModel = field.relation;
+                relatedModels.add(relModel);
+                _.each(node.childNodes, function (childNode) {
+                    if (childNode.tagName) { // skip text nodes
                         relFields = $.extend(true, {}, self.data[relModel].fields);
-                        field.views[children.tagName] = self._fieldsViewGet(children, relModel,
+                        // this is hackhish, but _getView modifies the subview document in place,
+                        // especially to generate the "modifiers" attribute
+                        const { models } = self._getView(childNode, relModel,
                             relFields, _.extend({}, context, {base_model_name: model}));
+                        [...models].forEach((modelName) => relatedModels.add(modelName));
                     }
                 });
             }
@@ -425,22 +441,21 @@ var MockServer = Class.extend({
             }
             field.views = {};
             relModel = field.relation;
+            relatedModels.add(relModel);
             relFields = $.extend(true, {}, self.data[relModel].fields);
             node._isProcessed = true;
             // postprocess simulation
-            field.views.groupby = self._fieldsViewGet(node, relModel, relFields, context);
-            while (node.firstChild) {
-                node.removeChild(node.firstChild);
-            }
+            const { models } = self._getView(node, relModel, relFields, context);
+            [...models].forEach((modelName) => relatedModels.add(modelName));
         });
 
         var xmlSerializer = new XMLSerializer();
         var processedArch = xmlSerializer.serializeToString(doc);
         return {
             arch: processedArch,
-            fields: _.pick(fields, _.keys(fieldNodes)),
             model: model,
             type: doc.tagName === 'tree' ? 'list' : doc.tagName,
+            models: relatedModels,
         };
     },
     /**
@@ -580,6 +595,9 @@ var MockServer = Class.extend({
         model.records.push(record);
         this._applyDefaults(model, values);
         this._writeRecord(modelName, values, id);
+        if (this.isInitialized) {
+            this._updateComodelRelationalFields(modelName, record);
+        }
         return id;
     },
     /**
@@ -1177,7 +1195,7 @@ var MockServer = Class.extend({
         return action || false;
     },
     /**
-     * Simulate a 'load_views' operation
+     * Simulate a 'get_views' operation
      *
      * @param {string} model
      * @param {Array} args
@@ -1187,7 +1205,7 @@ var MockServer = Class.extend({
      * @param {Object} kwargs.context
      * @returns {Object}
      */
-    _mockLoadViews: function (model, kwargs) {
+    _mockGetViews: function (model, kwargs) {
         var self = this;
         var views = {};
         _.each(kwargs.views, function (view_descr) {
@@ -1196,7 +1214,7 @@ var MockServer = Class.extend({
             if (!viewID) {
                 var contextKey = (viewType === 'list' ? 'tree' : viewType) + '_view_ref';
                 if (contextKey in kwargs.context) {
-                    viewID = kwargs.context[contextKey];
+                    viewID = parseInt(kwargs.context[contextKey]);
                 }
             }
             var key = [model, viewID, viewType].join(',');
@@ -1240,7 +1258,7 @@ var MockServer = Class.extend({
         }
         var records = this.data[model].records;
         var names = _.map(ids, function (id) {
-            return id ? [id, _.findWhere(records, {id: id}).display_name] : [null, "False"];
+            return id ? [id, _.findWhere(records, {id: id}).display_name] : [null, ""];
         });
         return names;
     },
@@ -1623,18 +1641,21 @@ var MockServer = Class.extend({
                             }
                         }
                         const from = type === "date"
-                            ? startDate.locale('en').format("YYYY-MM-DD")
-                            : startDate.locale('en').format("YYYY-MM-DD HH:mm:ss");
+                            ? startDate.format("YYYY-MM-DD")
+                            : startDate.format("YYYY-MM-DD HH:mm:ss");
                         const to = type === "date"
-                            ? endDate.locale('en').format("YYYY-MM-DD")
-                            : endDate.locale('en').format("YYYY-MM-DD HH:mm:ss");
-                        group.__range[fieldName] = { from, to };
+                            ? endDate.format("YYYY-MM-DD")
+                            : endDate.format("YYYY-MM-DD HH:mm:ss");
+                        // NOTE THAT the range and the domain computed here are not really accurate
+                        // due to a the timezone not really taken into account.
+                        // FYI, the non legacy version of the mock server handles this correctly.
+                        group.__range[gbField] = { from, to };
                         group.__domain = [
                             [fieldName, ">=", from],
                             [fieldName, "<", to],
                         ].concat(group.__domain);
                     } else {
-                        group.__range[fieldName] = false;
+                        group.__range[gbField] = false;
                         group.__domain = [[fieldName, "=", value]].concat(group.__domain);
                     }
                 } else {
@@ -1645,13 +1666,9 @@ var MockServer = Class.extend({
                 delete group.__range;
             }
             // compute count key to match dumb server logic...
-            const groupByNoLeaf = kwargs.context ? "group_by_no_leaf" in kwargs.context : false;
-            let countKey;
-            if (kwargs.lazy && (groupBy.length >= 2 || !groupByNoLeaf)) {
-                countKey = groupBy[0].split(":")[0] + "_count";
-            } else {
-                countKey = "__count";
-            }
+            const countKey = kwargs.lazy
+                ? groupBy[0].split(":")[0] + "_count"
+                : "__count";
             group[countKey] = groupRecords.length;
             aggregateFields(group, groupRecords);
             readGroupResult.push(group);
@@ -1861,14 +1878,18 @@ var MockServer = Class.extend({
             return _.contains(ids, record.id);
         });
 
-        // update value of one2many fields pointing to the deleted records
+        // update value of relationnal fields pointing to the deleted records
         _.each(this.data, function (d) {
             var relatedFields = _.pick(d.fields, function (field) {
-                return field.type === 'one2many' && field.relation === model;
+                return field.relation === model;
             });
             _.each(Object.keys(relatedFields), function (relatedField) {
                 _.each(d.records, function (record) {
-                    record[relatedField] = _.difference(record[relatedField], ids);
+                    if (Array.isArray(record[relatedField])) {
+                        record[relatedField] = _.difference(record[relatedField], ids);
+                    } else if (ids.includes(record[relatedField])) {
+                        record[relatedField] = false;
+                    }
                 });
             });
         });
@@ -1929,7 +1950,12 @@ var MockServer = Class.extend({
      * @returns {boolean} currently, always return 'true'
      */
     _mockWrite: function (model, args) {
-        _.each(args[0], this._writeRecord.bind(this, model, args[1]));
+        _.each(args[0], id => {
+            const originalRecord = this._mockSearchRead(model, [[['id', '=', id]]], {})[0];
+            this._writeRecord(model, args[1], id);
+            const updatedRecord = this.data[model].records.find(record => record.id === id);
+            this._updateComodelRelationalFields(model, updatedRecord, originalRecord);
+        });
         return true;
     },
     /**
@@ -1940,6 +1966,14 @@ var MockServer = Class.extend({
      * @returns {any}
      */
     _performFetch(resource, init) {
+        if (resource.match(/\/static(\/\S+\/|\/)libs?/)) {
+            // every lib must be includes into the test bundle.
+            return true;
+        }
+        if (resource.match(/\/web\/bundle\/[^.]+\.[^.]+/)) {
+            // every asset must be includes into the test bundle.
+            return true;
+        }
         throw new Error("Unimplemented resource: " + resource);
     },
     /**
@@ -1990,8 +2024,8 @@ var MockServer = Class.extend({
             case 'search_panel_select_multi_range':
                 return this._mockSearchPanelSelectMultiRange(args.model, args.args, args.kwargs);
 
-            case 'load_views':
-                return this._mockLoadViews(args.model, args.kwargs);
+            case 'get_views':
+                return this._mockGetViews(args.model, args.kwargs);
 
             case 'name_get':
                 return this._mockNameGet(args.model, args.args);
@@ -2092,6 +2126,69 @@ var MockServer = Class.extend({
         }
     },
     /**
+     * Fill all inverse fields of the relational fields present in the record
+     * to be created/updated.
+     *
+     * @param {string} modelName
+     * @param {Object} record record that have been created/updated.
+     * @param {Object|undefined} originalRecord record before update.
+     */
+     _updateComodelRelationalFields(modelName, record, originalRecord) {
+        for (const fname in record) {
+            const field = this.data[modelName].fields[fname];
+            const comodelName = field.relation || record[field['model_name_ref_fname']];
+            const inverseFieldName = field['inverse_fname_by_model_name'] && field['inverse_fname_by_model_name'][comodelName];
+            if (!inverseFieldName) {
+                // field has no inverse, skip it.
+                continue;
+            }
+            const relatedRecordIds = Array.isArray(record[fname]) ? record[fname] : [record[fname]];
+            // we only want to set a value for comodel inverse field if the model field has a value.
+            if (record[fname]) {
+                for (const relatedRecordId of relatedRecordIds) {
+                    let inverseFieldNewValue = record.id;
+                    const relatedRecord = this.data[comodelName].records.find(record => record.id === relatedRecordId);
+                    const relatedFieldValue = relatedRecord && relatedRecord[inverseFieldName];
+                    if (
+                        relatedFieldValue === undefined ||
+                        relatedFieldValue === record.id ||
+                        field.type !== 'one2many' && relatedFieldValue.includes(record.id)
+                    ) {
+                        // related record does not exist or the related value is already up to date.
+                        continue;
+                    }
+                    if (Array.isArray(relatedFieldValue)) {
+                        inverseFieldNewValue = [...relatedFieldValue, record.id];
+                    }
+                    this._writeRecord(comodelName, { [inverseFieldName]: inverseFieldNewValue }, relatedRecordId);
+                }
+            } else if (field.type === 'many2one_reference') {
+                // we need to clean the many2one_field as well.
+                const comodel_inverse_field = this.data[comodelName].fields[inverseFieldName];
+                const model_many2one_field = comodel_inverse_field['inverse_fname_by_model_name'][modelName];
+                this._writeRecord(modelName, { [model_many2one_field]: false }, record.id);
+            }
+            // it's an update, get the records that were originally referenced but are not
+            // anymore and update their relational fields.
+            if (originalRecord) {
+                const originalRecordIds = Array.isArray(originalRecord[fname]) ? originalRecord[fname] : [originalRecord[fname]];
+                // search read returns [id, name], let's ensure the removedRecordIds are integers.
+                const removedRecordIds = originalRecordIds.filter(recordId => Number.isInteger(recordId) && !relatedRecordIds.includes(recordId));
+                for (const removedRecordId of removedRecordIds) {
+                    const removedRecord = this.data[comodelName].records.find(record => record.id === removedRecordId);
+                    if (!removedRecord) {
+                        continue;
+                    }
+                    let inverseFieldNewValue = false;
+                    if (Array.isArray(removedRecord[inverseFieldName])) {
+                        inverseFieldNewValue = removedRecord[inverseFieldName].filter(id => id !== record.id);
+                    }
+                    this._writeRecord(comodelName, { [inverseFieldName]: inverseFieldNewValue }, removedRecordId);
+                }
+            }
+        }
+    },
+    /**
      * Write a record. The main difficulty is that we have to apply x2many
      * commands
      *
@@ -2128,7 +2225,12 @@ var MockServer = Class.extend({
                 // convert commands
                 for (const command of value || []) {
                     if (command[0] === 0) { // CREATE
-                        const newId = self._mockCreate(field.relation, command[2]);
+                        const inverseData = command[2]; // write in place instead of copy, because some tests rely on the object given being updated
+                        const inverseFieldName = field.inverse_fname_by_model_name && field.inverse_fname_by_model_name[field.relation];
+                        if (inverseFieldName) {
+                            inverseData[inverseFieldName] = id;
+                        }
+                        const newId = self._mockCreate(field.relation, inverseData);
                         ids.push(newId);
                     } else if (command[0] === 1) { // UPDATE
                         self._mockWrite(field.relation, [[command[1]], command[2]]);

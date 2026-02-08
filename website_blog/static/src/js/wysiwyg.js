@@ -2,7 +2,7 @@ odoo.define('website_blog.wysiwyg', function (require) {
 'use strict';
 
 
-const Wysiwyg = require('web_editor.wysiwyg');
+const Wysiwyg = require('website.wysiwyg');
 require('website.editor.snippets.options');
 
 Wysiwyg.include({
@@ -17,16 +17,16 @@ Wysiwyg.include({
         this._super(...arguments);
         this.blogTagsPerBlogPost = {};
         // TODO Remove in master.
-        for (const el of document.querySelectorAll(".o_wblog_social_links")) {
+        for (const el of this.options.document.querySelectorAll(".o_wblog_social_links")) {
             el.classList.add("o_not_editable");
         }
     },
     /**
      * @override
      */
-    async start() {
+    async startEdition() {
         await this._super(...arguments);
-        $('.js_tweet, .js_comment').off('mouseup').trigger('mousedown');
+        this.options.document.defaultView.$('.js_tweet, .js_comment').off('mouseup').trigger('mousedown');
     },
 
     //--------------------------------------------------------------------------

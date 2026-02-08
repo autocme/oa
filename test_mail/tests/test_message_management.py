@@ -16,7 +16,7 @@ class TestMailResend(TestMailCommon):
         cls.test_record = cls.env['mail.test.simple'].with_context(cls._test_context).create({'name': 'Test', 'email_from': 'ignasse@example.com'})
 
         #Two users
-        cls.user1 = mail_new_test_user(cls.env, login='e1', groups='base.group_public', name='Employee 1', notification_type='email', email='e1')  # invalid email
+        cls.user1 = mail_new_test_user(cls.env, login='e1', groups='base.group_user', name='Employee 1', notification_type='email', email='e1')  # invalid email
         cls.user2 = mail_new_test_user(cls.env, login='e2', groups='base.group_portal', name='Employee 2', notification_type='email', email='e2@example.com')
         #Two partner
         cls.partner1 = cls.env['res.partner'].with_context(cls._test_context).create({
@@ -34,8 +34,10 @@ class TestMailResend(TestMailCommon):
     def test_mail_resend_workflow(self):
         with self.assertSinglePostNotifications(
                 [{'partner': partner, 'type': 'email', 'status': 'exception'} for partner in self.partners],
-                message_info={'message_type': 'notification'},
-                sim_error='connect_failure'):
+                message_info={'message_type': 'notification'}):
+            def _connect(*args, **kwargs):
+                raise Exception("Some exception")
+            self.connect_mocked.side_effect = _connect
             message = self.test_record.with_user(self.user_admin).message_post(partner_ids=self.partners.ids, subtype_xmlid='mail.mt_comment', message_type='notification')
 
         wizard = self.env['mail.resend.message'].with_context({'mail_message_to_resend': message.id}).create({})

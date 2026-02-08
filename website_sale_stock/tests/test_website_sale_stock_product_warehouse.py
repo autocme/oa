@@ -10,31 +10,31 @@ from odoo.tests import tagged
 class TestWebsiteSaleStockProductWarehouse(TestSaleProductAttributeValueCommon):
 
     @classmethod
-    def setUpClass(self):
+    def setUpClass(cls):
         super().setUpClass()
         # Run the tests in another company, so the tests do not rely on the
         # database state (eg the default company's warehouse)
-        self.company = self.env['res.company'].create({'name': 'Company C'})
-        self.env.user.company_id = self.company
-        self.website = self.env['website'].create({'name': 'Website Company C'})
-        self.website.company_id = self.company
+        cls.company = cls.env['res.company'].create({'name': 'Company C'})
+        cls.env.user.company_id = cls.company
+        cls.website = cls.env['website'].create({'name': 'Website Company C'})
+        cls.website.company_id = cls.company
 
             # Set two warehouses (one was created on company creation)
-        self.warehouse_1 = self.env['stock.warehouse'].search([('company_id', '=', self.company.id)])
-        self.warehouse_2 = self.env['stock.warehouse'].create({
+        cls.warehouse_1 = cls.env['stock.warehouse'].search([('company_id', '=', cls.company.id)])
+        cls.warehouse_2 = cls.env['stock.warehouse'].create({
             'name': 'Warehouse 2',
             'code': 'WH2'
         })
 
         # Create two stockable products
-        self.product_A = self.env['product.product'].create({
+        cls.product_A = cls.env['product.product'].create({
             'name': 'Product A',
             'allow_out_of_stock_order': False,
             'type': 'product',
             'default_code': 'E-COM1',
         })
 
-        self.product_B = self.env['product.product'].create({
+        cls.product_B = cls.env['product.product'].create({
             'name': 'Product B',
             'allow_out_of_stock_order': False,
             'type': 'product',
@@ -42,17 +42,17 @@ class TestWebsiteSaleStockProductWarehouse(TestSaleProductAttributeValueCommon):
         })
 
         # Add 10 Product A in WH1 and 15 Product 1 in WH2
-        quants = self.env['stock.quant'].with_context(inventory_mode=True).create([{
-            'product_id': self.product_A.id,
+        quants = cls.env['stock.quant'].with_context(inventory_mode=True).create([{
+            'product_id': cls.product_A.id,
             'inventory_quantity': qty,
             'location_id': wh.lot_stock_id.id,
-        } for wh, qty in [(self.warehouse_1, 10.0), (self.warehouse_2, 15.0)]])
+        } for wh, qty in [(cls.warehouse_1, 10.0), (cls.warehouse_2, 15.0)]])
 
         # Add 10 Product 2 in WH2
-        quants |= self.env['stock.quant'].with_context(inventory_mode=True).create({
-            'product_id': self.product_B.id,
+        quants |= cls.env['stock.quant'].with_context(inventory_mode=True).create({
+            'product_id': cls.product_B.id,
             'inventory_quantity': 10.0,
-            'location_id': self.warehouse_2.lot_stock_id.id,
+            'location_id': cls.warehouse_2.lot_stock_id.id,
         })
         quants.action_apply_inventory()
 

@@ -3,16 +3,18 @@
 # 	* event_booth
 # 
 # Translators:
-# 敬雲 林 <chingyun@yuanchih-consult.com>, 2021
+# Martin Trigaux, 2022
+# 敬雲 林 <chingyun@yuanchih-consult.com>, 2022
 # Tony Ng, 2023
+# Wil Odoo, 2024
 # 
 msgid ""
 msgstr ""
-"Project-Id-Version: Odoo Server 15.0\n"
+"Project-Id-Version: Odoo Server 16.0beta\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-08-14 15:43+0000\n"
-"PO-Revision-Date: 2021-09-14 12:21+0000\n"
-"Last-Translator: Tony Ng, 2023\n"
+"POT-Creation-Date: 2022-10-10 10:23+0000\n"
+"PO-Revision-Date: 2022-09-22 05:45+0000\n"
+"Last-Translator: Wil Odoo, 2024\n"
 "Language-Team: Chinese (Taiwan) (https://app.transifex.com/odoo/teams/41243/zh_TW/)\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
@@ -146,12 +148,12 @@ msgstr "活動類型圖示"
 #: model_terms:ir.ui.view,arch_db:event_booth.event_booth_category_view_form
 #: model_terms:ir.ui.view,arch_db:event_booth.event_booth_category_view_search
 msgid "Archived"
-msgstr "已歸檔"
+msgstr "已封存"
 
 #. module: event_booth
 #: model:ir.model.fields,field_description:event_booth.field_event_booth__message_attachment_count
 msgid "Attachment Count"
-msgstr "附件數"
+msgstr "附件數目"
 
 #. module: event_booth
 #: model:ir.model.fields.selection,name:event_booth.selection__event_booth__state__available
@@ -212,7 +214,6 @@ msgstr "攤位仍然可用的攤位類別。前台使用"
 
 #. module: event_booth
 #: model_terms:ir.ui.view,arch_db:event_booth.event_booth_category_view_form
-#: model_terms:ir.ui.view,arch_db:event_booth.event_booth_view_search
 #: model_terms:ir.ui.view,arch_db:event_booth.event_type_booth_view_search
 msgid "Booth Type"
 msgstr "攤位類型"
@@ -233,7 +234,6 @@ msgstr "攤位類別用於代表您租用的不同類型的攤位（高級攤位
 #: model:ir.ui.menu,name:event_booth.menu_event_booth
 #: model_terms:ir.ui.view,arch_db:event_booth.event_booth_view_form_from_event
 #: model_terms:ir.ui.view,arch_db:event_booth.event_booth_view_tree_from_event
-#: model_terms:ir.ui.view,arch_db:event_booth.event_event_view_form
 #: model_terms:ir.ui.view,arch_db:event_booth.event_type_view_form
 msgid "Booths"
 msgstr "攤位"
@@ -249,17 +249,17 @@ msgstr "攤位是您在活動期間租用的實體攤位。"
 #: model_terms:ir.actions.act_window,help:event_booth.event_booth_action
 #: model_terms:ir.actions.act_window,help:event_booth.event_booth_action_from_event
 msgid "Create a Booth"
-msgstr "建立攤位"
+msgstr "創建攤位"
 
 #. module: event_booth
 #: model_terms:ir.actions.act_window,help:event_booth.event_booth_category_action
 msgid "Create a Booth Category"
-msgstr "建立攤位類別"
+msgstr "創建攤位類別"
 
 #. module: event_booth
 #: model_terms:ir.actions.act_window,help:event_booth.event_type_booth_action
 msgid "Create a Type Booth"
-msgstr "建立類型攤位"
+msgstr "創建類型攤位"
 
 #. module: event_booth
 #: model:ir.model.fields,field_description:event_booth.field_event_booth__create_uid
@@ -341,6 +341,12 @@ msgid "Event Type Booths"
 msgstr "活動類型攤位"
 
 #. module: event_booth
+#: model_terms:ir.ui.view,arch_db:event_booth.event_booth_view_graph
+#: model_terms:ir.ui.view,arch_db:event_booth.event_booth_view_pivot
+msgid "Event booth"
+msgstr "活動攤位"
+
+#. module: event_booth
 #: model:ir.model.fields,field_description:event_booth.field_event_booth__message_follower_ids
 msgid "Followers"
 msgstr "關注人"
@@ -374,7 +380,7 @@ msgstr "金級攤位 3"
 #: model_terms:ir.ui.view,arch_db:event_booth.event_booth_view_search
 #: model_terms:ir.ui.view,arch_db:event_booth.event_type_booth_view_search
 msgid "Group By"
-msgstr "分組依據"
+msgstr "分組方式"
 
 #. module: event_booth
 #: model:ir.model.fields,field_description:event_booth.field_event_booth__has_message
@@ -400,7 +406,6 @@ msgstr "用於指示異常活動的圖示。"
 
 #. module: event_booth
 #: model:ir.model.fields,help:event_booth.field_event_booth__message_needaction
-#: model:ir.model.fields,help:event_booth.field_event_booth__message_unread
 msgid "If checked, new messages require your attention."
 msgstr "勾選代表有新訊息需要您留意。"
 
@@ -528,18 +533,13 @@ msgstr "錯誤數量"
 
 #. module: event_booth
 #: model:ir.model.fields,help:event_booth.field_event_booth__message_needaction_counter
-msgid "Number of messages which requires an action"
-msgstr "需要處理的消息數量"
+msgid "Number of messages requiring action"
+msgstr "需要採取行動的訊息數目"
 
 #. module: event_booth
 #: model:ir.model.fields,help:event_booth.field_event_booth__message_has_error_counter
 msgid "Number of messages with delivery error"
 msgstr "有發送錯誤的郵件數量"
-
-#. module: event_booth
-#: model:ir.model.fields,help:event_booth.field_event_booth__message_unread_counter
-msgid "Number of unread messages"
-msgstr "未讀訊息的數量"
 
 #. module: event_booth
 #: model:event.booth,name:event_booth.event_booth_10_event_7
@@ -555,6 +555,13 @@ msgstr "OpenWood 演示器 2"
 #: model:event.booth,name:event_booth.event_booth_12_event_7
 msgid "OpenWood Demonstrator 3"
 msgstr "OpenWood 演示器 3"
+
+#. module: event_booth
+#: model_terms:ir.ui.view,arch_db:event_booth.event_booth_view_form_from_event
+#: model_terms:ir.ui.view,arch_db:event_booth.event_booth_view_form_quick_create
+#: model_terms:ir.ui.view,arch_db:event_booth.event_type_booth_view_form_from_type
+msgid "Pick a Booth Category..."
+msgstr "選擇一個攤位類別⋯"
 
 #. module: event_booth
 #: model_terms:event.booth.category,description:event_booth.event_booth_category_premium
@@ -638,11 +645,6 @@ msgid "Showbooth 2"
 msgstr "攤位2"
 
 #. module: event_booth
-#: model:ir.model.fields,help:event_booth.field_event_booth__state
-msgid "Shows the availability of a Booth"
-msgstr "顯示攤位的可用性"
-
-#. module: event_booth
 #: model_terms:event.booth.category,description:event_booth.event_booth_category_standard
 msgid "Standard"
 msgstr "標準"
@@ -687,16 +689,6 @@ msgid "Unavailable"
 msgstr "無法預約"
 
 #. module: event_booth
-#: model:ir.model.fields,field_description:event_booth.field_event_booth__message_unread
-msgid "Unread Messages"
-msgstr "未讀消息"
-
-#. module: event_booth
-#: model:ir.model.fields,field_description:event_booth.field_event_booth__message_unread_counter
-msgid "Unread Messages Counter"
-msgstr "未讀消息計數器"
-
-#. module: event_booth
 #: model_terms:event.booth.category,description:event_booth.event_booth_category_vip
 msgid "VIP"
 msgstr "VIP"
@@ -714,12 +706,17 @@ msgstr "貴賓攤位A5"
 #. module: event_booth
 #: model:ir.model.fields,field_description:event_booth.field_event_booth__website_message_ids
 msgid "Website Messages"
-msgstr "網站資訊"
+msgstr "網站訊息"
 
 #. module: event_booth
 #: model:ir.model.fields,help:event_booth.field_event_booth__website_message_ids
 msgid "Website communication history"
 msgstr "網站溝通記錄"
+
+#. module: event_booth
+#: model_terms:ir.ui.view,arch_db:event_booth.event_booth_category_view_form
+msgid "e.g. \"Those stands will be place near the entrance and...\""
+msgstr "例如 \"這些攤檔將放置在入口附近及...\""
 
 #. module: event_booth
 #: model_terms:ir.ui.view,arch_db:event_booth.event_booth_view_form_from_event

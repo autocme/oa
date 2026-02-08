@@ -39,8 +39,8 @@
                                     <t t-else="">Member</t>
                                 </span>
                                 <field name="is_member" invisible="1"/>
-                                <button type="object" attrs="{'invisible':[('is_member', '=', True)]}" class="btn btn-primary float-right" name="action_join">Join</button>
-                                <button type="object" attrs="{'invisible':[('is_member', '=', False)]}" class="btn btn-secondary float-right" name="action_leave">Leave</button>
+                                <button type="object" attrs="{'invisible':[('is_member', '=', True)]}" class="btn btn-primary float-end" name="action_join">Join</button>
+                                <button type="object" attrs="{'invisible':[('is_member', '=', False)]}" class="btn btn-secondary float-end" name="action_leave">Leave</button>
                             </div>
                         </div>
                     </t>
@@ -113,7 +113,7 @@
                                     string="Email Alias" required="0"
                                     attrs="{'invisible': [('alias_domain', '=', False)]}"/>
                                 <div class="oe_inline" name="edit_alias" style="display: inline;" >
-                                    <div class="oe_edit_only" attrs="{'invisible': [('alias_domain', '=', False)]}">
+                                    <div class="oe_edit_only" attrs="{'invisible': [('alias_domain', '=', False)]}" dir="ltr">
                                         <field name="alias_name" class="oe_inline"/>@<field name="alias_domain" class="oe_inline" readonly="1"/>
                                     </div>
                                     <button icon="fa-arrow-right" type="action" name="%(base_setup.action_general_configuration)d" string="Configure a custom domain" class="p-0 btn-link" attrs="{'invisible': [('alias_domain', '!=', False)]}"/>

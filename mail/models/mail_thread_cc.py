@@ -9,14 +9,16 @@ class MailCCMixin(models.AbstractModel):
     _inherit = 'mail.thread'
     _description = 'Email CC management'
 
-    email_cc = fields.Char('Email cc', help='List of cc from incoming emails.')
+    email_cc = fields.Char('Email cc')
 
     def _mail_cc_sanitized_raw_dict(self, cc_string):
         '''return a dict of sanitize_email:raw_email from a string of cc'''
         if not cc_string:
             return {}
-        return {tools.email_normalize(email): tools.formataddr((name, tools.email_normalize(email)))
-            for (name, email) in tools.email_split_tuples(cc_string)}
+        return {
+            tools.email_normalize(email): tools.formataddr((name, tools.email_normalize(email)))
+            for (name, email) in tools.email_split_tuples(cc_string)
+        }
 
     @api.model
     def message_new(self, msg_dict, custom_values=None):

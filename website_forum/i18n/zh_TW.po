@@ -3,16 +3,17 @@
 # 	* website_forum
 # 
 # Translators:
-# 敬雲 林 <chingyun@yuanchih-consult.com>, 2021
-# Tony Ng, 2024
+# Martin Trigaux, 2023
+# Wil Odoo, 2025
+# Tony Ng, 2025
 # 
 msgid ""
 msgstr ""
-"Project-Id-Version: Odoo Server 15.0\n"
+"Project-Id-Version: Odoo Server 16.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-08-14 15:42+0000\n"
-"PO-Revision-Date: 2021-09-14 12:28+0000\n"
-"Last-Translator: Tony Ng, 2024\n"
+"POT-Creation-Date: 2025-05-08 20:35+0000\n"
+"PO-Revision-Date: 2022-09-22 05:56+0000\n"
+"Last-Translator: Tony Ng, 2025\n"
 "Language-Team: Chinese (Taiwan) (https://app.transifex.com/odoo/teams/41243/zh_TW/)\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
@@ -21,7 +22,23 @@ msgstr ""
 "Plural-Forms: nplurals=1; plural=0;\n"
 
 #. module: website_forum
+#. odoo-javascript
+#: code:addons/website_forum/static/src/js/website_forum.js:0
+#, python-format
+msgid " Flag"
+msgstr "標幟"
+
+#. module: website_forum
+#. odoo-javascript
+#: code:addons/website_forum/static/src/js/website_forum.js:0
+#: code:addons/website_forum/static/src/js/website_forum.js:0
+#, python-format
+msgid " Flagged"
+msgstr "已標幟"
+
+#. module: website_forum
 #: model:ir.model.fields,field_description:website_forum.field_forum_forum__total_answers
+#: model_terms:ir.ui.view,arch_db:website_forum.view_forum_post_list
 msgid "# Answers"
 msgstr "# 答案"
 
@@ -37,76 +54,89 @@ msgstr "# 貼文"
 
 #. module: website_forum
 #: model:ir.model.fields,field_description:website_forum.field_forum_forum__total_views
+#: model_terms:ir.ui.view,arch_db:website_forum.view_forum_post_list
 msgid "# Views"
 msgstr "瀏覽次數"
 
 #. module: website_forum
+#. odoo-python
 #: code:addons/website_forum/models/forum.py:0
 #, python-format
 msgid "%d karma required to accept or refuse an answer."
 msgstr "需要有%d 活躍點才可接受或拒絕答案。"
 
 #. module: website_forum
+#. odoo-python
 #: code:addons/website_forum/models/forum.py:0
 #, python-format
 msgid "%d karma required to answer a question."
 msgstr "回答問題需要 %d 活躍點數"
 
 #. module: website_forum
+#. odoo-python
 #: code:addons/website_forum/models/forum.py:0
 #, python-format
 msgid "%d karma required to close or reopen a post."
 msgstr "關閉或重新打開貼文需要 %d 活躍點數。"
 
 #. module: website_forum
+#. odoo-python
 #: code:addons/website_forum/models/forum.py:0
 #, python-format
 msgid "%d karma required to comment."
 msgstr "需要有%d 活躍點才可發表評論。"
 
 #. module: website_forum
+#. odoo-python
 #: code:addons/website_forum/models/forum.py:0
 #, python-format
 msgid "%d karma required to convert a comment to an answer."
 msgstr "將評論轉換為答案需要 %d 活躍點數。"
 
 #. module: website_forum
+#. odoo-python
 #: code:addons/website_forum/models/forum.py:0
 #, python-format
 msgid "%d karma required to convert an answer to a comment."
 msgstr "將答案轉換為評論需要 %d 活躍點數。"
 
 #. module: website_forum
+#. odoo-python
 #: code:addons/website_forum/models/forum.py:0
 #, python-format
 msgid "%d karma required to convert your comment to an answer."
 msgstr "將您的評論轉換為答案需要 %d 活躍點數。"
 
 #. module: website_forum
+#. odoo-python
 #: code:addons/website_forum/models/forum.py:0
 #, python-format
 msgid "%d karma required to create a new Tag."
 msgstr "建立新標籤需要 %d 活躍點數。"
 
 #. module: website_forum
+#. odoo-python
 #: code:addons/website_forum/models/forum.py:0
 #, python-format
 msgid "%d karma required to create a new question."
 msgstr "建立新問題需要 %d 活躍點數。"
 
 #. module: website_forum
+#. odoo-python
 #: code:addons/website_forum/models/forum.py:0
 #, python-format
 msgid "%d karma required to delete or reactivate a post."
 msgstr "刪除或重新啟動貼文需要 %d 活躍點數。"
 
 #. module: website_forum
+#. odoo-python
 #: code:addons/website_forum/models/forum.py:0
 #, python-format
 msgid "%d karma required to downvote."
 msgstr "需要有%d 活躍點才可給予負評。"
 
 #. module: website_forum
+#. odoo-python
 #: code:addons/website_forum/models/forum.py:0
 #: code:addons/website_forum/models/forum.py:0
 #, python-format
@@ -114,6 +144,7 @@ msgid "%d karma required to edit a post."
 msgstr "編輯貼文需要 %d 活躍點數。"
 
 #. module: website_forum
+#. odoo-python
 #: code:addons/website_forum/models/forum.py:0
 #: code:addons/website_forum/models/forum.py:0
 #, python-format
@@ -121,48 +152,58 @@ msgid "%d karma required to flag a post."
 msgstr "舉報貼文需要 %d 活躍點數。"
 
 #. module: website_forum
+#. odoo-python
+#: code:addons/website_forum/controllers/main.py:0
+#: code:addons/website_forum/controllers/main.py:0
 #: code:addons/website_forum/models/forum.py:0
 #, python-format
 msgid "%d karma required to mark a post as offensive."
 msgstr "需要有%d 活躍點數才可標記貼文為冒犯內容。"
 
 #. module: website_forum
+#. odoo-python
 #: code:addons/website_forum/models/forum.py:0
 #, python-format
 msgid "%d karma required to post an image or link."
 msgstr "發佈圖片或連結需要 %d 活躍點數。"
 
 #. module: website_forum
+#. odoo-python
 #: code:addons/website_forum/models/forum.py:0
 #, python-format
 msgid "%d karma required to refuse a post."
 msgstr "需要有%d 活躍點才可拒絕貼文。"
 
 #. module: website_forum
+#. odoo-python
 #: code:addons/website_forum/models/forum.py:0
 #, python-format
 msgid "%d karma required to retag."
 msgstr "重新標記需要 %d 活躍點數"
 
 #. module: website_forum
+#. odoo-python
 #: code:addons/website_forum/models/forum.py:0
 #, python-format
 msgid "%d karma required to unlink a comment."
 msgstr "刪除評論需要 %d 活躍點數。"
 
 #. module: website_forum
+#. odoo-python
 #: code:addons/website_forum/models/forum.py:0
 #, python-format
 msgid "%d karma required to unlink a post."
 msgstr "取消連結貼文需要 %d 活躍點數。"
 
 #. module: website_forum
+#. odoo-python
 #: code:addons/website_forum/models/forum.py:0
 #, python-format
 msgid "%d karma required to upvote."
 msgstr "需要 %d 活躍點數才能投票。"
 
 #. module: website_forum
+#. odoo-python
 #: code:addons/website_forum/models/forum.py:0
 #, python-format
 msgid "%d karma required to validate a post."
@@ -206,15 +247,15 @@ msgid "0 Answers"
 msgstr "0 個回答"
 
 #. module: website_forum
-#. openerp-web
-#: code:addons/website_forum/static/src/xml/website_forum_share_templates.xml:0
+#. odoo-javascript
+#: code:addons/website_forum/static/src/xml/public_templates.xml:0
 #, python-format
 msgid "45% of questions shared"
 msgstr "45% of 問題被分享"
 
 #. module: website_forum
-#. openerp-web
-#: code:addons/website_forum/static/src/xml/website_forum_share_templates.xml:0
+#. odoo-javascript
+#: code:addons/website_forum/static/src/xml/public_templates.xml:0
 #, python-format
 msgid ""
 "65% more chance to get an\n"
@@ -302,7 +343,7 @@ msgid ""
 "Links are welcome, but should be complementary to answer, referring sources "
 "or additional reading."
 msgstr ""
-"<b>回答中不應只提供解決方案連結。</b>回答中還應該提供解決方案說明，即使該文本只是經複製/粘貼的文本。連結固然受歡迎，但應與回答相關，並引用來源或其他閱讀資料。"
+"<b>回答不應只提供解決方案的連結</b>，亦應提供解決方案的描述文字，即使文本只是經複製貼上的文字。提供連結是可以的，但應與回答內容互相補充，指出資料來源或延伸閱讀資料。"
 
 #. module: website_forum
 #: model_terms:forum.forum,faq:website_forum.forum_help
@@ -383,10 +424,10 @@ msgstr "<b>[答案]</b>"
 #: model_terms:ir.ui.view,arch_db:website_forum.contact
 msgid ""
 "<b>|</b>\n"
-"                    <span class=\"fa fa-trophy badge-gold ml-2\" role=\"img\" aria-label=\"Gold badge\" title=\"Gold badge\"/>"
+"                    <span class=\"fa fa-trophy bg-gold ms-2\" role=\"img\" aria-label=\"Gold badge\" title=\"Gold badge\"/>"
 msgstr ""
 "<b>|</b>\n"
-"                    <span class=\"fa fa-trophy badge-gold ml-2\" role=\"img\" aria-label=\"Gold badge\" title=\"Gold badge\"/>"
+"                    <span class=\"fa fa-trophy bg-gold ms-2\" role=\"img\" aria-label=\"金獎章\" title=\"金獎章\"/>"
 
 #. module: website_forum
 #: model_terms:ir.ui.view,arch_db:website_forum.tag
@@ -395,8 +436,8 @@ msgstr "<em class=\"d-block mb-2\">或</em>"
 
 #. module: website_forum
 #: model_terms:ir.ui.view,arch_db:website_forum.post_description_full
-msgid "<i class=\" fa fa-comment text-muted mr-1\"/>Comment"
-msgstr "<i class=\" fa fa-comment text-muted mr-1\"/>評論</i>"
+msgid "<i class=\" fa fa-comment text-muted me-1\"/>Comment"
+msgstr "<i class=\" fa fa-comment text-muted me-1\"/>留言"
 
 #. module: website_forum
 #: model_terms:ir.ui.view,arch_db:website_forum.user_sidebar
@@ -410,8 +451,8 @@ msgstr "<i class=\"fa fa-bug\"/>過濾工具</i>"
 
 #. module: website_forum
 #: model_terms:ir.ui.view,arch_db:website_forum.post_description_full
-msgid "<i class=\"fa fa-check fa-fw mr-1\"/>Accept"
-msgstr "<i class=\"fa fa-check fa-fw mr-1\"/>接受</i>"
+msgid "<i class=\"fa fa-check fa-fw me-1\"/>Accept"
+msgstr "<i class=\"fa fa-check fa-fw me-1\"/> 接納"
 
 #. module: website_forum
 #: model_terms:ir.ui.view,arch_db:website_forum.moderation_queue
@@ -435,18 +476,28 @@ msgstr "<i class=\"fa fa-check-square-o fa-fw\"/>待驗證"
 
 #. module: website_forum
 #: model_terms:ir.ui.view,arch_db:website_forum.forum_nav_header
-msgid "<i class=\"fa fa-chevron-left mr-1\"/>Back"
-msgstr "<i class=\"fa fa-chevron-left mr-1\"/>返回"
+msgid "<i class=\"fa fa-chevron-left me-1\"/>Back"
+msgstr "<i class=\"fa fa-chevron-left me-1\"/> 返回"
 
 #. module: website_forum
 #: model_terms:ir.ui.view,arch_db:website_forum.new_question
-msgid "<i class=\"fa fa-chevron-left mr-2\"/>Back to All Topics"
-msgstr "<i class=\"fa fa-chevron-left mr-2\"/>返回所有主題"
+msgid "<i class=\"fa fa-chevron-left me-2\"/>Back to All Topics"
+msgstr "<i class=\"fa fa-chevron-left me-2\"/> 返回所有主題"
 
 #. module: website_forum
 #: model_terms:ir.ui.view,arch_db:website_forum.user_profile_sub_nav
 msgid "<i class=\"fa fa-chevron-left small\"/> Back"
 msgstr "<i class=\"fa fa-chevron-left small\"/>返回"
+
+#. module: website_forum
+#: model_terms:ir.ui.view,arch_db:website_forum.forum_post_view_kanban
+msgid "<i class=\"fa fa-comments-o me-1\" title=\"Forum\"/>"
+msgstr "<i class=\"fa fa-comments-o me-1\" title=\"討論\"/>"
+
+#. module: website_forum
+#: model_terms:ir.ui.view,arch_db:website_forum.forum_post_view_kanban
+msgid "<i class=\"fa fa-eye me-1\" title=\"Views\"/>"
+msgstr "<i class=\"fa fa-eye me-1\" title=\"瀏覽次數\"/>"
 
 #. module: website_forum
 #: model_terms:ir.ui.view,arch_db:website_forum.user_sidebar
@@ -456,16 +507,21 @@ msgstr "<i class=\"fa fa-flag fa-fw\"/>標記"
 #. module: website_forum
 #: model_terms:ir.ui.view,arch_db:website_forum.moderation_queue
 msgid ""
-"<i class=\"fa fa-flag ml-4 mr4\"/>\n"
+"<i class=\"fa fa-flag ms-4 mr4\"/>\n"
 "                                    Flagged"
 msgstr ""
-"<i class=\"fa fa-flag ml-4 mr4\"/>\n"
-"                                    標記"
+"<i class=\"fa fa-flag ms-4 mr4\"/>\n"
+"                                    已標識"
 
 #. module: website_forum
 #: model_terms:ir.ui.view,arch_db:website_forum.moderation_queue
 msgid "<i class=\"fa fa-flag\"/> Country"
 msgstr "<i class=\"fa fa-flag\"/>國家"
+
+#. module: website_forum
+#: model_terms:ir.ui.view,arch_db:website_forum.forum_post_view_kanban
+msgid "<i class=\"fa fa-globe me-1\" title=\"Website\"/>"
+msgstr "<i class=\"fa fa-globe me-1\" title=\"網站\"/>"
 
 #. module: website_forum
 #: model_terms:ir.ui.view,arch_db:website_forum.post_answers
@@ -483,13 +539,13 @@ msgstr "<i class=\"fa fa-question-circle-o fa-fw\"/>我的貼文</i>"
 
 #. module: website_forum
 #: model_terms:ir.ui.view,arch_db:website_forum.post_description_full
-msgid "<i class=\"fa fa-reply mr-1\"/>Answer"
-msgstr "<i class=\"fa fa-reply mr-1\"/>回答"
+msgid "<i class=\"fa fa-reply me-1\"/>Answer"
+msgstr "<i class=\"fa fa-reply me-1\"/> 答案"
 
 #. module: website_forum
 #: model_terms:ir.ui.view,arch_db:website_forum.post_description_full
-msgid "<i class=\"fa fa-share-alt text-muted mr-1\"/>Share"
-msgstr "<i class=\"fa fa-share-alt text-muted mr-1\"/>分享"
+msgid "<i class=\"fa fa-share-alt text-muted me-1\"/>Share"
+msgstr "<i class=\"fa fa-share-alt text-muted me-1\"/> 分享"
 
 #. module: website_forum
 #: model_terms:ir.ui.view,arch_db:website_forum.post_answers
@@ -513,10 +569,10 @@ msgstr "<i class=\"fa fa-tags fa-fw\"/>關注標籤"
 #. module: website_forum
 #: model_terms:ir.ui.view,arch_db:website_forum.user_profile_content
 msgid ""
-"<i class=\"fa fa-thumbs-down text-danger ml-3\" role=\"img\" aria-"
+"<i class=\"fa fa-thumbs-down text-danger ms-3\" role=\"img\" aria-"
 "label=\"Negative votes\" title=\"Negative votes\"/>"
 msgstr ""
-"<i class=\"fa fa-thumbs-down text-danger ml-3\" role=\"img\" aria-"
+"<i class=\"fa fa-thumbs-down text-danger ms-3\" role=\"img\" aria-"
 "label=\"負評數目\" title=\"負評數目\"/>"
 
 #. module: website_forum
@@ -530,8 +586,8 @@ msgstr ""
 
 #. module: website_forum
 #: model_terms:ir.ui.view,arch_db:website_forum.post_description_full
-msgid "<i class=\"fa fa-times fa-fw mr-1\"/>Reject"
-msgstr "<i class=\"fa fa-times fa-fw mr-1\"/>拒絕"
+msgid "<i class=\"fa fa-times fa-fw me-1\"/>Reject"
+msgstr "<i class=\"fa fa-times fa-fw me-1\"/> 拒絕"
 
 #. module: website_forum
 #: model_terms:ir.ui.view,arch_db:website_forum.edit_post
@@ -548,8 +604,8 @@ msgstr "<i class=\"fa fa-user\"/>用戶"
 
 #. module: website_forum
 #: model_terms:ir.ui.view,arch_db:website_forum.user_profile_content
-msgid "<small class=\"font-weight-bold\">Votes</small>"
-msgstr "<small class=\"font-weight-bold\">投票</small>"
+msgid "<small class=\"fw-bold\">Votes</small>"
+msgstr "<small class=\"fw-bold\">正負評</small>"
 
 #. module: website_forum
 #: model_terms:ir.ui.view,arch_db:website_forum.moderation_display_post_answer
@@ -563,42 +619,37 @@ msgstr ""
 "                </small>"
 
 #. module: website_forum
-#: model_terms:ir.ui.view,arch_db:website_forum.moderation_queue
-msgid "<span aria-label=\"Close\">×</span>"
-msgstr "<span aria-label=\"Close\">×</span>"
-
-#. module: website_forum
 #: model_terms:ir.ui.view,arch_db:website_forum.post_description_full
-msgid "<span class=\"badge badge-info\">Closed</span>"
-msgstr "<span class=\"badge badge-info\">關閉</span>"
+msgid "<span class=\"badge text-bg-info\">Closed</span>"
+msgstr "<span class=\"badge text-bg-info\">已關閉</span>"
 
 #. module: website_forum
 #: model_terms:ir.ui.view,arch_db:website_forum.contact
 msgid ""
-"<span class=\"fa fa-trophy badge-bronze ml-2\" role=\"img\" aria-"
-"label=\"Bronze badge\" title=\"Bronze badge\"/>"
+"<span class=\"fa fa-trophy bg-bronze ms-2\" role=\"img\" aria-label=\"Bronze"
+" badge\" title=\"Bronze badge\"/>"
 msgstr ""
-"<span class=\"fa fa-trophy badge-bronze ml-2\" role=\"img\" aria-"
-"label=\"Bronze badge\" title=\"Bronze badge\"/>"
+"<span class=\"fa fa-trophy bg-bronze ms-2\" role=\"img\" aria-label=\"銅獎章\" "
+"title=\"銅獎章\"/>"
 
 #. module: website_forum
 #: model_terms:ir.ui.view,arch_db:website_forum.contact
 msgid ""
-"<span class=\"fa fa-trophy badge-silver ml-2\" role=\"img\" aria-"
-"label=\"Silver badge\" title=\"Silver badge\"/>"
+"<span class=\"fa fa-trophy bg-silver ms-2\" role=\"img\" aria-label=\"Silver"
+" badge\" title=\"Silver badge\"/>"
 msgstr ""
-"<span class=\"fa fa-trophy badge-silver ml-2\" role=\"img\" aria-"
-"label=\"Silver badge\" title=\"Silver badge\"/>"
+"<span class=\"fa fa-trophy bg-silver ms-2\" role=\"img\" aria-label=\"銀獎章\" "
+"title=\"銀獎章\"/>"
 
 #. module: website_forum
 #: model_terms:ir.ui.view,arch_db:website_forum.user_profile_content
-msgid "<span class=\"font-weight-bold\">No answer posted yet.</span>"
-msgstr "<span class=\"font-weight-bold\">尚未發布任何答案。</span>"
+msgid "<span class=\"fw-bold\">No answer posted yet.</span>"
+msgstr "<span class=\"fw-bold\">尚未有回答。</span>"
 
 #. module: website_forum
 #: model_terms:ir.ui.view,arch_db:website_forum.user_profile_content
-msgid "<span class=\"font-weight-bold\">No question posted yet.</span>"
-msgstr "<span class=\"font-weight-bold\">尚未發布任何問題。</span>"
+msgid "<span class=\"fw-bold\">No question posted yet.</span>"
+msgstr "<span class=\"fw-bold\">尚未有提問。</span>"
 
 #. module: website_forum
 #: model_terms:ir.ui.view,arch_db:website_forum.display_post_question_block
@@ -631,13 +682,13 @@ msgstr "<span class=\"mx-3  mx-lg-2 text-400 d-none d-md-inline\">|</span>"
 
 #. module: website_forum
 #: model_terms:ir.ui.view,arch_db:website_forum.forum_nav_header
-msgid "<span class=\"navbar-text mr-1\">Go to:</span>"
-msgstr "<span class=\"navbar-text mr-1\">前往：</span>"
+msgid "<span class=\"navbar-text me-1\">Go to:</span>"
+msgstr "<span class=\"navbar-text me-1\">前往：</span>"
 
 #. module: website_forum
 #: model_terms:ir.ui.view,arch_db:website_forum.tag
-msgid "<span class=\"navbar-text mr-3\">Show Tags Starting By</span>"
-msgstr "<span class=\"navbar-text mr-3\">顯示標籤開始於</span>"
+msgid "<span class=\"navbar-text me-3\">Show Tags Starting By</span>"
+msgstr "<span class=\"navbar-text me-3\">顯示以此起首的標籤</span>"
 
 #. module: website_forum
 #: model_terms:ir.ui.view,arch_db:website_forum.view_forum_forum_form
@@ -658,18 +709,13 @@ msgstr "<span class=\"o_stat_text\">貼文</span>"
 #. module: website_forum
 #: model_terms:ir.ui.view,arch_db:website_forum.post_answers
 msgid ""
-"<span class=\"o_wforum_answer_correct_badge border small border-success rounded-pill font-weight-bold text-success ml-2 px-2\">\n"
+"<span class=\"o_wforum_answer_correct_badge border small border-success rounded-pill fw-bold text-success ms-2 px-2\">\n"
 "                            Best Answer\n"
 "                        </span>"
 msgstr ""
-"<span class=\"o_wforum_answer_correct_badge border small border-success rounded-pill font-weight-bold text-success ml-2 px-2\">\n"
+"<span class=\"o_wforum_answer_correct_badge border small border-success rounded-pill fw-bold text-success ms-2 px-2\">\n"
 "                            最佳答案\n"
 "                        </span>"
-
-#. module: website_forum
-#: model_terms:ir.ui.view,arch_db:website_forum.close_post
-msgid "<span class=\"text-muted mx-3\">or</span>"
-msgstr "<span class=\"text-muted mx-3\">或</span>"
 
 #. module: website_forum
 #: model_terms:ir.ui.view,arch_db:website_forum.moderation_queue
@@ -718,7 +764,7 @@ msgid "Accepting an answer"
 msgstr "接受一個答案"
 
 #. module: website_forum
-#. openerp-web
+#. odoo-javascript
 #: code:addons/website_forum/static/src/js/website_forum.js:0
 #: code:addons/website_forum/static/src/js/website_forum.js:0
 #: code:addons/website_forum/static/src/js/website_forum.js:0
@@ -752,13 +798,6 @@ msgid "Activity"
 msgstr "活動"
 
 #. module: website_forum
-#. openerp-web
-#: code:addons/website_forum/static/src/xml/website_forum_templates.xml:0
-#, python-format
-msgid "Add to menu"
-msgstr "新增至選單"
-
-#. module: website_forum
 #: model:ir.model.fields,help:website_forum.field_forum_forum__allow_share
 msgid ""
 "After posting the user will be proposed to share its question or answer on "
@@ -766,6 +805,7 @@ msgid ""
 msgstr "發帖後，使用者將提議分享其問題或社交網路上的回答，使論壇內容以社會化網路傳播。"
 
 #. module: website_forum
+#. odoo-python
 #: code:addons/website_forum/controllers/main.py:0
 #: model_terms:ir.ui.view,arch_db:website_forum.forum_index
 #, python-format
@@ -810,6 +850,7 @@ msgid "Answer"
 msgstr "答案"
 
 #. module: website_forum
+#. odoo-python
 #: code:addons/website_forum/models/forum.py:0
 #: model:mail.message.subtype,description:website_forum.mt_answer_edit
 #: model:mail.message.subtype,name:website_forum.mt_answer_edit
@@ -890,6 +931,7 @@ msgstr "回答的問題獲得至少4次以上投票"
 #. module: website_forum
 #: model:ir.model.fields,field_description:website_forum.field_forum_post__child_count
 #: model_terms:ir.ui.view,arch_db:website_forum.display_post_question_block
+#: model_terms:ir.ui.view,arch_db:website_forum.forum_post_view_kanban
 #: model_terms:ir.ui.view,arch_db:website_forum.post_description_full
 #: model_terms:ir.ui.view,arch_db:website_forum.user_profile_content
 #: model_terms:ir.ui.view,arch_db:website_forum.view_forum_post_form
@@ -908,7 +950,7 @@ msgstr "出現在"
 #: model_terms:ir.ui.view,arch_db:website_forum.view_forum_post_form
 #: model_terms:ir.ui.view,arch_db:website_forum.view_forum_post_search
 msgid "Archived"
-msgstr "已歸檔"
+msgstr "已封存"
 
 #. module: website_forum
 #: model:ir.model.fields,field_description:website_forum.field_forum_forum__karma_ask
@@ -956,11 +998,16 @@ msgid "Asking a question"
 msgstr "提問"
 
 #. module: website_forum
+#: model:ir.model,name:website_forum.model_ir_attachment
+msgid "Attachment"
+msgstr "附件"
+
+#. module: website_forum
 #: model:ir.model.fields,field_description:website_forum.field_forum_forum__message_attachment_count
 #: model:ir.model.fields,field_description:website_forum.field_forum_post__message_attachment_count
 #: model:ir.model.fields,field_description:website_forum.field_forum_tag__message_attachment_count
 msgid "Attachment Count"
-msgstr "附件數"
+msgstr "附件數目"
 
 #. module: website_forum
 #: model_terms:ir.ui.view,arch_db:website_forum.view_forum_post_search
@@ -1000,6 +1047,7 @@ msgid "Back to Question"
 msgstr "回到問題"
 
 #. module: website_forum
+#. odoo-python
 #: code:addons/website_forum/controllers/main.py:0
 #: code:addons/website_forum/controllers/main.py:0
 #, python-format
@@ -1015,7 +1063,7 @@ msgstr "徽章"
 #. module: website_forum
 #: model:ir.model.fields.selection,name:website_forum.selection__forum_post_reason__reason_type__basic
 msgid "Basic"
-msgstr "基礎的"
+msgstr "基礎"
 
 #. module: website_forum
 #: model_terms:ir.ui.view,arch_db:website_forum.forum_index
@@ -1033,8 +1081,8 @@ msgid "Bumped on"
 msgstr "跳到"
 
 #. module: website_forum
-#. openerp-web
-#: code:addons/website_forum/static/src/xml/website_forum_share_templates.xml:0
+#. odoo-javascript
+#: code:addons/website_forum/static/src/xml/public_templates.xml:0
 #, python-format
 msgid "By sharing you answer, you will get additional"
 msgstr "共享您的回答後，如果該回答被選為正確回答，將得到額外的貢獻度點數"
@@ -1105,6 +1153,11 @@ msgid "Can Upvote"
 msgstr "可以支援"
 
 #. module: website_forum
+#: model:ir.model.fields,field_description:website_forum.field_forum_post__can_use_full_editor
+msgid "Can Use Full Editor"
+msgstr "可使用全功能編輯工具"
+
+#. module: website_forum
 #: model:ir.model.fields,field_description:website_forum.field_forum_post__can_view
 msgid "Can View"
 msgstr "能瀏覽"
@@ -1134,46 +1187,35 @@ msgid "Chief Commentator"
 msgstr "首席評論員"
 
 #. module: website_forum
-#. openerp-web
+#. odoo-javascript
 #: code:addons/website_forum/static/src/js/tours/website_forum.js:0
 #, python-format
 msgid "Click here to accept this answer."
 msgstr "點選這裡以接受回答。"
 
 #. module: website_forum
-#: model_terms:ir.ui.view,arch_db:website_forum.header
-msgid ""
-"Click here to send a verification email allowing you to participate in the "
-"forum."
-msgstr "點選此處發送驗證電子郵件，允許您參與論壇。"
-
-#. module: website_forum
-#. openerp-web
+#. odoo-javascript
 #: code:addons/website_forum/static/src/js/tours/website_forum.js:0
 #, python-format
 msgid "Click to answer."
 msgstr "點選回答。"
 
 #. module: website_forum
-#. openerp-web
+#. odoo-javascript
 #: code:addons/website_forum/static/src/js/tours/website_forum.js:0
 #, python-format
 msgid "Click to post your answer."
 msgstr "點選貼出您的答案。"
 
 #. module: website_forum
-#. openerp-web
+#. odoo-javascript
 #: code:addons/website_forum/static/src/js/tours/website_forum.js:0
 #, python-format
 msgid "Click to post your question."
 msgstr "點選以貼出您的問題。"
 
 #. module: website_forum
-#. openerp-web
-#: code:addons/website_forum/static/src/xml/website_forum_share_templates.xml:0
-#: code:addons/website_forum/static/src/xml/website_forum_share_templates.xml:0
 #: model_terms:ir.ui.view,arch_db:website_forum.question_dropdown
-#, python-format
 msgid "Close"
 msgstr "關閉"
 
@@ -1198,7 +1240,7 @@ msgid "Close own posts"
 msgstr "關閉自己的貼文"
 
 #. module: website_forum
-#: model_terms:ir.ui.view,arch_db:website_forum.close_post
+#: model_terms:ir.ui.view,arch_db:website_forum.mark_as_offensive
 msgid "Close post"
 msgstr "關閉貼文"
 
@@ -1218,7 +1260,7 @@ msgid "Closed on"
 msgstr "關閉於"
 
 #. module: website_forum
-#: model_terms:ir.ui.view,arch_db:website_forum.close_post
+#: model_terms:ir.ui.view,arch_db:website_forum.mark_as_offensive
 msgid "Closing"
 msgstr "正關閉"
 
@@ -1252,8 +1294,6 @@ msgstr "評論這個貼文..."
 #. module: website_forum
 #: model:gamification.badge,name:website_forum.badge_p_2
 #: model:gamification.challenge,name:website_forum.challenge_commentator
-#: model:gamification.challenge.line,name:website_forum.line_chief_commentator
-#: model:gamification.challenge.line,name:website_forum.line_commentator
 #: model:gamification.goal.definition,name:website_forum.definition_commentator
 msgid "Commentator"
 msgstr "評論員"
@@ -1270,7 +1310,6 @@ msgid "Complete own biography"
 msgstr "完成自己的傳記"
 
 #. module: website_forum
-#: model:gamification.challenge.line,name:website_forum.line_configure_profile
 #: model:gamification.goal.definition,name:website_forum.definition_configure_profile
 #: model_terms:gamification.badge,description:website_forum.badge_p_1
 msgid "Completed own biography"
@@ -1323,13 +1362,6 @@ msgid "Correct answer or answer accepted"
 msgstr "正確的回答或被接受的回答"
 
 #. module: website_forum
-#. openerp-web
-#: code:addons/website_forum/static/src/js/website_forum.editor.js:0
-#, python-format
-msgid "Create"
-msgstr "建立"
-
-#. module: website_forum
 #: model:ir.model.fields,field_description:website_forum.field_forum_post_vote__create_date
 #: model:ir.model.fields,field_description:website_forum.field_res_users__create_date
 msgid "Create Date"
@@ -1341,7 +1373,7 @@ msgid "Create a new forum post"
 msgstr "建立新的論壇貼文"
 
 #. module: website_forum
-#. openerp-web
+#. odoo-javascript
 #: code:addons/website_forum/static/src/js/tours/website_forum.js:0
 #, python-format
 msgid "Create a new post in this forum by clicking on the button."
@@ -1387,7 +1419,6 @@ msgstr "可靠的問題"
 #. module: website_forum
 #: model:gamification.badge,name:website_forum.badge_5
 #: model:gamification.challenge,name:website_forum.challenge_critic
-#: model:gamification.challenge.line,name:website_forum.line_critic
 #: model:gamification.goal.definition,name:website_forum.definition_critic
 msgid "Critic"
 msgstr "批評者"
@@ -1469,31 +1500,20 @@ msgid "Description visible on website"
 msgstr "網站上可見的說明"
 
 #. module: website_forum
-#. openerp-web
-#: code:addons/website_forum/static/src/js/website_forum.editor.js:0
-#: model_terms:ir.ui.view,arch_db:website_forum.close_post
 #: model_terms:ir.ui.view,arch_db:website_forum.edit_post
+#: model_terms:ir.ui.view,arch_db:website_forum.mark_as_offensive
 #: model_terms:ir.ui.view,arch_db:website_forum.new_question
 #: model_terms:ir.ui.view,arch_db:website_forum.post_answer
 #: model_terms:ir.ui.view,arch_db:website_forum.post_comment
-#, python-format
 msgid "Discard"
-msgstr "取消"
+msgstr "捨棄"
 
 #. module: website_forum
 #: model:gamification.badge,name:website_forum.badge_6
 #: model:gamification.challenge,name:website_forum.challenge_disciplined
-#: model:gamification.challenge.line,name:website_forum.line_disciplined
 #: model:gamification.goal.definition,name:website_forum.definition_disciplined
 msgid "Disciplined"
 msgstr "被懲治"
-
-#. module: website_forum
-#. openerp-web
-#: code:addons/website_forum/static/src/xml/website_forum_templates.xml:0
-#, python-format
-msgid "Discussions"
-msgstr "討論"
 
 #. module: website_forum
 #: model:ir.model.fields.selection,name:website_forum.selection__forum_forum__mode__discussions
@@ -1563,20 +1583,19 @@ msgstr "編輯您的貼文"
 #. module: website_forum
 #: model:gamification.badge,name:website_forum.badge_7
 #: model:gamification.challenge,name:website_forum.challenge_editor
-#: model:gamification.challenge.line,name:website_forum.line_editor
 #: model:gamification.goal.definition,name:website_forum.definition_editor
 msgid "Editor"
 msgstr "編輯"
 
 #. module: website_forum
 #: model:ir.model.fields,field_description:website_forum.field_forum_forum__karma_editor
+#: model:ir.model.fields,help:website_forum.field_forum_post__can_use_full_editor
 msgid "Editor Features: image and links"
 msgstr "編輯工具：圖像和連結"
 
 #. module: website_forum
 #: model:gamification.badge,name:website_forum.badge_a_5
 #: model:gamification.challenge,name:website_forum.challenge_enlightened
-#: model:gamification.challenge.line,name:website_forum.line_enlightened
 #: model:gamification.goal.definition,name:website_forum.definition_enlightened
 msgid "Enlightened"
 msgstr "開明的"
@@ -1614,19 +1633,16 @@ msgid "Favourite"
 msgstr "最愛"
 
 #. module: website_forum
-#: model:gamification.challenge.line,name:website_forum.line_favorite_question_1
 #: model:gamification.goal.definition,name:website_forum.definition_favorite_question_1
 msgid "Favourite Question (1)"
 msgstr "最愛的問題(1)"
 
 #. module: website_forum
-#: model:gamification.challenge.line,name:website_forum.line_stellar_question_25
 #: model:gamification.goal.definition,name:website_forum.definition_stellar_question_25
 msgid "Favourite Question (25)"
 msgstr "最愛的問題（25）"
 
 #. module: website_forum
-#: model:gamification.challenge.line,name:website_forum.line_favorite_question_5
 #: model:gamification.goal.definition,name:website_forum.definition_favorite_question_5
 msgid "Favourite Question (5)"
 msgstr "最愛的問題(5)"
@@ -1680,6 +1696,7 @@ msgstr "標記無禮的貼文"
 #. module: website_forum
 #: model:ir.model.fields.selection,name:website_forum.selection__forum_post__state__flagged
 #: model_terms:ir.ui.view,arch_db:website_forum.header
+#: model_terms:ir.ui.view,arch_db:website_forum.question_dropdown
 msgid "Flagged"
 msgstr "標記的"
 
@@ -1719,14 +1736,15 @@ msgid ""
 "For example, if you ask an interesting question or give a helpful answer, "
 "your input will be upvoted. On the other hand if the answer is misleading - "
 "it will be downvoted. Each vote in favor will generate 10 points, each vote "
-"against will subtract 10 points. There is a limit of 200 points that can be "
+"against will subtract 2 points. There is a limit of 200 points that can be "
 "accumulated for a question or answer per day. The table given at the end "
 "explains reputation point requirements for each type of moderation task."
 msgstr ""
 "舉例，如果你提出一個有趣的問題，或提供了有用的答案，你發佈的內容會被正評。相反，若答案有誤導性，它將會被負評。每個正評當作 10 分計算，每個負評會扣 "
-"10 分。在同一天內，一個問題或答案最多可以累積 200 分。有關各類版主審批權限的最低信譽積分要求，請見文末列表。"
+"2 分。在同一天內，一個問題或答案最多可以累積 200 分。有關各類版主審批權限的最低信譽積分要求，請見文末列表。"
 
 #. module: website_forum
+#. odoo-python
 #: code:addons/website_forum/models/website.py:0
 #: code:addons/website_forum/models/website.py:0
 #: model:ir.actions.act_url,name:website_forum.action_open_forum
@@ -1734,7 +1752,6 @@ msgstr ""
 #: model:ir.model.fields,field_description:website_forum.field_forum_post__forum_id
 #: model:ir.model.fields,field_description:website_forum.field_forum_post_vote__forum_id
 #: model:ir.model.fields,field_description:website_forum.field_forum_tag__forum_id
-#: model:ir.ui.menu,name:website_forum.menu_website_forum
 #: model:ir.ui.menu,name:website_forum.menu_website_forum_global
 #: model:website.menu,name:website_forum.menu_website_forums
 #: model_terms:ir.ui.view,arch_db:website_forum.forum_view_search
@@ -1742,22 +1759,23 @@ msgstr ""
 #: model_terms:ir.ui.view,arch_db:website_forum.view_forum_post_search
 #, python-format
 msgid "Forum"
-msgstr "論壇"
+msgstr "討論區"
 
 #. module: website_forum
-#. openerp-web
-#: code:addons/website_forum/static/src/xml/website_forum_templates.xml:0
-#, python-format
+#: model_terms:ir.ui.view,arch_db:website_forum.forum_forum_view_form_add
 msgid "Forum Mode"
 msgstr "論壇模式"
 
 #. module: website_forum
-#. openerp-web
-#: code:addons/website_forum/static/src/xml/website_forum_templates.xml:0
 #: model:ir.model.fields,field_description:website_forum.field_forum_forum__name
-#, python-format
+#: model_terms:ir.ui.view,arch_db:website_forum.forum_forum_view_form_add
 msgid "Forum Name"
 msgstr "討論區名稱"
+
+#. module: website_forum
+#: model_terms:ir.ui.view,arch_db:website_forum.snippet_options
+msgid "Forum Page"
+msgstr "討論區頁面"
 
 #. module: website_forum
 #: model:ir.model,name:website_forum.model_forum_post
@@ -1767,7 +1785,11 @@ msgstr "論壇貼文"
 
 #. module: website_forum
 #: model:ir.actions.act_window,name:website_forum.action_forum_post
-#: model_terms:ir.ui.view,arch_db:website_forum.view_forum_post_list
+msgid "Forum Post Pages"
+msgstr "討論區帖文頁面"
+
+#. module: website_forum
+#: model:ir.ui.menu,name:website_forum.menu_forum_post_pages
 msgid "Forum Posts"
 msgstr "論壇帖文"
 
@@ -1795,7 +1817,7 @@ msgid "Gamification Challenge"
 msgstr "遊戲化挑戰"
 
 #. module: website_forum
-#. openerp-web
+#. odoo-javascript
 #: code:addons/website_forum/static/src/js/tours/website_forum.js:0
 #, python-format
 msgid "Give your post title."
@@ -1808,7 +1830,6 @@ msgid "Good Answer"
 msgstr "滿意答案"
 
 #. module: website_forum
-#: model:gamification.challenge.line,name:website_forum.line_good_answer
 #: model:gamification.goal.definition,name:website_forum.definition_good_answer
 msgid "Good Answer (6)"
 msgstr "滿意答案 (6)"
@@ -1831,7 +1852,6 @@ msgid "Great Answer"
 msgstr "很好的答案"
 
 #. module: website_forum
-#: model:gamification.challenge.line,name:website_forum.line_great_answer
 #: model:gamification.goal.definition,name:website_forum.definition_great_answer
 msgid "Great Answer (15)"
 msgstr "很好的答案(15)"
@@ -1843,9 +1863,14 @@ msgid "Great Question"
 msgstr "很好的問題"
 
 #. module: website_forum
+#: model_terms:ir.ui.view,arch_db:website_forum.snippet_options
+msgid "Grid"
+msgstr "網格"
+
+#. module: website_forum
 #: model_terms:ir.ui.view,arch_db:website_forum.view_forum_post_search
 msgid "Group By"
-msgstr "分組依據"
+msgstr "分組方式"
 
 #. module: website_forum
 #: model:ir.model.fields,field_description:website_forum.field_forum_forum__faq
@@ -1860,7 +1885,6 @@ msgid "Guru"
 msgstr "專家"
 
 #. module: website_forum
-#: model:gamification.challenge.line,name:website_forum.line_guru
 #: model:gamification.goal.definition,name:website_forum.definition_guru
 msgid "Guru (15)"
 msgstr "專家（15）"
@@ -1914,11 +1938,8 @@ msgstr "ID"
 
 #. module: website_forum
 #: model:ir.model.fields,help:website_forum.field_forum_forum__message_needaction
-#: model:ir.model.fields,help:website_forum.field_forum_forum__message_unread
 #: model:ir.model.fields,help:website_forum.field_forum_post__message_needaction
-#: model:ir.model.fields,help:website_forum.field_forum_post__message_unread
 #: model:ir.model.fields,help:website_forum.field_forum_tag__message_needaction
-#: model:ir.model.fields,help:website_forum.field_forum_tag__message_unread
 msgid "If checked, new messages require your attention."
 msgstr "勾選代表有新訊息需要您留意。"
 
@@ -1946,7 +1967,7 @@ msgid "If this approach is not for you, please respect the community."
 msgstr "如果這種方法不適合您，請尊重社群。"
 
 #. module: website_forum
-#: model_terms:ir.ui.view,arch_db:website_forum.close_post
+#: model_terms:ir.ui.view,arch_db:website_forum.mark_as_offensive
 msgid ""
 "If you close this post, it will be hidden for most users. Only\n"
 "            users having a high karma can see closed posts to moderate\n"
@@ -1970,7 +1991,7 @@ msgstr ""
 "的討論”，那麼您不應該在這裡提問，而應該在我們的郵件列表上提問。但是，如果您的動機是“我希望其他人向我解釋______”，那麼您可以在此提出問題。"
 
 #. module: website_forum
-#: model_terms:ir.ui.view,arch_db:website_forum.close_post
+#: model_terms:ir.ui.view,arch_db:website_forum.mark_as_offensive
 msgid ""
 "If you mark this post as offensive, it will be hidden for most users. Only\n"
 "            users having a high karma can see offensive posts to moderate\n"
@@ -2010,7 +2031,7 @@ msgid "Inappropriate and unacceptable statements"
 msgstr "不恰當和不可接受的陳述"
 
 #. module: website_forum
-#. openerp-web
+#. odoo-javascript
 #: code:addons/website_forum/static/src/js/tours/website_forum.js:0
 #, python-format
 msgid "Insert tags related to your question."
@@ -2044,12 +2065,14 @@ msgid "Is the author's biography visible from his post"
 msgstr "作者的簡介在其貼文是否可見"
 
 #. module: website_forum
+#. odoo-python
 #: code:addons/website_forum/models/forum.py:0
 #, python-format
 msgid "It is not allowed to modify someone else's vote."
 msgstr "不允許修改他人的投票。"
 
 #. module: website_forum
+#. odoo-python
 #: code:addons/website_forum/models/forum.py:0
 #, python-format
 msgid "It is not allowed to vote for its own post."
@@ -2061,7 +2084,7 @@ msgid "Karma"
 msgstr "貢獻值"
 
 #. module: website_forum
-#. openerp-web
+#. odoo-javascript
 #: code:addons/website_forum/static/src/js/website_forum.js:0
 #, python-format
 msgid "Karma Error"
@@ -2113,6 +2136,7 @@ msgstr "最後修改於"
 
 #. module: website_forum
 #: model:ir.model.fields,field_description:website_forum.field_forum_forum__last_post_id
+#: model_terms:ir.ui.view,arch_db:website_forum.snippet_options
 msgid "Last Post"
 msgstr "最新貼文"
 
@@ -2148,9 +2172,19 @@ msgid "Last activity date"
 msgstr "上次活動日期"
 
 #. module: website_forum
+#: model_terms:ir.ui.view,arch_db:website_forum.snippet_options
+msgid "Layout"
+msgstr "佈局"
+
+#. module: website_forum
 #: model_terms:gamification.badge,description:website_forum.badge_25
 msgid "Left 10 answers with score of 10 or more"
 msgstr "保留10個10分以上的回答"
+
+#. module: website_forum
+#: model_terms:ir.ui.view,arch_db:website_forum.snippet_options
+msgid "List"
+msgstr "清單"
 
 #. module: website_forum
 #: model:ir.model.fields,field_description:website_forum.field_forum_forum__message_main_attachment_id
@@ -2165,7 +2199,12 @@ msgid "Mark as Best Answer"
 msgstr "標記為最佳答案"
 
 #. module: website_forum
-#: model_terms:ir.ui.view,arch_db:website_forum.close_post
+#: model_terms:ir.ui.view,arch_db:website_forum.show_flag_validator
+msgid "Mark as Offensive"
+msgstr "標記為冒犯內容"
+
+#. module: website_forum
+#: model_terms:ir.ui.view,arch_db:website_forum.mark_as_offensive
 #: model_terms:ir.ui.view,arch_db:website_forum.moderation_queue
 msgid "Mark as offensive"
 msgstr "標記為冒犯內容"
@@ -2241,8 +2280,8 @@ msgid "Most voted"
 msgstr "最多評價"
 
 #. module: website_forum
-#. openerp-web
-#: code:addons/website_forum/static/src/xml/website_forum_share_templates.xml:0
+#. odoo-javascript
+#: code:addons/website_forum/static/src/xml/public_templates.xml:0
 #, python-format
 msgid ""
 "Move this question to the top of the list by sharing it on social networks."
@@ -2298,9 +2337,7 @@ msgid "New Answer"
 msgstr "新的答案"
 
 #. module: website_forum
-#. openerp-web
-#: code:addons/website_forum/static/src/js/website_forum.editor.js:0
-#, python-format
+#: model:ir.actions.act_window,name:website_forum.forum_forum_action_add
 msgid "New Forum"
 msgstr "新論壇"
 
@@ -2330,7 +2367,6 @@ msgid "Nice Answer"
 msgstr "很讚的回答"
 
 #. module: website_forum
-#: model:gamification.challenge.line,name:website_forum.line_nice_answer
 #: model:gamification.goal.definition,name:website_forum.definition_nice_answer
 msgid "Nice Answer (4)"
 msgstr "很讚的回答(4)"
@@ -2425,8 +2461,8 @@ msgstr "被標記貼文數"
 #: model:ir.model.fields,help:website_forum.field_forum_forum__message_needaction_counter
 #: model:ir.model.fields,help:website_forum.field_forum_post__message_needaction_counter
 #: model:ir.model.fields,help:website_forum.field_forum_tag__message_needaction_counter
-msgid "Number of messages which requires an action"
-msgstr "需要處理的消息數量"
+msgid "Number of messages requiring action"
+msgstr "需要採取行動的訊息數目"
 
 #. module: website_forum
 #: model:ir.model.fields,help:website_forum.field_forum_forum__message_has_error_counter
@@ -2441,13 +2477,6 @@ msgid "Number of posts waiting for validation"
 msgstr "等待審核的貼文數量"
 
 #. module: website_forum
-#: model:ir.model.fields,help:website_forum.field_forum_forum__message_unread_counter
-#: model:ir.model.fields,help:website_forum.field_forum_post__message_unread_counter
-#: model:ir.model.fields,help:website_forum.field_forum_tag__message_unread_counter
-msgid "Number of unread messages"
-msgstr "未讀訊息的數量"
-
-#. module: website_forum
 #: model:forum.post.reason,name:website_forum.reason_2
 msgid "Off-topic or not relevant"
 msgstr "離題或不相關"
@@ -2455,21 +2484,24 @@ msgstr "離題或不相關"
 #. module: website_forum
 #: model:ir.model.fields.selection,name:website_forum.selection__forum_post__state__offensive
 #: model:ir.model.fields.selection,name:website_forum.selection__forum_post_reason__reason_type__offensive
-#: model_terms:ir.ui.view,arch_db:website_forum.close_post
 #: model_terms:ir.ui.view,arch_db:website_forum.header
+#: model_terms:ir.ui.view,arch_db:website_forum.mark_as_offensive
 #: model_terms:ir.ui.view,arch_db:website_forum.moderation_queue
 #: model_terms:ir.ui.view,arch_db:website_forum.post_description_full
 msgid "Offensive"
 msgstr "攻擊性"
 
 #. module: website_forum
+#. odoo-javascript
+#: code:addons/website_forum/static/src/js/website_forum.js:0
 #: model_terms:ir.ui.view,arch_db:website_forum.header
+#, python-format
 msgid "Offensive Post"
 msgstr "具有攻擊性的貼文"
 
 #. module: website_forum
-#. openerp-web
-#: code:addons/website_forum/static/src/xml/website_forum_share_templates.xml:0
+#. odoo-javascript
+#: code:addons/website_forum/static/src/xml/public_templates.xml:0
 #, python-format
 msgid "On average,"
 msgstr "平均,"
@@ -2502,7 +2534,6 @@ msgstr "我們的論壇"
 #. module: website_forum
 #: model:gamification.badge,name:website_forum.badge_23
 #: model:gamification.challenge,name:website_forum.challenge_peer_pressure
-#: model:gamification.challenge.line,name:website_forum.line_peer_pressure
 #: model:gamification.goal.definition,name:website_forum.definition_peer_pressure
 msgid "Peer Pressure"
 msgstr "同行壓力"
@@ -2518,13 +2549,6 @@ msgid "Plain Content"
 msgstr "平面內容"
 
 #. module: website_forum
-#. openerp-web
-#: code:addons/website_forum/static/src/xml/website_forum_templates.xml:0
-#, python-format
-msgid "Please fill in this field"
-msgstr "請填寫此欄位"
-
-#. module: website_forum
 #: model_terms:ir.ui.view,arch_db:website_forum.new_question
 msgid ""
 "Please wait for a moderator to validate your previous post before "
@@ -2538,19 +2562,16 @@ msgid "Popular Question"
 msgstr "熱門問題"
 
 #. module: website_forum
-#: model:gamification.challenge.line,name:website_forum.line_popular_question
 #: model:gamification.goal.definition,name:website_forum.definition_popular_question
 msgid "Popular Question (150)"
 msgstr "熱門問題(150)"
 
 #. module: website_forum
-#: model:gamification.challenge.line,name:website_forum.line_notable_question
 #: model:gamification.goal.definition,name:website_forum.definition_notable_question
 msgid "Popular Question (250)"
 msgstr "熱門問題(250)"
 
 #. module: website_forum
-#: model:gamification.challenge.line,name:website_forum.line_famous_question
 #: model:gamification.goal.definition,name:website_forum.definition_famous_question
 msgid "Popular Question (500)"
 msgstr "熱門問題(500)"
@@ -2594,6 +2615,11 @@ msgid "Post Comment"
 msgstr "貼子評論"
 
 #. module: website_forum
+#: model_terms:ir.ui.view,arch_db:website_forum.snippet_options
+msgid "Post Count"
+msgstr "帖文數目"
+
+#. module: website_forum
 #: model:ir.model,name:website_forum.model_forum_post_vote
 msgid "Post Vote"
 msgstr "發佈投票"
@@ -2604,7 +2630,7 @@ msgid "Post Your Question"
 msgstr "提交您的問題"
 
 #. module: website_forum
-#: model_terms:ir.ui.view,arch_db:website_forum.close_post
+#: model_terms:ir.ui.view,arch_db:website_forum.mark_as_offensive
 msgid "Post:"
 msgstr "張貼："
 
@@ -2619,6 +2645,7 @@ msgid "Posted 100 comments"
 msgstr "張貼的100個評論"
 
 #. module: website_forum
+#. odoo-python
 #: code:addons/website_forum/models/forum.py:0
 #, python-format
 msgid "Posting answer on a [Deleted] or [Closed] question is not possible."
@@ -2628,7 +2655,6 @@ msgstr "張貼回答在[刪除]或[關閉]的問題是不可能的。"
 #: model:ir.actions.act_window,name:website_forum.action_forum_posts
 #: model:ir.model.fields,field_description:website_forum.field_forum_forum__post_ids
 #: model:ir.model.fields,field_description:website_forum.field_forum_tag__post_ids
-#: model:ir.ui.menu,name:website_forum.menu_forum_posts
 #: model_terms:ir.ui.view,arch_db:website_forum.view_forum_post_search
 msgid "Posts"
 msgstr "貼文"
@@ -2639,18 +2665,12 @@ msgid "Posts:"
 msgstr "貼文："
 
 #. module: website_forum
-#. openerp-web
-#: code:addons/website_forum/static/src/xml/website_forum_templates.xml:0
 #: model:ir.model.fields,field_description:website_forum.field_forum_forum__privacy
-#, python-format
 msgid "Privacy"
 msgstr "私隱"
 
 #. module: website_forum
-#. openerp-web
-#: code:addons/website_forum/static/src/xml/website_forum_templates.xml:0
 #: model:ir.model.fields.selection,name:website_forum.selection__forum_forum__privacy__public
-#, python-format
 msgid "Public"
 msgstr "公開"
 
@@ -2666,32 +2686,21 @@ msgstr ""
 "部分用戶：論壇及其內容對所選組的非成員隱藏"
 
 #. module: website_forum
-#. openerp-web
-#: code:addons/website_forum/static/src/xml/website_forum_templates.xml:0
-#, python-format
-msgid ""
-"Public: Forum is public\\nSigned In: Forum is visible for signed in "
-"users\\nSome users: Forum and their content are hidden for non members of "
-"selected group"
-msgstr "公開：論壇是公開的\\n需登入：論壇對登入用戶可見\\n部分用戶：論壇及其內容對所選組的非成員隱藏"
-
-#. module: website_forum
 #: model:gamification.badge,name:website_forum.badge_25
 #: model:gamification.challenge,name:website_forum.challenge_pundit
-#: model:gamification.challenge.line,name:website_forum.line_pundit
 #: model:gamification.goal.definition,name:website_forum.definition_pundit
 msgid "Pundit"
 msgstr "權威人士"
 
 #. module: website_forum
-#. openerp-web
+#. odoo-javascript
 #: code:addons/website_forum/static/src/js/tours/website_forum.js:0
 #, python-format
 msgid "Put your answer here."
 msgstr "在這裡放置您的回答。"
 
 #. module: website_forum
-#. openerp-web
+#. odoo-javascript
 #: code:addons/website_forum/static/src/js/tours/website_forum.js:0
 #, python-format
 msgid "Put your question here."
@@ -2705,6 +2714,7 @@ msgid "Question"
 msgstr "提問"
 
 #. module: website_forum
+#. odoo-python
 #: code:addons/website_forum/models/forum.py:0
 #: model:mail.message.subtype,description:website_forum.mt_question_edit
 #: model:mail.message.subtype,name:website_forum.mt_question_edit
@@ -2743,6 +2753,7 @@ msgid "Question set as favorite by 5 users"
 msgstr "問題被5個使用者最愛"
 
 #. module: website_forum
+#. odoo-python
 #: code:addons/website_forum/controllers/main.py:0
 #, python-format
 msgid "Question should not be empty."
@@ -2779,22 +2790,6 @@ msgid "Questions (1 answer)"
 msgstr "問答 (1 個答案)"
 
 #. module: website_forum
-#. openerp-web
-#: code:addons/website_forum/static/src/xml/website_forum_templates.xml:0
-#, python-format
-msgid "Questions and Answers"
-msgstr "問題和解答"
-
-#. module: website_forum
-#. openerp-web
-#: code:addons/website_forum/static/src/xml/website_forum_templates.xml:0
-#, python-format
-msgid ""
-"Questions and Answers mode: only one answer allowed\\n Discussions mode: "
-"multiple answers allowed"
-msgstr "問答模式：只允許一個答案\\n 討論模式：允許多個答案"
-
-#. module: website_forum
 #: model:ir.model.fields,help:website_forum.field_forum_forum__mode
 msgid ""
 "Questions mode: only one answer allowed\n"
@@ -2814,6 +2809,7 @@ msgid "Ranks"
 msgstr "等級"
 
 #. module: website_forum
+#. odoo-python
 #: code:addons/website_forum/models/forum.py:0
 #: code:addons/website_forum/models/forum.py:0
 #, python-format
@@ -2821,7 +2817,7 @@ msgid "Re: %s"
 msgstr "回答: %s"
 
 #. module: website_forum
-#. openerp-web
+#. odoo-javascript
 #: code:addons/website_forum/static/src/js/website_forum.js:0
 #, python-format
 msgid "Read the guidelines to know how to gain karma."
@@ -2843,7 +2839,7 @@ msgid "Reason Type"
 msgstr "原因類型"
 
 #. module: website_forum
-#: model_terms:ir.ui.view,arch_db:website_forum.close_post
+#: model_terms:ir.ui.view,arch_db:website_forum.mark_as_offensive
 msgid "Reason:"
 msgstr "原因："
 
@@ -2885,6 +2881,7 @@ msgid "Reopen"
 msgstr "重新打開"
 
 #. module: website_forum
+#. odoo-python
 #: code:addons/website_forum/controllers/main.py:0
 #, python-format
 msgid "Reply should not be empty."
@@ -2938,7 +2935,6 @@ msgstr "儲存變更"
 #. module: website_forum
 #: model:gamification.badge,name:website_forum.badge_26
 #: model:gamification.challenge,name:website_forum.challenge_scholar
-#: model:gamification.challenge.line,name:website_forum.line_scholar
 #: model:gamification.goal.definition,name:website_forum.definition_scholar
 msgid "Scholar"
 msgstr "學者"
@@ -2984,16 +2980,8 @@ msgid "Select All"
 msgstr "全選"
 
 #. module: website_forum
-#. openerp-web
-#: code:addons/website_forum/static/src/xml/website_forum_templates.xml:0
-#, python-format
-msgid "Select Authorized Group"
-msgstr "選擇獲授權群組"
-
-#. module: website_forum
 #: model:gamification.badge,name:website_forum.badge_a_8
 #: model:gamification.challenge,name:website_forum.challenge_self_learner
-#: model:gamification.challenge.line,name:website_forum.line_self_learner
 #: model:gamification.goal.definition,name:website_forum.definition_self_learner
 msgid "Self-Learner"
 msgstr "自我學習者"
@@ -3011,18 +2999,8 @@ msgid "Sequence"
 msgstr "序號"
 
 #. module: website_forum
-#. openerp-web
-#: code:addons/website_forum/static/src/xml/website_forum_share_templates.xml:0
-#: code:addons/website_forum/static/src/xml/website_forum_share_templates.xml:0
-#: code:addons/website_forum/static/src/xml/website_forum_share_templates.xml:0
-#: code:addons/website_forum/static/src/xml/website_forum_share_templates.xml:0
-#, python-format
-msgid "Share on #{media}"
-msgstr "分享至 #{media}"
-
-#. module: website_forum
-#. openerp-web
-#: code:addons/website_forum/static/src/xml/website_forum_share_templates.xml:0
+#. odoo-javascript
+#: code:addons/website_forum/static/src/xml/public_templates.xml:0
 #, python-format
 msgid ""
 "Share this content to increase your chances to be featured on the front page"
@@ -3055,10 +3033,7 @@ msgid "Sign in"
 msgstr "登入"
 
 #. module: website_forum
-#. openerp-web
-#: code:addons/website_forum/static/src/xml/website_forum_templates.xml:0
 #: model:ir.model.fields.selection,name:website_forum.selection__forum_forum__privacy__connected
-#, python-format
 msgid "Signed In"
 msgstr "需登入"
 
@@ -3069,40 +3044,33 @@ msgid "Solved"
 msgstr "已解決"
 
 #. module: website_forum
-#. openerp-web
-#: code:addons/website_forum/static/src/xml/website_forum_templates.xml:0
-#, python-format
-msgid "Some Users"
-msgstr "部分用戶"
-
-#. module: website_forum
 #: model:ir.model.fields.selection,name:website_forum.selection__forum_forum__privacy__private
 msgid "Some users"
 msgstr "部分用戶"
 
 #. module: website_forum
-#. openerp-web
+#. odoo-javascript
 #: code:addons/website_forum/static/src/js/website_forum.js:0
 #, python-format
 msgid "Sorry you must be logged in to perform this action"
 msgstr "抱歉，您必須登入才能執行此操作"
 
 #. module: website_forum
-#. openerp-web
+#. odoo-javascript
 #: code:addons/website_forum/static/src/js/website_forum.js:0
 #, python-format
 msgid "Sorry you must be logged to flag a post"
 msgstr "對不起，您必須登入後標記一個貼文"
 
 #. module: website_forum
-#. openerp-web
+#. odoo-javascript
 #: code:addons/website_forum/static/src/js/website_forum.js:0
 #, python-format
 msgid "Sorry you must be logged to vote"
 msgstr "對不起，您必須登入後才可投票"
 
 #. module: website_forum
-#. openerp-web
+#. odoo-javascript
 #: code:addons/website_forum/static/src/js/website_forum.js:0
 #, python-format
 msgid "Sorry, anonymous users cannot choose correct answer."
@@ -3119,7 +3087,7 @@ msgid "Sorry, we could not find any <b>%s</b> result <b>%s</b> %s%s%s."
 msgstr "抱歉，我們找不到任何<b>%s</b>結果<b>%s</b> %s%s%s。"
 
 #. module: website_forum
-#. openerp-web
+#. odoo-javascript
 #: code:addons/website_forum/static/src/js/website_forum.js:0
 #, python-format
 msgid "Sorry, you cannot vote for your own posts"
@@ -3155,7 +3123,6 @@ msgstr "學生"
 #. module: website_forum
 #: model:gamification.badge,name:website_forum.badge_31
 #: model:gamification.challenge,name:website_forum.challenge_supporter
-#: model:gamification.challenge.line,name:website_forum.line_supporter
 #: model:gamification.goal.definition,name:website_forum.definition_supporter
 msgid "Supporter"
 msgstr "支援者"
@@ -3190,7 +3157,6 @@ msgstr "我關注的標籤"
 #. module: website_forum
 #: model:gamification.badge,name:website_forum.badge_32
 #: model:gamification.challenge,name:website_forum.challenge_taxonomist
-#: model:gamification.challenge.line,name:website_forum.line_taxonomist
 #: model:gamification.goal.definition,name:website_forum.definition_taxonomist
 msgid "Taxonomist"
 msgstr "分類學者"
@@ -3198,7 +3164,6 @@ msgstr "分類學者"
 #. module: website_forum
 #: model:gamification.badge,name:website_forum.badge_a_1
 #: model:gamification.challenge,name:website_forum.challenge_teacher
-#: model:gamification.challenge.line,name:website_forum.line_teacher
 #: model:gamification.goal.definition,name:website_forum.definition_teacher
 msgid "Teacher"
 msgstr "老師"
@@ -3218,8 +3183,8 @@ msgstr ""
 "技術領域允許觸碰一個問題。書寫此欄位將觸發write_date寫入，然後觸碰貼文。直接寫在write_date是目前不支援，而此欄位是一個解決辦法。"
 
 #. module: website_forum
-#. openerp-web
-#: code:addons/website_forum/static/src/xml/website_forum_share_templates.xml:0
+#. odoo-javascript
+#: code:addons/website_forum/static/src/xml/public_templates.xml:0
 #, python-format
 msgid "Thanks for posting!"
 msgstr "謝謝張貼！"
@@ -3295,14 +3260,14 @@ msgid "This forum has been archived."
 msgstr "這個論壇已經歸檔了。"
 
 #. module: website_forum
-#. openerp-web
+#. odoo-javascript
 #: code:addons/website_forum/static/src/js/website_forum.js:0
 #, python-format
 msgid "This post can not be flagged"
 msgstr "這個貼文不能被標示"
 
 #. module: website_forum
-#. openerp-web
+#. odoo-javascript
 #: code:addons/website_forum/static/src/js/website_forum.js:0
 #, python-format
 msgid "This post is already flagged"
@@ -3336,6 +3301,7 @@ msgid "Title must not be empty"
 msgstr "主題不能為空"
 
 #. module: website_forum
+#. odoo-python
 #: code:addons/website_forum/controllers/main.py:0
 #, python-format
 msgid "Title should not be empty."
@@ -3390,11 +3356,12 @@ msgid "Total Answers"
 msgstr "總答數"
 
 #. module: website_forum
-#: model_terms:ir.ui.view,arch_db:website_forum.view_forum_post_list
-msgid "Total Favorites"
-msgstr "最愛總數"
+#: model_terms:ir.ui.view,arch_db:website_forum.view_forum_forum_list
+msgid "Total Posts"
+msgstr "帖文總數"
 
 #. module: website_forum
+#: model_terms:ir.ui.view,arch_db:website_forum.view_forum_forum_list
 #: model_terms:ir.ui.view,arch_db:website_forum.view_forum_post_list
 msgid "Total Views"
 msgstr "總瀏覽"
@@ -3440,20 +3407,6 @@ msgid "Unmark as Best Answer"
 msgstr "取消標記為最佳答案"
 
 #. module: website_forum
-#: model:ir.model.fields,field_description:website_forum.field_forum_forum__message_unread
-#: model:ir.model.fields,field_description:website_forum.field_forum_post__message_unread
-#: model:ir.model.fields,field_description:website_forum.field_forum_tag__message_unread
-msgid "Unread Messages"
-msgstr "未讀消息"
-
-#. module: website_forum
-#: model:ir.model.fields,field_description:website_forum.field_forum_forum__message_unread_counter
-#: model:ir.model.fields,field_description:website_forum.field_forum_post__message_unread_counter
-#: model:ir.model.fields,field_description:website_forum.field_forum_tag__message_unread_counter
-msgid "Unread Messages Counter"
-msgstr "未讀消息計數器"
-
-#. module: website_forum
 #: model_terms:ir.ui.view,arch_db:website_forum.forum_index
 msgid "Unsolved"
 msgstr "未解決"
@@ -3474,25 +3427,21 @@ msgid "Upvote"
 msgstr "支援"
 
 #. module: website_forum
-#: model:gamification.challenge.line,name:website_forum.line_student
 #: model:gamification.goal.definition,name:website_forum.definition_student
 msgid "Upvoted question (1)"
 msgstr "支援的問題（1）"
 
 #. module: website_forum
-#: model:gamification.challenge.line,name:website_forum.line_great_question
 #: model:gamification.goal.definition,name:website_forum.definition_great_question
 msgid "Upvoted question (15)"
 msgstr "支援的問題（15）"
 
 #. module: website_forum
-#: model:gamification.challenge.line,name:website_forum.line_nice_question
 #: model:gamification.goal.definition,name:website_forum.definition_nice_question
 msgid "Upvoted question (4)"
 msgstr "支援的問題（4）"
 
 #. module: website_forum
-#: model:gamification.challenge.line,name:website_forum.line_good_question
 #: model:gamification.goal.definition,name:website_forum.definition_good_question
 msgid "Upvoted question (6)"
 msgstr "支援的問題（6）"
@@ -3503,13 +3452,9 @@ msgid "Use a clear, explicit and concise title"
 msgstr "使用清晰、明確和簡潔的主題"
 
 #. module: website_forum
+#: model:ir.model,name:website_forum.model_res_users
 #: model:ir.model.fields,field_description:website_forum.field_forum_post_vote__user_id
 msgid "User"
-msgstr "使用者"
-
-#. module: website_forum
-#: model:ir.model,name:website_forum.model_res_users
-msgid "Users"
 msgstr "使用者"
 
 #. module: website_forum
@@ -3520,6 +3465,7 @@ msgstr "用戶最喜歡的貼文"
 #. module: website_forum
 #: model_terms:ir.ui.view,arch_db:website_forum.moderation_queue
 #: model_terms:ir.ui.view,arch_db:website_forum.question_dropdown
+#: model_terms:ir.ui.view,arch_db:website_forum.show_flag_validator
 msgid "Validate"
 msgstr "驗證"
 
@@ -3595,6 +3541,11 @@ msgid "Website Messages"
 msgstr "網站訊息"
 
 #. module: website_forum
+#: model:ir.model.fields,field_description:website_forum.field_forum_post__website_url
+msgid "Website URL"
+msgstr "網站網址"
+
+#. module: website_forum
 #: model:ir.model.fields,help:website_forum.field_forum_forum__website_message_ids
 #: model:ir.model.fields,help:website_forum.field_forum_post__website_message_ids
 #: model:ir.model.fields,help:website_forum.field_forum_tag__website_message_ids
@@ -3656,13 +3607,14 @@ msgid "You already have a pending post"
 msgstr "你已經有一個待處理的貼文"
 
 #. module: website_forum
-#. openerp-web
-#: code:addons/website_forum/static/src/xml/website_forum_share_templates.xml:0
+#. odoo-javascript
+#: code:addons/website_forum/static/src/xml/public_templates.xml:0
 #, python-format
 msgid "You can share your question once it has been validated"
 msgstr "當發問得到驗證，您就可以分享您的問題"
 
 #. module: website_forum
+#. odoo-python
 #: code:addons/website_forum/models/forum.py:0
 #, python-format
 msgid "You cannot create recursive forum posts."
@@ -3745,6 +3697,11 @@ msgstr "活動日期"
 
 #. module: website_forum
 #: model_terms:ir.ui.view,arch_db:website_forum.header
+msgid "and join this Forum"
+msgstr "並參加此討論區"
+
+#. module: website_forum
+#: model_terms:ir.ui.view,arch_db:website_forum.header
 msgid "breadcrumb"
 msgstr "頁面路徑"
 
@@ -3757,13 +3714,6 @@ msgstr "by"
 #: model_terms:ir.ui.view,arch_db:website_forum.faq_karma
 msgid "close any posts"
 msgstr "關閉所有貼文"
-
-#. module: website_forum
-#. openerp-web
-#: code:addons/website_forum/static/src/xml/website_forum_templates.xml:0
-#, python-format
-msgid "connected"
-msgstr ""
 
 #. module: website_forum
 #: model_terms:ir.ui.view,arch_db:website_forum.faq_karma
@@ -3781,13 +3731,6 @@ msgid "delete own comment"
 msgstr "刪除自己的評論"
 
 #. module: website_forum
-#. openerp-web
-#: code:addons/website_forum/static/src/xml/website_forum_templates.xml:0
-#, python-format
-msgid "discussions"
-msgstr ""
-
-#. module: website_forum
 #: model_terms:ir.ui.view,arch_db:website_forum.faq_karma
 msgid "downvote"
 msgstr "負評"
@@ -3798,9 +3741,14 @@ msgid "e.g. Help"
 msgstr "例如 幫助"
 
 #. module: website_forum
+#: model_terms:ir.ui.view,arch_db:website_forum.forum_forum_view_form_add
+msgid "e.g. Technical Assistance"
+msgstr "例：技術協助"
+
+#. module: website_forum
 #: model_terms:ir.ui.view,arch_db:website_forum.view_forum_post_form
-msgid "e.g. Who to do this particular thing?"
-msgstr "例如 誰來做這件事？"
+msgid "e.g. When should I plant my tomatoes?"
+msgstr "例：番茄應該甚麼時候種植？"
 
 #. module: website_forum
 #: model_terms:ir.ui.view,arch_db:website_forum.faq_karma
@@ -3841,11 +3789,11 @@ msgid "has been posted. Click here to access the question :"
 msgstr "新答案已發佈。點選此處進入問題："
 
 #. module: website_forum
-#. openerp-web
-#: code:addons/website_forum/static/src/xml/website_forum_share_templates.xml:0
+#. odoo-javascript
+#: code:addons/website_forum/static/src/xml/public_templates.xml:0
 #, python-format
 msgid "here"
-msgstr "這裡"
+msgstr "此處"
 
 #. module: website_forum
 #: model_terms:forum.forum,faq:website_forum.forum_help
@@ -3866,8 +3814,8 @@ msgid "how to install Odoo on a specific infrastructure,"
 msgstr "如何在特定環境下安裝Odoo,"
 
 #. module: website_forum
-#. openerp-web
-#: code:addons/website_forum/static/src/xml/website_forum_share_templates.xml:0
+#. odoo-javascript
+#: code:addons/website_forum/static/src/xml/public_templates.xml:0
 #, python-format
 msgid ""
 "if your\n"
@@ -3879,7 +3827,7 @@ msgstr ""
 #. module: website_forum
 #: model_terms:ir.ui.view,arch_db:website_forum.forum_index
 msgid "in your favourites"
-msgstr "在您的最愛中"
+msgstr "在你的最愛中"
 
 #. module: website_forum
 #: model_terms:ir.ui.view,arch_db:website_forum.forum_index
@@ -3908,8 +3856,8 @@ msgid "it is a rant disguised as a question: “______ sucks, am I right?”"
 msgstr "這是偽裝成問題的抱怨：“______ 糟透了，我說得對嗎？”"
 
 #. module: website_forum
-#. openerp-web
-#: code:addons/website_forum/static/src/xml/website_forum_share_templates.xml:0
+#. odoo-javascript
+#: code:addons/website_forum/static/src/xml/public_templates.xml:0
 #, python-format
 msgid "karma points"
 msgstr "貢獻度點數"
@@ -3942,8 +3890,8 @@ msgid "on"
 msgstr "在"
 
 #. module: website_forum
-#. openerp-web
-#: code:addons/website_forum/static/src/xml/website_forum_share_templates.xml:0
+#. odoo-javascript
+#: code:addons/website_forum/static/src/xml/public_templates.xml:0
 #, python-format
 msgid ""
 "on social networks get an answer within\n"
@@ -3956,27 +3904,6 @@ msgstr ""
 #: model_terms:ir.ui.view,arch_db:website_forum.tag
 msgid "post"
 msgstr "貼文"
-
-#. module: website_forum
-#. openerp-web
-#: code:addons/website_forum/static/src/xml/website_forum_templates.xml:0
-#, python-format
-msgid "private"
-msgstr ""
-
-#. module: website_forum
-#. openerp-web
-#: code:addons/website_forum/static/src/xml/website_forum_templates.xml:0
-#, python-format
-msgid "public"
-msgstr ""
-
-#. module: website_forum
-#. openerp-web
-#: code:addons/website_forum/static/src/xml/website_forum_templates.xml:0
-#, python-format
-msgid "questions"
-msgstr ""
 
 #. module: website_forum
 #: model_terms:ir.ui.view,arch_db:website_forum.forum_index

@@ -7,10 +7,12 @@ from odoo.exceptions import ValidationError
 class AccountFiscalPosition(models.Model):
     _inherit = 'account.fiscal.position'
 
-    @api.model
-    def create(self, vals):
-        vals = self.adjust_vals_country_id(vals)
-        return super().create(vals)
+    @api.model_create_multi
+    def create(self, vals_list):
+        new_vals = []
+        for vals in vals_list:
+            new_vals.append(self.adjust_vals_country_id(vals))
+        return super().create(new_vals)
 
     def write(self, vals):
         vals = self.adjust_vals_country_id(vals)

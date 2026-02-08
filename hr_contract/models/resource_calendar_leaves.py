@@ -15,20 +15,16 @@ class ResourceCalendarLeaves(models.Model):
             dt = datetime.fromordinal(date.toordinal())
             return tz.localize(dt).astimezone(utc).replace(tzinfo=None)
 
-        contracts = self.env['hr.contract'].search([
-            ('state', '=', 'open'),
-            ('employee_id.resource_id', 'in', self.resource_id.ids),
-        ])
-
+        Resource = self.env['resource.resource']
         CalendarLeaves = self.env['resource.calendar.leaves']
-        leaves_by_resource_id = defaultdict(lambda: CalendarLeaves, {False: CalendarLeaves})
+        leaves_by_resource = defaultdict(lambda: CalendarLeaves, {Resource: CalendarLeaves})
         for leave in self:
-            leaves_by_resource_id[leave.resource_id.id] += leave
+            leaves_by_resource[leave.resource_id] += leave
         # pass leaves without resource_id to super
-        remaining = leaves_by_resource_id.pop(False)
+        remaining = leaves_by_resource.pop(Resource)
 
-        for resource_id, leaves in leaves_by_resource_id.items():
-            contract = contracts.filtered_domain([('employee_id.resource_id', '=', resource_id)])
+        for resource, leaves in leaves_by_resource.items():
+            contract = resource.employee_id.contract_id
             if not contract:
                 remaining += leaves
                 continue

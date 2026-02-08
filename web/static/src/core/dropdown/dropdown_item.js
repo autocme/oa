@@ -1,54 +1,65 @@
 /** @odoo-module **/
+import { DROPDOWN } from "./dropdown";
 
-const { Component, QWeb } = owl;
+import { Component } from "@odoo/owl";
 
 /**
  * @enum {string}
  */
-export const ParentClosingMode = {
+const ParentClosingMode = {
     None: "none",
     ClosestParent: "closest",
     AllParents: "all",
 };
 
-/**
- * @typedef DropdownItemSelectedEventDetail
- * @property {*} payload
- * @property {Object} dropdownClosingRequest
- * @property {boolean} dropdownClosingRequest.isFresh
- * @property {ParentClosingMode} dropdownClosingRequest.mode
- *
- * @typedef {CustomEvent<DropdownItemSelectedEventDetail>} DropdownItemSelectedEvent
- */
-
-/**
- * @extends Component
- */
 export class DropdownItem extends Component {
     /**
-     * Triggers a custom DropdownItemSelectedEvent
+     * Tells the parent dropdown that an item was selected and closes the
+     * parent(s) dropdown according the parentClosingMode prop.
+     *
      * @param {MouseEvent} ev
      */
     onClick(ev) {
-        if (this.props.href){
+        const { href, onSelected, parentClosingMode } = this.props;
+        if (href) {
             ev.preventDefault();
         }
-
-        /** @type DropdownItemSelectedEventDetail */
-        const detail = {
-            payload: this.props.payload,
-            dropdownClosingRequest: {
-                isFresh: true,
-                mode: this.props.parentClosingMode,
-            },
-        };
-        this.trigger("dropdown-item-selected", detail);
+        if (onSelected) {
+            onSelected();
+        }
+        const dropdown = this.env[DROPDOWN];
+        if (!dropdown) {
+            return;
+        }
+        const { ClosestParent, AllParents } = ParentClosingMode;
+        switch (parentClosingMode) {
+            case ClosestParent:
+                dropdown.close();
+                break;
+            case AllParents:
+                dropdown.closeAllParents();
+                break;
+        }
+    }
+    get dataAttributes() {
+        const { dataset } = this.props;
+        if (this.props.dataset) {
+            const attributes = Object.entries(dataset).map(([key, value]) => {
+                return [`data-${key.replace(/[A-Z]/g, (char) => `-${char.toLowerCase()}`)}`, value];
+            });
+            return Object.fromEntries(attributes);
+        }
+        return {};
     }
 }
 DropdownItem.template = "web.DropdownItem";
 DropdownItem.props = {
-    payload: {
-        type: Object,
+    onSelected: {
+        type: Function,
+        optional: true,
+    },
+    class: {
+        type: [String, Object],
         optional: true,
     },
     parentClosingMode: {
@@ -63,13 +74,19 @@ DropdownItem.props = {
         type: String,
         optional: true,
     },
+    slots: {
+        type: Object,
+        optional: true,
+    },
     title: {
         type: String,
+        optional: true,
+    },
+    dataset: {
+        type: Object,
         optional: true,
     },
 };
 DropdownItem.defaultProps = {
     parentClosingMode: ParentClosingMode.AllParents,
 };
-
-QWeb.registerComponent("DropdownItem", DropdownItem);

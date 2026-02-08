@@ -1,4 +1,6 @@
-import json
+import logging
+
+from markupsafe import Markup
 from hashlib import sha256
 from base64 import b64decode, b64encode
 from lxml import etree
@@ -10,6 +12,8 @@ from cryptography.hazmat.primitives.asymmetric.ec import ECDSA
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.backends import default_backend
 from cryptography.x509 import load_der_x509_certificate
+
+_logger = logging.getLogger(__name__)
 
 
 class AccountEdiFormat(models.Model):
@@ -53,7 +57,7 @@ class AccountEdiFormat(models.Model):
             Calculate the SHA256 value of the SignedProperties XML node. The algorithm used by ZATCA expects the indentation
             of the nodes to start with 40 spaces, except for the root SignedProperties node.
         """
-        signed_properties = etree.fromstring(self.env.ref('l10n_sa_edi.export_sa_zatca_ubl_signed_properties')._render({
+        signed_properties = etree.fromstring(self.env['ir.qweb']._render('l10n_sa_edi.export_sa_zatca_ubl_signed_properties', {
             'issuer_name': issuer_name,
             'serial_number': serial_number,
             'signing_time': signing_time,
@@ -132,7 +136,7 @@ class AccountEdiFormat(models.Model):
         """
 
         # Append UBLExtensions to the XML content
-        ubl_extensions = etree.fromstring(self.env.ref('l10n_sa_edi.export_sa_zatca_ubl_extensions')._render())
+        ubl_extensions = etree.fromstring(self.env['ir.qweb']._render('l10n_sa_edi.export_sa_zatca_ubl_extensions'))
         root = etree.fromstring(xml_content)
         root.insert(0, ubl_extensions)
 
@@ -162,22 +166,27 @@ class AccountEdiFormat(models.Model):
         """
         clearance_data = invoice.journal_id._l10n_sa_api_clearance(invoice, signed_xml.decode(), PCSID_data)
         if clearance_data.get('json_errors'):
-            errors = [json.loads(j).get('validationResults', {}) for j in clearance_data['json_errors']]
+            error = clearance_data['json_errors']
             error_msg = ''
+            status_code = error.get('status_code')
+            if status_code:
+                error_msg = Markup("<b>[%s] </b>") % status_code
+
             is_warning = True
-            for error in errors:
-                validation_results = error.get('validationResults', {})
-                for err in validation_results.get('warningMessages', []):
-                    error_msg += '\n - %s | %s' % (err['code'], err['message'])
-                for err in validation_results.get('errorMessages', []):
-                    is_warning = False
-                    error_msg += '\n - %s | %s' % (err['code'], err['message'])
+            validation_results = error.get('validationResults', {})
+            for err in validation_results.get('warningMessages', []):
+                error_msg += Markup('<b>%s</b> : %s <br/>') % (err['code'], err['message'])
+            for err in validation_results.get('errorMessages', []):
+                is_warning = False
+                error_msg += Markup('<b>%s</b> : %s <br/>') % (err['code'], err['message'])
             return {
                 'error': error_msg,
                 'rejected': not is_warning,
-                'blocking_level': 'warning' if is_warning else 'error'
+                'response': signed_xml.decode(),
+                'blocking_level': 'warning' if is_warning else 'error',
+                'status_code': status_code,
             }
-        if not clearance_data.get('error'):
+        if not clearance_data.get('error') and clearance_data.get("status_code") != 409:
             return self._l10n_sa_assert_clearance_status(invoice, clearance_data)
         return clearance_data
 
@@ -229,16 +238,22 @@ class AccountEdiFormat(models.Model):
         try:
             PCSID_data = invoice.journal_id._l10n_sa_api_get_pcsid()
         except UserError as e:
-            return ({'error': _("Could not generate PCSID values: \n") + e.args[0], 'blocking_level': 'error'},
-                    unsigned_xml)
+            return ({
+                'error': _("Could not generate PCSID values: \n") + e.args[0],
+                'blocking_level': 'error',
+                'response': unsigned_xml
+            }, unsigned_xml)
         x509_cert = PCSID_data['binarySecurityToken']
 
         # Apply Signature/QR code on the generated XML document
         try:
             signed_xml = self._l10n_sa_get_signed_xml(invoice, unsigned_xml, x509_cert)
         except UserError as e:
-            return ({'error': _("Could not generate signed XML values: \n") + e.args[0], 'blocking_level': 'error'},
-                    unsigned_xml)
+            return ({
+                'error': _("Could not generate signed XML values: \n") + e.args[0],
+                'blocking_level': 'error',
+                'response': unsigned_xml
+            }, unsigned_xml)
 
         # Once the XML content has been generated and signed, we submit it to ZATCA
         return self._l10n_sa_submit_einvoice(invoice, signed_xml, PCSID_data), signed_xml
@@ -281,7 +296,7 @@ class AccountEdiFormat(models.Model):
         fields_to_check = []
         if any(tax.l10n_sa_exemption_reason_code in ('VATEX-SA-HEA', 'VATEX-SA-EDU') for tax in
                invoice.invoice_line_ids.filtered(
-                   lambda line: not line.display_type).tax_ids):
+                   lambda line: line.display_type == 'product').tax_ids):
             fields_to_check += [
                 ('l10n_sa_additional_identification_scheme',
                  _('Additional Identification Scheme is required for the Buyer if tax exemption reason is either '
@@ -314,10 +329,11 @@ class AccountEdiFormat(models.Model):
         # to the taxpayer for clarifications
         chain_head = invoice.journal_id._l10n_sa_get_last_posted_invoice()
         if chain_head and chain_head != invoice and not chain_head._l10n_sa_is_in_chain():
-            return {
+            return {invoice: {
                 'error': f"ZATCA: Cannot post invoice while chain head ({chain_head.name}) has not been posted",
-                'blocking_level': 'error'
-            }
+                'blocking_level': 'error',
+                'response': None,
+            }}
 
         xml_content = None
         if not invoice.l10n_sa_chain_index:
@@ -337,8 +353,8 @@ class AccountEdiFormat(models.Model):
         if response_data.get('error'):
 
             # If the request was rejected, we save the signed xml content as an attachment
-            if response_data.get('rejected'):
-                invoice._l10n_sa_log_results(submitted_xml, response_data, error=True)
+            # If request timedout, just log note a warning message
+            invoice._l10n_sa_log_results(submitted_xml, response_data, error=response_data.get('rejected'))
 
             # If the request returned an exception (Timeout, ValueError... etc.) it means we're not sure if the
             # invoice was successfully cleared/reported, and thus we keep the Index Chain.
@@ -346,7 +362,12 @@ class AccountEdiFormat(models.Model):
             if not response_data.get('excepted'):
                 invoice.l10n_sa_chain_index = False
 
-            return response_data
+            return {
+                invoice: {
+                    **response_data,
+                    'response': submitted_xml
+                }
+            }
 
         # Once submission is done with no errors, check submission status
         cleared_xml = self._l10n_sa_postprocess_einvoice_submission(invoice, submitted_xml, response_data)
@@ -354,14 +375,18 @@ class AccountEdiFormat(models.Model):
         # Save the submitted/returned invoice XML content once the submission has been completed successfully
         invoice._l10n_sa_log_results(cleared_xml.encode(), response_data)
         return {
-            'success': True,
-            'attachment': self.env['ir.attachment'].create({
-                'name': attachment_name,
-                'raw': cleared_xml.encode(),
-                'res_model': 'account.move',
-                'res_id': invoice.id,
-                'mimetype': 'application/xml'
-            })
+            invoice: {
+                'success': True,
+                'response': cleared_xml,
+                'message': '',
+                'attachment': self.env['ir.attachment'].create({
+                    'name': attachment_name,
+                    'raw': cleared_xml.encode(),
+                    'res_model': 'account.move',
+                    'res_id': invoice.id,
+                    'mimetype': 'application/xml'
+                })
+            }
         }
 
     # ====== EDI Format Overrides =======
@@ -394,7 +419,7 @@ class AccountEdiFormat(models.Model):
         if invoice.commercial_partner_id == invoice.company_id.partner_id.commercial_partner_id:
             errors.append(_("- You cannot post invoices where the Seller is the Buyer"))
 
-        if not all(line.tax_ids for line in invoice.invoice_line_ids.filtered(lambda line: not line.display_type)):
+        if not all(line.tax_ids for line in invoice.invoice_line_ids.filtered(lambda line: line.display_type == 'product')):
             errors.append(_("- Invoice lines should have at least one Tax applied."))
 
         if not journal._l10n_sa_ready_to_submit_einvoices():
@@ -441,15 +466,54 @@ class AccountEdiFormat(models.Model):
             return super()._is_compatible_with_journal(journal)
         return journal.type == 'sale' and journal.country_code == 'SA'
 
-    def _post_invoice_edi(self, invoices):
+    def _l10n_sa_get_invoice_content_edi(self, invoice):
         """
-            Override to post ZATCA edi formats
+            Return contents of the submitted UBL file or generate it if the invoice has not been submitted yet
+        """
+        doc = invoice.edi_document_ids.filtered(lambda d: d.edi_format_id.code == 'sa_zatca' and d.state == 'sent')
+        return doc.attachment_id.raw or self._l10n_sa_generate_zatca_template(invoice).encode()
+
+    def _get_move_applicability(self, move):
+        # EXTENDS account_edi
+        self.ensure_one()
+        if self.code != 'sa_zatca' or move.country_code != 'SA' or move.move_type not in ('out_invoice', 'out_refund'):
+            return super()._get_move_applicability(move)
+
+        return {
+            'post': self._l10n_sa_post_zatca_edi,
+            'edi_content': self._l10n_sa_get_invoice_content_edi,
+        }
+
+    def _prepare_invoice_report(self, pdf_writer, edi_document):
+        """
+        Prepare invoice report to be printed.
+        :param pdf_writer: The pdf writer with the invoice pdf content loaded.
+        :param edi_document: The edi document to be added to the pdf file.
         """
         self.ensure_one()
-        invoice = invoices
-        if self.code != 'sa_zatca' or invoice.company_id.country_code != 'SA':
-            return super()._post_invoice_edi(invoices)
-        if not invoice.journal_id.l10n_sa_compliance_checks_passed:
-            return {invoice: {'error': _("ZATCA Compliance Checks need to be completed for the current journal "
-                                         "before invoices can be submitted to the Authority")}}
-        return {invoice: self._l10n_sa_post_zatca_edi(invoice)}
+        super()._prepare_invoice_report(pdf_writer, edi_document)
+        if self.code != 'sa_zatca' or edi_document.move_id.country_code != 'SA':
+            return
+
+        attachment = edi_document.sudo().attachment_id
+        if not attachment or not attachment.datas:
+            _logger.warning(f"No attachment found for invoice {edi_document.move_id.name}")
+            return
+
+        xml_content = attachment.raw
+        file_name = attachment.name
+
+        pdf_writer.addAttachment(file_name, xml_content, subtype='text/xml')
+        if not pdf_writer.is_pdfa:
+            try:
+                pdf_writer.convert_to_pdfa()
+            except Exception as e:
+                _logger.exception("Error while converting to PDF/A: %s", e)
+            content = self.env['ir.qweb']._render(
+                'account_edi_ubl_cii.account_invoice_pdfa_3_facturx_metadata',
+                {
+                    'title': edi_document.move_id.name,
+                    'date': fields.Date.context_today(self),
+                },
+            )
+            pdf_writer.add_file_metadata(content.encode())

@@ -46,7 +46,7 @@ class HrLeave(models.Model):
                         'calendar_id': contract.resource_calendar_id.id,
                     }]
 
-        return resource_leaves | self.env['resource.calendar.leaves'].create(resource_leave_values)
+        return resource_leaves | self.env['resource.calendar.leaves'].sudo().create(resource_leave_values)
 
     def _get_overlapping_contracts(self, contract_states=None):
         self.ensure_one()
@@ -131,7 +131,7 @@ Contracts:
             # 2. Fetch overlapping work entries, grouped by employees
             start = min(self.mapped('date_from'), default=False)
             stop = max(self.mapped('date_to'), default=False)
-            work_entry_groups = self.env['hr.work.entry'].read_group([
+            work_entry_groups = self.env['hr.work.entry']._read_group([
                 ('date_start', '<', stop),
                 ('date_stop', '>', start),
                 ('employee_id', 'in', self.employee_id.ids),
@@ -169,7 +169,10 @@ Contracts:
 
         start = min(self.mapped('date_from') + [fields.Datetime.from_string(vals.get('date_from', False)) or datetime.max])
         stop = max(self.mapped('date_to') + [fields.Datetime.from_string(vals.get('date_to', False)) or datetime.min])
-        with self.env['hr.work.entry']._error_checking(start=start, stop=stop, skip=skip_check):
+        employee_ids = self.employee_id.ids
+        if 'employee_id' in vals and vals['employee_id']:
+            employee_ids += [vals['employee_id']]
+        with self.env['hr.work.entry']._error_checking(start=start, stop=stop, skip=skip_check, employee_ids=employee_ids):
             return super().write(vals)
 
     @api.model_create_multi
@@ -178,13 +181,14 @@ Contracts:
         stop_dates = [v.get('date_to') for v in vals_list if v.get('date_to')]
         if any(vals.get('holiday_type', 'employee') == 'employee' and not vals.get('multi_employee', False) and not vals.get('employee_id', False) for vals in vals_list):
             raise ValidationError(_("There is no employee set on the time off. Please make sure you're logged in the correct company."))
-        with self.env['hr.work.entry']._error_checking(start=min(start_dates, default=False), stop=max(stop_dates, default=False)):
+        employee_ids = {v['employee_id'] for v in vals_list if v.get('employee_id')}
+        with self.env['hr.work.entry']._error_checking(start=min(start_dates, default=False), stop=max(stop_dates, default=False), employee_ids=employee_ids):
             return super().create(vals_list)
 
     def action_confirm(self):
         start = min(self.mapped('date_from'), default=False)
         stop = max(self.mapped('date_to'), default=False)
-        with self.env['hr.work.entry']._error_checking(start=start, stop=stop):
+        with self.env['hr.work.entry']._error_checking(start=start, stop=stop, employee_ids=self.employee_id.ids):
             return super().action_confirm()
 
     def _get_leaves_on_public_holiday(self):
@@ -202,6 +206,18 @@ Contracts:
         where the refused leave was.
         """
         res = super(HrLeave, self).action_refuse()
+        self._regen_work_entries()
+        return res
+
+    def _action_user_cancel(self, reason):
+        res = super()._action_user_cancel(reason)
+        self.sudo()._regen_work_entries()
+        return res
+
+    def _regen_work_entries(self):
+        """
+        Called when the leave is refused or cancelled to regenerate the work entries properly for that period.
+        """
         work_entries = self.env['hr.work.entry'].sudo().search([('leave_id', 'in', self.ids)])
 
         work_entries.write({'active': False})
@@ -210,7 +226,6 @@ Contracts:
         for work_entry in work_entries:
             vals_list += work_entry.contract_id._get_work_entries_values(work_entry.date_start, work_entry.date_stop)
         self.env['hr.work.entry'].create(vals_list)
-        return res
 
     def _get_number_of_days(self, date_from, date_to, employee_id):
         """ If an employee is currently working full time but asks for time off next month
@@ -219,18 +234,21 @@ Contracts:
             Override this method to get number of days according to the contract's calendar
             at the time of the leave.
         """
+        days = super(HrLeave, self)._get_number_of_days(date_from, date_to, employee_id)
         if employee_id:
             employee = self.env['hr.employee'].browse(employee_id)
             # Use sudo otherwise base users can't compute number of days
             contracts = employee.sudo()._get_contracts(date_from, date_to, states=['open', 'close'])
             contracts |= employee.sudo()._get_incoming_contracts(date_from, date_to)
             calendar = contracts[:1].resource_calendar_id if contracts else None # Note: if len(contracts)>1, the leave creation will crash because of unicity constaint
-            domain = [('company_id', '=', employee.company_id.id)]
+            # We force the company in the domain as we are more than likely in a compute_sudo
+            domain = [('company_id', 'in', self.env.company.ids + self.env.context.get('allowed_company_ids', []))]
             result = employee._get_work_days_data_batch(date_from, date_to, calendar=calendar, domain=domain)[employee.id]
             if self.request_unit_half and result['hours'] > 0:
                 result['days'] = 0.5
             return result
-        return super(HrLeave, self)._get_number_of_days(date_from, date_to, employee_id)
+
+        return days
 
     def _get_calendar(self):
         self.ensure_one()
@@ -240,3 +258,13 @@ Contracts:
             contract_calendar = contracts[:1].resource_calendar_id if contracts else None
             return contract_calendar or self.employee_id.resource_calendar_id or self.env.company.resource_calendar_id
         return super()._get_calendar()
+
+    def _compute_can_cancel(self):
+        super()._compute_can_cancel()
+
+        cancellable_leaves = self.filtered('can_cancel')
+        work_entries = self.env['hr.work.entry'].sudo().search([('state', '=', 'validated'), ('leave_id', 'in', cancellable_leaves.ids)])
+        leave_ids = work_entries.mapped('leave_id').ids
+
+        for leave in cancellable_leaves:
+            leave.can_cancel = leave.id not in leave_ids

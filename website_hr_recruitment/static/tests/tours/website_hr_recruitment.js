@@ -2,6 +2,8 @@ odoo.define('website_hr_recruitment.tour', function(require) {
     'use strict';
 
     var tour = require("web_tour.tour");
+    const wTourUtils = require("website.tour_utils");
+
     function applyForAJob(jobName, application) {
         return [{
             content: "Select Job",
@@ -19,7 +21,7 @@ odoo.define('website_hr_recruitment.tour', function(require) {
             run: `text ${application.email}`,
         }, {
             content: "Complete phone number",
-            trigger: "input[name=partner_phone]",
+            trigger: "input[name=partner_mobile]",
             run: `text ${application.phone}`,
         }, {
             content: "Complete Subject",
@@ -59,72 +61,97 @@ odoo.define('website_hr_recruitment.tour', function(require) {
         }),
     ]);
 
-    tour.register('website_hr_recruitment_tour_edit_form', {
+    wTourUtils.registerWebsitePreviewTour('website_hr_recruitment_tour_edit_form', {
         test: true,
         url: '/jobs',
     }, [{
         content: 'Go to the Guru job page',
-        trigger: 'a[href*="guru"]',
+        trigger: 'iframe a[href*="guru"]',
     }, {
         content: 'Go to the Guru job form',
-        trigger: 'a[href*="apply"]',
+        trigger: 'iframe a[href*="apply"]',
     }, {
         content: 'Check if the Guru form is present',
-        trigger: 'form'
-    }, {
-        content: 'Enter in edit mode',
-        trigger: 'a[data-action="edit"]',
-    }, {
+        trigger: 'iframe form'
+    },
+    ...wTourUtils.clickOnEditAndWaitEditMode(),
+    {
         content: 'Add a fake default value for the job_id field',
-        trigger: 'button[data-action="save"]',
+        trigger: "body",
         run: () => {
             // It must be done in this way because the editor does not allow to
             // put a default value on a field with type="hidden".
-            document.querySelector('input[name="job_id"]').value = 'FAKE_JOB_ID_DEFAULT_VAL';
+            document.querySelector('.o_iframe:not(.o_ignore_in_tour)').contentDocument.querySelector('input[name="job_id"]').value = 'FAKE_JOB_ID_DEFAULT_VAL';
         },
     }, {
-        content: 'Edit the form',
-        trigger: 'input[type="file"]',
-        extra_trigger: '#oe_snippets.o_loaded',
+        content: 'Make the department_id field visible',
+        trigger: "body",
+        run: () => {
+            const departmentEl = document.querySelector('.o_iframe:not(.o_ignore_in_tour)').contentDocument.querySelector('input[name="department_id"]');
+            departmentEl.type = 'text';
+            departmentEl.closest('.s_website_form_field').classList.remove('s_website_form_dnone');
+        },
     }, {
-        content: 'Add a new field',
-        trigger: 'we-button[data-add-field]',
+        content: 'Focus on department_id field',
+        trigger: 'iframe input[name="department_id"]',
+    }, {
+        content: 'Add a fake default value for the department_id field',
+        trigger: 'we-input[data-attribute-name="value"] input',
+        run: 'text FAKE_DEPARTMENT_ID_DEFAULT_VAL',
     }, {
         content: 'Save',
         trigger: 'button[data-action="save"]',
     }, {
         content: 'Go back to /jobs page after save',
-        trigger: 'a[data-action="edit"]',
+        trigger: 'iframe body:not(.editor_enable)',
         run: () => {
-            window.location.href = '/jobs';
+            window.location.href = wTourUtils.getClientActionUrl('/jobs');
         }
     }, {
         content: 'Go to the Internship job page',
-        trigger: 'a[href*="internship"]',
+        trigger: 'iframe a[href*="internship"]',
     }, {
         content: 'Go to the Internship job form',
-        trigger: 'a[href*="apply"]',
+        trigger: 'iframe a[href*="apply"]',
     }, {
         content: 'Check that a job_id has been loaded',
-        trigger: 'form',
+        trigger: 'iframe form',
         run: () => {
             const selector =
                 'input[name="job_id"]:not([value=""]):not([value = "FAKE_JOB_ID_DEFAULT_VAL"])';
-            if (!document.querySelector(selector)) {
+            if (!document.querySelector('.o_iframe:not(.o_ignore_in_tour)').contentDocument.querySelector(selector)) {
                 console.error('The job_id field has a wrong value');
             }
         }
     }, {
-        content: 'Enter in edit mode',
-        trigger: 'a[data-action="edit"]',
-    }, {
-        content: 'Verify that the job_id field has kept its default value',
-        trigger: 'button[data-action="save"]',
-        run: () => {
-            if (!document.querySelector('input[name="job_id"][value="FAKE_JOB_ID_DEFAULT_VAL"]')) {
-                console.error('The job_id field has lost its default value');
+        content: 'Check that a department_id has been loaded',
+        trigger: 'iframe input[name="department_id"][value="FAKE_DEPARTMENT_ID_DEFAULT_VAL"]',
+        run: function () {
+            if (this.$anchor.val() === "FAKE_DEPARTMENT_ID_DEFAULT_VAL") {
+                console.error('The department_id data-for should have been applied');
             }
         }
+    },
+    ...wTourUtils.clickOnEditAndWaitEditMode(),
+    {
+        content: 'Verify that the job_id hidden field has lost its default value',
+        trigger: "body",
+        run: () => {
+            const doc = document.querySelector(".o_iframe:not(.o_ignore_in_tour)").contentDocument;
+            const id = doc.querySelector('[data-oe-model="hr.job"]').dataset.oeId;
+            if (!doc.querySelector(`input[name="job_id"][value="${id}"]`)) {
+                console.error('The hidden field has kept its default value in edit mode instead of data-for');
+            }
+        }
+    },
+    {
+        content: 'Verify that the department_id shown field has kept its default value',
+        trigger: 'iframe input[name="department_id"][value="FAKE_DEPARTMENT_ID_DEFAULT_VAL"]',
+        run: function () {
+            if (this.$anchor.val() !== "FAKE_DEPARTMENT_ID_DEFAULT_VAL") {
+                console.error('The department_id field has lost its default value');
+            }
+        },
     },
 ]);
 

@@ -10,13 +10,14 @@ from odoo.addons.hr_work_entry_holidays.tests.common import TestWorkEntryHoliday
 @tagged('work_entry_multi_contract')
 class TestWorkEntryHolidaysMultiContract(TestWorkEntryHolidaysBase):
 
-    def setUp(self):
-        super().setUp()
-        self.leave_type = self.env['hr.leave.type'].create({
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.leave_type = cls.env['hr.leave.type'].create({
             'name': 'Legal Leaves',
             'time_type': 'leave',
             'requires_allocation': 'no',
-            'work_entry_type_id': self.work_entry_type_leave.id
+            'work_entry_type_id': cls.work_entry_type_leave.id
         })
 
     def create_leave(self, start, end):
@@ -34,9 +35,9 @@ class TestWorkEntryHolidaysMultiContract(TestWorkEntryHolidaysBase):
         # Leave during second contract
         leave = self.create_leave(datetime(2015, 11, 17, 7, 0), datetime(2015, 11, 20, 18, 0))
         leave.action_approve()
-        start = datetime.strptime('2015-11-01', '%Y-%m-%d')
-        end_generate = datetime(2015, 11, 30, 23, 59, 59)
-        work_entries = self.jules_emp.contract_ids._generate_work_entries(start, end_generate)
+        start = date(2015, 11, 1)
+        end_generate = date(2015, 11, 30)
+        work_entries = self.jules_emp.contract_ids.generate_work_entries(start, end_generate)
         work_entries.action_validate()
         work_entries = work_entries.filtered(lambda we: we.contract_id == self.contract_cdi)
 

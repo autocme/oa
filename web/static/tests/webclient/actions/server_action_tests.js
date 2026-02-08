@@ -1,12 +1,15 @@
 /** @odoo-module **/
 
 import { createWebClient, doAction, getActionManagerServerData } from "./../helpers";
+import { getFixture } from "../../helpers/utils";
 
 let serverData;
+let target;
 
 QUnit.module("ActionManager", (hooks) => {
     hooks.beforeEach(() => {
         serverData = getActionManagerServerData();
+        target = getFixture();
     });
 
     QUnit.module("Server actions");
@@ -22,15 +25,15 @@ QUnit.module("ActionManager", (hooks) => {
         };
         const webClient = await createWebClient({ serverData, mockRPC });
         await doAction(webClient, 2);
-        assert.containsOnce(webClient, ".o_control_panel", "should have rendered a control panel");
-        assert.containsOnce(webClient, ".o_kanban_view", "should have rendered a kanban view");
+        assert.containsOnce(target, ".o_control_panel", "should have rendered a control panel");
+        assert.containsOnce(target, ".o_kanban_view", "should have rendered a kanban view");
         assert.verifySteps([
             "/web/webclient/load_menus",
             "/web/action/load",
             "/web/action/run",
             "/web/action/load",
-            "load_views",
-            "/web/dataset/search_read",
+            "get_views",
+            "web_search_read",
         ]);
     });
 
@@ -59,7 +62,7 @@ QUnit.module("ActionManager", (hooks) => {
         assert.verifySteps([
             "/web/webclient/load_menus",
             "/web/action/load",
-            "load_views",
+            "get_views",
             "onchange",
             "/web/action/load",
             "/web/action/run",
@@ -86,5 +89,27 @@ QUnit.module("ActionManager", (hooks) => {
         };
         const webClient = await createWebClient({ serverData, mockRPC });
         await doAction(webClient, 2);
+    });
+
+    QUnit.test("action with html help returned by a server action", async function (assert) {
+        serverData.actions[2].context = { someKey: 44 };
+        const mockRPC = async (route, args) => {
+            if (route === "/web/action/run") {
+                return Promise.resolve({
+                    res_model: "partner",
+                    type: "ir.actions.act_window",
+                    views: [[false, "list"]],
+                    help: "<p>I am not a helper</p>",
+                    domain: [[0, "=", 1]],
+                });
+            }
+        };
+        const webClient = await createWebClient({ serverData, mockRPC });
+        await doAction(webClient, 2);
+
+        assert.strictEqual(
+            target.querySelector(".o_list_view .o_nocontent_help p").innerText,
+            "I am not a helper"
+        );
     });
 });

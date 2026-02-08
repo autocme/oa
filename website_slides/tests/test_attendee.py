@@ -10,7 +10,7 @@ class TestAttendee(common.SlidesCase):
         """ To check members of the channel after duplication of contact """
         # Adding attendee
         self.channel._action_add_members(self.customer)
-        self.channel.invalidate_cache()
+        self.channel.invalidate_recordset()
 
         # Attendee count before copy of contact
         attendee_before = self.env['slide.channel.partner'].search_count([])

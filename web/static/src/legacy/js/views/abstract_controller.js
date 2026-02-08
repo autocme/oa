@@ -12,12 +12,11 @@
  */
 
 import ActionMixin from 'web.ActionMixin';
-import ajax from 'web.ajax';
+import { loadCSS, loadJS } from "@web/core/assets";
 import concurrency from 'web.concurrency';
 import { ComponentWrapper } from 'web.OwlCompatibility';
 import mvc from 'web.mvc';
 import session from 'web.session';
-
 
 var AbstractController = mvc.Controller.extend(ActionMixin, {
     custom_events: _.extend({}, ActionMixin.custom_events, {
@@ -100,7 +99,7 @@ var AbstractController = mvc.Controller.extend(ActionMixin, {
         await Promise.all(promises);
         await this._update(this.initialState, { shouldUpdateSearchComponents: false });
         this.updateButtons();
-        this.el.classList.toggle('o_view_sample_data', this.model.isInSampleMode());
+        this.el.classList.toggle('o_legacy_view_sample_data', this.model.isInSampleMode());
     },
     /**
      * @override
@@ -121,7 +120,7 @@ var AbstractController = mvc.Controller.extend(ActionMixin, {
         if (this.withControlPanel) {
             this.searchModel.on('get-controller-query-params', this, this._onGetOwnedQueryParams);
         }
-        if (!(this.renderer instanceof owl.Component)) {
+        if (!(this.renderer instanceof ComponentWrapper)) {
             this.renderer.on_attach_callback();
         }
     },
@@ -134,7 +133,7 @@ var AbstractController = mvc.Controller.extend(ActionMixin, {
         if (this.withControlPanel) {
             this.searchModel.off('get-controller-query-params', this);
         }
-        if (!(this.renderer instanceof owl.Component)) {
+        if (!(this.renderer instanceof ComponentWrapper)) {
             this.renderer.on_detach_callback();
         }
     },
@@ -245,7 +244,7 @@ var AbstractController = mvc.Controller.extend(ActionMixin, {
         ];
         await this.dp.add(Promise.all(promises));
         this.updateButtons();
-        this.el.classList.toggle('o_view_sample_data', this.model.isInSampleMode());
+        this.el.classList.toggle('o_legacy_view_sample_data', this.model.isInSampleMode());
     },
 
     //--------------------------------------------------------------------------
@@ -282,6 +281,18 @@ var AbstractController = mvc.Controller.extend(ActionMixin, {
         }
     },
     /**
+     * Hide an onboarding banner if present and visible
+     * @private
+     */
+    _hideBanner: function () {
+        if (this._$banner.length) {
+            const $bannerElement = this._$banner.filter('.o_onboarding_container.collapse.show');
+            if ($bannerElement.length) {
+                Collapse.getOrCreateInstance($bannerElement[0]).toggle();
+            }
+        }
+    },
+    /**
      * This method is the way a view can notifies the outside world that
      * something has changed.  The main use for this is to update the url, for
      * example with a new id.
@@ -297,7 +308,7 @@ var AbstractController = mvc.Controller.extend(ActionMixin, {
     /**
      * @private
      * @param {function} callback function to execute before removing classname
-     *   'o_view_sample_data' (may be async). This allows to reload and/or
+     *   'o_legacy_view_sample_data' (may be async). This allows to reload and/or
      *   rerender before removing the className, thus preventing the view from
      *   flickering.
      */
@@ -306,7 +317,7 @@ var AbstractController = mvc.Controller.extend(ActionMixin, {
         if (callback) {
             await callback();
         }
-        this.el.classList.remove('o_view_sample_data');
+        this.el.classList.remove('o_legacy_view_sample_data');
     },
     /**
      * Renders the html provided by the route specified by the
@@ -344,11 +355,11 @@ var AbstractController = mvc.Controller.extend(ActionMixin, {
             // Css and js are moved to <head>
             var defs = [];
             $('link[rel="stylesheet"]', $banner).each(function (i, link) {
-                defs.push(ajax.loadCSS(link.href));
+                defs.push(loadCSS(link.href));
                 link.remove();
             });
             $('script[type="text/javascript"]', $banner).each(function (i, js) {
-                defs.push(ajax.loadJS(js.src));
+                defs.push(loadJS(js.src));
                 js.remove();
             });
             await Promise.all(defs);
@@ -361,7 +372,7 @@ var AbstractController = mvc.Controller.extend(ActionMixin, {
      * @private
      */
     _startRenderer: function () {
-        if (this.renderer instanceof owl.Component) {
+        if (this.renderer instanceof ComponentWrapper) {
             return this.renderer.mount(this.$('.o_content')[0]);
         }
         return this.renderer.appendTo(this.$('.o_content'));
@@ -448,7 +459,7 @@ var AbstractController = mvc.Controller.extend(ActionMixin, {
      * @return {Promise}
      */
     _updateRendererState(state, params = {}) {
-        if (this.renderer instanceof owl.Component) {
+        if (this.renderer instanceof ComponentWrapper) {
             return this.renderer.update(state);
         }
         return this.renderer.updateState(state, params);
@@ -524,6 +535,9 @@ var AbstractController = mvc.Controller.extend(ActionMixin, {
             }, {
                 additional_context: _.extend({}, data.context)
             });
+        }
+        if (data.oHideBanner) {
+            self._hideBanner();
         }
     },
     /**

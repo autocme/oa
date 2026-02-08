@@ -11,6 +11,7 @@ var _t = core._t;
 var VariantMixin = {
     events: {
         'change .css_attribute_color input': '_onChangeColorAttribute',
+        'click .o_variant_pills': '_onChangePillsAttribute',
         'change .main_product:not(.in_cart) input.js_quantity': 'onChangeAddQuantity',
         'change [data-attribute_exclusions]': 'onChangeVariant'
     },
@@ -55,6 +56,9 @@ var VariantMixin = {
         }
 
         const $parent = $(ev.target).closest('.js_product');
+        if(!$parent.length){
+            return Promise.resolve();
+        }
         const combination = this.getSelectedVariantValues($parent);
         let parentCombination;
 
@@ -74,6 +78,7 @@ var VariantMixin = {
                     'pricelist_id': this.pricelistId || false,
                     'parent_combination': combination,
                     'context': session.user_context,
+                    ...this._getOptionalCombinationInfoParam($currentOptionalProduct),
                 }).then((combinationData) => {
                     if (this._shouldIgnoreRpcResult()) {
                         return;
@@ -96,6 +101,7 @@ var VariantMixin = {
             'pricelist_id': this.pricelistId || false,
             'parent_combination': parentCombination,
             'context': session.user_context,
+            ...this._getOptionalCombinationInfoParam($parent),
         }).then((combinationData) => {
             if (this._shouldIgnoreRpcResult()) {
                 return;
@@ -103,6 +109,15 @@ var VariantMixin = {
             this._onChangeCombination(ev, $parent, combinationData);
             this._checkExclusions($parent, combination, combinationData.parent_exclusions);
         });
+    },
+
+    /**
+     * Hook to add optional info to the combination info call.
+     *
+     * @param {$.Element} $product
+     */
+    _getOptionalCombinationInfoParam($product) {
+        return {};
     },
 
     /**
@@ -203,10 +218,9 @@ var VariantMixin = {
      * @param {$.Element} $container
      */
     triggerVariantChange: function ($container) {
-        var self = this;
         $container.find('ul[data-attribute_exclusions]').trigger('change');
         $container.find('input.js_variant_change:checked, select.js_variant_change').each(function () {
-            self.handleCustomValues($(this));
+            VariantMixin.handleCustomValues($(this));
         });
     },
 
@@ -315,7 +329,6 @@ var VariantMixin = {
      * @returns {Promise} the promise that will be resolved with a {integer} productId
      */
     selectOrCreateProduct: function ($container, productId, productTemplateId, useAjax) {
-        var self = this;
         productId = parseInt(productId);
         productTemplateId = parseInt(productTemplateId);
         var productReady = Promise.resolve();
@@ -325,14 +338,17 @@ var VariantMixin = {
             var params = {
                 product_template_id: productTemplateId,
                 product_template_attribute_value_ids:
-                    JSON.stringify(self.getSelectedVariantValues($container)),
+                    JSON.stringify(VariantMixin.getSelectedVariantValues($container)),
             };
 
             var route = '/sale/create_product_variant';
             if (useAjax) {
                 productReady = ajax.jsonRpc(route, 'call', params);
-            } else {
+            } else if (Boolean(this._rpc)) {
+                // HACK to combine owl and non owl calls
                 productReady = this._rpc({route: route, params: params});
+            } else {
+                productReady = this.rpc(route, params);
             }
         }
 
@@ -392,6 +408,52 @@ var VariantMixin = {
                             current_ptav,
                             combinationData.mapped_attribute_names
                         );
+                    });
+                }
+            });
+        }
+        // combination exclusions: array of array of ptav
+        // for example a product with 3 variation and one specific variation is disabled (archived)
+        //  requires the first 2 to be selected for the third to be disabled
+        if (combinationData.archived_combinations) {
+            combinationData.archived_combinations.forEach((excludedCombination) => {
+                const ptavCommon = excludedCombination.filter((ptav) => combination.includes(ptav));
+                if (
+                    !!ptavCommon
+                    && (combination.length === excludedCombination.length)
+                    && (ptavCommon.length === combination.length)
+                ) {
+                    // Selected combination is archived, all attributes must be disabled from each other
+                    combination.forEach((ptav) => {
+                        combination.forEach((ptavOther) => {
+                            if (ptav === ptavOther) {
+                                return;
+                            }
+                            self._disableInput(
+                                $parent,
+                                ptav,
+                                ptavOther,
+                                combinationData.mapped_attribute_names,
+                            );
+                        })
+                    })
+                } else if (
+                    !!ptavCommon
+                    && (combination.length === excludedCombination.length)
+                    && (ptavCommon.length === (combination.length - 1))
+                ) {
+                    // In this case we only need to disable the remaining ptav
+                    const disabledPtav = excludedCombination.find((ptav) => !combination.includes(ptav));
+                    excludedCombination.forEach((ptav) => {
+                        if (ptav === disabledPtav) {
+                            return;
+                        }
+                        self._disableInput(
+                            $parent,
+                            disabledPtav,
+                            ptav,
+                            combinationData.mapped_attribute_names,
+                        )
                     });
                 }
             });
@@ -486,7 +548,7 @@ var VariantMixin = {
         }
         this._toggleDisable($parent, isCombinationPossible);
 
-        if (combination.has_discounted_price) {
+        if (combination.has_discounted_price && !combination.compare_list_price) {
             $default_price
                 .closest('.oe_website_sale')
                 .addClass("discount");
@@ -653,6 +715,16 @@ var VariantMixin = {
     _onChangeColorAttribute: function (ev) {
         var $parent = $(ev.target).closest('.js_product');
         $parent.find('.css_attribute_color')
+            .removeClass("active")
+            .filter(':has(input:checked)')
+            .addClass("active");
+    },
+
+    _onChangePillsAttribute: function (ev) {
+        const radio = ev.target.closest('.o_variant_pills').querySelector("input");
+        radio.click();  // Trigger onChangeVariant.
+        var $parent = $(ev.target).closest('.js_product');
+        $parent.find('.o_variant_pills')
             .removeClass("active")
             .filter(':has(input:checked)')
             .addClass("active");

@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
 
-from odoo import fields, models, _, Command
+from odoo import fields, models, _, Command, tools
 import base64
 from datetime import timedelta
 
@@ -17,7 +17,7 @@ class AccountTourUploadBill(models.TransientModel):
 
     selection = fields.Selection(
         selection=lambda self: self._selection_values(),
-        default="sample"
+        default=lambda self: 'sample' if self.env.ref('base.res_partner_2', raise_if_not_found=False) else 'upload'
     )
 
     preview_invoice = fields.Html(
@@ -35,7 +35,7 @@ class AccountTourUploadBill(models.TransientModel):
             self.env.company.country_id.name,
         ] if x]
         ref = 'INV/%s/0001' % invoice_date.strftime('%Y/%m')
-        html = self.env.ref('account.bill_preview')._render({
+        html = self.env['ir.qweb']._render('account.bill_preview', {
             'company_name': self.env.company.name,
             'company_street_address': addr,
             'invoice_name': 'Invoice ' + ref,
@@ -50,7 +50,9 @@ class AccountTourUploadBill(models.TransientModel):
         journal_alias = self.env['account.journal'] \
             .search([('type', '=', 'purchase'), ('company_id', '=', self.env.company.id)], limit=1)
 
-        values = [('sample', _('Try a sample vendor bill')), ('upload', _('Upload your own bill'))]
+        # We don't want people putting demo data in their database if they didn't launch it in demo mode
+        values = [('sample', _('Try a sample vendor bill'))] if self.env.ref('base.res_partner_2', raise_if_not_found=False) else []
+        values.append(('upload', _('Upload your own bill')))
         if journal_alias.alias_name and journal_alias.alias_domain:
             values.append(('email', _('Or send a bill to %s@%s', journal_alias.alias_name, journal_alias.alias_domain)))
         return values
@@ -75,24 +77,10 @@ class AccountTourUploadBill(models.TransientModel):
             purchase_journal = self.env['account.journal'].search([('type', '=', 'purchase')], limit=1)
 
         if self.selection == 'upload':
-            return purchase_journal.with_context(default_journal_id=purchase_journal.id, default_move_type='in_invoice').create_invoice_from_attachment(attachment_ids=self.attachment_ids.ids)
+            return purchase_journal.with_context(default_journal_id=purchase_journal.id, default_move_type='in_invoice').create_document_from_attachment(attachment_ids=self.attachment_ids.ids)
         elif self.selection == 'sample':
-            bodies = self.env['ir.actions.report']._prepare_html(self.preview_invoice)[0]
-            sample_pdf = self.env['ir.actions.report']._run_wkhtmltopdf(bodies)
-
             invoice_date = fields.Date.today() - timedelta(days=12)
-            attachment = self.env['ir.attachment'].create({
-                'type': 'binary',
-                'name': 'INV-%s-0001.pdf' % invoice_date.strftime('%Y-%m'),
-                'res_model': 'mail.compose.message',
-                'datas': base64.encodebytes(sample_pdf),
-            })
-            partner = self.env['res.partner'].search([('name', '=', 'Deco Addict')], limit=1)
-            if not partner:
-                partner = self.env['res.partner'].create({
-                    'name': 'Deco Addict',
-                    'is_company': True,
-                })
+            partner = self.env.ref('base.res_partner_2')
             bill = self.env['account.move'].create({
                 'move_type': 'in_invoice',
                 'partner_id': partner.id,
@@ -113,7 +101,19 @@ class AccountTourUploadBill(models.TransientModel):
                     })
                 ],
             })
-            bill.with_context(no_new_invoice=True).message_post(attachment_ids=[attachment.id])
+            # In case of test environment, don't create the pdf
+            if tools.config['test_enable'] or tools.config['test_file']:
+                bill.with_context(no_new_invoice=True).message_post()
+            else:
+                bodies = self.env['ir.actions.report']._prepare_html(self.preview_invoice)[0]
+                content = self.env['ir.actions.report']._run_wkhtmltopdf(bodies)
+                attachment = self.env['ir.attachment'].create({
+                    'type': 'binary',
+                    'name': 'INV-%s-0001.pdf' % invoice_date.strftime('%Y-%m'),
+                    'res_model': 'mail.compose.message',
+                    'datas': base64.encodebytes(content),
+                })
+                bill.with_context(no_new_invoice=True).message_post(attachment_ids=[attachment.id])
 
             return self._action_list_view_bill(bill.ids)
         else:

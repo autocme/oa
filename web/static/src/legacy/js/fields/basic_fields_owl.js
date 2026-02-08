@@ -5,6 +5,7 @@ odoo.define('web.basic_fields_owl', function (require) {
     const CustomCheckbox = require('web.CustomCheckbox');
     const { _lt } = require('web.translation');
 
+    const { onPatched } = owl;
 
     /**
      * FieldBadge displays the field's value inside a bootstrap pill badge.
@@ -18,7 +19,7 @@ odoo.define('web.basic_fields_owl', function (require) {
      */
     class FieldBadge extends AbstractField {
         _getClassFromDecoration(decoration) {
-            return `bg-${decoration.split('-')[1]}-light`;
+            return `text-bg-${decoration.split('-')[1]}`;
         }
     }
     FieldBadge.description = _lt("Badge");
@@ -27,11 +28,13 @@ odoo.define('web.basic_fields_owl', function (require) {
 
 
     class FieldBoolean extends AbstractField {
-        patched() {
-            super.patched();
-            if (this.props.event && this.props.event.target === this) {
-                this.activate();
-            }
+        setup() {
+            super.setup();
+            onPatched(() => {
+                if (this.props.event && this.props.event.target === this) {
+                    this.activate();
+                }
+            });
         }
 
         //----------------------------------------------------------------------
@@ -67,7 +70,7 @@ odoo.define('web.basic_fields_owl', function (require) {
             // The event might have been fired on the non field version of
             // this field, we can still test the presence of its custom class.
             if (activated && options && options.event && options.event.target
-                .closest('.custom-control.custom-checkbox')) {
+                .closest('.form-check')) {
                 this._setValue(!this.value);  // Toggle the checkbox
             }
             return activated;
@@ -149,7 +152,7 @@ odoo.define('web.basic_fields_owl', function (require) {
     FieldBoolean.components = { CustomCheckbox };
     FieldBoolean.description = _lt("Checkbox");
     FieldBoolean.supportedFieldTypes = ['boolean'];
-    FieldBoolean.template = 'web.FieldBoolean';
+    FieldBoolean.template = 'web.LegacyFieldBoolean';
     FieldBoolean.isQuickEditable = true;
 
 

@@ -4,7 +4,7 @@
 {
     'name': "Events Booths Sales",
     'category': 'Marketing/Events',
-    'version': '1.0',
+    'version': '1.1',
     'summary': "Manage event booths sale",
     'description': """
 Sell your event booths and track payments on sale orders.
@@ -24,9 +24,7 @@ Sell your event booths and track payments on sale orders.
     'auto_install': True,
     'assets': {
         'web.assets_backend': [
-            'event_booth_sale/static/src/js/event_booth_configurator_form_controller.js',
-            'event_booth_sale/static/src/js/event_booth_configurator_form_view.js',
-            'event_booth_sale/static/src/js/event_booth_configurator_widget.js',
+            'event_booth_sale/static/src/**/*',
         ]
     },
     'license': 'LGPL-3',

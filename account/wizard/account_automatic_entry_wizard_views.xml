@@ -14,6 +14,9 @@
                         The selected destination account is set to use a specific currency. Every entry transferred to it will be converted into this currency, causing
                         the loss of any pre-existing foreign currency amount.
                     </div>
+                    <div attrs="{'invisible': [('lock_date_message', '=', False)]}" class="alert alert-warning text-center" role="status">
+                        <field name="lock_date_message" nolabel="1"/>
+                    </div>
                     <field name="action" invisible="context.get('hide_automatic_options')" widget="radio" options="{'horizontal': true}"/>
                     <group>
                         <group attrs="{'invisible': [('action', '!=', 'change_period')]}">
@@ -30,14 +33,14 @@
                         <group>
                             <label for="total_amount" string="Adjusting Amount" attrs="{'invisible': [('action', '!=', 'change_period')]}"/>
                             <div attrs="{'invisible': [('action', '!=', 'change_period')]}">
-                                <field name="percentage" style="width:40% !important" class="oe_inline" attrs="{'readonly': [('action', '!=', 'change_period')]}"/>%<span class="px-3"></span>(<field name="total_amount" class="oe_inline"/>)
+                                <field name="percentage" style="width:40% !important" attrs="{'readonly': [('action', '!=', 'change_period')]}"/>%<span class="px-3"></span>(<field name="total_amount" class="oe_inline"/>)
                             </div>
                             <field name="total_amount" readonly="1" attrs="{'invisible': [('action', '=', 'change_period')]}"/>
                             <field name="journal_id"/>
                         </group>
                     </group>
                     <label for="preview_move_data" string="The following Journal Entries will be generated"/>
-                    <field name="preview_move_data" widget="grouped_view_widget"/>
+                    <field name="preview_move_data" widget="grouped_view_widget" class="d-block"/>
                     <footer>
                         <button string="Create Journal Entries" name="do_action" type="object" class="oe_highlight" data-hotkey="q"/>
                         <button string="Cancel" class="btn btn-secondary" special="cancel" data-hotkey="z"/>

@@ -35,11 +35,22 @@ odoo.define('website.s_website_form', function (require) {
             }
             return this._super(...arguments);
         },
+        // Todo: remove in master
+        /**
+         * @private
+         */
+        _getDataForFields() {
+            if (!this.dataForValues) {
+                return [];
+            }
+            return Object.keys(this.dataForValues)
+                .map(name => this.$target[0].querySelector(`[name="${CSS.escape(name)}"]`))
+                .filter(dataForValuesFieldEl => dataForValuesFieldEl && dataForValuesFieldEl.name !== "email_to");
+        }
     });
 
     publicWidget.registry.s_website_form = publicWidget.Widget.extend({
         selector: '.s_website_form form, form.s_website_form', // !compatibility
-        xmlDependencies: ['/website/static/src/xml/website_form.xml'],
         events: {
             'click .s_website_form_send, .o_website_form_send': 'send', // !compatibility
             'submit': 'send',
@@ -71,7 +82,6 @@ odoo.define('website.s_website_form', function (require) {
                     args: [session.user_id, this._getUserPreFillFields()],
                 }))[0] || {};
             }
-
             return res;
         },
         start: function () {
@@ -130,8 +140,15 @@ odoo.define('website.s_website_form', function (require) {
             // Because, using t-att- inside form make it non-editable
             // Data-fill-with attribute is given during registry and is used by
             // to know which user data should be used to prfill fields.
-            let dataForValues = wUtils.getParsedDataFor(this.$target[0].id);
-            if (dataForValues || Object.keys(this.preFillValues).length) {
+            let dataForValues = wUtils.getParsedDataFor(this.$target[0].id, document);
+            this.editTranslations = !!this._getContext(true).edit_translations;
+            // On the "edit_translations" mode, a <span/> with a translated term
+            // will replace the attribute value, leading to some inconsistencies
+            // (setting again the <span> on the attributes after the editor's
+            // cleanup, setting wrong values on the attributes after translating
+            // default values...)
+            if (!this.editTranslations
+                    && (dataForValues || Object.keys(this.preFillValues).length)) {
                 dataForValues = dataForValues || {};
                 const fieldNames = this.$target.serializeArray().map(el => el.name);
                 // All types of inputs do not have a value property (eg:hidden),
@@ -175,6 +192,13 @@ odoo.define('website.s_website_form', function (require) {
             }
             this._updateFieldsVisibility();
 
+            if (session.geoip_phone_code) {
+                this.el.querySelectorAll('input[type="tel"]').forEach(telField => {
+                    if (!telField.value) {
+                        telField.value = '+' + session.geoip_phone_code;
+                    }
+                });
+            }
             // Check disabled states
             this.inputEls = this.$target[0].querySelectorAll('.s_website_form_field.s_website_form_field_hidden_if .s_website_form_input');
             this._disabledStates = new Map();
@@ -208,7 +232,7 @@ odoo.define('website.s_website_form', function (require) {
             this.$target[0].querySelectorAll('textarea').forEach(el => el.value = el.textContent);
 
             // Remove saving of the error colors
-            this.$target.find('.o_has_error').removeClass('o_has_error').find('.form-control, .custom-select').removeClass('is-invalid');
+            this.$target.find('.o_has_error').removeClass('o_has_error').find('.form-control, .form-select').removeClass('is-invalid');
 
             // Remove the status message
             this.$target.find('#s_website_form_result, #o_website_form_result').empty(); // !compatibility
@@ -228,8 +252,18 @@ odoo.define('website.s_website_form', function (require) {
             // All 'hidden if' fields start with d-none
             this.$target[0].querySelectorAll('.s_website_form_field_hidden_if:not(.d-none)').forEach(el => el.classList.add('d-none'));
 
+            // Prevent "data-for" values removal on destroy, they are still used
+            // in edit mode to keep the form linked to its predefined server
+            // values (e.g., the default `job_id` value on the application form
+            // for a given job).
+            const dataForValues = wUtils.getParsedDataFor(this.$target[0].id, document) || {};
+            const initialValuesToReset = new Map(
+                [...this.initialValues.entries()].filter(
+                    ([input]) => !dataForValues[input.name] || input.name === "email_to"
+                )
+            );
             // Reset the initial default values.
-            for (const [fieldEl, initialValue] of this.initialValues.entries()) {
+            for (const [fieldEl, initialValue] of initialValuesToReset.entries()) {
                 if (initialValue) {
                     fieldEl.setAttribute('value', initialValue);
                 } else {
@@ -477,7 +511,9 @@ odoo.define('website.s_website_form', function (require) {
                 });
 
                 // Update field color if invalid or erroneous
-                const $controls = $field.find('.form-control, .custom-select, .form-check-input, .form-control-file');
+                // TODO in master: remove `.form-control-file` just below as it
+                // will be useless since it became `form-control` in BS5.
+                const $controls = $field.find('.form-control, .form-select, .form-check-input, .form-control-file');
                 $field.removeClass('o_has_error');
                 $controls.removeClass('is-invalid');
                 if (invalid_inputs.length || error_fields[field_name]) {
@@ -486,7 +522,8 @@ odoo.define('website.s_website_form', function (require) {
                     if (_.isString(error_fields[field_name])) {
                         $field.popover({content: error_fields[field_name], trigger: 'hover', container: 'body', placement: 'top'});
                         // update error message and show it.
-                        $field.data("bs.popover").config.content = error_fields[field_name];
+                        const popover = Popover.getInstance($field);
+                        popover._config.content = error_fields[field_name];
                         $field.popover('show');
                     }
                     form_valid = false;
@@ -502,7 +539,7 @@ odoo.define('website.s_website_form', function (require) {
                 try {
                     this.parse_date(value, type_of_date);
                     return true;
-                } catch (e) {
+                } catch (_e) {
                     return false;
                 }
             }
@@ -545,7 +582,7 @@ odoo.define('website.s_website_form', function (require) {
             }
 
             // Note: we still need to wait that the widget is properly started
-            // before any qweb rendering which depends on xmlDependencies
+            // before any qweb rendering which depends on xml assets
             // because the event handlers are binded before the call to
             // willStart for public widgets...
             this.__started.then(() => $result.replaceWith(qweb.render(`website.s_website_form_status_${status}`, {
@@ -699,10 +736,13 @@ odoo.define('website.s_website_form', function (require) {
         _updateFieldVisibility(fieldEl, haveToBeVisible) {
             const fieldContainerEl = fieldEl.closest('.s_website_form_field');
             fieldContainerEl.classList.toggle('d-none', !haveToBeVisible);
-            for (const inputEl of fieldContainerEl.querySelectorAll('.s_website_form_input')) {
-                // Hidden inputs should also be disabled so that their data are
-                // not sent on form submit.
-                inputEl.disabled = !haveToBeVisible;
+            // Do not disable inputs that are required for the model.
+            if (!fieldContainerEl.matches(".s_website_form_model_required")) {
+                for (const inputEl of fieldContainerEl.querySelectorAll(".s_website_form_input")) {
+                    // Hidden inputs should also be disabled so that their data are
+                    // not sent on form submit.
+                    inputEl.disabled = !haveToBeVisible;
+                }
             }
         },
 

@@ -16,12 +16,15 @@ class EventBoothCategory(models.Model):
 
     product_id = fields.Many2one(
         'product.product', string='Product', required=True,
-        domain=[('detailed_type', '=', 'event_booth')], default=_default_product_id)
-    price = fields.Float(string='Price', compute='_compute_price', digits='Product Price', readonly=False, store=True)
-    currency_id = fields.Many2one(related='product_id.currency_id')
+        domain=[('detailed_type', '=', 'event_booth')], default=_default_product_id,
+        groups="event.group_event_registration_desk")
+    price = fields.Float(
+        string='Price', compute='_compute_price', digits='Product Price', readonly=False,
+        store=True, groups="event.group_event_registration_desk")
+    currency_id = fields.Many2one(related='product_id.currency_id', groups="event.group_event_registration_desk")
     price_reduce = fields.Float(
         string='Price Reduce', compute='_compute_price_reduce',
-        compute_sudo=True, digits='Product Price')
+        compute_sudo=True, digits='Product Price', groups="event.group_event_registration_desk")
     price_reduce_taxinc = fields.Float(
         string='Price Reduce Tax inc', compute='_compute_price_reduce_taxinc',
         compute_sudo=True
@@ -46,14 +49,15 @@ class EventBoothCategory(models.Model):
     def _compute_price_reduce(self):
         for category in self:
             product = category.product_id
-            pricelist = self.env['product.pricelist'].browse(self._context.get('pricelist'))
+            pricelist = product.product_tmpl_id._get_contextual_pricelist()
             lst_price = product.currency_id._convert(
                 product.lst_price,
                 pricelist.currency_id,
                 self.env.company,
-                fields.Datetime.now()
+                fields.Datetime.now(),
+                round=False,
             )
-            discount = (lst_price - product.price) / lst_price if lst_price else 0.0
+            discount = (lst_price - product._get_contextual_price()) / lst_price if lst_price else 0.0
             category.price_reduce = (1.0 - discount) * category.price
 
     @api.depends_context('pricelist', 'quantity')

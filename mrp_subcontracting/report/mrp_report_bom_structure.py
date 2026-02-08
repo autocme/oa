@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
 
-from odoo import models, _, fields
+from odoo import api, models, _, fields
+from odoo.tools import float_compare
 
 
 class ReportBomStructure(models.AbstractModel):
@@ -11,8 +12,8 @@ class ReportBomStructure(models.AbstractModel):
         ratio_uom_seller = seller.product_uom.ratio / bom.product_uom_id.ratio
         price = seller.currency_id._convert(seller.price, self.env.company.currency_id, (bom.company_id or self.env.company), fields.Date.today())
         return {
-            'name': seller.name.display_name,
-            'partner_id': seller.name.id,
+            'name': seller.partner_id.display_name,
+            'partner_id': seller.partner_id.id,
             'quantity': bom_quantity,
             'uom': bom.product_uom_id.name,
             'prod_cost': price / ratio_uom_seller * bom_quantity,
@@ -20,46 +21,105 @@ class ReportBomStructure(models.AbstractModel):
             'level': level or 0
         }
 
-    def _get_price(self, bom, factor, product):
-        price = super()._get_price(bom, factor, product)
-        if bom and bom.type == 'subcontract':
-            bom_quantity = bom.product_qty * factor
-            seller = product._select_seller(quantity=bom_quantity, uom_id=bom.product_uom_id, params={'subcontractor_ids': bom.subcontractor_ids})
+    def _get_bom_data(self, bom, warehouse, product=False, line_qty=False, bom_line=False, level=0, parent_bom=False, index=0, product_info=False, ignore_stock=False):
+        res = super()._get_bom_data(bom, warehouse, product, line_qty, bom_line, level, parent_bom, index, product_info, ignore_stock)
+        if bom.type == 'subcontract' and not self.env.context.get('minimized', False):
+            if not res['product']:
+                seller = bom.product_tmpl_id.seller_ids.filtered(lambda s: s.partner_id in bom.subcontractor_ids)[:1]
+            else:
+                seller = res['product']._select_seller(quantity=res['quantity'], uom_id=bom.product_uom_id, params={'subcontractor_ids': bom.subcontractor_ids})
             if seller:
-                price += seller.product_uom._compute_price(seller.price, product.uom_id) * bom_quantity
-        return price
-
-    def _get_bom(self, bom_id=False, product_id=False, line_qty=False, line_id=False, level=False):
-        res = super(ReportBomStructure, self)._get_bom(bom_id, product_id, line_qty, line_id, level)
-        bom = res['bom']
-        if bom and bom.type == 'subcontract':
-            bom_quantity = line_qty
-            if line_id:
-                current_line = self.env['mrp.bom.line'].browse(int(line_id))
-                bom_quantity = current_line.product_uom_id._compute_quantity(line_qty, bom.product_uom_id)
-
-            seller = res['product']._select_seller(quantity=bom_quantity, uom_id=bom.product_uom_id, params={'subcontractor_ids': bom.subcontractor_ids})
-            if seller:
-                res['subcontracting'] = self._get_subcontracting_line(bom, seller, level, bom_quantity)
-                res['total'] += res['subcontracting']['bom_cost']
-                res['bom_cost'] += res['subcontracting']['bom_cost']
+                res['subcontracting'] = self._get_subcontracting_line(bom, seller, level + 1, res['quantity'])
+                if not self.env.context.get('minimized', False):
+                    res['bom_cost'] += res['subcontracting']['bom_cost']
         return res
 
-    def _get_sub_lines(self, bom, product_id, line_qty, line_id, level, child_bom_ids, unfolded):
-        res = super()._get_sub_lines(bom, product_id, line_qty, line_id, level, child_bom_ids, unfolded)
-        if bom and bom.type == 'subcontract':
-            product = self.env['product.product'].browse(product_id)
+    def _get_bom_array_lines(self, data, level, unfolded_ids, unfolded, parent_unfolded):
+        lines = super()._get_bom_array_lines(data, level, unfolded_ids, unfolded, parent_unfolded)
 
-            bom_quantity = line_qty
-            if line_id:
-                current_line = self.env['mrp.bom.line'].browse(int(line_id))
-                bom_quantity = current_line.product_uom_id._compute_quantity(line_qty, bom.product_uom_id)
+        if data.get('subcontracting'):
+            subcontract_info = data['subcontracting']
+            lines.append({
+                'name': _("Subcontracting: %s", subcontract_info['name']),
+                'type': 'subcontract',
+                'uom': False,
+                'quantity': subcontract_info['quantity'],
+                'bom_cost': subcontract_info['bom_cost'],
+                'prod_cost': subcontract_info['prod_cost'],
+                'level': subcontract_info['level'],
+                'visible': level == 1 or unfolded or parent_unfolded
+            })
+        return lines
 
-            seller = product._select_seller(quantity=bom_quantity, uom_id=bom.product_uom_id, params={'subcontractor_ids': bom.subcontractor_ids})
-            if seller:
-                values_sub = self._get_subcontracting_line(bom, seller, level, bom_quantity)
-                values_sub['type'] = 'bom'
-                values_sub['name'] = _("Subcontracting: ") + values_sub['name']
-                res.append(values_sub)
+    @api.model
+    def _need_special_rules(self, product_info, parent_bom=False, parent_product_id=False):
+        if parent_bom and parent_product_id:
+            parent_info = product_info.get(parent_product_id, {}).get(parent_bom.id, {})
+            return parent_info and parent_info.get('route_type') == 'subcontract'
+        return super()._need_special_rules(product_info, parent_bom, parent_product_id)
+
+    @api.model
+    def _find_special_rules(self, product, product_info, parent_bom=False, parent_product_id=False):
+        res = super()._find_special_rules(product, product_info, parent_bom, parent_product_id)
+        # If no rules could be found within the warehouse, check if the product is a component from a subcontracted product.
+        parent_info = product_info.get(parent_product_id, {}).get(parent_bom.id, {})
+        if parent_info and parent_info.get('route_type') == 'subcontract':
+            # Since the product is subcontracted, check the subcontracted location for rules instead of the warehouse.
+            subcontracting_loc = parent_info['supplier'].partner_id.property_stock_subcontractor
+            return product._get_rules_from_location(subcontracting_loc)
+        return res
+
+    @api.model
+    def _format_route_info(self, rules, rules_delay, warehouse, product, bom, quantity):
+        res = super()._format_route_info(rules, rules_delay, warehouse, product, bom, quantity)
+        subcontract_rules = [rule for rule in rules if rule.action == 'buy' and bom and bom.type == 'subcontract']
+        if subcontract_rules:
+            supplier = product._select_seller(quantity=quantity, uom_id=product.uom_id, params={'subcontractor_ids': bom.subcontractor_ids})
+            if not supplier:
+                # If no vendor found for the right quantity, we still want to display a vendor for the lead times
+                supplier = product._select_seller(quantity=None, uom_id=product.uom_id, params={'subcontractor_ids': bom.subcontractor_ids})
+            if supplier:
+                qty_supplier_uom = product.uom_id._compute_quantity(quantity, supplier.product_uom)
+                return {
+                    'route_type': 'subcontract',
+                    'route_name': subcontract_rules[0].route_id.display_name,
+                    'route_detail': supplier.display_name,
+                    'lead_time': supplier.delay + rules_delay,
+                    'supplier_delay': supplier.delay + rules_delay,
+                    'manufacture_delay': product.produce_delay,
+                    'supplier': supplier,
+                    'route_alert': float_compare(qty_supplier_uom, supplier.min_qty, precision_rounding=product.uom_id.rounding) < 0,
+                    'qty_checked': quantity,
+                }
 
         return res
+
+    @api.model
+    def _get_quantities_info(self, product, bom_uom, parent_bom, product_info):
+        if parent_bom and parent_bom.type == 'subcontract' and product.detailed_type == 'product':
+            parent_product_id = self.env.context.get('parent_product_id', False)
+            route_info = product_info.get(parent_product_id, {}).get(parent_bom.id, {})
+            if route_info and route_info['route_type'] == 'subcontract':
+                subcontracting_loc = route_info['supplier'].partner_id.property_stock_subcontractor
+                subloc_product = product.with_context(location=subcontracting_loc.id, warehouse=False).read(['free_qty', 'qty_available'])[0]
+                stock_loc = f"subcontract_{subcontracting_loc.id}"
+                if not product_info[product.id]['consumptions'].get(stock_loc, False):
+                    product_info[product.id]['consumptions'][stock_loc] = 0
+                return {
+                    'free_qty': product.uom_id._compute_quantity(subloc_product['free_qty'], bom_uom),
+                    'on_hand_qty': product.uom_id._compute_quantity(subloc_product['qty_available'], bom_uom),
+                    'stock_loc': stock_loc,
+                }
+
+        return super()._get_quantities_info(product, bom_uom, parent_bom, product_info)
+
+    @api.model
+    def _get_resupply_availability(self, route_info, components):
+        if route_info.get('route_type') == 'subcontract':
+            max_component_delay = self._get_max_component_delay(components)
+            if max_component_delay is False:
+                return ('unavailable', False)
+            produce_delay = route_info.get('manufacture_delay', 0) + max_component_delay
+            supplier_delay = route_info.get('supplier_delay', 0)
+            return ('estimated', max(produce_delay, supplier_delay))
+        return super()._get_resupply_availability(route_info, components)

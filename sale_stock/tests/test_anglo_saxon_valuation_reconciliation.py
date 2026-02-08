@@ -4,8 +4,7 @@ from odoo.addons.stock_account.tests.test_anglo_saxon_valuation_reconciliation_c
 from odoo.tests import Form, tagged
 
 
-@tagged('post_install', '-at_install')
-class TestValuationReconciliation(ValuationReconciliationTestCommon):
+class TestValuationReconciliationCommon(ValuationReconciliationTestCommon):
 
     @classmethod
     def setUpClass(cls, chart_template_ref=None):
@@ -67,6 +66,9 @@ class TestValuationReconciliation(ValuationReconciliationTestCommon):
         move1.move_line_ids.qty_done = 11
         move1._action_done()
 
+
+@tagged('post_install', '-at_install')
+class TestValuationReconciliation(TestValuationReconciliationCommon):
     def test_shipment_invoice(self):
         """ Tests the case into which we send the goods to the customer before
         making the invoice
@@ -110,7 +112,7 @@ class TestValuationReconciliation(ValuationReconciliationTestCommon):
         stock_return_picking_action = stock_return_picking.create_returns()
         return_pick = self.env['stock.picking'].browse(stock_return_picking_action['res_id'])
         return_pick.action_assign()
-        return_pick.move_lines.quantity_done = 1
+        return_pick.move_ids.quantity_done = 1
         return_pick._action_done()
         refund_invoice_wiz = self.env['account.move.reversal'].with_context(active_model='account.move', active_ids=[invoice.id]).create({
             'reason': 'test_invoice_shipment_refund',
@@ -162,14 +164,7 @@ class TestValuationReconciliation(ValuationReconciliationTestCommon):
             'type': 'product'
         } for i in range(1, 3)]))
         product_1.categ_id.property_valuation = 'real_time'
-        product_1.categ_id.property_cost_method = 'average'
-        uom_dozen = self.env['uom.uom'].create({
-            'name': 'Test-DozenA',
-            'category_id': self.env.ref('uom.product_uom_categ_unit').id,
-            'factor_inv': 12,
-            'uom_type': 'bigger',
-            'rounding': 0.008})
-        product_1.uom_id = uom_dozen
+        product_1.categ_id.property_cost_method = 'fifo'
         # give another output account to product_2
         categ_2 = product_1.categ_id.copy()
         account_2 = categ_2.property_stock_account_output_categ_id.copy()
@@ -190,7 +185,7 @@ class TestValuationReconciliation(ValuationReconciliationTestCommon):
             'date_order': '2021-01-01',
         })
         so.action_confirm()
-        so.picking_ids.move_lines.quantity_done = 2
+        so.picking_ids.move_ids.quantity_done = 2
         so.picking_ids._action_done()
         self.assertEqual(so.picking_ids.state, 'done')
         inv = self.env['account.move'].create({
@@ -232,7 +227,7 @@ class TestValuationReconciliation(ValuationReconciliationTestCommon):
             move.quantity_done = move.product_uom_qty
         in_moves._action_done()
 
-        self.assertAlmostEqual(product_1.value_svl, -38.30)
+        self.assertEqual(product_1.value_svl, -20)
         self.assertEqual(product_2.value_svl, 0)
         # Check that the correct number of amls have been created and posted
         input_aml = self.env['account.move.line'].search([

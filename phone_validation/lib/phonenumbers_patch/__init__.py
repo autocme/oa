@@ -22,6 +22,7 @@ def _local_load_region(code):
     __import__("region_%s" % code, globals(), locals(),
         fromlist=["PHONE_METADATA_%s" % code], level=1)
 
+
 try:
     import phonenumbers
 except ImportError:

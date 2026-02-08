@@ -3,21 +3,22 @@
 # 	* auth_ldap
 # 
 # Translators:
-# Grega Vavtar <grega@hbs.si>, 2022
-# laznikd <laznik@mentis.si>, 2022
-# Boris Kodelja <boris@hbs.si>, 2022
-# Tadej Lupšina <tadej@hbs.si>, 2022
-# Matjaz Mozetic <m.mozetic@matmoz.si>, 2022
-# Martin Trigaux, 2022
-# matjaz k <matjaz@mentis.si>, 2022
+# Tadej Lupšina <tadej@hbs.si>, 2023
+# laznikd <laznik@mentis.si>, 2023
+# Grega Vavtar <grega@hbs.si>, 2023
+# Boris Kodelja <boris@hbs.si>, 2023
+# matjaz k <matjaz@mentis.si>, 2023
+# Martin Trigaux, 2023
+# Matjaz Mozetic <m.mozetic@matmoz.si>, 2023
+# Aleš Pipan, 2025
 # 
 msgid ""
 msgstr ""
-"Project-Id-Version: Odoo Server saas~14.4\n"
+"Project-Id-Version: Odoo Server 16.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2021-07-12 07:50+0000\n"
-"PO-Revision-Date: 2021-09-14 12:20+0000\n"
-"Last-Translator: matjaz k <matjaz@mentis.si>, 2022\n"
+"POT-Creation-Date: 2024-02-06 13:31+0000\n"
+"PO-Revision-Date: 2023-07-13 13:02+0000\n"
+"Last-Translator: Aleš Pipan, 2025\n"
 "Language-Team: Slovenian (https://app.transifex.com/odoo/teams/41243/sl/)\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
@@ -41,6 +42,17 @@ msgid ""
 "        (|(mail=%s)(uid=%s))\n"
 "    "
 msgstr ""
+"    Filter, ki se uporablja za iskanje uporabniških računov v zbirki podatkov LDAP. Gre za poljuben filter LDAP v nizovni predstavitvi. Kateri koli `%s` nadomestno besedilo bo nadomeščeno s prijavnim imenom (identifikatorjem), ki ga je navedel uporabnik, filter mora vsebovati vsaj eno takšno nadomestno besedilo.\n"
+"    Filter mora vrniti natanko en (1) rezultat, sicer bo prijava neveljavna.\n"
+"\n"
+"   Primer (dejanski atributi so odvisni od strežnika LDAP in nastavitev):\n"
+"\n"
+"        (&(objectCategory=person)(objectClass=user)(sAMAccountName=%s))\n"
+"\n"
+"    ali\n"
+"\n"
+"        (|(mail=%s)(uid=%s))\n"
+"    "
 
 #. module: auth_ldap
 #: model:ir.model.fields,help:auth_ldap.field_res_company_ldap__create_user
@@ -92,6 +104,8 @@ msgid ""
 "DN of the user search scope: all descendants of this base will be searched "
 "for users."
 msgstr ""
+"DN obsega iskanja uporabnika: vsi potomci te baze bodo preiskani za "
+"uporabnike."
 
 #. module: auth_ldap
 #: model:ir.model.fields,field_description:auth_ldap.field_res_company_ldap__display_name
@@ -171,10 +185,13 @@ msgid "Login Information"
 msgstr "Prijavni podatki"
 
 #. module: auth_ldap
+#. odoo-python
 #: code:addons/auth_ldap/models/res_company_ldap.py:0
 #, python-format
 msgid "No local user found for LDAP login and not configured to create one"
 msgstr ""
+"Za prijavo LDAP ni bil najden noben lokalni uporabnik in ni bil konfiguriran"
+" za ustvarjanje uporabnika."
 
 #. module: auth_ldap
 #: model_terms:ir.ui.view,arch_db:auth_ldap.view_ldap_installer_form
@@ -234,6 +251,11 @@ msgid "Use TLS"
 msgstr "Use TLS"
 
 #. module: auth_ldap
+#: model:ir.model,name:auth_ldap.model_res_users
+msgid "User"
+msgstr "Uporabnik"
+
+#. module: auth_ldap
 #: model_terms:ir.ui.view,arch_db:auth_ldap.view_ldap_installer_form
 msgid "User Information"
 msgstr "Informacije o uporabniku"
@@ -242,8 +264,3 @@ msgstr "Informacije o uporabniku"
 #: model:ir.model.fields,help:auth_ldap.field_res_company_ldap__user
 msgid "User to copy when creating new users"
 msgstr "Uporabnik, ki se kopira ob ustvarjanju novih uporabnikov"
-
-#. module: auth_ldap
-#: model:ir.model,name:auth_ldap.model_res_users
-msgid "Users"
-msgstr "Uporabniki"

@@ -27,7 +27,7 @@ class TestImLivechatReport(TestImLivechatCommon):
         partner_message = cls._create_message(channel, cls.operator, '2023-03-17 05:05:54')
         partner_message |= cls._create_message(channel, cls.operator, '2023-03-17 09:15:54')
         partner_message.model = 'res.partner'
-        cls.env['mail.message'].flush()
+        cls.env['mail.message'].flush_model()
 
     def test_im_livechat_report_channel(self):
         report = self.env['im_livechat.report.channel'].search([('livechat_channel_id', '=', self.livechat_channel.id)])

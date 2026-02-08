@@ -11,6 +11,7 @@ import babel
 import babel.dates
 import base64
 import json
+import operator
 import pytz
 
 from odoo import exceptions, http, fields, tools, _
@@ -157,6 +158,7 @@ class EventTrackController(http.Controller):
             'today_tz': today_tz,
             # search information
             'searches': searches,
+            'search_count': len(tracks_sudo),
             'search_key': searches['search'],
             'search_wishlist': searches['search_wishlist'],
             'search_tags': search_tags,
@@ -203,7 +205,7 @@ class EventTrackController(http.Controller):
         tracks_sudo = request.env['event.track'].sudo().search(base_track_domain)
 
         locations = list(set(track.location_id for track in tracks_sudo))
-        locations.sort(key=lambda x: x.id)
+        locations.sort(key=operator.itemgetter('sequence', 'id'))
 
         # First split day by day (based on start time)
         time_slots_by_tracks = {track: self._split_track_by_days(track, local_tz) for track in tracks_sudo}
@@ -260,7 +262,7 @@ class EventTrackController(http.Controller):
                 locations_by_days[track_day].append(track.location_id)
 
         for used_locations in locations_by_days.values():
-            used_locations.sort(key=lambda location: location.id if location else 0)
+            used_locations.sort(key=operator.itemgetter('sequence', 'id'))
 
         return {
             'days': days,
@@ -392,7 +394,6 @@ class EventTrackController(http.Controller):
         track = self._fetch_track(track_id, allow_sudo=True)
         force_create = set_reminder_on or track.wishlisted_by_default
         event_track_partner = track._get_event_track_visitors(force_create=force_create)
-        visitor_sudo = event_track_partner.visitor_id
 
         if not track.wishlisted_by_default:
             if not event_track_partner or event_track_partner.is_wishlisted == set_reminder_on:  # ignore if new state = old state
@@ -404,8 +405,6 @@ class EventTrackController(http.Controller):
             event_track_partner.is_blacklisted = not set_reminder_on
 
         result = {'reminderOn': set_reminder_on}
-        if request.httprequest.cookies.get('visitor_uuid', '') != visitor_sudo.access_token:
-            result['visitor_uuid'] = visitor_sudo.access_token
 
         return result
 

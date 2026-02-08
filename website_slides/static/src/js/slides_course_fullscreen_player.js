@@ -1,13 +1,16 @@
 /** @odoo-module **/
 
-/* global YT */
+/* global YT, Vimeo */
 
     import publicWidget from 'web.public.widget';
     import  { qweb as QWeb, _t } from 'web.core';
+    import { Markup } from 'web.utils';
     import config from 'web.config';
 
     import session from 'web.session';
     import { Quiz } from '@website_slides/js/slides_course_quiz';
+    import { SlideCoursePage } from '@website_slides/js/slides_course_page';
+    import { unhideConditionalElements } from '@website/js/content/inject_dom';
     import Dialog from 'web.Dialog';
     import '@website_slides/js/slides_course_join';
 
@@ -30,8 +33,8 @@
      * its end, and `slide_completed` when the player is at 30 sec before the
      * end of the video (30 sec before is considered as completed).
      */
-    var VideoPlayer = publicWidget.Widget.extend({
-        template: 'website.slides.fullscreen.video',
+    var VideoPlayerYouTube = publicWidget.Widget.extend({
+        template: 'website.slides.fullscreen.video.youtube',
         youtubeUrl: 'https://www.youtube.com/iframe_api',
 
         init: function (parent, slide) {
@@ -112,8 +115,8 @@
                     self.currentVideoTime += 1;
                     if (self.totalVideoTime && self.currentVideoTime > self.totalVideoTime - 30){
                         clearInterval(self.tid);
-                        if (!self.slide.hasQuestion && !self.slide.completed){
-                            self.trigger_up('slide_to_complete', self.slide);
+                        if (self.slide.isMember && !self.slide.hasQuestion && !self.slide.completed){
+                            self.trigger_up('slide_mark_completed', self.slide);
                         }
                     }
                 }, 1000);
@@ -129,6 +132,98 @@
         },
     });
 
+    /**
+     * This widget is responsible of loading the Vimeo video.
+     *
+     * Similarly to the YouTube implementation, the widget will trigger an event `change_slide` when
+     * the video is at its end, and `slide_completed` when the player is at 30 sec before the end of
+     * the video (30 sec before is considered as completed).
+     *
+     * See https://developer.vimeo.com/player/sdk/reference for all the API documentation.
+     */
+    var VideoPlayerVimeo = publicWidget.Widget.extend({
+        template: 'website.slides.fullscreen.video.vimeo',
+        vimeoScriptUrl: 'https://player.vimeo.com/api/player.js',
+
+        init: function (parent, slide) {
+            this.slide = slide;
+            return this._super.apply(this, arguments);
+        },
+
+        /**
+         * Loads the Vimeo JS API that allows interfacing with the iframe viewer.
+         * (We only load the API if not already loaded).
+         *
+         * @returns {Promise}
+         */
+        willStart: function () {
+            var self = this;
+            var vimeoAPIPromise = new Promise(function (resolve, reject) {
+                if ($(document).find('script[src="' + self.vimeoScriptUrl + '"]').length === 0) {
+                    $.ajax({
+                        url: self.vimeoScriptUrl,
+                        dataType: 'script',
+                        success: function () {resolve();}
+                    });
+                } else {
+                    resolve();
+                }
+            });
+
+            return Promise.all([this._super.apply(this, arguments), vimeoAPIPromise]);
+        },
+
+        start: function () {
+            return this._super.apply(arguments).then(this._setupVideoPlayer.bind(this));
+        },
+
+        //--------------------------------------------------------------------------
+        // Private
+        //--------------------------------------------------------------------------
+
+        /**
+         * Instantiate the Vimeo player and register the various events.
+         */
+        _setupVideoPlayer: async function () {
+            this.player = new Vimeo.Player(this.$('iframe')[0]);
+            this.videoDuration = await this.player.getDuration();
+            this.player.on('timeupdate', this._onVideoTimeUpdate.bind(this));
+            this.player.on('ended', this._onVideoEnded.bind(this));
+        },
+
+        //--------------------------------------------------------------------------
+        // Handlers
+        //--------------------------------------------------------------------------
+
+        /**
+         * When the player triggers the 'ended' event, we go to the next slide if there is one.
+         *
+         * See https://developer.vimeo.com/player/sdk/reference#ended for more information
+         */
+        _onVideoEnded: function () {
+            if (this.slide.hasNext) {
+                this.trigger_up('slide_go_next', this.slide);
+            }
+        },
+
+        /**
+         * Every time the video changes position, both while viewing and also when seeking manually,
+         * Vimeo triggers this handy 'timeupdate' event.
+         * We use it to set the slide as completed as soon as we reach the end (30 last seconds).
+         *
+         * See https://developer.vimeo.com/player/sdk/reference#timeupdate for more information
+         *
+         * @param {Object} eventData the 'timeupdate' event data
+         */
+         _onVideoTimeUpdate: async function (eventData) {
+            if (eventData.seconds > (this.videoDuration - 30)) {
+                if (this.slide.isMember && !this.slide.hasQuestion && !this.slide.completed){
+                    this.trigger_up('slide_mark_completed', this.slide);
+                }
+            }
+        }
+    });
+
 
     /**
      * This widget is responsible of navigation for one slide to another:
@@ -141,7 +236,7 @@
      */
     var Sidebar = publicWidget.Widget.extend({
         events: {
-            "click .o_wslides_fs_sidebar_list_item": '_onClickTab',
+            'click .o_wslides_fs_sidebar_list_item .o_wslides_fs_slide_name': '_onClickTab',
         },
         init: function (parent, slideList, defaultSlide) {
             var result = this._super.apply(this, arguments);
@@ -185,27 +280,6 @@
                 this.set('slideEntry', this.slideEntries[currentIndex-1]);
             }
         },
-        /**
-         * Greens up the bullet when the slide is completed
-         *
-         * @public
-         * @param {Integer} slideId
-         */
-        setSlideCompleted: function (slideId) {
-            var $elem = this.$('.fa-circle-thin[data-slide-id="'+slideId+'"]');
-            $elem.removeClass('fa-circle-thin').addClass('fa-check text-success o_wslides_slide_completed');
-        },
-        /**
-         * Updates the progressbar whenever a lesson is completed
-         *
-         * @public
-         * @param {*} channelCompletion
-         */
-        updateProgressbar: function (channelCompletion) {
-            var completion = Math.min(100, channelCompletion);
-            this.$('.progress-bar').css('width', completion + "%" );
-            this.$('.o_wslides_progress_percentage').text(completion);
-        },
 
         //--------------------------------------------------------------------------
         // Private
@@ -225,7 +299,7 @@
         //--------------------------------------------------------------------------
         /**
          * Handler called whenever the user clicks on a sub-quiz which is linked to a slide.
-         * This does NOT handle the case of a slide of type "quiz".
+         * This does NOT handle the case of a slide of category "quiz".
          * By going through this handler, the widget will be able to determine that it has to render
          * the associated quiz and not the main content.
          *
@@ -248,7 +322,7 @@
          */
         _onClickTab: function (ev) {
             ev.stopPropagation();
-            var $elem = $(ev.currentTarget);
+            const $elem = $(ev.currentTarget).closest('.o_wslides_fs_sidebar_list_item');
             if ($elem.data('canAccess') === 'True') {
                 var isQuiz = $elem.data('isQuiz');
                 var slideID = parseInt($elem.data('id'));
@@ -295,12 +369,13 @@
             'click .o_wslides_js_share_email button': '_onShareByEmailClick',
             'click a.o_wslides_js_social_share': '_onSlidesSocialShare',
             'click .o_clipboard_button': '_onShareLinkCopy',
+            'keypress .o_wslides_js_share_email input': '_onKeypress',
         },
 
         init: function (parent, options, slide) {
             options = _.defaults(options || {}, {
-                title: "Share",
-                buttons: [{text: "Cancel", close: true}],
+                title: _t("Share This Content"),
+                buttons: [{text: "Close", close: true}],
                 size: 'medium',
             });
             this._super(parent, options);
@@ -308,30 +383,56 @@
             this.session = session;
         },
 
-        _onShareByEmailClick: function() {
+        //--------------------------------------------------------------------------
+        // Handlers
+        //--------------------------------------------------------------------------
+
+        /**
+         * Send the email(s) on 'Enter' key
+         *
+         * @private
+         * @param {Event} ev
+         */
+        _onKeypress: function (ev) {
+            if (ev.keyCode === $.ui.keyCode.ENTER) {
+                ev.preventDefault();
+                this._onShareByEmailClick();
+            }
+        },
+
+        _onShareByEmailClick: function () {
             var form = this.$('.o_wslides_js_share_email');
             var input = form.find('input');
-            var slideID = form.find('button').data('slide-id');
-            if (input.val() && input[0].checkValidity()) {
-                form.removeClass('o_has_error').find('.form-control, .custom-select').removeClass('is-invalid');
+            if (input.val()) {
+                form.removeClass('o_has_error').find('.form-control, .form-select').removeClass('is-invalid');
+                var slideID = form.find('button').data('slide-id');
                 this._rpc({
                     route: '/slides/slide/send_share_email',
                     params: {
                         slide_id: slideID,
-                        email: input.val(),
+                        emails: input.val(),
                         fullscreen: true
                     },
-                }).then(function () {
-                    form.html('<div class="alert alert-info" role="alert">' + _t('<strong>Thank you!</strong> Mail has been sent.') + '</div>');
+                }).then((action) => {
+                    if (action) {
+                        form.find('.alert-info').removeClass('d-none');
+                        form.find('.input-group').addClass('d-none');
+                    } else {
+                        this.displayNotification({ message: _t('Please enter valid email(s)'), type: 'danger' });
+                        form.addClass('o_has_error').find('.form-control, .form-select').addClass('is-invalid');
+                        input.focus();
+                    }
                 });
             } else {
-                form.addClass('o_has_error').find('.form-control, .custom-select').addClass('is-invalid');
+                this.displayNotification({ message: _t('Please enter valid email(s)'), type: 'danger' });
+                form.addClass('o_has_error').find('.form-control, .form-select').addClass('is-invalid');
                 input.focus();
             }
         },
 
         _onSlidesSocialShare: function (ev) {
             ev.preventDefault();
+            ev.stopPropagation();
             var popUpURL = $(ev.currentTarget).attr('href');
             window.open(popUpURL, 'Share Dialog', 'width=626,height=436');
         },
@@ -393,17 +494,14 @@
      *
      * This widget is rendered sever side, and attached to the existing DOM.
      */
-    var Fullscreen = publicWidget.Widget.extend({
-        events: {
-            "click .o_wslides_fs_toggle_sidebar": '_onClickToggleSidebar',
-        },
-        custom_events: {
+    var Fullscreen = SlideCoursePage.extend({
+        events: _.extend({}, SlideCoursePage.prototype.events, {
+            'click .o_wslides_fs_toggle_sidebar': '_onClickToggleSidebar',
+        }),
+        custom_events: _.extend({}, SlideCoursePage.prototype.custom_events, {
             'change_slide': '_onChangeSlideRequest',
-            'slide_to_complete': '_onSlideToComplete',
-            'slide_completed': '_onSlideCompleted',
             'slide_go_next': '_onSlideGoToNext',
-            'join_course': '_onJoinCourse',
-        },
+        }),
         /**
         * @override
         * @param {Object} el
@@ -436,6 +534,10 @@
             var self = this;
             this.on('change:slide', this, this._onChangeSlide);
             this._toggleSidebar();
+            const backendNavEl = document.querySelector('.o_frontend_to_backend_nav');
+            if (backendNavEl) {
+                backendNavEl.remove();
+            }
             return this._super.apply(this, arguments).then(function () {
                 return self._onChangeSlide(); // trigger manually once DOM ready, since slide content is not rendered server side
             });
@@ -456,7 +558,7 @@
         // Private
         //--------------------------------------------------------------------------
         /**
-         * Fetches content with an rpc call for slides of type "webpage"
+         * Fetches content with an rpc call for slides of category "article"
          *
          * @private
          */
@@ -475,34 +577,28 @@
             });
         },
         /**
-        * Fetches slide content depending on its type.
+        * Fetches slide content depending on its category.
         * If the slide doesn't need to fetch any content, return a resolved deferred
         *
         * @private
         */
         _fetchSlideContent: function (){
             var slide = this.get('slide');
-            if (slide.type === 'webpage' && !slide.isQuiz) {
+            if (slide.category === 'article' && !slide.isQuiz) {
                 return this._fetchHtmlContent();
             }
             return Promise.resolve();
         },
-        _markAsCompleted: function (slideId, completion) {
-            var slide = findSlide(this.slides, {id: slideId});
-            slide.completed = true;
-            this.sidebar.setSlideCompleted(slide.id);
-            this.sidebar.updateProgressbar(completion);
-        },
         /**
          * Extend the slide data list to add informations about rendering method, and other
-         * specific values according to their slide_type.
+         * specific values according to their slide_category.
          */
         _preprocessSlideData: function (slidesDataList) {
             slidesDataList.forEach(function (slideData, index) {
                 // compute hasNext slide
                 slideData.hasNext = index < slidesDataList.length-1;
                 // compute embed url
-                if (slideData.type === 'video') {
+                if (slideData.category === 'video' && slideData.videoSourceType !== 'vimeo') {
                     slideData.embedCode = $(slideData.embedCode).attr('src') || ""; // embedCode contains an iframe tag, where src attribute is the url (youtube or embed document from odoo)
                     var separator = slideData.embedCode.indexOf("?") !== -1 ? "&" : "?";
                     var scheme = slideData.embedCode.indexOf('//') === 0 ? 'https:' : '';
@@ -511,16 +607,26 @@
                         params.autoplay = 1;
                     }
                     slideData.embedUrl = slideData.embedCode ? scheme + slideData.embedCode + separator + $.param(params) : "";
-                } else if (slideData.type === 'infographic') {
+                } else if (slideData.category === 'video' && slideData.videoSourceType === 'vimeo') {
+                    slideData.embedCode = Markup(slideData.embedCode);
+                } else if (slideData.category === 'infographic') {
                     slideData.embedUrl = _.str.sprintf('/web/image/slide.slide/%s/image_1024', slideData.id);
-                } else if (_.contains(['document', 'presentation'], slideData.type)) {
+                } else if (slideData.category === 'document') {
                     slideData.embedUrl = $(slideData.embedCode).attr('src');
                 }
                 // fill empty property to allow searching on it with _.filter(list, matcher)
                 slideData.isQuiz = !!slideData.isQuiz;
                 slideData.hasQuestion = !!slideData.hasQuestion;
                 // technical settings for the Fullscreen to work
-                slideData._autoSetDone = _.contains(['infographic', 'presentation', 'document', 'webpage'], slideData.type) && !slideData.hasQuestion;
+                var autoSetDone = false;
+                if (!slideData.hasQuestion) {
+                    if (_.contains(['infographic', 'document', 'article'], slideData.category)) {
+                        autoSetDone = true;  // images, documents (local + external) and articles are marked as completed when opened
+                    } else if (slideData.category === 'video' && slideData.videoSourceType === 'google_drive') {
+                        autoSetDone = true;  // google drive videos do not benefit from the YouTube integration and are marked as completed when opened
+                    }
+                }
+                slideData._autoSetDone = autoSetDone;
             });
             return slidesDataList;
         },
@@ -543,70 +649,59 @@
             history.pushState(null, '', fullscreenUrl);
         },
         /**
-         * Render the current slide content using specific mecanism according to slide type:
-         * - simply append content (for webpage)
+         * Render the current slide content using specific mecanism according to slide category:
+         * - simply append content (for article)
          * - template rendering (for image, document, ....)
          * - using a sub widget (quiz and video)
          *
          * @private
          * @returns Deferred
          */
-        _renderSlide: function () {
-            var slide = this.get('slide');
-            var $content = this.$('.o_wslides_fs_content');
-            $content.empty();
-            if (this.websiteAnimateWidget) {
-                this.websiteAnimateWidget.destroy()
-                this.websiteAnimateWidget = null;
-            }
+        _renderSlide: async function () {
+            // Avoid concurrent execution of the slide rendering as it writes the content at the same place anyway.
+            if (this._renderSlideRunning) { return; }
+            this._renderSlideRunning = true;
+            try {
+                var slide = this.get('slide');
+                var $content = this.$('.o_wslides_fs_content');
+                $content.empty();
+                if (this.websiteAnimateWidget) {
+                    this.websiteAnimateWidget.destroy()
+                    this.websiteAnimateWidget = null;
+                }
 
-            // display quiz slide, or quiz attached to a slide
-            if (slide.type === 'quiz' || slide.isQuiz) {
-                $content.addClass('bg-white');
-                var QuizWidget = new Quiz(this, slide, this.channel);
-                return QuizWidget.appendTo($content);
-            }
+                // display quiz slide, or quiz attached to a slide
+                if (slide.category === 'quiz' || slide.isQuiz) {
+                    $content.addClass('bg-white');
+                    var QuizWidget = new Quiz(this, slide, this.channel);
+                    return await QuizWidget.appendTo($content);
+                }
 
-            // render slide content
-            if (_.contains(['document', 'presentation', 'infographic'], slide.type)) {
-                $content.html(QWeb.render('website.slides.fullscreen.content', {widget: this}));
-            } else if (slide.type === 'video') {
-                this.videoPlayer = new VideoPlayer(this, slide);
-                return this.videoPlayer.appendTo($content);
-            } else if (slide.type === 'webpage'){
-                this.websiteAnimateWidget = new publicWidget.registry.WebsiteAnimate();
-                var $wpContainer = $('<div>').addClass('o_wslide_fs_webpage_content bg-white block w-100 overflow-auto');
-                $(slide.htmlContent).appendTo($wpContainer);
-                $content.append($wpContainer);
-                this.trigger_up('widgets_start_request', {
-                    $target: $content,
-                });
-                this.websiteAnimateWidget.attachTo($wpContainer);
+                // render slide content
+                if (_.contains(['document', 'infographic'], slide.category)) {
+                    $content.html(QWeb.render('website.slides.fullscreen.content', {widget: this}));
+                } else if (slide.category === 'video' && slide.videoSourceType === 'youtube') {
+                    this.videoPlayer = new VideoPlayerYouTube(this, slide);
+                    return await this.videoPlayer.appendTo($content);
+                } else if (slide.category === 'video' && slide.videoSourceType === 'vimeo') {
+                    this.videoPlayer = new VideoPlayerVimeo(this, slide);
+                    return await this.videoPlayer.appendTo($content);
+                } else if (slide.category === 'video' && slide.videoSourceType === 'google_drive') {
+                    $content.html(QWeb.render('website.slides.fullscreen.video.google_drive', {widget: this}));
+                } else if (slide.category === 'article'){
+                    this.websiteAnimateWidget = new publicWidget.registry.WebsiteAnimate();
+                    var $wpContainer = $('<div>').addClass('o_wslide_fs_article_content bg-white block w-100 overflow-auto p-3');
+                    $wpContainer.html(slide.htmlContent);
+                    $content.append($wpContainer);
+                    this.trigger_up('widgets_start_request', {
+                        $target: $content,
+                    });
+                    this.websiteAnimateWidget.attachTo($wpContainer);
+                }
+                unhideConditionalElements();
+            } finally {
+                this._renderSlideRunning = false;
             }
-            return Promise.resolve();
-        },
-        /**
-         * Once the completion conditions are filled,
-         * rpc call to set the the relation between the slide and the user as "completed"
-         *
-         * @private
-         * @param {Integer} slideId: the id of slide to set as completed
-         */
-        _setCompleted: function (slideId){
-            var self = this;
-            var slide = findSlide(this.slides, {id: slideId});
-            if (!slide.completed) {  // no useless RPC call
-                return this._rpc({
-                    route: '/slides/slide/set_completed',
-                    params: {
-                        slide_id: slide.id,
-                    }
-                }).then(function (data){
-                    self._markAsCompleted(slideId, data.channel_completion);
-                    return Promise.resolve();
-                });
-            }
-            return Promise.resolve();
         },
         //--------------------------------------------------------------------------
         // Handlers
@@ -615,7 +710,7 @@
          * Triggered whenever the user changes slides.
          * When the current slide is changed, widget will be automatically updated
          * and allowed to: fetch the content if needed, render it, update the url,
-         * and set slide as "completed" according to its type requirements. In
+         * and set slide as "completed" according to its category requirements. In
          * mobile case (i.e. limited screensize), sidebar will be toggled since 
          * sidebar will block most or all of new slide visibility.
          *
@@ -626,7 +721,7 @@
             var slide = this.get('slide');
             self._pushUrlState();
             return this._fetchSlideContent().then(function() { // render content
-                var websiteName = document.title.split(" | ")[1]; // get the website name from title
+                var websiteName = document.title.split(" | ").at(-1); // get the website name from title
                 document.title =  (websiteName) ? slide.name + ' | ' + websiteName : slide.name;
                 if  (config.device.size_class < config.device.SIZES.MD) {
                     self._toggleSidebar(); // hide sidebar when small device screen
@@ -634,11 +729,11 @@
                 return self._renderSlide();
             }).then(function() {
                 if (slide._autoSetDone && !session.is_website_user) {  // no useless RPC call
-                    if (['document', 'presentation'].includes(slide.type)) {
+                    if (slide.category === 'document') {
                         // only set the slide as completed after iFrame is loaded to avoid concurrent execution with 'embedUrl' controller
-                        self.el.querySelector('iframe.o_wslides_iframe_viewer').addEventListener('load', () => self._setCompleted(slide.id));
+                        self.el.querySelector('iframe.o_wslides_iframe_viewer').addEventListener('load', () => self._toggleSlideCompleted(slide));
                     } else {
-                           return self._setCompleted(slide.id);
+                           return self._toggleSlideCompleted(slide);
                     }
                 }
             });
@@ -659,25 +754,35 @@
             this.shareButton._onChangeSlide(newSlide);
         },
         /**
-         * Triggered when subwidget has mark the slide as done, and the UI need to be adapted.
+         * After a slide has been marked as completed / uncompleted, update the state
+         * of this widget and reload the slide if needed (e.g. to re-show the questions
+         * of a quiz).
+         *
+         * We might need to set multiple slide as completed, because of "isQuiz"
+         * set to True / False
          *
          * @private
+         * @param {Object} slide: slide to set as completed
+         * @param {Boolean} completed: true to mark the slide as completed
+         *     false to mark the slide as not completed
          */
-        _onSlideCompleted: function (ev) {
-            var slide = ev.data.slide;
-            var completion = ev.data.completion;
-            this._markAsCompleted(slide.id, completion);
-        },
-        /**
-         * Triggered when sub widget business is done and that slide
-         * can now be marked as done.
-         *
-         * @private
-         */
-        _onSlideToComplete: function (ev) {
-            if (!session.is_website_user) {  // no useless RPC call
-                var slideId = ev.data.id;
-                this._setCompleted(slideId);
+        _toggleSlideCompleted: async function (slide, completed = true) {
+            await this._super(...arguments);
+
+            const slideMatch = _.matcher({id: slide.id});
+            const fsSlides = _.filter(this.slides, slideMatch);
+
+            fsSlides.forEach(slide => slide.completed = completed);
+
+            const currentSlide = this.get('slide');
+            if (currentSlide.id === slide.id) {
+                currentSlide.completed = completed;
+                this.set('slide', currentSlide);
+
+                if ((currentSlide.hasQuestion || currentSlide.type === 'quiz') && !completed) {
+                    // Reload the quiz
+                    this._renderSlide();
+                }
             }
         },
         /**
@@ -706,63 +811,15 @@
             this.$('.o_wslides_fs_sidebar').toggleClass('o_wslides_fs_sidebar_hidden');
             this.$('.o_wslides_fs_toggle_sidebar').toggleClass('active');
         },
-        /**
-         * Triggered when user join a course via a subwidget.
-         * User is already logged in.
-         * Update all slides frontend for fullscreen mode.
-         *
-         * @private
-         */
-         _onJoinCourse: function () {
-            this.slides.forEach((slide) => slide.isMember = true);
-        },
     });
 
     publicWidget.registry.websiteSlidesFullscreenPlayer = publicWidget.Widget.extend({
         selector: '.o_wslides_fs_main',
-        xmlDependencies: ['/website_slides/static/src/xml/website_slides_fullscreen.xml', '/website_slides/static/src/xml/website_slides_share.xml'],
         start: function (){
-            var self = this;
             var proms = [this._super.apply(this, arguments)];
             var fullscreen = new Fullscreen(this, this._getSlides(), this._getCurrentSlideID(), this._extractChannelData());
             proms.push(fullscreen.attachTo(".o_wslides_fs_main"));
-            return Promise.all(proms).then(function () {
-                $('#edit-page-menu a[data-action="edit"]').on('click', self._onWebEditorClick.bind(self));
-                $('a[data-action="translate"]').on('click', self._onTranslateClick.bind(self));
-            });
-        },
-
-        /**
-         * The web editor does not work well with the e-learning fullscreen view.
-         * It actually completely closes the fullscreen view and opens the edition on a blank page.
-         *
-         * To avoid this, we intercept the click on the 'edit' button and redirect to the
-         * non-fullscreen view of this slide with the editor enabled, which is more suited to edit
-         * in-place anyway.
-         *
-         * @param {MouseEvent} e
-         */
-        _onWebEditorClick: function (e) {
-            e.preventDefault();
-            e.stopPropagation();
-
-            window.location = `${window.location.pathname}?fullscreen=0&enable_editor=1`;
-        },
-        /**
-         * The translate button does not work well with the e-learning fullscreen view.
-         * It actually completely closes the fullscreen view and opens the edition on a blank page.
-         *
-         * To avoid this, we intercept the click on the 'translate' button and redirect to the
-         * non-fullscreen view of this slide with the translation mode enabled, which is more suited to translate
-         * in-place anyway.
-         *
-         * @param {MouseEvent} e
-         */
-        _onTranslateClick : function (e) {
-            e.preventDefault();
-            e.stopPropagation();
-
-            window.location = `${window.location.pathname}?fullscreen=0&edit_translations=1`;
+            return proms;
         },
         _extractChannelData: function (){
             return this.$el.data();

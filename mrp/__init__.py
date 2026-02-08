@@ -44,4 +44,3 @@ def uninstall_hook(cr, registry):
             pbm_routes.unlink()
     except:
         pass
-

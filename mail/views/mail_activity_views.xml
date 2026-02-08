@@ -15,11 +15,12 @@
                         <group name="activity_details" string="Activity Settings">
                             <field name="active" invisible="1"/>
                             <field name="category"/>
-                            <field name="default_user_id" options="{'no_create': True, 'no_edit': True}" domain="[('share', '=', False)]"/>
+                            <field name="default_user_id" options="{'no_create': True}" domain="[('share', '=', False)]"/>
                             <field name="res_model" groups="base.group_no_one"/>
+                            <field name="res_model" invisible="1"/>
                             <field name="res_model_change" invisible="1"/>
                             <field name="initial_res_model" invisible="1"/>
-                            <field name="summary"/>
+                            <field name="summary" placeholder="e.g. &quot;Discuss proposal&quot;"/>
                             <field name="icon" groups="base.group_no_one"/>
                             <field name="decoration_type" groups="base.group_no_one"/>
                         </group>
@@ -36,11 +37,9 @@
                                 context="{'default_model': res_model}"/>
                             <label for="delay_count"/>
                             <div>
-                                <div class="o_row">
-                                    <field class="col-1 pl-0 pr-0" name="delay_count"/>
-                                    <field class="col-3 pl-1 pr-1" name="delay_unit"/>
-                                    <field name="delay_from"/>
-                                </div>
+                                <field class="oe_inline pe-1 o_input_3ch" name="delay_count"/>
+                                <field class="oe_inline ps-1 pe-2" name="delay_unit"/>
+                                <field class="oe_inline" name="delay_from"/>
                             </div>
                         </group>
                     </group>
@@ -71,7 +70,7 @@
                 <field name="sequence" widget="handle"/>
                 <field name="name"/>
                 <field name="summary"/>
-                <field name="delay_label" string="Planned in" class="text-right"/>
+                <field name="delay_label" string="Planned in" class="text-end"/>
                 <field name="delay_from" string="Type"/>
                 <field name="res_model" groups="base.group_no_one"/>
                 <field name="icon" groups="base.group_no_one"/>
@@ -99,22 +98,24 @@
         <field name="arch" type="xml">
             <form string="Log an Activity" create="false">
                 <sheet string="Activity">
+                    <div class="oe_button_box" name="button_box" invisible="1">
+                        <button name="action_open_document" string="Open Document"
+                                type="object" class="oe_link" icon="fa-file-text-o"
+                                attrs="{'invisible': ['|', ('res_model', '=', False), ('res_id', '=', 0)]}"/>
+                    </div>
                     <group invisible="1">
                         <field name="activity_category" invisible="1" />
                         <field name="res_model" invisible="1"/>
                         <field name="res_model_id" invisible="1"/>
-                        <field name="res_id" invisible="1" widget="integer"/>
+                        <field name="res_id" invisible="1"/>
                         <field name="chaining_type" invisible="1"/>
                         <field name="previous_activity_type_id"/>
                         <field name="has_recommended_activities"/>
                     </group>
                     <group attrs="{'invisible': [('has_recommended_activities','=',False)]}">
-                        <div class="o_row">
-                            <strong>Recommended Activities</strong>
-                            <field name="recommended_activity_type_id" widget="selection_badge"
-                                domain="[('previous_type_ids', '=', previous_activity_type_id)]"
-                                nolabel="1"/>
-                        </div>
+                        <field name="recommended_activity_type_id" widget="selection_badge"
+                            domain="[('previous_type_ids', '=', previous_activity_type_id)]"
+                            string="Recommended Activities"/>
                     </group>
                     <group>
                         <group>
@@ -160,6 +161,9 @@
                 <field name="res_name" readonly="1" string="Document"/>
             </field>
             <footer position="replace"/>
+            <xpath expr="//div[hasclass('oe_button_box')]" position="attributes">
+                <attribute name="invisible">0</attribute>
+            </xpath>
         </field>
     </record>
 

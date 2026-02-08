@@ -1,6 +1,5 @@
 /** @odoo-module */
 
-import tour from 'web_tour.tour';
 import wTourUtils from 'website.tour_utils';
 
 const snippets = [
@@ -41,14 +40,11 @@ function checkEyesIconAfterSave(footerIsHidden = true) {
     }
     return eyeIconChecks;
 }
-tour.register('conditional_visibility_1', {
-    test: true,
+wTourUtils.registerWebsitePreviewTour('conditional_visibility_1', {
+    edition: true,
     url: '/',
-},
-[{
-    content: "enter edit mode",
-    trigger: 'a[data-action=edit]',
-},
+    test: true,
+}, [
 wTourUtils.dragNDrop(snippets[0]),
 wTourUtils.clickOnSnippet(snippets[0]),
 wTourUtils.changeOption('ConditionalVisibility', 'we-toggler'),
@@ -75,7 +71,8 @@ wTourUtils.changeOption('ConditionalVisibility', 'we-toggler'),
 ...wTourUtils.clickOnSave(),
 {
     content: 'Check if the rule was applied',
-    trigger: 'body:not(.editor_enable) #wrap',
+    extra_trigger: '.o_website_preview:only-child',
+    trigger: 'iframe #wrap',
     run: function (actions) {
         const style = window.getComputedStyle(this.$anchor[0].getElementsByClassName('s_text_image')[0]);
         if (style.display !== 'none') {
@@ -83,10 +80,10 @@ wTourUtils.changeOption('ConditionalVisibility', 'we-toggler'),
         }
     },
 },
-wTourUtils.clickOnEdit(),
+...wTourUtils.clickOnEditAndWaitEditMode(),
 {
     content: 'Check if the element is visible as it should always be visible in edit view',
-    trigger: 'body.editor_enable #wrap .s_text_image',
+    trigger: 'iframe #wrap .s_text_image',
     run: function (actions) {
         const style = window.getComputedStyle((this.$anchor[0]));
         if (style.display === 'none') {
@@ -96,28 +93,12 @@ wTourUtils.clickOnEdit(),
 },
 ]);
 
-tour.register('conditional_visibility_2', {
-    test: true,
-    url: '/?utm_medium=Email',
-},
-[{
-    content: 'The content previously hidden should now be visible',
-    trigger: 'body #wrap',
-    run: function (actions) {
-        const style = window.getComputedStyle(this.$anchor[0].getElementsByClassName('s_text_image')[0]);
-        if (style.display === 'none') {
-            console.error('error This item should now be visible because utm_medium === email');
-        }
-    },
-},
-]);
-
-tour.register("conditional_visibility_3", {
+wTourUtils.registerWebsitePreviewTour("conditional_visibility_3", {
+    edition: true,
     test: true,
     url: "/",
 },
 [
-...wTourUtils.clickOnEditAndWaitEditMode(),
 checkEyeIcon("Text - Image", true),
 // Drag a "Banner" snippet on the website.
 wTourUtils.dragNDrop(snippets[1]),
@@ -140,13 +121,13 @@ wTourUtils.dragNDrop(snippets[2]),
 checkEyeIcon("Popup", false),
 {
     content: "Click on footer",
-    trigger: "body.editor_enable #wrapwrap footer",
+    trigger: "iframe #wrapwrap footer",
 },
 wTourUtils.changeOption("HideFooter", "we-checkbox"),
 checkEyeIcon("Footer", false),
 {
     content: "Click on Header",
-    trigger: "body.editor_enable #wrapwrap header",
+    trigger: "iframe #wrapwrap header",
 },
 wTourUtils.changeOption("TopMenuVisibility", "we-toggler"),
 wTourUtils.changeOption("TopMenuVisibility", '[data-visibility="hidden"]'),
@@ -161,17 +142,17 @@ checkEyeIcon("Banner", false),
 ...checkEyesIconAfterSave(),
 ]);
 
-tour.register("conditional_visibility_4", {
+wTourUtils.registerWebsitePreviewTour("conditional_visibility_4", {
+    edition: true,
     test: true,
     url: "/",
 },
 [
-...wTourUtils.clickOnEditAndWaitEditMode(),
 // Click on the "Text-Image" snippet.
 wTourUtils.clickOnSnippet(snippets[0]),
 {
     content: "Click on the 'move down' option",
-    trigger: "we-button.o_we_user_value_widget.fa-angle-down",
+    trigger: "iframe we-button.o_we_user_value_widget.fa-angle-down",
 },
 ...checkEyesIconAfterSave(),
 {
@@ -185,15 +166,15 @@ wTourUtils.clickOnSnippet(snippets[0]),
 },
 {
     content: "Check that the footer is visible",
-    trigger: "body.editor_enable #wrapwrap footer",
+    trigger: "iframe #wrapwrap footer",
     run: () => {}, // it is a check
 },
 // Click on the "Banner" snippet.
 wTourUtils.clickOnSnippet(snippets[1]),
 {
     content: "Drag the 'Banner' snippet to the end of the page",
-    trigger: ".o_overlay_move_options .ui-draggable-handle",
-    run: "drag_and_drop #wrapwrap footer",
+    trigger: "iframe .o_overlay_move_options .ui-draggable-handle",
+    run: "drag_and_drop iframe #wrapwrap footer",
 },
 ...checkEyesIconAfterSave(false),
 {
@@ -201,4 +182,71 @@ wTourUtils.clickOnSnippet(snippets[1]),
     trigger: ".o_we_invisible_el_panel div:nth-child(3):contains('Text - Image')",
     run: () => {}, // it is a check
 },
+]);
+
+wTourUtils.registerWebsitePreviewTour("conditional_visibility_5", {
+    edition: true,
+    test: true,
+    url: "/",
+}, [
+    wTourUtils.dragNDrop(snippets[0]),
+    {
+        content: "Click on the image of the dragged snippet",
+        trigger: "iframe .s_text_image img",
+    },
+    wTourUtils.changeOption("DeviceVisibility", 'we-button[data-toggle-device-visibility="no_desktop"]'),
+    {
+        content: "Check that the Column has been added in the 'Invisible Elements' panel",
+        trigger: ".o_we_invisible_el_panel .o_we_invisible_entry:contains('Column')",
+        run: () => {}, // it is a check
+    },
+    {
+        content: "Click on the 'Text - Image' snippet",
+        trigger: "iframe .s_text_image",
+    },
+    wTourUtils.changeOption("ConditionalVisibility", 'we-button[data-toggle-device-visibility="no_desktop"]'),
+    {
+        content: "Check that the 'Text - Image' is the parent of 'Column' in the 'Invisible Elements' panel",
+        trigger: ".o_we_invisible_el_panel .o_we_invisible_root_parent.o_we_invisible_entry:contains('Text - Image') + ul .o_we_invisible_entry.o_we_sublevel_1:contains('Column')",
+        run: () => {}, // it is a check
+    },
+    {
+        content: "Click on the 'Text - Image' entry on the 'Invisible Elements' panel",
+        trigger: ".o_we_invisible_el_panel .o_we_invisible_root_parent.o_we_invisible_entry:contains('Text - Image')",
+    },
+    {
+        content: "Check that the snippet is visible on the website",
+        trigger: "iframe .s_text_image.o_snippet_desktop_invisible.o_snippet_override_invisible",
+        run: () => {}, // it is a check
+    },
+    wTourUtils.changeOption("ConditionalVisibility", 'we-button[data-toggle-device-visibility="no_mobile"]'),
+    {
+        content: "Check that the 'Text - Image' has been removed from the 'Invisible Elements' panel",
+        trigger: ".o_we_invisible_el_panel:not(.o_we_invisible_entry:contains('Text - Image'))",
+        run: () => {}, // it is a check
+    },
+    {
+        content: "Click on the 'Column' entry on the 'Invisible Elements' panel",
+        trigger: ".o_we_invisible_el_panel .o_we_invisible_entry:contains('Column')",
+    },
+    {
+        content: "Check that the column is visible on the website",
+        trigger: "iframe .s_text_image .row > .o_snippet_desktop_invisible.o_snippet_override_invisible",
+        run: () => {}, // it is a check
+    },
+    wTourUtils.changeOption("DeviceVisibility", 'we-button[data-toggle-device-visibility="no_mobile"]'),
+    {
+        content: "Check that the column has been removed from the 'Invisible Elements' panel",
+        trigger: "#oe_snippets:not(:has(.o_we_invisible_entry:contains('Column')))",
+        run: () => {}, // it is a check
+    },
+    {
+        content: "Activate mobile preview",
+        trigger: ".o_we_website_top_actions button[data-action='mobile']",
+    },
+    {
+        content: "Check that the 'Text - Image' is the parent of 'Column' in the 'Invisible Elements' panel",
+        trigger: ".o_we_invisible_el_panel .o_we_invisible_root_parent.o_we_invisible_entry:contains('Text - Image') + ul .o_we_invisible_entry.o_we_sublevel_1:contains('Column')",
+        run: () => {}, // it is a check
+    },
 ]);

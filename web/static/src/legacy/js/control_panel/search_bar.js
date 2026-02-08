@@ -3,13 +3,13 @@ odoo.define('web.SearchBar', function (require) {
 
     const Domain = require('web.Domain');
     const field_utils = require('web.field_utils');
-    const { useAutofocus } = require('web.custom_hooks');
+    const { useAutofocus } = require("@web/core/utils/hooks");
     const { useModel } = require('web.Model');
     const { fuzzyTest } = require('@web/core/utils/search');
+    const { LegacyComponent } = require("@web/legacy/legacy_component");
 
+    const { onMounted, onWillUnmount, toRaw, useExternalListener, useState } = owl;
     const CHAR_FIELDS = ['char', 'html', 'many2many', 'many2one', 'one2many', 'text'];
-    const { Component, hooks } = owl;
-    const { useExternalListener, useRef, useState } = hooks;
 
     let sourceId = 0;
 
@@ -37,12 +37,9 @@ odoo.define('web.SearchBar', function (require) {
      *    records having this exact value.
      * @extends Component
      */
-    class SearchBar extends Component {
-        constructor() {
-            super(...arguments);
-
-            this.focusOnUpdate = useAutofocus();
-            this.inputRef = useRef('search-input');
+    class SearchBar extends LegacyComponent {
+        setup() {
+            this.inputRef = useAutofocus();
             this.model = useModel('searchModel');
             this.state = useState({
                 sources: [],
@@ -57,19 +54,21 @@ odoo.define('web.SearchBar', function (require) {
 
             useExternalListener(window, 'click', this._onWindowClick);
             useExternalListener(window, 'keydown', this._onWindowKeydown);
-        }
 
-        mounted() {
-            // 'search' will always patch the search bar, 'focus' will never.
-            this.env.searchModel.on('search', this, this.focusOnUpdate);
-            this.env.searchModel.on('focus-control-panel', this, () => {
-                this.inputRef.el.focus();
+            onMounted(() => {
+                // 'search' will always patch the search bar, 'focus' will never.
+                this.model.on('search', this, () => {
+                    this.inputRef.el.focus();
+                });
+                this.model.on('focus-control-panel', this, () => {
+                    this.inputRef.el.focus();
+                });
             });
-        }
 
-        willUnmount() {
-            this.env.searchModel.off('search', this);
-            this.env.searchModel.off('focus-control-panel', this);
+            onWillUnmount(() => {
+                this.model.off('search', this);
+                this.model.off('focus-control-panel', this);
+            });
         }
 
         //---------------------------------------------------------------------
@@ -84,7 +83,7 @@ odoo.define('web.SearchBar', function (require) {
             this.state.focusedItem = 0;
             this.state.inputValue = "";
             this.inputRef.el.value = "";
-            this.focusOnUpdate();
+            this.inputRef.el.focus();
         }
 
         /**
@@ -93,7 +92,7 @@ odoo.define('web.SearchBar', function (require) {
          * @returns {Object}
          */
         _createSource(filter) {
-            const field = this.props.fields[filter.fieldName];
+            const field = toRaw(this.props.fields)[filter.fieldName];
             const type = field.type === "reference" ? "char" : field.type;
             const source = {
                 active: true,
@@ -164,7 +163,7 @@ odoo.define('web.SearchBar', function (require) {
                 if (typeof args === 'string') {
                     try {
                         args = Domain.prototype.stringToArray(args);
-                    } catch (err) {
+                    } catch (_err) {
                         args = [];
                     }
                 }
@@ -296,7 +295,7 @@ odoo.define('web.SearchBar', function (require) {
         _validateSource(query, source) {
             try {
                 this._parseWithSource(query, source);
-            } catch (err) {
+            } catch (_err) {
                 return false;
             }
             return true;
@@ -486,7 +485,7 @@ odoo.define('web.SearchBar', function (require) {
         fields: {},
     };
     SearchBar.props = {
-        fields: Object,
+        fields: { type: Object, optional: true },
     };
     SearchBar.template = 'web.Legacy.SearchBar';
 

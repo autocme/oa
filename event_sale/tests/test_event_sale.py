@@ -49,10 +49,7 @@ class TestEventSale(TestEventSaleCommon):
         cls.env['sale.order.line'].create({
             'product_id': product.id,
             'price_unit': 190.50,
-            'product_uom': cls.env.ref('uom.product_uom_unit').id,
-            'product_uom_qty': 1.0,
             'order_id': cls.sale_order.id,
-            'name': 'sales order line',
             'event_id': cls.event_0.id,
             'event_ticket_id': cls.ticket.id,
         })
@@ -149,6 +146,8 @@ class TestEventSale(TestEventSaleCommon):
             'email': 'manual.email.2@test.example.com',
             'mobile': '+32456222222',
         })
+
+        self.assertFalse(editor.seats_available_insufficient)
         editor.action_make_registration()
 
         # check editor correctly created new registrations with information coming from it or SO as fallback
@@ -169,19 +168,26 @@ class TestEventSale(TestEventSaleCommon):
         )
         self.assertEqual(
             set(ticket1_new_reg.mapped('phone')),
-            set(['+32456111111', self.event_customer.phone])
+            set(['+32456111111', self.event_customer._phone_format(self.event_customer.phone)])
         )
         self.assertEqual(
             set(ticket1_new_reg.mapped('mobile')),
-            set(['+32456222222', self.event_customer.mobile])
+            set(['+32456222222', self.event_customer._phone_format(self.event_customer.mobile)])
         )
-        for field in ['name', 'email', 'phone', 'mobile']:
+        for field in ['name', 'email']:
             self.assertEqual(ticket2_new_reg[field], self.event_customer[field])
+        for field in ['phone', 'mobile']:
+            self.assertEqual(ticket2_new_reg[field], self.event_customer._phone_format(self.event_customer[field]))
 
         # ADDING MANUAL LINES ON SO
         # ------------------------------------------------------------
 
         ticket2_line.write({'product_uom_qty': 3})
+
+        # Whenever the quantity is modified the price is recomputed in function of the ticket,
+        # so we reapply the wanted price.
+        ticket2_line.write({'price_unit': 50})
+
         editor_action = customer_so.action_confirm()
         self.assertEqual(customer_so.state, 'sale')
         self.assertEqual(customer_so.amount_untaxed, TICKET1_COUNT * 10 + (TICKET2_COUNT + 2) * 50)
@@ -194,6 +200,204 @@ class TestEventSale(TestEventSaleCommon):
 
         self.assertEqual(editor_action['type'], 'ir.actions.act_window')
         self.assertEqual(editor_action['res_model'], 'registration.editor')
+
+    @users('user_sales_salesman')
+    def test_event_sale_free_confirm(self):
+        """Check that even with the event's `no_confirm`, free registrations are immediately
+        confirmed if the seats are available.
+        """
+        TICKET_COUNT = 3
+        customer_so = self.customer_so.with_user(self.env.user)
+        ticket = self.event_0.event_ticket_ids[0]
+
+        # Limiting seats
+        self.event_0.write({
+            "auto_confirm": False,
+            "seats_limited": True,
+            "seats_max": 5
+        })
+
+        customer_so.write({
+            'order_line': [
+                (0, 0, {
+                    'event_id': self.event_0.id,
+                    'event_ticket_id': ticket.id,
+                    'product_id': ticket.product_id.id,
+                    'product_uom_qty': TICKET_COUNT,
+                    'price_unit': 0,
+                })
+            ]
+        })
+
+        editor = self.env['registration.editor'].with_context({
+            'default_sale_order_id': customer_so.id
+        }).create({})
+
+        self.assertFalse(editor.seats_available_insufficient)
+
+        editor.action_make_registration()
+        self.assertEqual(len(self.event_0.registration_ids), TICKET_COUNT)
+        self.assertTrue(all(reg.state == "open" for reg in self.event_0.registration_ids))
+
+    @users('user_sales_salesman')
+    def test_event_sale_free_full_event_no_confirm(self):
+        """Check that even free registrations are not immediately confirmed if there are not
+        enough seats available for the event.
+        """
+        TICKET_COUNT = 3
+        customer_so = self.customer_so.with_user(self.env.user)
+        ticket = self.event_0.event_ticket_ids[0]
+
+        # Limiting event seats
+        self.event_0.write({
+            "auto_confirm": False,
+            "seats_limited": True,
+            "seats_max": 2
+        })
+
+        # adding too many tickets to SO in two different lines
+        customer_so.write({
+            'order_line': [
+                (0, 0, {
+                    'event_id': self.event_0.id,
+                    'event_ticket_id': ticket.id,
+                    'product_id': ticket.product_id.id,
+                    'product_uom_qty': TICKET_COUNT - 1,
+                    'price_unit': 0,
+                }),
+                (0, 0, {
+                    'event_id': self.event_0.id,
+                    'event_ticket_id': ticket.id,
+                    'product_id': ticket.product_id.id,
+                    'product_uom_qty': 1,
+                    'price_unit': 0,
+                })
+            ]
+        })
+
+        editor = self.env['registration.editor'].with_context({
+            'default_sale_order_id': customer_so.id
+        }).create({})
+
+        self.assertTrue(editor.seats_available_insufficient)
+
+        editor.action_make_registration()
+        self.assertEqual(len(self.event_0.registration_ids), TICKET_COUNT)
+        self.assertTrue(all(reg.state == "draft" for reg in self.event_0.registration_ids))
+
+    @users('user_sales_salesman')
+    def test_event_sale_free_full_ticket_no_confirm(self):
+        """Check that even free registrations are not immediately confirmed if there are not enough
+        seats available for the requested tickets.
+        """
+        TICKET_COUNT = 3
+        customer_so = self.customer_so.with_user(self.env.user)
+        ticket = self.event_0.event_ticket_ids[0]
+
+        self.event_0.write({"auto_confirm": False})
+        # Limiting ticket seats
+        ticket.write({
+            "seats_limited": True,
+            "seats_max": 2,
+        })
+        # adding too many tickets to SO in two different lines
+        customer_so.write({
+            'order_line': [
+                (0, 0, {
+                    'event_id': self.event_0.id,
+                    'event_ticket_id': ticket.id,
+                    'product_id': ticket.product_id.id,
+                    'product_uom_qty': TICKET_COUNT - 1,
+                    'price_unit': 0,
+                }),
+                (0, 0, {
+                    'event_id': self.event_0.id,
+                    'event_ticket_id': ticket.id,
+                    'product_id': ticket.product_id.id,
+                    'product_uom_qty': 1,
+                    'price_unit': 0,
+                })
+            ]
+        })
+
+        editor = self.env['registration.editor'].with_context({
+            'default_sale_order_id': customer_so.id
+        }).create({})
+
+        self.assertTrue(editor.seats_available_insufficient)
+
+        editor.action_make_registration()
+        self.assertEqual(len(self.event_0.registration_ids), TICKET_COUNT)
+        self.assertTrue(all(reg.state == "draft" for reg in self.event_0.registration_ids))
+
+    def test_ticket_price_with_currency_conversion(self):
+        def _prepare_currency(self, currency_name):
+            currency = self.env['res.currency'].with_context(active_test=False).search(
+                [('name', '=', currency_name)]
+            )
+            currency.action_unarchive()
+            return currency
+
+        currency_VEF = _prepare_currency(self, 'VEF')
+        currency_USD = _prepare_currency(self, 'USD')
+
+        company_test = self.env['res.company'].create({
+            'name': 'TestCompany',
+            'country_id': self.env.ref('base.be').id,
+            'currency_id': currency_USD.id,
+        })
+        self.env.user.company_ids += company_test
+        self.env.user.company_id = company_test
+
+        pricelist_USD = self.env['product.pricelist'].create({
+            'name': 'pricelist_USD',
+            'currency_id': currency_USD.id,
+        })
+        pricelist_VEF = self.env['product.pricelist'].create({
+            'name': 'pricelist_VEF',
+            'currency_id': currency_VEF.id,
+        })
+
+        event_product = self.env['product.template'].create({
+            'name': 'Event Product',
+            'list_price': 10.0,
+            'taxes_id': False,
+        })
+
+        event = self.env['event.event'].create({
+            'name': 'New Event',
+            'date_begin': '2020-02-02',
+            'date_end': '2020-04-04',
+        })
+        event_ticket = self.env['event.event.ticket'].create({
+            'name': 'VIP',
+            'price': 1000.0,
+            'event_id': event.id,
+            'product_id': event_product.product_variant_id.id,
+        })
+
+        so = self.env['sale.order'].create({
+            'partner_id': self.env.user.partner_id.id,
+            'pricelist_id': pricelist_USD.id,
+        })
+        self.env['sale.order.line'].create({
+            'product_id': event_product.product_variant_id.id,
+            'order_id': so.id,
+            'event_id': event.id,
+            'event_ticket_id': event_ticket.id,
+        })
+        self.assertEqual(so.amount_total, event_ticket.price)
+
+        so.pricelist_id = pricelist_VEF
+        so.action_update_prices()
+
+        self.assertAlmostEqual(
+            so.amount_total,
+            currency_USD._convert(
+                event_ticket.price, currency_VEF, self.env.user.company_id, so.date_order
+            ),
+            delta=1,
+        )
 
     def test_ticket_price_with_pricelist_and_tax(self):
         self.env.user.partner_id.country_id = False
@@ -238,16 +442,11 @@ class TestEventSale(TestEventSaleCommon):
             'pricelist_id': pricelist.id,
         })
         sol = self.env['sale.order.line'].create({
-            'name': event.name,
             'product_id': event_product.product_variant_id.id,
-            'product_uom_qty': 1,
-            'product_uom': event_product.uom_id.id,
-            'price_unit': event_product.list_price,
             'order_id': so.id,
             'event_id': event.id,
             'event_ticket_id': event_ticket.id,
         })
-        sol.product_id_change()
         self.assertEqual(so.amount_total, 660.0, "Ticket is $1000 but the event product is on a pricelist 10 -> 6. So, $600 + a 10% tax.")
 
     @users('user_salesman')
@@ -277,7 +476,7 @@ class TestEventSale(TestEventSaleCommon):
         event = self.env['event.event'].browse(self.event_0.ids)
         self.register_person.action_make_registration()
         self.assertEqual(event.seats_expected, 1)
-        self.sale_order.action_cancel()
+        self.sale_order._action_cancel()
         self.assertEqual(event.seats_expected, 0)
 
     @users('user_salesman')

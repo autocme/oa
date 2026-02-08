@@ -7,8 +7,7 @@ import { registry } from "../registry";
 import { useService } from "@web/core/utils/hooks";
 import { capitalize } from "../utils/strings";
 
-const { hooks } = owl;
-const { useState } = hooks;
+import { Component, useState, markup } from "@odoo/owl";
 
 export const odooExceptionTitleMap = new Map(
     Object.entries({
@@ -27,9 +26,8 @@ export const odooExceptionTitleMap = new Map(
 // -----------------------------------------------------------------------------
 // Generic Error Dialog
 // -----------------------------------------------------------------------------
-export class ErrorDialog extends Dialog {
+export class ErrorDialog extends Component {
     setup() {
-        super.setup();
         this.state = useState({
             showTraceback: false,
         });
@@ -40,8 +38,8 @@ export class ErrorDialog extends Dialog {
         );
     }
 }
-ErrorDialog.contentClass = "o_dialog_error";
-ErrorDialog.bodyTemplate = "web.ErrorDialogBody";
+ErrorDialog.template = "web.ErrorDialog";
+ErrorDialog.components = { Dialog };
 ErrorDialog.title = _lt("Odoo Error");
 
 // -----------------------------------------------------------------------------
@@ -65,7 +63,7 @@ export class RPCErrorDialog extends ErrorDialog {
         this.inferTitle();
         this.traceback = this.props.traceback;
         if (this.props.data && this.props.data.debug) {
-            this.traceback = `${this.props.data.debug}`;
+            this.traceback = `${this.props.data.debug}\nThe above server error caused the following client error:\n${this.traceback}`;
         }
     }
     inferTitle() {
@@ -75,7 +73,9 @@ export class RPCErrorDialog extends ErrorDialog {
             return;
         }
         // Fall back to a name based on the error type.
-        if (!this.props.type) return;
+        if (!this.props.type) {
+            return;
+        }
         switch (this.props.type) {
             case "server":
                 this.title = this.env._t("Odoo Server Error");
@@ -99,11 +99,9 @@ export class RPCErrorDialog extends ErrorDialog {
 // -----------------------------------------------------------------------------
 // Warning Dialog
 // -----------------------------------------------------------------------------
-export class WarningDialog extends Dialog {
+export class WarningDialog extends Component {
     setup() {
-        super.setup();
-        this.title = this.env._t("Odoo Warning");
-        this.inferTitle();
+        this.title = this.inferTitle();
         const { data, message } = this.props;
         if (data && data.arguments && data.arguments.length > 0) {
             this.message = data.arguments[0];
@@ -113,59 +111,61 @@ export class WarningDialog extends Dialog {
     }
     inferTitle() {
         if (this.props.exceptionName && odooExceptionTitleMap.has(this.props.exceptionName)) {
-            this.title = odooExceptionTitleMap.get(this.props.exceptionName).toString();
+            return odooExceptionTitleMap.get(this.props.exceptionName).toString();
         }
+        return this.props.title || this.env._t("Odoo Warning");
     }
 }
-WarningDialog.bodyTemplate = "web.WarningDialogBody";
+WarningDialog.template = "web.WarningDialog";
+WarningDialog.components = { Dialog };
 
 // -----------------------------------------------------------------------------
 // Redirect Warning Dialog
 // -----------------------------------------------------------------------------
-export class RedirectWarningDialog extends Dialog {
+export class RedirectWarningDialog extends Component {
     setup() {
-        super.setup();
         this.actionService = useService("action");
         const { data, subType } = this.props;
-        const [message, actionId, buttonText, additional_context] = data.arguments;
+        const [message, actionId, buttonText, additionalContext] = data.arguments;
         this.title = capitalize(subType) || this.env._t("Odoo Warning");
         this.message = message;
         this.actionId = actionId;
         this.buttonText = buttonText;
-        this.additionalContext = additional_context;
+        this.additionalContext = additionalContext;
     }
     async onClick() {
         const options = {};
         if (this.additionalContext) {
             options.additionalContext = this.additionalContext;
         }
+        if (this.actionId.help) {
+            this.actionId.help = markup(this.actionId.help);
+        }
         await this.actionService.doAction(this.actionId, options);
-        this.close();
-    }
-    onCancel() {
-        this.close();
+        this.props.close();
     }
 }
-RedirectWarningDialog.bodyTemplate = "web.RedirectWarningDialogBody";
-RedirectWarningDialog.footerTemplate = "web.RedirectWarningDialogFooter";
+RedirectWarningDialog.template = "web.RedirectWarningDialog";
+RedirectWarningDialog.components = { Dialog };
 
 // -----------------------------------------------------------------------------
 // Error 504 Dialog
 // -----------------------------------------------------------------------------
-export class Error504Dialog extends Dialog {}
-Error504Dialog.bodyTemplate = "web.Error504DialogBody";
+export class Error504Dialog extends Component {}
+Error504Dialog.template = "web.Error504Dialog";
+Error504Dialog.components = { Dialog };
 Error504Dialog.title = _lt("Request timeout");
 
 // -----------------------------------------------------------------------------
 // Expired Session Error Dialog
 // -----------------------------------------------------------------------------
-export class SessionExpiredDialog extends Dialog {
+export class SessionExpiredDialog extends Component {
     onClick() {
         browser.location.reload();
     }
 }
-SessionExpiredDialog.bodyTemplate = "web.SessionExpiredDialogBody";
-SessionExpiredDialog.footerTemplate = "web.SessionExpiredDialogFooter";
+SessionExpiredDialog.template = "web.SessionExpiredDialog";
+SessionExpiredDialog.components = { Dialog };
 SessionExpiredDialog.title = _lt("Odoo Session Expired");
 
 registry

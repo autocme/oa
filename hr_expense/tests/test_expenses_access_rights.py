@@ -72,6 +72,8 @@ class TestExpensesAccessRights(TestExpenseCommon):
                 }),
             ],
         })
+        self.env.flush_all()
+
         self.assertRecordValues(expense_sheet, [{'state': 'draft'}])
 
         # The expense employee shouldn't be able to bypass the submit state.
@@ -100,13 +102,13 @@ class TestExpensesAccessRights(TestExpenseCommon):
 
         # An expense manager is not able to create the journal entry.
 
-        with self.assertRaises(UserError):
+        with self.assertRaises(AccessError):
             expense_sheet.with_user(self.expense_user_manager).action_sheet_move_create()
         self.assertRecordValues(expense_sheet, [{'state': 'approve'}])
 
         # An expense manager having accounting access rights is able to create the journal entry.
 
-        expense_sheet.with_user(self.env.user).action_sheet_move_create()
+        expense_sheet.with_user(self.accountant_user).action_sheet_move_create()
         self.assertRecordValues(expense_sheet, [{'state': 'post'}])
 
     def test_expense_sheet_access_rights_refuse(self):

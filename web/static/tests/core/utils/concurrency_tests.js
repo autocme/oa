@@ -1,6 +1,6 @@
 /** @odoo-module **/
 
-import { Mutex, KeepLast, Race } from "@web/core/utils/concurrency";
+import { Deferred, Mutex, KeepLast, Race } from "@web/core/utils/concurrency";
 import { nextTick, makeDeferred } from "../../helpers/utils";
 
 QUnit.module("utils", () => {
@@ -118,6 +118,21 @@ QUnit.module("utils", () => {
         await nextTick();
 
         assert.verifySteps(["mutex unlocked (2)", "ok [2]"]);
+    });
+
+    QUnit.test("Mutex: error and getUnlockedDef", async function (assert) {
+        const mutex = new Mutex();
+        const action = async () => {
+            await Promise.resolve();
+            throw new Error("boom");
+        };
+        mutex.exec(action).catch(() => assert.step("prom rejected"));
+        await nextTick();
+        assert.verifySteps(["prom rejected"]);
+
+        mutex.getUnlockedDef().then(() => assert.step("mutex unlocked"));
+        await nextTick();
+        assert.verifySteps(["mutex unlocked"]);
     });
 
     QUnit.test("KeepLast: basic use", async function (assert) {
@@ -409,5 +424,19 @@ QUnit.module("utils", () => {
         await nextTick();
         assert.verifySteps(["ok (44)"]);
         assert.strictEqual(race.getCurrentProm(), null);
+    });
+
+    QUnit.test("Deferred: basic use", async function (assert) {
+        const def1 = new Deferred();
+        def1.then((v) => assert.step(`ok (${v})`));
+        def1.resolve(44);
+        await nextTick();
+        assert.verifySteps(["ok (44)"]);
+
+        const def2 = new Deferred();
+        def2.catch((v) => assert.step(`ko (${v})`));
+        def2.reject(44);
+        await nextTick();
+        assert.verifySteps(["ko (44)"]);
     });
 });

@@ -2,10 +2,9 @@
 <templates xml:space="preserve">
 
   <t t-name="web.NavBar" owl="1">
-    <header>
+    <header class="o_navbar" t-ref="root">
       <nav
         class="o_main_navbar"
-        t-on-dropdown-item-selected="onNavBarDropdownItemSelection"
         data-command-category="navbar"
       >
         <!-- Apps Menu -->
@@ -14,28 +13,28 @@
         </t>
 
         <!-- App Brand -->
-        <MenuItem
-          t-if="currentApp and !env.isSmall"
+        <DropdownItem
+          t-if="currentApp"
           href="getMenuItemHref(currentApp)"
-          payload="currentApp"
           t-esc="currentApp.name"
-          class="o_menu_brand"
-          t-ref="menuBrand"
+          class="'o_menu_brand d-none d-md-block'"
+          dataset="{ menuXmlid: currentApp.xmlid, section: currentApp.id }"
+          onSelected="() => this.onNavBarDropdownItemSelection(currentApp)"
         />
 
         <!-- Current App Sections -->
-        <t t-if="currentAppSections.length and !env.isSmall" t-call="web.NavBar.SectionsMenu">
+        <t t-if="currentAppSections.length" t-call="web.NavBar.SectionsMenu">
           <t t-set="sections" t-value="currentAppSections" />
         </t>
 
         <!-- Systray -->
-        <div class="o_menu_systray" role="menu">
+        <div class="o_menu_systray d-flex flex-shrink-0 ms-auto" role="menu">
           <t t-foreach="systrayItems" t-as="item" t-key="item.key">
-            <NotUpdatable>
-                <ErrorHandler onError="error => handleItemError(error, item)">
-                    <t t-component="item.Component" t-props="item.props" />
-                </ErrorHandler>
-            </NotUpdatable>
+            <!-- This ensures the correct order of the systray items -->
+            <div t-att-data-index="item.index"/>
+            <ErrorHandler onError="error => this.handleItemError(error, item)">
+                <t t-component="item.Component" t-props="item.props"/>
+            </ErrorHandler>
           </t>
         </div>
       </nav>
@@ -43,25 +42,25 @@
   </t>
 
   <t t-name="web.NavBar.AppsMenu" owl="1">
-    <Dropdown hotkey="'h'" title="'Home Menu'" class="o_navbar_apps_menu">
+    <Dropdown hotkey="'h'" title="'Home Menu'" class="'o_navbar_apps_menu'">
       <t t-set-slot="toggler">
-        <i class="fa fa-th-large" />
+        <i class="oi oi-apps" />
       </t>
-      <MenuItem
+      <DropdownItem
         t-foreach="apps"
         t-as="app"
         t-key="app.id"
-        class="o_app"
-        t-att-class="{ focus: menuService.getCurrentApp() === app }"
+        class="{ 'o_app': true, focus: menuService.getCurrentApp() === app }"
         href="getMenuItemHref(app)"
-        payload="app"
-        t-esc="app.name" 
+        t-esc="app.name"
+        dataset="{ menuXmlid: app.xmlid, section: app.id }"
+        onSelected="() => this.onNavBarDropdownItemSelection(app)"
       />
     </Dropdown>
   </t>
 
   <t t-name="web.NavBar.SectionsMenu" owl="1">
-    <div class="o_menu_sections" t-ref="appSubMenus" role="menu">
+    <div class="o_menu_sections d-none d-md-flex flex-grow-1 flex-shrink-1" t-ref="appSubMenus" role="menu">
 
       <t t-foreach="sections" t-as="section" t-key="section.id">
         <t
@@ -77,13 +76,14 @@
         </t>
 
         <t t-if="!section.childrenTree.length">
-          <MenuItem
+          <DropdownItem
             title="section.name"
-            class="o_nav_entry"
-            payload="section"
+            class="'o_nav_entry'"
             href="getMenuItemHref(section)"
             hotkey="hotkey"
             t-esc="section.name"
+            dataset="{ menuXmlid: section.xmlid, section: section.id }"
+            onSelected="() => this.onNavBarDropdownItemSelection(section)"
           />
         </t>
         <t t-else="">
@@ -113,17 +113,26 @@
     </div>
   </t>
 
+  <t t-name="web.NavBar.DropdownItem" t-inherit="web.DropdownItem" t-inherit-mode="primary" owl="1">
+    <xpath expr="//t[@t-tag]" position="attributes">
+      <attribute name="t-att-style">props.style</attribute>
+    </xpath>
+  </t>
+
   <t t-name="web.NavBar.SectionsMenu.Dropdown.MenuSlot" owl="1">
     <t t-set="style" t-value="`padding-left: ${decalage}px;`" />
     <t t-foreach="items" t-as="item" t-key="item.id">
-      <MenuItem
+      <DropdownItem
         t-if="!item.childrenTree.length"
-        payload="item"
         href="getMenuItemHref(item)"
-        class="dropdown-item"
-        t-att-class="{ o_dropdown_menu_group_entry: decalage gt 20 }"
-        t-att-style="style"
-        t-esc="item.name" 
+        class="{
+          'dropdown-item': true,
+          o_dropdown_menu_group_entry: decalage gt 20
+        }"
+        style="style"
+        t-esc="item.name"
+        dataset="{ menuXmlid: item.xmlid, section: item.id }"
+        onSelected="() => this.onNavBarDropdownItemSelection(item)"
       />
 
       <t t-else="">
@@ -137,18 +146,19 @@
   </t>
 
   <t t-name="web.NavBar.SectionsMenu.MoreDropdown" owl="1">
-    <Dropdown class="o_menu_sections_more" title="'More Menu'" hotkey="hotkey">
+    <Dropdown class="'o_menu_sections_more'" title="'More Menu'" hotkey="hotkey">
       <t t-set-slot="toggler">
-        <i class="fa fa-plus" />
+        <i class="fa fa-plus"/>
       </t>
       <t t-foreach="sections" t-as="section" t-key="section.id">
 
         <t t-if="!section.childrenTree.length">
-          <MenuItem
-            class="o_more_dropdown_section"
-            payload="section"
+          <DropdownItem
+            class="'o_more_dropdown_section'"
             href="getMenuItemHref(section)"
             t-esc="section.name"
+            dataset="{ menuXmlid: section.xmlid, section: section.id }"
+            onSelected="() => this.onNavBarDropdownItemSelection(section)"
           />
         </t>
         <t t-else="">

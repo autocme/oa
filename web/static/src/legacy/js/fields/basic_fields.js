@@ -17,6 +17,7 @@ var dom = require('web.dom');
 var Domain = require('web.Domain');
 var DomainSelector = require('web.DomainSelector');
 var DomainSelectorDialog = require('web.DomainSelectorDialog');
+var ModelFieldSelectorPopover = require("web.ModelFieldSelectorPopover");
 var framework = require('web.framework');
 var py_utils = require('web.py_utils');
 var session = require('web.session');
@@ -70,6 +71,100 @@ var TranslatableFieldMixin = {
             id: this.dataPointID,
             isComingFromTranslationAlert: false,
         });
+    },
+};
+
+var DynamicPlaceholderFieldMixin = {
+    DYNAMIC_PLACEHOLDER_TRIGGER_KEY: '#',
+    /**
+     * Overridable method that ensure the modelSelectorPopover is
+     * positioned properly.
+     *
+     * @public
+     * @param {ModelFieldSelectorPopover} modelSelector
+     */
+    positionModelSelector: function (modelSelector) {
+        let relativeParent = this.el.closest('div.modal-content');
+        if (!relativeParent) {
+            relativeParent = this.el;
+            while(!relativeParent || !['absolute', 'relative'].includes(getComputedStyle(relativeParent).position)) {
+                relativeParent = relativeParent.offsetParent;
+            }
+        }
+
+        const relatedElementPosition = this.el.getBoundingClientRect();
+        const relativeParentPosition = relativeParent.getBoundingClientRect();
+
+        let topPosition = relatedElementPosition.top + relatedElementPosition.height - relativeParentPosition.top
+        let leftPosition = relatedElementPosition.left - relativeParentPosition.left;
+
+        modelSelector.el.style.top = topPosition + 'px';
+        modelSelector.el.style.left = leftPosition + 'px';
+    },
+    /**
+     * Open and return new Model Field Selector with the provided options
+     *
+     * @private
+     * @param {String} baseModel
+     * @param {Array} chain
+     * @param {Function} onFieldChanged
+     * @param {Function} onFieldCancel
+     *
+     * @returns {ModelFieldSelectorPopover}
+     */
+    _openNewModelSelector: async function (baseModel, chain, onFieldChanged = null, onFieldCancel = null) {
+        const triggerKeyReplaceRegex = new RegExp(`${this.DYNAMIC_PLACEHOLDER_TRIGGER_KEY}$`);
+
+        const modelSelector = new ModelFieldSelectorPopover(
+            this,
+            baseModel,
+            [],
+            {
+                readonly: false,
+                needDefaultValue: true,
+                cancelOnEscape: true,
+                chainedTitle: true,
+                filter: (model) => !["one2many", "boolean", "many2many"].includes(model.type)
+            }
+        );
+        if (!onFieldChanged) {
+            onFieldChanged = (ev) => {
+                this.$el.focus();
+                if (ev.data.chain.length) {
+                    let dynamicPlaceholder = "{{object." + ev.data.chain.join('.');
+                    const defaultValue = ev.data.defaultValue;
+                    dynamicPlaceholder += defaultValue && defaultValue !== '' ? ` or '''${defaultValue}'''}}` : '}}';
+                    this.el.value =
+                        this.el.value.replace(triggerKeyReplaceRegex, '') + dynamicPlaceholder;
+                }
+                modelSelector.destroy();
+            };
+        }
+
+        if (onFieldCancel === null) {
+            onFieldCancel = () => {
+                this.$el.focus();
+                modelSelector.destroy();
+            };
+
+        }
+
+        modelSelector.on("field_chain_changed", undefined, onFieldChanged);
+        modelSelector.on("field_chain_cancel", undefined, onFieldCancel);
+
+        // If we are inside a modal environment,
+        // we need to append the ModelFieldSelectorPopover outside the
+        // modal body, to be sure the overflow will be visible.
+        const modalParent = this.el.closest('div.modal-content');
+        if (modalParent) {
+            await modelSelector.appendTo(modalParent);
+        } else {
+            await modelSelector.insertAfter(this.el);
+        }
+        this.positionModelSelector(modelSelector);
+
+        modelSelector.open(chain, true);
+        return modelSelector;
     },
 };
 
@@ -517,7 +612,7 @@ var NumericField = InputField.extend({
                 value = this._formatValue(value);
                 // Set the computed value in the input
                 this.$input.val(value);
-            } catch (err) {
+            } catch (_err) {
                 // in case of exception, set value as the original value
                 // that way the Webclient will show an error as
                 // it is expecting a numeric value.
@@ -568,7 +663,7 @@ var NumericField = InputField.extend({
     },
 });
 
-var FieldChar = InputField.extend(TranslatableFieldMixin, {
+var FieldChar = InputField.extend(TranslatableFieldMixin, DynamicPlaceholderFieldMixin, {
     description: _lt("Text"),
     className: 'o_field_char',
     tagName: 'span',
@@ -579,6 +674,38 @@ var FieldChar = InputField.extend(TranslatableFieldMixin, {
     // Private
     //--------------------------------------------------------------------------
 
+
+    /**
+     * @override
+     */
+    init: function () {
+        this._super(...arguments);
+        if (this.nodeOptions && this.nodeOptions.dynamic_placeholder) {
+            // When the dynamic placeholder is active, the recordData
+            // need to be updated when `mailing_model_real` change
+            this.resetOnAnyFieldChange = true;
+        }
+    },
+    /**
+     * Open the dynamic placeholder if trigger key match
+     *
+     * @private
+     * @override
+     * @param {KeyboardEvent} ev
+     */
+    async _onKeydown(ev) {
+        this._super(...arguments);
+        if (this.nodeOptions &&
+            this.nodeOptions.dynamic_placeholder &&
+            ev.key === this.DYNAMIC_PLACEHOLDER_TRIGGER_KEY) {
+            ev.preventDefault();
+            const baseModel = this.recordData && this.recordData.mailing_model_real ? this.recordData.mailing_model_real : undefined;
+            if (baseModel) {
+                await this._openNewModelSelector(baseModel);
+            }
+            this.el.value += ev.key;
+        }
+    },
     /**
      * Add translation button
      *
@@ -612,46 +739,6 @@ var FieldChar = InputField.extend(TranslatableFieldMixin, {
     },
 });
 
-var LinkButton = AbstractField.extend({
-    events: _.extend({}, AbstractField.prototype.events, {
-        'click': '_onClick'
-    }),
-    //--------------------------------------------------------------------------
-    // Private
-    //--------------------------------------------------------------------------
-
-    /**
-     * Display button
-     * @override
-     * @private
-     */
-    _render: function () {
-        if (this.value) {
-            var className = this.attrs.icon || 'fa-globe';
-
-            this.$el.html("<span role='img'/>");
-            this.$el.addClass("fa "+ className);
-            this.$el.attr('title', this.value);
-            this.$el.attr('aria-label', this.value);
-        }
-    },
-
-    //--------------------------------------------------------------------------
-    // Handlers
-    //--------------------------------------------------------------------------
-
-    /**
-     * Open link button
-     *
-     * @private
-     * @param {MouseEvent} event
-     */
-    _onClick: function (event) {
-        event.stopPropagation();
-        window.open(this.value, '_blank');
-    },
-});
-
 var FieldDateRange = InputField.extend({
     className: 'o_field_date_range',
     tagName: 'span',
@@ -666,6 +753,7 @@ var FieldDateRange = InputField.extend({
      */
     init: function () {
         this._super.apply(this, arguments);
+        this.formatType = this.nodeOptions.format_type || this.formatType;
         this.isDateField = this.formatType === 'date';
         this.dateRangePickerOptions = _.defaults(
             {},
@@ -713,7 +801,7 @@ var FieldDateRange = InputField.extend({
         const value = this.mode === "readonly" ? this.value : this.$input.val();
         try {
             return field_utils.parse[this.formatType](value, this.field, { timezone: true }) || true;
-        } catch (error) {
+        } catch (_error) {
             return false;
         }
     },
@@ -733,7 +821,7 @@ var FieldDateRange = InputField.extend({
             // user may enter manual value in input and it may not be parsed as date/datetime value
             this.removeInvalidClass();
             return field_utils.parse[this.formatType](this.$input.val(), this.field, { timezone: true });
-        } catch (error) {
+        } catch (_error) {
             this.setInvalidClass();
             return false;
         }
@@ -847,16 +935,8 @@ var FieldDateRange = InputField.extend({
         };
         window.addEventListener('scroll', this._onScroll, true);
         const [startDate, endDate] = this._getDateRangeFromInputField();
-        if (this.formatType == 'datetime') {
-            if (startDate) {
-                startDate.utcOffset(session.getTZOffset(startDate));
-            }
-            if (endDate) {
-                endDate.utcOffset(session.getTZOffset(endDate));
-            }
-        }
-        daterangepicker.setStartDate(startDate || moment());
-        daterangepicker.setEndDate(endDate || moment());
+        daterangepicker.setStartDate(startDate? startDate.utcOffset(session.getTZOffset(startDate)): moment());
+        daterangepicker.setEndDate(endDate? endDate.utcOffset(session.getTZOffset(endDate)): moment());
         daterangepicker.updateView();
     },
     /**
@@ -867,12 +947,12 @@ var FieldDateRange = InputField.extend({
     _getDateRangeFromInputField() {
         let startDate, endDate;
         if (this.relatedEndDate) {
-            startDate = this._getValue();
-            endDate = field_utils.parse[this.formatType](this.recordData[this.relatedEndDate]);
+            startDate = this.value;
+            endDate = this.recordData[this.relatedEndDate];
         }
         if (this.relatedStartDate) {
-            startDate = field_utils.parse[this.formatType](this.recordData[this.relatedStartDate]);
-            endDate = this._getValue();
+            startDate = this.recordData[this.relatedStartDate];
+            endDate = this.value;
         }
         return [startDate, endDate];
     },
@@ -1028,7 +1108,7 @@ var FieldDate = InputField.extend({
                 if (this.datewidget.type_of_date === "datetime") {
                     value.add(-this.getSession().getTZOffset(value), "minutes");
                 }
-            } catch (err) {}
+            } catch (_err) {}
             await this._setValue(value);
             this._render();
         }
@@ -1186,7 +1266,7 @@ const RemainingDays = AbstractField.extend({
      */
     _renderReadonly() {
         if (this.value === false) {
-            this.$el.removeClass('font-weight-bold text-danger text-warning');
+            this.$el.removeClass('fw-bold text-danger text-warning');
             return;
         }
         // compare the value (in the user timezone) with now (also in the user
@@ -1206,7 +1286,7 @@ const RemainingDays = AbstractField.extend({
             text = diffDays === 1 ? _t("Tomorrow") : _.str.sprintf(_t('In %s days'), diffDays);
         }
         this.$el.text(text).attr('title', this._formatValue(this.value, 'date'));
-        this.$el.toggleClass('font-weight-bold', diffDays <= 0);
+        this.$el.toggleClass('fw-bold', diffDays <= 0);
         this.$el.toggleClass('text-danger', diffDays < 0);
         this.$el.toggleClass('text-warning', diffDays === 0);
     },
@@ -1282,7 +1362,7 @@ var FieldMonetary = NumericField.extend({
         // Prepare and add the input
         var def = this._prepareInput(this.$input).appendTo(this.$el);
 
-        if (this.currency) {
+        if (this.currency && !this.nodeOptions.no_symbol) {
             // Prepare and add the currency symbol
             var $currencySymbol = $('<span>', {text: this.currency.symbol});
             if (this.currency.position === "after") {
@@ -1655,7 +1735,7 @@ var FieldText = InputField.extend(TranslatableFieldMixin, {
     //--------------------------------------------------------------------------
     // Handlers
     //--------------------------------------------------------------------------
-    
+
     /**
      * @private
      * @override
@@ -1812,15 +1892,7 @@ var FieldPhone = FieldEmail.extend({
      * @private
      */
     _renderReadonly: function () {
-        if (this.value) {
-            this.el.innerHTML = '';
-            this.el.classList.add("o_form_uri", "o_text_overflow");
-            const anchorEl = Object.assign(document.createElement('a'), {
-                text: this.value,
-                href: `${this.prefix}:${this.value.replace(/\s+/g, "")}`,
-            });
-            this.el.appendChild(anchorEl);
-        }
+        this._super();
 
         // This class should technically be there in case of a very very long
         // phone number, but it breaks the o_row mechanism, which is more
@@ -1962,6 +2034,36 @@ var CopyClipboard = {
         }
     }
 };
+
+var ButtonCopyClipboard = AbstractField.extend(CopyClipboard, {
+    description: _lt('Copy to Clipboard'),
+    clipboardTemplate: 'CopyClipboardButton',
+    className: '',
+    events: _.extend({}, AbstractField.prototype.events, {
+        'click': '_onClick',
+    }),
+    /**
+     * @param {Event} event
+     */
+    _onClick: event => {
+        event.stopPropagation();
+    },
+    /**
+     * @override
+     */
+    _renderReadonly: function () {
+        this._super.apply(this, arguments);
+        if (this.value) {
+            const $btn = $(qweb.render(this.clipboardTemplate));
+            $btn.addClass(this.nodeOptions && this.nodeOptions.classes || 'btn-primary');
+            if (this.nodeOptions && this.nodeOptions.label) {
+                $btn.text(_t(this.nodeOptions.label));
+            }
+            this.$el.empty().append($btn);
+            this._initClipboard();
+        }
+    },
+});
 
 var TextCopyClipboard = FieldText.extend(CopyClipboard, {
     description: _lt("Copy to Clipboard"),
@@ -2123,11 +2225,7 @@ var FieldBinaryImage = AbstractFieldBinary.extend({
     template: 'FieldBinaryImage',
     placeholder: "/web/static/img/placeholder.png",
     events: _.extend({}, AbstractFieldBinary.prototype.events, {
-        'click img': function () {
-            if (this.mode === "readonly") {
-                this.trigger_up('bounce_edit');
-            }
-        },
+        'click img': '_onImageClick',
     }),
     supportedFieldTypes: ['binary'],
     file_type_magic_word: {
@@ -2264,6 +2362,15 @@ var FieldBinaryImage = AbstractFieldBinary.extend({
                     preventClicks: this.nodeOptions.preventClicks,
                 });
             }
+        }
+    },
+    /**
+     * @private
+     * @param {MouseEvent} ev
+     */
+    _onImageClick: function (ev) {
+        if (this.mode === "readonly") {
+            this.trigger_up('bounce_edit');
         }
     },
 });
@@ -2574,10 +2681,10 @@ var PriorityWidget = AbstractField.extend({
                     hotkey: "alt+r",
                 },
                 action() {
-                    return env.services.command.openPalette({
+                    return {
                         placeholder: env._t("Set a priority..."),
                         providers: [{ provide }],
-                    })
+                    };
                 },
             });
             core.bus.trigger("set_legacy_command", "web.PriorityWidget.setPriority", getCommandDefinition);
@@ -2609,7 +2716,7 @@ var PriorityWidget = AbstractField.extend({
         const isReadonly = this.record.evalModifiers(this.attrs.modifiers).readonly;
         _.each(this.field.selection.slice(1), function (choice, index) {
             const tag = isReadonly ? '<span>' : '<a href="#">';
-            self.$el.append(self._renderStar(tag, index_value >= index + 1, index + 1, choice[1], index_value));
+            self.$el.append(self._renderStar(tag, index_value >= index + 1, index + 1, `${self.string}: ${choice[1]}`, index_value));
         });
     },
 
@@ -2759,7 +2866,7 @@ var StateSelectionWidget = AbstractField.extend({
      * @override
      */
     getFocusableElement: function () {
-        return this.$("a[data-toggle='dropdown']");
+        return this.$("a[data-bs-toggle='dropdown']");
     },
 
     on_attach_callback() {
@@ -2781,10 +2888,10 @@ var StateSelectionWidget = AbstractField.extend({
                     hotkey: "alt+shift+r",
                  },
                 action() {
-                    return env.services.command.openPalette({
+                    return {
                         placeholder: env._t("Set a kanban state..."),
                         providers: [{ provide }],
-                    })
+                    }
                 },
             });
             core.bus.trigger("set_legacy_command", "web.StateSelectionWidget.setKanbanState", getCommandDefinition);
@@ -2860,7 +2967,7 @@ var StateSelectionWidget = AbstractField.extend({
 
         // Disable edition if the field is readonly
         var isReadonly = this.record.evalModifiers(this.attrs.modifiers).readonly;
-        this.$('a[data-toggle=dropdown]').toggleClass('disabled', isReadonly || false);
+        this.$('a[data-bs-toggle=dropdown]').toggleClass('disabled', isReadonly || false);
     },
 
     //--------------------------------------------------------------------------
@@ -2984,13 +3091,13 @@ var LabelSelection = AbstractField.extend({
     _render: function () {
         this.classes = this.nodeOptions && this.nodeOptions.classes || {};
         var labelClass = this.classes[this.value] || 'primary';
-        this.$el.addClass('badge badge-' + labelClass).text(this._formatValue(this.value));
+        this.$el.addClass('badge text-bg-' + labelClass).text(this._formatValue(this.value));
     },
 });
 
 var BooleanToggle = FieldBoolean.extend({
     description: _lt("Toggle"),
-    className: FieldBoolean.prototype.className + ' o_boolean_toggle',
+    className: FieldBoolean.prototype.className + ' o_boolean_toggle form-switch',
     isQuickEditable: true,
     events: {
         'click': '_onClick'
@@ -3011,13 +3118,6 @@ var BooleanToggle = FieldBoolean.extend({
      */
     async _render() {
         await this._super(...arguments);
-        const classToApply = this.value ? 'fa-check-circle' : 'fa-times-circle';
-        if (this.el.querySelector('i')) {
-            this.el.querySelector('i').remove();
-        }
-        const i = document.createElement("i");
-        i.setAttribute('class', `fa ${classToApply}`);
-        this.el.querySelector('label').appendChild(i);
         const isReadonly = this.record.evalModifiers(this.attrs.modifiers).readonly || false;
         this.$input.prop('disabled', isReadonly);
     },
@@ -3254,7 +3354,7 @@ var FieldProgressBar = AbstractField.extend({
         try {
             // Cover all numbers with parseFloat
             parsedValue = field_utils.parse.float($input.val());
-        } catch (error) {
+        } catch (_error) {
             this.displayNotification({ message: _t("Please enter a numerical value"), type: 'danger' });
         }
 
@@ -3594,6 +3694,16 @@ var FieldDomain = AbstractField.extend({
         this.nbRecords = null;
         this.lastCountFetchKey = null; // used to prevent from unnecessary fetching the count
         this.debugEdition = false; // true iff the domain was edited with the textarea (in debug only)
+    },
+    /**
+     * We use the on_attach_callback hook here when widget is attached to the DOM, so that
+     * the inline 'DomainSelector' widget allows field selector to overflow if widget is
+     * attached within a modal.
+     */
+    on_attach_callback() {
+        if (this.domainSelector && !this.inDialog) {
+            this.domainSelector.on_attach_callback();
+        }
     },
 
     //--------------------------------------------------------------------------
@@ -4142,7 +4252,7 @@ var FieldColorPicker = FieldInteger.extend({
         if (!$colorpicker.length) {
             return;
         }
-        $colorpicker.html(qweb.render('KanbanColorPicker', { colors: this.RECORD_COLORS }));
+        $colorpicker.html(qweb.render('web.Legacy.KanbanColorPicker', { colors: this.RECORD_COLORS }));
         $colorpicker.on('click', 'a', this._onColorChanged.bind(this));
     },
     /**
@@ -4188,7 +4298,7 @@ var FieldColorPicker = FieldInteger.extend({
     _highlightSelectedColor: function(){
         try{
             $(this.$('li')[parseInt(this.value)]).css('border', '2px solid teal');
-        } catch(err) {
+        } catch(_err) {
 
         }
     },
@@ -4199,6 +4309,7 @@ var FieldColorPicker = FieldInteger.extend({
 
 return {
     TranslatableFieldMixin: TranslatableFieldMixin,
+    DynamicPlaceholderFieldMixin: DynamicPlaceholderFieldMixin,
     DebouncedField: DebouncedField,
     FieldEmail: FieldEmail,
     FieldBinaryFile: FieldBinaryFile,
@@ -4211,7 +4322,6 @@ return {
     FieldBoolean: FieldBoolean,
     BooleanToggle: BooleanToggle,
     FieldChar: FieldChar,
-    LinkButton: LinkButton,
     FieldDate: FieldDate,
     FieldDateTime: FieldDateTime,
     FieldDateRange: FieldDateRange,
@@ -4241,6 +4351,7 @@ return {
     PriorityWidget: PriorityWidget,
     StatInfo: StatInfo,
     UrlWidget: UrlWidget,
+    ButtonCopyClipboard: ButtonCopyClipboard,
     TextCopyClipboard: TextCopyClipboard,
     CharCopyClipboard: CharCopyClipboard,
     URLCopyClipboard: URLCopyClipboard,

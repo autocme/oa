@@ -7,7 +7,6 @@ import { ancestors } from '@web_editor/js/common/wysiwyg_utils';
 
 const LinkPopoverWidget = Widget.extend({
     template: 'wysiwyg.widgets.link.edit.tooltip',
-    xmlDependencies: ['/web_editor/static/src/xml/wysiwyg.xml'],
     events: {
         'click .o_we_remove_link': '_onRemoveLinkClick',
         'click .o_we_edit_link': '_onEditLinkClick',
@@ -23,7 +22,9 @@ const LinkPopoverWidget = Widget.extend({
         this.options = options;
         this.target = target;
         this.$target = $(target);
+        this.container = this.options.container || this.target.ownerDocument.body;
         this.href = this.$target.attr('href'); // for template
+        this.isDocument = !!$(target).attr("data-mimetype");
         this._dp = new DropPrevious();
     },
     /**
@@ -61,7 +62,15 @@ const LinkPopoverWidget = Widget.extend({
                 ? window.ClipboardJS
                 : this.el.ownerDocument.defaultView.ClipboardJS;
         // Copy onclick handler
-        const clipboard = new ClipboardJS(
+        // ClipboardJS uses "instanceof" to verify the elements passed to its
+        // constructor. Unfortunately, when the element is within an iframe,
+        // instanceof is not behaving the same across all browsers.
+        const containerWindow = this.container.ownerDocument.defaultView;
+        let _ClipboardJS = ClipboardJS;
+        if (this.$copyLink[0] instanceof containerWindow.HTMLElement) {
+            _ClipboardJS = containerWindow.ClipboardJS;
+        }
+        const clipboard = new _ClipboardJS(
             this.$copyLink[0],
             {text: () => this.target.href} // Absolute href
         );
@@ -90,7 +99,7 @@ const LinkPopoverWidget = Widget.extend({
             // 5. Close when the user click somewhere on the page (not being the link or the popover content)
             trigger: 'manual',
             boundary: 'viewport',
-            container: this.options.wysiwyg.odooEditor.document.body,
+            container: this.container,
         })
         .on('show.bs.popover.link_popover', () => {
             this._loadAsyncLinkPreview();
@@ -105,22 +114,24 @@ const LinkPopoverWidget = Widget.extend({
             }
         })
         .on('inserted.bs.popover.link_popover', () => {
-            this.$target.data('bs.popover').tip.classList.add('o_edit_menu_popover');
-        }).popover('show');
-        this.options.wysiwyg.odooEditor.observerActive();
-
-        // Init popover inner tooltips (no need of observer unactive since out
-        // of the editable area).
-        this.$('[data-toggle="tooltip"]').tooltip({
+            const popover = Popover.getInstance(this.target);
+            popover.tip.classList.add('o_edit_menu_popover');
+        })
+        .popover('show');
+        // Init popover inner tooltips (note that probably no need of observer
+        // unactive during this since out of the editable area but
+        // `this.container` is customizable so, not guaranteed). TODO improve.
+        this.$('[data-bs-toggle="tooltip"]').tooltip({
             delay: 0,
             placement: 'bottom',
-            container: this.options.wysiwyg.odooEditor.document.body,
+            container: this.container,
         });
-        for (const el of this.$('[data-toggle="tooltip"]').toArray()) {
-            tooltips.push($(el).data('bs.tooltip'));
+        for (const el of this.$('[data-bs-toggle="tooltip"]').toArray()) {
+            tooltips.push(Tooltip.getOrCreateInstance(el));
         }
+        this.options.wysiwyg.odooEditor.observerActive();
 
-        this.popover = this.$target.data('bs.popover');
+        this.popover = Popover.getInstance(this.target);
         this.$target.on('mousedown.link_popover', (e) => {
             if (!popoverShown) {
                 this.$target.popover('show');
@@ -153,6 +164,24 @@ const LinkPopoverWidget = Widget.extend({
             $(this.options.wysiwyg.odooEditor.document).on('mouseup.link_popover', onClickDocument);
         }
 
+        // Update popover's content and position upon changes
+        // on the link's label or href.
+        this._observer = new MutationObserver(records => {
+            if (!popoverShown) {
+                return;
+            }
+            if (records.some(record => record.type === 'attributes')) {
+                this._loadAsyncLinkPreview();
+            }
+            this.$target.popover('update');
+        });
+        this._observer.observe(this.target, {
+            subtree: true,
+            characterData: true,
+            attributes: true,
+            attributeFilter: ['href'],
+        });
+
         return this._super(...arguments);
     },
     /**
@@ -167,6 +196,7 @@ const LinkPopoverWidget = Widget.extend({
         $(document).off('.link_popover');
         $(this.options.wysiwyg.odooEditor.document).off('.link_popover');
         this.$target.popover('dispose');
+        this._observer.disconnect();
         return this._super(...arguments);
     },
 
@@ -196,7 +226,7 @@ const LinkPopoverWidget = Widget.extend({
         }
         try {
             url = new URL(this.target.href); // relative to absolute
-        } catch (e) {
+        } catch (_e) {
             // Invalid URL, might happen with editor unsuported protocol. eg type
             // `geo:37.786971,-122.399677`, become `http://geo:37.786971,-122.399677`
             this.displayNotification({

@@ -88,7 +88,7 @@ class StockMoveInvoice(AccountTestInvoicingCommon):
         self.assertEqual(len(self.sale_prepaid.picking_ids), 1, 'pickings not generated')
 
         # Check the stock moves
-        moves = self.sale_prepaid.picking_ids.move_lines
+        moves = self.sale_prepaid.picking_ids.move_ids
         self.assertEqual(moves[0].product_qty, 2, 'wrong product_qty')
         self.assertEqual(moves[0].weight, 2.0, 'wrong move weight')
 
@@ -103,12 +103,11 @@ class StockMoveInvoice(AccountTestInvoicingCommon):
             'tracking': 'serial'
         })
 
-        serial_numbers = self.env['stock.production.lot'].create([{
+        serial_numbers = self.env['stock.lot'].create([{
             'name': str(x),
             'product_id': self.product_cable_management_box.id,
             'company_id': self.env.company.id,
         } for x in range(5)])
- 
 
         self.sale_prepaid = self.SaleOrder.create({
             'partner_id': self.partner_18.id,
@@ -134,7 +133,7 @@ class StockMoveInvoice(AccountTestInvoicingCommon):
 
         # I confirm the SO.
         self.sale_prepaid.action_confirm()
-        moves = self.sale_prepaid.picking_ids.move_lines
+        moves = self.sale_prepaid.picking_ids.move_ids
         # Ship
         for ml, lot in zip(moves.move_line_ids, serial_numbers):
             ml.write({'qty_done': 1, 'lot_id': lot.id})
@@ -164,12 +163,12 @@ class StockMoveInvoice(AccountTestInvoicingCommon):
         so.action_confirm()
 
         # Deliver one product and create a backorder
-        self.assertEqual(sum([line.quantity_done for line in so.picking_ids.move_lines]), 0)
-        so.picking_ids.move_lines[0].quantity_done = 1
+        self.assertEqual(sum([line.quantity_done for line in so.picking_ids.move_ids]), 0)
+        so.picking_ids.move_ids[0].quantity_done = 1
         backorder_wizard_dict = so.picking_ids.button_validate()
         backorder_wizard = Form(self.env[backorder_wizard_dict['res_model']].with_context(backorder_wizard_dict['context'])).save()
         backorder_wizard.process()
-        self.assertEqual(sum([line.quantity_done for line in so.picking_ids.move_lines]), 1)
+        self.assertEqual(sum([line.quantity_done for line in so.picking_ids.move_ids]), 1)
 
         # Invoice the delivered product
         invoice = so._create_invoices()
@@ -204,7 +203,7 @@ class StockMoveInvoice(AccountTestInvoicingCommon):
         })
 
         sale_order.action_confirm()
-        sale_order.picking_ids.move_lines.quantity_done = 2
+        sale_order.picking_ids.move_ids.quantity_done = 2
         sale_order.picking_ids.button_validate()
 
         # Return picking
@@ -233,7 +232,7 @@ class StockMoveInvoice(AccountTestInvoicingCommon):
         choose_delivery_carrier.button_confirm()
 
         # Check the carrier in picking after confirm sale order
-        delivery_for_product_11 = sale_order.picking_ids.filtered(lambda p: self.product_11 in p.move_lines.product_id)
+        delivery_for_product_11 = sale_order.picking_ids.filtered(lambda p: self.product_11 in p.move_ids.product_id)
         self.assertEqual(delivery_for_product_11.carrier_id, self.normal_delivery, "The shipping method should be set in pending deliveries.")
 
         done_delivery = sale_order.picking_ids.filtered(lambda p: p.state == "done")
@@ -259,5 +258,5 @@ class StockMoveInvoice(AccountTestInvoicingCommon):
         self.assertEqual(picking.weight, 1.0, "The weight of the picking should be 1.0")
         self.product_cable_management_box.weight = 2.0
         self.assertEqual(picking.weight, 1.0, "The weight of the picking should not change")
-        picking.move_lines.product_id = self.product_a
+        picking.move_ids.product_id = self.product_a
         self.assertEqual(picking.weight, 2.0, "The weight of the picking should be 2.0")

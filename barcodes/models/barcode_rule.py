@@ -24,8 +24,8 @@ class BarcodeRule(models.Model):
             ('alias', 'Alias'),
             ('product', 'Unit Product'),
         ], default='product')
-    pattern = fields.Char(string='Barcode Pattern', size=32, help="The barcode matching pattern", required=True, default='.*')
-    alias = fields.Char(string='Alias', size=32, default='0', help='The matched pattern will alias to this barcode', required=True)
+    pattern = fields.Char(string='Barcode Pattern', help="The barcode matching pattern", required=True, default='.*')
+    alias = fields.Char(string='Alias', default='0', help='The matched pattern will alias to this barcode', required=True)
 
     @api.constrains('pattern')
     def _check_pattern(self):
@@ -41,3 +41,7 @@ class BarcodeRule(models.Model):
                 raise ValidationError(_("There is a syntax error in the barcode pattern %(pattern)s: a rule can only contain one pair of braces.", pattern=rule.pattern))
             elif p == '*':
                 raise ValidationError(_(" '*' is not a valid Regex Barcode Pattern. Did you mean '.*' ?"))
+            try:
+                re.compile(re.sub('{N+D*}', '', p))
+            except re.error:
+                raise ValidationError(_("The barcode pattern %(pattern)s does not lead to a valid regular expression.", pattern=rule.pattern))

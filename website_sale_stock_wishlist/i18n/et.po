@@ -3,16 +3,16 @@
 # 	* website_sale_stock_wishlist
 # 
 # Translators:
-# Eneli Õigus <enelioigus@gmail.com>, 2022
+# Triine Aavik <triine@avalah.ee>, 2022
 # Rivo Zängov <eraser@eraser.ee>, 2022
 # Anna, 2023
 # 
 msgid ""
 msgstr ""
-"Project-Id-Version: Odoo Server saas~14.5\n"
+"Project-Id-Version: Odoo Server 16.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2021-09-14 10:29+0000\n"
-"PO-Revision-Date: 2021-09-14 12:29+0000\n"
+"POT-Creation-Date: 2024-02-06 13:32+0000\n"
+"PO-Revision-Date: 2022-09-22 05:57+0000\n"
 "Last-Translator: Anna, 2023\n"
 "Language-Team: Estonian (https://app.transifex.com/odoo/teams/41243/et/)\n"
 "MIME-Version: 1.0\n"
@@ -22,33 +22,63 @@ msgstr ""
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
 
 #. module: website_sale_stock_wishlist
-#. openerp-web
-#: code:addons/website_sale_stock_wishlist/static/src/xml/product_availability.xml:0
-#, python-format
+#: model_terms:ir.ui.view,arch_db:website_sale_stock_wishlist.product_wishlist
 msgid ""
-"Add the item to your wishlist to be notified when the product is back in "
-"stock."
+"<i class=\"fa fa-bell\"/>\n"
+"                        We'll notify you once the product is back in stock."
 msgstr ""
+"<i class=\"fa fa-bell\"/>\n"
+"                        Anname teile teada, kui toode on laos tagasi."
 
 #. module: website_sale_stock_wishlist
 #: model_terms:ir.ui.view,arch_db:website_sale_stock_wishlist.product_wishlist
-msgid "Be notified when back in stock"
+msgid ""
+"<i class=\"fa fa-times text-danger\"/>\n"
+"                                Invalid email"
 msgstr ""
+"<i class=\"fa fa-times text-danger\"/>\n"
+"                                Vale e-post"
 
 #. module: website_sale_stock_wishlist
-#: model_terms:ir.ui.view,arch_db:website_sale_stock_wishlist.availability_email_body
-msgid "Dear Customer,"
-msgstr "Hea klient"
+#: model_terms:ir.ui.view,arch_db:website_sale_stock_wishlist.product_wishlist
+msgid ""
+"<small>\n"
+"                            <i class=\"fa fa-envelope-o\"/>\n"
+"                            Get notified when back in stock\n"
+"                        </small>"
+msgstr ""
+"<small>\n"
+"                            <i class=\"fa fa-envelope-o\"/>\n"
+"                            Teavitage mind kui on laos tagasi\n"
+"                        </small>"
 
 #. module: website_sale_stock_wishlist
-#: model_terms:ir.ui.view,arch_db:website_sale_stock_wishlist.availability_email_body
-msgid "Order Now"
-msgstr "Telli kohe"
+#: model_terms:ir.ui.view,arch_db:website_sale_stock_wishlist.product_wishlist
+msgid ""
+"Add\n"
+"                <span class=\"d-none d-md-inline\">to Cart</span>"
+msgstr ""
+"Lisa\n"
+"                <span class=\"d-none d-md-inline\">ostukorvi</span>"
+
+#. module: website_sale_stock_wishlist
+#. odoo-javascript
+#: code:addons/website_sale_stock_wishlist/static/src/xml/product_availability.xml:0
+#, python-format
+msgid "Add to wishlist"
+msgstr "Lisa soovide nimekirja"
+
+#. module: website_sale_stock_wishlist
+#. odoo-javascript
+#: code:addons/website_sale_stock_wishlist/static/src/xml/product_availability.xml:0
+#, python-format
+msgid "Added to your wishlist"
+msgstr "Lisatud soovinimekirja"
 
 #. module: website_sale_stock_wishlist
 #: model:ir.model,name:website_sale_stock_wishlist.model_product_template
-msgid "Product Template"
-msgstr "Toote mall"
+msgid "Product"
+msgstr "Toode"
 
 #. module: website_sale_stock_wishlist
 #: model:ir.model,name:website_sale_stock_wishlist.model_product_wishlist
@@ -56,9 +86,11 @@ msgid "Product Wishlist"
 msgstr "Toote soovinimekiri"
 
 #. module: website_sale_stock_wishlist
-#: model_terms:ir.ui.view,arch_db:website_sale_stock_wishlist.availability_email_body
-msgid "Regards,"
-msgstr "Tervitades!"
+#. odoo-javascript
+#: code:addons/website_sale_stock_wishlist/static/src/xml/product_availability.xml:0
+#, python-format
+msgid "Save for later"
+msgstr "Salvesta hilisemaks"
 
 #. module: website_sale_stock_wishlist
 #: model:ir.model.fields,field_description:website_sale_stock_wishlist.field_product_wishlist__stock_notification
@@ -71,25 +103,6 @@ msgid "Temporarily out of stock"
 msgstr "Ajutiselt laost otsas"
 
 #. module: website_sale_stock_wishlist
-#: model_terms:ir.ui.view,arch_db:website_sale_stock_wishlist.availability_email_body
-msgid "The following product is now available."
-msgstr "Järgmine toode on nüüd saadaval. "
-
-#. module: website_sale_stock_wishlist
-#: code:addons/website_sale_stock_wishlist/models/product_wishlist.py:0
-#, python-format
-msgid "The product '%(product_name)s' is now available"
-msgstr "Toode '%(product_name)s' on nüüd saadaval."
-
-#. module: website_sale_stock_wishlist
-#: code:addons/website_sale_stock_wishlist/models/product_wishlist.py:0
-#, python-format
-msgid "Wishlist"
-msgstr "oovide nimekiri"
-
-#. module: website_sale_stock_wishlist
-#: model:ir.actions.server,name:website_sale_stock_wishlist.ir_cron_send_availability_email_ir_actions_server
-#: model:ir.cron,cron_name:website_sale_stock_wishlist.ir_cron_send_availability_email
-#: model:ir.cron,name:website_sale_stock_wishlist.ir_cron_send_availability_email
-msgid "Wishlist: send email regarding products availability"
-msgstr ""
+#: model_terms:ir.ui.view,arch_db:website_sale_stock_wishlist.product_wishlist
+msgid "youremail@gmail.com"
+msgstr "youremail@gmail.com"

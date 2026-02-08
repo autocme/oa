@@ -5,7 +5,7 @@ from odoo.tests.common import Form
 from odoo.addons.stock.tests.test_report import TestReportsCommon
 
 
-class TestSaleStockReports(TestReportsCommon):
+class TestMrpStockReports(TestReportsCommon):
     def test_report_forecast_1_mo_count(self):
         """ Creates and configures a product who could be produce and could be a component.
         Plans some producing and consumming MO and check the report values.
@@ -237,13 +237,13 @@ class TestSaleStockReports(TestReportsCommon):
         picking = picking_form.save()
         picking.action_confirm()
 
-        picking.move_lines.quantity_done = 1
-        move = picking.move_lines.filtered(lambda m: m.name == "Super Kit" and m.product_id == compo03)
+        picking.move_ids.quantity_done = 1
+        move = picking.move_ids.filtered(lambda m: m.name == "Super Kit" and m.product_id == compo03)
         move.move_line_ids.result_package_id = self.env['stock.quant.package'].create({'name': 'Package0001'})
         picking.button_validate()
 
-        report = self.env['ir.actions.report']._get_report_from_name('stock.report_deliveryslip')
-        html_report = report._render_qweb_html(picking.ids)[0].decode('utf-8').split('\n')
+        html_report = self.env['ir.actions.report']._render_qweb_html(
+            'stock.report_deliveryslip', picking.ids)[0].decode('utf-8').split('\n')
         keys = [
             "Package0001", "Compo 03",
             "Products with no package assigned", "Compo 01", "Compo 02",

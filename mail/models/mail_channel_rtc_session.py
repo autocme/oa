@@ -11,10 +11,10 @@ class MailRtcSession(models.Model):
     _name = 'mail.channel.rtc.session'
     _description = 'Mail RTC session'
 
-    channel_partner_id = fields.Many2one('mail.channel.partner', index=True, required=True, ondelete='cascade')
-    channel_id = fields.Many2one('mail.channel', related='channel_partner_id.channel_id', store=True, readonly=True)
-    partner_id = fields.Many2one('res.partner', related='channel_partner_id.partner_id', string="Partner")
-    guest_id = fields.Many2one('mail.guest', related='channel_partner_id.guest_id')
+    channel_member_id = fields.Many2one('mail.channel.member', required=True, ondelete='cascade')
+    channel_id = fields.Many2one('mail.channel', related='channel_member_id.channel_id', store=True, readonly=True)
+    partner_id = fields.Many2one('res.partner', related='channel_member_id.partner_id', string="Partner")
+    guest_id = fields.Many2one('mail.guest', related='channel_member_id.guest_id')
 
     write_date = fields.Datetime("Last Updated On", index=True)
 
@@ -24,8 +24,8 @@ class MailRtcSession(models.Model):
     is_deaf = fields.Boolean(string="Has disabled incoming sound")
 
     _sql_constraints = [
-        ('channel_partner_unique', 'UNIQUE(channel_partner_id)',
-         'There can only be one rtc session per channel partner')
+        ('channel_member_unique', 'UNIQUE(channel_member_id)',
+         'There can only be one rtc session per channel member')
     ]
 
     @api.model_create_multi
@@ -95,28 +95,23 @@ class MailRtcSession(models.Model):
                 payload_by_target[target]['notifications'].append(content)
         return self.env['bus.bus']._sendmany([(target, 'mail.channel.rtc.session/peer_notification', payload) for target, payload in payload_by_target.items()])
 
-    def _mail_rtc_session_format(self, complete_info=True):
+    def _mail_rtc_session_format(self, fields=None):
         self.ensure_one()
-        vals = {
-            'id': self.id,
-        }
-        if complete_info:
-            vals.update({
-                'isCameraOn': self.is_camera_on,
-                'isDeaf': self.is_deaf,
-                'isMuted': self.is_muted,
-                'isScreenSharingOn': self.is_screen_sharing_on,
-            })
-        if self.guest_id:
-            vals['guest'] = [('insert', {
-                'id': self.guest_id.id,
-                'name': self.guest_id.name,
-            })]
-        else:
-            vals['partner'] = [('insert', {
-                'id': self.partner_id.id,
-                'name': self.partner_id.name,
-            })]
+        if not fields:
+            fields = {'id': True, 'channelMember': {'id': True, 'channel': {}, 'persona': {'partner': {'id', 'name', 'im_status'}, 'guest': {'id', 'name', 'im_status'}}}, 'isCameraOn': True, 'isDeaf': True, 'isSelfMuted': True, 'isScreenSharingOn': True}
+        vals = {}
+        if 'id' in fields:
+            vals['id'] = self.id
+        if 'channelMember' in fields:
+            vals['channelMember'] = self.channel_member_id._mail_channel_member_format(fields=fields.get('channelMember')).get(self.channel_member_id)
+        if 'isCameraOn' in fields:
+            vals['isCameraOn'] = self.is_camera_on
+        if 'isDeaf' in fields:
+            vals['isDeaf'] = self.is_deaf
+        if 'isSelfMuted' in fields:
+            vals['isSelfMuted'] = self.is_muted
+        if 'isScreenSharingOn' in fields:
+            vals['isScreenSharingOn'] = self.is_screen_sharing_on
         return vals
 
     def _mail_rtc_session_format_by_channel(self):

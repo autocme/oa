@@ -53,13 +53,13 @@ class ReportLotLabel(models.AbstractModel):
     _description = 'Lot Label Report'
 
     def _get_report_values(self, docids, data):
-        lots = self.env['stock.production.lot'].browse(docids)
+        lots = self.env['stock.lot'].browse(docids)
         lot_list = []
         for lot in lots:
             lot_list.append({
                 'display_name_markup': markupsafe.Markup(lot.product_id.display_name),
                 'name': markupsafe.Markup(lot.name),
-                'lot_record': lot,
+                'lot_record': lot
             })
         return {
             'docs': lot_list,

@@ -1,10 +1,8 @@
 /** @odoo-module **/
 
-import tour from 'web_tour.tour';
 import wTourUtils from 'website.tour_utils';
 
 const makeSteps = (steps = []) => [
-    ...wTourUtils.clickOnEditAndWaitEditMode(),
     wTourUtils.dragNDrop({
         id: "s_text_image",
         name: "Text - Image",
@@ -29,7 +27,7 @@ const makeSteps = (steps = []) => [
         // Makes sure the dirty flag does not happen after a setTimeout or
         // something like that.
         content: "Click elsewhere and wait for a few ms",
-        trigger: '#wrap',
+        trigger: 'iframe #wrap',
         run: function (actions) {
             actions.auto();
             setTimeout(() => document.body.classList.add('o_test_delay'), 999);
@@ -45,33 +43,35 @@ const makeSteps = (steps = []) => [
     },
 ];
 
-tour.register('website_no_action_no_dirty_page', {
+wTourUtils.registerWebsitePreviewTour('website_no_action_no_dirty_page', {
     test: true,
     url: '/',
+    edition: true,
 }, makeSteps());
 
-tour.register('website_no_dirty_page', {
+wTourUtils.registerWebsitePreviewTour('website_no_dirty_page', {
     test: true,
     url: '/',
+    edition: true,
 }, makeSteps([
     {
         content: "Click on default paragraph",
-        trigger: '.s_text_image h2 + p.o_default_snippet_text',
+        trigger: 'iframe .s_text_image h2 + p.o_default_snippet_text',
     }, {
         // TODO this should be done in a dedicated test which would be testing
         // all default snippet texts behaviors. Will be done in master where a
         // task will review this feature.
         // TODO also test that applying an editor command removes that class.
         content: "Make sure the paragraph still acts as a default paragraph",
-        trigger: '.s_text_image h2 + p.o_default_snippet_text',
+        trigger: 'iframe .s_text_image h2 + p.o_default_snippet_text',
         run: () => null,
     }, {
         content: "Click on button",
-        trigger: '.s_text_image .btn',
+        trigger: 'iframe .s_text_image .btn',
         run: function (actions) {
             actions.click();
-            const sel = document.getSelection();
             const el = this.$anchor[0];
+            const sel = el.ownerDocument.getSelection();
             sel.collapse(el, 0);
             el.focus();
         },

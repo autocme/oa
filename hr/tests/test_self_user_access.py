@@ -3,6 +3,7 @@
 
 from collections import OrderedDict
 from itertools import chain
+from lxml import etree
 
 from odoo.addons.hr.tests.common import TestHrCommon
 from odoo.tests import new_test_user, tagged, Form
@@ -18,10 +19,11 @@ class TestSelfAccessProfile(TestHrCommon):
         self.env['hr.employee'].create({
             'name': 'James',
             'user_id': james.id,
+            'bank_account_id': self.env['res.partner.bank'].create({'acc_number': 'BE1234567890', 'partner_id': james.partner_id.id}).id
         })
         view = self.env.ref('hr.res_users_view_form_profile')
-        view_infos = james.fields_view_get(view_id=view.id)
-        fields = view_infos['fields'].keys()
+        view_infos = james.get_view(view.id)
+        fields = [el.get('name') for el in etree.fromstring(view_infos['arch']).xpath('//field[not(ancestor::field)]')]
         james.read(fields)
 
     def test_readonly_fields(self):
@@ -35,12 +37,12 @@ class TestSelfAccessProfile(TestHrCommon):
         })
 
         view = self.env.ref('hr.res_users_view_form_profile')
-        view_infos = james.fields_view_get(view_id=view.id)
-
+        fields = james._fields
+        view_infos = james.get_view(view.id)
         employee_related_fields = {
-            field_name
-            for field_name, field_attrs in view_infos['fields'].items()
-            if field_attrs.get('related', (None,))[0] == 'employee_id'
+            el.get('name')
+            for el in etree.fromstring(view_infos['arch']).xpath('//field[not(ancestor::field)]')
+            if fields[el.get('name')].related and fields[el.get('name')].related.split('.')[0] == 'employee_id'
         }
 
         form = Form(james, view=view)
@@ -65,16 +67,16 @@ class TestSelfAccessProfile(TestHrCommon):
             all_groups |= self.env.ref(xml_id.strip())
         user_all_groups = new_test_user(self.env, groups='base.group_user', login='hel', name='God')
         user_all_groups.write({'groups_id': [(4, group.id, False) for group in all_groups]})
-        view_infos = self.env['res.users'].with_user(user_all_groups).fields_view_get(view_id=view.id)
-        full_fields = view_infos['fields']
+        view_infos = self.env['res.users'].with_user(user_all_groups).get_view(view.id)
+        full_fields = [el.get('name') for el in etree.fromstring(view_infos['arch']).xpath('//field[not(ancestor::field)]')]
 
         # Now check the view for a simple user
         user = new_test_user(self.env, login='gro', name='Grouillot')
-        view_infos = self.env['res.users'].with_user(user).fields_view_get(view_id=view.id)
-        fields = view_infos['fields']
+        view_infos = self.env['res.users'].with_user(user).get_view(view.id)
+        fields = [el.get('name') for el in etree.fromstring(view_infos['arch']).xpath('//field[not(ancestor::field)]')]
 
         # Compare both
-        self.assertEqual(full_fields.keys(), fields.keys(), "View fields should not depend on user's groups")
+        self.assertEqual(full_fields, fields, "View fields should not depend on user's groups")
 
     def test_access_my_profile_toolbar(self):
         """ A simple user shouldn't have the possibilities to see the 'Change Password' action"""
@@ -85,12 +87,13 @@ class TestSelfAccessProfile(TestHrCommon):
             'user_id': james.id,
         })
         view = self.env.ref('hr.res_users_view_form_profile')
-        available_actions = james.fields_view_get(view_id=view.id, toolbar=True)['toolbar']['action']
+        toolbar = james.get_views([(view.id, 'form')], {'toolbar': True})['views']['form']['toolbar']
+        available_actions = toolbar.get('action', [])
         change_password_action = self.env.ref("base.change_password_wizard_action")
 
         self.assertFalse(any(x['id'] == change_password_action.id for x in available_actions))
 
-        """ An ERP manager should have the possibilities to see the 'Change Password' """
+        # An ERP manager should have the possibilities to see the 'Change Password'
         john = new_test_user(self.env, login='joh', groups='base.group_erp_manager', name='ERP Manager', email='joh@example.com')
         john = john.with_user(john)
         self.env['hr.employee'].create({
@@ -98,34 +101,35 @@ class TestSelfAccessProfile(TestHrCommon):
             'user_id': john.id,
         })
         view = self.env.ref('hr.res_users_view_form_profile')
-        available_actions = john.fields_view_get(view_id=view.id, toolbar=True)['toolbar']['action']
+        available_actions = john.get_views([(view.id, 'form')], {'toolbar': True})['views']['form']['toolbar']['action']
         self.assertTrue(any(x['id'] == change_password_action.id for x in available_actions))
 
 
 class TestSelfAccessRights(TestHrCommon):
 
-    def setUp(self):
-        super(TestSelfAccessRights, self).setUp()
-        self.richard = new_test_user(self.env, login='ric', groups='base.group_user', name='Simple employee', email='ric@example.com')
-        self.richard_emp = self.env['hr.employee'].create({
+    @classmethod
+    def setUpClass(cls):
+        super(TestSelfAccessRights, cls).setUpClass()
+        cls.richard = new_test_user(cls.env, login='ric', groups='base.group_user', name='Simple employee', email='ric@example.com')
+        cls.richard_emp = cls.env['hr.employee'].create({
             'name': 'Richard',
-            'user_id': self.richard.id,
-            'address_home_id': self.env['res.partner'].create({'name': 'Richard', 'phone': '21454', 'type': 'private'}).id,
+            'user_id': cls.richard.id,
+            'address_home_id': cls.env['res.partner'].create({'name': 'Richard', 'phone': '21454', 'type': 'private'}).id,
         })
-        self.hubert = new_test_user(self.env, login='hub', groups='base.group_user', name='Simple employee', email='hub@example.com')
-        self.hubert_emp = self.env['hr.employee'].create({
+        cls.hubert = new_test_user(cls.env, login='hub', groups='base.group_user', name='Simple employee', email='hub@example.com')
+        cls.hubert_emp = cls.env['hr.employee'].create({
             'name': 'Hubert',
-            'user_id': self.hubert.id,
-            'address_home_id': self.env['res.partner'].create({'name': 'Hubert', 'type': 'private'}).id,
+            'user_id': cls.hubert.id,
+            'address_home_id': cls.env['res.partner'].create({'name': 'Hubert', 'type': 'private'}).id,
         })
 
-        self.protected_fields_emp = OrderedDict([(k, v) for k, v in self.env['hr.employee']._fields.items() if v.groups == 'hr.group_hr_user'])
+        cls.protected_fields_emp = OrderedDict([(k, v) for k, v in cls.env['hr.employee']._fields.items() if v.groups == 'hr.group_hr_user'])
         # Compute fields and id field are always readable by everyone
-        self.read_protected_fields_emp = OrderedDict([(k, v) for k, v in self.env['hr.employee']._fields.items() if not v.compute and k != 'id'])
-        self.self_protected_fields_user = OrderedDict([
+        cls.read_protected_fields_emp = OrderedDict([(k, v) for k, v in cls.env['hr.employee']._fields.items() if not v.compute and k != 'id'])
+        cls.self_protected_fields_user = OrderedDict([
             (k, v)
-            for k, v in self.env['res.users']._fields.items()
-            if v.groups == 'hr.group_hr_user' and k in self.env['res.users'].SELF_READABLE_FIELDS
+            for k, v in cls.env['res.users']._fields.items()
+            if v.groups == 'hr.group_hr_user' and k in cls.env['res.users'].SELF_READABLE_FIELDS
         ])
 
     # Read hr.employee #
@@ -215,3 +219,24 @@ class TestSelfAccessRights(TestHrCommon):
     def testSearchUserEMployee(self):
         # Searching user based on employee_id field should not raise bad query error
         self.env['res.users'].with_user(self.richard).search([('employee_id', 'ilike', 'Hubert')])
+
+    def test_access_employee_account(self):
+        hubert = new_test_user(self.env, login='hubert', groups='base.group_user', name='Hubert Bonisseur de La Bath', email='hubert@oss.fr')
+        hubert = hubert.with_user(hubert)
+        hubert_acc = self.env['res.partner.bank'].create({'acc_number': 'FR1234567890', 'partner_id': hubert.partner_id.id})
+        hubert_emp = self.env['hr.employee'].create({
+            'name': 'Hubert',
+            'user_id': hubert.id,
+            'bank_account_id': hubert_acc.id
+        })
+        hubert.partner_id.sudo().employee_ids = hubert_emp
+
+        self.assertFalse(hubert.user_has_groups('hr.group_hr_user'))
+        self.assertFalse(hubert.env.su)
+
+        self.assertEqual(hubert.read(['employee_bank_account_id'])[0]['employee_bank_account_id'][1], 'FR******7890')
+        self.assertEqual(hubert.sudo().employee_bank_account_id.display_name, 'FR******7890')
+        self.assertEqual(hubert_emp.with_user(hubert).sudo().bank_account_id.display_name, 'FR******7890')
+
+        hubert_acc.invalidate_recordset(["display_name"])
+        self.assertEqual(hubert_emp.with_user(hubert).sudo().bank_account_id.sudo(False).display_name, 'FR******7890')

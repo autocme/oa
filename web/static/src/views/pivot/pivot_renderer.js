@@ -1,20 +1,25 @@
 /** @odoo-module **/
 
-import { PivotGroupByMenu } from "@web/views/pivot/pivot_group_by_menu";
+import { CheckBox } from "@web/core/checkbox/checkbox";
 import { localization } from "@web/core/l10n/localization";
 import { registry } from "@web/core/registry";
+import { formatPercentage } from "@web/views/fields/formatters";
+import { PivotGroupByMenu } from "@web/views/pivot/pivot_group_by_menu";
 import fieldUtils from "web.field_utils";
 
-const { Component } = owl;
-const formatterRegistry = registry.category("formatters");
+import { Component, onWillUpdateProps, useRef } from "@odoo/owl";
+const formatters = registry.category("formatters");
 
 export class PivotRenderer extends Component {
     setup() {
         this.model = this.props.model;
         this.table = this.model.getTable();
         this.l10n = localization;
+        this.tableRef = useRef("table");
+
+        onWillUpdateProps(this.onWillUpdateProps);
     }
-    willUpdateProps() {
+    onWillUpdateProps() {
         this.table = this.model.getTable();
     }
     /**
@@ -33,7 +38,7 @@ export class PivotRenderer extends Component {
         }
         //If the formatter is not found on the registry, search on the legacy fieldUtils.format.
         //This must be removed when all the formatters will be on the registry
-        const formatter = formatterRegistry.get(formatType, null) || fieldUtils.format[formatType];
+        const formatter = formatters.get(formatType, null) || fieldUtils.format[formatType];
         if (!formatter) {
             throw new Error(`${formatType} is not a defined formatter!`);
         }
@@ -50,7 +55,6 @@ export class PivotRenderer extends Component {
         if (isNaN(cell.value)) {
             return "-";
         }
-        const formatPercentage = formatterRegistry.get("percentage");
         return formatPercentage(cell.value, this.model.metaData.fields[cell.measure]);
     }
     /**
@@ -74,20 +78,21 @@ export class PivotRenderer extends Component {
      * Handle the adding of a custom groupby (inside the view, not the searchview).
      *
      * @param {"col"|"row"} type
-     * @param {CustomEvent} ev
+     * @param {Array[]} groupId
+     * @param {string} fieldName
      */
-    onAddCustomGroupBy(type, ev) {
-        this.model.addGroupBy({ ...ev.detail, custom: true, type });
+    onAddCustomGroupBy(type, groupId, fieldName) {
+        this.model.addGroupBy({ groupId, fieldName, custom: true, type });
     }
 
     /**
      * Handle the selection of a groupby dropdown item.
      *
      * @param {"col"|"row"} type
-     * @param {CustomEvent} ev
+     * @param {Object} payload
      */
-    onDropdownItemSelected(type, ev) {
-        this.model.addGroupBy({ ...ev.detail.payload, type });
+    onGroupBySelected(type, payload) {
+        this.model.addGroupBy({ ...payload, type });
     }
     /**
      * Handle a click on a header cell.
@@ -131,7 +136,7 @@ export class PivotRenderer extends Component {
             }
             index += 1; // row groupbys column
         }
-        this.el
+        this.tableRef.el
             .querySelectorAll("td:nth-child(" + (index + 1) + ")")
             .forEach((elt) => elt.classList.add("o_cell_hover"));
     }
@@ -139,11 +144,11 @@ export class PivotRenderer extends Component {
      * Remove the hover on the columns.
      */
     onMouseLeave() {
-        this.el
+        this.tableRef.el
             .querySelectorAll(".o_cell_hover")
             .forEach((elt) => elt.classList.remove("o_cell_hover"));
     }
 }
 PivotRenderer.template = "web.PivotRenderer";
-PivotRenderer.components = { PivotGroupByMenu };
+PivotRenderer.components = { CheckBox, PivotGroupByMenu };
 PivotRenderer.props = ["model", "onCellClicked"];

@@ -54,27 +54,27 @@ class MailingTrace(models.Model):
     trace_type = fields.Selection([('mail', 'Email')], string='Type', default='mail', required=True)
     display_name = fields.Char(compute='_compute_display_name')
     # mail data
-    mail_mail_id = fields.Many2one('mail.mail', string='Mail', index=True)
+    mail_mail_id = fields.Many2one('mail.mail', string='Mail', index='btree_not_null')
     mail_mail_id_int = fields.Integer(
         string='Mail ID (tech)',
         help='ID of the related mail_mail. This field is an integer field because '
              'the related mail_mail can be deleted separately from its statistics. '
              'However the ID is needed for several action and controllers.',
-        index=True,
+        index='btree_not_null',
     )
     email = fields.Char(string="Email", help="Normalized email address")
-    message_id = fields.Char(string='Message-ID', help="Technical field for the email Message-ID (RFC 2392)")
+    message_id = fields.Char(string='Message-ID') # email Message-ID (RFC 2392)
     medium_id = fields.Many2one(related='mass_mailing_id.medium_id')
     source_id = fields.Many2one(related='mass_mailing_id.source_id')
     # document
     model = fields.Char(string='Document model', required=True)
-    res_id = fields.Many2oneReference(string='Document ID', model_field='model', required=True)
+    res_id = fields.Many2oneReference(string='Document ID', model_field='model')
     # campaign data
     mass_mailing_id = fields.Many2one('mailing.mailing', string='Mailing', index=True, ondelete='cascade')
     campaign_id = fields.Many2one(
         related='mass_mailing_id.campaign_id',
         string='Campaign',
-        store=True, readonly=True, index=True)
+        store=True, readonly=True, index='btree_not_null')
     # Status
     sent_datetime = fields.Datetime('Sent On')
     open_datetime = fields.Datetime('Opened On')
@@ -102,6 +102,15 @@ class MailingTrace(models.Model):
     # Link tracking
     links_click_ids = fields.One2many('link.tracker.click', 'mailing_trace_id', string='Links click')
     links_click_datetime = fields.Datetime('Clicked On', help='Stores last click datetime in case of multi clicks.')
+
+    _sql_constraints = [
+        # Required on a Many2one reference field is not sufficient as actually
+        # writing 0 is considered as a valid value, because this is an integer field.
+        # We therefore need a specific constraint check.
+        ('check_res_id_is_set',
+         'CHECK(res_id IS NOT NULL AND res_id !=0 )',
+         'Traces have to be linked to records with a not null res_id.')
+    ]
 
     @api.depends('trace_type', 'mass_mailing_id')
     def _compute_display_name(self):

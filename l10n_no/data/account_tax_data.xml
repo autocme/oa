@@ -11,32 +11,25 @@
             <field name="type_tax_use">purchase</field>
             <field name="tax_group_id" ref="tax_group_25"/>
             <field name="invoice_repartition_line_ids" eval="[(5,0,0),
+                (0,0, {'repartition_type': 'base'}),
+
                 (0,0, {
-                    'factor_percent': 100,
-                    'repartition_type': 'base',
-                }),
-                (0,0, {
-                    'factor_percent': 100,
                     'repartition_type': 'tax',
                     'account_id': ref('chart2711'),
-                    'plus_report_line_ids': [ref('tax_report_line_code_1')],
+                    'plus_report_expression_ids': [ref('tax_report_line_code_1_tag')],
                 }),
             ]"/>
             <field name="refund_repartition_line_ids" eval="[(5,0,0),
+                (0,0, {'repartition_type': 'base'}),
+
                 (0,0, {
-                    'factor_percent': 100,
-                    'repartition_type': 'base',
-                }),
-                (0,0, {
-                    'factor_percent': 100,
                     'repartition_type': 'tax',
                     'account_id': ref('chart2711'),
-                    'minus_report_line_ids': [ref('tax_report_line_code_1')],
+                    'minus_report_expression_ids': [ref('tax_report_line_code_1_tag')],
                 }),
             ]"/>
         </record>
-
-       <record id="tax1" model="account.tax.template">
+        <record id="tax1" model="account.tax.template">
             <field name="chart_template_id" ref="no_chart_template"/>
             <field name="name">0 Ingen mvabehandling 0%</field>
             <field name="description">Ingen mvabehandling(anskaffelser)</field>
@@ -46,27 +39,16 @@
             <field name="tax_group_id" ref="tax_group_0"/>
             <field name="active" eval="False"/>
             <field name="invoice_repartition_line_ids" eval="[(5,0,0),
-                (0,0, {
-                    'factor_percent': 100,
-                    'repartition_type': 'base',
-                }),
-                (0,0, {
-                    'factor_percent': 100,
-                    'repartition_type': 'tax',
-                }),
+                (0,0, {'repartition_type': 'base'}),
+
+                (0,0, {'repartition_type': 'tax'}),
             ]"/>
             <field name="refund_repartition_line_ids" eval="[(5,0,0),
-                (0,0, {
-                    'factor_percent': 100,
-                    'repartition_type': 'base',
-                }),
-                (0,0, {
-                    'factor_percent': 100,
-                    'repartition_type': 'tax',
-                }),
+                (0,0, {'repartition_type': 'base'}),
+
+                (0,0, {'repartition_type': 'tax'}),
             ]"/>
         </record>
-
         <record id="tax3" model="account.tax.template">
             <field name="chart_template_id" ref="no_chart_template"/>
             <field name="name">3 Utgående mva høy sats 25%</field>
@@ -77,32 +59,29 @@
             <field name="tax_group_id" ref="tax_group_25"/>
             <field name="invoice_repartition_line_ids" eval="[(5,0,0),
                 (0,0, {
-                    'factor_percent': 100,
                     'repartition_type': 'base',
-                    'plus_report_line_ids': [ref('tax_report_line_code_3')],
+                    'plus_report_expression_ids': [ref('tax_report_line_code_3_tag')],
                 }),
+
                 (0,0, {
-                    'factor_percent': 100,
                     'repartition_type': 'tax',
                     'account_id': ref('chart2701'),
-                    'plus_report_line_ids': [ref('tax_report_line_code_3_tax')],
+                    'plus_report_expression_ids': [ref('tax_report_line_code_3_tax_tag')],
                 }),
             ]"/>
             <field name="refund_repartition_line_ids" eval="[(5,0,0),
                 (0,0, {
-                    'factor_percent': 100,
                     'repartition_type': 'base',
-                    'minus_report_line_ids': [ref('tax_report_line_code_3')],
+                    'minus_report_expression_ids': [ref('tax_report_line_code_3_tag')],
                 }),
+
                 (0,0, {
-                    'factor_percent': 100,
                     'repartition_type': 'tax',
                     'account_id': ref('chart2701'),
-                    'minus_report_line_ids': [ref('tax_report_line_code_3_tax')],
+                    'minus_report_expression_ids': [ref('tax_report_line_code_3_tax_tag')],
                 }),
             ]"/>
         </record>
-
         <record id="tax4" model="account.tax.template">
             <field name="chart_template_id" ref="no_chart_template"/>
             <field name="name">5 Mvafritt salg 0%</field>
@@ -113,28 +92,21 @@
             <field name="tax_group_id" ref="tax_group_0"/>
             <field name="invoice_repartition_line_ids" eval="[(5,0,0),
                 (0,0, {
-                    'factor_percent': 100,
                     'repartition_type': 'base',
-                    'plus_report_line_ids': [ref('tax_report_line_code_5')],
+                    'plus_report_expression_ids': [ref('tax_report_line_code_5_tag')],
                 }),
-                (0,0, {
-                    'factor_percent': 100,
-                    'repartition_type': 'tax',
-                }),
+
+                (0,0, {'repartition_type': 'tax'}),
             ]"/>
             <field name="refund_repartition_line_ids" eval="[(5,0,0),
                 (0,0, {
-                    'factor_percent': 100,
                     'repartition_type': 'base',
-                    'minus_report_line_ids': [ref('tax_report_line_code_5')],
+                    'minus_report_expression_ids': [ref('tax_report_line_code_5_tag')],
                 }),
-                (0,0, {
-                    'factor_percent': 100,
-                    'repartition_type': 'tax',
-                }),
+
+                (0,0, {'repartition_type': 'tax'}),
             ]"/>
         </record>
-
         <record id="tax5" model="account.tax.template">
             <field name="chart_template_id" ref="no_chart_template"/>
             <field name="name">6 Omsetning utenfor mvaloven 0%</field>
@@ -145,28 +117,21 @@
             <field name="tax_group_id" ref="tax_group_0"/>
             <field name="invoice_repartition_line_ids" eval="[(5,0,0),
                 (0,0, {
-                    'factor_percent': 100,
                     'repartition_type': 'base',
-                    'plus_report_line_ids': [ref('tax_report_line_code_6')],
+                    'plus_report_expression_ids': [ref('tax_report_line_code_6_tag')],
                 }),
-                (0,0, {
-                    'factor_percent': 100,
-                    'repartition_type': 'tax',
-                }),
+
+                (0,0, {'repartition_type': 'tax'}),
             ]"/>
             <field name="refund_repartition_line_ids" eval="[(5,0,0),
                 (0,0, {
-                    'factor_percent': 100,
                     'repartition_type': 'base',
-                    'minus_report_line_ids': [ref('tax_report_line_code_6')],
+                    'minus_report_expression_ids': [ref('tax_report_line_code_6_tag')],
                 }),
-                (0,0, {
-                    'factor_percent': 100,
-                    'repartition_type': 'tax',
-                }),
+
+                (0,0, {'repartition_type': 'tax'}),
             ]"/>
         </record>
-
         <record id="tax6" model="account.tax.template">
             <field name="chart_template_id" ref="no_chart_template"/>
             <field name="name">7 Ingen mvabehandling(inntekter) 0%</field>
@@ -176,27 +141,16 @@
             <field name="type_tax_use">sale</field>
             <field name="tax_group_id" ref="tax_group_0"/>
             <field name="invoice_repartition_line_ids" eval="[(5,0,0),
-                (0,0, {
-                    'factor_percent': 100,
-                    'repartition_type': 'base',
-                }),
-                (0,0, {
-                    'factor_percent': 100,
-                    'repartition_type': 'tax',
-                }),
+                (0,0, {'repartition_type': 'base'}),
+
+                (0,0, {'repartition_type': 'tax'}),
             ]"/>
             <field name="refund_repartition_line_ids" eval="[(5,0,0),
-                (0,0, {
-                    'factor_percent': 100,
-                    'repartition_type': 'base',
-                }),
-                (0,0, {
-                    'factor_percent': 100,
-                    'repartition_type': 'tax',
-                }),
+                (0,0, {'repartition_type': 'base'}),
+
+                (0,0, {'repartition_type': 'tax'}),
             ]"/>
         </record>
-
         <record id="tax7" model="account.tax.template">
             <field name="chart_template_id" ref="no_chart_template"/>
             <field name="name">11 Inngående mva middel sats 15%</field>
@@ -206,31 +160,24 @@
             <field name="type_tax_use">purchase</field>
             <field name="tax_group_id" ref="tax_group_15"/>
             <field name="invoice_repartition_line_ids" eval="[(5,0,0),
+                (0,0, {'repartition_type': 'base'}),
+
                 (0,0, {
-                    'factor_percent': 100,
-                    'repartition_type': 'base',
-                }),
-                (0,0, {
-                    'factor_percent': 100,
                     'repartition_type': 'tax',
                     'account_id': ref('chart2713'),
-                    'plus_report_line_ids': [ref('tax_report_line_code_11')],
+                    'plus_report_expression_ids': [ref('tax_report_line_code_11_tag')],
                 }),
             ]"/>
             <field name="refund_repartition_line_ids" eval="[(5,0,0),
+                (0,0, {'repartition_type': 'base'}),
+
                 (0,0, {
-                    'factor_percent': 100,
-                    'repartition_type': 'base',
-                }),
-                (0,0, {
-                    'factor_percent': 100,
                     'repartition_type': 'tax',
                     'account_id': ref('chart2713'),
-                    'minus_report_line_ids': [ref('tax_report_line_code_11')],
+                    'minus_report_expression_ids': [ref('tax_report_line_code_11_tag')],
                 }),
             ]"/>
         </record>
-
         <record id="tax8" model="account.tax.template">
             <field name="chart_template_id" ref="no_chart_template"/>
             <field name="name">12 Inngående mva råfisk 11%</field>
@@ -241,31 +188,24 @@
             <field name="tax_group_id" ref="tax_group_15"/>
             <field name="active" eval="False"/>
             <field name="invoice_repartition_line_ids" eval="[(5,0,0),
+                (0,0, {'repartition_type': 'base'}),
+
                 (0,0, {
-                    'factor_percent': 100,
-                    'repartition_type': 'base',
-                }),
-                (0,0, {
-                    'factor_percent': 100,
                     'repartition_type': 'tax',
                     'account_id': ref('chart2710'),
-                    'plus_report_line_ids': [ref('tax_report_line_code_12')],
+                    'plus_report_expression_ids': [ref('tax_report_line_code_12_tag')],
                 }),
             ]"/>
             <field name="refund_repartition_line_ids" eval="[(5,0,0),
+                (0,0, {'repartition_type': 'base'}),
+
                 (0,0, {
-                    'factor_percent': 100,
-                    'repartition_type': 'base',
-                }),
-                (0,0, {
-                    'factor_percent': 100,
                     'repartition_type': 'tax',
                     'account_id': ref('chart2710'),
-                    'minus_report_line_ids': [ref('tax_report_line_code_12')],
+                    'minus_report_expression_ids': [ref('tax_report_line_code_12_tag')],
                 }),
             ]"/>
         </record>
-
         <record id="tax9" model="account.tax.template">
             <field name="chart_template_id" ref="no_chart_template"/>
             <field name="name">13 Inngående mva lav sats 12%</field>
@@ -275,31 +215,24 @@
             <field name="type_tax_use">purchase</field>
             <field name="tax_group_id" ref="tax_group_12"/>
             <field name="invoice_repartition_line_ids" eval="[(5,0,0),
+                (0,0, {'repartition_type': 'base'}),
+
                 (0,0, {
-                    'factor_percent': 100,
-                    'repartition_type': 'base',
-                }),
-                (0,0, {
-                    'factor_percent': 100,
                     'repartition_type': 'tax',
                     'account_id': ref('chart2714'),
-                    'plus_report_line_ids': [ref('tax_report_line_code_13')],
+                    'plus_report_expression_ids': [ref('tax_report_line_code_13_tag')],
                 }),
             ]"/>
             <field name="refund_repartition_line_ids" eval="[(5,0,0),
+                (0,0, {'repartition_type': 'base'}),
+
                 (0,0, {
-                    'factor_percent': 100,
-                    'repartition_type': 'base',
-                }),
-                (0,0, {
-                    'factor_percent': 100,
                     'repartition_type': 'tax',
                     'account_id': ref('chart2714'),
-                    'minus_report_line_ids': [ref('tax_report_line_code_13')],
+                    'minus_report_expression_ids': [ref('tax_report_line_code_13_tag')],
                 }),
             ]"/>
         </record>
-
         <record id="tax10" model="account.tax.template">
             <field name="chart_template_id" ref="no_chart_template"/>
             <field name="name">14 Innførselsmva høy sats 25%</field>
@@ -309,31 +242,24 @@
             <field name="type_tax_use">purchase</field>
             <field name="tax_group_id" ref="tax_group_25"/>
             <field name="invoice_repartition_line_ids" eval="[(5,0,0),
+                (0,0, {'repartition_type': 'base'}),
+
                 (0,0, {
-                    'factor_percent': 100,
-                    'repartition_type': 'base',
-                }),
-                (0,0, {
-                    'factor_percent': 100,
                     'repartition_type': 'tax',
                     'account_id': ref('chart2711'),
-                    'plus_report_line_ids': [ref('tax_report_line_code_14')],
+                    'plus_report_expression_ids': [ref('tax_report_line_code_14_tag')],
                 }),
             ]"/>
             <field name="refund_repartition_line_ids" eval="[(5,0,0),
+                (0,0, {'repartition_type': 'base'}),
+
                 (0,0, {
-                    'factor_percent': 100,
-                    'repartition_type': 'base',
-                }),
-                (0,0, {
-                    'factor_percent': 100,
                     'repartition_type': 'tax',
                     'account_id': ref('chart2711'),
-                    'minus_report_line_ids': [ref('tax_report_line_code_14')],
+                    'minus_report_expression_ids': [ref('tax_report_line_code_14_tag')],
                 }),
             ]"/>
         </record>
-
         <record id="tax11" model="account.tax.template">
             <field name="chart_template_id" ref="no_chart_template"/>
             <field name="name">15 Innførselsmva middel sats 15%</field>
@@ -343,31 +269,24 @@
             <field name="type_tax_use">purchase</field>
             <field name="tax_group_id" ref="tax_group_15"/>
             <field name="invoice_repartition_line_ids" eval="[(5,0,0),
+                (0,0, {'repartition_type': 'base'}),
+
                 (0,0, {
-                    'factor_percent': 100,
-                    'repartition_type': 'base',
-                }),
-                (0,0, {
-                    'factor_percent': 100,
                     'repartition_type': 'tax',
                     'account_id': ref('chart2713'),
-                    'plus_report_line_ids': [ref('tax_report_line_code_15')],
+                    'plus_report_expression_ids': [ref('tax_report_line_code_15_tag')],
                 }),
             ]"/>
             <field name="refund_repartition_line_ids" eval="[(5,0,0),
+                (0,0, {'repartition_type': 'base'}),
+
                 (0,0, {
-                    'factor_percent': 100,
-                    'repartition_type': 'base',
-                }),
-                (0,0, {
-                    'factor_percent': 100,
                     'repartition_type': 'tax',
                     'account_id': ref('chart2713'),
-                    'minus_report_line_ids': [ref('tax_report_line_code_15')],
+                    'minus_report_expression_ids': [ref('tax_report_line_code_15_tag')],
                 }),
             ]"/>
         </record>
-
         <record id="tax12" model="account.tax.template">
             <field name="chart_template_id" ref="no_chart_template"/>
             <field name="name">20 Grunnlag ved innførsel av varer nullsats 0%</field>
@@ -377,27 +296,16 @@
             <field name="type_tax_use">purchase</field>
             <field name="tax_group_id" ref="tax_group_0"/>
             <field name="invoice_repartition_line_ids" eval="[(5,0,0),
-                (0,0, {
-                    'factor_percent': 100,
-                    'repartition_type': 'base',
-                }),
-                (0,0, {
-                    'factor_percent': 100,
-                    'repartition_type': 'tax',
-                }),
+                (0,0, {'repartition_type': 'base'}),
+
+                (0,0, {'repartition_type': 'tax'}),
             ]"/>
             <field name="refund_repartition_line_ids" eval="[(5,0,0),
-                (0,0, {
-                    'factor_percent': 100,
-                    'repartition_type': 'base',
-                }),
-                (0,0, {
-                    'factor_percent': 100,
-                    'repartition_type': 'tax',
-                }),
+                (0,0, {'repartition_type': 'base'}),
+
+                (0,0, {'repartition_type': 'tax'}),
             ]"/>
         </record>
-
         <record id="tax13" model="account.tax.template">
             <field name="chart_template_id" ref="no_chart_template"/>
             <field name="name">21 Grunnlag ved innførsel av varer høy sats 25%</field>
@@ -407,27 +315,16 @@
             <field name="type_tax_use">purchase</field>
             <field name="tax_group_id" ref="tax_group_25"/>
             <field name="invoice_repartition_line_ids" eval="[(5,0,0),
-                (0,0, {
-                    'factor_percent': 100,
-                    'repartition_type': 'base',
-                }),
-                (0,0, {
-                    'factor_percent': 100,
-                    'repartition_type': 'tax',
-                }),
+                (0,0, {'repartition_type': 'base'}),
+
+                (0,0, {'repartition_type': 'tax'}),
             ]"/>
             <field name="refund_repartition_line_ids" eval="[(5,0,0),
-                (0,0, {
-                    'factor_percent': 100,
-                    'repartition_type': 'base',
-                }),
-                (0,0, {
-                    'factor_percent': 100,
-                    'repartition_type': 'tax',
-                }),
+                (0,0, {'repartition_type': 'base'}),
+
+                (0,0, {'repartition_type': 'tax'}),
             ]"/>
         </record>
-
         <record id="tax14" model="account.tax.template">
             <field name="chart_template_id" ref="no_chart_template"/>
             <field name="name">22 Grunnlag ved innførsel av varer middel sats 15%</field>
@@ -437,27 +334,16 @@
             <field name="type_tax_use">purchase</field>
             <field name="tax_group_id" ref="tax_group_15"/>
             <field name="invoice_repartition_line_ids" eval="[(5,0,0),
-                (0,0, {
-                    'factor_percent': 100,
-                    'repartition_type': 'base',
-                }),
-                (0,0, {
-                    'factor_percent': 100,
-                    'repartition_type': 'tax',
-                }),
+                (0,0, {'repartition_type': 'base'}),
+
+                (0,0, {'repartition_type': 'tax'}),
             ]"/>
             <field name="refund_repartition_line_ids" eval="[(5,0,0),
-                (0,0, {
-                    'factor_percent': 100,
-                    'repartition_type': 'base',
-                }),
-                (0,0, {
-                    'factor_percent': 100,
-                    'repartition_type': 'tax',
-                }),
+                (0,0, {'repartition_type': 'base'}),
+
+                (0,0, {'repartition_type': 'tax'}),
             ]"/>
         </record>
-
         <record id="tax15" model="account.tax.template">
             <field name="chart_template_id" ref="no_chart_template"/>
             <field name="name">31 Utgående mva middel sats 15%</field>
@@ -468,32 +354,29 @@
             <field name="tax_group_id" ref="tax_group_15"/>
             <field name="invoice_repartition_line_ids" eval="[(5,0,0),
                 (0,0, {
-                    'factor_percent': 100,
                     'repartition_type': 'base',
-                    'plus_report_line_ids': [ref('tax_report_line_code_31')],
+                    'plus_report_expression_ids': [ref('tax_report_line_code_31_tag')],
                 }),
+
                 (0,0, {
-                    'factor_percent': 100,
                     'repartition_type': 'tax',
                     'account_id': ref('chart2703'),
-                    'plus_report_line_ids': [ref('tax_report_line_code_31_tax')],
+                    'plus_report_expression_ids': [ref('tax_report_line_code_31_tax_tag')],
                 }),
             ]"/>
             <field name="refund_repartition_line_ids" eval="[(5,0,0),
                 (0,0, {
-                    'factor_percent': 100,
                     'repartition_type': 'base',
-                    'minus_report_line_ids': [ref('tax_report_line_code_31')],
+                    'minus_report_expression_ids': [ref('tax_report_line_code_31_tag')],
                 }),
+
                 (0,0, {
-                    'factor_percent': 100,
                     'repartition_type': 'tax',
                     'account_id': ref('chart2703'),
-                    'minus_report_line_ids': [ref('tax_report_line_code_31_tax')],
+                    'minus_report_expression_ids': [ref('tax_report_line_code_31_tax_tag')],
                 }),
             ]"/>
         </record>
-
         <record id="tax16" model="account.tax.template">
             <field name="chart_template_id" ref="no_chart_template"/>
             <field name="name">32 Utgående mva råfisk 11%</field>
@@ -505,32 +388,29 @@
             <field name="active" eval="False"/>
             <field name="invoice_repartition_line_ids" eval="[(5,0,0),
                 (0,0, {
-                    'factor_percent': 100,
                     'repartition_type': 'base',
-                    'plus_report_line_ids': [ref('tax_report_line_code_32')],
+                    'plus_report_expression_ids': [ref('tax_report_line_code_32_tag')],
                 }),
+
                 (0,0, {
-                    'factor_percent': 100,
                     'repartition_type': 'tax',
                     'account_id': ref('chart2700'),
-                    'plus_report_line_ids': [ref('tax_report_line_code_32_tax')],
+                    'plus_report_expression_ids': [ref('tax_report_line_code_32_tax_tag')],
                 }),
             ]"/>
             <field name="refund_repartition_line_ids" eval="[(5,0,0),
                 (0,0, {
-                    'factor_percent': 100,
                     'repartition_type': 'base',
-                    'minus_report_line_ids': [ref('tax_report_line_code_32')],
+                    'minus_report_expression_ids': [ref('tax_report_line_code_32_tag')],
                 }),
+
                 (0,0, {
-                    'factor_percent': 100,
                     'repartition_type': 'tax',
                     'account_id': ref('chart2700'),
-                    'minus_report_line_ids': [ref('tax_report_line_code_32_tax')],
+                    'minus_report_expression_ids': [ref('tax_report_line_code_32_tax_tag')],
                 }),
             ]"/>
         </record>
-
         <record id="tax17" model="account.tax.template">
             <field name="chart_template_id" ref="no_chart_template"/>
             <field name="name">33 Utgående mva lav sats 12%</field>
@@ -541,32 +421,29 @@
             <field name="tax_group_id" ref="tax_group_12"/>
             <field name="invoice_repartition_line_ids" eval="[(5,0,0),
                 (0,0, {
-                    'factor_percent': 100,
                     'repartition_type': 'base',
-                    'plus_report_line_ids': [ref('tax_report_line_code_33')],
+                    'plus_report_expression_ids': [ref('tax_report_line_code_33_tag')],
                 }),
+
                 (0,0, {
-                    'factor_percent': 100,
                     'repartition_type': 'tax',
                     'account_id': ref('chart2704'),
-                    'plus_report_line_ids': [ref('tax_report_line_code_33_tax')],
+                    'plus_report_expression_ids': [ref('tax_report_line_code_33_tax_tag')],
                 }),
             ]"/>
             <field name="refund_repartition_line_ids" eval="[(5,0,0),
                 (0,0, {
-                    'factor_percent': 100,
                     'repartition_type': 'base',
-                    'minus_report_line_ids': [ref('tax_report_line_code_33')],
+                    'minus_report_expression_ids': [ref('tax_report_line_code_33_tag')],
                 }),
+
                 (0,0, {
-                    'factor_percent': 100,
                     'repartition_type': 'tax',
                     'account_id': ref('chart2704'),
-                    'minus_report_line_ids': [ref('tax_report_line_code_33_tax')],
+                    'minus_report_expression_ids': [ref('tax_report_line_code_33_tax_tag')],
                 }),
             ]"/>
         </record>
-
         <record id="tax18" model="account.tax.template">
             <field name="chart_template_id" ref="no_chart_template"/>
             <field name="name">51 Salg av klimakvoter og gull til næringsdrivende 0%</field>
@@ -578,28 +455,21 @@
             <field name="active" eval="False"/>
             <field name="invoice_repartition_line_ids" eval="[(5,0,0),
                 (0,0, {
-                    'factor_percent': 100,
                     'repartition_type': 'base',
-                    'plus_report_line_ids': [ref('tax_report_line_code_51')],
+                    'plus_report_expression_ids': [ref('tax_report_line_code_51_tag')],
                 }),
-                (0,0, {
-                    'factor_percent': 100,
-                    'repartition_type': 'tax',
-                }),
+
+                (0,0, {'repartition_type': 'tax'}),
             ]"/>
             <field name="refund_repartition_line_ids" eval="[(5,0,0),
                 (0,0, {
-                    'factor_percent': 100,
                     'repartition_type': 'base',
-                    'minus_report_line_ids': [ref('tax_report_line_code_51')],
+                    'minus_report_expression_ids': [ref('tax_report_line_code_51_tag')],
                 }),
-                (0,0, {
-                    'factor_percent': 100,
-                    'repartition_type': 'tax',
-                }),
+
+                (0,0, {'repartition_type': 'tax'}),
             ]"/>
         </record>
-
         <record id="tax19" model="account.tax.template">
             <field name="chart_template_id" ref="no_chart_template"/>
             <field name="name">52 Utførsel av varer og tjenester nullsats 0%</field>
@@ -610,28 +480,21 @@
             <field name="tax_group_id" ref="tax_group_0"/>
             <field name="invoice_repartition_line_ids" eval="[(5,0,0),
                 (0,0, {
-                    'factor_percent': 100,
                     'repartition_type': 'base',
-                    'plus_report_line_ids': [ref('tax_report_line_code_52')],
+                    'plus_report_expression_ids': [ref('tax_report_line_code_52_tag')],
                 }),
-                (0,0, {
-                    'factor_percent': 100,
-                    'repartition_type': 'tax',
-                }),
+
+                (0,0, {'repartition_type': 'tax'}),
             ]"/>
             <field name="refund_repartition_line_ids" eval="[(5,0,0),
                 (0,0, {
-                    'factor_percent': 100,
                     'repartition_type': 'base',
-                    'minus_report_line_ids': [ref('tax_report_line_code_52')],
+                    'minus_report_expression_ids': [ref('tax_report_line_code_52_tag')],
                 }),
-                (0,0, {
-                    'factor_percent': 100,
-                    'repartition_type': 'tax',
-                }),
+
+                (0,0, {'repartition_type': 'tax'}),
             ]"/>
         </record>
-
         <record id="tax20" model="account.tax.template">
             <field name="chart_template_id" ref="no_chart_template"/>
             <field name="name">81 Innførsel av varer med fradrag for innførselsmva høy sats 25%</field>
@@ -642,44 +505,43 @@
             <field name="tax_group_id" ref="tax_group_25"/>
             <field name="invoice_repartition_line_ids" eval="[(5,0,0),
                 (0,0, {
-                    'factor_percent': 100,
                     'repartition_type': 'base',
-                    'plus_report_line_ids': [ref('tax_report_line_code_81')],
+                    'plus_report_expression_ids': [ref('tax_report_line_code_81_tag')],
                 }),
+
                 (0,0, {
-                    'factor_percent': 100,
                     'repartition_type': 'tax',
                     'account_id': ref('chart2741'),
-                    'plus_report_line_ids': [ref('tax_report_line_code_81_tax')],
+                    'plus_report_expression_ids': [ref('tax_report_line_code_81_tax_tag')],
                 }),
+
                 (0,0, {
                     'factor_percent': -100,
                     'repartition_type': 'tax',
                     'account_id': ref('chart2727'),
-                    'plus_report_line_ids': [ref('tax_report_line_code_81_tax')],
+                    'plus_report_expression_ids': [ref('tax_report_line_code_81_tax_tag')],
                 }),
             ]"/>
             <field name="refund_repartition_line_ids" eval="[(5,0,0),
                 (0,0, {
-                    'factor_percent': 100,
                     'repartition_type': 'base',
-                    'minus_report_line_ids': [ref('tax_report_line_code_81')],
+                    'minus_report_expression_ids': [ref('tax_report_line_code_81_tag')],
                 }),
+
                 (0,0, {
-                    'factor_percent': 100,
                     'repartition_type': 'tax',
                     'account_id': ref('chart2741'),
-                    'minus_report_line_ids': [ref('tax_report_line_code_81_tax')],
+                    'minus_report_expression_ids': [ref('tax_report_line_code_81_tax_tag')],
                 }),
+
                 (0,0, {
                     'factor_percent': -100,
                     'repartition_type': 'tax',
                     'account_id': ref('chart2727'),
-                    'minus_report_line_ids': [ref('tax_report_line_code_81_tax')],
+                    'minus_report_expression_ids': [ref('tax_report_line_code_81_tax_tag')],
                 }),
             ]"/>
         </record>
-
         <record id="tax21" model="account.tax.template">
             <field name="chart_template_id" ref="no_chart_template"/>
             <field name="name">82 Innførsel av varer uten fradrag for innførselsmva høy sats 25%</field>
@@ -690,32 +552,29 @@
             <field name="tax_group_id" ref="tax_group_25"/>
             <field name="invoice_repartition_line_ids" eval="[(5,0,0),
                 (0,0, {
-                    'factor_percent': 100,
                     'repartition_type': 'base',
-                    'plus_report_line_ids': [ref('tax_report_line_code_82')],
+                    'plus_report_expression_ids': [ref('tax_report_line_code_82_tag')],
                 }),
+
                 (0,0, {
-                    'factor_percent': 100,
                     'repartition_type': 'tax',
                     'account_id': ref('chart2741'),
-                    'plus_report_line_ids': [ref('tax_report_line_code_82_tax')],
+                    'plus_report_expression_ids': [ref('tax_report_line_code_82_tax_tag')],
                 }),
             ]"/>
             <field name="refund_repartition_line_ids" eval="[(5,0,0),
                 (0,0, {
-                    'factor_percent': 100,
                     'repartition_type': 'base',
-                    'minus_report_line_ids': [ref('tax_report_line_code_82')],
+                    'minus_report_expression_ids': [ref('tax_report_line_code_82_tag')],
                 }),
+
                 (0,0, {
-                    'factor_percent': 100,
                     'repartition_type': 'tax',
                     'account_id': ref('chart2741'),
-                    'minus_report_line_ids': [ref('tax_report_line_code_82_tax')],
+                    'minus_report_expression_ids': [ref('tax_report_line_code_82_tax_tag')],
                 }),
             ]"/>
         </record>
-
         <record id="tax22" model="account.tax.template">
             <field name="chart_template_id" ref="no_chart_template"/>
             <field name="name">83 Innførsel av varer med fradrag for innførselsmva middel sats 15%</field>
@@ -726,44 +585,43 @@
             <field name="tax_group_id" ref="tax_group_15"/>
             <field name="invoice_repartition_line_ids" eval="[(5,0,0),
                 (0,0, {
-                    'factor_percent': 100,
                     'repartition_type': 'base',
-                    'plus_report_line_ids': [ref('tax_report_line_code_83')],
+                    'plus_report_expression_ids': [ref('tax_report_line_code_83_tag')],
                 }),
+
                 (0,0, {
-                    'factor_percent': 100,
                     'repartition_type': 'tax',
                     'account_id': ref('chart2742'),
-                    'plus_report_line_ids': [ref('tax_report_line_code_83_tax')],
+                    'plus_report_expression_ids': [ref('tax_report_line_code_83_tax_tag')],
                 }),
+
                 (0,0, {
                     'factor_percent': -100,
                     'repartition_type': 'tax',
                     'account_id': ref('chart2728'),
-                    'plus_report_line_ids': [ref('tax_report_line_code_83_tax')],
+                    'plus_report_expression_ids': [ref('tax_report_line_code_83_tax_tag')],
                 }),
             ]"/>
             <field name="refund_repartition_line_ids" eval="[(5,0,0),
                 (0,0, {
-                    'factor_percent': 100,
                     'repartition_type': 'base',
-                    'minus_report_line_ids': [ref('tax_report_line_code_83')],
+                    'minus_report_expression_ids': [ref('tax_report_line_code_83_tag')],
                 }),
+
                 (0,0, {
-                    'factor_percent': 100,
                     'repartition_type': 'tax',
                     'account_id': ref('chart2742'),
-                    'minus_report_line_ids': [ref('tax_report_line_code_83_tax')],
+                    'minus_report_expression_ids': [ref('tax_report_line_code_83_tax_tag')],
                 }),
+
                 (0,0, {
                     'factor_percent': -100,
                     'repartition_type': 'tax',
                     'account_id': ref('chart2728'),
-                    'minus_report_line_ids': [ref('tax_report_line_code_83_tax')],
+                    'minus_report_expression_ids': [ref('tax_report_line_code_83_tax_tag')],
                 }),
             ]"/>
         </record>
-
         <record id="tax23" model="account.tax.template">
             <field name="chart_template_id" ref="no_chart_template"/>
             <field name="name">84 Innførsel av varer uten fradrag for innførselsmva middel sats 15%</field>
@@ -774,32 +632,29 @@
             <field name="tax_group_id" ref="tax_group_15"/>
             <field name="invoice_repartition_line_ids" eval="[(5,0,0),
                 (0,0, {
-                    'factor_percent': 100,
                     'repartition_type': 'base',
-                    'plus_report_line_ids': [ref('tax_report_line_code_84')],
+                    'plus_report_expression_ids': [ref('tax_report_line_code_84_tag')],
                 }),
+
                 (0,0, {
-                    'factor_percent': 100,
                     'repartition_type': 'tax',
                     'account_id': ref('chart2742'),
-                    'plus_report_line_ids': [ref('tax_report_line_code_84_tax')],
+                    'plus_report_expression_ids': [ref('tax_report_line_code_84_tax_tag')],
                 }),
             ]"/>
             <field name="refund_repartition_line_ids" eval="[(5,0,0),
                 (0,0, {
-                    'factor_percent': 100,
                     'repartition_type': 'base',
-                    'minus_report_line_ids': [ref('tax_report_line_code_84')],
+                    'minus_report_expression_ids': [ref('tax_report_line_code_84_tag')],
                 }),
+
                 (0,0, {
-                    'factor_percent': 100,
                     'repartition_type': 'tax',
                     'account_id': ref('chart2742'),
-                    'minus_report_line_ids': [ref('tax_report_line_code_84_tax')],
+                    'minus_report_expression_ids': [ref('tax_report_line_code_84_tax_tag')],
                 }),
             ]"/>
         </record>
-
         <record id="tax24" model="account.tax.template">
             <field name="chart_template_id" ref="no_chart_template"/>
             <field name="name">85 Innførsel av varer uten mva beregning 0%</field>
@@ -810,28 +665,21 @@
             <field name="tax_group_id" ref="tax_group_0"/>
             <field name="invoice_repartition_line_ids" eval="[(5,0,0),
                 (0,0, {
-                    'factor_percent': 100,
                     'repartition_type': 'base',
-                    'plus_report_line_ids': [ref('tax_report_line_code_85')],
+                    'plus_report_expression_ids': [ref('tax_report_line_code_85_tag')],
                 }),
-                (0,0, {
-                    'factor_percent': 100,
-                    'repartition_type': 'tax',
-                }),
+
+                (0,0, {'repartition_type': 'tax'}),
             ]"/>
             <field name="refund_repartition_line_ids" eval="[(5,0,0),
                 (0,0, {
-                    'factor_percent': 100,
                     'repartition_type': 'base',
-                    'minus_report_line_ids': [ref('tax_report_line_code_85')],
+                    'minus_report_expression_ids': [ref('tax_report_line_code_85_tag')],
                 }),
-                (0,0, {
-                    'factor_percent': 100,
-                    'repartition_type': 'tax',
-                }),
+
+                (0,0, {'repartition_type': 'tax'}),
             ]"/>
         </record>
-
         <record id="tax25" model="account.tax.template">
             <field name="chart_template_id" ref="no_chart_template"/>
             <field name="name">86 Tjenester kjøpt fra utlandet med fradrag for mva høy sats 25%</field>
@@ -842,44 +690,43 @@
             <field name="tax_group_id" ref="tax_group_25"/>
             <field name="invoice_repartition_line_ids" eval="[(5,0,0),
                 (0,0, {
-                    'factor_percent': 100,
                     'repartition_type': 'base',
-                    'plus_report_line_ids': [ref('tax_report_line_code_86')],
+                    'plus_report_expression_ids': [ref('tax_report_line_code_86_tag')],
                 }),
+
                 (0,0, {
-                    'factor_percent': 100,
                     'repartition_type': 'tax',
                     'account_id': ref('chart2712'),
-                    'plus_report_line_ids': [ref('tax_report_line_code_86_tax')],
+                    'plus_report_expression_ids': [ref('tax_report_line_code_86_tax_tag')],
                 }),
+
                 (0,0, {
                     'factor_percent': -100,
                     'repartition_type': 'tax',
                     'account_id': ref('chart2702'),
-                    'plus_report_line_ids': [ref('tax_report_line_code_86_tax')],
+                    'plus_report_expression_ids': [ref('tax_report_line_code_86_tax_tag')],
                 }),
             ]"/>
             <field name="refund_repartition_line_ids" eval="[(5,0,0),
                 (0,0, {
-                    'factor_percent': 100,
                     'repartition_type': 'base',
-                    'minus_report_line_ids': [ref('tax_report_line_code_86')],
+                    'minus_report_expression_ids': [ref('tax_report_line_code_86_tag')],
                 }),
+
                 (0,0, {
-                    'factor_percent': 100,
                     'repartition_type': 'tax',
                     'account_id': ref('chart2712'),
-                    'minus_report_line_ids': [ref('tax_report_line_code_86_tax')],
+                    'minus_report_expression_ids': [ref('tax_report_line_code_86_tax_tag')],
                 }),
+
                 (0,0, {
                     'factor_percent': -100,
                     'repartition_type': 'tax',
                     'account_id': ref('chart2702'),
-                    'minus_report_line_ids': [ref('tax_report_line_code_86_tax')],
+                    'minus_report_expression_ids': [ref('tax_report_line_code_86_tax_tag')],
                 }),
             ]"/>
         </record>
-
         <record id="tax26" model="account.tax.template">
             <field name="chart_template_id" ref="no_chart_template"/>
             <field name="name">87 Tjenester kjøpt fra utlandet uten fradrag for mva høy sats 25%</field>
@@ -890,32 +737,29 @@
             <field name="tax_group_id" ref="tax_group_25"/>
             <field name="invoice_repartition_line_ids" eval="[(5,0,0),
                 (0,0, {
-                    'factor_percent': 100,
                     'repartition_type': 'base',
-                    'plus_report_line_ids': [ref('tax_report_line_code_87')],
+                    'plus_report_expression_ids': [ref('tax_report_line_code_87_tag')],
                 }),
+
                 (0,0, {
-                    'factor_percent': 100,
                     'repartition_type': 'tax',
                     'account_id': ref('chart2712'),
-                    'plus_report_line_ids': [ref('tax_report_line_code_87_tax')],
+                    'plus_report_expression_ids': [ref('tax_report_line_code_87_tax_tag')],
                 }),
             ]"/>
             <field name="refund_repartition_line_ids" eval="[(5,0,0),
                 (0,0, {
-                    'factor_percent': 100,
                     'repartition_type': 'base',
-                    'minus_report_line_ids': [ref('tax_report_line_code_87')],
+                    'minus_report_expression_ids': [ref('tax_report_line_code_87_tag')],
                 }),
+
                 (0,0, {
-                    'factor_percent': 100,
                     'repartition_type': 'tax',
                     'account_id': ref('chart2712'),
-                    'minus_report_line_ids': [ref('tax_report_line_code_87_tax')],
+                    'minus_report_expression_ids': [ref('tax_report_line_code_87_tax_tag')],
                 }),
             ]"/>
         </record>
-
         <record id="tax27" model="account.tax.template">
             <field name="chart_template_id" ref="no_chart_template"/>
             <field name="name">88 Tjenester kjøpt fra utlandet med fradrag for mva lav sats 12%</field>
@@ -927,44 +771,43 @@
             <field name="active" eval="False"/>
             <field name="invoice_repartition_line_ids" eval="[(5,0,0),
                 (0,0, {
-                    'factor_percent': 100,
                     'repartition_type': 'base',
-                    'plus_report_line_ids': [ref('tax_report_line_code_88')],
+                    'plus_report_expression_ids': [ref('tax_report_line_code_88_tag')],
                 }),
+
                 (0,0, {
-                    'factor_percent': 100,
                     'repartition_type': 'tax',
                     'account_id': ref('chart2712'),
-                    'plus_report_line_ids': [ref('tax_report_line_code_88_tax')],
+                    'plus_report_expression_ids': [ref('tax_report_line_code_88_tax_tag')],
                 }),
+
                 (0,0, {
                     'factor_percent': -100,
                     'repartition_type': 'tax',
                     'account_id': ref('chart2702'),
-                    'plus_report_line_ids': [ref('tax_report_line_code_88_tax')],
+                    'plus_report_expression_ids': [ref('tax_report_line_code_88_tax_tag')],
                 }),
             ]"/>
             <field name="refund_repartition_line_ids" eval="[(5,0,0),
                 (0,0, {
-                    'factor_percent': 100,
                     'repartition_type': 'base',
-                    'minus_report_line_ids': [ref('tax_report_line_code_88')],
+                    'minus_report_expression_ids': [ref('tax_report_line_code_88_tag')],
                 }),
+
                 (0,0, {
-                    'factor_percent': 100,
                     'repartition_type': 'tax',
                     'account_id': ref('chart2712'),
-                    'minus_report_line_ids': [ref('tax_report_line_code_88_tax')],
+                    'minus_report_expression_ids': [ref('tax_report_line_code_88_tax_tag')],
                 }),
+
                 (0,0, {
                     'factor_percent': -100,
                     'repartition_type': 'tax',
                     'account_id': ref('chart2702'),
-                    'minus_report_line_ids': [ref('tax_report_line_code_88_tax')],
+                    'minus_report_expression_ids': [ref('tax_report_line_code_88_tax_tag')],
                 }),
             ]"/>
         </record>
-
         <record id="tax28" model="account.tax.template">
             <field name="chart_template_id" ref="no_chart_template"/>
             <field name="name">89 Tjenester kjøpt fra utlandet uten fradrag for mva lav sats 12%</field>
@@ -976,32 +819,29 @@
             <field name="active" eval="False"/>
             <field name="invoice_repartition_line_ids" eval="[(5,0,0),
                 (0,0, {
-                    'factor_percent': 100,
                     'repartition_type': 'base',
-                    'plus_report_line_ids': [ref('tax_report_line_code_89')],
+                    'plus_report_expression_ids': [ref('tax_report_line_code_89_tag')],
                 }),
+
                 (0,0, {
-                    'factor_percent': 100,
                     'repartition_type': 'tax',
                     'account_id': ref('chart2712'),
-                    'plus_report_line_ids': [ref('tax_report_line_code_89_tax')],
+                    'plus_report_expression_ids': [ref('tax_report_line_code_89_tax_tag')],
                 }),
             ]"/>
             <field name="refund_repartition_line_ids" eval="[(5,0,0),
                 (0,0, {
-                    'factor_percent': 100,
                     'repartition_type': 'base',
-                    'minus_report_line_ids': [ref('tax_report_line_code_89')],
+                    'minus_report_expression_ids': [ref('tax_report_line_code_89_tag')],
                 }),
+
                 (0,0, {
-                    'factor_percent': 100,
                     'repartition_type': 'tax',
                     'account_id': ref('chart2712'),
-                    'minus_report_line_ids': [ref('tax_report_line_code_89_tax')],
+                    'minus_report_expression_ids': [ref('tax_report_line_code_89_tax_tag')],
                 }),
             ]"/>
         </record>
-
         <record id="tax29" model="account.tax.template">
             <field name="chart_template_id" ref="no_chart_template"/>
             <field name="name">91 Kjøp av klimakvoter eller gull med fradrag for mva høy sats 25%</field>
@@ -1013,44 +853,43 @@
             <field name="active" eval="False"/>
             <field name="invoice_repartition_line_ids" eval="[(5,0,0),
                 (0,0, {
-                    'factor_percent': 100,
                     'repartition_type': 'base',
-                    'plus_report_line_ids': [ref('tax_report_line_code_91')],
+                    'plus_report_expression_ids': [ref('tax_report_line_code_91_tag')],
                 }),
+
                 (0,0, {
-                    'factor_percent': 100,
                     'repartition_type': 'tax',
                     'account_id': ref('chart2711'),
-                    'plus_report_line_ids': [ref('tax_report_line_code_91_tax')],
+                    'plus_report_expression_ids': [ref('tax_report_line_code_91_tax_tag')],
                 }),
+
                 (0,0, {
                     'factor_percent': -100,
                     'repartition_type': 'tax',
                     'account_id': ref('chart2701'),
-                    'plus_report_line_ids': [ref('tax_report_line_code_91_tax')],
+                    'plus_report_expression_ids': [ref('tax_report_line_code_91_tax_tag')],
                 }),
             ]"/>
             <field name="refund_repartition_line_ids" eval="[(5,0,0),
                 (0,0, {
-                    'factor_percent': 100,
                     'repartition_type': 'base',
-                    'minus_report_line_ids': [ref('tax_report_line_code_91')],
+                    'minus_report_expression_ids': [ref('tax_report_line_code_91_tag')],
                 }),
+
                 (0,0, {
-                    'factor_percent': 100,
                     'repartition_type': 'tax',
                     'account_id': ref('chart2711'),
-                    'minus_report_line_ids': [ref('tax_report_line_code_91_tax')],
+                    'minus_report_expression_ids': [ref('tax_report_line_code_91_tax_tag')],
                 }),
+
                 (0,0, {
                     'factor_percent': -100,
                     'repartition_type': 'tax',
                     'account_id': ref('chart2701'),
-                    'minus_report_line_ids': [ref('tax_report_line_code_91_tax')],
+                    'minus_report_expression_ids': [ref('tax_report_line_code_91_tax_tag')],
                 }),
             ]"/>
         </record>
-
         <record id="tax30" model="account.tax.template">
             <field name="chart_template_id" ref="no_chart_template"/>
             <field name="name">92 Kjøp av klimakvoter eller gull uten fradrag for mva høy sats 25%</field>
@@ -1062,28 +901,26 @@
             <field name="active" eval="False"/>
             <field name="invoice_repartition_line_ids" eval="[(5,0,0),
                 (0,0, {
-                    'factor_percent': 100,
                     'repartition_type': 'base',
-                    'plus_report_line_ids': [ref('tax_report_line_code_92')],
+                    'plus_report_expression_ids': [ref('tax_report_line_code_92_tag')],
                 }),
+
                 (0,0, {
-                    'factor_percent': 100,
                     'repartition_type': 'tax',
                     'account_id': ref('chart2711'),
-                    'plus_report_line_ids': [ref('tax_report_line_code_92_tax')],
+                    'plus_report_expression_ids': [ref('tax_report_line_code_92_tax_tag')],
                 }),
             ]"/>
             <field name="refund_repartition_line_ids" eval="[(5,0,0),
                 (0,0, {
-                    'factor_percent': 100,
                     'repartition_type': 'base',
-                    'minus_report_line_ids': [ref('tax_report_line_code_92')],
+                    'minus_report_expression_ids': [ref('tax_report_line_code_92_tag')],
                 }),
+
                 (0,0, {
-                    'factor_percent': 100,
                     'repartition_type': 'tax',
                     'account_id': ref('chart2711'),
-                    'minus_report_line_ids': [ref('tax_report_line_code_92_tax')],
+                    'minus_report_expression_ids': [ref('tax_report_line_code_92_tax_tag')],
                 }),
             ]"/>
         </record>

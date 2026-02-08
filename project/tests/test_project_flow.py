@@ -1,10 +1,13 @@
 # -*- coding: utf-8 -*-
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
 
+from markupsafe import Markup
+
 from .test_project_base import TestProjectCommon
 from odoo import Command
 from odoo.tools import mute_logger
-from odoo.addons.mail.tests.common import MockEmail
+from odoo.addons.mail.tests.common import MailCommon
+from odoo.exceptions import AccessError
 
 
 EMAIL_TPL = """Return-Path: <whatever-2a840@postmaster.twitter.com>
@@ -33,29 +36,14 @@ Raoul Boitempoils
 Integrator at Agrolait"""
 
 
-class TestProjectFlow(TestProjectCommon, MockEmail):
+class TestProjectFlow(TestProjectCommon, MailCommon):
 
     def test_project_process_project_manager_duplicate(self):
-        Task = self.env['project.task'].with_context({'tracking_disable': True})
         pigs = self.project_pigs.with_user(self.user_projectmanager)
-        root_task = self.task_1
-        sub_task = Task.create({
-            'name': 'Sub Task',
-            'parent_id': root_task.id,
-            'project_id': self.project_pigs.id,
-        })
-        Task.create({
-            'name': 'Sub Sub Task',
-            'parent_id': sub_task.id,
-            'project_id': self.project_pigs.id,
-        })
         dogs = pigs.copy()
-        self.assertEqual(len(dogs.tasks), 4, 'project: duplicating a project must duplicate its tasks')
-        self.assertEqual(dogs.task_count, 2, 'project: duplicating a project must not change the original project')
-        self.assertEqual(pigs.task_count, 2, 'project: duplicating a project must duplicate its displayed tasks')
-        self.assertEqual(dogs.task_count_with_subtasks, 4, 'project: duplicating a project must duplicate its subtasks')
+        self.assertEqual(len(dogs.tasks), 2, 'project: duplicating a project must duplicate its tasks')
 
-    @mute_logger('odoo.addons.mail.mail_thread')
+    @mute_logger('odoo.addons.mail.models.mail_thread')
     def test_task_process_without_stage(self):
         # Do: incoming mail from an unknown partner on an alias creates a new task 'Frogs'
         task = self.format_and_process(
@@ -71,18 +59,18 @@ class TestProjectFlow(TestProjectCommon, MockEmail):
         # Test: messages
         self.assertEqual(len(task.message_ids), 1,
                          'project: message_process: newly created task should have 1 message: email')
-        self.assertEqual(task.message_ids[0].subtype_id, self.env.ref('project.mt_task_new'),
+        self.assertEqual(task.message_ids.subtype_id, self.env.ref('project.mt_task_new'),
                          'project: message_process: first message of new task should have Task Created subtype')
-        self.assertEqual(task.message_ids[0].author_id, self.user_projectuser.partner_id,
+        self.assertEqual(task.message_ids.author_id, self.user_projectuser.partner_id,
                          'project: message_process: second message should be the one from Agrolait (partner failed)')
-        self.assertEqual(task.message_ids[0].subject, 'Frogs',
+        self.assertEqual(task.message_ids.subject, 'Frogs',
                          'project: message_process: second message should be the one from Agrolait (subject failed)')
         # Test: task content
         self.assertEqual(task.name, 'Frogs', 'project_task: name should be the email subject')
-        self.assertEqual(task.project_id.id, self.project_pigs.id, 'project_task: incorrect project')
+        self.assertEqual(task.project_id, self.project_pigs, 'project_task: incorrect project')
         self.assertEqual(task.stage_id.sequence, False, "project_task: shouldn't have a stage, i.e. sequence=False")
 
-    @mute_logger('odoo.addons.mail.mail_thread')
+    @mute_logger('odoo.addons.mail.models.mail_thread')
     def test_task_process_with_stages(self):
         # Do: incoming mail from an unknown partner on an alias creates a new task 'Cats'
         task = self.format_and_process(
@@ -98,16 +86,77 @@ class TestProjectFlow(TestProjectCommon, MockEmail):
         # Test: messages
         self.assertEqual(len(task.message_ids), 1,
                          'project: message_process: newly created task should have 1 messages: email')
-        self.assertEqual(task.message_ids[0].subtype_id, self.env.ref('project.mt_task_new'),
+        self.assertEqual(task.message_ids.subtype_id, self.env.ref('project.mt_task_new'),
                          'project: message_process: first message of new task should have Task Created subtype')
-        self.assertEqual(task.message_ids[0].author_id, self.user_projectuser.partner_id,
+        self.assertEqual(task.message_ids.author_id, self.user_projectuser.partner_id,
                          'project: message_process: first message should be the one from Agrolait (partner failed)')
-        self.assertEqual(task.message_ids[0].subject, 'Cats',
+        self.assertEqual(task.message_ids.subject, 'Cats',
                          'project: message_process: first message should be the one from Agrolait (subject failed)')
         # Test: task content
         self.assertEqual(task.name, 'Cats', 'project_task: name should be the email subject')
-        self.assertEqual(task.project_id.id, self.project_goats.id, 'project_task: incorrect project')
+        self.assertEqual(task.project_id, self.project_goats, 'project_task: incorrect project')
         self.assertEqual(task.stage_id.sequence, 1, "project_task: should have a stage with sequence=1")
+
+    @mute_logger('odoo.addons.mail.models.mail_thread')
+    def test_task_from_email_alias(self):
+        # Do: incoming mail from a known partner email on an alias creates a new task 'Super Frog'
+        task = self.format_and_process(
+            EMAIL_TPL, to='project+goats@mydomain.com, valid.lelitre@agrolait.com', cc='valid.other@gmail.com',
+            email_from='%s' % self.user_portal.email,
+            subject='Super Frog', msg_id='<1198923581.41972151344608186760.JavaMail@agrolait.com>',
+            target_model='project.task')
+
+        # Test: one task created by mailgateway administrator
+        self.assertEqual(len(task), 1, 'project: message_process: a new project.task should have been created')
+        # Test: check partner in message followers
+        self.assertIn(self.partner_2, task.message_partner_ids, "Partner in message cc is not added as a task followers.")
+        # Test: check partner has not been assgined
+        self.assertFalse(task.user_ids, "Partner is not added as an assignees")
+        # Test: messages
+        self.assertEqual(len(task.message_ids), 1,
+                         'project: message_process: newly created task should have 1 messages: email')
+        self.assertEqual(task.message_ids.subtype_id, self.env.ref('project.mt_task_new'),
+                         'project: message_process: first message of new task should have Task Created subtype')
+        self.assertEqual(task.message_ids.author_id, self.user_portal.partner_id,
+                         'project: message_process: first message should be the one from Agrolait (partner failed)')
+        self.assertEqual(task.message_ids.subject, 'Super Frog',
+                         'project: message_process: first message should be the one from Agrolait (subject failed)')
+        # Test: task content
+        self.assertEqual(task.name, 'Super Frog', 'project_task: name should be the email subject')
+        self.assertEqual(task.project_id, self.project_goats, 'project_task: incorrect project')
+        self.assertEqual(task.stage_id.sequence, 1, "project_task: should have a stage with sequence=1")
+        self.assertEqual(
+            task.description,
+            Markup(
+                '<pre>Hello,\n\nThis email should create a new entry in your module. Please check that it\neffectively works.\n\nThanks,\n<span data-o-mail-quote="1">\n--\nRaoul Boitempoils\nIntegrator at Agrolait</span></pre>\n'
+            ),
+            'The task description should be the email content.',
+        )
+
+    @mute_logger('odoo.addons.mail.models.mail_thread')
+    def test_task_creation_from_mail(self):
+        server = self.env['fetchmail.server'].create({
+            'name': 'Test server',
+            'user': 'test@example.com',
+            'password': '',
+        })
+        task_id = self.env["mail.thread"].with_context(
+            default_fetchmail_server_id=server.id
+        ).message_process(
+            server.object_id.model,
+            EMAIL_TPL.format(
+                cc="",
+                email_from="chell@gladys.portal",
+                to="project+pigs@example.com",
+                subject="In a cage",
+                msg_id="<on.antibiotics@example.com>",
+            ),
+            save_original=server.original,
+            strip_attachments=not server.attach,
+        )
+        task = self.env['project.task'].browse(task_id)
+        self.assertEqual(task.name, "In a cage")
+        self.assertEqual(task.project_id, self.project_pigs)
 
     def test_subtask_process(self):
         """
@@ -255,7 +304,7 @@ class TestProjectFlow(TestProjectCommon, MockEmail):
 
         # We need to invalidate cache since it is not done automatically by the ORM
         # Our One2Many is linked to a res_id (int) for which the orm doesn't create an inverse
-        first_task.invalidate_cache()
+        self.env.invalidate_all()
 
         self.assertEqual(rating_good.rating_text, 'top')
         self.assertEqual(rating_bad.rating_text, 'ok')
@@ -263,30 +312,38 @@ class TestProjectFlow(TestProjectCommon, MockEmail):
         self.assertEqual(rating_good.parent_res_id, self.project_pigs.id)
 
         self.assertEqual(self.project_goats.rating_percentage_satisfaction, -1)
+        self.assertEqual(self.project_goats.rating_avg, 0, 'Since there is no rating in this project, the Average Rating should be equal to 0.')
         self.assertEqual(self.project_pigs.rating_percentage_satisfaction, 0)  # There is a rating but not a "great" on, just an "okay".
+        self.assertEqual(self.project_pigs.rating_avg, rating_bad.rating, 'Since there is only one rating the Average Rating should be equal to the rating value of this one.')
 
         # Consuming rating_good
         first_task.rating_apply(5, rating_good.access_token)
 
         # We need to invalidate cache since it is not done automatically by the ORM
         # Our One2Many is linked to a res_id (int) for which the orm doesn't create an inverse
-        first_task.invalidate_cache()
+        self.env.invalidate_all()
 
+        rating_avg = (rating_good.rating + rating_bad.rating) / 2
         self.assertEqual(first_task.rating_count, 2, "Task should have two ratings associated with it")
+        self.assertEqual(first_task.rating_avg_text, 'top')
         self.assertEqual(rating_good.parent_res_id, self.project_pigs.id)
         self.assertEqual(self.project_goats.rating_percentage_satisfaction, -1)
         self.assertEqual(self.project_pigs.rating_percentage_satisfaction, 50)
+        self.assertEqual(self.project_pigs.rating_avg, rating_avg)
+        self.assertEqual(self.project_pigs.rating_avg_percentage, rating_avg / 5)
 
         # We change the task from project_pigs to project_goats, ratings should be associated with the new project
         first_task.project_id = self.project_goats.id
 
         # We need to invalidate cache since it is not done automatically by the ORM
         # Our One2Many is linked to a res_id (int) for which the orm doesn't create an inverse
-        first_task.invalidate_cache()
+        self.env.invalidate_all()
 
         self.assertEqual(rating_good.parent_res_id, self.project_goats.id)
         self.assertEqual(self.project_goats.rating_percentage_satisfaction, 50)
+        self.assertEqual(self.project_goats.rating_avg, rating_avg)
         self.assertEqual(self.project_pigs.rating_percentage_satisfaction, -1)
+        self.assertEqual(self.project_pigs.rating_avg, 0)
 
     def test_task_with_no_project(self):
         """
@@ -312,6 +369,20 @@ class TestProjectFlow(TestProjectCommon, MockEmail):
             except Exception as e:
                 raise AssertionError("Error raised unexpectedly while computing a field of the project ! Exception : " + e.args[0])
 
+        # tasks with no project set should only be visible to the users assigned to them
+        task_without_project.user_ids = [Command.link(self.user_projectuser.id)]
+        task_without_project.with_user(self.user_projectuser).read(['name'])
+        with self.assertRaises(AccessError):
+            task_without_project.with_user(self.user_projectmanager).read(['name'])
+
+        # Tests that tasks assigned to the current user should be in the right default stage
+        task = self.env['project.task'].create({
+            'name': 'Test Task!',
+            'user_ids': [Command.link(self.env.user.id)],
+        })
+        stages = task._get_default_personal_stage_create_vals(self.env.user.id)
+        self.assertEqual(task.personal_stage_id.stage_id.name, stages[0].get('name'), "tasks assigned to the current user should be in the right default stage")
+
     def test_send_rating_review(self):
         project_settings = self.env["res.config.settings"].create({'group_project_rating': True})
         project_settings.execute()
@@ -335,7 +406,7 @@ class TestProjectFlow(TestProjectCommon, MockEmail):
         with self.mock_mail_gateway():
             tasks.with_user(self.user_projectmanager).write({'stage_id': won_stage.id})
 
-        tasks.invalidate_cache(fnames=['rating_ids'])
+        tasks.invalidate_model(['rating_ids'])
         for task in tasks:
             self.assertEqual(len(task.rating_ids), 1, 'This task should have a generated rating when it arrives in the Won stage.')
             rating_request_message = task.message_ids[:1]
@@ -346,3 +417,77 @@ class TestProjectFlow(TestProjectCommon, MockEmail):
                 self.assertEqual(task.rating_ids.rated_partner_id, task.user_ids.partner_id, 'The rating should have an assigned user if the task has only one assignee.')
                 self.assertEqual(rating_request_message.email_from, task.user_ids.partner_id.email_formatted, 'The message should have the email of the assigned user in the task as email from.')
             self.assertTrue(self.partner_1 in rating_request_message.partner_ids, 'The customer of the task should be in the partner_ids of the rating request message.')
+
+    def test_email_track_template(self):
+        """ Update some tracked fields linked to some template -> message with onchange """
+        project_settings = self.env["res.config.settings"].create({'group_project_stages': True})
+        project_settings.execute()
+
+        mail_template = self.env['mail.template'].create({
+            'name': 'Test template',
+            'subject': 'Test',
+            'body_html': '<p>Test</p>',
+            'auto_delete': True,
+            'model_id': self.env.ref('project.model_project_project_stage').id,
+        })
+        project_A = self.env['project.project'].create({
+            'name': 'project_A',
+            'privacy_visibility': 'followers',
+            'alias_name': 'project A',
+            'partner_id': self.partner_1.id,
+        })
+        init_stage = project_A.stage_id.name
+
+        project_stage = self.env.ref('project.project_project_stage_1')
+        self.assertNotEqual(project_A.stage_id, project_stage)
+
+        # Assign email template
+        project_stage.mail_template_id = mail_template.id
+        self.flush_tracking()
+        init_nb_log = len(project_A.message_ids)
+        project_A.stage_id = project_stage.id
+        self.flush_tracking()
+        self.assertNotEqual(init_stage, project_A.stage_id.name)
+
+        self.assertEqual(len(project_A.message_ids), init_nb_log + 2,
+            "should have 2 new messages: one for tracking, one for template")
+
+    def test_project_notify_get_recipients_groups(self):
+        projects = self.env['project.project'].create([
+            {
+                'name': 'public project',
+                'privacy_visibility': 'portal',
+                'partner_id': self.partner_1.id,
+            },
+            {
+                'name': 'internal project',
+                'privacy_visibility': 'employees',
+                'partner_id': self.partner_1.id,
+            },
+            {
+                'name': 'private project',
+                'privacy_visibility': 'followers',
+                'partner_id': self.partner_1.id,
+            },
+        ])
+        for project in projects:
+            groups = project._notify_get_recipients_groups()
+            groups_per_key = {g[0]: g for g in groups}
+            for key, group in groups_per_key.items():
+                has_button_access = group[2]['has_button_access']
+                if key in ['portal', 'portal_customer']:
+                    self.assertEqual(
+                        has_button_access,
+                        project.name == 'public project',
+                        "Only the public project should have its name clickable in the email sent to the customer when an email is sent via a email template set in the project stage for instance."
+                    )
+                elif key == 'user':
+                    self.assertTrue(has_button_access)
+
+    def test_private_task_search_tag(self):
+        task = self.env['project.task'].create({
+            'name': 'Test Private Task',
+        })
+        # Tag name_search should not raise Error if project_id is False
+        task.tag_ids.with_context(project_id=task.project_id.id).name_search(
+            args=["!", ["id", "in", []]])

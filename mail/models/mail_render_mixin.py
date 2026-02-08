@@ -5,13 +5,14 @@ import babel
 import copy
 import logging
 import re
+import traceback
 
 from lxml import html
 from markupsafe import Markup
 from werkzeug import urls
 
 from odoo import _, api, fields, models, tools
-from odoo.addons.base.models.qweb import QWebCodeFound
+from odoo.addons.base.models.ir_qweb import QWebException
 from odoo.exceptions import UserError, AccessError
 from odoo.tools import is_html_empty, safe_eval
 from odoo.tools.rendering_tools import convert_inline_template_to_qweb, parse_inline_template, render_inline_template, template_env_globals
@@ -53,52 +54,12 @@ class MailRenderMixin(models.AbstractModel):
              "that provides the appropriate language, e.g. {{ object.partner_id.lang }}.")
     # rendering context
     render_model = fields.Char("Rendering Model", compute='_compute_render_model', store=False)
-    # expression builder
-    model_object_field = fields.Many2one(
-        'ir.model.fields', string="Field", store=False,
-        help="Select target field from the related document model.\n"
-             "If it is a relationship field you will be able to select "
-             "a target field at the destination of the relationship.")
-    sub_object = fields.Many2one(
-        'ir.model', 'Sub-model', readonly=True, store=False,
-        help="When a relationship field is selected as first field, "
-             "this field shows the document model the relationship goes to.")
-    sub_model_object_field = fields.Many2one(
-        'ir.model.fields', 'Sub-field', store=False,
-        help="When a relationship field is selected as first field, "
-             "this field lets you select the target field within the "
-             "destination document model (sub-model).")
-    null_value = fields.Char('Default Value', store=False, help="Optional value to use if the target field is empty")
-    copyvalue = fields.Char(
-        'Placeholder Expression', store=False,
-        help="Final placeholder expression, to be copy-pasted in the desired template field.")
 
     def _compute_render_model(self):
         """ Give the target model for rendering. Void by default as models
         inheriting from ``mail.render.mixin`` should define how to find this
         model. """
         self.render_model = False
-
-    @api.onchange('model_object_field', 'sub_model_object_field', 'null_value')
-    def _onchange_dynamic_placeholder(self):
-        """ Generate the dynamic placeholder """
-        if self.model_object_field:
-            if self.model_object_field.ttype in ['many2one', 'one2many', 'many2many']:
-                model = self.env['ir.model']._get(self.model_object_field.relation)
-                if model:
-                    self.sub_object = model.id
-                    sub_field_name = self.sub_model_object_field.name
-                    self.copyvalue = self._build_expression(self.model_object_field.name,
-                                                            sub_field_name, self.null_value or False)
-            else:
-                self.sub_object = False
-                self.sub_model_object_field = False
-                self.copyvalue = self._build_expression(self.model_object_field.name, False, self.null_value or False)
-        else:
-            self.sub_object = False
-            self.copyvalue = False
-            self.sub_model_object_field = False
-            self.null_value = False
 
     @api.model
     def _build_expression(self, field_name, sub_field_name, null_value):
@@ -144,6 +105,15 @@ class MailRenderMixin(models.AbstractModel):
             self._check_access_right_dynamic_template()
         return True
 
+    def _update_field_translations(self, fname, translations, digest=None):
+        res = super()._update_field_translations(fname, translations, digest)
+        if self._unrestricted_rendering:
+            for lang in translations:
+                # If the rendering is unrestricted (e.g. mail.template),
+                # check the user is part of the mail editor group to modify a template if the template is dynamic
+                self.with_context(lang=lang)._check_access_right_dynamic_template()
+        return res
+
     # ------------------------------------------------------------
     # TOOLS
     # ------------------------------------------------------------
@@ -154,10 +124,10 @@ class MailRenderMixin(models.AbstractModel):
         mailings. It replaces
 
          * href of links (mailto will not match the regex)
-         * src of images (base64 hardcoded data will not match the regex)
-         * styling using url like background-image: url
+         * src of images/v:fill/v:image (base64 hardcoded data will not match the regex)
+         * styling using url like background-image: url or background="url"
 
-        It is done using regex because it is shorten than using an html parser
+        It is done using regex because it is shorter than using an html parser
         to create a potentially complex soupe and hope to have a result that
         has not been harmed.
         """
@@ -177,40 +147,36 @@ class MailRenderMixin(models.AbstractModel):
             return match.group(1) + urls.url_join(_sub_relative2absolute.base_url, match.group(2))
 
         _sub_relative2absolute.base_url = base_url
-        html = re.sub(r"""(<img(?=\s)[^>]*\ssrc=")(/[^/][^"]+)""", _sub_relative2absolute, html)
+        html = re.sub(r"""(<(?:img|v:fill|v:image)(?=\s)[^>]*\ssrc=")(/[^/][^"]+)""", _sub_relative2absolute, html)
         html = re.sub(r"""(<a(?=\s)[^>]*\shref=")(/[^/][^"]+)""", _sub_relative2absolute, html)
+        html = re.sub(r"""(<[\w-]+(?=\s)[^>]*\sbackground=")(/[^/][^"]+)""", _sub_relative2absolute, html)
         html = re.sub(re.compile(
             r"""( # Group 1: element up to url in style
                 <[^>]+\bstyle=" # Element with a style attribute
                 [^"]+\burl\( # Style attribute contains "url(" style
-                (?:&\#34;|'|&quot;)?) # url style may start with (escaped) quote: capture it
+                (?:&\#34;|'|&quot;|&\#39;)?) # url style may start with (escaped) quote: capture it
             ( # Group 2: url itself
-                /(?:[^'")]|(?!&\#34;))+ # stop at the first closing quote
+                /(?:[^'")]|(?!&\#34;)|(?!&\#39;))+ # stop at the first closing quote
         )""", re.VERBOSE), _sub_relative2absolute, html)
 
         return wrapper(html)
 
     @api.model
     def _render_encapsulate(self, layout_xmlid, html, add_context=None, context_record=None):
-        try:
-            template = self.env.ref(layout_xmlid, raise_if_not_found=True)
-        except ValueError:
-            _logger.warning('QWeb template %s not found when rendering encapsulation template.' % (layout_xmlid))
-        else:
-            record_name = context_record.display_name if context_record else ''
-            model_description = self.env['ir.model']._get(context_record._name).display_name if context_record else False
-            template_ctx = {
-                'body': html,
-                'record_name': record_name,
-                'model_description': model_description,
-                'company': context_record['company_id'] if (context_record and 'company_id' in context_record) else self.env.company,
-                'record': context_record,
-            }
-            if add_context:
-                template_ctx.update(**add_context)
+        template_ctx = {
+            'body': html,
+            'record_name': context_record.display_name if context_record else '',
+            'model_description': self.env['ir.model']._get(context_record._name).display_name if context_record else False,
+            'company': context_record['company_id'] if (context_record and 'company_id' in context_record) else self.env.company,
+            'record': context_record,
+        }
+        if add_context:
+            template_ctx.update(**add_context)
 
-            html = template._render(template_ctx, engine='ir.qweb', minimal_qcontext=True)
-            html = self.env['mail.render.mixin']._replace_local_links(html)
+        html = self.env['ir.qweb']._render(layout_xmlid, template_ctx, minimal_qcontext=True, raise_if_not_found=False)
+        if not html:
+            _logger.warning('QWeb template %s not found when rendering encapsulation template.' % (layout_xmlid))
+        html = self.env['mail.render.mixin']._replace_local_links(html)
         return html
 
     @api.model
@@ -258,9 +224,11 @@ class MailRenderMixin(models.AbstractModel):
         if template_src:
             try:
                 node = html.fragment_fromstring(template_src, create_parent='div')
-                self.env["ir.qweb"]._compile(node, options={'raise_on_code': True})
-            except QWebCodeFound:
-                return True
+                self.env["ir.qweb"].with_context(raise_on_code=True)._compile(node)
+            except QWebException as e:
+                if isinstance(e.__cause__, PermissionError):
+                    return True
+                raise
         return False
 
     @api.model
@@ -337,21 +305,22 @@ class MailRenderMixin(models.AbstractModel):
                     html.fragment_fromstring(template_src, create_parent='div'),
                     variables,
                     raise_on_code=is_restricted,
+                    **(options or {})
                 )
                 # remove the rendered tag <div> that was added in order to wrap potentially multiples nodes into one.
                 render_result = render_result[5:-6]
-            except QWebCodeFound:
-                group = self.env.ref('mail.group_mail_template_editor')
-                raise AccessError(_('Only users belonging to the "%s" group can modify dynamic templates.', group.name))
             except Exception as e:
+                if isinstance(e, QWebException) and isinstance(e.__cause__, PermissionError):
+                    group = self.env.ref('mail.group_mail_template_editor')
+                    raise AccessError(_('Only users belonging to the "%s" group can modify dynamic templates.', group.name)) from e
                 _logger.info("Failed to render template : %s", template_src, exc_info=True)
-                raise UserError(_("Failed to render QWeb template : %s)", e))
+                raise UserError(_("Failed to render QWeb template : %s\n\n%s)", template_src, traceback.format_exc())) from e
             results[record.id] = render_result
 
         return results
 
     @api.model
-    def _render_template_qweb_view(self, template_src, model, res_ids,
+    def _render_template_qweb_view(self, view_xmlid, model, res_ids,
                                    add_context=None, options=None):
         """ Render a QWeb template based on an ir.ui.view content.
 
@@ -359,7 +328,7 @@ class MailRenderMixin(models.AbstractModel):
         variables are added:
           * ``object``: record based on which the template is rendered;
 
-        :param str template_src: source QWeb template. It should be a string
+        :param str view_xmlid: source QWeb template. It should be a string
           XmlID allowing to fetch an ``ir.ui.view``;
         :param str model: see ``MailRenderMixin._render_template()``;
         :param list res_ids: see ``MailRenderMixin._render_template()``;
@@ -375,27 +344,21 @@ class MailRenderMixin(models.AbstractModel):
         if any(r is None for r in res_ids):
             raise ValueError(_('Template rendering should be called on a valid record IDs.'))
 
-        view = self.env.ref(template_src, raise_if_not_found=False) or self.env['ir.ui.view']
-        results = dict.fromkeys(res_ids, u"")
-        if not view:
-            return results
+        results = {}
 
         # prepare template variables
         variables = self._render_eval_context()
         if add_context:
             variables.update(**add_context)
-        safe_eval.check_values(variables)
 
         for record in self.env[model].browse(res_ids):
             variables['object'] = record
             try:
-                render_result = view._render(variables, engine='ir.qweb', minimal_qcontext=True)
+                render_result = self.env['ir.qweb']._render(view_xmlid, variables, minimal_qcontext=True, raise_if_not_found=False, **(options or {}))
+                results[record.id] = render_result
             except Exception as e:
-                _logger.info("Failed to render template : %s (%d)", template_src, view.id, exc_info=True)
-                raise UserError(_("Failed to render template : %(xml_id)s (%(view_id)d)",
-                                  xml_id=template_src,
-                                  view_id=view.id))
-            results[record.id] = render_result
+                _logger.info("Failed to render template : %s", view_xmlid, exc_info=True)
+                raise UserError(_("Failed to render template : %s") % view_xmlid)
 
         return results
 

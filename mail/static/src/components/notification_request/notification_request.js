@@ -11,13 +11,10 @@ export class NotificationRequest extends Component {
     //--------------------------------------------------------------------------
 
     /**
-     * @returns {string}
+     * @returns {NotificationRequestView}
      */
-    getHeaderText() {
-        return _.str.sprintf(
-            this.env._t("%s has a request"),
-            this.messaging.partnerRoot.nameOrDisplayName
-        );
+    get notificationRequestView() {
+        return this.props.record;
     }
 
     //--------------------------------------------------------------------------
@@ -34,7 +31,7 @@ export class NotificationRequest extends Component {
     _handleResponseNotificationPermission(value) {
         this.messaging.refreshIsNotificationPermissionDefault();
         if (value !== 'granted') {
-            this.env.services['bus_service'].sendNotification({
+            this.messaging.userNotificationManager.sendNotification({
                 message: this.env._t("Odoo will not have the permission to send native notifications on this device."),
                 title: this.env._t("Permission denied"),
             });
@@ -49,12 +46,12 @@ export class NotificationRequest extends Component {
      * @private
      */
     _onClick() {
-        const windowNotification = this.env.browser.Notification;
+        const windowNotification = this.messaging.browser.Notification;
         const def = windowNotification && windowNotification.requestPermission();
         if (def) {
             def.then(this._handleResponseNotificationPermission.bind(this));
         }
-        if (!this.messaging.device.isMobile) {
+        if (!this.messaging.device.isSmall) {
             this.messaging.messagingMenu.close();
         }
     }
@@ -62,7 +59,7 @@ export class NotificationRequest extends Component {
 }
 
 Object.assign(NotificationRequest, {
-    props: {},
+    props: { record: Object },
     template: 'mail.NotificationRequest',
 });
 

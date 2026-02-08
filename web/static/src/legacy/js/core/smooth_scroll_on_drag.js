@@ -172,6 +172,10 @@ const SmoothScrollOnDrag = Class.extend(mixins.ParentedMixin, {
      */
     _startSmoothScroll(ui) {
         this._stopSmoothScroll();
+
+        this._initialScrollBehavior = this.$scrollTarget[0].style.scrollBehavior;
+        this.$scrollTarget[0].style.scrollBehavior = 'auto';
+
         this.autoScrollHandler = setInterval(
             () => {
                 // Prevents Delta's from being different from 0 when scroll should not occur (except when
@@ -235,6 +239,8 @@ const SmoothScrollOnDrag = Class.extend(mixins.ParentedMixin, {
      */
     _stopSmoothScroll() {
         clearInterval(this.autoScrollHandler);
+
+        this.$scrollTarget[0].style.scrollBehavior = this._initialScrollBehavior || '';
     },
     /**
      * Updates the options depending on the offset position of the draggable
@@ -267,9 +273,20 @@ const SmoothScrollOnDrag = Class.extend(mixins.ParentedMixin, {
                 - this.options.offsetElementsManager.left(),
         };
 
-        // If this.$scrollTarget is the html tag, we need to take the scroll position in to account
-        // as offsets positions are calculated relative to the document (thus <html>).
-        if (this.scrollTargetIsDocument) {
+        if (this.iframeOffset) {
+            const { x, y } = this.iframeOffset;
+            visibleOffset.left -= x;
+            visibleOffset.top -= y;
+            visibleOffset.bottom += y;
+            visibleOffset.right += x;
+        }
+
+        // If this.$scrollTarget is the html tag, we need to take the scroll
+        // position into account as offsets positions are calculated relative to
+        // the document (thus <html>). Except in the case where what is being
+        // dragged is out of an iframe and that the scrolling is being done
+        // inside that iframe.
+        if (this.scrollTargetIsDocument && !this.iframeOffset) {
             const scrollTargetScrollTop = this.$scrollTarget.scrollTop();
             const scrollTargetScrollLeft = this.$scrollTarget.scrollLeft();
             visibleOffset.top -= scrollTargetScrollTop;
@@ -374,6 +391,14 @@ const SmoothScrollOnDrag = Class.extend(mixins.ParentedMixin, {
      */
     _onSmoothDragStart(ev, ui, onDragStartCallBack) {
         this.scrollTargetIsDocument = this.$scrollTarget.is('html');
+        this.iframeOffset = false;
+        // If the scrolling element is within an iframe and the draggable
+        // element is outside this iframe, the offsets must be computed taking
+        // into account the iframe.
+        const iframeEl = this.$scrollTarget[0].ownerDocument.defaultView.frameElement;
+        if (iframeEl && !iframeEl.contentDocument.contains(this.$element[0])) {
+            this.iframeOffset = iframeEl.getBoundingClientRect();
+        }
         this.scrollTargetIsParent = this.$scrollTarget.get(0).contains(this.$element.get(0));
         this._updatePositionOptions(ui);
         this._startSmoothScroll(ui);

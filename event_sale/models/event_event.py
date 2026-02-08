@@ -33,7 +33,7 @@ class Event(models.Model):
         date_now = fields.Datetime.now()
         sale_price_by_event = {}
         if self.ids:
-            event_subtotals = self.env['sale.order.line'].read_group(
+            event_subtotals = self.env['sale.order.line']._read_group(
                 [('event_id', 'in', self.ids),
                  ('price_subtotal', '!=', 0),
                  ('state', '!=', 'cancel')],
@@ -66,7 +66,7 @@ class Event(models.Model):
                 sale_price = currency_by_event[event_id]._convert(
                     price_subtotal,
                     currency_by_id[currency_id],
-                    company_by_event[event_id],
+                    company_by_event[event_id] or self.env.company,
                     date_now)
                 if event_id in sale_price_by_event:
                     sale_price_by_event[event_id] += sale_price

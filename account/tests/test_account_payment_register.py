@@ -2,7 +2,7 @@
 from odoo.addons.account.tests.common import AccountTestInvoicingCommon
 from odoo.exceptions import UserError
 from odoo.tests import tagged, Form
-from odoo import fields
+from odoo import Command
 
 
 @tagged('post_install', '-at_install')
@@ -53,7 +53,7 @@ class TestAccountPaymentRegister(AccountTestInvoicingCommon):
             'invoice_date': '2017-01-01',
             'partner_id': cls.partner_a.id,
             'currency_id': cls.currency_data['currency'].id,
-            'invoice_line_ids': [(0, 0, {'product_id': cls.product_a.id, 'price_unit': 1000.0})],
+            'invoice_line_ids': [(0, 0, {'product_id': cls.product_a.id, 'price_unit': 1000.0, 'tax_ids': []})],
         })
         cls.out_invoice_2 = cls.env['account.move'].create({
             'move_type': 'out_invoice',
@@ -61,21 +61,23 @@ class TestAccountPaymentRegister(AccountTestInvoicingCommon):
             'invoice_date': '2017-01-01',
             'partner_id': cls.partner_a.id,
             'currency_id': cls.currency_data['currency'].id,
-            'invoice_line_ids': [(0, 0, {'product_id': cls.product_a.id, 'price_unit': 2000.0})],
+            'invoice_line_ids': [(0, 0, {'product_id': cls.product_a.id, 'price_unit': 2000.0, 'tax_ids': []})],
         })
         cls.out_invoice_3 = cls.env['account.move'].create({
             'move_type': 'out_invoice',
             'date': '2017-01-01',
             'invoice_date': '2017-01-01',
             'partner_id': cls.partner_a.id,
-            'invoice_line_ids': [(0, 0, {'product_id': cls.product_a.id, 'price_unit': 12.01})],
+            'currency_id': cls.currency_data['currency'].id,
+            'invoice_line_ids': [(0, 0, {'product_id': cls.product_a.id, 'price_unit': 24.02, 'tax_ids': []})],
         })
         cls.out_invoice_4 = cls.env['account.move'].create({
             'move_type': 'out_invoice',
             'date': '2017-01-01',
             'invoice_date': '2017-01-01',
             'partner_id': cls.partner_a.id,
-            'invoice_line_ids': [(0, 0, {'product_id': cls.product_a.id, 'price_unit': 11.99})],
+            'currency_id': cls.currency_data['currency'].id,
+            'invoice_line_ids': [(0, 0, {'product_id': cls.product_a.id, 'price_unit': 23.98, 'tax_ids': []})],
         })
         (cls.out_invoice_1 + cls.out_invoice_2 + cls.out_invoice_3 + cls.out_invoice_4).action_post()
 
@@ -85,22 +87,23 @@ class TestAccountPaymentRegister(AccountTestInvoicingCommon):
             'date': '2017-01-01',
             'invoice_date': '2017-01-01',
             'partner_id': cls.partner_a.id,
-            'invoice_line_ids': [(0, 0, {'product_id': cls.product_a.id, 'price_unit': 1000.0})],
+            'invoice_line_ids': [(0, 0, {'product_id': cls.product_a.id, 'price_unit': 1000.0, 'tax_ids': []})],
         })
         cls.in_invoice_2 = cls.env['account.move'].create({
             'move_type': 'in_invoice',
             'date': '2017-01-01',
             'invoice_date': '2017-01-01',
             'partner_id': cls.partner_a.id,
-            'invoice_line_ids': [(0, 0, {'product_id': cls.product_a.id, 'price_unit': 2000.0})],
+            'invoice_line_ids': [(0, 0, {'product_id': cls.product_a.id, 'price_unit': 2000.0, 'tax_ids': []})],
         })
         cls.in_invoice_3 = cls.env['account.move'].create({
             'move_type': 'in_invoice',
             'date': '2017-01-01',
             'invoice_date': '2017-01-01',
             'partner_id': cls.partner_b.id,
+            'invoice_payment_term_id': False,
             'currency_id': cls.currency_data['currency'].id,
-            'invoice_line_ids': [(0, 0, {'product_id': cls.product_a.id, 'price_unit': 3000.0})],
+            'invoice_line_ids': [(0, 0, {'product_id': cls.product_a.id, 'price_unit': 3000.0, 'tax_ids': []})],
         })
         (cls.in_invoice_1 + cls.in_invoice_2 + cls.in_invoice_3).action_post()
 
@@ -110,7 +113,7 @@ class TestAccountPaymentRegister(AccountTestInvoicingCommon):
             'date': '2017-01-01',
             'invoice_date': '2017-01-01',
             'partner_id': cls.partner_a.id,
-            'invoice_line_ids': [(0, 0, {'product_id': cls.product_a.id, 'price_unit': 1600.0})],
+            'invoice_line_ids': [(0, 0, {'product_id': cls.product_a.id, 'price_unit': 1600.0, 'tax_ids': []})],
         })
         cls.in_refund_1.action_post()
 
@@ -357,10 +360,14 @@ class TestAccountPaymentRegister(AccountTestInvoicingCommon):
     def test_register_payment_single_batch_not_grouped(self):
         ''' Choose to pay two customer invoices with separated payments (1000 + 2000). '''
         active_ids = (self.out_invoice_1 + self.out_invoice_2).ids
-        payments = self.env['account.payment.register'].with_context(active_model='account.move', active_ids=active_ids).create({
-            'group_payment': False,
-        })._create_payments()
-
+        payment_register = self.env['account.payment.register']\
+            .with_context(active_model='account.move', active_ids=active_ids)\
+            .create({
+                'group_payment': False,
+                'amount': 1200.0
+            })
+        self.assertRecordValues(payment_register, [{'payment_difference': 1800.0}])
+        payments = payment_register._create_payments()
         self.assertRecordValues(payments, [
             {
                 'ref': 'INV/2017/00001',
@@ -589,9 +596,18 @@ class TestAccountPaymentRegister(AccountTestInvoicingCommon):
         and one with a vendor bill of 600, by grouping payments.
         '''
         active_ids = (self.in_invoice_1 + self.in_invoice_2 + self.in_invoice_3).ids
-        payments = self.env['account.payment.register'].with_context(active_model='account.move', active_ids=active_ids).create({
-            'group_payment': True,
-        })._create_payments()
+        payment_register = self.env['account.payment.register']\
+            .with_context(active_model='account.move', active_ids=active_ids)\
+            .create({
+                'group_payment': True,
+                'amount': 1000.0
+                # Test _compute_payment_difference. Since the partners_ids are not the same, this should be without effect.
+            })
+        payments = payment_register._create_payments()
+
+        self.assertRecordValues(payment_register, [{
+            'payment_difference': 0.0
+        }])
 
         self.assertRecordValues(payments, [
             {
@@ -743,27 +759,6 @@ class TestAccountPaymentRegister(AccountTestInvoicingCommon):
             self.env['account.payment.register']\
                 .with_context(active_model='account.move', active_ids=self.out_invoice_2.ids)\
                 .create({})
-
-    def test_register_payment_multi_currency_conversion(self):
-        ''' When registering a payment using a different currency than the invoice, the amount should update when
-        changing wizard date
-        '''
-
-        PaymentRegister = self.env['account.payment.register']
-        data = [
-            (self.out_invoice_2, self.company_data['currency'], [1000.0, 666.67], "invoice is in foreign currency and payment is in company currency"),
-            (self.out_invoice_3, self.currency_data['currency'], [24.02, 36.03], "invoice is in company currency and payment is in foreign currency"),
-            (self.out_invoice_2, self.currency_data_3['currency'], [10.0, 2000.0], "invoice and payment are in different foreign currencies"),
-        ]
-        date = ('2017-01-01', '2016-01-01')
-
-        for invoice, pay_currency, expected_amounts, msg in data:
-            wizard = Form(PaymentRegister.with_context(active_model='account.move', active_ids=invoice.ids))
-            wizard.currency_id = pay_currency
-            for d, expected in zip(date, expected_amounts):
-                payment_date = fields.Date.from_string(d)
-                wizard.payment_date = payment_date
-                self.assertEqual(wizard.amount, expected, f"Amount in payment wizard when {msg} is not correct")
 
     def test_register_payment_multi_currency_rounding_issue_positive_delta(self):
         ''' When registering a payment using a different currency than the invoice one, the invoice must be fully paid
@@ -1089,6 +1084,82 @@ class TestAccountPaymentRegister(AccountTestInvoicingCommon):
             },
         ])
 
+    def test_register_payment_invoice_foreign_curr_payment_comp_curr(self):
+        # Invoice 1200 Gol = 400 USD
+        invoice = self.env['account.move'].create({
+            'move_type': 'out_invoice',
+            'date': '2016-01-01',
+            'invoice_date': '2016-01-01',
+            'partner_id': self.partner_a.id,
+            'currency_id': self.currency_data['currency'].id,
+            'invoice_line_ids': [Command.create(
+                {'product_id': self.product_a.id,
+                'price_unit': 1200.0,
+                'tax_ids': [],
+            })],
+        })
+        invoice.action_post()
+
+        # Payment of 600 USD (equivalent to 1200 Gol in 2017).
+        # 600.0 USD should be computed correctly to fully paid the invoices.
+        wizard = self.env['account.payment.register']\
+            .with_context(active_model='account.move', active_ids=invoice.ids)\
+            .create({
+                'currency_id': self.company_data['currency'].id,
+                'payment_date': '2017-01-01',
+            })
+
+        self.assertRecordValues(wizard, [{
+            'amount': 600.0,
+            'payment_difference': 0.0,
+            'currency_id': self.company_data['currency'].id,
+        }])
+
+        payment = wizard._create_payments()
+        lines = (invoice + payment.move_id).line_ids.filtered(lambda x: x.account_type == 'asset_receivable')
+        self.assertRecordValues(lines, [
+            {'amount_residual': 0.0, 'amount_residual_currency': 0.0, 'currency_id': self.currency_data['currency'].id, 'reconciled': True},
+            {'amount_residual': 0.0, 'amount_residual_currency': 0.0, 'currency_id': self.company_data['currency'].id, 'reconciled': True},
+        ])
+
+    def test_register_payment_invoice_comp_curr_payment_foreign_curr(self):
+        # Invoice of 600 USD (equivalent to 1200 Gol in 2017).
+        invoice = self.env['account.move'].create({
+            'move_type': 'out_invoice',
+            'date': '2016-01-01',
+            'invoice_date': '2016-01-01',
+            'partner_id': self.partner_a.id,
+            'currency_id': self.company_data['currency'].id,
+            'invoice_line_ids': [Command.create({
+                'product_id': self.product_a.id,
+                'price_unit': 600.0,
+                'tax_ids': [],
+            })],
+        })
+        invoice.action_post()
+
+        # Payment of 600 USD = 1200 Gol.
+        # 1200.0 Gol should be computed correctly to fully paid the invoices.
+        wizard = self.env['account.payment.register']\
+            .with_context(active_model='account.move', active_ids=invoice.ids)\
+            .create({
+                'currency_id': self.currency_data['currency'].id,
+                'payment_date': '2017-01-01',
+            })
+
+        self.assertRecordValues(wizard, [{
+            'amount': 1200.0,
+            'payment_difference': 0.0,
+            'currency_id': self.currency_data['currency'].id,
+        }])
+
+        payment = wizard._create_payments()
+        lines = (invoice + payment.move_id).line_ids.filtered(lambda x: x.account_type == 'asset_receivable')
+        self.assertRecordValues(lines, [
+            {'amount_residual': 0.0, 'amount_residual_currency': 0.0, 'currency_id': self.company_data['currency'].id, 'reconciled': True},
+            {'amount_residual': 0.0, 'amount_residual_currency': 0.0, 'currency_id': self.currency_data['currency'].id, 'reconciled': True},
+        ])
+
     def test_payment_method_different_type_single_batch_not_grouped(self):
         """ Test payment methods when paying a bill and a refund with separated payments (1000 + -2000)."""
         invoice_1 = self.in_invoice_1
@@ -1099,14 +1170,14 @@ class TestAccountPaymentRegister(AccountTestInvoicingCommon):
                 'date': '2017-01-01',
                 'invoice_date': '2017-01-01',
                 'partner_id': self.partner_a.id,
-                'invoice_line_ids': [(0, 0, {'product_id': self.product_a.id, 'price_unit': 1600.0})],
+                'invoice_line_ids': [(0, 0, {'product_id': self.product_a.id, 'price_unit': 1600.0, 'tax_ids': False})],
             },
             {
                 'move_type': 'in_refund',
                 'date': '2017-01-01',
                 'invoice_date': '2017-01-01',
-                'partner_id': self.partner_b.id,
-                'invoice_line_ids': [(0, 0, {'product_id': self.product_a.id, 'price_unit': 1600.0})],
+                'partner_id': self.partner_b.copy({'property_account_position_id': False}).id,
+                'invoice_line_ids': [(0, 0, {'product_id': self.product_a.id, 'price_unit': 1600.0, 'tax_ids': False})],
             },
         ])
         (invoice_2 + refund_1 + refund_2).action_post()
@@ -1140,18 +1211,18 @@ class TestAccountPaymentRegister(AccountTestInvoicingCommon):
 
         self.assertRecordValues(payments[1], [
             {
-                'ref': 'RBILL/2017/01/0002',
-                'payment_method_line_id': self.bank_journal_1.inbound_payment_method_line_ids[0].id,
-                'payment_type': 'inbound',
-            },
-        ])
-
-        self.assertRecordValues(payments[2], [
-            {
                 'ref': 'BILL/2017/01/0004',
                 'payment_method_line_id': self.bank_journal_1.outbound_payment_method_line_ids[0].id,
                 'payment_type': 'outbound',
             }
+        ])
+
+        self.assertRecordValues(payments[2], [
+            {
+                'ref': 'RBILL/2017/01/0002',
+                'payment_method_line_id': self.bank_journal_1.inbound_payment_method_line_ids[0].id,
+                'payment_type': 'inbound',
+            },
         ])
 
         self.assertRecordValues(payments[3], [
@@ -1183,28 +1254,8 @@ class TestAccountPaymentRegister(AccountTestInvoicingCommon):
         ])
 
         self.assertRecordValues(payments[1].line_ids.sorted('balance'), [
-            # == Payment 3: to pay refund_1 ==
-            # Payable line:
-            {
-                'debit': 0.0,
-                'credit': 1600.0,
-                'currency_id': self.company_data['currency'].id,
-                'amount_currency': -1600.0,
-                'reconciled': True,
-            },
-            # Liquidity line:
-            {
-                'debit': 1600.0,
-                'credit': 0.0,
-                'currency_id': self.company_data['currency'].id,
-                'amount_currency': 1600.0,
-                'reconciled': False,
-            },
-        ])
-
-        self.assertRecordValues(payments[2].line_ids.sorted('balance'), [
             # == Payment 2: to pay invoice_2 ==
-            # Liquidity line:
+            # Payable line:
             {
                 'debit': 0.0,
                 'credit': 1000.0,
@@ -1212,13 +1263,33 @@ class TestAccountPaymentRegister(AccountTestInvoicingCommon):
                 'amount_currency': -1000.0,
                 'reconciled': False,
             },
-            # Payable line:
+            # Liquidity line:
             {
                 'debit': 1000.0,
                 'credit': 0.0,
                 'currency_id': self.company_data['currency'].id,
                 'amount_currency': 1000.0,
                 'reconciled': True,
+            },
+        ])
+
+        self.assertRecordValues(payments[2].line_ids.sorted('balance'), [
+            # == Payment 3: to pay refund_1 ==
+            # Liquidity line:
+            {
+                'debit': 0.0,
+                'credit': 1600.0,
+                'currency_id': self.company_data['currency'].id,
+                'amount_currency': -1600.0,
+                'reconciled': True,
+            },
+            # Payable line:
+            {
+                'debit': 1600.0,
+                'credit': 0.0,
+                'currency_id': self.company_data['currency'].id,
+                'amount_currency': 1600.0,
+                'reconciled': False,
             },
         ])
 
@@ -1241,3 +1312,12 @@ class TestAccountPaymentRegister(AccountTestInvoicingCommon):
                 'reconciled': False,
             },
         ])
+
+    def test_communication_wizard(self):
+        """
+        Tests that changing the payment reference updates the payment wizard's communication accordingly.
+        """
+        self.out_invoice_1.payment_reference = "test"
+        ctx = {'active_model': 'account.move', 'active_ids': self.out_invoice_1.ids}
+        wizard = self.env['account.payment.register'].with_context(**ctx).create({})
+        self.assertEqual(wizard.communication, "test")

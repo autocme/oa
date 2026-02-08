@@ -3,19 +3,17 @@
 # 	* website_event_questions
 # 
 # Translators:
-# Martin Trigaux, 2021
-# JH CHOI <hwangtog@gmail.com>, 2021
-# Link Up링크업 <linkup.way@gmail.com>, 2021
-# Linkup <link-up@naver.com>, 2021
+# JH CHOI <hwangtog@gmail.com>, 2022
+# Martin Trigaux, 2022
 # Sarah Park, 2023
 # Daye Jeong, 2024
 # 
 msgid ""
 msgstr ""
-"Project-Id-Version: Odoo Server 15.0\n"
+"Project-Id-Version: Odoo Server 16.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-08-14 15:43+0000\n"
-"PO-Revision-Date: 2021-09-14 12:28+0000\n"
+"POT-Creation-Date: 2024-02-06 13:32+0000\n"
+"PO-Revision-Date: 2022-09-22 05:56+0000\n"
 "Last-Translator: Daye Jeong, 2024\n"
 "Language-Team: Korean (https://app.transifex.com/odoo/teams/41243/ko/)\n"
 "MIME-Version: 1.0\n"
@@ -57,8 +55,8 @@ msgstr "답변"
 
 #. module: website_event_questions
 #: model:ir.model.fields,field_description:website_event_questions.field_event_question__once_per_order
-msgid "Ask only once per order"
-msgstr ""
+msgid "Ask once per order"
+msgstr "주문당 한 번만 요청"
 
 #. module: website_event_questions
 #: model:ir.model.fields,field_description:website_event_questions.field_event_registration__registration_answer_ids
@@ -191,6 +189,11 @@ msgid "Last Updated on"
 msgstr "최근 갱신 일자"
 
 #. module: website_event_questions
+#: model:ir.model.fields,field_description:website_event_questions.field_event_question__is_mandatory_answer
+msgid "Mandatory Answer"
+msgstr "필수 응답"
+
+#. module: website_event_questions
 #: model:event.question,title:website_event_questions.event_0_question_0
 msgid "Meal Type"
 msgstr "식사 유형"
@@ -235,6 +238,7 @@ msgid "Question Type"
 msgstr "질문 유형"
 
 #. module: website_event_questions
+#. odoo-python
 #: code:addons/website_event_questions/models/event_question.py:0
 #, python-format
 msgid "Question cannot be linked to both an Event and an Event Type."
@@ -263,6 +267,11 @@ msgstr "연구"
 #: model:event.question.answer,name:website_event_questions.event_7_question_0_answer_1
 msgid "Sales"
 msgstr "판매"
+
+#. module: website_event_questions
+#: model_terms:ir.ui.view,arch_db:website_event_questions.event_registration_view_tree
+msgid "Selected Answers"
+msgstr "선택된 답변"
 
 #. module: website_event_questions
 #: model_terms:ir.ui.view,arch_db:website_event_questions.event_registration_answer_view_tree
@@ -332,8 +341,31 @@ msgid "Yes"
 msgstr "예"
 
 #. module: website_event_questions
+#. odoo-python
 #: code:addons/website_event_questions/models/event_question.py:0
 #, python-format
 msgid ""
 "You cannot change the question type of a question that already has answers!"
 msgstr "이미 답변이 작성된 질문의 유형은 변경할 수 없습니다!"
+
+#. module: website_event_questions
+#. odoo-python
+#: code:addons/website_event_questions/models/event_question.py:0
+#, python-format
+msgid ""
+"You cannot delete a question that has already been answered by attendees."
+msgstr "참석자가 이미 답변한 질문은 삭제할 수 없습니다."
+
+#. module: website_event_questions
+#. odoo-python
+#: code:addons/website_event_questions/models/event_question.py:0
+#, python-format
+msgid ""
+"You cannot delete an answer that has already been selected by attendees."
+msgstr "참석자가 이미 선택한 답안은 삭제할 수 없습니다."
+
+#. module: website_event_questions
+#: model_terms:ir.ui.view,arch_db:website_event_questions.event_event_view_form
+#: model_terms:ir.ui.view,arch_db:website_event_questions.event_question_view_form
+msgid "e.g. \"Do you have any diet restrictions?\""
+msgstr "예: \"식단에 제한 사항이 있으신가요?\""

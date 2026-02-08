@@ -17,7 +17,7 @@ class ProductAttribute(models.Model):
 
     name = fields.Char('Attribute', required=True, translate=True)
     value_ids = fields.One2many('product.attribute.value', 'attribute_id', 'Values', copy=True)
-    sequence = fields.Integer('Sequence', help="Determine the display order", index=True)
+    sequence = fields.Integer('Sequence', help="Determine the display order", index=True, default=20)
     attribute_line_ids = fields.One2many('product.template.attribute.line', 'attribute_id', 'Lines')
     create_variant = fields.Selection([
         ('always', 'Instantly'),
@@ -66,13 +66,13 @@ class ProductAttribute(models.Model):
                         _("You cannot change the Variants Creation Mode of the attribute %s because it is used on the following products:\n%s") %
                         (pa.display_name, ", ".join(pa.product_tmpl_ids.mapped('display_name')))
                     )
-        invalidate_cache = 'sequence' in vals and any(record.sequence != vals['sequence'] for record in self)
+        invalidate = 'sequence' in vals and any(record.sequence != vals['sequence'] for record in self)
         res = super(ProductAttribute, self).write(vals)
-        if invalidate_cache:
+        if invalidate:
             # prefetched o2m have to be resequenced
             # (eg. product.template: attribute_line_ids)
-            self.flush()
-            self.invalidate_cache()
+            self.env.flush_all()
+            self.env.invalidate_all()
         return res
 
     @api.ondelete(at_uninstall=False)
@@ -90,7 +90,7 @@ class ProductAttribute(models.Model):
             'name': _("Related Products"),
             'res_model': 'product.template',
             'view_mode': 'tree,form',
-            'domain': [('id', 'in', self.product_tmpl_ids.ids)],
+            'domain': [('id', 'in', self.with_context(active_test=False).product_tmpl_ids.ids)],
         }
 
 
@@ -151,13 +151,13 @@ class ProductAttributeValue(models.Model):
                         (pav.display_name, ", ".join(pav.pav_attribute_line_ids.product_tmpl_id.mapped('display_name')))
                     )
 
-        invalidate_cache = 'sequence' in values and any(record.sequence != values['sequence'] for record in self)
+        invalidate = 'sequence' in values and any(record.sequence != values['sequence'] for record in self)
         res = super(ProductAttributeValue, self).write(values)
-        if invalidate_cache:
+        if invalidate:
             # prefetched o2m have to be resequenced
             # (eg. product.template.attribute.line: value_ids)
-            self.flush()
-            self.invalidate_cache()
+            self.env.flush_all()
+            self.env.invalidate_all()
         return res
 
     @api.ondelete(at_uninstall=False)
@@ -192,6 +192,7 @@ class ProductTemplateAttributeLine(models.Model):
 
     _name = "product.template.attribute.line"
     _rec_name = 'attribute_id'
+    _rec_names_search = ['attribute_id', 'value_ids']
     _description = 'Product Template Attribute Line'
     _order = 'attribute_id, id'
 
@@ -292,8 +293,8 @@ class ProductTemplateAttributeLine(models.Model):
             values['value_ids'] = [(5, 0, 0)]
         res = super(ProductTemplateAttributeLine, self).write(values)
         if 'active' in values:
-            self.flush()
-            self.env['product.template'].invalidate_cache(fnames=['attribute_line_ids'])
+            self.env.flush_all()
+            self.env['product.template'].invalidate_model(['attribute_line_ids'])
         # If coming from `create`, no need to update the values and the variants
         # before all lines are created.
         if self.env.context.get('update_product_template_attribute_values', True):
@@ -327,7 +328,7 @@ class ProductTemplateAttributeLine(models.Model):
                 # We catch all kind of exceptions to be sure that the operation
                 # doesn't fail.
                 ptal_to_archive += ptal
-        ptal_to_archive.write({'active': False})
+        ptal_to_archive.action_archive()  # only calls write if there are records
         # For archived lines `_update_product_template_attribute_values` is
         # implicitly called during the `write` above, but for products that used
         # unlinked lines `_create_variant_ids` has to be called manually.
@@ -398,17 +399,6 @@ class ProductTemplateAttributeLine(models.Model):
             ptav_to_unlink.unlink()
         ProductTemplateAttributeValue.create(ptav_to_create)
         self.product_tmpl_id._create_variant_ids()
-
-    @api.model
-    def _name_search(self, name, args=None, operator='ilike', limit=100, name_get_uid=None):
-        # TDE FIXME: currently overriding the domain; however as it includes a
-        # search on a m2o and one on a m2m, probably this will quickly become
-        # difficult to compute - check if performance optimization is required
-        if name and operator in ('=', 'ilike', '=ilike', 'like', '=like'):
-            args = args or []
-            domain = ['|', ('attribute_id', operator, name), ('value_ids', operator, name)]
-            return self._search(expression.AND([domain, args]), limit=limit, access_rights_uid=name_get_uid)
-        return super(ProductTemplateAttributeLine, self)._name_search(name=name, args=args, operator=operator, limit=limit, name_get_uid=name_get_uid)
 
     def _without_no_variant_attributes(self):
         return self.filtered(lambda ptal: ptal.attribute_id.create_variant != 'no_variant')
@@ -613,6 +603,27 @@ class ProductTemplateAttributeExclusion(models.Model):
     value_ids = fields.Many2many(
         'product.template.attribute.value', relation="product_attr_exclusion_value_ids_rel",
         string='Attribute Values', domain="[('product_tmpl_id', '=', product_tmpl_id), ('ptav_active', '=', True)]")
+
+    @api.model_create_multi
+    def create(self, vals_list):
+        exclusions = super().create(vals_list)
+        exclusions.product_tmpl_id._create_variant_ids()
+        return exclusions
+
+    def unlink(self):
+        # Keep a reference to the related templates before the deletion.
+        templates = self.product_tmpl_id
+        res = super().unlink()
+        templates._create_variant_ids()
+        return res
+
+    def write(self, values):
+        templates = self.env['product.template']
+        if 'product_tmpl_id' in values:
+            templates = self.product_tmpl_id
+        res = super().write(values)
+        (templates | self.product_tmpl_id)._create_variant_ids()
+        return res
 
 
 class ProductAttributeCustomValue(models.Model):

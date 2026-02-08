@@ -46,7 +46,7 @@ class ResPartner(models.Model):
         """ proxy for function field towards actual implementation """
         result = self.sudo()._get_signup_url_for_action()
         for partner in self:
-            if any(u.has_group('base.group_user') for u in partner.user_ids if u != self.env.user):
+            if any(u._is_internal() for u in partner.user_ids if u != self.env.user):
                 self.env['res.users'].check_access_rights('write')
             if any(u.has_group('base.group_portal') for u in partner.user_ids if u != self.env.user):
                 self.env['res.partner'].check_access_rights('write')
@@ -74,7 +74,10 @@ class ResPartner(models.Model):
 
             route = 'login'
             # the parameters to encode for the query
-            query = dict(db=self.env.cr.dbname)
+            query = {'db': self.env.cr.dbname}
+            if self.env.context.get('create_user'):
+                query['signup_email'] = partner.email
+
             signup_type = self.env.context.get('signup_force_type_in_url', partner.sudo().signup_type or '')
             if signup_type:
                 route = 'reset_password' if signup_type == 'reset' else signup_type
@@ -121,7 +124,7 @@ class ResPartner(models.Model):
         """ Get a signup token related to the partner if signup is enabled.
             If the partner already has a user, get the login parameter.
         """
-        if not self.env.user.has_group('base.group_user') and not self.env.is_admin():
+        if not self.env.user._is_internal() and not self.env.is_admin():
             raise exceptions.AccessDenied()
 
         res = defaultdict(dict)

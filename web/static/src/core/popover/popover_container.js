@@ -2,35 +2,41 @@
 
 import { Popover } from "./popover";
 
-const { Component } = owl;
-const { useExternalListener, useState } = owl.hooks;
-const { xml } = owl.tags;
+import { Component, onWillDestroy, useExternalListener, useState, xml } from "@odoo/owl";
 
 class PopoverController extends Component {
     setup() {
         this.state = useState({ displayed: false });
-        this.targetObserver = new MutationObserver(this.onTargetMutate.bind(this));
 
-        useExternalListener(window, "click", this.onClickAway, { capture: true });
-    }
-    mounted() {
-        this.targetObserver.observe(this.target.parentElement, { childList: true });
-    }
-    willUnmount() {
-        this.targetObserver.disconnect();
-    }
-
-    shouldUpdate() {
-        return false;
+        if (this.target.isConnected) {
+            useExternalListener(window, "click", this.onClickAway, { capture: true });
+            const targetObserver = new MutationObserver(this.onTargetMutate.bind(this));
+            targetObserver.observe(this.target.parentElement, { childList: true });
+            onWillDestroy(() => {
+                targetObserver.disconnect();
+            });
+        } else {
+            this.onTargetMutate();
+        }
     }
 
     get popoverProps() {
         return {
+            id: this.props.id,
             target: this.target,
             position: this.props.position,
             popoverClass: this.props.popoverClass,
+            onPositioned: this.props.onPositioned,
         };
     }
+
+    get popoverComponentProps() {
+        return {
+            close: this.props.close,
+            ...this.props.props,
+        };
+    }
+
     get target() {
         if (typeof this.props.target === "string") {
             return document.querySelector(this.props.target);
@@ -39,9 +45,16 @@ class PopoverController extends Component {
         }
     }
     onClickAway(ev) {
-        if (this.target.contains(ev.target) || ev.target.closest(".o_popover")) {
+        if (
+            this.target.contains(ev.target) ||
+            ev.target.closest(`.o_popover[popover-id="${this.props.id}"]`)
+        ) {
             return;
         }
+        if (this.props.preventClose && this.props.preventClose(ev)) {
+            return;
+        }
+
         if (this.props.closeOnClickAway) {
             this.props.close();
         }
@@ -59,14 +72,14 @@ PopoverController.defaultProps = {
     closeOnClickAway: true,
 };
 PopoverController.template = xml/*xml*/ `
-    <Popover t-props="popoverProps" t-on-popover-closed="props.close()">
-        <t t-component="props.Component" t-props="props.props" />
+    <Popover t-props="popoverProps">
+        <t t-component="props.Component" t-props="popoverComponentProps"/>
     </Popover>
 `;
 
 export class PopoverContainer extends Component {
     setup() {
-        this.props.bus.on("UPDATE", this, this.render);
+        this.props.bus.addEventListener("UPDATE", this.render.bind(this));
     }
 }
 PopoverContainer.components = { PopoverController };

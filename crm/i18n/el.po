@@ -1,24 +1,21 @@
 # Translation of Odoo Server.
 # This file contains the translation of the following modules:
-# 	* crm
+# * crm
 # 
 # Translators:
-# Giota Dandidou <giotadandidou@gmail.com>, 2022
-# 437c9d6e19936ed69f57bed9e0fe4716, 2022
-# Alexandros Kapetanios <alexandros@gnugr.org>, 2022
-# Stefanos Nikou <stefanos.nikou@gmail.com>, 2022
-# George Tarasidis <george_tarasidis@yahoo.com>, 2022
-# Martin Trigaux, 2022
-# Kostas Goutoudis <goutoudis@gmail.com>, 2022
-# 
+# Martin Trigaux, 2018
+# Giota Dandidou <giotadandidou@gmail.com>, 2018
+# Kostas Goutoudis <goutoudis@gmail.com>, 2018
+# Stefanos Nikou <stefanos.nikou@gmail.com>, 2018
+# George Tarasidis <george_tarasidis@yahoo.com>, 2018
 msgid ""
 msgstr ""
-"Project-Id-Version: Odoo Server 15.0\n"
+"Project-Id-Version: Odoo Server 12.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-08-14 15:42+0000\n"
-"PO-Revision-Date: 2021-09-14 12:21+0000\n"
-"Last-Translator: Kostas Goutoudis <goutoudis@gmail.com>, 2022\n"
-"Language-Team: Greek (https://app.transifex.com/odoo/teams/41243/el/)\n"
+"POT-Creation-Date: 2018-10-08 06:48+0000\n"
+"PO-Revision-Date: 2018-10-08 06:48+0000\n"
+"Last-Translator: George Tarasidis <george_tarasidis@yahoo.com>, 2018\n"
+"Language-Team: Greek (https://www.transifex.com/odoo/teams/41243/el/)\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: \n"
@@ -26,88 +23,36 @@ msgstr ""
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
 
 #. module: crm
-#: model:ir.model.fields,field_description:crm.field_crm_team__lead_all_assigned_month_count
-msgid "# Leads/Opps assigned this month"
-msgstr ""
-
-#. module: crm
-#: model:ir.model.fields,field_description:crm.field_crm_lead__calendar_event_count
+#: model:ir.model.fields,field_description:crm.field_crm_lead__meeting_count
+#: model:ir.model.fields,field_description:crm.field_res_partner__meeting_count
 msgid "# Meetings"
 msgstr "# Συναντήσεις"
 
 #. module: crm
-#: model:ir.model.fields,field_description:crm.field_crm_recurring_plan__number_of_months
-msgid "# Months"
+#: model_terms:digest.tip,tip_description:crm.digest_tip_crm_0
+msgid "% endif"
 msgstr ""
 
 #. module: crm
-#: model:ir.model.fields,field_description:crm.field_crm_team__opportunities_count
-msgid "# Opportunities"
+#: model_terms:digest.tip,tip_description:crm.digest_tip_crm_0
+msgid ""
+"% set email = object.env['crm.team'].search([('alias_name','!=', False)],limit=1).alias_id.display_name\n"
+"    % if email\n"
+"    <strong style=\"font-size: 16px;\">Try the mail gateway</strong>"
 msgstr ""
 
 #. module: crm
-#: model:ir.model.fields,field_description:crm.field_crm_team__opportunities_overdue_count
-msgid "# Overdue Opportunities"
-msgstr ""
-
-#. module: crm
-#: model:ir.model.fields,field_description:crm.field_crm_team__lead_unassigned_count
-msgid "# Unassigned Leads"
-msgstr ""
-
-#. module: crm
-#: code:addons/crm/models/crm_team.py:0
-#, python-format
-msgid "%(assigned)s leads allocated among %(team_count)s teams."
-msgstr ""
-
-#. module: crm
-#: code:addons/crm/models/crm_team.py:0
-#, python-format
-msgid "%(assigned)s leads allocated to %(team_name)s team."
-msgstr ""
-
-#. module: crm
-#: code:addons/crm/models/crm_lead.py:0
-#, python-format
-msgid "%(attach_name)s (from %(lead_name)s)"
-msgstr ""
-
-#. module: crm
-#: code:addons/crm/models/crm_team.py:0
-#, python-format
-msgid "%(duplicates)s duplicates leads have been merged."
-msgstr ""
-
-#. module: crm
-#: code:addons/crm/models/crm_team.py:0
+#. openerp-web
+#: code:addons/crm/static/src/js/tour.js:28
 #, python-format
 msgid ""
-"%(members_assigned)s leads assigned among %(member_count)s salespersons."
-msgstr ""
-
-#. module: crm
-#: code:addons/crm/models/res_config_settings.py:0
-#, python-format
-msgid "%s and %s"
-msgstr ""
-
-#. module: crm
-#: code:addons/crm/models/crm_lead.py:0
-#, python-format
-msgid "%s's opportunity"
+"<b>Choose a name</b> for your opportunity, example: <i>'Need a new "
+"website'</i>"
 msgstr ""
 
 #. module: crm
 #. openerp-web
-#: code:addons/crm/static/src/js/tours/crm.js:0
-#, python-format
-msgid "<b>Create your first opportunity.</b>"
-msgstr ""
-
-#. module: crm
-#. openerp-web
-#: code:addons/crm/static/src/js/tours/crm.js:0
+#: code:addons/crm/static/src/js/tour.js:36
 #, python-format
 msgid ""
 "<b>Drag &amp; drop opportunities</b> between columns as you progress in your"
@@ -117,40 +62,17 @@ msgstr ""
 "στον κύκλο πωλήσεων."
 
 #. module: crm
-#: model_terms:ir.ui.view,arch_db:crm.res_config_settings_view_form
-msgid "<b>Predictive Lead Scoring</b>"
-msgstr ""
-
-#. module: crm
 #. openerp-web
-#: code:addons/crm/static/src/js/tours/crm.js:0
+#: code:addons/crm/static/src/js/tour.js:86
 #, python-format
-msgid "<b>Write a few letters</b> to look for a company, or create a new one."
-msgstr ""
-
-#. module: crm
-#: model_terms:ir.ui.view,arch_db:crm.crm_lead_partner_kanban_view
 msgid ""
-"<i class=\"fa fa-fw fa-star\" aria-label=\"Opportunities\" role=\"img\" "
-"title=\"Opportunities\"/>"
+"<b>Invite coworkers</b> via email.<br/><i>Enter one email per line.</i>"
 msgstr ""
+"<b>Προσκαλέστε συναδέλφους</b> μέσω email.<br/> <i>Εισαγάγετε ένα email ανά "
+"γραμμή.</i>"
 
 #. module: crm
-#: model_terms:ir.ui.view,arch_db:crm.crm_lead_view_form
-msgid ""
-"<i class=\"fa fa-gear\" role=\"img\" title=\"Switch to automatic "
-"probability\" aria-label=\"Switch to automatic probability\"/>"
-msgstr ""
-
-#. module: crm
-#: model_terms:ir.ui.view,arch_db:crm.res_config_settings_view_form
-msgid ""
-"<i title=\"Update now\" role=\"img\" aria-label=\"Update now\" class=\"fa "
-"fa-fw fa-refresh\"/>"
-msgstr ""
-
-#. module: crm
-#: code:addons/crm/models/crm_team.py:0
+#: code:addons/crm/models/crm_team.py:139
 #, python-format
 msgid ""
 "<p class='o_view_nocontent_smiling_face'>Add new opportunities</p><p>\n"
@@ -160,190 +82,43 @@ msgid ""
 msgstr ""
 
 #. module: crm
-#: code:addons/crm/models/crm_team.py:0
+#. openerp-web
+#: code:addons/crm/static/src/js/tour.js:67
 #, python-format
 msgid ""
-"<p>As you don't belong to any Sales Team, Odoo opens the first one by "
-"default.</p>"
+"<p><b>Send messages</b> to your prospect and get replies automatically "
+"attached to this opportunity.</p><p class=\"mb0\">Type <i>'@'</i> to mention"
+" people - it's like cc-ing on emails.</p>"
 msgstr ""
+"<p><b>Στείλτε μηνύματα</b> στον πιθανό πελάτη σας και οι απαντήσεις που θα "
+"λάβετε, αυτόματα θα συνδεθούν σε αυτή την ευκαιρία.</p> <p "
+"class=\"mb0\">Πληκτρολογήστε <i>'@'</i> για να αναφέρετε άλλους χρήστες - "
+"είναι σαν να χρησιμοποιείτε την ιδιαίτερη κοινοποίηση (BCC) των emails.</p>"
 
 #. module: crm
-#: model_terms:ir.ui.view,arch_db:crm.crm_case_kanban_view_leads
-msgid "<span class=\"bg-danger\">Lost</span>"
-msgstr ""
-
-#. module: crm
-#: model_terms:ir.ui.view,arch_db:crm.crm_lead_view_form
+#. openerp-web
+#: code:addons/crm/static/src/js/tour.js:52
+#, python-format
 msgid ""
-"<span class=\"fa fa-exclamation-triangle text-warning oe_edit_only\" "
-"title=\"By saving this change, the customer email will also be updated.\" "
-"attrs=\"{'invisible': [('partner_email_update', '=', False)]}\"/>"
+"<p>You will be able to customize your followup activities. "
+"Examples:</p><ol><li>introductory email</li><li>call 10 days "
+"after</li><li>second call 3 days after, ...</li></ol><p "
+"class='mb0'><i>Select a standard activity for now.</i></p>"
 msgstr ""
 
 #. module: crm
-#: model_terms:ir.ui.view,arch_db:crm.crm_lead_view_form
+#: model_terms:ir.ui.view,arch_db:crm.crm_case_form_view_oppor
 msgid ""
-"<span class=\"fa fa-exclamation-triangle text-warning oe_edit_only\" "
-"title=\"By saving this change, the customer phone number will also be "
-"updated.\" attrs=\"{'invisible': [('partner_phone_update', '=', False)]}\"/>"
+"<span class=\"o_stat_text\" attrs=\"{'invisible': [('meeting_count', '&lt;', 2)]}\"> Meetings</span>\n"
+"                                    <span class=\"o_stat_text\" attrs=\"{'invisible': [('meeting_count', '&gt;', 1)]}\"> Meeting</span>"
 msgstr ""
+"<span class=\"o_stat_text\" attrs=\"{'invisible': [('meeting_count', '&lt;', 2)]}\">Συναντήσεις</span>\n"
+"<span class=\"o_stat_text\" attrs=\"{'invisible': [('meeting_count', '&gt;', 1)]}\"> Συνάντηση</span>"
 
 #. module: crm
-#: model_terms:ir.ui.view,arch_db:crm.crm_lead_view_form
-msgid ""
-"<span class=\"o_stat_text\" attrs=\"{'invisible': [('calendar_event_count', '&lt;', 2)]}\"> Meetings</span>\n"
-"                                    <span class=\"o_stat_text\" attrs=\"{'invisible': [('calendar_event_count', '&gt;', 1)]}\"> Meeting</span>"
-msgstr ""
-
-#. module: crm
-#: model_terms:ir.ui.view,arch_db:crm.crm_lead_view_form
-msgid ""
-"<span class=\"o_stat_text\" attrs=\"{'invisible': [('duplicate_lead_count', '&lt;', 2)]}\">Similar Leads</span>\n"
-"                                    <span class=\"o_stat_text\" attrs=\"{'invisible': [('duplicate_lead_count', '&gt;', 1)]}\">Similar Lead</span>"
-msgstr ""
-
-#. module: crm
-#: model_terms:ir.ui.view,arch_db:crm.utm_campaign_view_form
-msgid ""
-"<span class=\"o_stat_text\" attrs=\"{'invisible': [('use_leads', '=', False)]}\">Leads</span>\n"
-"                        <span class=\"o_stat_text\" attrs=\"{'invisible': [('use_leads', '=', True)]}\">Opportunities</span>"
-msgstr ""
-
-#. module: crm
-#: model_terms:ir.ui.view,arch_db:crm.crm_lost_reason_view_form
-msgid "<span class=\"o_stat_text\"> Leads</span>"
-msgstr ""
-
-#. module: crm
-#: model_terms:ir.ui.view,arch_db:crm.crm_lead_view_form
-msgid ""
-"<span class=\"oe_grey p-2\" groups=\"crm.group_use_recurring_revenues\"> + </span>\n"
-"                                        <span class=\"oe_grey p-2\" groups=\"!crm.group_use_recurring_revenues\"> at </span>"
-msgstr ""
-
-#. module: crm
-#: model_terms:ir.ui.view,arch_db:crm.crm_lead_view_form
-msgid "<span class=\"oe_grey p-2\"> at </span>"
-msgstr ""
-
-#. module: crm
-#: model_terms:ir.ui.view,arch_db:crm.crm_lead_view_form
-msgid "<span class=\"oe_grey\"> %</span>"
-msgstr ""
-
-#. module: crm
-#: model_terms:ir.ui.view,arch_db:crm.crm_team_member_view_form
-msgid "<span class=\"oe_inline\"> (max) </span>"
-msgstr ""
-
-#. module: crm
-#: model_terms:ir.ui.view,arch_db:crm.crm_team_member_view_form
-msgid "<span class=\"oe_inline\"> / </span>"
-msgstr ""
-
-#. module: crm
-#: model_terms:ir.ui.view,arch_db:crm.res_config_settings_view_form
-msgid ""
-"<span>Periodically assign leads based on rules</span><br/>\n"
-"                                    <span attrs=\"{'invisible': [('crm_use_auto_assignment', '=', False)]}\">\n"
-"                                        All sales teams will use this setting by default unless\n"
-"                                        specified otherwise.\n"
-"                                    </span>"
-msgstr ""
-
-#. module: crm
-#: model:mail.template,body_html:crm.mail_template_demo_crm_lead
-msgid ""
-"<table border=\"0\" cellpadding=\"0\" cellspacing=\"0\" style=\"padding-top: 16px; background-color: #F1F1F1; font-family:Verdana, Arial,sans-serif; color: #454748; width: 100%; border-collapse:separate;\"><tr><td align=\"center\">\n"
-"<table border=\"0\" cellpadding=\"0\" cellspacing=\"0\" width=\"590\" style=\"padding: 24px; background-color: white; color: #454748; border-collapse:separate;\">\n"
-"<tbody>\n"
-"    <!-- HEADER -->\n"
-"    <tr>\n"
-"        <td align=\"center\" style=\"min-width: 590px;\">\n"
-"            <table border=\"0\" cellpadding=\"0\" cellspacing=\"0\" width=\"100%\" style=\"background-color: white; padding: 0; border-collapse:separate;\">\n"
-"                <tr><td valign=\"middle\">\n"
-"                    <span style=\"font-size: 10px;\">Your Lead/Opportunity</span><br/>\n"
-"                    <span style=\"font-size: 20px; font-weight: bold;\" t-out=\"object.name or ''\">Interest in your products</span>\n"
-"                </td><td valign=\"middle\" align=\"right\">\n"
-"                    <img t-attf-src=\"/logo.png?company={{ object.company_id.id }}\" style=\"padding: 0px; margin: 0px; height: 48px;\" t-att-alt=\"object.company_id.name\"/>\n"
-"                </td></tr>\n"
-"                <tr><td colspan=\"2\" style=\"text-align:center;\">\n"
-"                    <hr width=\"100%\" style=\"background-color:rgb(204,204,204);border:medium none;clear:both;display:block;font-size:0px;min-height:1px;line-height:0; margin:4px 0px 32px 0px;\"/>\n"
-"                </td></tr>\n"
-"            </table>\n"
-"        </td>\n"
-"    </tr>\n"
-"    <!-- CONTENT -->\n"
-"    <tr>\n"
-"        <td style=\"min-width: 590px;\">\n"
-"            <table border=\"0\" cellpadding=\"0\" cellspacing=\"0\" width=\"590\" style=\"min-width: 590px; background-color: white; padding: 0px 8px 0px 8px; border-collapse:separate;\">\n"
-"                <tr>\n"
-"                    <td valign=\"top\" style=\"font-size: 13px;\">\n"
-"                        <div>\n"
-"                            Hi <t t-out=\"object.partner_id and object.partner_id.name or ''\">Deco Addict</t>,<br/><br/>\n"
-"                            Welcome to <t t-out=\"object.company_id.name or ''\">My Company (San Francisco)</t>.\n"
-"                            It's great to meet you! Now that you're on board, you'll discover what <t t-out=\"object.company_id.name or ''\">My Company (San Francisco)</t> has to offer. My name is <t t-out=\"object.user_id.name or ''\">Marc Demo</t> and I'll help you get the most out of Odoo. Could we plan a quick demo soon?<br/>\n"
-"                            Feel free to reach out at any time!<br/><br/>\n"
-"                            Best,<br/>\n"
-"                            <t t-if=\"object.user_id\">\n"
-"                                <b><t t-out=\"object.user_id.name or ''\">Marc Demo</t></b>\n"
-"                                <br/>Email: <t t-out=\"object.user_id.email or ''\">mark.brown23@example.com</t>\n"
-"                                <br/>Phone: <t t-out=\"object.user_id.phone or ''\">+1 650-123-4567</t>\n"
-"                            </t>\n"
-"                            <t t-else=\"\">\n"
-"                                <t t-out=\"object.company_id.name or ''\">My Company (San Francisco)</t>\n"
-"                            </t>\n"
-"                        </div>\n"
-"                    </td>\n"
-"                </tr>\n"
-"            </table>\n"
-"        </td>\n"
-"    </tr>\n"
-"    <!-- FOOTER -->\n"
-"    <tr>\n"
-"        <td align=\"center\" style=\"min-width: 590px; padding: 0 8px 0 8px; font-size:11px;\">\n"
-"            <hr width=\"100%\" style=\"background-color:rgb(204,204,204);border:medium none;clear:both;display:block;font-size:0px;min-height:1px;line-height:0; margin: 16px 0px 4px 0px;\"/>\n"
-"            <b t-out=\"object.company_id.name or ''\">My Company (San Francisco)</b><br/>\n"
-"            <div style=\"color: #999999;\">\n"
-"                <t t-out=\"object.company_id.phone or ''\">+1 650-123-4567</t>\n"
-"                <t t-if=\"object.company_id.email\">\n"
-"                    | <a t-attf-href=\"'mailto:%s' % {{ object.company_id.email }}\" style=\"text-decoration:none; color: #999999;\" t-out=\"object.company_id.email or ''\">info@yourcompany.com</a>\n"
-"                </t>\n"
-"                <t t-if=\"object.company_id.website\">\n"
-"                    | <a t-attf-href=\"'%s' % {{ object.company_id.website }}\" style=\"text-decoration:none; color: #999999;\" t-out=\"object.company_id.website or ''\">http://www.example.com</a>\n"
-"                </t>\n"
-"            </div>\n"
-"        </td>\n"
-"    </tr>\n"
-"</tbody>\n"
-"</table>\n"
-"</td></tr>\n"
-"<!-- POWERED BY -->\n"
-"<tr><td align=\"center\" style=\"min-width: 590px;\">\n"
-"    Powered by <a target=\"_blank\" href=\"https://www.odoo.com?utm_source=db&amp;utm_medium=email\" style=\"color: #875A7B;\">Odoo</a>\n"
-"</td></tr>\n"
-"</table>\n"
-"        "
-msgstr ""
-
-#. module: crm
-#: model:ir.model.fields,help:crm.field_crm_team__alias_defaults
-msgid ""
-"A Python dictionary that will be evaluated to provide default values when "
-"creating new records for this alias."
-msgstr ""
-"Ένα Python λεξικό που θα αξιολογηθεί για να παρέχει προεπιλεγμένες τιμές "
-"όταν δημιουργείτε νέες εγγραφές για αυτό το ψευδώνυμο."
-
-#. module: crm
-#: model_terms:digest.tip,tip_description:crm.digest_tip_crm_3
-msgid ""
-"A great tip to boost sales efficiency is to always define a next step on "
-"each opportunity. To manage ongoing activities, click on any status of the "
-"progress bar to filter opportunities based on their next activities' status."
-" Click on the grey area of the progress bar to see all opportunities that "
-"have no next activity."
-msgstr ""
+#: model_terms:ir.ui.view,arch_db:crm.crm_case_form_view_oppor
+msgid "<span class=\"oe_grey\"> at </span>"
+msgstr "<span class=\"oe_grey\"> στο </span>"
 
 #. module: crm
 #: model_terms:ir.ui.view,arch_db:crm.sales_team_form_view_in_crm
@@ -359,27 +134,22 @@ msgstr "Απαιτείται ενέργεια"
 #: model:ir.model.fields,field_description:crm.field_crm_activity_report__active
 #: model:ir.model.fields,field_description:crm.field_crm_lead__active
 #: model:ir.model.fields,field_description:crm.field_crm_lost_reason__active
-#: model:ir.model.fields,field_description:crm.field_crm_recurring_plan__active
 msgid "Active"
 msgstr "Σε Ισχύ"
 
 #. module: crm
-#: model:ir.model.fields,field_description:crm.field_crm_lead2opportunity_partner_mass__lead_tomerge_ids
-msgid "Active Leads"
-msgstr ""
-
-#. module: crm
-#: model:ir.actions.act_window,name:crm.crm_activity_report_action
 #: model:ir.model.fields,field_description:crm.field_crm_lead__activity_ids
 #: model:ir.ui.menu,name:crm.crm_activity_report_menu
-#: model_terms:ir.ui.view,arch_db:crm.crm_team_view_kanban_dashboard
 msgid "Activities"
 msgstr "Δραστηριότητες"
 
 #. module: crm
+#: model:ir.actions.act_window,name:crm.crm_activity_report_action
+#: model:ir.actions.act_window,name:crm.crm_activity_report_action_team
 #: model_terms:ir.ui.view,arch_db:crm.crm_activity_report_view_graph
 #: model_terms:ir.ui.view,arch_db:crm.crm_activity_report_view_pivot
 #: model_terms:ir.ui.view,arch_db:crm.crm_activity_report_view_search
+#: model_terms:ir.ui.view,arch_db:crm.crm_team_salesteams_view_kanban
 msgid "Activities Analysis"
 msgstr "Ανάλυση Δραστηριοτήτων"
 
@@ -389,20 +159,9 @@ msgid "Activities Done Target"
 msgstr "Στόχος Ολοκληρωμένων Δράσεων"
 
 #. module: crm
-#: model:ir.model,name:crm.model_mail_activity
-#: model_terms:ir.ui.view,arch_db:crm.crm_activity_report_view_search
-msgid "Activity"
-msgstr "Δραστηριότητα"
-
-#. module: crm
-#: model:ir.model.fields,field_description:crm.field_crm_activity_report__body
-msgid "Activity Description"
-msgstr ""
-
-#. module: crm
-#: model:ir.model.fields,field_description:crm.field_crm_lead__activity_exception_decoration
-msgid "Activity Exception Decoration"
-msgstr ""
+#: model_terms:ir.ui.view,arch_db:crm.view_crm_case_opportunities_filter
+msgid "Activities Todo"
+msgstr "Δραστηριότητες να γίνουν"
 
 #. module: crm
 #: model:ir.model.fields,field_description:crm.field_crm_lead__activity_state
@@ -411,14 +170,8 @@ msgstr "Κατάσταση Δραστηριότητας"
 
 #. module: crm
 #: model:ir.model.fields,field_description:crm.field_crm_activity_report__mail_activity_type_id
-#: model_terms:ir.ui.view,arch_db:crm.crm_activity_report_view_search
 msgid "Activity Type"
 msgstr "Τύπος Δραστηριότητας"
-
-#. module: crm
-#: model:ir.model.fields,field_description:crm.field_crm_lead__activity_type_icon
-msgid "Activity Type Icon"
-msgstr ""
 
 #. module: crm
 #: model:ir.ui.menu,name:crm.crm_team_menu_config_activity_types
@@ -426,74 +179,30 @@ msgid "Activity Types"
 msgstr "Τύποι Δραστηριότητας"
 
 #. module: crm
-#: model_terms:ir.ui.view,arch_db:crm.crm_case_tree_view_oppor
-msgid "Activity by"
+#: code:addons/crm/models/crm_lead.py:933
+#, python-format
+msgid "Add a new lead"
 msgstr ""
-
-#. module: crm
-#: model_terms:ir.ui.view,arch_db:crm.crm_lead_view_form
-msgid "Add a description..."
-msgstr "Προσθέστε μια περιγραφή..."
 
 #. module: crm
 #: model_terms:ir.ui.view,arch_db:crm.res_config_settings_view_form
-msgid "Add a qualification step before the creation of an opportunity"
-msgstr ""
+msgid "Add a qualification step before creating an opportunity"
+msgstr "Προσθέστε ένα βήμα πρόκρισης πριν δημιουργήσετε μια ευκαιρία"
 
 #. module: crm
-#. openerp-web
-#: code:addons/crm/static/src/js/forecast/forecast_kanban_column_quick_create.js:0
-#, python-format
-msgid "Add next %s"
-msgstr ""
-
-#. module: crm
-#: model:ir.model.fields,help:crm.field_crm_team__assignment_domain
-msgid ""
-"Additional filter domain when fetching unassigned leads to allocate to the "
-"team."
-msgstr ""
-
-#. module: crm
-#: model_terms:ir.ui.view,arch_db:crm.crm_lead_view_form
+#: model_terms:ir.ui.view,arch_db:crm.crm_case_form_view_leads
+#: model_terms:ir.ui.view,arch_db:crm.crm_case_form_view_oppor
 msgid "Address"
 msgstr "Διεύθυνση"
 
 #. module: crm
 #: model:ir.model.fields,field_description:crm.field_crm_team__alias_id
-#: model_terms:ir.ui.view,arch_db:crm.crm_team_view_tree
+#: model_terms:ir.ui.view,arch_db:crm.res_config_settings_view_form
 msgid "Alias"
 msgstr "Ψευδώνυμο"
 
 #. module: crm
-#: model:ir.model.fields,field_description:crm.field_crm_team__alias_contact
-msgid "Alias Contact Security"
-msgstr "Ψευδώνυμο Ασφάλειας Επαφής"
-
-#. module: crm
-#: model:ir.model.fields,field_description:crm.field_crm_team__alias_name
-msgid "Alias Name"
-msgstr "Ψευδώνυμο ονόματος"
-
-#. module: crm
-#: model:ir.model.fields,field_description:crm.field_crm_team__alias_domain
-msgid "Alias domain"
-msgstr "Ψευδώνυμο τομέα"
-
-#. module: crm
-#: model:ir.model.fields,field_description:crm.field_crm_team__alias_model_id
-msgid "Aliased Model"
-msgstr "Μοντέλο Ψευδωνύμου"
-
-#. module: crm
-#. openerp-web
-#: code:addons/crm/static/src/js/tours/crm.js:0
-#, python-format
-msgid "All set. Let’s <b>Schedule</b> it."
-msgstr ""
-
-#. module: crm
-#: model_terms:ir.ui.view,arch_db:crm.crm_lead_view_form
+#: model_terms:ir.ui.view,arch_db:crm.crm_case_form_view_leads
 msgid "Analysis"
 msgstr "Ανάλυση"
 
@@ -503,34 +212,9 @@ msgid "Apply deduplication"
 msgstr "Εφαρμογή της κατάργησης διπλότυπων"
 
 #. module: crm
-#: model_terms:ir.ui.view,arch_db:crm.crm_activity_report_view_search
-#: model_terms:ir.ui.view,arch_db:crm.crm_lost_reason_view_form
-#: model_terms:ir.ui.view,arch_db:crm.crm_lost_reason_view_search
-#: model_terms:ir.ui.view,arch_db:crm.crm_recurring_plan_view_search
-#: model_terms:ir.ui.view,arch_db:crm.view_crm_case_leads_filter
-#: model_terms:ir.ui.view,arch_db:crm.view_crm_case_opportunities_filter
-msgid "Archived"
-msgstr "Αρχειοθετημένα"
-
-#. module: crm
-#: model_terms:ir.ui.view,arch_db:crm.res_config_settings_view_form
-msgid "Assign Documentation"
-msgstr ""
-
-#. module: crm
-#: model_terms:ir.ui.view,arch_db:crm.sales_team_form_view_in_crm
-msgid "Assign Leads"
-msgstr ""
-
-#. module: crm
 #: model_terms:ir.ui.view,arch_db:crm.merge_opportunity_form
 msgid "Assign opportunities to"
 msgstr "Ανάθεση ευκαιριών σε"
-
-#. module: crm
-#: model_terms:ir.ui.view,arch_db:crm.res_config_settings_view_form
-msgid "Assign salespersons into multiple Sales Teams."
-msgstr ""
 
 #. module: crm
 #: model_terms:ir.ui.view,arch_db:crm.view_crm_lead2opportunity_partner_mass
@@ -543,43 +227,9 @@ msgid "Assign this opportunity to"
 msgstr "Ανάθεση αυτής της ευκαιρίας σε"
 
 #. module: crm
-#: model_terms:ir.ui.view,arch_db:crm.sales_team_form_view_in_crm
-msgid "Assigned Leads Count"
-msgstr ""
-
-#. module: crm
-#: model:ir.model.fields,field_description:crm.field_crm_activity_report__author_id
-#: model_terms:ir.ui.view,arch_db:crm.crm_activity_report_view_search
-msgid "Assigned To"
-msgstr "Ανατέθηκε σε"
-
-#. module: crm
 #: model:ir.model.fields,field_description:crm.field_crm_lead__date_open
-msgid "Assignment Date"
-msgstr ""
-
-#. module: crm
-#: model:ir.model.fields,field_description:crm.field_crm_team__assignment_domain
-#: model:ir.model.fields,field_description:crm.field_crm_team_member__assignment_domain
-msgid "Assignment Domain"
-msgstr ""
-
-#. module: crm
-#: model_terms:ir.ui.view,arch_db:crm.sales_team_form_view_in_crm
-msgid "Assignment Rules"
-msgstr ""
-
-#. module: crm
-#: code:addons/crm/models/crm_team.py:0
-#, python-format
-msgid "Assignment domain for team %(team)s is incorrectly formatted"
-msgstr ""
-
-#. module: crm
-#: model:ir.model.fields,field_description:crm.field_crm_lead2opportunity_partner__lead_id
-#: model:ir.model.fields,field_description:crm.field_crm_lead2opportunity_partner_mass__lead_id
-msgid "Associated Lead"
-msgstr ""
+msgid "Assignation Date"
+msgstr "Ημερομηνία Ανάθεσης"
 
 #. module: crm
 #: model:ir.model.fields,field_description:crm.field_crm_lead__message_attachment_count
@@ -587,34 +237,9 @@ msgid "Attachment Count"
 msgstr ""
 
 #. module: crm
-#: model:ir.model.fields,field_description:crm.field_crm_team__assignment_auto_enabled
-msgid "Auto Assignment"
-msgstr ""
-
-#. module: crm
-#: model:ir.model.fields,field_description:crm.field_res_config_settings__crm_auto_assignment_action
-msgid "Auto Assignment Action"
-msgstr ""
-
-#. module: crm
-#: model:ir.model.fields,field_description:crm.field_res_config_settings__crm_auto_assignment_interval_type
-msgid "Auto Assignment Interval Unit"
-msgstr ""
-
-#. module: crm
-#: model:ir.model.fields,field_description:crm.field_res_config_settings__crm_auto_assignment_run_datetime
-msgid "Auto Assignment Next Execution Date"
-msgstr ""
-
-#. module: crm
-#: model:ir.model.fields,field_description:crm.field_crm_lead__automated_probability
-msgid "Automated Probability"
-msgstr ""
-
-#. module: crm
-#: model:ir.model.fields,field_description:crm.field_crm_team_member__assignment_max
-msgid "Average Leads Capacity (on 30 days)"
-msgstr ""
+#: model_terms:ir.ui.view,arch_db:crm.crm_case_tree_view_oppor
+msgid "Avg. of Probability"
+msgstr "Μέση τιμή των Πιθανοτήτων"
 
 #. module: crm
 #: model:ir.model.fields,field_description:crm.field_crm_lead__is_blacklisted
@@ -622,17 +247,7 @@ msgid "Blacklist"
 msgstr ""
 
 #. module: crm
-#: model:ir.model.fields,field_description:crm.field_crm_lead__mobile_blacklisted
-msgid "Blacklisted Phone Is Mobile"
-msgstr ""
-
-#. module: crm
-#: model:ir.model.fields,field_description:crm.field_crm_lead__phone_blacklisted
-msgid "Blacklisted Phone is Phone"
-msgstr ""
-
-#. module: crm
-#: code:addons/crm/models/crm_lead.py:0
+#: code:addons/crm/models/crm_lead.py:400
 #, python-format
 msgid "Boom! Team record for the past 30 days."
 msgstr "Μπουμ! Αρχείο ομάδας για τις τελευταίες 30 ημέρες."
@@ -655,25 +270,8 @@ msgid "CRM Activity Analysis"
 msgstr "Ανάλυση Δραστηριότητας CRM"
 
 #. module: crm
-#: model:ir.model,name:crm.model_crm_recurring_plan
-msgid "CRM Recurring revenue plans"
-msgstr ""
-
-#. module: crm
 #: model:ir.model,name:crm.model_crm_stage
 msgid "CRM Stages"
-msgstr ""
-
-#. module: crm
-#: model:ir.actions.server,name:crm.ir_cron_crm_lead_assign_ir_actions_server
-#: model:ir.cron,cron_name:crm.ir_cron_crm_lead_assign
-#: model:ir.cron,name:crm.ir_cron_crm_lead_assign
-msgid "CRM: Lead Assignment"
-msgstr ""
-
-#. module: crm
-#: model:ir.model,name:crm.model_calendar_event
-msgid "Calendar Event"
 msgstr ""
 
 #. module: crm
@@ -690,7 +288,6 @@ msgstr "Εκστρατεία"
 
 #. module: crm
 #: model_terms:ir.ui.view,arch_db:crm.crm_lead_lost_view_form
-#: model_terms:ir.ui.view,arch_db:crm.crm_lead_pls_update_view_form
 #: model_terms:ir.ui.view,arch_db:crm.merge_opportunity_form
 #: model_terms:ir.ui.view,arch_db:crm.view_crm_lead2opportunity_partner
 #: model_terms:ir.ui.view,arch_db:crm.view_crm_lead2opportunity_partner_mass
@@ -698,7 +295,17 @@ msgid "Cancel"
 msgstr "Ακύρωση"
 
 #. module: crm
-#: model_terms:ir.ui.view,arch_db:crm.crm_lost_reason_view_tree
+#: model:ir.actions.act_window,name:crm.crm_team_act_tree
+msgid "Cases by Sales Team"
+msgstr "Υποθέσεις ανά Ομάδα Πώλησης"
+
+#. module: crm
+#: model:ir.model.fields,field_description:crm.field_crm_stage__on_change
+msgid "Change Probability Automatically"
+msgstr "Άλλαξε την Πιθανότητα Αυτόματα"
+
+#. module: crm
+#: model_terms:ir.ui.view,arch_db:crm.crm_lost_reason_view_form
 msgid "Channel"
 msgstr "Κανάλι"
 
@@ -716,7 +323,8 @@ msgstr ""
 
 #. module: crm
 #: model:ir.model.fields,field_description:crm.field_crm_lead__city
-#: model_terms:ir.ui.view,arch_db:crm.crm_lead_view_form
+#: model_terms:ir.ui.view,arch_db:crm.crm_case_form_view_leads
+#: model_terms:ir.ui.view,arch_db:crm.crm_case_form_view_oppor
 #: model_terms:ir.ui.view,arch_db:crm.crm_opportunity_report_view_search
 #: model_terms:ir.ui.view,arch_db:crm.view_crm_case_leads_filter
 #: model_terms:ir.ui.view,arch_db:crm.view_crm_case_opportunities_filter
@@ -734,15 +342,31 @@ msgstr ""
 
 #. module: crm
 #. openerp-web
-#: code:addons/crm/static/src/js/tours/crm.js:0
+#: code:addons/crm/static/src/js/tour.js:32
 #, python-format
-msgid "Click on the breadcrumb to go back to the Pipeline."
+msgid "Click here to <b>add your opportunity</b>."
 msgstr ""
 
 #. module: crm
-#: model:ir.model.fields,field_description:crm.field_crm_activity_report__date_closed
+#. openerp-web
+#: code:addons/crm/static/src/js/tour.js:24
+#, python-format
+msgid ""
+"Click here to <b>create your first opportunity</b> and add it to your "
+"pipeline."
+msgstr ""
+"Κάντε κλικ εδώ για <b>να δημιουργήσετε την πρώτη σας ευκαιρία</b> και "
+"προσθέστε την στην ροή πληροφοριών σας."
+
+#. module: crm
+#. openerp-web
+#: code:addons/crm/static/src/js/tour.js:60
+#, python-format
+msgid "Click on the opportunity to zoom in."
+msgstr ""
+
+#. module: crm
 #: model:ir.model.fields,field_description:crm.field_crm_lead__date_closed
-#: model_terms:ir.ui.view,arch_db:crm.crm_activity_report_view_search
 #: model_terms:ir.ui.view,arch_db:crm.crm_opportunity_report_view_search
 #: model_terms:ir.ui.view,arch_db:crm.view_crm_case_leads_filter
 #: model_terms:ir.ui.view,arch_db:crm.view_crm_case_opportunities_filter
@@ -750,13 +374,14 @@ msgid "Closed Date"
 msgstr "Ημερομηνία Κλεισίματος"
 
 #. module: crm
-#: code:addons/crm/wizard/crm_lead_to_opportunity.py:0
+#: code:addons/crm/wizard/crm_lead_to_opportunity.py:87
 #, python-format
 msgid "Closed/Dead leads cannot be converted into opportunities."
 msgstr "Κλειστές/Νεκρές Συστάσεις που δεν μπορούν να μετατραπούν σε ευκαιρίες"
 
 #. module: crm
 #: model:ir.model.fields,field_description:crm.field_crm_lead__color
+#: model:ir.model.fields,field_description:crm.field_crm_lead_tag__color
 msgid "Color Index"
 msgstr "Χρωματισμός Ευρετήριου"
 
@@ -771,20 +396,14 @@ msgid "Company"
 msgstr "Εταιρία"
 
 #. module: crm
-#: model:ir.model.fields,field_description:crm.field_crm_lead__partner_name
+#: model_terms:ir.ui.view,arch_db:crm.crm_case_form_view_leads
 msgid "Company Name"
 msgstr "Επωνυμία Εταιρίας"
 
 #. module: crm
-#: model:ir.model.fields,field_description:crm.field_crm_activity_report__date
-#: model_terms:ir.ui.view,arch_db:crm.crm_activity_report_view_search
-msgid "Completion Date"
-msgstr ""
-
-#. module: crm
 #: model:ir.model,name:crm.model_res_config_settings
 msgid "Config Settings"
-msgstr "Ρυθμίσεις διαμόρφωσης"
+msgstr ""
 
 #. module: crm
 #: model:ir.ui.menu,name:crm.crm_menu_config
@@ -792,26 +411,17 @@ msgid "Configuration"
 msgstr "Διαμόρφωση"
 
 #. module: crm
-#: model_terms:ir.ui.view,arch_db:crm.sales_team_form_view_in_crm
-msgid "Configure a custom domain"
-msgstr ""
-
-#. module: crm
-#: model_terms:ir.ui.view,arch_db:crm.crm_lead_pls_update_view_form
-msgid "Confirm"
-msgstr "Επιβεβαίωση"
-
-#. module: crm
 #. openerp-web
-#: code:addons/crm/static/src/js/tours/crm.js:0
+#: code:addons/crm/static/src/js/tour.js:76
+#: code:addons/crm/static/src/js/tour.js:81
 #, python-format
-msgid "Congrats, best of luck catching such big fish! :)"
-msgstr ""
+msgid "Configuration options are available in the Settings app."
+msgstr "Οι επιλογές διαμόρφωσης είναι διαθέσιμες στην εφαρμογή Ρυθμίσεις."
 
 #. module: crm
-#: model_terms:ir.ui.view,arch_db:crm.crm_lead_pls_update_view_form
-msgid "Consider leads created as of the:"
-msgstr ""
+#: model:crm.lead.tag,name:crm.categ_oppor7
+msgid "Consulting"
+msgstr "Συμβουλευτική"
 
 #. module: crm
 #: model:ir.model,name:crm.model_res_partner
@@ -819,14 +429,19 @@ msgid "Contact"
 msgstr "Επαφή"
 
 #. module: crm
-#: model_terms:ir.ui.view,arch_db:crm.crm_lead_view_form
-msgid "Contact Information"
-msgstr "Πληροφορίες Επαφής"
-
-#. module: crm
 #: model:ir.model.fields,field_description:crm.field_crm_lead__contact_name
 msgid "Contact Name"
 msgstr "Όνομα Επαφής"
+
+#. module: crm
+#: model_terms:ir.ui.view,arch_db:crm.res_config_settings_view_form
+msgid "Contacts"
+msgstr "Επαφές"
+
+#. module: crm
+#: model:ir.model.fields,field_description:crm.field_crm_team__dashboard_graph_model
+msgid "Content"
+msgstr "Περιεχόμενα"
 
 #. module: crm
 #: model:ir.model.fields,field_description:crm.field_crm_lead2opportunity_partner__name
@@ -835,9 +450,9 @@ msgid "Conversion Action"
 msgstr "Ενέργεια Συζήτησης"
 
 #. module: crm
-#: model:ir.model.fields,field_description:crm.field_crm_activity_report__date_conversion
 #: model:ir.model.fields,field_description:crm.field_crm_lead__date_conversion
 #: model_terms:ir.ui.view,arch_db:crm.crm_opportunity_report_view_search
+#: model_terms:ir.ui.view,arch_db:crm.view_crm_case_leads_filter
 #: model_terms:ir.ui.view,arch_db:crm.view_crm_case_opportunities_filter
 msgid "Conversion Date"
 msgstr "Ημερομηνία Μετατροπής"
@@ -868,7 +483,7 @@ msgid "Convert to Opportunities"
 msgstr "Μετατροπή σε Ευκαιρίες"
 
 #. module: crm
-#: model_terms:ir.ui.view,arch_db:crm.crm_lead_view_form
+#: model_terms:ir.ui.view,arch_db:crm.crm_case_form_view_leads
 #: model_terms:ir.ui.view,arch_db:crm.view_crm_lead2opportunity_partner
 #: model_terms:ir.ui.view,arch_db:crm.view_crm_lead2opportunity_partner_mass
 msgid "Convert to Opportunity"
@@ -880,10 +495,10 @@ msgid "Convert to opportunities"
 msgstr "Μετατροπή σε Ευκαιρίες"
 
 #. module: crm
-#: code:addons/crm/models/crm_lead.py:0
+#: code:addons/crm/models/crm_lead.py:1116
+#: selection:crm.lead2opportunity.partner,name:0
+#: selection:crm.lead2opportunity.partner.mass,name:0
 #: model:ir.actions.act_window,name:crm.action_crm_lead2opportunity_partner
-#: model:ir.model.fields.selection,name:crm.selection__crm_lead2opportunity_partner__name__convert
-#: model:ir.model.fields.selection,name:crm.selection__crm_lead2opportunity_partner_mass__name__convert
 #, python-format
 msgid "Convert to opportunity"
 msgstr "Μετατροπή σε ευκαιρία"
@@ -891,14 +506,8 @@ msgstr "Μετατροπή σε ευκαιρία"
 #. module: crm
 #: model_terms:ir.ui.view,arch_db:crm.res_config_settings_view_form
 msgid ""
-"Convert visitors of your website into leads and perform data enrichment "
-"based on their IP address"
-msgstr ""
-
-#. module: crm
-#: model:ir.model.fields.selection,name:crm.selection__crm_lead__email_state__correct
-#: model:ir.model.fields.selection,name:crm.selection__crm_lead__phone_state__correct
-msgid "Correct"
+"Convert visitors of your website into leads in the CRM. We do data "
+"enrichment based on their IP address."
 msgstr ""
 
 #. module: crm
@@ -907,10 +516,11 @@ msgid "Counter of the number of bounced emails for this contact"
 msgstr "Μετρητής του αριθμού προωθήσεων emails για αυτή την επαφή"
 
 #. module: crm
-#: model:crm.lead.scoring.frequency.field,name:crm.frequency_field_country_id
 #: model:ir.model.fields,field_description:crm.field_crm_activity_report__country_id
 #: model:ir.model.fields,field_description:crm.field_crm_lead__country_id
-#: model_terms:ir.ui.view,arch_db:crm.crm_lead_view_form
+#: model_terms:ir.ui.view,arch_db:crm.crm_activity_report_view_search
+#: model_terms:ir.ui.view,arch_db:crm.crm_case_form_view_leads
+#: model_terms:ir.ui.view,arch_db:crm.crm_case_form_view_oppor
 #: model_terms:ir.ui.view,arch_db:crm.crm_opportunity_report_view_search
 #: model_terms:ir.ui.view,arch_db:crm.view_crm_case_leads_filter
 #: model_terms:ir.ui.view,arch_db:crm.view_crm_case_opportunities_filter
@@ -918,7 +528,17 @@ msgid "Country"
 msgstr "Χώρα"
 
 #. module: crm
-#: model:ir.model.fields,field_description:crm.field_res_config_settings__module_website_crm_iap_reveal
+#: model_terms:ir.ui.view,arch_db:crm.view_create_opportunity_simplified
+msgid "Create"
+msgstr "Δημιουργία"
+
+#. module: crm
+#: model_terms:ir.ui.view,arch_db:crm.view_create_opportunity_simplified
+msgid "Create & Edit"
+msgstr "Δημιουργία & Επεξεργασία"
+
+#. module: crm
+#: model:ir.model.fields,field_description:crm.field_res_config_settings__module_crm_reveal
 msgid "Create Leads/Opportunities from your website's traffic"
 msgstr ""
 
@@ -928,57 +548,61 @@ msgid "Create Opportunity"
 msgstr "Δημιουργία Ευκαιρίας"
 
 #. module: crm
-#: model_terms:ir.actions.act_window,help:crm.crm_lead_all_leads
-msgid "Create a Lead"
-msgstr ""
-
-#. module: crm
-#: model_terms:ir.actions.act_window,help:crm.crm_lost_reason_action
-msgid "Create a Lost Reason"
-msgstr ""
-
-#. module: crm
-#: model_terms:ir.actions.act_window,help:crm.crm_recurring_plan_action
-msgid "Create a Recurring Plan"
-msgstr ""
-
-#. module: crm
-#: model:ir.model.fields,field_description:crm.field_res_config_settings__lead_mining_in_pipeline
-msgid "Create a lead mining request directly from the opportunity pipeline."
-msgstr ""
-
-#. module: crm
-#: model:ir.model.fields.selection,name:crm.selection__crm_lead2opportunity_partner__action__create
-#: model:ir.model.fields.selection,name:crm.selection__crm_lead2opportunity_partner_mass__action__create
+#: selection:crm.lead2opportunity.partner,action:0
+#: selection:crm.partner.binding,action:0
 msgid "Create a new customer"
 msgstr "Δημιουργήστε ένα νέο πελάτη"
 
 #. module: crm
-#: code:addons/crm/models/crm_lead.py:0
 #: model_terms:ir.actions.act_window,help:crm.crm_case_form_view_salesteams_lead
 #: model_terms:ir.actions.act_window,help:crm.crm_case_form_view_salesteams_opportunity
-#, python-format
 msgid "Create a new lead"
 msgstr ""
 
 #. module: crm
-#: code:addons/crm/models/crm_lead.py:0
-#: model_terms:ir.ui.view,arch_db:crm.crm_action_helper
-#, python-format
-msgid "Create an opportunity to start playing with your pipeline."
+#: model_terms:ir.actions.act_window,help:crm.crm_lead_tag_action
+msgid "Create a new tag for your opportunities"
 msgstr ""
+
+#. module: crm
+#: model:ir.actions.act_window,name:crm.create_opportunity_simplified
+#: model_terms:ir.ui.view,arch_db:crm.view_create_opportunity_simplified
+msgid "Create an Opportunity"
+msgstr "Δημιουργήστε μια ευκαιρία"
+
+#. module: crm
+#: model_terms:ir.actions.act_window,help:crm.relate_partner_opportunities
+msgid "Create an new opportunity related to this customer"
+msgstr ""
+
+#. module: crm
+#: code:addons/crm/models/crm_lead.py:935
+#, python-format
+msgid "Create an opportunity in your pipeline"
+msgstr ""
+
+#. module: crm
+#: model_terms:ir.actions.act_window,help:crm.crm_lead_tag_action
+msgid ""
+"Create tags that fit your business (product structure, sales type, etc.) to "
+"better manage and tack your opportunities."
+msgstr ""
+
+#. module: crm
+#: model:ir.model.fields,field_description:crm.field_crm_activity_report__author_id
+#: model_terms:ir.ui.view,arch_db:crm.crm_activity_report_view_search
+msgid "Created By"
+msgstr "Δημιουργήθηκε από"
 
 #. module: crm
 #: model:ir.model.fields,field_description:crm.field_crm_lead2opportunity_partner__create_uid
 #: model:ir.model.fields,field_description:crm.field_crm_lead2opportunity_partner_mass__create_uid
 #: model:ir.model.fields,field_description:crm.field_crm_lead__create_uid
 #: model:ir.model.fields,field_description:crm.field_crm_lead_lost__create_uid
-#: model:ir.model.fields,field_description:crm.field_crm_lead_pls_update__create_uid
-#: model:ir.model.fields,field_description:crm.field_crm_lead_scoring_frequency__create_uid
-#: model:ir.model.fields,field_description:crm.field_crm_lead_scoring_frequency_field__create_uid
+#: model:ir.model.fields,field_description:crm.field_crm_lead_tag__create_uid
 #: model:ir.model.fields,field_description:crm.field_crm_lost_reason__create_uid
 #: model:ir.model.fields,field_description:crm.field_crm_merge_opportunity__create_uid
-#: model:ir.model.fields,field_description:crm.field_crm_recurring_plan__create_uid
+#: model:ir.model.fields,field_description:crm.field_crm_partner_binding__create_uid
 #: model:ir.model.fields,field_description:crm.field_crm_stage__create_uid
 msgid "Created by"
 msgstr "Δημιουργήθηκε από"
@@ -988,29 +612,20 @@ msgstr "Δημιουργήθηκε από"
 #: model:ir.model.fields,field_description:crm.field_crm_lead2opportunity_partner_mass__create_date
 #: model:ir.model.fields,field_description:crm.field_crm_lead__create_date
 #: model:ir.model.fields,field_description:crm.field_crm_lead_lost__create_date
-#: model:ir.model.fields,field_description:crm.field_crm_lead_pls_update__create_date
-#: model:ir.model.fields,field_description:crm.field_crm_lead_scoring_frequency__create_date
-#: model:ir.model.fields,field_description:crm.field_crm_lead_scoring_frequency_field__create_date
+#: model:ir.model.fields,field_description:crm.field_crm_lead_tag__create_date
 #: model:ir.model.fields,field_description:crm.field_crm_lost_reason__create_date
 #: model:ir.model.fields,field_description:crm.field_crm_merge_opportunity__create_date
-#: model:ir.model.fields,field_description:crm.field_crm_recurring_plan__create_date
+#: model:ir.model.fields,field_description:crm.field_crm_partner_binding__create_date
 #: model:ir.model.fields,field_description:crm.field_crm_stage__create_date
 msgid "Created on"
 msgstr "Δημιουργήθηκε στις"
 
 #. module: crm
-#: model:ir.model.fields,field_description:crm.field_crm_activity_report__lead_create_date
-#: model_terms:ir.ui.view,arch_db:crm.crm_activity_report_view_search
 #: model_terms:ir.ui.view,arch_db:crm.crm_opportunity_report_view_search
 #: model_terms:ir.ui.view,arch_db:crm.view_crm_case_leads_filter
 #: model_terms:ir.ui.view,arch_db:crm.view_crm_case_opportunities_filter
 msgid "Creation Date"
 msgstr "Ημερομηνία Δημιουργίας"
-
-#. module: crm
-#: model:ir.actions.server,name:crm.action_opportunity_forecast
-msgid "Crm: Forecast"
-msgstr ""
 
 #. module: crm
 #: model:ir.actions.server,name:crm.action_your_pipeline
@@ -1023,44 +638,48 @@ msgid "Currency"
 msgstr "Νόμισμα"
 
 #. module: crm
-#: model:ir.model.fields,field_description:crm.field_crm_team__alias_bounced_content
-msgid "Custom Bounced Message"
-msgstr ""
-
-#. module: crm
-#: code:addons/crm/models/crm_lead.py:0
-#: model:ir.model.fields,field_description:crm.field_crm_activity_report__partner_id
+#: code:addons/crm/models/crm_lead.py:1168
 #: model:ir.model.fields,field_description:crm.field_crm_lead2opportunity_partner__partner_id
 #: model:ir.model.fields,field_description:crm.field_crm_lead2opportunity_partner_mass__partner_id
 #: model:ir.model.fields,field_description:crm.field_crm_lead__partner_id
-#: model_terms:ir.ui.view,arch_db:crm.crm_lead_view_form
+#: model:ir.model.fields,field_description:crm.field_crm_partner_binding__partner_id
+#: model_terms:ir.ui.view,arch_db:crm.crm_case_form_view_leads
+#: model_terms:ir.ui.view,arch_db:crm.crm_case_form_view_oppor
+#: model_terms:ir.ui.view,arch_db:crm.crm_case_tree_view_oppor
+#: model_terms:ir.ui.view,arch_db:crm.view_crm_case_leads_filter
 #: model_terms:ir.ui.view,arch_db:crm.view_crm_case_opportunities_filter
-#: model_terms:ir.ui.view,arch_db:crm.view_crm_lead2opportunity_partner
 #, python-format
 msgid "Customer"
 msgstr "Πελάτης"
 
 #. module: crm
-#: code:addons/crm/models/crm_lead.py:0
+#: code:addons/crm/models/crm_lead.py:1170
 #, python-format
 msgid "Customer Email"
 msgstr "Email Πελάτη"
 
 #. module: crm
+#: model:ir.model.fields,field_description:crm.field_crm_lead__partner_name
+msgid "Customer Name"
+msgstr "Όνομα Πελάτη"
+
+#. module: crm
 #: model:ir.ui.menu,name:crm.res_partner_menu_customer
+#: model_terms:ir.ui.view,arch_db:crm.view_crm_lead2opportunity_partner
 #: model_terms:ir.ui.view,arch_db:crm.view_crm_lead2opportunity_partner_mass
 msgid "Customers"
 msgstr "Πελάτες"
 
 #. module: crm
+#: model:ir.model.fields,field_description:crm.field_crm_activity_report__date
+#: model_terms:ir.ui.view,arch_db:crm.crm_activity_report_view_search
+msgid "Date"
+msgstr "Ημερομηνία"
+
+#. module: crm
 #: model_terms:ir.ui.view,arch_db:crm.crm_opportunity_report_view_search
 msgid "Date Closed"
 msgstr "Ημερομηνία Κλεισίματος"
-
-#. module: crm
-#: model:ir.model.fields.selection,name:crm.selection__res_config_settings__crm_auto_assignment_interval_type__days
-msgid "Days"
-msgstr "Ημέρες"
 
 #. module: crm
 #: model:ir.model.fields,field_description:crm.field_crm_lead__day_open
@@ -1073,13 +692,13 @@ msgid "Days to Close"
 msgstr "Μέρες για να Κλείσει"
 
 #. module: crm
-#: model:ir.model.fields,field_description:crm.field_crm_team__alias_defaults
-msgid "Default Values"
-msgstr "Προεπιλεγμένες τιμές"
+#: model:ir.model.fields,field_description:crm.field_res_config_settings__crm_alias_prefix
+msgid "Default Alias Name for Leads"
+msgstr "Προεπιλεγμένο Ψευδώνυμο για τις Συστάσεις"
 
 #. module: crm
-#: model_terms:ir.ui.view,arch_db:crm.res_config_settings_view_form
-msgid "Define recurring plans and revenues on Opportunities"
+#: model_terms:ir.actions.act_window,help:crm.crm_lost_reason_action
+msgid "Define a new lost reason"
 msgstr ""
 
 #. module: crm
@@ -1088,37 +707,14 @@ msgid "Delete"
 msgstr "Διαγραφή"
 
 #. module: crm
-#: model:ir.model.fields,field_description:crm.field_crm_lost_reason__name
-msgid "Description"
-msgstr "Περιγραφή"
+#: model_terms:ir.ui.view,arch_db:crm.crm_case_form_view_leads
+msgid "Describe the lead..."
+msgstr "Περιγραφή της σύστασης..."
 
 #. module: crm
-#: model_terms:digest.tip,tip_description:crm.digest_tip_crm_0
-msgid "Did you know emails sent to"
-msgstr ""
-
-#. module: crm
-#: model_terms:digest.tip,tip_description:crm.digest_tip_crm_0
-msgid ""
-"Did you know emails sent to a Sales Team alias generate opportunities in "
-"your pipeline?"
-msgstr ""
-
-#. module: crm
-#: model_terms:digest.tip,tip_description:crm.digest_tip_crm_4
-msgid ""
-"Did you know you can search a company by name or VAT number to instantly "
-"fill in all its data? Odoo autocompletes everything for you: logo, address, "
-"company size, business information, social media accounts, etc."
-msgstr ""
-
-#. module: crm
-#: model_terms:digest.tip,tip_description:crm.digest_tip_crm_5
-msgid ""
-"Did you know you can turn a list of opportunities into a map view, using the"
-" top-right map icon? A lot of screens in Odoo can be turned into a map: "
-"tasks, contacts, delivery orders, etc."
-msgstr ""
+#: model:crm.lead.tag,name:crm.categ_oppor5
+msgid "Design"
+msgstr "Σχεδίαση"
 
 #. module: crm
 #: model:ir.model,name:crm.model_digest_digest
@@ -1126,65 +722,40 @@ msgid "Digest"
 msgstr ""
 
 #. module: crm
+#: model_terms:ir.ui.view,arch_db:crm.view_create_opportunity_simplified
+msgid "Discard"
+msgstr "Απόρριψη"
+
+#. module: crm
 #: model:ir.model.fields,field_description:crm.field_crm_activity_report__display_name
 #: model:ir.model.fields,field_description:crm.field_crm_lead2opportunity_partner__display_name
 #: model:ir.model.fields,field_description:crm.field_crm_lead2opportunity_partner_mass__display_name
 #: model:ir.model.fields,field_description:crm.field_crm_lead__display_name
 #: model:ir.model.fields,field_description:crm.field_crm_lead_lost__display_name
-#: model:ir.model.fields,field_description:crm.field_crm_lead_pls_update__display_name
-#: model:ir.model.fields,field_description:crm.field_crm_lead_scoring_frequency__display_name
-#: model:ir.model.fields,field_description:crm.field_crm_lead_scoring_frequency_field__display_name
+#: model:ir.model.fields,field_description:crm.field_crm_lead_tag__display_name
 #: model:ir.model.fields,field_description:crm.field_crm_lost_reason__display_name
 #: model:ir.model.fields,field_description:crm.field_crm_merge_opportunity__display_name
-#: model:ir.model.fields,field_description:crm.field_crm_recurring_plan__display_name
+#: model:ir.model.fields,field_description:crm.field_crm_partner_binding__display_name
 #: model:ir.model.fields,field_description:crm.field_crm_stage__display_name
 msgid "Display Name"
 msgstr "Εμφάνιση Ονόματος"
 
 #. module: crm
-#: code:addons/crm/models/digest.py:0 code:addons/crm/models/digest.py:0
+#: code:addons/crm/models/digest.py:18 code:addons/crm/models/digest.py:29
 #, python-format
 msgid "Do not have access, skip this data for user's digest email"
 msgstr ""
 
 #. module: crm
-#: model:ir.model.fields.selection,name:crm.selection__crm_lead2opportunity_partner__action__nothing
-#: model:ir.model.fields.selection,name:crm.selection__crm_lead2opportunity_partner_mass__action__nothing
+#: selection:crm.lead2opportunity.partner,action:0
+#: selection:crm.lead2opportunity.partner.mass,action:0
+#: selection:crm.partner.binding,action:0
 msgid "Do not link to a customer"
 msgstr "Μην συνδέσεις με ένα πελάτη"
 
 #. module: crm
-#: model_terms:ir.ui.view,arch_db:crm.res_config_settings_view_form
-msgid "Documentation"
-msgstr "Τεκμηρίωση"
-
-#. module: crm
-#: model_terms:ir.ui.view,arch_db:crm.crm_team_member_view_form
-#: model_terms:ir.ui.view,arch_db:crm.sales_team_form_view_in_crm
-msgid "Domain"
-msgstr "Τομέας"
-
-#. module: crm
-#. openerp-web
-#: code:addons/crm/static/src/js/tours/crm.js:0
-#, python-format
-msgid "Drag your opportunity to <b>Won</b> when you get the deal. Congrats !"
-msgstr ""
-
-#. module: crm
 #: model_terms:ir.ui.view,arch_db:crm.crm_case_kanban_view_leads
 msgid "Dropdown menu"
-msgstr ""
-
-#. module: crm
-#: model_terms:ir.ui.view,arch_db:crm.crm_lead_view_form
-#: model_terms:ir.ui.view,arch_db:crm.quick_create_opportunity_form
-msgid "E.g. Monthly"
-msgstr ""
-
-#. module: crm
-#: model_terms:ir.actions.act_window,help:crm.crm_lead_action_forecast
-msgid "Easily set expected closing dates and overview your revenue streams."
 msgstr ""
 
 #. module: crm
@@ -1194,9 +765,8 @@ msgstr "Επεξεργασία"
 
 #. module: crm
 #: model:ir.model.fields,field_description:crm.field_crm_lead__email_from
-#: model_terms:ir.ui.view,arch_db:crm.crm_case_tree_view_oppor
-#: model_terms:ir.ui.view,arch_db:crm.crm_lead_view_form
-#: model_terms:ir.ui.view,arch_db:crm.quick_create_opportunity_form
+#: model_terms:ir.ui.view,arch_db:crm.crm_case_form_view_leads
+#: model_terms:ir.ui.view,arch_db:crm.crm_case_form_view_oppor
 msgid "Email"
 msgstr "Email"
 
@@ -1206,48 +776,24 @@ msgid "Email Alias"
 msgstr "Ψευδώνυμο Email"
 
 #. module: crm
-#: model:crm.lead.scoring.frequency.field,name:crm.frequency_field_email_state
-#: model:ir.model.fields,field_description:crm.field_crm_lead__email_state
-msgid "Email Quality"
-msgstr ""
+#: model:ir.model.fields,help:crm.field_crm_lead__email_from
+msgid "Email address of the contact"
+msgstr "Email διεύθυνση της επαφής"
 
 #. module: crm
-#: model:ir.model.fields,field_description:crm.field_crm_lead__email_cc
-msgid "Email cc"
-msgstr ""
-
-#. module: crm
-#: model:mail.activity.type,name:crm.mail_activity_type_demo_email_with_template
-msgid "Email: Welcome Demo"
-msgstr ""
-
-#. module: crm
-#: model:ir.model.fields.selection,name:crm.selection__res_config_settings__lead_enrich_auto__auto
-msgid "Enrich all leads automatically"
-msgstr ""
-
-#. module: crm
-#: model:ir.model.fields,field_description:crm.field_res_config_settings__lead_enrich_auto
-msgid "Enrich lead automatically"
-msgstr ""
-
-#. module: crm
-#: model:ir.model.fields.selection,name:crm.selection__res_config_settings__lead_enrich_auto__manual
-msgid "Enrich leads on demand only"
+#: model_terms:digest.tip,tip_description:crm.digest_tip_crm_0
+msgid ""
+"Email sent to <strong>${email}</strong> generate opportunities in your "
+"pipeline.<br>"
 msgstr ""
 
 #. module: crm
 #: model_terms:ir.ui.view,arch_db:crm.res_config_settings_view_form
 msgid ""
-"Enrich your leads automatically with company data based on their email "
-"address"
-msgstr ""
-
-#. module: crm
-#: model:ir.model.fields,field_description:crm.field_res_config_settings__module_crm_iap_enrich
-msgid ""
-"Enrich your leads automatically with company data based on their email "
-"address."
+"Emails received to that address generate new leads not assigned to any Sales"
+" Team yet. This can be made when converting them into opportunities. "
+"Incoming emails can be automatically assigned to specific Sales Teams. To do"
+" so, set an email alias on the Sales Team."
 msgstr ""
 
 #. module: crm
@@ -1266,23 +812,40 @@ msgid "Estimate of the date on which the opportunity will be won."
 msgstr "Προβλεπόμενη ημερομηνία στην οποία η ευκαιρία θα κερδηθεί"
 
 #. module: crm
-#: model:ir.model.fields,field_description:crm.field_crm_activity_report__date_deadline
+#: model:ir.model,name:crm.model_calendar_event
+msgid "Event"
+msgstr "Συμβάν"
+
+#. module: crm
 #: model:ir.model.fields,field_description:crm.field_crm_lead__date_deadline
-#: model_terms:ir.ui.view,arch_db:crm.crm_activity_report_view_search
-#: model_terms:ir.ui.view,arch_db:crm.crm_lead_view_search_forecast
 #: model_terms:ir.ui.view,arch_db:crm.crm_opportunity_report_view_search
 #: model_terms:ir.ui.view,arch_db:crm.view_crm_case_opportunities_filter
 msgid "Expected Closing"
 msgstr "Αναμενόμενο Κλείσιμο"
 
 #. module: crm
-#: model:ir.model.fields,field_description:crm.field_crm_lead__recurring_revenue_monthly
-#: model_terms:ir.ui.view,arch_db:crm.crm_case_tree_view_oppor
-msgid "Expected MRR"
-msgstr ""
+#: model_terms:ir.ui.view,arch_db:crm.view_crm_case_leads_filter
+#: model_terms:ir.ui.view,arch_db:crm.view_crm_case_opportunities_filter
+msgid "Expected Closing Date"
+msgstr "Αναμενόμενη Ημερομηνία Κλεισίματος"
 
 #. module: crm
-#: model:ir.model.fields,field_description:crm.field_crm_lead__expected_revenue
+#: selection:crm.team,dashboard_graph_group_pipeline:0
+msgid "Expected Closing Day"
+msgstr "Αναμενόμενη Ημερομηνία Κλεισίματος"
+
+#. module: crm
+#: selection:crm.team,dashboard_graph_group_pipeline:0
+msgid "Expected Closing Month"
+msgstr "Αναμενόμενος Μήνας Κλεισίματος"
+
+#. module: crm
+#: selection:crm.team,dashboard_graph_group_pipeline:0
+msgid "Expected Closing Week"
+msgstr "Αναμενόμενη Εβδομάδα Κλεισίματος"
+
+#. module: crm
+#: model:ir.model.fields,field_description:crm.field_crm_lead__planned_revenue
 msgid "Expected Revenue"
 msgstr "Προσδοκόμενα Έσοδα"
 
@@ -1292,46 +855,29 @@ msgid "Expected Revenues"
 msgstr "Προσδοκόμενα Έσοδα"
 
 #. module: crm
+#: model:ir.model.fields,field_description:crm.field_crm_team__dashboard_graph_period_pipeline
+msgid "Expected to Close"
+msgstr "Αναμένεται να Κλείσει"
+
+#. module: crm
+#: model:ir.model.fields,help:crm.field_crm_stage__legend_priority
+msgid ""
+"Explanation text to help users using the star and priority mechanism on "
+"stages or issues that are in this stage."
+msgstr ""
+"Επεξηγηματικό κείμενο για να βοηθήσει τους χρήστες να χρησιμοποιήσουν το "
+"αστέρι ή τον μηχανισμό προτεραιότητας σε στάδια ή σε θέματα, τα οποία είναι "
+"σε αυτό το στάδιο."
+
+#. module: crm
 #: model_terms:ir.ui.view,arch_db:crm.crm_opportunity_report_view_search
 msgid "Extended Filters"
 msgstr "Εκτεταμένα Φίλτρα"
 
 #. module: crm
-#: model_terms:ir.ui.view,arch_db:crm.crm_lead_view_form
+#: model_terms:ir.ui.view,arch_db:crm.crm_case_form_view_leads
 msgid "Extra Info"
 msgstr "Περισσότερες Πληροφορίες"
-
-#. module: crm
-#: model_terms:ir.ui.view,arch_db:crm.crm_lead_view_form
-msgid "Extra Information"
-msgstr "Επιπλέον Πληροφορίες"
-
-#. module: crm
-#: model_terms:ir.ui.view,arch_db:crm.crm_lead_pls_update_view_form
-msgid "Extra fields..."
-msgstr ""
-
-#. module: crm
-#: model:ir.model.fields,field_description:crm.field_crm_lead_scoring_frequency_field__field_id
-msgid "Field"
-msgstr "Πεδίο"
-
-#. module: crm
-#: model:ir.model.fields,field_description:crm.field_crm_lead_scoring_frequency_field__name
-msgid "Field Label"
-msgstr "Όνομα Πεδίου"
-
-#. module: crm
-#: model:ir.model.fields,help:crm.field_crm_lead__phone_sanitized
-msgid ""
-"Field used to store sanitized phone number. Helps speeding up searches and "
-"comparisons."
-msgstr ""
-
-#. module: crm
-#: model:ir.model,name:crm.model_crm_lead_scoring_frequency_field
-msgid "Fields that can be used for predictive lead scoring computation"
-msgstr ""
 
 #. module: crm
 #: model:ir.model.fields,field_description:crm.field_crm_stage__fold
@@ -1349,68 +895,46 @@ msgid "Followers"
 msgstr "Ακόλουθοι"
 
 #. module: crm
+#: model:ir.model.fields,field_description:crm.field_crm_lead__message_channel_ids
+msgid "Followers (Channels)"
+msgstr "Ακόλουθοι (Κανάλια)"
+
+#. module: crm
 #: model:ir.model.fields,field_description:crm.field_crm_lead__message_partner_ids
 msgid "Followers (Partners)"
 msgstr "Ακόλουθοι (Συνεργάτες)"
 
 #. module: crm
-#: model:ir.model.fields,help:crm.field_crm_lead__activity_type_icon
-msgid "Font awesome icon e.g. fa-tasks"
-msgstr "Γραμματοσειρά awesome  π.χ. fa-tasks"
+#: model_terms:ir.ui.view,arch_db:crm.crm_case_form_view_oppor
+msgid "Followup"
+msgstr "Υπενθύμιση"
 
 #. module: crm
-#: model_terms:digest.tip,tip_description:crm.digest_tip_crm_1
-msgid ""
-"For a sales team, there is nothing worse than being dry on leads. "
-"Fortunately, in just a few clicks, you can generate leads specifically "
-"targeted to your needs: company size, industry, etc. To help you test the "
-"feature, we offer you 200 credits for free."
+#: model:ir.model.fields,field_description:crm.field_crm_lead2opportunity_partner_mass__force_assignation
+msgid "Force assignation"
+msgstr "Ώθηση ανάθεσης"
+
+#. module: crm
+#: model_terms:ir.ui.view,arch_db:crm.res_config_settings_view_form
+msgid "Format phone numbers based on national conventions"
 msgstr ""
 
 #. module: crm
-#: model:ir.model.fields,field_description:crm.field_crm_lead2opportunity_partner__force_assignment
-#: model:ir.model.fields,field_description:crm.field_crm_lead2opportunity_partner_mass__force_assignment
-msgid "Force assignment"
-msgstr ""
-
-#. module: crm
-#: model:ir.actions.act_window,name:crm.crm_lead_action_forecast
-#: model:ir.ui.menu,name:crm.crm_menu_forecast
-msgid "Forecast"
-msgstr "Πρόβλεψη"
-
-#. module: crm
-#: model_terms:ir.ui.view,arch_db:crm.crm_lead_view_pivot_forecast
-msgid "Forecast Analysis"
-msgstr ""
-
-#. module: crm
-#: code:addons/crm/models/crm_lead.py:0
+#: code:addons/crm/models/crm_lead.py:606
 #, python-format
-msgid "From %(source_name)s"
-msgstr ""
+msgid "From %s : %s"
+msgstr "Από %s : %s"
 
 #. module: crm
-#: code:addons/crm/models/crm_lead.py:0
-#, python-format
-msgid "From %(source_name)s : %(source_subject)s"
-msgstr ""
-
-#. module: crm
-#: model_terms:ir.ui.view,arch_db:crm.view_crm_case_leads_filter
-#: model_terms:ir.ui.view,arch_db:crm.view_crm_case_my_activities_filter
 #: model_terms:ir.ui.view,arch_db:crm.view_crm_case_opportunities_filter
 msgid "Future Activities"
 msgstr "Μελλοντικές Δραστηριότητες"
 
 #. module: crm
-#: model:ir.model.fields,field_description:crm.field_res_config_settings__module_crm_iap_mine
-msgid "Generate new leads based on their country, industries, size, etc."
-msgstr ""
-
-#. module: crm
 #: model_terms:ir.ui.view,arch_db:crm.res_config_settings_view_form
-msgid "Generate new leads based on their country, industry, size, etc."
+msgid ""
+"Generate leads from incoming emails and assign them\n"
+"                                    to a Sales Team manually"
 msgstr ""
 
 #. module: crm
@@ -1424,10 +948,23 @@ msgid "Give your team the requirements to move an opportunity to this stage."
 msgstr ""
 
 #. module: crm
-#: code:addons/crm/models/crm_lead.py:0 code:addons/crm/models/crm_lead.py:0
+#: model:ir.model.fields,field_description:crm.field_crm_lead__email_cc
+msgid "Global CC"
+msgstr "Διεθνές CC"
+
+#. module: crm
+#: code:addons/crm/models/crm_lead.py:398
 #, python-format
 msgid "Go, go, go! Congrats for your first deal."
 msgstr "Πάμε πάμε πάμε! Συγχαρητήρια για την πρώτη σας συμφωνία."
+
+#. module: crm
+#. openerp-web
+#: code:addons/crm/static/src/js/tour.js:90
+#: code:addons/crm/static/src/js/tour.js:95
+#, python-format
+msgid "Good job! You completed the tour of the CRM app."
+msgstr ""
 
 #. module: crm
 #: model_terms:ir.ui.view,arch_db:crm.crm_activity_report_view_search
@@ -1438,19 +975,26 @@ msgid "Group By"
 msgstr "Ομαδοποίηση κατά"
 
 #. module: crm
-#: model:ir.model.fields,field_description:crm.field_crm_lead__has_message
-msgid "Has Message"
+#: model:ir.model.fields,field_description:crm.field_crm_team__dashboard_graph_group_pipeline
+msgid "Grouping Method"
 msgstr ""
 
 #. module: crm
-#: model:ir.model.fields.selection,name:crm.selection__crm_lead__priority__2
+#: model_terms:ir.actions.act_window,help:crm.crm_lead_action_activities
+msgid ""
+"Here is the list of your next activities. Those are linked to your opportunities.\n"
+"                   To set a next activity, go on an opportunity and add one. It will then appear in this list."
+msgstr ""
+
+#. module: crm
+#: selection:crm.lead,priority:0
 msgid "High"
 msgstr "Υψηλή"
 
 #. module: crm
-#: model:ir.model.fields.selection,name:crm.selection__res_config_settings__crm_auto_assignment_interval_type__hours
-msgid "Hours"
-msgstr "Ώρες"
+#: model:ir.model.fields,help:crm.field_crm_team__dashboard_graph_group_pipeline
+msgid "How this channel's dashboard graph will group the results."
+msgstr "Πώς θα ομαδοποιήσει αυτό το γράφημα καναλιού τα αποτελέσματα."
 
 #. module: crm
 #: model:ir.model.fields,field_description:crm.field_crm_activity_report__id
@@ -1458,68 +1002,34 @@ msgstr "Ώρες"
 #: model:ir.model.fields,field_description:crm.field_crm_lead2opportunity_partner_mass__id
 #: model:ir.model.fields,field_description:crm.field_crm_lead__id
 #: model:ir.model.fields,field_description:crm.field_crm_lead_lost__id
-#: model:ir.model.fields,field_description:crm.field_crm_lead_pls_update__id
-#: model:ir.model.fields,field_description:crm.field_crm_lead_scoring_frequency__id
-#: model:ir.model.fields,field_description:crm.field_crm_lead_scoring_frequency_field__id
+#: model:ir.model.fields,field_description:crm.field_crm_lead_tag__id
 #: model:ir.model.fields,field_description:crm.field_crm_lost_reason__id
 #: model:ir.model.fields,field_description:crm.field_crm_merge_opportunity__id
-#: model:ir.model.fields,field_description:crm.field_crm_recurring_plan__id
+#: model:ir.model.fields,field_description:crm.field_crm_partner_binding__id
 #: model:ir.model.fields,field_description:crm.field_crm_stage__id
 msgid "ID"
 msgstr "Κωδικός"
 
 #. module: crm
-#: model:ir.model.fields,help:crm.field_crm_team__alias_parent_thread_id
-msgid ""
-"ID of the parent record holding the alias (example: project holding the task"
-" creation alias)"
-msgstr ""
-"Αναγνωριστικό της μητρικής εγγραφής που κρατά το ψευδώνυμο (παράδειγμα: έργο"
-" που κατέχει το ψευδώνυμο της δημιουργίας εργασίας)"
-
-#. module: crm
-#: model:ir.model.fields,field_description:crm.field_crm_lead__activity_exception_icon
-msgid "Icon"
-msgstr "Εικονίδιο"
-
-#. module: crm
-#: model:ir.model.fields,help:crm.field_crm_lead__activity_exception_icon
-msgid "Icon to indicate an exception activity."
-msgstr ""
-
-#. module: crm
-#: model:ir.model.fields,help:crm.field_crm_lead2opportunity_partner__force_assignment
-#: model:ir.model.fields,help:crm.field_crm_lead2opportunity_partner_mass__force_assignment
-msgid ""
-"If checked, forces salesman to be updated on updated opportunities even if "
-"already set."
-msgstr ""
+#: model:ir.model.fields,help:crm.field_crm_lead__message_unread
+msgid "If checked new messages require your attention."
+msgstr "Εάν επιλεγεί τα νέα μηνύματα χρειάζονται την προσοχή σας"
 
 #. module: crm
 #: model:ir.model.fields,help:crm.field_crm_lead__message_needaction
-#: model:ir.model.fields,help:crm.field_crm_lead__message_unread
 msgid "If checked, new messages require your attention."
 msgstr "Εάν επιλεγεί τα νέα μηνύματα χρειάζονται την προσοχή σας."
 
 #. module: crm
 #: model:ir.model.fields,help:crm.field_crm_lead__message_has_error
-#: model:ir.model.fields,help:crm.field_crm_lead__message_has_sms_error
 msgid "If checked, some messages have a delivery error."
 msgstr ""
 
 #. module: crm
 #: model:ir.model.fields,help:crm.field_res_partner__team_id
-#: model:ir.model.fields,help:crm.field_res_users__team_id
 msgid ""
-"If set, this Sales Team will be used for sales and assignments related to "
+"If set, this Sales Team will be used for sales and assignations related to "
 "this partner"
-msgstr ""
-
-#. module: crm
-#: model:ir.model.fields,help:crm.field_crm_team__alias_bounced_content
-msgid ""
-"If set, this content will automatically be sent out to unauthorized users "
-"instead of the default message."
 msgstr ""
 
 #. module: crm
@@ -1531,11 +1041,9 @@ msgid ""
 msgstr ""
 
 #. module: crm
-#: model:ir.model.fields,help:crm.field_crm_lead__phone_sanitized_blacklisted
-msgid ""
-"If the sanitized phone number is on the blacklist, the contact won't receive"
-" mass mailing sms anymore, from any list"
-msgstr ""
+#: model:ir.model.fields,help:crm.field_crm_lead2opportunity_partner_mass__force_assignation
+msgid "If unchecked, this will leave the salesman of duplicated opportunities"
+msgstr "Αν δεν είναι επιλεγμένο, θα παραμείνουν στον πωλητή διπλές ευκαιρίες"
 
 #. module: crm
 #: model:ir.ui.menu,name:crm.menu_import_crm
@@ -1543,7 +1051,7 @@ msgid "Import & Synchronize"
 msgstr "Εισαγωγή & Συγχρονισμός"
 
 #. module: crm
-#: code:addons/crm/models/crm_lead.py:0
+#: code:addons/crm/models/crm_lead.py:1230
 #, python-format
 msgid "Import Template for Leads & Opportunities"
 msgstr ""
@@ -1554,59 +1062,30 @@ msgid "Include archived"
 msgstr "Περιλαμβάνει τα αρχειοθετημένα"
 
 #. module: crm
-#: model:ir.model.fields.selection,name:crm.selection__crm_lead__email_state__incorrect
-#: model:ir.model.fields.selection,name:crm.selection__crm_lead__phone_state__incorrect
-msgid "Incorrect"
+#: model:crm.lead.tag,name:crm.categ_oppor4
+msgid "Information"
+msgstr "Πληροφορία"
+
+#. module: crm
+#: model_terms:ir.ui.view,arch_db:crm.crm_case_form_view_oppor
+msgid "Initial Contact Information"
 msgstr ""
 
 #. module: crm
-#: model:ir.model.fields,help:crm.field_crm_lead__mobile_blacklisted
-msgid ""
-"Indicates if a blacklisted sanitized phone number is a mobile number. Helps "
-"distinguish which number is blacklisted             when there is both a "
-"mobile and phone field in a model."
-msgstr ""
-
-#. module: crm
-#: model:ir.model.fields,help:crm.field_crm_lead__phone_blacklisted
-msgid ""
-"Indicates if a blacklisted sanitized phone number is a phone number. Helps "
-"distinguish which number is blacklisted             when there is both a "
-"mobile and phone field in a model."
-msgstr ""
-
-#. module: crm
-#: model_terms:ir.ui.view,arch_db:crm.crm_lead_view_form
+#: model_terms:ir.ui.view,arch_db:crm.crm_case_form_view_leads
+#: model_terms:ir.ui.view,arch_db:crm.crm_case_form_view_oppor
 msgid "Internal Notes"
 msgstr "Εσωτερικά Σημειώματα"
 
 #. module: crm
-#: model:ir.model.fields,help:crm.field_res_config_settings__crm_auto_assignment_interval_type
-msgid "Interval type between each cron run (e.g. each 2 days or each 2 hours)"
-msgstr ""
-
-#. module: crm
-#: code:addons/crm/models/res_config_settings.py:0
-#, python-format
-msgid ""
-"Invalid repeat frequency. Consider changing frequency type instead of using "
-"large numbers."
-msgstr ""
+#: selection:crm.team,dashboard_graph_model:0
+msgid "Invoices"
+msgstr "Τιμολόγια"
 
 #. module: crm
 #: model:ir.model.fields,field_description:crm.field_crm_lead__message_is_follower
 msgid "Is Follower"
 msgstr "Είναι Ακόλουθος"
-
-#. module: crm
-#: model:ir.model.fields,field_description:crm.field_crm_stage__is_won
-msgid "Is Won Stage?"
-msgstr ""
-
-#. module: crm
-#: model:ir.model.fields,field_description:crm.field_crm_lead__is_automated_probability
-msgid "Is automated probability?"
-msgstr ""
 
 #. module: crm
 #: model:ir.model.fields,field_description:crm.field_crm_lead__function
@@ -1629,12 +1108,6 @@ msgid "Kpi Crm Opportunities Won Value"
 msgstr ""
 
 #. module: crm
-#: model:crm.lead.scoring.frequency.field,name:crm.frequency_field_lang_id
-#: model:ir.model.fields,field_description:crm.field_crm_lead__lang_id
-msgid "Language"
-msgstr "Γλώσσα"
-
-#. module: crm
 #: model:ir.model.fields,field_description:crm.field_crm_lead__date_action_last
 msgid "Last Action"
 msgstr "Τελευταία Ενέργεια"
@@ -1645,12 +1118,10 @@ msgstr "Τελευταία Ενέργεια"
 #: model:ir.model.fields,field_description:crm.field_crm_lead2opportunity_partner_mass____last_update
 #: model:ir.model.fields,field_description:crm.field_crm_lead____last_update
 #: model:ir.model.fields,field_description:crm.field_crm_lead_lost____last_update
-#: model:ir.model.fields,field_description:crm.field_crm_lead_pls_update____last_update
-#: model:ir.model.fields,field_description:crm.field_crm_lead_scoring_frequency____last_update
-#: model:ir.model.fields,field_description:crm.field_crm_lead_scoring_frequency_field____last_update
+#: model:ir.model.fields,field_description:crm.field_crm_lead_tag____last_update
 #: model:ir.model.fields,field_description:crm.field_crm_lost_reason____last_update
 #: model:ir.model.fields,field_description:crm.field_crm_merge_opportunity____last_update
-#: model:ir.model.fields,field_description:crm.field_crm_recurring_plan____last_update
+#: model:ir.model.fields,field_description:crm.field_crm_partner_binding____last_update
 #: model:ir.model.fields,field_description:crm.field_crm_stage____last_update
 msgid "Last Modified on"
 msgstr "Τελευταία τροποποίηση στις"
@@ -1665,12 +1136,10 @@ msgstr "Ενημέρωση Τελευταίου Σταδίου"
 #: model:ir.model.fields,field_description:crm.field_crm_lead2opportunity_partner_mass__write_uid
 #: model:ir.model.fields,field_description:crm.field_crm_lead__write_uid
 #: model:ir.model.fields,field_description:crm.field_crm_lead_lost__write_uid
-#: model:ir.model.fields,field_description:crm.field_crm_lead_pls_update__write_uid
-#: model:ir.model.fields,field_description:crm.field_crm_lead_scoring_frequency__write_uid
-#: model:ir.model.fields,field_description:crm.field_crm_lead_scoring_frequency_field__write_uid
+#: model:ir.model.fields,field_description:crm.field_crm_lead_tag__write_uid
 #: model:ir.model.fields,field_description:crm.field_crm_lost_reason__write_uid
 #: model:ir.model.fields,field_description:crm.field_crm_merge_opportunity__write_uid
-#: model:ir.model.fields,field_description:crm.field_crm_recurring_plan__write_uid
+#: model:ir.model.fields,field_description:crm.field_crm_partner_binding__write_uid
 #: model:ir.model.fields,field_description:crm.field_crm_stage__write_uid
 msgid "Last Updated by"
 msgstr "Τελευταία Ενημέρωση από"
@@ -1680,108 +1149,40 @@ msgstr "Τελευταία Ενημέρωση από"
 #: model:ir.model.fields,field_description:crm.field_crm_lead2opportunity_partner_mass__write_date
 #: model:ir.model.fields,field_description:crm.field_crm_lead__write_date
 #: model:ir.model.fields,field_description:crm.field_crm_lead_lost__write_date
-#: model:ir.model.fields,field_description:crm.field_crm_lead_pls_update__write_date
-#: model:ir.model.fields,field_description:crm.field_crm_lead_scoring_frequency__write_date
-#: model:ir.model.fields,field_description:crm.field_crm_lead_scoring_frequency_field__write_date
+#: model:ir.model.fields,field_description:crm.field_crm_lead_tag__write_date
 #: model:ir.model.fields,field_description:crm.field_crm_lost_reason__write_date
 #: model:ir.model.fields,field_description:crm.field_crm_merge_opportunity__write_date
-#: model:ir.model.fields,field_description:crm.field_crm_recurring_plan__write_date
+#: model:ir.model.fields,field_description:crm.field_crm_partner_binding__write_date
 #: model:ir.model.fields,field_description:crm.field_crm_stage__write_date
 msgid "Last Updated on"
 msgstr "Τελευταία Ενημέρωση στις"
 
 #. module: crm
-#: model_terms:ir.ui.view,arch_db:crm.view_crm_case_leads_filter
-#: model_terms:ir.ui.view,arch_db:crm.view_crm_case_my_activities_filter
 #: model_terms:ir.ui.view,arch_db:crm.view_crm_case_opportunities_filter
 msgid "Late Activities"
 msgstr "Καθυστερημένες Δραστηριότητες"
 
 #. module: crm
-#: model:ir.model.fields.selection,name:crm.selection__crm_activity_report__lead_type__lead
-#: model:ir.model.fields.selection,name:crm.selection__crm_lead__type__lead
+#: code:addons/crm/models/crm_lead.py:913
+#: selection:crm.activity.report,lead_type:0 selection:crm.lead,type:0
+#: model:ir.model.fields,field_description:crm.field_crm_activity_report__lead_id
+#: model_terms:ir.ui.view,arch_db:crm.crm_case_form_view_leads
 #: model_terms:ir.ui.view,arch_db:crm.crm_case_tree_view_leads
-#: model_terms:ir.ui.view,arch_db:crm.crm_lead_view_form
 #: model_terms:ir.ui.view,arch_db:crm.crm_opportunity_report_view_search
-#: model_terms:ir.ui.view,arch_db:crm.view_crm_case_leads_filter
+#, python-format
 msgid "Lead"
 msgstr "Σύσταση"
 
 #. module: crm
-#: model:ir.model.fields,field_description:crm.field_crm_team__assignment_enabled
-#: model:ir.model.fields,field_description:crm.field_crm_team_member__assignment_enabled
-msgid "Lead Assign"
-msgstr "Ανάθεση Σύστασης"
-
-#. module: crm
-#: code:addons/crm/models/crm_team.py:0
-#, python-format
-msgid "Lead Assignment requested by %(user_name)s"
+#: model:ir.model,name:crm.model_crm_lead_tag
+msgid "Lead Tag"
 msgstr ""
 
 #. module: crm
-#: model:ir.model.fields,field_description:crm.field_crm_team__assignment_max
-msgid "Lead Average Capacity"
-msgstr ""
-
-#. module: crm
-#: model_terms:ir.ui.view,arch_db:crm.res_config_settings_view_form
-msgid "Lead Enrichment"
-msgstr ""
-
-#. module: crm
-#: model_terms:ir.ui.view,arch_db:crm.res_config_settings_view_form
-msgid "Lead Generation"
-msgstr ""
-
-#. module: crm
-#: model_terms:ir.ui.view,arch_db:crm.res_config_settings_view_form
-msgid "Lead Mining"
-msgstr ""
-
-#. module: crm
-#: model:ir.model,name:crm.model_crm_lead_scoring_frequency
-msgid "Lead Scoring Frequency"
-msgstr ""
-
-#. module: crm
-#: model:ir.model.fields,field_description:crm.field_res_config_settings__predictive_lead_scoring_fields
-msgid "Lead Scoring Frequency Fields"
-msgstr ""
-
-#. module: crm
-#: model:ir.model.fields,field_description:crm.field_res_config_settings__predictive_lead_scoring_fields_str
-msgid "Lead Scoring Frequency Fields in String"
-msgstr ""
-
-#. module: crm
-#: model:ir.model.fields,field_description:crm.field_res_config_settings__predictive_lead_scoring_start_date
-msgid "Lead Scoring Starting Date"
-msgstr ""
-
-#. module: crm
-#: model:ir.model.fields,field_description:crm.field_res_config_settings__predictive_lead_scoring_start_date_str
-msgid "Lead Scoring Starting Date in String"
-msgstr ""
-
-#. module: crm
-#: model:ir.model.fields,help:crm.field_crm_team_member__lead_month_count
-msgid "Lead assigned to this member those last 30 days"
-msgstr ""
-
-#. module: crm
-#: code:addons/crm/models/crm_lead.py:0
-#, python-format
-msgid "Lead or Opportunity"
-msgstr ""
-
-#. module: crm
-#: code:addons/crm/models/crm_team.py:0
-#, python-format
-msgid ""
-"Lead/Opportunities automatic assignment is limited to managers or "
-"administrators"
-msgstr ""
+#: model_terms:ir.ui.view,arch_db:crm.crm_lead_tag_form
+#: model_terms:ir.ui.view,arch_db:crm.crm_lead_tag_tree
+msgid "Lead Tags"
+msgstr "Ετικέτες Σύστασης"
 
 #. module: crm
 #: model:ir.model,name:crm.model_crm_lead
@@ -1789,30 +1190,20 @@ msgid "Lead/Opportunity"
 msgstr "Σύσταση/Ευκαιρία"
 
 #. module: crm
-#: model:mail.message.subtype,description:crm.mt_lead_create
-msgid "Lead/Opportunity created"
-msgstr ""
-
-#. module: crm
-#: code:addons/crm/models/crm_lost_reason.py:0
 #: model:ir.actions.act_window,name:crm.crm_case_form_view_salesteams_lead
 #: model:ir.actions.act_window,name:crm.crm_lead_all_leads
 #: model:ir.model.fields,field_description:crm.field_crm_team__use_leads
 #: model:ir.model.fields,field_description:crm.field_res_config_settings__group_use_lead
 #: model:ir.ui.menu,name:crm.crm_menu_leads
 #: model:ir.ui.menu,name:crm.crm_opportunity_report_menu_lead
+#: model:ir.ui.menu,name:crm.menu_crm_leads
 #: model_terms:ir.ui.view,arch_db:crm.crm_activity_report_view_search
 #: model_terms:ir.ui.view,arch_db:crm.crm_case_tree_view_leads
-#: model_terms:ir.ui.view,arch_db:crm.crm_team_view_kanban_dashboard
+#: model_terms:ir.ui.view,arch_db:crm.crm_team_salesteams_view_kanban
 #: model_terms:ir.ui.view,arch_db:crm.sales_team_form_view_in_crm
-#, python-format
+#: model_terms:ir.ui.view,arch_db:crm.view_crm_case_leads_filter
 msgid "Leads"
 msgstr "Συστάσεις"
-
-#. module: crm
-#: model:ir.model.fields,field_description:crm.field_crm_team_member__lead_month_count
-msgid "Leads (30 days)"
-msgstr ""
 
 #. module: crm
 #: model:ir.actions.act_window,name:crm.action_report_crm_lead_salesteam
@@ -1836,15 +1227,9 @@ msgstr ""
 "λεπτομέρεια ."
 
 #. module: crm
-#: code:addons/crm/models/crm_team.py:0
-#, python-format
-msgid "Leads Assigned"
-msgstr ""
-
-#. module: crm
-#: model:ir.model.fields,field_description:crm.field_crm_lost_reason__leads_count
-msgid "Leads Count"
-msgstr "Πλήθος Συστάσεων"
+#: model_terms:ir.ui.view,arch_db:crm.crm_case_form_view_leads
+msgid "Leads Form"
+msgstr "Φόρμα Συστάσεων"
 
 #. module: crm
 #: model_terms:ir.ui.view,arch_db:crm.crm_case_calendar_view_leads
@@ -1852,34 +1237,9 @@ msgid "Leads Generation"
 msgstr "Παραγωγή Συστάσεων"
 
 #. module: crm
-#: model_terms:ir.actions.act_window,help:crm.crm_lead_all_leads
-msgid ""
-"Leads are the qualification step before the creation of an opportunity."
-msgstr ""
-
-#. module: crm
-#: model_terms:ir.ui.view,arch_db:crm.crm_lead_view_activity
-msgid "Leads or Opportunities"
-msgstr ""
-
-#. module: crm
-#: code:addons/crm/models/crm_team.py:0
-#: code:addons/crm/models/crm_team_member.py:0
-#, python-format
-msgid ""
-"Leads team allocation should be done for at least 0.2 or maximum 30 work "
-"days, not %.2f."
-msgstr ""
-
-#. module: crm
 #: model_terms:ir.ui.view,arch_db:crm.view_crm_case_leads_filter
 msgid "Leads that are assigned to me"
 msgstr "Συστάσεις που είναι ανατεθειμένες σε εμένα"
-
-#. module: crm
-#: model_terms:ir.ui.view,arch_db:crm.view_crm_case_leads_filter
-msgid "Leads that are not assigned"
-msgstr ""
 
 #. module: crm
 #: model_terms:ir.ui.view,arch_db:crm.view_crm_lead2opportunity_partner_mass
@@ -1901,27 +1261,15 @@ msgid "Leads/Opportunities"
 msgstr "Συστάσεις/Ευκαιρίες"
 
 #. module: crm
-#: model:ir.model.fields,field_description:crm.field_utm_campaign__crm_lead_count
-msgid "Leads/Opportunities count"
-msgstr ""
-
-#. module: crm
 #. openerp-web
-#: code:addons/crm/static/src/js/tours/crm.js:0
+#: code:addons/crm/static/src/js/tour.js:47
 #, python-format
-msgid "Let's <b>Schedule an Activity.</b>"
+msgid "Let's schedule an activity."
 msgstr ""
 
 #. module: crm
-#. openerp-web
-#: code:addons/crm/static/src/js/tours/crm.js:0
-#, python-format
-msgid "Let’s have a look at an Opportunity."
-msgstr ""
-
-#. module: crm
-#: model:ir.model.fields.selection,name:crm.selection__crm_lead2opportunity_partner__action__exist
-#: model:ir.model.fields.selection,name:crm.selection__crm_lead2opportunity_partner_mass__action__exist
+#: selection:crm.lead2opportunity.partner,action:0
+#: selection:crm.partner.binding,action:0
 msgid "Link to an existing customer"
 msgstr "Σύνδεση με ένα υφιστάμενο πελάτη"
 
@@ -1933,28 +1281,9 @@ msgid ""
 msgstr ""
 
 #. module: crm
-#: model:ir.model.fields,help:crm.field_crm_lead__email_cc
-msgid "List of cc from incoming emails."
-msgstr ""
-
-#. module: crm
-#: model_terms:ir.actions.act_window,help:crm.crm_lead_action_my_activities
-msgid "Looks like nothing is planned."
-msgstr ""
-
-#. module: crm
-#. openerp-web
-#: code:addons/crm/static/src/js/tours/crm.js:0
-#, python-format
-msgid ""
-"Looks like nothing is planned. :(<br><br><i>Tip : Schedule activities to "
-"keep track of everything you have to do!</i>"
-msgstr ""
-
-#. module: crm
-#: code:addons/crm/models/crm_lead.py:0
-#: model_terms:ir.ui.view,arch_db:crm.crm_lead_view_form
-#: model_terms:ir.ui.view,arch_db:crm.crm_lead_view_kanban_forecast
+#: code:addons/crm/models/crm_lead.py:1122
+#: model_terms:ir.ui.view,arch_db:crm.crm_case_form_view_leads
+#: model_terms:ir.ui.view,arch_db:crm.crm_case_form_view_oppor
 #: model_terms:ir.ui.view,arch_db:crm.crm_opportunity_report_view_search
 #: model_terms:ir.ui.view,arch_db:crm.view_crm_case_leads_filter
 #: model_terms:ir.ui.view,arch_db:crm.view_crm_case_opportunities_filter
@@ -1963,17 +1292,12 @@ msgid "Lost"
 msgstr "Χαμένη"
 
 #. module: crm
-#: model:ir.model.fields,field_description:crm.field_crm_lead_scoring_frequency__lost_count
-msgid "Lost Count"
-msgstr ""
-
-#. module: crm
 #: model:ir.actions.act_window,name:crm.crm_lead_lost_action
 #: model:ir.model.fields,field_description:crm.field_crm_lead__lost_reason
 #: model:ir.model.fields,field_description:crm.field_crm_lead_lost__lost_reason_id
 #: model_terms:ir.ui.view,arch_db:crm.crm_lead_lost_view_form
-#: model_terms:ir.ui.view,arch_db:crm.crm_lost_reason_view_form
 #: model_terms:ir.ui.view,arch_db:crm.crm_opportunity_report_view_search
+#: model_terms:ir.ui.view,arch_db:crm.view_crm_case_leads_filter
 #: model_terms:ir.ui.view,arch_db:crm.view_crm_case_opportunities_filter
 msgid "Lost Reason"
 msgstr "Η αιτία που Χάθηκε"
@@ -1985,7 +1309,7 @@ msgid "Lost Reasons"
 msgstr "Οι αιτίες που Χάθηκε"
 
 #. module: crm
-#: model:ir.model.fields.selection,name:crm.selection__crm_lead__priority__0
+#: selection:crm.lead,priority:0
 msgid "Low"
 msgstr "Χαμηλή"
 
@@ -2000,66 +1324,72 @@ msgid "Make Quote"
 msgstr "Δημιουργία Σημειώματος"
 
 #. module: crm
+#: model:ir.model.fields,field_description:crm.field_res_config_settings__generate_lead_from_alias
+msgid "Manual Assignation of Emails"
+msgstr "Χειροκίνητη ανάθεση των emails"
+
+#. module: crm
 #: model_terms:ir.ui.view,arch_db:crm.res_config_settings_view_form
-msgid "Manage Recurring Plans"
+msgid "Manual Assignation of Incoming Emails"
 msgstr ""
 
 #. module: crm
-#: model:ir.model.fields,help:crm.field_res_config_settings__crm_auto_assignment_action
-msgid ""
-"Manual assign allow to trigger assignment from team form view using an "
-"action button. Automatic configures a cron running repeatedly assignment in "
-"all teams."
+#: model:ir.actions.server,name:crm.action_mark_activities_done
+msgid "Mark All Activities as Done"
 msgstr ""
 
 #. module: crm
-#: model:ir.model.fields.selection,name:crm.selection__res_config_settings__crm_auto_assignment_action__manual
-msgid "Manually"
-msgstr "Χειροκίνητα"
+#: model:ir.actions.server,name:crm.action_mark_late_activities_done
+msgid "Mark Late Activities as Done"
+msgstr ""
+
+#. module: crm
+#: model_terms:ir.ui.view,arch_db:crm.crm_case_form_view_oppor
+msgid "Mark Lost"
+msgstr "Σήμανση ως Χαμένη"
+
+#. module: crm
+#: model_terms:ir.ui.view,arch_db:crm.crm_case_form_view_oppor
+msgid "Mark Won"
+msgstr "Σήμανση ως Κερδισμένη"
+
+#. module: crm
+#: model_terms:ir.ui.view,arch_db:crm.crm_case_form_view_leads
+msgid "Mark as Lost"
+msgstr ""
 
 #. module: crm
 #: model:ir.actions.server,name:crm.action_mark_as_lost
-#: model_terms:ir.ui.view,arch_db:crm.crm_lead_view_form
 msgid "Mark as lost"
 msgstr "Σήμανση ως Χαμένη"
 
 #. module: crm
-#: model_terms:ir.ui.view,arch_db:crm.crm_lead_view_form
-msgid "Mark as won"
-msgstr ""
-
-#. module: crm
-#: model_terms:ir.ui.view,arch_db:crm.crm_lead_view_form
+#: model_terms:ir.ui.view,arch_db:crm.crm_case_form_view_oppor
 msgid "Marketing"
 msgstr "Marketing"
 
 #. module: crm
+#: selection:crm.lead,priority:0
 #: model:ir.model.fields,field_description:crm.field_crm_lead__medium_id
-#: model:ir.model.fields.selection,name:crm.selection__crm_lead__priority__1
 #: model_terms:ir.ui.view,arch_db:crm.view_crm_case_leads_filter
 #: model_terms:ir.ui.view,arch_db:crm.view_crm_case_opportunities_filter
 msgid "Medium"
 msgstr "Μέσο"
 
 #. module: crm
-#: code:addons/crm/models/crm_lead.py:0
+#: code:addons/crm/models/crm_lead.py:958
 #, python-format
-msgid "Meeting scheduled at '%s'<br> Subject: %s <br> Duration: %s hours"
+msgid "Meeting scheduled at '%s'<br> Subject: %s <br> Duration: %s hour(s)"
 msgstr ""
+"Προγραμματίστηκε συνάντηση στις '%s'<br> Θέμα: %s <br> Διάρκεια: %s Ώρα(ες)"
 
 #. module: crm
 #: model:ir.actions.act_window,name:crm.act_crm_opportunity_calendar_event_new
-#: model:ir.model.fields,field_description:crm.field_crm_lead__calendar_event_ids
+#: model:ir.actions.act_window,name:crm.calendar_event_partner
+#: model:ir.model.fields,field_description:crm.field_res_partner__meeting_ids
+#: model_terms:ir.ui.view,arch_db:crm.view_partners_form_crm1
 msgid "Meetings"
 msgstr "Συναντήσεις"
-
-#. module: crm
-#: code:addons/crm/models/crm_team_member.py:0
-#, python-format
-msgid ""
-"Member assignment domain for user %(user)s and team %(team)s is incorrectly "
-"formatted"
-msgstr ""
 
 #. module: crm
 #: model:ir.actions.act_window,name:crm.action_merge_opportunities
@@ -2078,36 +1408,41 @@ msgid "Merge Opportunities"
 msgstr ""
 
 #. module: crm
+#: model:ir.actions.act_window,name:crm.merge_opportunity_act
+msgid "Merge leads/opportunities"
+msgstr "Συνένωση συστάσεων/ευκαιριών"
+
+#. module: crm
 #: model:ir.model.fields,help:crm.field_crm_lead2opportunity_partner_mass__deduplicate
 msgid "Merge with existing leads/opportunities of each partner"
 msgstr "Συγχώνευση με υπάρχουσες Συστάσεις/Ευκαιρίες για κάθε συνεργάτη"
 
 #. module: crm
-#: model:ir.model.fields.selection,name:crm.selection__crm_lead2opportunity_partner__name__merge
-#: model:ir.model.fields.selection,name:crm.selection__crm_lead2opportunity_partner_mass__name__merge
+#: selection:crm.lead2opportunity.partner,name:0
+#: selection:crm.lead2opportunity.partner.mass,name:0
 msgid "Merge with existing opportunities"
 msgstr "Συνένωση με υφιστάμενες ευκαιρίες"
 
 #. module: crm
-#: code:addons/crm/models/crm_lead.py:0
+#: code:addons/crm/models/crm_lead.py:556
 #, python-format
 msgid "Merged lead"
 msgstr "Συνενωμένες Συστάσεις"
 
 #. module: crm
-#: code:addons/crm/models/crm_lead.py:0
+#: code:addons/crm/models/crm_lead.py:588
 #, python-format
 msgid "Merged leads"
 msgstr "Συνενωμένες Συστάσεις"
 
 #. module: crm
-#: code:addons/crm/models/crm_lead.py:0
+#: code:addons/crm/models/crm_lead.py:588
 #, python-format
 msgid "Merged opportunities"
 msgstr "Συνενωμένες ευκαιρίες"
 
 #. module: crm
-#: code:addons/crm/models/crm_lead.py:0
+#: code:addons/crm/models/crm_lead.py:556
 #, python-format
 msgid "Merged opportunity"
 msgstr "Συνενωμένη ευκαιρία"
@@ -2123,52 +1458,19 @@ msgid "Messages"
 msgstr "Μηνύματα"
 
 #. module: crm
-#: model:ir.model.fields.selection,name:crm.selection__res_config_settings__crm_auto_assignment_interval_type__minutes
-msgid "Minutes"
-msgstr "Λεπτά"
-
-#. module: crm
-#: model_terms:ir.ui.view,arch_db:crm.crm_lead_view_form
+#: model_terms:ir.ui.view,arch_db:crm.crm_case_form_view_oppor
 msgid "Misc"
 msgstr "Διάφορα"
 
 #. module: crm
 #: model:ir.model.fields,field_description:crm.field_crm_lead__mobile
-#: model_terms:ir.ui.view,arch_db:crm.crm_lead_view_form
 msgid "Mobile"
 msgstr "Κινητό"
 
 #. module: crm
-#: model:crm.recurring.plan,name:crm.crm_recurring_plan_monthly
-msgid "Monthly"
-msgstr "Μηνιαία"
-
-#. module: crm
-#: model:ir.model.fields,help:crm.field_crm_team__assignment_max
-msgid "Monthly average leads capacity for all salesmen belonging to the team"
-msgstr ""
-
-#. module: crm
-#: model:ir.model.fields,field_description:crm.field_res_config_settings__is_membership_multi
-msgid "Multi Teams"
-msgstr ""
-
-#. module: crm
-#: model:ir.actions.act_window,name:crm.crm_lead_action_my_activities
-#: model:ir.ui.menu,name:crm.crm_lead_menu_my_activities
-#: model_terms:ir.ui.view,arch_db:crm.view_crm_case_my_activities_filter
+#: model_terms:ir.ui.view,arch_db:crm.crm_activity_report_view_search
 msgid "My Activities"
 msgstr "Οι Δραστηριότητες μου"
-
-#. module: crm
-#: model:ir.model.fields,field_description:crm.field_crm_lead__my_activity_date_deadline
-msgid "My Activity Deadline"
-msgstr ""
-
-#. module: crm
-#: model_terms:ir.ui.view,arch_db:crm.crm_case_tree_view_oppor
-msgid "My Deadline"
-msgstr ""
 
 #. module: crm
 #: model_terms:ir.ui.view,arch_db:crm.view_crm_case_leads_filter
@@ -2187,14 +1489,15 @@ msgid "My Pipeline"
 msgstr "Οι Ροές Πληροφοριών μου"
 
 #. module: crm
+#: model:ir.model.fields,field_description:crm.field_crm_lead_tag__name
+#: model:ir.model.fields,field_description:crm.field_crm_lost_reason__name
+msgid "Name"
+msgstr "Περιγραφή"
+
+#. module: crm
 #: model:crm.stage,name:crm.stage_lead1
 msgid "New"
 msgstr "Νέα"
-
-#. module: crm
-#: model:ir.actions.act_window,name:crm.crm_lead_action_open_lead_form
-msgid "New Lead"
-msgstr ""
 
 #. module: crm
 #: model:ir.model.fields,field_description:crm.field_digest_digest__kpi_crm_lead_created
@@ -2202,20 +1505,15 @@ msgid "New Leads/Opportunities"
 msgstr ""
 
 #. module: crm
-#: code:addons/crm/models/crm_team.py:0
-#, python-format
-msgid "New Opportunities"
-msgstr "Νέες Ευκαιρίες"
-
-#. module: crm
 #: model:ir.actions.act_window,name:crm.action_opportunity_form
 msgid "New Opportunity"
 msgstr "Νέα Ευκαιρία"
 
 #. module: crm
-#: model:ir.model.fields,field_description:crm.field_crm_lead__activity_calendar_event_id
-msgid "Next Activity Calendar Event"
-msgstr ""
+#: model:ir.actions.act_window,name:crm.crm_lead_action_activities
+#: model_terms:ir.ui.view,arch_db:crm.crm_lead_view_tree_activity
+msgid "Next Activities"
+msgstr "Επόμενες Δραστηριότητες"
 
 #. module: crm
 #: model:ir.model.fields,field_description:crm.field_crm_lead__activity_date_deadline
@@ -2233,104 +1531,35 @@ msgid "Next Activity Type"
 msgstr "Επόμενος Τύπος Δραστηριότητας"
 
 #. module: crm
-#: model_terms:ir.ui.view,arch_db:crm.res_config_settings_view_form
-msgid "Next Run"
-msgstr ""
-
-#. module: crm
-#: model:ir.model.fields.selection,name:crm.selection__crm_lead__kanban_state__green
+#: selection:crm.lead,kanban_state:0
 msgid "Next activity is planned"
 msgstr "Η επόμενη δραστηριότητα έχει προγραμματιστεί"
 
 #. module: crm
-#: model:ir.model.fields.selection,name:crm.selection__crm_lead__kanban_state__red
+#: selection:crm.lead,kanban_state:0
 msgid "Next activity late"
 msgstr "Καθυστερημένη επόμενη δραστηριότητα"
 
 #. module: crm
-#: code:addons/crm/models/crm_lead.py:0
+#: code:addons/crm/models/crm_lead.py:1190
 #, python-format
 msgid "No Subject"
 msgstr "Χωρίς Θέμα"
 
 #. module: crm
-#: code:addons/crm/models/crm_team.py:0
-#, python-format
-msgid ""
-"No allocated leads to %(team_name)s team and its salespersons because no "
-"unassigned lead matches its domain."
+#: model_terms:ir.actions.act_window,help:crm.crm_lead_action_activities
+msgid "No next activity"
 msgstr ""
 
 #. module: crm
-#: code:addons/crm/models/crm_team.py:0
-#, python-format
-msgid ""
-"No allocated leads to %(team_name)s team because it has no capacity. Add "
-"capacity to its salespersons."
-msgstr ""
-
-#. module: crm
-#: code:addons/crm/models/crm_team.py:0
-#, python-format
-msgid ""
-"No allocated leads to any team or salesperson. Check your Sales Teams and "
-"Salespersons configuration as well as unassigned leads."
-msgstr ""
-
-#. module: crm
-#: model_terms:ir.actions.act_window,help:crm.crm_opportunity_report_action
-#: model_terms:ir.actions.act_window,help:crm.crm_opportunity_report_action_lead
-msgid "No data found!"
-msgstr ""
-
-#. module: crm
-#: model_terms:ir.actions.act_window,help:crm.crm_activity_report_action
-#: model_terms:ir.actions.act_window,help:crm.crm_activity_report_action_team
-msgid "No data yet!"
-msgstr ""
-
-#. module: crm
-#: code:addons/crm/models/crm_team.py:0
-#, python-format
-msgid ""
-"No lead assigned to salespersons because no unassigned lead matches their "
-"domains."
-msgstr ""
-
-#. module: crm
-#: code:addons/crm/models/crm_team.py:0
-#, python-format
-msgid ""
-"No new lead allocated to %(team_name)s team because no unassigned lead "
-"matches its domain."
-msgstr ""
-
-#. module: crm
-#: code:addons/crm/models/crm_team.py:0
-#, python-format
-msgid ""
-"No new lead allocated to the teams because no lead match their domains."
-msgstr ""
-
-#. module: crm
-#: model:ir.model.fields.selection,name:crm.selection__crm_lead__kanban_state__grey
+#: selection:crm.lead,kanban_state:0
 msgid "No next activity planned"
 msgstr "Δεν υπάρχει επόμενη προγραμματισμένη δραστηριότητα"
-
-#. module: crm
-#: model_terms:ir.actions.act_window,help:crm.crm_lead_action_forecast
-msgid "No opportunity to display!"
-msgstr ""
 
 #. module: crm
 #: model_terms:ir.ui.view,arch_db:crm.view_crm_case_opportunities_filter
 msgid "No salesperson"
 msgstr "Κανένας πωλητής"
-
-#. module: crm
-#: model:ir.model.fields,field_description:crm.field_crm_lead__email_normalized
-msgid "Normalized Email"
-msgstr ""
 
 #. module: crm
 #: model:crm.lost.reason,name:crm.lost_reason_3
@@ -2343,32 +1572,13 @@ msgid "Notes"
 msgstr "Σημειώσεις"
 
 #. module: crm
-#. openerp-web
-#: code:addons/crm/static/src/js/tours/crm.js:0
-#, python-format
-msgid "Now, <b>add your Opportunity</b> to your Pipeline."
-msgstr ""
-
-#. module: crm
 #: model:ir.model.fields,field_description:crm.field_crm_lead__message_needaction_counter
 msgid "Number of Actions"
 msgstr "Πλήθος ενεργειών"
 
 #. module: crm
 #: model:ir.model.fields,field_description:crm.field_crm_lead__message_has_error_counter
-msgid "Number of errors"
-msgstr ""
-
-#. module: crm
-#: model:ir.model.fields,help:crm.field_res_config_settings__crm_auto_assignment_interval_number
-msgid ""
-"Number of interval type between each cron run (e.g. each 2 days or each 4 "
-"days)"
-msgstr ""
-
-#. module: crm
-#: model:ir.model.fields,help:crm.field_crm_team__lead_all_assigned_month_count
-msgid "Number of leads and opportunities assigned this last month."
+msgid "Number of error"
 msgstr ""
 
 #. module: crm
@@ -2380,6 +1590,11 @@ msgstr "Πλήθος μηνυμάτων που απαιτούν ενέργεια
 #: model:ir.model.fields,help:crm.field_crm_lead__message_has_error_counter
 msgid "Number of messages with delivery error"
 msgstr ""
+
+#. module: crm
+#: model:ir.model.fields,field_description:crm.field_crm_team__opportunities_count
+msgid "Number of open opportunities"
+msgstr "Αριθμός των ανοιχτών ευκαιριών"
 
 #. module: crm
 #: model:ir.model.fields,help:crm.field_crm_lead__message_unread_counter
@@ -2396,22 +1611,12 @@ msgstr ""
 "πιθανές πωλήσεις και να προβλέψετε καλύτερα τα μελλοντικά σας έσοδα."
 
 #. module: crm
-#: model_terms:digest.tip,tip_description:crm.digest_tip_crm_2
-msgid ""
-"Odoo's artificial intelligence engine predicts the success rate of each "
-"opportunity based on your history. You can always update the success rate "
-"manually, but if you let Odoo do the job the score is updated while the "
-"opportunity moves forward in your sales cycle."
-msgstr ""
-
-#. module: crm
-#: model_terms:ir.ui.view,arch_db:crm.crm_team_view_kanban_dashboard
-#: model_terms:ir.ui.view,arch_db:crm.view_crm_case_opportunities_filter
+#: model_terms:ir.ui.view,arch_db:crm.crm_team_salesteams_view_kanban
 msgid "Open Opportunities"
 msgstr "Ανοιχτές Ευκαιρίες"
 
 #. module: crm
-#: model_terms:ir.ui.view,arch_db:crm.crm_team_view_kanban_dashboard
+#: model_terms:ir.ui.view,arch_db:crm.crm_team_salesteams_view_kanban
 msgid "Open Opportunity"
 msgstr "Ανοιχτή Ευκαιρία"
 
@@ -2423,15 +1628,17 @@ msgstr ""
 #. module: crm
 #: model:ir.actions.act_window,name:crm.crm_case_form_view_salesteams_opportunity
 #: model:ir.actions.act_window,name:crm.crm_lead_opportunities
-#: model:ir.model.fields,field_description:crm.field_crm_lead2opportunity_partner__duplicated_lead_ids
-#: model:ir.model.fields,field_description:crm.field_crm_lead2opportunity_partner_mass__duplicated_lead_ids
+#: model:ir.actions.act_window,name:crm.relate_partner_opportunities
+#: model:ir.model.fields,field_description:crm.field_crm_lead2opportunity_partner__opportunity_ids
+#: model:ir.model.fields,field_description:crm.field_crm_lead2opportunity_partner_mass__opportunity_ids
 #: model:ir.model.fields,field_description:crm.field_res_partner__opportunity_ids
-#: model:ir.model.fields,field_description:crm.field_res_users__opportunity_ids
 #: model:ir.ui.menu,name:crm.menu_crm_config_opportunity
 #: model_terms:ir.ui.view,arch_db:crm.crm_activity_report_view_search
+#: model_terms:ir.ui.view,arch_db:crm.crm_case_form_view_oppor
 #: model_terms:ir.ui.view,arch_db:crm.crm_case_tree_view_oppor
 #: model_terms:ir.ui.view,arch_db:crm.crm_lead_view_graph
-#: model_terms:ir.ui.view,arch_db:crm.crm_team_view_kanban_dashboard
+#: model_terms:ir.ui.view,arch_db:crm.crm_team_salesteams_view_kanban
+#: model_terms:ir.ui.view,arch_db:crm.view_crm_case_leads_filter
 #: model_terms:ir.ui.view,arch_db:crm.view_crm_lead2opportunity_partner
 #: model_terms:ir.ui.view,arch_db:crm.view_partners_form_crm1
 msgid "Opportunities"
@@ -2453,11 +1660,6 @@ msgid ""
 msgstr ""
 
 #. module: crm
-#: model_terms:ir.ui.view,arch_db:crm.crm_lead_view_graph_forecast
-msgid "Opportunities Forecast"
-msgstr ""
-
-#. module: crm
 #: model:ir.model.fields,field_description:crm.field_crm_team__opportunities_amount
 msgid "Opportunities Revenues"
 msgstr ""
@@ -2468,24 +1670,27 @@ msgid "Opportunities Won"
 msgstr ""
 
 #. module: crm
-#: model_terms:ir.ui.view,arch_db:crm.view_crm_case_my_activities_filter
 #: model_terms:ir.ui.view,arch_db:crm.view_crm_case_opportunities_filter
 msgid "Opportunities that are assigned to me"
 msgstr "Ευκαιρίες που είναι ανατεθειμένες σε εμένα"
 
 #. module: crm
+#: model_terms:ir.ui.view,arch_db:crm.view_crm_case_opportunities_filter
+msgid "Opportunities with a date of Expected Closing which is in the past"
+msgstr ""
+
+#. module: crm
+#: code:addons/crm/models/crm_lead.py:446
+#: code:addons/crm/models/crm_lead.py:888
+#: selection:crm.activity.report,lead_type:0 selection:crm.lead,type:0
 #: model:ir.model.fields,field_description:crm.field_calendar_event__opportunity_id
-#: model:ir.model.fields,field_description:crm.field_crm_activity_report__lead_id
 #: model:ir.model.fields,field_description:crm.field_crm_lead__name
 #: model:ir.model.fields,field_description:crm.field_res_partner__opportunity_count
-#: model:ir.model.fields,field_description:crm.field_res_users__opportunity_count
-#: model:ir.model.fields.selection,name:crm.selection__crm_activity_report__lead_type__opportunity
-#: model:ir.model.fields.selection,name:crm.selection__crm_lead__type__opportunity
-#: model_terms:ir.ui.view,arch_db:crm.crm_activity_report_view_search
 #: model_terms:ir.ui.view,arch_db:crm.crm_case_tree_view_oppor
 #: model_terms:ir.ui.view,arch_db:crm.crm_opportunity_report_view_search
-#: model_terms:ir.ui.view,arch_db:crm.crm_team_view_kanban_dashboard
+#: model_terms:ir.ui.view,arch_db:crm.crm_team_salesteams_view_kanban
 #: model_terms:ir.ui.view,arch_db:crm.view_crm_case_opportunities_filter
+#, python-format
 msgid "Opportunity"
 msgstr "Ευκαιρίες"
 
@@ -2502,15 +1707,14 @@ msgid "Opportunity Lost"
 msgstr "Χαμένη Ευκαιρία"
 
 #. module: crm
-#: model:mail.message.subtype,name:crm.mt_lead_restored
-#: model:mail.message.subtype,name:crm.mt_salesteam_lead_restored
-msgid "Opportunity Restored"
-msgstr ""
-
-#. module: crm
 #: model:mail.message.subtype,name:crm.mt_salesteam_lead_stage
 msgid "Opportunity Stage Changed"
 msgstr "Αλλαγές Στάδιων Ευκαιρίων"
+
+#. module: crm
+#: model_terms:ir.ui.view,arch_db:crm.view_create_opportunity_simplified
+msgid "Opportunity Title"
+msgstr "Τίτλος Ευκαιρίας"
 
 #. module: crm
 #: model:mail.message.subtype,name:crm.mt_lead_won
@@ -2519,14 +1723,14 @@ msgid "Opportunity Won"
 msgstr "Κερδισμένη Ευκαιρία"
 
 #. module: crm
+#: model:mail.message.subtype,description:crm.mt_lead_create
+msgid "Opportunity created"
+msgstr ""
+
+#. module: crm
 #: model:mail.message.subtype,description:crm.mt_lead_lost
 msgid "Opportunity lost"
 msgstr "Χαμένη Ευκαιρία"
-
-#. module: crm
-#: model:mail.message.subtype,description:crm.mt_lead_restored
-msgid "Opportunity restored"
-msgstr ""
 
 #. module: crm
 #: model:mail.message.subtype,description:crm.mt_lead_won
@@ -2534,82 +1738,33 @@ msgid "Opportunity won"
 msgstr "Κερδισμένη Ευκαιρία"
 
 #. module: crm
-#: model:ir.model.fields,help:crm.field_crm_team__alias_force_thread_id
-msgid ""
-"Optional ID of a thread (record) to which all incoming messages will be "
-"attached, even if they did not reply to it. If set, this will disable the "
-"creation of new records completely."
-msgstr ""
-"Προαιρετική ταυτότητα ενός νήματος (εγγραφής), στην οποία όλα τα εισερχόμενα"
-" μηνύματα θα πρέπει να επισυνάπτονται, ακόμη και αν δεν απαντήσει σ 'αυτό. "
-"Εάν οριστεί, αυτό θα απενεργοποιήσει εντελώς τη δημιουργία νέων αρχείων."
+#: model:crm.lead.tag,name:crm.categ_oppor8
+msgid "Other"
+msgstr "Άλλο"
 
 #. module: crm
-#: model_terms:ir.ui.view,arch_db:crm.quick_create_opportunity_form
-msgid "Organization / Contact"
-msgstr ""
+#: selection:crm.lead,activity_state:0
+msgid "Overdue"
+msgstr "Εκπρόθεσμο"
 
 #. module: crm
-#: model:crm.recurring.plan,name:crm.crm_recurring_plan_over_3_years
-msgid "Over 3 years"
-msgstr ""
-
-#. module: crm
-#: model:crm.recurring.plan,name:crm.crm_recurring_plan_over_5_years
-msgid "Over 5 years "
-msgstr ""
-
-#. module: crm
-#: model:ir.actions.act_window,name:crm.crm_lead_action_team_overdue_opportunity
-#: model_terms:ir.ui.view,arch_db:crm.crm_team_view_kanban_dashboard
 #: model_terms:ir.ui.view,arch_db:crm.view_crm_case_opportunities_filter
 msgid "Overdue Opportunities"
 msgstr "Καθυστερημένες Ευκαιρίες"
 
 #. module: crm
-#: model:ir.model.fields,field_description:crm.field_crm_team__opportunities_overdue_amount
-msgid "Overdue Opportunities Revenues"
-msgstr ""
+#: model:ir.model.fields,field_description:crm.field_crm_lead__partner_address_email
+msgid "Partner Contact Email"
+msgstr "Email επαφής συνεργάτη"
 
 #. module: crm
-#: model_terms:ir.ui.view,arch_db:crm.crm_team_view_kanban_dashboard
-msgid "Overdue Opportunity"
-msgstr ""
+#: model:ir.model.fields,field_description:crm.field_crm_lead__partner_address_name
+msgid "Partner Contact Name"
+msgstr "Όνομα Επαφής Συνεργάτη"
 
 #. module: crm
-#: model:ir.model.fields,field_description:crm.field_crm_team__alias_user_id
-msgid "Owner"
-msgstr "Ιδιοκτήτης"
-
-#. module: crm
-#: model:ir.model.fields,field_description:crm.field_crm_team__alias_parent_model_id
-msgid "Parent Model"
-msgstr "Μοντέλο Γονέα"
-
-#. module: crm
-#: model:ir.model.fields,field_description:crm.field_crm_team__alias_parent_thread_id
-msgid "Parent Record Thread ID"
-msgstr "Κωδικός γονικής εγγραφής νήματος"
-
-#. module: crm
-#: model:ir.model.fields,help:crm.field_crm_team__alias_parent_model_id
-msgid ""
-"Parent model holding the alias. The model holding the alias reference is not"
-" necessarily the model given by alias_model_id (example: project "
-"(parent_model) and task (model))"
-msgstr ""
-"Γονικό μοντέλο κρατώντας το ψευδώνυμο. Το μοντέλο που κρατά το ψευδώνυμο "
-"αναφοράς δεν είναι απαραίτητο το μοντέλο να δίνεται από alias_model_id "
-"(παράδειγμα: Έργο (parent_model) και Εργασία (μοντέλο))"
-
-#. module: crm
-#: model:ir.model.fields,field_description:crm.field_crm_lead__partner_email_update
-msgid "Partner Email will Update"
-msgstr ""
-
-#. module: crm
-#: model:ir.model.fields,field_description:crm.field_crm_lead__partner_phone_update
-msgid "Partner Phone will Update"
+#: model:ir.model.fields,field_description:crm.field_crm_lead__partner_address_phone
+msgid "Partner Contact Phone"
 msgstr ""
 
 #. module: crm
@@ -2618,30 +1773,30 @@ msgid "Partner is blacklisted"
 msgstr ""
 
 #. module: crm
+#: model:ir.model,name:crm.model_crm_partner_binding
+msgid "Partner linking/binding in CRM wizard"
+msgstr ""
+
+#. module: crm
+#: model:ir.model.fields,field_description:crm.field_crm_activity_report__partner_id
+msgid "Partner/Customer"
+msgstr "Συνεργάτης/Πελάτης"
+
+#. module: crm
 #: model:ir.model.fields,field_description:crm.field_crm_lead__phone
-#: model_terms:ir.ui.view,arch_db:crm.quick_create_opportunity_form
+#: model_terms:ir.ui.view,arch_db:crm.crm_case_form_view_oppor
 msgid "Phone"
 msgstr "Τηλέφωνο"
 
 #. module: crm
-#: model:ir.model.fields,field_description:crm.field_crm_lead__phone_sanitized_blacklisted
-msgid "Phone Blacklisted"
+#: model:ir.model.fields,field_description:crm.field_res_config_settings__module_crm_phone_validation
+msgid "Phone Formatting"
 msgstr ""
 
 #. module: crm
-#: model:crm.lead.scoring.frequency.field,name:crm.frequency_field_phone_state
-#: model:ir.model.fields,field_description:crm.field_crm_lead__phone_state
-msgid "Phone Quality"
-msgstr ""
-
-#. module: crm
-#: model:ir.model.fields,field_description:crm.field_crm_lead__phone_mobile_search
-msgid "Phone/Mobile"
-msgstr ""
-
-#. module: crm
-#: code:addons/crm/models/crm_team.py:0
-#: model:ir.actions.act_window,name:crm.crm_lead_action_pipeline
+#: code:addons/crm/models/crm_team.py:155
+#: selection:crm.team,dashboard_graph_model:0
+#: model:ir.actions.act_window,name:crm.crm_lead_opportunities_tree_view
 #: model:ir.model.fields,field_description:crm.field_crm_team__use_opportunities
 #: model:ir.ui.menu,name:crm.crm_opportunity_report_menu
 #: model:ir.ui.menu,name:crm.menu_crm_config_lead
@@ -2650,13 +1805,9 @@ msgid "Pipeline"
 msgstr "Ροή Πληροφοριών"
 
 #. module: crm
-#: model:ir.actions.act_window,name:crm.crm_activity_report_action_team
-msgid "Pipeline Activities"
-msgstr ""
-
-#. module: crm
 #: model:ir.actions.act_window,name:crm.action_report_crm_opportunity_salesteam
 #: model:ir.actions.act_window,name:crm.crm_opportunity_report_action
+#: model:ir.actions.act_window,name:crm.crm_opportunity_report_action_graph
 #: model_terms:ir.ui.view,arch_db:crm.crm_lead_view_pivot
 #: model_terms:ir.ui.view,arch_db:crm.crm_opportunity_report_view_graph
 #: model_terms:ir.ui.view,arch_db:crm.crm_opportunity_report_view_pivot
@@ -2664,12 +1815,38 @@ msgid "Pipeline Analysis"
 msgstr "Ανάλυση Ροής Πληροφοριών"
 
 #. module: crm
-#: model:ir.model.fields,field_description:crm.field_crm_recurring_plan__name
-msgid "Plan Name"
+#: model_terms:ir.actions.act_window,help:crm.crm_opportunity_report_action
+msgid ""
+"Pipeline Analysis gives you an instant access to\n"
+"your opportunities with information such as the expected revenue, planned cost,\n"
+"missed deadlines or the number of interactions per opportunity. This report is\n"
+"mainly used by the sales manager in order to do the periodic review with the\n"
+"teams of the sales pipeline."
 msgstr ""
 
 #. module: crm
-#: code:addons/crm/models/crm_lead.py:0
+#: model_terms:ir.actions.act_window,help:crm.crm_opportunity_report_action_graph
+msgid ""
+"Pipeline Analysis gives you an instant access to\n"
+"your opportunities with information such as the expected revenue, planned cost,\n"
+"missed deadlines or the number of interactions per opportunity. This report is\n"
+"mainly used by the sales manager in order to periodically review the pipeline\n"
+"with the the Sales Team."
+msgstr ""
+
+#. module: crm
+#: code:addons/crm/models/crm_team.py:224
+#, python-format
+msgid "Pipeline: Expected Revenue"
+msgstr "Ροή Πληροφοριών: Αναμενόμενα Έσοδα"
+
+#. module: crm
+#: selection:crm.lead,activity_state:0
+msgid "Planned"
+msgstr "Προγραμματισμένη"
+
+#. module: crm
+#: code:addons/crm/models/crm_lead.py:660
 #, python-format
 msgid ""
 "Please select more than one element (lead or opportunity) from the list "
@@ -2679,65 +1856,30 @@ msgstr ""
 "λίστα εμφάνισης."
 
 #. module: crm
-#: model:ir.model.fields,field_description:crm.field_crm_lead_pls_update__pls_fields
-msgid "Pls Fields"
-msgstr ""
-
-#. module: crm
-#: model:ir.model.fields,field_description:crm.field_crm_lead_pls_update__pls_start_date
-msgid "Pls Start Date"
-msgstr ""
-
-#. module: crm
-#: model:ir.model.fields,help:crm.field_crm_team__alias_contact
-msgid ""
-"Policy to post a message on the document using the mailgateway.\n"
-"- everyone: everyone can post\n"
-"- partners: only authenticated partners\n"
-"- followers: only followers of the related document or members of following channels\n"
-msgstr ""
-"Πολιτική για τη αποστολή μηνύματος στο έγγραφο χρησιμοποιώντας το mailgateway.\n"
-"- όλοι: ο καθένας μπορεί να αποστείλει\n"
-"- συνεργάτες: μόνο οι επικυρωμένοι συνεργάτες \n"
-"- ακόλουθοι: μόνο οι ακόλουθοι του σχετικού εγγράφου ή μέλη των παρακάτω καναλιών\n"
-
-#. module: crm
-#: model:ir.model.fields,field_description:crm.field_crm_lead__duplicate_lead_ids
-msgid "Potential Duplicate Lead"
-msgstr ""
-
-#. module: crm
-#: model:ir.model.fields,field_description:crm.field_crm_lead__duplicate_lead_count
-msgid "Potential Duplicate Lead Count"
-msgstr ""
-
-#. module: crm
-#: model:ir.model.fields,field_description:crm.field_res_config_settings__predictive_lead_scoring_field_labels
-msgid "Predictive Lead Scoring Field Labels"
-msgstr ""
-
-#. module: crm
-#: model:ir.actions.server,name:crm.website_crm_score_cron_ir_actions_server
-#: model:ir.cron,cron_name:crm.website_crm_score_cron
-#: model:ir.cron,name:crm.website_crm_score_cron
-msgid "Predictive Lead Scoring: Recompute Automated Probabilities"
-msgstr ""
-
-#. module: crm
 #: model:ir.model.fields,field_description:crm.field_crm_lead__priority
 msgid "Priority"
 msgstr "Προτεραιότητα"
 
 #. module: crm
+#: model:ir.model.fields,field_description:crm.field_crm_stage__legend_priority
+msgid "Priority Management Explanation"
+msgstr "Διαχείριση Επεξήγησης κατά Προτεραιότητα"
+
+#. module: crm
+#: model:ir.model.fields,field_description:crm.field_crm_activity_report__probability
 #: model:ir.model.fields,field_description:crm.field_crm_lead__probability
 msgid "Probability"
 msgstr "Πιθανότητα"
 
 #. module: crm
-#: model_terms:ir.ui.view,arch_db:crm.crm_case_tree_view_leads
-#: model_terms:ir.ui.view,arch_db:crm.crm_case_tree_view_oppor
+#: model:ir.model.fields,field_description:crm.field_crm_stage__probability
 msgid "Probability (%)"
 msgstr "Πιθανότητα (%)"
+
+#. module: crm
+#: model:crm.lead.tag,name:crm.categ_oppor1
+msgid "Product"
+msgstr "Είδος"
 
 #. module: crm
 #: model:crm.stage,name:crm.stage_lead3
@@ -2745,18 +1887,8 @@ msgid "Proposition"
 msgstr "Προσφορά"
 
 #. module: crm
-#: model:ir.model.fields,field_description:crm.field_crm_lead__recurring_revenue_monthly_prorated
-msgid "Prorated MRR"
-msgstr ""
-
-#. module: crm
-#: model:ir.model.fields,field_description:crm.field_crm_lead__prorated_revenue
+#: model:ir.model.fields,field_description:crm.field_crm_lead__expected_revenue
 msgid "Prorated Revenue"
-msgstr ""
-
-#. module: crm
-#: model_terms:ir.ui.view,arch_db:crm.crm_lead_view_tree_forecast
-msgid "Prorated Revenues"
 msgstr ""
 
 #. module: crm
@@ -2766,37 +1898,12 @@ msgstr "Εγκεκριμένη"
 
 #. module: crm
 #. openerp-web
-#: code:addons/crm/static/src/js/tours/crm.js:0
-#: code:addons/crm/static/src/js/tours/crm.js:0
+#: code:addons/crm/static/src/js/tour.js:13
+#: code:addons/crm/static/src/js/tour.js:18
 #, python-format
-msgid "Ready to boost your sales? Let's have a look at your <b>Pipeline</b>."
-msgstr ""
-
-#. module: crm
-#: model:ir.model.fields,field_description:crm.field_crm_team__alias_force_thread_id
-msgid "Record Thread ID"
-msgstr "Ταυτότητα εγγραφής νήματος"
-
-#. module: crm
-#: model:ir.model.fields,field_description:crm.field_crm_lead__recurring_plan
-msgid "Recurring Plan"
-msgstr ""
-
-#. module: crm
-#: model:ir.actions.act_window,name:crm.crm_recurring_plan_action
-#: model:ir.ui.menu,name:crm.crm_recurring_plan_menu_config
-msgid "Recurring Plans"
-msgstr ""
-
-#. module: crm
-#: model_terms:ir.ui.view,arch_db:crm.crm_case_tree_view_oppor
-msgid "Recurring Revenue"
-msgstr ""
-
-#. module: crm
-#: model:ir.model.fields,field_description:crm.field_crm_lead__recurring_revenue
-#: model:ir.model.fields,field_description:crm.field_res_config_settings__group_use_recurring_revenues
-msgid "Recurring Revenues"
+msgid ""
+"Ready to boost your sales? Your <b>Pipeline</b> can be found here, under the"
+" <b>CRM</b> app."
 msgstr ""
 
 #. module: crm
@@ -2807,25 +1914,9 @@ msgstr "Αναφέρεται Από"
 #. module: crm
 #: model:ir.model.fields,field_description:crm.field_crm_lead2opportunity_partner__action
 #: model:ir.model.fields,field_description:crm.field_crm_lead2opportunity_partner_mass__action
+#: model:ir.model.fields,field_description:crm.field_crm_partner_binding__action
 msgid "Related Customer"
 msgstr "Σχετιζόμενος Πελάτης"
-
-#. module: crm
-#: model:ir.model.fields,field_description:crm.field_res_config_settings__crm_auto_assignment_interval_number
-#: model_terms:ir.ui.view,arch_db:crm.res_config_settings_view_form
-msgid "Repeat every"
-msgstr ""
-
-#. module: crm
-#: code:addons/crm/models/res_config_settings.py:0
-#, python-format
-msgid "Repeat frequency should be positive."
-msgstr ""
-
-#. module: crm
-#: model:ir.model.fields.selection,name:crm.selection__res_config_settings__crm_auto_assignment_action__auto
-msgid "Repeatedly"
-msgstr ""
 
 #. module: crm
 #: model:ir.ui.menu,name:crm.crm_menu_report
@@ -2839,65 +1930,48 @@ msgid "Requirements"
 msgstr "Απαιτήσεις"
 
 #. module: crm
-#: model_terms:ir.ui.view,arch_db:crm.crm_case_tree_view_oppor
-msgid "Reschedule"
-msgstr ""
-
-#. module: crm
 #: model:ir.model.fields,field_description:crm.field_crm_lead__activity_user_id
 msgid "Responsible User"
 msgstr "Υπεύθυνος Χρήστης"
 
 #. module: crm
-#: model_terms:ir.ui.view,arch_db:crm.crm_lead_view_form
+#: model_terms:ir.ui.view,arch_db:crm.crm_case_form_view_leads
+#: model_terms:ir.ui.view,arch_db:crm.crm_case_form_view_oppor
 msgid "Restore"
 msgstr "Επαναφορά"
 
 #. module: crm
-#: model:ir.model.fields,field_description:crm.field_res_config_settings__crm_use_auto_assignment
-msgid "Rule-Based Assignment"
-msgstr ""
-
-#. module: crm
-#: model_terms:ir.ui.view,arch_db:crm.res_config_settings_view_form
-msgid "Running"
-msgstr "Σε Εξέλιξη"
-
-#. module: crm
-#: model:ir.model.fields,field_description:crm.field_crm_lead__message_has_sms_error
-msgid "SMS Delivery error"
-msgstr ""
-
-#. module: crm
+#: selection:crm.team,dashboard_graph_model:0
 #: model:ir.ui.menu,name:crm.crm_menu_sales
 msgid "Sales"
 msgstr "Πωλήσεις"
 
 #. module: crm
+#: model_terms:ir.ui.view,arch_db:crm.view_crm_case_leads_filter
+msgid "Sales Channel"
+msgstr "Κανάλι Πωλήσεων"
+
+#. module: crm
 #: model:ir.model,name:crm.model_crm_team
+msgid "Sales Channels"
+msgstr "Κανάλια Πωλήσεων"
+
+#. module: crm
 #: model:ir.model.fields,field_description:crm.field_crm_activity_report__team_id
 #: model:ir.model.fields,field_description:crm.field_crm_lead2opportunity_partner__team_id
 #: model:ir.model.fields,field_description:crm.field_crm_lead2opportunity_partner_mass__team_id
 #: model:ir.model.fields,field_description:crm.field_crm_lead__team_id
-#: model:ir.model.fields,field_description:crm.field_crm_lead_scoring_frequency__team_id
 #: model:ir.model.fields,field_description:crm.field_crm_merge_opportunity__team_id
 #: model:ir.model.fields,field_description:crm.field_crm_stage__team_id
 #: model:ir.model.fields,field_description:crm.field_res_partner__team_id
-#: model:ir.model.fields,field_description:crm.field_res_users__team_id
 #: model_terms:ir.ui.view,arch_db:crm.crm_activity_report_view_search
 #: model_terms:ir.ui.view,arch_db:crm.crm_opportunity_report_view_search
-#: model_terms:ir.ui.view,arch_db:crm.view_crm_case_leads_filter
 #: model_terms:ir.ui.view,arch_db:crm.view_crm_case_opportunities_filter
 msgid "Sales Team"
 msgstr "Ομάδα Πώλησης"
 
 #. module: crm
-#: model:ir.model,name:crm.model_crm_team_member
-msgid "Sales Team Member"
-msgstr ""
-
-#. module: crm
-#: code:addons/crm/models/crm_lead.py:0
+#: code:addons/crm/models/crm_lead.py:1125
 #, python-format
 msgid "Sales Team Settings"
 msgstr ""
@@ -2908,32 +1982,22 @@ msgid "Sales Teams"
 msgstr "Ομάδες Πωλήσεων"
 
 #. module: crm
+#: model:ir.model.fields,field_description:crm.field_crm_lead2opportunity_partner_mass__user_ids
+msgid "Salesmen"
+msgstr "Πωλητής"
+
+#. module: crm
+#: selection:crm.team,dashboard_graph_group_pipeline:0
 #: model:ir.model.fields,field_description:crm.field_crm_activity_report__user_id
 #: model:ir.model.fields,field_description:crm.field_crm_lead2opportunity_partner__user_id
 #: model:ir.model.fields,field_description:crm.field_crm_lead2opportunity_partner_mass__user_id
 #: model:ir.model.fields,field_description:crm.field_crm_lead__user_id
 #: model:ir.model.fields,field_description:crm.field_crm_merge_opportunity__user_id
-#: model_terms:ir.ui.view,arch_db:crm.crm_activity_report_view_search
 #: model_terms:ir.ui.view,arch_db:crm.crm_opportunity_report_view_search
 #: model_terms:ir.ui.view,arch_db:crm.view_crm_case_leads_filter
 #: model_terms:ir.ui.view,arch_db:crm.view_crm_case_opportunities_filter
 msgid "Salesperson"
 msgstr "Πωλητής"
-
-#. module: crm
-#: model:ir.model.fields,field_description:crm.field_crm_lead2opportunity_partner_mass__user_ids
-msgid "Salespersons"
-msgstr ""
-
-#. module: crm
-#: model:ir.model.fields,field_description:crm.field_crm_lead__phone_sanitized
-msgid "Sanitized Number"
-msgstr ""
-
-#. module: crm
-#: model_terms:ir.actions.act_window,help:crm.crm_lead_action_my_activities
-msgid "Schedule activities to keep track of everything you have to do."
-msgstr ""
 
 #. module: crm
 #: model_terms:ir.ui.view,arch_db:crm.view_crm_case_leads_filter
@@ -2952,28 +2016,32 @@ msgid "Select Leads/Opportunities"
 msgstr "Επιλογή Συστάσεων/Ευκαιριών"
 
 #. module: crm
-#: model:ir.actions.act_window,name:crm.action_lead_mail_compose
 #: model:ir.actions.act_window,name:crm.action_lead_mass_mail
-msgid "Send email"
+msgid "Send an email"
 msgstr ""
 
 #. module: crm
-#: model:ir.model.fields,field_description:crm.field_crm_recurring_plan__sequence
 #: model:ir.model.fields,field_description:crm.field_crm_stage__sequence
 msgid "Sequence"
 msgstr "Ακολουθία"
 
 #. module: crm
-#: model_terms:ir.actions.act_window,help:crm.crm_recurring_plan_action
-msgid ""
-"Set Recurring Plans on Opportunities to display the contracts' renewal "
-"periodicity<br>(e.g: Monthly, Yearly)."
-msgstr ""
+#: model:crm.lead.tag,name:crm.categ_oppor3
+msgid "Services"
+msgstr "Υπηρεσίες"
 
 #. module: crm
 #: model_terms:ir.actions.act_window,help:crm.crm_stage_action
 msgid "Set a new stage in your opportunity pipeline"
 msgstr ""
+
+#. module: crm
+#: model:ir.model.fields,help:crm.field_crm_stage__on_change
+msgid ""
+"Setting this stage will change the probability automatically on the "
+"opportunity."
+msgstr ""
+"Ρυθμίζοντας αυτό το στάδιο θα αλλάξει την πιθανότητα αυτόματα στην ευκαιρία."
 
 #. module: crm
 #: model:ir.actions.act_window,name:crm.crm_config_settings_action
@@ -2987,13 +2055,6 @@ msgid "Show Lead Menu"
 msgstr "Προβολή του Μενού του Σύσταση"
 
 #. module: crm
-#: model:res.groups,name:crm.group_use_recurring_revenues
-msgid "Show Recurring Revenues Menu"
-msgstr ""
-
-#. module: crm
-#: model_terms:ir.ui.view,arch_db:crm.view_crm_case_leads_filter
-#: model_terms:ir.ui.view,arch_db:crm.view_crm_case_my_activities_filter
 #: model_terms:ir.ui.view,arch_db:crm.view_crm_case_opportunities_filter
 msgid "Show all opportunities for which the next action date is before today"
 msgstr ""
@@ -3013,18 +2074,20 @@ msgid "Show only opportunity"
 msgstr "Δείξε μόνο ευκαιρία"
 
 #. module: crm
-#: model:ir.model.fields,field_description:crm.field_crm_team__assignment_optout
-#: model:ir.model.fields,field_description:crm.field_crm_team_member__assignment_optout
-msgid "Skip auto assignment"
-msgstr ""
+#: model:crm.lead.tag,name:crm.categ_oppor2
+msgid "Software"
+msgstr "Λογισμικό"
 
 #. module: crm
-#: model_terms:ir.ui.view,arch_db:crm.crm_case_tree_view_oppor
-msgid "Snooze 7d"
+#: model_terms:ir.actions.act_window,help:crm.crm_lost_reason_action
+msgid ""
+"Some examples of lost reasons: \"We don't have people/skill\", \"Price too "
+"high\""
 msgstr ""
+"Μερικά παραδείγματα των αιτιών που χάθηκε: «Δεν έχουμε τους ανθρώπους / "
+"δεξιότητες\", \"Η τιμή είναι πολύ υψηλή\""
 
 #. module: crm
-#: model:crm.lead.scoring.frequency.field,name:crm.frequency_field_source_id
 #: model:ir.model.fields,field_description:crm.field_crm_lead__source_id
 #: model_terms:ir.ui.view,arch_db:crm.view_crm_case_leads_filter
 #: model_terms:ir.ui.view,arch_db:crm.view_crm_case_opportunities_filter
@@ -3041,15 +2104,14 @@ msgstr ""
 " δουν ή να χρησιμοποιήσουν αυτό το στάδιο."
 
 #. module: crm
-#: code:addons/crm/models/res_config_settings.py:0
-#: code:addons/crm/models/res_config_settings.py:0
+#: selection:crm.team,dashboard_graph_group_pipeline:0
 #: model:ir.model.fields,field_description:crm.field_crm_activity_report__stage_id
 #: model:ir.model.fields,field_description:crm.field_crm_lead__stage_id
 #: model_terms:ir.ui.view,arch_db:crm.crm_activity_report_view_search
 #: model_terms:ir.ui.view,arch_db:crm.crm_opportunity_report_view_search
 #: model_terms:ir.ui.view,arch_db:crm.crm_stage_form
+#: model_terms:ir.ui.view,arch_db:crm.view_crm_case_leads_filter
 #: model_terms:ir.ui.view,arch_db:crm.view_crm_case_opportunities_filter
-#, python-format
 msgid "Stage"
 msgstr "Στάδιο"
 
@@ -3090,15 +2152,9 @@ msgstr ""
 "μια συγκεκριμένη ευκαιρία στον κύκλο των πωλήσεων."
 
 #. module: crm
-#: model_terms:ir.actions.act_window,help:crm.crm_activity_report_action
-#: model_terms:ir.actions.act_window,help:crm.crm_activity_report_action_team
-msgid "Start scheduling activities on your opportunities"
-msgstr ""
-
-#. module: crm
-#: model:crm.lead.scoring.frequency.field,name:crm.frequency_field_state_id
 #: model:ir.model.fields,field_description:crm.field_crm_lead__state_id
-#: model_terms:ir.ui.view,arch_db:crm.crm_lead_view_form
+#: model_terms:ir.ui.view,arch_db:crm.crm_case_form_view_leads
+#: model_terms:ir.ui.view,arch_db:crm.crm_case_form_view_oppor
 msgid "State"
 msgstr "Νομός/Πολιτεία"
 
@@ -3121,12 +2177,14 @@ msgid "Street"
 msgstr "Οδός"
 
 #. module: crm
-#: model_terms:ir.ui.view,arch_db:crm.crm_lead_view_form
+#: model_terms:ir.ui.view,arch_db:crm.crm_case_form_view_leads
+#: model_terms:ir.ui.view,arch_db:crm.crm_case_form_view_oppor
 msgid "Street 2..."
 msgstr "Οδός 2..."
 
 #. module: crm
-#: model_terms:ir.ui.view,arch_db:crm.crm_lead_view_form
+#: model_terms:ir.ui.view,arch_db:crm.crm_case_form_view_leads
+#: model_terms:ir.ui.view,arch_db:crm.crm_case_form_view_oppor
 msgid "Street..."
 msgstr "Οδός..."
 
@@ -3146,9 +2204,9 @@ msgid "Subtype"
 msgstr "Υποτύπος"
 
 #. module: crm
-#: model:ir.model,name:crm.model_ir_config_parameter
-msgid "System Parameter"
-msgstr ""
+#: model:ir.model.fields,field_description:crm.field_crm_activity_report__subject
+msgid "Summary"
+msgstr "Περίληψη"
 
 #. module: crm
 #: model_terms:ir.ui.view,arch_db:crm.view_crm_case_leads_filter
@@ -3157,7 +2215,12 @@ msgid "Tag"
 msgstr "Εικέτα"
 
 #. module: crm
-#: model:crm.lead.scoring.frequency.field,name:crm.frequency_field_tag_ids
+#: sql_constraint:crm.lead.tag:0
+msgid "Tag name already exists !"
+msgstr "Το όνομα ετικέτας υπάρχει ήδη !"
+
+#. module: crm
+#: model:ir.actions.act_window,name:crm.crm_lead_tag_action
 #: model:ir.model.fields,field_description:crm.field_crm_lead__tag_ids
 #: model:ir.ui.menu,name:crm.menu_crm_lead_categ
 msgid "Tags"
@@ -3165,12 +2228,7 @@ msgstr "Ετικέτες"
 
 #. module: crm
 #: model:ir.ui.menu,name:crm.sales_team_menu_team_pipeline
-msgid "Teams"
-msgstr "Ομάδες"
-
-#. module: crm
-#: model:ir.ui.menu,name:crm.crm_team_member_config
-msgid "Teams Members"
+msgid "Team Pipelines"
 msgstr ""
 
 #. module: crm
@@ -3184,25 +2242,9 @@ msgstr ""
 "στο κανάλι."
 
 #. module: crm
-#: model:ir.model.fields,help:crm.field_crm_team__alias_model_id
-msgid ""
-"The model (Odoo Document Kind) to which this alias corresponds. Any incoming"
-" email that does not reply to an existing record will cause the creation of "
-"a new record of this model (e.g. a Project Task)"
-msgstr ""
-"Το μοντέλο (Odoo Document Kind) στο οποίο αντιστοιχεί αυτό το ψευδώνυμο. "
-"Κάθε εισερχόμενο email που δεν έχει απαντηθεί σε υπάρχουσα εγγραφή, θα "
-"προκαλέσει τη δημιουργία μίας νέας εγγραφής αυτού του μοντέλου (π.χ. Εργασία"
-" Έργου)"
-
-#. module: crm
-#: model:ir.model.fields,help:crm.field_crm_team__alias_name
-msgid ""
-"The name of the email alias, e.g. 'jobs' if you want to catch emails for "
-"<jobs@example.odoo.com>"
-msgstr ""
-"Το όνομα του ψευδώνυμου email , π.χ. 'jobs', αν θέλετε να πάρετε emails για "
-"<jobs@example.odoo.com>"
+#: model:ir.model.fields,help:crm.field_crm_team__dashboard_graph_model
+msgid "The graph this channel will display in the Dashboard.\n"
+msgstr "Το γράφημα για αυτό το κανάλι θα εμφανιστεί στο Ταμπλό.\n"
 
 #. module: crm
 #: model:ir.model.fields,help:crm.field_crm_lead__partner_name
@@ -3214,79 +2256,32 @@ msgstr ""
 "η σύσταση σε ευκαιρία"
 
 #. module: crm
-#: model:ir.model.constraint,message:crm.constraint_crm_recurring_plan_check_number_of_months
-msgid "The number of month can't be negative."
-msgstr ""
-
-#. module: crm
-#: model:ir.model.fields,help:crm.field_crm_team__alias_user_id
-msgid ""
-"The owner of records created upon receiving emails on this alias. If this "
-"field is not set the system will attempt to find the right owner based on "
-"the sender (From) address, or will use the Administrator account if no "
-"system user is found for that address."
-msgstr ""
-"Ο ιδιοκτήτης των εγγραφών που δημιουργούνται κατά τη λήψη μηνυμάτων ηλεκτρονικού ταχυδρομείου σε αυτό το ψευδώνυμο. Αν αυτό το πεδίο δεν είναι ρυθμισμένο το σύστημα θα προσπαθήσει να βρει το σωστό ιδιοκτήτη με βάση τον αποστολέα (Από) τη διεύθυνση.\n"
-"Διαφορετικά, θα χρησιμοποιήσει το λογαριασμό διαχειριστή, αν ο χρήστης δεν έχει βρεθεί στο σύστημα για τη συγκεκριμένη διεύθυνση."
-
-#. module: crm
-#: model:ir.model.constraint,message:crm.constraint_crm_lead_check_probability
+#: sql_constraint:crm.lead:0
 msgid "The probability of closing the deal should be between 0% and 100%!"
 msgstr ""
 "Η πιθανότητα κλεισίματος της συμφωνίας πρέπει να είναι μεταξύ 0% και 100%!"
 
 #. module: crm
-#: model_terms:ir.ui.view,arch_db:crm.res_config_settings_view_form
-msgid "The success rate is computed based on"
+#: model:ir.model.fields,help:crm.field_crm_team__dashboard_graph_period_pipeline
+msgid "The time period this channel's dashboard graph will consider."
 msgstr ""
+"Η χρονική περίοδος που θα λάβει υπ όψιν το γράφημα ταμπλό του καναλιού."
 
 #. module: crm
-#: model_terms:ir.ui.view,arch_db:crm.crm_lead_pls_update_view_form
+#: model:ir.model.fields,help:crm.field_crm_lead__email_cc
 msgid ""
-"The success rate is computed based on the stage, but you can add more fields"
-" in the statistical analysis."
+"These email addresses will be added to the CC field of all inbound and "
+"outbound emails for this record before being sent. Separate multiple email "
+"addresses with a comma"
 msgstr ""
-
-#. module: crm
-#: model_terms:ir.actions.act_window,help:crm.crm_opportunity_report_action_lead
-msgid "This analysis shows you how many leads have been created per month."
-msgstr ""
+"Αυτές οι διευθύνσεις email θα προστεθούν στο CC πεδίο όλων των εισερχμένων "
+"και εξερχομένων emails για αυτή την εγγραφή πριν αποσταλλούν. Διαφορετικές ή"
+" πολλαπλές email διευθύνσεις με ελληνικό ερωτηματικό"
 
 #. module: crm
 #: model_terms:ir.ui.view,arch_db:crm.crm_case_kanban_view_leads
 msgid ""
 "This bar allows to filter the opportunities based on scheduled activities."
-msgstr ""
-
-#. module: crm
-#. openerp-web
-#: code:addons/crm/static/src/js/tours/crm.js:0
-#, python-format
-msgid "This bar also allows you to switch stage."
-msgstr ""
-
-#. module: crm
-#: model_terms:ir.ui.view,arch_db:crm.res_config_settings_view_form
-msgid ""
-"This can be used to automatically assign leads to sales persons based on "
-"rules"
-msgstr ""
-
-#. module: crm
-#: model_terms:ir.ui.view,arch_db:crm.res_config_settings_view_form
-msgid "This can be used to compute statistical probability to close a lead"
-msgstr ""
-
-#. module: crm
-#: model_terms:ir.ui.view,arch_db:crm.crm_lead_view_form
-msgid "This email is blacklisted for mass mailings. Click to unblacklist."
-msgstr ""
-
-#. module: crm
-#: model:ir.model.fields,help:crm.field_crm_lead__email_normalized
-msgid ""
-"This field is used to search on email address as the primary email field can"
-" contain more than strictly an email address."
 msgstr ""
 
 #. module: crm
@@ -3309,10 +2304,25 @@ msgid ""
 msgstr ""
 
 #. module: crm
-#: model_terms:ir.ui.view,arch_db:crm.crm_lead_view_form
-msgid ""
-"This phone number is blacklisted for SMS Marketing. Click to unblacklist."
+#. openerp-web
+#: code:addons/crm/static/src/js/tour.js:42
+#, python-format
+msgid "This opportunity has <b>no activity planned</b>."
 msgstr ""
+
+#. module: crm
+#: model:ir.model.fields,help:crm.field_crm_stage__probability
+msgid ""
+"This percentage depicts the default/average probability of the Case for this"
+" stage to be a success"
+msgstr ""
+"Αυτό το ποσοστό απεικονίζει την προεπιλεγμένη /μέση πιθανότητα της "
+"περίπτωσης για αυτό το στάδιο ώστε να γίνει μια επιτυχία"
+
+#. module: crm
+#: model_terms:ir.actions.act_window,help:crm.crm_opportunity_report_action_lead
+msgid "This report analyses the source of your leads."
+msgstr "Αυτή η αναφορά αναλύει την πηγή των συστάσεών σας."
 
 #. module: crm
 #: model:ir.model.fields,help:crm.field_crm_stage__fold
@@ -3322,63 +2332,24 @@ msgid ""
 msgstr ""
 
 #. module: crm
-#: model_terms:ir.ui.view,arch_db:crm.sales_team_form_view_in_crm
-msgid "This will assign leads to all members. Do you want to proceed?"
-msgstr ""
-
-#. module: crm
-#: model:digest.tip,name:crm.digest_tip_crm_0
-#: model_terms:digest.tip,tip_description:crm.digest_tip_crm_0
-msgid "Tip: Convert incoming emails into opportunities"
-msgstr ""
-
-#. module: crm
-#: model:digest.tip,name:crm.digest_tip_crm_1
-#: model_terms:digest.tip,tip_description:crm.digest_tip_crm_1
-msgid "Tip: Did you know Odoo has built-in lead mining?"
-msgstr ""
-
-#. module: crm
-#: model:digest.tip,name:crm.digest_tip_crm_4
-#: model_terms:digest.tip,tip_description:crm.digest_tip_crm_4
-msgid "Tip: Do not waste time recording customers' data"
-msgstr ""
-
-#. module: crm
-#: model:digest.tip,name:crm.digest_tip_crm_3
-#: model_terms:digest.tip,tip_description:crm.digest_tip_crm_3
-msgid "Tip: Manage your pipeline"
-msgstr ""
-
-#. module: crm
-#: model:digest.tip,name:crm.digest_tip_crm_2
-#: model_terms:digest.tip,tip_description:crm.digest_tip_crm_2
-msgid "Tip: Opportunity win rate is predicted with AI"
-msgstr ""
-
-#. module: crm
-#: model:digest.tip,name:crm.digest_tip_crm_5
-#: model_terms:digest.tip,tip_description:crm.digest_tip_crm_5
-msgid "Tip: Turn a selection of opportunities into a map"
-msgstr ""
+#: code:addons/crm/models/crm_lead.py:1088
+#, python-format
+msgid "This target does not exist."
+msgstr "Ο στόχος αυτός δεν υπάρχει."
 
 #. module: crm
 #: model:ir.model.fields,field_description:crm.field_crm_lead__title
-#: model_terms:ir.ui.view,arch_db:crm.crm_lead_view_form
+#: model_terms:ir.ui.view,arch_db:crm.crm_case_form_view_leads
+#: model_terms:ir.ui.view,arch_db:crm.crm_case_form_view_oppor
 msgid "Title"
 msgstr "Τίτλος"
 
 #. module: crm
-#: code:addons/crm/models/crm_lead.py:0
-#, python-format
-msgid ""
-"To prevent data loss, Leads and Opportunities can only be merged by groups "
-"of %(max_length)s."
-msgstr ""
+#: selection:crm.lead,activity_state:0
+msgid "Today"
+msgstr "Σήμερα"
 
 #. module: crm
-#: model_terms:ir.ui.view,arch_db:crm.view_crm_case_leads_filter
-#: model_terms:ir.ui.view,arch_db:crm.view_crm_case_my_activities_filter
 #: model_terms:ir.ui.view,arch_db:crm.view_crm_case_opportunities_filter
 msgid "Today Activities"
 msgstr "Σημερινές Δραστηριότητες"
@@ -3389,67 +2360,60 @@ msgid "Too expensive"
 msgstr "Πολύ ακριβό"
 
 #. module: crm
-#: model_terms:ir.ui.view,arch_db:crm.crm_lead_view_form
+#: model_terms:ir.ui.view,arch_db:crm.crm_case_form_view_leads
 msgid "Tracking"
 msgstr "Παρακολούθηση"
 
 #. module: crm
-#: model_terms:ir.ui.view,arch_db:crm.crm_activity_report_view_search
-msgid "Trailing 12 months"
-msgstr ""
+#: model:crm.lead.tag,name:crm.categ_oppor6
+msgid "Training"
+msgstr "Εκπαίδευση"
 
 #. module: crm
 #: model_terms:digest.tip,tip_description:crm.digest_tip_crm_0
-msgid "Try sending an email"
+msgid "Try Now"
 msgstr ""
 
 #. module: crm
 #: model:ir.model.fields,field_description:crm.field_crm_activity_report__lead_type
 #: model:ir.model.fields,field_description:crm.field_crm_lead__type
-#: model_terms:ir.ui.view,arch_db:crm.crm_activity_report_view_search
 msgid "Type"
 msgstr "Τύπος"
 
 #. module: crm
 #: model:ir.model.fields,help:crm.field_crm_activity_report__lead_type
+#: model:ir.model.fields,help:crm.field_crm_lead__type
 msgid "Type is used to separate Leads and Opportunities"
 msgstr ""
 "Ο τύπος χρησιμοποιείται για να ξεχωρίσει τις Συστάσεις από τις Ευκαιρίες "
 
 #. module: crm
-#: model:ir.model.fields,help:crm.field_crm_lead__activity_exception_decoration
-msgid "Type of the exception activity on record."
-msgstr ""
-
-#. module: crm
-#: model:ir.model,name:crm.model_utm_campaign
-msgid "UTM Campaign"
-msgstr ""
-
-#. module: crm
-#: model:ir.model.fields,help:crm.field_crm_lead__user_company_ids
-msgid "UX: Limit to lead company or all if no company"
-msgstr ""
-
-#. module: crm
-#: model_terms:ir.ui.view,arch_db:crm.view_crm_case_leads_filter
 #: model_terms:ir.ui.view,arch_db:crm.view_crm_case_opportunities_filter
 msgid "Unassigned"
 msgstr "Μη Ανατεθειμένη"
 
 #. module: crm
-#: model_terms:ir.ui.view,arch_db:crm.crm_team_view_kanban_dashboard
+#: model_terms:ir.ui.view,arch_db:crm.crm_team_salesteams_view_kanban
 msgid "Unassigned Lead"
 msgstr "Μη Ανατεθειμένη Σύσταση"
 
 #. module: crm
-#: model_terms:ir.ui.view,arch_db:crm.crm_team_view_kanban_dashboard
+#: model:ir.model.fields,field_description:crm.field_crm_team__unassigned_leads_count
+#: model_terms:ir.ui.view,arch_db:crm.crm_team_salesteams_view_kanban
 msgid "Unassigned Leads"
 msgstr "Μη Ανατεθειμένες Συστάσεις"
 
 #. module: crm
+#: code:addons/crm/models/crm_team.py:201
+#, python-format
+msgid "Undefined"
+msgstr "Μη ορισμένο"
+
+#. module: crm
 #: model:ir.model.fields,field_description:crm.field_crm_lead__message_unread
+#: model_terms:ir.ui.view,arch_db:crm.crm_case_kanban_view_leads
 #: model_terms:ir.ui.view,arch_db:crm.view_crm_case_opportunities_filter
+#: model_terms:ir.ui.view,arch_db:crm.view_crm_lead_kanban
 msgid "Unread Messages"
 msgstr "Μη αναγνωσμένα μηνύματα"
 
@@ -3459,35 +2423,12 @@ msgid "Unread Messages Counter"
 msgstr "Μετρητής μη αναγνωσμένων μηνυμάτων"
 
 #. module: crm
-#: model_terms:ir.ui.view,arch_db:crm.crm_lead_view_search_forecast
-msgid "Upcoming Closings"
-msgstr ""
-
-#. module: crm
-#: model:ir.actions.act_window,name:crm.crm_lead_pls_update_action
 #: model_terms:ir.ui.view,arch_db:crm.res_config_settings_view_form
-msgid "Update Probabilities"
-msgstr ""
+msgid "Use an External Email Server"
+msgstr "Χρήση εξωτερικού διακομιστή email"
 
 #. module: crm
-#: model:ir.model,name:crm.model_crm_lead_pls_update
-msgid "Update the probabilities"
-msgstr ""
-
-#. module: crm
-#: model:ir.model.fields,field_description:crm.field_utm_campaign__use_leads
-msgid "Use Leads"
-msgstr ""
-
-#. module: crm
-#: model_terms:ir.actions.act_window,help:crm.crm_lost_reason_action
-msgid ""
-"Use Lost Reasons to report on why opportunities are lost (e.g.\"Undercut by "
-"competitors\")."
-msgstr ""
-
-#. module: crm
-#: model:ir.model.fields.selection,name:crm.selection__crm_lead2opportunity_partner_mass__action__each_exist_or_create
+#: selection:crm.lead2opportunity.partner.mass,action:0
 msgid "Use existing partner or create"
 msgstr "Χρήση υπάρχοντος συνεργάτη ή δημιουργία"
 
@@ -3514,29 +2455,27 @@ msgid ""
 msgstr ""
 
 #. module: crm
-#: model_terms:ir.ui.view,arch_db:crm.crm_action_helper
-msgid "Use the top left <i>Create</i> button, or send an email to"
+#: model_terms:ir.actions.act_window,help:crm.crm_lost_reason_action
+msgid "Use lost reasons to explain why an opportunity is lost."
+msgstr ""
+"Χρησιμοποιήστε τις αιτίες που χάθηκαν για να εξηγήσετε γιατί χάθηκε μια "
+"ευκαιρία."
+
+#. module: crm
+#: model_terms:ir.actions.act_window,help:crm.relate_partner_opportunities
+msgid ""
+"Use opportunities to keep track of your sales pipeline, follow\n"
+"                up potential sales and better forecast your future revenues."
 msgstr ""
 
 #. module: crm
-#: code:addons/crm/models/crm_lead.py:0
+#. openerp-web
+#: code:addons/crm/static/src/js/tour.js:72
 #, python-format
-msgid ""
-"Use the top left <i>Create</i> button, or send an email to %s to test the "
-"email gateway."
+msgid "Use the breadcrumbs to <b>go back to your sales pipeline</b>."
 msgstr ""
-
-#. module: crm
-#: model_terms:ir.ui.view,arch_db:crm.crm_action_helper
-msgid ""
-"Use the top left Create button, or configure an email alias to test the "
-"email gateway."
-msgstr ""
-
-#. module: crm
-#: model_terms:ir.actions.act_window,help:crm.crm_opportunity_report_action
-msgid "Use this menu to have an overview of your Pipeline."
-msgstr ""
+"Χρησιμοποιήστε τα ίχνοι πλοήγησης για να <b>επιστρέψετε στην Ροή Πληροφοριών"
+" των πωλήσεων</b>."
 
 #. module: crm
 #: model:ir.model.fields,help:crm.field_crm_lead__user_login
@@ -3548,11 +2487,6 @@ msgstr "Χρησιμοποιείται για να συνδεθείτε στο �
 msgid "Used to order stages. Lower is better."
 msgstr ""
 "Χρησιμοποιείται για να δώσει σειρά στα στάδια. Χαμηλότερο είναι το καλύτερο"
-
-#. module: crm
-#: model:ir.model.fields,field_description:crm.field_crm_lead__user_company_ids
-msgid "User Company"
-msgstr ""
 
 #. module: crm
 #: model:ir.model.fields,field_description:crm.field_crm_lead__user_email
@@ -3570,24 +2504,9 @@ msgid "Users"
 msgstr "Χρήστες"
 
 #. module: crm
-#: model:ir.model.fields,field_description:crm.field_crm_lead_scoring_frequency__value
-msgid "Value"
-msgstr "Τιμή"
-
-#. module: crm
-#: model:ir.model.fields,field_description:crm.field_crm_lead_scoring_frequency__variable
-msgid "Variable"
-msgstr "Μεταβλητή"
-
-#. module: crm
-#: model:ir.model.fields.selection,name:crm.selection__crm_lead__priority__3
+#: selection:crm.lead,priority:0
 msgid "Very High"
 msgstr "Πολύ υψηλή"
-
-#. module: crm
-#: model_terms:ir.ui.view,arch_db:crm.res_config_settings_view_form
-msgid "Visits to Leads"
-msgstr ""
 
 #. module: crm
 #: model:crm.lost.reason,name:crm.lost_reason_2
@@ -3598,6 +2517,11 @@ msgstr "Δεν έχουμε τους ανθρώπους / δεξιότητες"
 #: model:ir.model.fields,field_description:crm.field_crm_lead__website
 msgid "Website"
 msgstr "Ιστότοπος"
+
+#. module: crm
+#: model_terms:ir.ui.view,arch_db:crm.res_config_settings_view_form
+msgid "Website Lead Generation"
+msgstr ""
 
 #. module: crm
 #: model:ir.model.fields,field_description:crm.field_crm_lead__website_message_ids
@@ -3615,30 +2539,38 @@ msgid "Website of the contact"
 msgstr "Ιστότοπος της επαφής"
 
 #. module: crm
-#: model:ir.model.fields.selection,name:crm.selection__res_config_settings__crm_auto_assignment_interval_type__weeks
-msgid "Weeks"
-msgstr "Εβδομάδες"
-
-#. module: crm
-#: model:mail.template,name:crm.mail_template_demo_crm_lead
-msgid "Welcome Demo"
+#: model:ir.model.fields,help:crm.field_crm_lead__team_id
+msgid ""
+"When sending mails, the default email address is taken from the Sales Team."
 msgstr ""
 
 #. module: crm
-#: code:addons/crm/models/crm_lead.py:0 model:crm.stage,name:crm.stage_lead4
+#: selection:crm.team,dashboard_graph_period_pipeline:0
+msgid "Within a Month"
+msgstr "Μέσα σε ένα μήνα"
+
+#. module: crm
+#: selection:crm.team,dashboard_graph_period_pipeline:0
+msgid "Within a Week"
+msgstr "Μέσα σε μία εβδομάδα"
+
+#. module: crm
+#: selection:crm.team,dashboard_graph_period_pipeline:0
+msgid "Within a Year"
+msgstr "Μέσα σε ένα έτος"
+
+#. module: crm
+#: code:addons/crm/models/crm_lead.py:1121
+#: model:crm.stage,name:crm.stage_lead4
 #: model_terms:ir.ui.view,arch_db:crm.crm_activity_report_view_search
-#: model_terms:ir.ui.view,arch_db:crm.crm_lead_view_form
-#: model_terms:ir.ui.view,arch_db:crm.crm_lead_view_kanban_forecast
+#: model_terms:ir.ui.view,arch_db:crm.crm_case_form_view_leads
+#: model_terms:ir.ui.view,arch_db:crm.crm_case_form_view_oppor
 #: model_terms:ir.ui.view,arch_db:crm.crm_opportunity_report_view_search
+#: model_terms:ir.ui.view,arch_db:crm.view_crm_case_leads_filter
 #: model_terms:ir.ui.view,arch_db:crm.view_crm_case_opportunities_filter
 #, python-format
 msgid "Won"
 msgstr "Κερδισμένη"
-
-#. module: crm
-#: model:ir.model.fields,field_description:crm.field_crm_lead_scoring_frequency__won_count
-msgid "Won Count"
-msgstr ""
 
 #. module: crm
 #: model:ir.model.fields,field_description:crm.field_res_users__target_sales_won
@@ -3646,32 +2578,37 @@ msgid "Won in Opportunities Target"
 msgstr "Στόχος Κερδισμένων Ευκαιριών"
 
 #. module: crm
-#: code:addons/crm/models/crm_lead.py:0
+#: code:addons/crm/models/crm_lead.py:402
 #, python-format
 msgid "Yeah! Deal of the last 7 days for the team."
 msgstr "Ναι! Συναλλαγή για τις τελευταίες 7 ημέρες για την ομάδα."
 
 #. module: crm
-#: model:crm.recurring.plan,name:crm.crm_recurring_plan_yearly
-msgid "Yearly"
-msgstr "Ετήσιο"
-
-#. module: crm
-#: code:addons/crm/models/crm_lead.py:0
+#: code:addons/crm/models/crm_team.py:122
 #, python-format
-msgid "You don't have the access needed to run this cron."
+msgid ""
+"You have to enable the Pipeline on your Sales Team to be able to set it as a"
+" content for the graph"
 msgstr ""
 
 #. module: crm
-#: code:addons/crm/models/crm_lead.py:0
+#: code:addons/crm/models/crm_lead.py:404
 #, python-format
 msgid "You just beat your personal record for the past 30 days."
 msgstr ""
 
 #. module: crm
-#: code:addons/crm/models/crm_lead.py:0
+#: code:addons/crm/models/crm_lead.py:406
 #, python-format
 msgid "You just beat your personal record for the past 7 days."
+msgstr ""
+
+#. module: crm
+#: model_terms:ir.actions.act_window,help:crm.relate_partner_opportunities
+msgid ""
+"You will be able to plan meetings and log activities from\n"
+"                opportunities, convert them into quotations, attach related\n"
+"                documents, track all discussions, and much more."
 msgstr ""
 
 #. module: crm
@@ -3686,7 +2623,8 @@ msgstr ""
 "                    έγγραφα, να παρακολουθήσετε όλες τις συζητήσεις και πολλά άλλα."
 
 #. module: crm
-#: model_terms:ir.ui.view,arch_db:crm.crm_lead_view_form
+#: model_terms:ir.ui.view,arch_db:crm.crm_case_form_view_leads
+#: model_terms:ir.ui.view,arch_db:crm.crm_case_form_view_oppor
 msgid "ZIP"
 msgstr "ΤΚ"
 
@@ -3696,34 +2634,25 @@ msgid "Zip"
 msgstr "Τ.Κ."
 
 #. module: crm
-#: model_terms:ir.ui.view,arch_db:crm.crm_stage_form
-msgid "e.g. Negotiation"
-msgstr ""
+#: model_terms:ir.ui.view,arch_db:crm.view_create_opportunity_simplified
+msgid "e.g. Customer Deal"
+msgstr "π.χ. Συμφωνία Πελάτη"
 
 #. module: crm
-#: model_terms:ir.ui.view,arch_db:crm.crm_lead_view_form
-#: model_terms:ir.ui.view,arch_db:crm.quick_create_opportunity_form
+#: model_terms:ir.ui.view,arch_db:crm.crm_case_form_view_oppor
 msgid "e.g. Product Pricing"
 msgstr "π.χ. Τιμολόγηση Ειδών"
 
 #. module: crm
-#: model_terms:ir.ui.view,arch_db:crm.crm_lost_reason_view_form
-msgid "e.g. Too expensive"
-msgstr ""
-
-#. module: crm
-#: model_terms:ir.ui.view,arch_db:crm.crm_lead_view_form
-msgid "e.g. https://www.odoo.com"
+#: model_terms:ir.ui.view,arch_db:crm.crm_case_form_view_leads
+#: model_terms:ir.ui.view,arch_db:crm.crm_case_form_view_oppor
+msgid "e.g. www.odoo.com"
 msgstr "π.χ. https://www.odoo.com"
 
 #. module: crm
-#: model_terms:ir.ui.view,arch_db:crm.res_config_settings_view_form
-msgid "for the leads created as of the"
-msgstr ""
-
-#. module: crm
-#: model_terms:digest.tip,tip_description:crm.digest_tip_crm_0
-msgid "generate opportunities in your pipeline?<br>"
+#: code:addons/crm/models/crm_lead.py:946
+#, python-format
+msgid "or send an email to %s"
 msgstr ""
 
 #. module: crm
@@ -3732,17 +2661,7 @@ msgid "team_count"
 msgstr ""
 
 #. module: crm
-#: model_terms:ir.ui.view,arch_db:crm.crm_action_helper
-msgid "to test the email gateway."
-msgstr ""
-
-#. module: crm
-#: model_terms:digest.tip,tip_description:crm.digest_tip_crm_0
-msgid "to your CRM. This email address is configurable by sales team members."
-msgstr ""
-
-#. module: crm
-#: code:addons/crm/models/crm_lead.py:0
+#: code:addons/crm/models/crm_lead.py:952
 #, python-format
 msgid "unknown"
 msgstr "Άγνωστο"

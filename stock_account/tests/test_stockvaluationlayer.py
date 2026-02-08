@@ -128,16 +128,17 @@ class TestStockValuationCommon(TransactionCase):
         stock_return_picking.product_return_moves.quantity = quantity_to_return
         stock_return_picking_action = stock_return_picking.create_returns()
         return_pick = self.env['stock.picking'].browse(stock_return_picking_action['res_id'])
-        return_pick.move_lines[0].move_line_ids[0].qty_done = quantity_to_return
+        return_pick.move_ids[0].move_line_ids[0].qty_done = quantity_to_return
         return_pick._action_done()
-        return return_pick.move_lines
+        return return_pick.move_ids
 
 
 class TestStockValuationStandard(TestStockValuationCommon):
-    def setUp(self):
-        super(TestStockValuationStandard, self).setUp()
-        self.product1.product_tmpl_id.categ_id.property_cost_method = 'standard'
-        self.product1.product_tmpl_id.standard_price = 10
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.product1.product_tmpl_id.categ_id.property_cost_method = 'standard'
+        cls.product1.product_tmpl_id.standard_price = 10
 
     def test_normal_1(self):
         self.product1.product_tmpl_id.categ_id.property_valuation = 'manual_periodic'
@@ -331,9 +332,10 @@ class TestStockValuationStandard(TestStockValuationCommon):
             self.env.user.company_id = old_company
 
 class TestStockValuationAVCO(TestStockValuationCommon):
-    def setUp(self):
-        super(TestStockValuationAVCO, self).setUp()
-        self.product1.product_tmpl_id.categ_id.property_cost_method = 'average'
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.product1.product_tmpl_id.categ_id.property_cost_method = 'average'
 
     def test_normal_1(self):
         self.product1.product_tmpl_id.categ_id.property_valuation = 'manual_periodic'
@@ -596,9 +598,10 @@ class TestStockValuationAVCO(TestStockValuationCommon):
 
 
 class TestStockValuationFIFO(TestStockValuationCommon):
-    def setUp(self):
-        super(TestStockValuationFIFO, self).setUp()
-        self.product1.product_tmpl_id.categ_id.property_cost_method = 'fifo'
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.product1.product_tmpl_id.categ_id.property_cost_method = 'fifo'
 
     def test_normal_1(self):
         self.product1.product_tmpl_id.categ_id.property_valuation = 'manual_periodic'
@@ -798,6 +801,7 @@ class TestStockValuationFIFO(TestStockValuationCommon):
         finally:
             self.env.user.company_id = old_company
 
+
 class TestStockValuationChangeCostMethod(TestStockValuationCommon):
     def test_standard_to_fifo_1(self):
         """ The accounting impact of this cost method change is neutral.
@@ -910,6 +914,7 @@ class TestStockValuationChangeCostMethod(TestStockValuationCommon):
         self.assertEqual(self.product1.value_svl, 190)
         self.assertEqual(self.product1.quantity_svl, 19)
 
+
 @tagged('post_install', '-at_install', 'change_valuation')
 class TestStockValuationChangeValuation(TestStockValuationCommon):
     @classmethod
@@ -925,6 +930,11 @@ class TestStockValuationChangeValuation(TestStockValuationCommon):
             'property_stock_account_output_categ_id': cls.stock_output_account.id,
             'property_stock_valuation_account_id': cls.stock_valuation_account.id,
             'property_stock_journal': cls.stock_journal.id,
+        })
+        cls.env.company.write({
+            'property_stock_account_input_categ_id': cls.stock_input_account.id,
+            'property_stock_account_output_categ_id': cls.stock_output_account.id,
+            'property_stock_valuation_account_id': cls.stock_valuation_account.id,
         })
 
     def test_standard_manual_to_auto_1(self):
@@ -1027,7 +1037,7 @@ class TestStockValuationChangeValuation(TestStockValuationCommon):
         self.assertEqual(len(self.product1.stock_valuation_layer_ids), 3)
 
 @tagged('post_install', '-at_install')
-class TestAngloSaxonAccounting(AccountTestInvoicingCommon):
+class TestAngloSaxonAccounting(AccountTestInvoicingCommon, TestStockValuationCommon):
     @classmethod
     def setUpClass(cls, chart_template_ref=None):
         super().setUpClass(chart_template_ref=chart_template_ref)
@@ -1072,25 +1082,25 @@ class TestAngloSaxonAccounting(AccountTestInvoicingCommon):
         cls.stock_input_account = cls.env['account.account'].create({
             'name': 'Stock Input',
             'code': 'StockIn',
-            'user_type_id': cls.env.ref('account.data_account_type_current_assets').id,
+            'account_type': 'asset_current',
             'reconcile': True,
         })
         cls.stock_output_account = cls.env['account.account'].create({
             'name': 'Stock Output',
             'code': 'StockOut',
-            'user_type_id': cls.env.ref('account.data_account_type_current_assets').id,
+            'account_type': 'asset_current',
             'reconcile': True,
         })
         cls.stock_valuation_account = cls.env['account.account'].create({
             'name': 'Stock Valuation',
-            'code': 'Stock Valuation',
-            'user_type_id': cls.env.ref('account.data_account_type_current_assets').id,
+            'code': 'StockValuation',
+            'account_type': 'asset_current',
             'reconcile': True,
         })
         cls.expense_account = cls.env['account.account'].create({
             'name': 'Expense Account',
-            'code': 'Expense Account',
-            'user_type_id': cls.env.ref('account.data_account_type_expenses').id,
+            'code': 'ExpenseAccount',
+            'account_type': 'expense',
             'reconcile': True,
         })
         cls.uom_unit = cls.env.ref('uom.product_uom_unit')
@@ -1165,14 +1175,16 @@ class TestAngloSaxonAccounting(AccountTestInvoicingCommon):
         stock_return_picking.product_return_moves.quantity = quantity_to_return
         stock_return_picking_action = stock_return_picking.create_returns()
         return_pick = self.env['stock.picking'].browse(stock_return_picking_action['res_id'])
-        return_pick.move_lines[0].move_line_ids[0].qty_done = quantity_to_return
+        return_pick.move_ids[0].move_line_ids[0].qty_done = quantity_to_return
         return_pick._action_done()
-        return return_pick.move_lines
+        return return_pick.move_ids
 
     def test_avco_and_credit_note(self):
         """
         When reversing an invoice that contains some anglo-saxo AML, the new anglo-saxo AML should have the same value
         """
+        # Required for `account_id` to be visible in the view
+        self.env.user.groups_id += self.env.ref('account.group_account_readonly')
         self.product1.categ_id.property_cost_method = 'average'
 
         self._make_in_move(self.product1, 2, unit_cost=10)
@@ -1202,10 +1214,36 @@ class TestAngloSaxonAccounting(AccountTestInvoicingCommon):
                 line.quantity = 1
         reverse_invoice.action_post()
 
-        anglo_lines = reverse_invoice.line_ids.filtered(lambda l: l.is_anglo_saxon_line)
+        anglo_lines = reverse_invoice.line_ids.filtered(lambda l: l.display_type == 'cogs')
         self.assertEqual(len(anglo_lines), 2)
         self.assertEqual(abs(anglo_lines[0].balance), 10)
         self.assertEqual(abs(anglo_lines[1].balance), 10)
+
+    def test_return_delivery_storno(self):
+        """ When using STORNO accounting, reverse accounting moves should have negative values for credit/debit.
+        """
+        self.env.company.account_storno = True
+        self.product1.categ_id.property_cost_method = 'fifo'
+
+        self._make_in_move(self.product1, 10, unit_cost=10)
+        out_move = self._make_out_move(self.product1, 10, create_picking=True)
+        return_move = self._make_return(out_move, 10)
+
+        valuation_line = out_move.account_move_ids.line_ids.filtered(lambda l: l.account_id == self.stock_valuation_account)
+        stock_out_line = out_move.account_move_ids.line_ids.filtered(lambda l: l.account_id == self.stock_output_account)
+
+        self.assertEqual(valuation_line.credit, 100)
+        self.assertEqual(valuation_line.debit, 0)
+        self.assertEqual(stock_out_line.credit, 0)
+        self.assertEqual(stock_out_line.debit, 100)
+
+        valuation_line = return_move.account_move_ids.line_ids.filtered(lambda l: l.account_id == self.stock_valuation_account)
+        stock_out_line = return_move.account_move_ids.line_ids.filtered(lambda l: l.account_id == self.stock_output_account)
+
+        self.assertEqual(valuation_line.credit, -100)
+        self.assertEqual(valuation_line.debit, 0)
+        self.assertEqual(stock_out_line.credit, 0)
+        self.assertEqual(stock_out_line.debit, -100)
 
     def test_dropship_return_accounts_1(self):
         """
@@ -1264,9 +1302,9 @@ class TestAngloSaxonAccounting(AccountTestInvoicingCommon):
         stock_return_picking.location_id = self.stock_location
         stock_return_picking_action = stock_return_picking.create_returns()
         return_pick = self.env['stock.picking'].browse(stock_return_picking_action['res_id'])
-        return_pick.move_lines[0].move_line_ids[0].qty_done = 2
+        return_pick.move_ids[0].move_line_ids[0].qty_done = 2
         return_pick._action_done()
-        move2 = return_pick.move_lines
+        move2 = return_pick.move_ids
 
         # First: Input -> Valuation
         # Second: Valuation -> Output

@@ -3,10 +3,12 @@ odoo.define('website.s_popup', function (require) {
 
 const config = require('web.config');
 const { _t } = require("@web/core/l10n/translation");
+const { getTabableElements } = require('@web/core/utils/ui');
 const dom = require('web.dom');
 const publicWidget = require('web.public.widget');
-const utils = require('web.utils');
-const { cloneContentEls } = require("website.utils");
+const { getCookie, setCookie, deleteCookie } = require("web.utils.cookies");
+const {setUtmsHtmlDataset} = require('@website/js/content/inject_dom');
+const { cloneContentEls, onceAllImagesLoaded } = require("website.utils");
 
 // TODO In master, export this class too or merge it with PopupWidget
 const SharedPopupWidget = publicWidget.Widget.extend({
@@ -99,12 +101,13 @@ const PopupWidget = publicWidget.Widget.extend({
         'hide.bs.modal': '_onHideModal',
         'show.bs.modal': '_onShowModal',
     },
+    cookieValue: true,
 
     /**
      * @override
      */
     start: function () {
-        this._popupAlreadyShown = !!utils.get_cookie(this.$el.attr('id'));
+        this._popupAlreadyShown = !!getCookie(this.$el.attr('id'));
         if (!this._popupAlreadyShown) {
             this._bindPopup();
         }
@@ -116,6 +119,7 @@ const PopupWidget = publicWidget.Widget.extend({
     destroy: function () {
         this._super.apply(this, arguments);
         $(document).off('mouseleave.open_popup');
+        this.releaseFocus && this.releaseFocus();
         this.$target.find('.modal').modal('hide');
         clearTimeout(this.timeout);
     },
@@ -138,7 +142,6 @@ const PopupWidget = publicWidget.Widget.extend({
                 display = 'afterDelay';
                 delay = 5000;
             }
-            this.$('.modal').removeClass('s_popup_middle').addClass('s_popup_bottom');
         }
 
         if (display === 'afterDelay') {
@@ -167,6 +170,52 @@ const PopupWidget = publicWidget.Widget.extend({
             return;
         }
         this.$target.find('.modal').modal('show');
+        this.releaseFocus = this._trapFocus();
+    },
+    /**
+     * Traps the focus within the modal.
+     * Returns a function that refocuses the element that was focused before the
+     * modal opened.
+     *
+     * @returns {Function}
+     */
+    _trapFocus() {
+        let tabableEls = getTabableElements(this.el);
+        const previouslyFocusedEl = document.activeElement || document.body;
+        if (tabableEls.length) {
+            tabableEls[0].focus();
+            this.el.querySelector(".modal").scrollTop = 0;
+        } else {
+            this.el.focus();
+        }
+        // The focus should stay free for no backdrop popups.
+        if (this.el.querySelector(".s_popup_no_backdrop")) {
+            return () => previouslyFocusedEl.focus();
+        }
+        const _onKeydown = (ev) => {
+            if (ev.key !== "Tab") {
+                return;
+            }
+            // Update tabableEls: they might have changed in the meantime.
+            tabableEls = getTabableElements(this.el);
+            if (!tabableEls.length) {
+                ev.preventDefault();
+                return;
+            }
+            if (!ev.shiftKey && ev.target === tabableEls[tabableEls.length - 1]) {
+                ev.preventDefault();
+                tabableEls[0].focus();
+            }
+            if (ev.shiftKey && ev.target === tabableEls[0]) {
+                ev.preventDefault();
+                tabableEls[tabableEls.length - 1].focus();
+            }
+        };
+        this.el.addEventListener("keydown", _onKeydown);
+        return () => {
+            this.el.removeEventListener("keydown", _onKeydown);
+            previouslyFocusedEl.focus();
+        };
     },
 
     //--------------------------------------------------------------------------
@@ -184,12 +233,16 @@ const PopupWidget = publicWidget.Widget.extend({
      */
     _onHideModal: function () {
         const nbDays = this.$el.find('.modal').data('consentsDuration');
-        utils.set_cookie(this.$el.attr('id'), true, nbDays * 24 * 60 * 60);
+        setCookie(this.el.id, this.cookieValue, nbDays * 24 * 60 * 60, 'required');
         this._popupAlreadyShown = true;
 
         this.$target.find('.media_iframe_video iframe').each((i, iframe) => {
             iframe.src = '';
         });
+        this.releaseFocus && this.releaseFocus();
+        // Reset to avoid calling it twice. It may happen with cookie bars or in
+        // the destroy.
+        this.releaseFocus = null;
     },
     /**
      * @private
@@ -204,25 +257,117 @@ const PopupWidget = publicWidget.Widget.extend({
 
 publicWidget.registry.popup = PopupWidget;
 
-publicWidget.registry.cookies_bar = PopupWidget.extend({
-    selector: "#website_cookies_bar",
+const noBackdropPopupWidget = publicWidget.Widget.extend({
+    selector: '.s_popup_no_backdrop',
+    disabledInEditableMode: false,
+    events: {
+        'shown.bs.modal': '_onModalNoBackdropShown',
+        'hide.bs.modal': '_onModalNoBackdropHide',
+    },
 
     /**
      * @override
      */
     start() {
-        const policyLinkEl = this.el.querySelector(".o_cookies_bar_text_policy");
-        if (policyLinkEl && window.location.pathname === new URL(policyLinkEl.href).pathname) {
-            this.toggleEl = cloneContentEls(`
-            <button class="o_cookies_bar_toggle btn btn-info btn-sm rounded-circle d-flex align-items-center justify-content-center position-absolute">
-                <i class="fa fa-eye" alt="" aria-hidden="true"></i> <span class="o_cookies_bar_toggle_label"></span>
-            </button>
-            `).firstElementChild;
-            this._onToggleCookiesBar = this._toggleCookiesBar.bind(this);
-            this.toggleEl.addEventListener("click", this._onToggleCookiesBar);
+        this.throttledUpdateScrollbar = _.throttle(() => this._updateScrollbar(), 25);
+        if (this.editableMode && this.el.classList.contains('show')) {
+            // Use case: When the "Backdrop" option is disabled in edit mode.
+            // The page scrollbar must be adjusted and events must be added.
+            this._updateScrollbar();
+            this._addModalNoBackdropEvents();
         }
         return this._super(...arguments);
     },
+    /**
+     * @override
+     */
+    destroy() {
+        this._super(...arguments);
+        this._removeModalNoBackdropEvents();
+        // After destroying the widget, we need to trigger a resize event so that
+        // the scrollbar can adjust to its default behavior.
+        window.dispatchEvent(new Event('resize'));
+    },
+
+    //--------------------------------------------------------------------------
+    // Private
+    //--------------------------------------------------------------------------
+
+    /**
+     * @private
+     */
+    _updateScrollbar() {
+        // When there is no backdrop the element with the scrollbar is
+        // '.modal-content' (see comments in CSS).
+        const modalContent = this.el.querySelector('.modal-content');
+        const isOverflowing = dom.hasScrollableContent(modalContent);
+        const modalInstance = window.Modal.getInstance(this.el);
+        if (isOverflowing) {
+            // If the "no-backdrop" modal has a scrollbar, the page's scrollbar
+            // must be hidden. This is because if the two scrollbars overlap, it
+            // is no longer possible to scroll using the modal's scrollbar.
+            modalInstance._adjustDialog();
+        } else {
+            // If the "no-backdrop" modal does not have a scrollbar, the page
+            // scrollbar must be displayed because we must be able to scroll the
+            // page (e.g. a "cookies bar" popup at the bottom of the page must
+            // not prevent scrolling the page).
+            modalInstance._resetAdjustments();
+        }
+    },
+    /**
+     * @private
+     */
+    _addModalNoBackdropEvents() {
+        window.addEventListener('resize', this.throttledUpdateScrollbar);
+        this.resizeObserver = new window.ResizeObserver(() => {
+            // When the size of the modal changes, the scrollbar needs to be
+            // adjusted.
+            this._updateScrollbar();
+        });
+        this.resizeObserver.observe(this.el.querySelector('.modal-content'));
+    },
+    /**
+     * @private
+     */
+    _removeModalNoBackdropEvents() {
+        window.removeEventListener('resize', this.throttledUpdateScrollbar);
+        if (this.resizeObserver) {
+            this.resizeObserver.disconnect();
+            delete this.resizeObserver;
+        }
+    },
+
+    //--------------------------------------------------------------------------
+    // Handlers
+    //--------------------------------------------------------------------------
+
+    /**
+     * @private
+     */
+    _onModalNoBackdropShown() {
+        this._updateScrollbar();
+        this._addModalNoBackdropEvents();
+    },
+    /**
+     * @private
+     */
+    _onModalNoBackdropHide() {
+        this._removeModalNoBackdropEvents();
+    },
+});
+
+publicWidget.registry.noBackdropPopup = noBackdropPopupWidget;
+
+// Extending the popup widget with cookiebar functionality.
+// This allows for refusing optional cookies for now and can be
+// extended to picking which cookies categories are accepted.
+publicWidget.registry.cookies_bar = PopupWidget.extend({
+    selector: '#website_cookies_bar',
+    events: Object.assign({}, PopupWidget.prototype.events, {
+        'click #cookies-consent-essential, #cookies-consent-all': '_onAcceptClick',
+    }),
+
     /**
      * @override
      */
@@ -243,8 +388,17 @@ publicWidget.registry.cookies_bar = PopupWidget.extend({
      */
     _showPopup() {
         this._super(...arguments);
-        if (this.toggleEl) {
+        const policyLinkEl = this.el.querySelector(".o_cookies_bar_text_policy");
+        if (policyLinkEl && window.location.pathname === new URL(policyLinkEl.href).pathname) {
+            this.toggleEl = cloneContentEls(`
+            <button class="o_cookies_bar_toggle btn btn-info btn-sm rounded-circle d-flex align-items-center position-fixed pe-auto">
+                <i class="fa fa-eye" alt="" aria-hidden="true"></i> <span class="o_cookies_bar_toggle_label"></span>
+            </button>
+            `).firstElementChild;
+            this.el.insertAdjacentElement("beforebegin", this.toggleEl);
             this._toggleCookiesBar();
+            this._onToggleCookiesBar = this._toggleCookiesBar.bind(this);
+            this.toggleEl.addEventListener("click", this._onToggleCookiesBar);
         }
     },
     /**
@@ -258,107 +412,70 @@ publicWidget.registry.cookies_bar = PopupWidget.extend({
         // As we're using Bootstrap's events, the PopupWidget prevents the modal
         // from being shown after hiding it: override that behavior.
         this._popupAlreadyShown = false;
-        utils.set_cookie(this.el.id, false, -1);
+        deleteCookie(this.el.id);
 
         const hidden = !popupEl.classList.contains("show");
-        // Keep a margin with the bottom of the page (if the modal is hidden) or
-        // with the modal (if it is shown).
-        const insetBlock = hidden ? "1rem" : `calc(-1*(${this.toggleEl.offsetHeight}px + .5rem))`;
-        (hidden ? document.body : this.el.querySelector(".modal-content"))
-            .appendChild(this.toggleEl);
         this.toggleEl.querySelector(".fa").className = `fa ${hidden ? "fa-eye" : "fa-eye-slash"}`;
         this.toggleEl.querySelector(".o_cookies_bar_toggle_label").innerText = hidden
             ? _t("Show the cookies bar")
             : _t("Hide the cookies bar");
-        this.toggleEl.style.insetInlineEnd = hidden || this.el.querySelector(".s_popup_size_full")
-            ? "1rem"
-            : "0";
-        this.toggleEl.style.insetBlock = !hidden && popupEl.classList.contains("s_popup_bottom")
-            ? `${insetBlock} auto`
-            : `auto ${insetBlock}`;
-    },
-});
-
-// Try to update the scrollbar based on the current context (modal state)
-// and only if the modal overflowing has changed
-
-function _updateScrollbar(ev) {
-    const context = ev.data;
-    const isOverflowing = dom.hasScrollableContent(context._element);
-    if (context._isOverflowingWindow !== isOverflowing) {
-        context._isOverflowingWindow = isOverflowing;
-        context._checkScrollbar();
-        context._setScrollbar();
-        if (isOverflowing) {
-            document.body.classList.add('modal-open');
+        if (hidden || !popupEl.classList.contains("s_popup_bottom")) {
+            this.toggleEl.style.removeProperty("--cookies-bar-toggle-inset-block-end");
         } else {
-            document.body.classList.remove('modal-open');
-            context._resetScrollbar();
+            // Lazy-loaded images don't have a height yet. We need to await them
+            onceAllImagesLoaded($(popupEl)).then(() => {
+                const popupHeight = popupEl.querySelector(".modal-content").offsetHeight;
+                const toggleMargin = 8;
+                // Avoid having the toggleEl over another button, but if the
+                // cookies bar is too tall, place it at the bottom anyway.
+                const bottom = document.body.offsetHeight > popupHeight + this.toggleEl.offsetHeight + toggleMargin
+                    ? `calc(
+                        ${getComputedStyle(popupEl.querySelector(".modal-dialog")).paddingBottom}
+                        + ${popupHeight + toggleMargin}px
+                    )`
+                    : "";
+                this.toggleEl.style.setProperty("--cookies-bar-toggle-inset-block-end", bottom);
+            });
         }
-    }
-}
+    },
 
-// Prevent bootstrap to prevent scrolling and to add the strange body
-// padding-right they add if the popup does not use a backdrop (especially
-// important for default cookie bar).
+    //--------------------------------------------------------------------------
+    // Handlers
+    //--------------------------------------------------------------------------
 
-const _baseShowElement = $.fn.modal.Constructor.prototype._showElement;
-$.fn.modal.Constructor.prototype._showElement = function () {
-    _baseShowElement.apply(this, arguments);
-
-    if (this._element.classList.contains('s_popup_no_backdrop')) {
-        // Update the scrollbar if the content changes or if the window has been
-        // resized. Note this could technically be done for all modals and not
-        // only the ones with the s_popup_no_backdrop class but that would be
-        // useless as allowing content scroll while a modal with that class is
-        // opened is a very specific Odoo behavior.
-        $(this._element).on('content_changed.update_scrollbar', this, _updateScrollbar);
-        $(window).on('resize.update_scrollbar', this, _updateScrollbar);
-
-        this._odooLoadEventCaptureHandler = _.debounce(() => _updateScrollbar({ data: this }, 100));
-        this._element.addEventListener('load', this._odooLoadEventCaptureHandler, true);
-
-        _updateScrollbar({ data: this });
-    }
-};
-
-const _baseHideModal = $.fn.modal.Constructor.prototype._hideModal;
-$.fn.modal.Constructor.prototype._hideModal = function () {
-    _baseHideModal.apply(this, arguments);
-
-    // Note: do this in all cases, not only for popup with the
-    // s_popup_no_backdrop class, as the modal may have lost that class during
-    // edition before being closed.
-    this._element.classList.remove('s_popup_overflow_page');
-
-    $(this._element).off('content_changed.update_scrollbar');
-    $(window).off('resize.update_scrollbar');
-
-    if (this._odooLoadEventCaptureHandler) {
-        this._element.removeEventListener('load', this._odooLoadEventCaptureHandler, true);
-        delete this._odooLoadEventCaptureHandler;
-    }
-};
-
-const _baseSetScrollbar = $.fn.modal.Constructor.prototype._setScrollbar;
-$.fn.modal.Constructor.prototype._setScrollbar = function () {
-    if (this._element.classList.contains('s_popup_no_backdrop')) {
-        this._element.classList.toggle('s_popup_overflow_page', !!this._isOverflowingWindow);
-
-        if (!this._isOverflowingWindow) {
-            return;
+    /**
+     * @private
+     * @param ev
+     */
+    _onAcceptClick(ev) {
+        const isFullConsent = ev.target.id === "cookies-consent-all";
+        this.cookieValue = `{"required": true, "optional": ${isFullConsent}}`;
+        if (isFullConsent) {
+            document.dispatchEvent(new Event("optionalCookiesAccepted"));
         }
+        this._onHideModal();
+        this.toggleEl && this.toggleEl.remove();
+    },
+    /**
+     * @override
+     */
+    _onHideModal() {
+        this._super(...arguments);
+        const params = new URLSearchParams(window.location.search);
+        const trackingFields = {
+            utm_campaign: "odoo_utm_campaign",
+            utm_source: "odoo_utm_source",
+            utm_medium: "odoo_utm_medium",
+        };
+        for (const [key, value] of params) {
+            if (key in trackingFields) {
+                // Using same cookie expiration value as in python side
+                setCookie(trackingFields[key], value, 31 * 24 * 60 * 60, "optional");
+            }
+        }
+        setUtmsHtmlDataset();
     }
-    return _baseSetScrollbar.apply(this, arguments);
-};
-
-const _baseGetScrollbarWidth = $.fn.modal.Constructor.prototype._getScrollbarWidth;
-$.fn.modal.Constructor.prototype._getScrollbarWidth = function () {
-    if (this._element.classList.contains('s_popup_no_backdrop') && !this._isOverflowingWindow) {
-        return 0;
-    }
-    return _baseGetScrollbarWidth.apply(this, arguments);
-};
+});
 
 return PopupWidget;
 });

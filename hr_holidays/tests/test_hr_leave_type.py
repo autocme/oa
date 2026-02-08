@@ -55,13 +55,13 @@ class TestHrLeaveType(TestHrHolidaysCommon):
         employee = self.env['hr.employee'].create({'name': 'Test Employee'})
         leave_type = self.env['hr.leave.type'].create({'name': 'Test Leave'})
 
-        self.env['hr.leave.allocation'].create({
-            'state': 'validate',
+        self.env['hr.leave.allocation'].sudo().create({
+            'state': 'confirm',
             'holiday_status_id': leave_type.id,
             'employee_id': employee.id,
             'date_from': '2024-08-19',
             'date_to': '2024-08-20',
-        })
+        }).action_validate()
 
         leave_types = self.env['hr.leave.type'].with_context(
             default_date_from='2024-08-20 21:00:00',

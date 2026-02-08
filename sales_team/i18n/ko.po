@@ -3,21 +3,18 @@
 # 	* sales_team
 # 
 # Translators:
-# Martin Trigaux, 2021
-# Goh Gangtai <gangtai.goh@gmail.com>, 2021
-# JH CHOI <hwangtog@gmail.com>, 2021
-# Link Up링크업 <linkup.way@gmail.com>, 2021
-# Linkup <link-up@naver.com>, 2021
-# Heesoo Choi, 2021
-# Sarah Park, 2023
+# Heesoo Choi, 2022
+# Martin Trigaux, 2022
+# Daye Jeong, 2023
+# Sarah Park, 2025
 # 
 msgid ""
 msgstr ""
-"Project-Id-Version: Odoo Server saas~14.5\n"
+"Project-Id-Version: Odoo Server 16.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2021-09-14 10:29+0000\n"
-"PO-Revision-Date: 2021-09-14 12:26+0000\n"
-"Last-Translator: Sarah Park, 2023\n"
+"POT-Creation-Date: 2025-02-10 08:27+0000\n"
+"PO-Revision-Date: 2022-09-22 05:55+0000\n"
+"Last-Translator: Sarah Park, 2025\n"
 "Language-Team: Korean (https://app.transifex.com/odoo/teams/41243/ko/)\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
@@ -33,13 +30,13 @@ msgstr "<i class=\"fa fa-ellipsis-v\" role=\"img\" aria-label=\"Manage\" title=\
 #. module: sales_team
 #: model_terms:ir.ui.view,arch_db:sales_team.crm_team_member_view_kanban
 #: model_terms:ir.ui.view,arch_db:sales_team.crm_team_view_form
-msgid "<i class=\"fa fa-envelope mr-1\" role=\"img\" aria-label=\"Email\" title=\"Email\"/>"
-msgstr ""
+msgid "<i class=\"fa fa-envelope me-1\" role=\"img\" aria-label=\"Email\" title=\"Email\"/>"
+msgstr "<i class=\"fa fa-envelope me-1\" role=\"img\" aria-label=\"Email\" title=\"Email\"/>"
 
 #. module: sales_team
 #: model_terms:ir.ui.view,arch_db:sales_team.crm_team_member_view_kanban
-msgid "<span class=\"bg-error\">Archived</span>"
-msgstr ""
+msgid "<span class=\"bg-odoo\">Archived</span>"
+msgstr "<span class=\"bg-odoo\">보관</span>"
 
 #. module: sales_team
 #: model_terms:ir.ui.view,arch_db:sales_team.crm_team_view_kanban_dashboard
@@ -74,12 +71,18 @@ msgid "Activity Types"
 msgstr "활동 유형"
 
 #. module: sales_team
+#: model_terms:ir.actions.act_window,help:sales_team.crm_team_member_action
+msgid "Add a Team Member"
+msgstr "팀원 추가"
+
+#. module: sales_team
 #: model:ir.model.fields,help:sales_team.field_crm_team__crm_team_member_ids
 msgid ""
 "Add members to automatically assign their documents to this sales team."
 msgstr "영업팀에 문서를 자동으로 배정하려면 팀원을 추가하십시오."
 
 #. module: sales_team
+#. odoo-python
 #: code:addons/sales_team/models/crm_team.py:0
 #, python-format
 msgid ""
@@ -88,6 +91,7 @@ msgid ""
 msgstr "%(user_name)s을(를) 이 팀에 추가하면 현재 소속팀인 %(team_name)s에서는 제거됩니다."
 
 #. module: sales_team
+#. odoo-python
 #: code:addons/sales_team/models/crm_team_member.py:0
 #, python-format
 msgid ""
@@ -96,6 +100,7 @@ msgid ""
 msgstr "%(user_name)s을(를) 이 팀에 추가하면 현재 소속팀인 %(team_names)s에서는 제거됩니다."
 
 #. module: sales_team
+#. odoo-python
 #: code:addons/sales_team/models/crm_team.py:0
 #, python-format
 msgid ""
@@ -129,6 +134,7 @@ msgid "Avatar"
 msgstr "아바타"
 
 #. module: sales_team
+#. odoo-python
 #: code:addons/sales_team/models/crm_team.py:0
 #, python-format
 msgid "Big Pretty Button :)"
@@ -140,6 +146,7 @@ msgid "CRM Tag"
 msgstr "CRM 태그"
 
 #. module: sales_team
+#. odoo-python
 #: code:addons/sales_team/models/crm_team.py:0
 #, python-format
 msgid "Cannot delete default team \"%s\""
@@ -186,11 +193,6 @@ msgstr "CRM 태그 만들기"
 #: model_terms:ir.actions.act_window,help:sales_team.crm_team_action_config
 msgid "Create a Sales Team"
 msgstr "영업부 추가"
-
-#. module: sales_team
-#: model_terms:ir.actions.act_window,help:sales_team.crm_team_member_action
-msgid "Create a new salesman"
-msgstr "영업담당자 만들기"
 
 #. module: sales_team
 #: model_terms:ir.actions.act_window,help:sales_team.mail_activity_type_action_config_sales
@@ -312,9 +314,7 @@ msgstr "해당하는 경우 사용자는 여러 개의 영업팀에 속할 수 �
 
 #. module: sales_team
 #: model:ir.model.fields,help:sales_team.field_crm_team__message_needaction
-#: model:ir.model.fields,help:sales_team.field_crm_team__message_unread
 #: model:ir.model.fields,help:sales_team.field_crm_team_member__message_needaction
-#: model:ir.model.fields,help:sales_team.field_crm_team_member__message_unread
 msgid "If checked, new messages require your attention."
 msgstr "만약 선택하였으면, 신규 메시지에 주의를 기울여야 합니다."
 
@@ -380,13 +380,6 @@ msgstr "최근 갱신한 사람"
 #: model:ir.model.fields,field_description:sales_team.field_crm_team_member__write_date
 msgid "Last Updated on"
 msgstr "최근 갱신 일자"
-
-#. module: sales_team
-#: model_terms:ir.actions.act_window,help:sales_team.crm_team_member_action
-msgid ""
-"Link salespersons to sales teams. Set their monthly lead capacity\n"
-"                and configure automatic lead assignment."
-msgstr ""
 
 #. module: sales_team
 #: model:ir.model.fields,field_description:sales_team.field_crm_team__message_main_attachment_id
@@ -465,7 +458,7 @@ msgstr "오류 횟수"
 #. module: sales_team
 #: model:ir.model.fields,help:sales_team.field_crm_team__message_needaction_counter
 #: model:ir.model.fields,help:sales_team.field_crm_team_member__message_needaction_counter
-msgid "Number of messages which requires an action"
+msgid "Number of messages requiring action"
 msgstr "조치가 필요한 메시지 수"
 
 #. module: sales_team
@@ -473,12 +466,6 @@ msgstr "조치가 필요한 메시지 수"
 #: model:ir.model.fields,help:sales_team.field_crm_team_member__message_has_error_counter
 msgid "Number of messages with delivery error"
 msgstr "전송 오류 메시지 수"
-
-#. module: sales_team
-#: model:ir.model.fields,help:sales_team.field_crm_team__message_unread_counter
-#: model:ir.model.fields,help:sales_team.field_crm_team_member__message_unread_counter
-msgid "Number of unread messages"
-msgstr "읽지 않은 메시지 수"
 
 #. module: sales_team
 #: model:crm.tag,name:sales_team.categ_oppor8
@@ -559,12 +546,12 @@ msgstr "영업팀"
 #. module: sales_team
 #: model:ir.model.fields,field_description:sales_team.field_crm_team_member__user_id
 msgid "Salesperson"
-msgstr "영업사원"
+msgstr "영업 담당자"
 
 #. module: sales_team
 #: model:ir.model.fields,field_description:sales_team.field_crm_team__member_ids
 msgid "Salespersons"
-msgstr "영업담당자"
+msgstr "영업 담당자"
 
 #. module: sales_team
 #: model_terms:ir.ui.view,arch_db:sales_team.crm_team_view_search
@@ -572,6 +559,7 @@ msgid "Salesteams Search"
 msgstr "영업팀 검색"
 
 #. module: sales_team
+#. odoo-python
 #: code:addons/sales_team/models/crm_team.py:0
 #, python-format
 msgid "Sample data"
@@ -631,6 +619,11 @@ msgid "Team Members"
 msgstr "팀 구성원"
 
 #. module: sales_team
+#: model_terms:ir.actions.act_window,help:sales_team.crm_team_member_action
+msgid "Team Members are salespersons assigned to specific teams."
+msgstr "팀 멤버는 특정 팀에 소속된 영업사원을 말합니다."
+
+#. module: sales_team
 #: model:ir.actions.act_window,name:sales_team.crm_team_action_pipeline
 msgid "Teams"
 msgstr "팀"
@@ -653,6 +646,7 @@ msgid ""
 msgstr "이는 수행 작업을 다양한 카테고리로 분류한 것입니다 (예: '전화'나 '회의 준비')."
 
 #. module: sales_team
+#. odoo-python
 #: code:addons/sales_team/models/crm_team.py:0
 #, python-format
 msgid ""
@@ -678,23 +672,12 @@ msgid "UX: Limit to team company or all if no company"
 msgstr "UX: 팀이 속한 회사로 제한하거나 회사가 없는 경우 전체 회사로 둡니다"
 
 #. module: sales_team
+#. odoo-python
 #: code:addons/sales_team/models/crm_team.py:0
 #: code:addons/sales_team/models/crm_team.py:0
 #, python-format
 msgid "Undefined graph model for Sales Team: %s"
 msgstr "영업팀에 대한 정의되지 않은 그래프 모델 : %s"
-
-#. module: sales_team
-#: model:ir.model.fields,field_description:sales_team.field_crm_team__message_unread
-#: model:ir.model.fields,field_description:sales_team.field_crm_team_member__message_unread
-msgid "Unread Messages"
-msgstr "읽지 않은 메세지"
-
-#. module: sales_team
-#: model:ir.model.fields,field_description:sales_team.field_crm_team__message_unread_counter
-#: model:ir.model.fields,field_description:sales_team.field_crm_team_member__message_unread_counter
-msgid "Unread Messages Counter"
-msgstr "읽지 않은 메세지 수"
 
 #. module: sales_team
 #: model_terms:ir.actions.act_window,help:sales_team.crm_team_action_config
@@ -718,6 +701,11 @@ msgid ""
 "Use Tags to manage and track your Opportunities (product structure, sales "
 "type, ...)"
 msgstr "태그를 사용하여 영업기회를 관리하고 추적하십시오 (품목의 구조나 판매 유형 등)"
+
+#. module: sales_team
+#: model:ir.model,name:sales_team.model_res_users
+msgid "User"
+msgstr "사용자"
 
 #. module: sales_team
 #: model:ir.model.fields,field_description:sales_team.field_crm_team_member__user_company_ids
@@ -745,11 +733,6 @@ msgid "User: Own Documents Only"
 msgstr "사용자 : 자신의 문서만"
 
 #. module: sales_team
-#: model:ir.model,name:sales_team.model_res_users
-msgid "Users"
-msgstr "사용자"
-
-#. module: sales_team
 #: model:ir.model.fields,help:sales_team.field_crm_team__member_ids
 msgid "Users assigned to this team."
 msgstr "이 팀에 소속되어 있는 사용자입니다. "
@@ -760,6 +743,7 @@ msgid "Website"
 msgstr "웹사이트"
 
 #. module: sales_team
+#. odoo-python
 #: code:addons/sales_team/models/crm_team_member.py:0
 #, python-format
 msgid ""

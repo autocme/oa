@@ -13,22 +13,19 @@ class PosPaymentMethod(models.Model):
     name = fields.Char(string="Method", required=True, translate=True, help='Defines the name of the payment method that will be displayed in the Point of Sale when the payments are selected.')
     outstanding_account_id = fields.Many2one('account.account',
         string='Outstanding Account',
-        check_company=True,
         ondelete='restrict',
         help='Leave empty to use the default account from the company setting.\n'
              'Account used as outstanding account when creating accounting payment records for bank payments.')
     receivable_account_id = fields.Many2one('account.account',
         string='Intermediary Account',
-        check_company=True,
         ondelete='restrict',
-        domain="[('reconcile', '=', True), ('user_type_id.type', '=', 'receivable'), ('company_id', '=', company_id)]",
+        domain=[('reconcile', '=', True), ('account_type', '=', 'asset_receivable')],
         help="Leave empty to use the default account from the company setting.\n"
              "Overrides the company's receivable account (for Point of Sale) used in the journal entries.")
     is_cash_count = fields.Boolean(string='Cash', compute="_compute_is_cash_count", store=True)
     journal_id = fields.Many2one('account.journal',
         string='Journal',
-        check_company=True,
-        domain="[('type', 'in', ('cash', 'bank')), ('company_id', '=', company_id)]",
+        domain=[('type', 'in', ('cash', 'bank'))],
         ondelete='restrict',
         help='Leave empty to use the receivable account of customer.\n'
              'Defines the journal where to book the accumulated payments (or individual payment if Identify Customer is true) after closing the session.\n'
@@ -41,10 +38,10 @@ class PosPaymentMethod(models.Model):
         help='Forces to set a customer when using this payment method and splits the journal entries for each customer. It could slow down the closing process.')
     open_session_ids = fields.Many2many('pos.session', string='Pos Sessions', compute='_compute_open_session_ids', help='Open PoS sessions that are using this payment method.')
     config_ids = fields.Many2many('pos.config', string='Point of Sale Configurations')
-    company_id = fields.Many2one('res.company', string='Company', default=lambda self: self.env.company, required=True)
+    company_id = fields.Many2one('res.company', string='Company', default=lambda self: self.env.company)
     use_payment_terminal = fields.Selection(selection=lambda self: self._get_payment_terminal_selection(), string='Use a Payment Terminal', help='Record payments with a terminal on this journal.')
-    hide_use_payment_terminal = fields.Boolean(compute='_compute_hide_use_payment_terminal', help='Technical field which is used to '
-                                               'hide use_payment_terminal when no payment interfaces are installed.')
+    # used to hide use_payment_terminal when no payment interfaces are installed
+    hide_use_payment_terminal = fields.Boolean(compute='_compute_hide_use_payment_terminal')
     active = fields.Boolean(default=True)
     type = fields.Selection(selection=[('cash', 'Cash'), ('bank', 'Bank'), ('pay_later', 'Customer Account')], compute="_compute_type")
 
@@ -90,6 +87,10 @@ class PosPaymentMethod(models.Model):
 
     def write(self, vals):
         if self._is_write_forbidden(set(vals.keys())):
-            raise UserError('Please close and validate the following open PoS Sessions before modifying this payment method.\n'
-                            'Open sessions: %s' % (' '.join(self.open_session_ids.mapped('name')),))
+            raise UserError(_('Please close and validate the following open PoS Sessions before modifying this payment method.\n'
+                            'Open sessions: %s', (' '.join(self.open_session_ids.mapped('name')),)))
         return super(PosPaymentMethod, self).write(vals)
+
+    def copy(self, default=None):
+        default = dict(default or {}, config_ids=[(5, 0, 0)])
+        return super().copy(default)

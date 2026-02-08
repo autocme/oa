@@ -23,7 +23,7 @@ SAMPLES = [
 
 ]
 
-@tagged('res_partner')
+@tagged('res_partner', 'mail_tools')
 class TestPartner(MailCommon):
 
     def _check_find_or_create(self, test_string, expected_name, expected_email, expected_email_normalized=False, check_partner=False, should_create=False):
@@ -38,6 +38,7 @@ class TestPartner(MailCommon):
         self.assertEqual(partner.email_normalized or '', expected_email_normalized)
         return partner
 
+    @users('admin')
     def test_res_partner_find_or_create(self):
         Partner = self.env['res.partner']
 
@@ -99,50 +100,6 @@ class TestPartner(MailCommon):
 
         with self.assertRaises(ValueError):
             self.env['res.partner'].find_or_create("Raoul chirurgiens-dentistes.fr", assert_valid_email=True)
-
-    def test_res_partner_log_portal_group(self):
-        Users = self.env['res.users']
-        subtype_note = self.env.ref('mail.mt_note')
-        group_portal, group_user = self.env.ref('base.group_portal'), self.env.ref('base.group_user')
-
-        # check at update
-        new_user = Users.create({
-            'email': 'micheline@test.example.com',
-            'login': 'michmich',
-            'name': 'Micheline Employee',
-        })
-        self.assertEqual(len(new_user.message_ids), 1, 'Should contain Contact created log message')
-        new_msg = new_user.message_ids
-        self.assertNotIn('Portal Access Granted', new_msg.body)
-        self.assertIn('Contact created', new_msg.body)
-
-        new_user.write({'groups_id': [(4, group_portal.id), (3, group_user.id)]})
-        new_msg = new_user.message_ids[0]
-        self.assertIn('Portal Access Granted', new_msg.body)
-        self.assertEqual(new_msg.subtype_id, subtype_note)
-
-        # check at create
-        new_user = Users.create({
-            'email': 'micheline.2@test.example.com',
-            'groups_id': [(4, group_portal.id)],
-            'login': 'michmich.2',
-            'name': 'Micheline Portal',
-        })
-        self.assertEqual(len(new_user.message_ids), 2, 'Should contain Contact created + Portal access log messages')
-        new_msg = new_user.message_ids[0]
-        self.assertIn('Portal Access Granted', new_msg.body)
-        self.assertEqual(new_msg.subtype_id, subtype_note)
-
-    def test_res_partner_get_mention_suggestions_priority(self):
-        name = uuid4()  # unique name to avoid conflict with already existing users
-        self.env['res.partner'].create([{'name': f'{name}-{i}-not-user'} for i in range(0, 2)])
-        for i in range(0, 2):
-            mail_new_test_user(self.env, login=f'{name}-{i}-portal-user', groups='base.group_portal')
-            mail_new_test_user(self.env, login=f'{name}-{i}-internal-user', groups='base.group_user')
-        partners_format = self.env['res.partner'].get_mention_suggestions(name, limit=5)
-        self.assertEqual(len(partners_format), 5, "should have found limit (5) partners")
-        self.assertEqual(list(map(lambda p: p['is_internal_user'], partners_format)), [True, True, False, False, False], "should return internal users in priority")
-        self.assertEqual(list(map(lambda p: bool(p['user_id']), partners_format)), [True, True, True, True, False], "should return partners without users last")
 
     @users('admin')
     def test_res_partner_find_or_create_email(self):
@@ -219,6 +176,51 @@ class TestPartner(MailCommon):
                 self.assertEqual(partner.email, exp_email_partner)
                 if partner not in partners:
                     partner.unlink()  # do not mess with subsequent tests
+
+    def test_res_partner_get_mention_suggestions_priority(self):
+        name = uuid4()  # unique name to avoid conflict with already existing users
+        self.env['res.partner'].create([{'name': f'{name}-{i}-not-user'} for i in range(0, 2)])
+        for i in range(0, 2):
+            mail_new_test_user(self.env, login=f'{name}-{i}-portal-user', groups='base.group_portal')
+            mail_new_test_user(self.env, login=f'{name}-{i}-internal-user', groups='base.group_user')
+        partners_format = self.env['res.partner'].get_mention_suggestions(name, limit=5)
+        self.assertEqual(len(partners_format), 5, "should have found limit (5) partners")
+        # return format for user is either a dict (there is a user and the dict is data) or a list of command (clear)
+        self.assertEqual(list(map(lambda p: isinstance(p['user'], dict) and p['user']['isInternalUser'], partners_format)), [True, True, False, False, False], "should return internal users in priority")
+        self.assertEqual(list(map(lambda p: isinstance(p['user'], dict), partners_format)), [True, True, True, True, False], "should return partners without users last")
+
+    def test_res_partner_log_portal_group(self):
+        Users = self.env['res.users']
+        subtype_note = self.env.ref('mail.mt_note')
+        group_portal, group_user = self.env.ref('base.group_portal'), self.env.ref('base.group_user')
+
+        # check at update
+        new_user = Users.create({
+            'email': 'micheline@test.example.com',
+            'login': 'michmich',
+            'name': 'Micheline Employee',
+        })
+        self.assertEqual(len(new_user.message_ids), 1, 'Should contain Contact created log message')
+        new_msg = new_user.message_ids
+        self.assertNotIn('Portal Access Granted', new_msg.body)
+        self.assertIn('Contact created', new_msg.body)
+
+        new_user.write({'groups_id': [(4, group_portal.id), (3, group_user.id)]})
+        new_msg = new_user.message_ids[0]
+        self.assertIn('Portal Access Granted', new_msg.body)
+        self.assertEqual(new_msg.subtype_id, subtype_note)
+
+        # check at create
+        new_user = Users.create({
+            'email': 'micheline.2@test.example.com',
+            'groups_id': [(4, group_portal.id)],
+            'login': 'michmich.2',
+            'name': 'Micheline Portal',
+        })
+        self.assertEqual(len(new_user.message_ids), 2, 'Should contain Contact created + Portal access log messages')
+        new_msg = new_user.message_ids[0]
+        self.assertIn('Portal Access Granted', new_msg.body)
+        self.assertEqual(new_msg.subtype_id, subtype_note)
 
     @users('admin')
     def test_res_partner_merge_wizards(self):

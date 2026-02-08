@@ -3,17 +3,16 @@
 # 	* google_gmail
 # 
 # Translators:
-# Hamid Darabi, 2022
-# Hamed Mohammadi <hamed@dehongi.com>, 2022
-# Mohsen Mohammadi <iammohsen.123@gmail.com>, 2023
+# Hamed Mohammadi <hamed@dehongi.com>, 2023
+# Hamid Darabi, 2023
 # Mostafa Barmshory <mostafa.barmshory@gmail.com>, 2024
 # 
 msgid ""
 msgstr ""
-"Project-Id-Version: Odoo Server 15.0\n"
+"Project-Id-Version: Odoo Server 16.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-08-14 15:43+0000\n"
-"PO-Revision-Date: 2022-03-03 13:58+0000\n"
+"POT-Creation-Date: 2024-02-06 13:31+0000\n"
+"PO-Revision-Date: 2022-09-22 05:46+0000\n"
 "Last-Translator: Mostafa Barmshory <mostafa.barmshory@gmail.com>, 2024\n"
 "Language-Team: Persian (https://app.transifex.com/odoo/teams/41243/fa/)\n"
 "MIME-Version: 1.0\n"
@@ -23,6 +22,7 @@ msgstr ""
 "Plural-Forms: nplurals=2; plural=(n > 1);\n"
 
 #. module: google_gmail
+#: model_terms:ir.ui.view,arch_db:google_gmail.fetchmail_server_view_form
 #: model_terms:ir.ui.view,arch_db:google_gmail.ir_mail_server_view_form
 msgid ""
 "<i class=\"fa fa-arrow-right\"/>\n"
@@ -30,67 +30,67 @@ msgid ""
 msgstr ""
 
 #. module: google_gmail
+#: model_terms:ir.ui.view,arch_db:google_gmail.fetchmail_server_view_form
 #: model_terms:ir.ui.view,arch_db:google_gmail.ir_mail_server_view_form
-msgid ""
-"<i class=\"fa fa-cog\"/>\n"
-"                        Edit Settings"
-msgstr ""
-"<i class=\"fa fa-cog\"/>\n"
-"                        اصلاح تنظیمات"
+msgid "<i class=\"fa fa-cog\" title=\"Edit Settings\"/>"
+msgstr "<i class=\"fa fa-cog\" title=\"ویرایش تنظیمات\"/>"
 
 #. module: google_gmail
-#: model_terms:ir.ui.view,arch_db:google_gmail.ir_mail_server_view_form
+#: model_terms:ir.ui.view,arch_db:google_gmail.fetchmail_server_view_form
 msgid ""
-"<span attrs=\"{'invisible': ['|', ('use_google_gmail_service', '=', False), ('google_gmail_refresh_token', '=', False)]}\" class=\"badge badge-success\">\n"
+"<span attrs=\"{'invisible': ['|', ('server_type', '!=', 'gmail'), ('google_gmail_refresh_token', '=', False)]}\" class=\"badge text-bg-success\">\n"
 "                        Gmail Token Valid\n"
 "                    </span>"
 msgstr ""
 
 #. module: google_gmail
-#: model_terms:ir.ui.view,arch_db:google_gmail.res_config_settings_view_form
-msgid "<span class=\"o_form_label\">Gmail Credentials</span>"
+#: model_terms:ir.ui.view,arch_db:google_gmail.ir_mail_server_view_form
+msgid ""
+"<span attrs=\"{'invisible': ['|', ('smtp_authentication', '!=', 'gmail'), ('google_gmail_refresh_token', '=', False)]}\" class=\"badge text-bg-success\">\n"
+"                        Gmail Token Valid\n"
+"                    </span>"
 msgstr ""
 
 #. module: google_gmail
+#: model:ir.model.fields,field_description:google_gmail.field_fetchmail_server__google_gmail_access_token
 #: model:ir.model.fields,field_description:google_gmail.field_google_gmail_mixin__google_gmail_access_token
 #: model:ir.model.fields,field_description:google_gmail.field_ir_mail_server__google_gmail_access_token
 msgid "Access Token"
 msgstr "توکن دسترسی"
 
 #. module: google_gmail
+#: model:ir.model.fields,field_description:google_gmail.field_fetchmail_server__google_gmail_access_token_expiration
 #: model:ir.model.fields,field_description:google_gmail.field_google_gmail_mixin__google_gmail_access_token_expiration
 #: model:ir.model.fields,field_description:google_gmail.field_ir_mail_server__google_gmail_access_token_expiration
 msgid "Access Token Expiration Timestamp"
-msgstr ""
+msgstr "انقضای زمان دسترسی به نشان زمان"
 
 #. module: google_gmail
+#. odoo-python
 #: code:addons/google_gmail/controllers/main.py:0
 #: code:addons/google_gmail/controllers/main.py:0
 #, python-format
 msgid "An error occur during the authentication process."
-msgstr ""
+msgstr "یک خطا در طول فرآیند احراز هویت رخ داده است."
 
 #. module: google_gmail
+#. odoo-python
 #: code:addons/google_gmail/models/google_gmail_mixin.py:0
 #, python-format
 msgid "An error occurred when fetching the access token."
-msgstr ""
+msgstr "هنگام دریافت توکن دسترسی خطایی رخ داد."
 
 #. module: google_gmail
+#: model:ir.model.fields,field_description:google_gmail.field_ir_mail_server__smtp_authentication
+msgid "Authenticate with"
+msgstr "با استفاده از <b>پذیرش اعتبار</b>"
+
+#. module: google_gmail
+#: model:ir.model.fields,field_description:google_gmail.field_fetchmail_server__google_gmail_authorization_code
 #: model:ir.model.fields,field_description:google_gmail.field_google_gmail_mixin__google_gmail_authorization_code
 #: model:ir.model.fields,field_description:google_gmail.field_ir_mail_server__google_gmail_authorization_code
 msgid "Authorization Code"
-msgstr ""
-
-#. module: google_gmail
-#: model_terms:ir.ui.view,arch_db:google_gmail.res_config_settings_view_form
-msgid "Client ID"
-msgstr "شناسه مشتری"
-
-#. module: google_gmail
-#: model_terms:ir.ui.view,arch_db:google_gmail.res_config_settings_view_form
-msgid "Client Secret"
-msgstr "رمز کلاینت"
+msgstr "کد مجوز"
 
 #. module: google_gmail
 #: model:ir.model,name:google_gmail.model_res_config_settings
@@ -98,30 +98,73 @@ msgid "Config Settings"
 msgstr "تنظیمات پیکربندی"
 
 #. module: google_gmail
-#: model_terms:ir.ui.view,arch_db:google_gmail.ir_mail_server_view_form
-msgid "Gmail"
+#. odoo-python
+#: code:addons/google_gmail/models/fetchmail_server.py:0
+#, python-format
+msgid ""
+"Connect your Gmail account with the OAuth Authentication process. \n"
+"You will be redirected to the Gmail login page where you will need to accept the permission."
 msgstr ""
+"اتصال حساب Gmail خود را با فرآیند احراز هویت OAuth برقرار کنید.\n"
+"شما به صفحه ورود Gmail هدایت خواهید شد، جایی که باید مجوز را بپذیرید."
 
 #. module: google_gmail
-#: model:ir.model.fields,field_description:google_gmail.field_google_gmail_mixin__use_google_gmail_service
-#: model:ir.model.fields,field_description:google_gmail.field_ir_mail_server__use_google_gmail_service
-msgid "Gmail Authentication"
+#. odoo-python
+#: code:addons/google_gmail/models/ir_mail_server.py:0
+#, python-format
+msgid ""
+"Connect your Gmail account with the OAuth Authentication process.  \n"
+"By default, only a user with a matching email address will be able to use this server. To extend its use, you should set a \"mail.default.from\" system parameter."
 msgstr ""
+"اتصال حساب جیمیل خود را با فرآیند احراز هویت OAuth برقرار کنید.  \n"
+"به طور پیش‌فرض، تنها کاربری با آدرس ایمیل مشابه قادر خواهد بود از این سرور استفاده کند. برای گسترش استفاده از آن، باید یک پارامتر سیستم \"mail.default.from\" تنظیم کنید."
 
 #. module: google_gmail
 #: model:ir.model.fields,field_description:google_gmail.field_res_config_settings__google_gmail_client_identifier
 msgid "Gmail Client Id"
-msgstr ""
+msgstr "شناسه مشتری جیمیل"
 
 #. module: google_gmail
 #: model:ir.model.fields,field_description:google_gmail.field_res_config_settings__google_gmail_client_secret
 msgid "Gmail Client Secret"
-msgstr ""
+msgstr "محرمانه مشتری جیمیل"
+
+#. module: google_gmail
+#: model:ir.model.fields.selection,name:google_gmail.selection__fetchmail_server__server_type__gmail
+#: model:ir.model.fields.selection,name:google_gmail.selection__ir_mail_server__smtp_authentication__gmail
+msgid "Gmail OAuth Authentication"
+msgstr "احراز هویت OAuth جیمیل"
 
 #. module: google_gmail
 #: model:ir.model,name:google_gmail.model_google_gmail_mixin
 msgid "Google Gmail Mixin"
+msgstr "میکسین گوگل جیمیل"
+
+#. module: google_gmail
+#: model_terms:ir.ui.view,arch_db:google_gmail.res_config_settings_view_form
+msgid "ID"
+msgstr "شناسه"
+
+#. module: google_gmail
+#: model_terms:ir.ui.view,arch_db:google_gmail.res_config_settings_view_form
+msgid "ID of your Google app"
+msgstr "شناسه برنامه گوگل شما"
+
+#. module: google_gmail
+#: model:ir.model,name:google_gmail.model_fetchmail_server
+msgid "Incoming Mail Server"
+msgstr "سرور ایمیل ورودی"
+
+#. module: google_gmail
+#. odoo-python
+#: code:addons/google_gmail/models/ir_mail_server.py:0
+#, python-format
+msgid ""
+"Incorrect Connection Security for Gmail mail server %r. Please set it to "
+"\"TLS (STARTTLS)\"."
 msgstr ""
+"اتصال امنیتی نادرست برای سرور ایمیل جیمیل %r. لطفاً آن را روی \"TLS "
+"(STARTTLS)\" تنظیم کنید."
 
 #. module: google_gmail
 #: model:ir.model,name:google_gmail.model_ir_mail_server
@@ -129,18 +172,21 @@ msgid "Mail Server"
 msgstr "سرور ایمیل"
 
 #. module: google_gmail
+#. odoo-python
 #: code:addons/google_gmail/models/google_gmail_mixin.py:0
 #, python-format
 msgid "Only the administrator can link a Gmail mail server."
-msgstr ""
+msgstr "فقط مدیر می‌تواند یک سرور پست الکترونیک جیمیل را متصل کند."
 
 #. module: google_gmail
+#. odoo-python
 #: code:addons/google_gmail/models/google_gmail_mixin.py:0
 #, python-format
 msgid "Please configure your Gmail credentials."
-msgstr ""
+msgstr "لطفاً اطلاعات ورود به جیمیل خود را پیکربندی کنید."
 
 #. module: google_gmail
+#. odoo-python
 #: code:addons/google_gmail/models/ir_mail_server.py:0
 #, python-format
 msgid ""
@@ -148,8 +194,27 @@ msgid ""
 "address). This should be the same account as the one used for the Gmail "
 "OAuthentication Token."
 msgstr ""
+"لطفاً فیلد \"نام کاربری\" را با نام کاربری جیمیل خود (آدرس ایمیل شما) پر "
+"کنید. این باید همان حسابی باشد که برای توکن احراز هویت جیمیل استفاده می‌شود."
 
 #. module: google_gmail
+#. odoo-python
+#: code:addons/google_gmail/models/ir_mail_server.py:0
+#, python-format
+msgid ""
+"Please leave the password field empty for Gmail mail server %r. The OAuth "
+"process does not require it"
+msgstr ""
+"لطفاً فیلد رمز عبور را برای سرور پست الکترونیک Gmail %r خالی بگذارید. فرآیند"
+" OAuth به آن نیازی ندارد."
+
+#. module: google_gmail
+#: model_terms:ir.ui.view,arch_db:google_gmail.ir_mail_server_view_form
+msgid "Read More"
+msgstr "بیشتر بخوانید"
+
+#. module: google_gmail
+#: model:ir.model.fields,field_description:google_gmail.field_fetchmail_server__google_gmail_refresh_token
 #: model:ir.model.fields,field_description:google_gmail.field_google_gmail_mixin__google_gmail_refresh_token
 #: model:ir.model.fields,field_description:google_gmail.field_ir_mail_server__google_gmail_refresh_token
 msgid "Refresh Token"
@@ -157,23 +222,38 @@ msgstr "به روزرسانی پروکسی"
 
 #. module: google_gmail
 #: model_terms:ir.ui.view,arch_db:google_gmail.res_config_settings_view_form
-msgid "Send and receive email with your Gmail account."
-msgstr ""
+msgid "Secret"
+msgstr "محرمانه"
 
 #. module: google_gmail
+#: model_terms:ir.ui.view,arch_db:google_gmail.res_config_settings_view_form
+msgid "Secret of your Google app"
+msgstr "راز برنامه Google شما"
+
+#. module: google_gmail
+#: model:ir.model.fields,field_description:google_gmail.field_fetchmail_server__server_type
+msgid "Server Type"
+msgstr "نوع سرور"
+
+#. module: google_gmail
+#: model_terms:ir.ui.view,arch_db:google_gmail.fetchmail_server_view_form
 #: model_terms:ir.ui.view,arch_db:google_gmail.ir_mail_server_view_form
 msgid ""
 "Setup your Gmail API credentials in the general settings to link a Gmail "
 "account."
 msgstr ""
+"تنظیمات اعتبارنامه API جیمیل خود را در تنظیمات عمومی انجام دهید تا یک حساب "
+"جیمیل متصل شود."
 
 #. module: google_gmail
+#: model:ir.model.fields,help:google_gmail.field_fetchmail_server__google_gmail_uri
 #: model:ir.model.fields,help:google_gmail.field_google_gmail_mixin__google_gmail_uri
 #: model:ir.model.fields,help:google_gmail.field_ir_mail_server__google_gmail_uri
 msgid "The URL to generate the authorization code from Google"
-msgstr ""
+msgstr "آدرس اینترنتی برای تولید کد تأیید از گوگل"
 
 #. module: google_gmail
+#: model:ir.model.fields,field_description:google_gmail.field_fetchmail_server__google_gmail_uri
 #: model:ir.model.fields,field_description:google_gmail.field_google_gmail_mixin__google_gmail_uri
 #: model:ir.model.fields,field_description:google_gmail.field_ir_mail_server__google_gmail_uri
 msgid "URI"

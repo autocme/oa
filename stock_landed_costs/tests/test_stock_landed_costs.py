@@ -43,7 +43,7 @@ class TestStockLandedCosts(TestStockLandedCostsCommon):
         vals = dict(picking_default_vals, **{
             'name': 'LC_pick_1',
             'picking_type_id': self.warehouse.out_type_id.id,
-            'move_lines': [(0, 0, {
+            'move_ids': [(0, 0, {
                 'product_id': product_landed_cost_1.id,
                 'product_uom_qty': 5,
                 'product_uom': self.ref('uom.product_uom_unit'),
@@ -53,8 +53,8 @@ class TestStockLandedCosts(TestStockLandedCostsCommon):
         })
         picking_landed_cost_1 = self.env['stock.picking'].new(vals)
         picking_landed_cost_1._onchange_picking_type()
-        picking_landed_cost_1.move_lines._onchange_product_id()
-        picking_landed_cost_1.move_lines.name = 'move 1'
+        picking_landed_cost_1.move_ids._onchange_product_id()
+        picking_landed_cost_1.move_ids.name = 'move 1'
         vals = picking_landed_cost_1._convert_to_write(picking_landed_cost_1._cache)
         picking_landed_cost_1 = self.env['stock.picking'].create(vals)
 
@@ -62,13 +62,13 @@ class TestStockLandedCosts(TestStockLandedCostsCommon):
         self.env.company.anglo_saxon_accounting = True
         picking_landed_cost_1.action_confirm()
         picking_landed_cost_1.action_assign()
-        picking_landed_cost_1.move_lines.quantity_done = 5
+        picking_landed_cost_1.move_ids.quantity_done = 5
         picking_landed_cost_1.button_validate()
 
         vals = dict(picking_default_vals, **{
             'name': 'LC_pick_2',
             'picking_type_id': self.warehouse.out_type_id.id,
-            'move_lines': [(0, 0, {
+            'move_ids': [(0, 0, {
                 'product_id': product_landed_cost_2.id,
                 'product_uom_qty': 10,
                 'product_uom': self.ref('uom.product_uom_unit'),
@@ -78,15 +78,15 @@ class TestStockLandedCosts(TestStockLandedCostsCommon):
         })
         picking_landed_cost_2 = self.env['stock.picking'].new(vals)
         picking_landed_cost_2._onchange_picking_type()
-        picking_landed_cost_2.move_lines._onchange_product_id()
-        picking_landed_cost_2.move_lines.name = 'move 2'
+        picking_landed_cost_2.move_ids._onchange_product_id()
+        picking_landed_cost_2.move_ids.name = 'move 2'
         vals = picking_landed_cost_2._convert_to_write(picking_landed_cost_2._cache)
         picking_landed_cost_2 = self.env['stock.picking'].create(vals)
 
         # Confirm and assign picking
         picking_landed_cost_2.action_confirm()
         picking_landed_cost_2.action_assign()
-        picking_landed_cost_2.move_lines.quantity_done = 10
+        picking_landed_cost_2.move_ids.quantity_done = 10
         picking_landed_cost_2.button_validate()
 
         self.assertEqual(product_landed_cost_1.value_svl, 0)
@@ -158,8 +158,8 @@ class TestStockLandedCosts(TestStockLandedCostsCommon):
         product_value = abs(product_landed_cost_1.value_svl) + abs(product_landed_cost_2.value_svl)
         self.assertEqual(lc_value, product_value)
 
-        self.assertEqual(len(picking_landed_cost_1.move_lines.stock_valuation_layer_ids), 5)
-        self.assertEqual(len(picking_landed_cost_2.move_lines.stock_valuation_layer_ids), 5)
+        self.assertEqual(len(picking_landed_cost_1.move_ids.stock_valuation_layer_ids), 5)
+        self.assertEqual(len(picking_landed_cost_2.move_ids.stock_valuation_layer_ids), 5)
 
     def test_aml_account_selection(self):
         """
@@ -198,7 +198,7 @@ class TestStockLandedCosts(TestStockLandedCostsCommon):
             po.button_confirm()
 
             receipt = po.picking_ids
-            receipt.move_lines.quantity_done = 1
+            receipt.move_ids.quantity_done = 1
             receipt.button_validate()
             po.order_line[1].qty_received = 1
 

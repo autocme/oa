@@ -3,17 +3,16 @@
 # 	* event_booth_sale
 # 
 # Translators:
-# Martin Trigaux, 2021
 # Malaz Abuidris <msea@odoo.com>, 2022
-# Wil Odoo, 2024
+# Martin Trigaux, 2023
 # 
 msgid ""
 msgstr ""
-"Project-Id-Version: Odoo Server 15.0\n"
+"Project-Id-Version: Odoo Server 16.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-08-14 15:43+0000\n"
-"PO-Revision-Date: 2021-09-14 12:21+0000\n"
-"Last-Translator: Wil Odoo, 2024\n"
+"POT-Creation-Date: 2023-04-14 05:52+0000\n"
+"PO-Revision-Date: 2022-09-22 05:45+0000\n"
+"Last-Translator: Martin Trigaux, 2023\n"
 "Language-Team: Arabic (https://app.transifex.com/odoo/teams/41243/ar/)\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
@@ -29,8 +28,8 @@ msgid ""
 "A consumable product is a product for which stock is not managed.\n"
 "A service is a non-material product you provide."
 msgstr ""
-"المنتج القابل للتخزين هو المنتج الذي بإمكانك إدارة مخزونه. يجب أن يكون تطبيق المخزون مثبتاً.\n"
-"المنتج القابل للاستهلاك هو المنتج الذي لا يمكن إدارة مخزونه.\n"
+"المنتج القابل للتخزين هو المنتج الذي يمكن إدارة مخزونه. يجب أن يكون تطبيق المخزون مثبتاً.\n"
+"المنتج القابل للاستهلاء هو المنتج الذي لا يمكن إدارة مخزونه.\n"
 "الخدمة هي منتج غير مادي تقوم بتقديمه. "
 
 #. module: event_booth_sale
@@ -95,12 +94,12 @@ msgstr "التسجيلات المؤكدة "
 #. module: event_booth_sale
 #: model_terms:ir.ui.view,arch_db:event_booth_sale.event_booth_registration_view_form
 msgid "Contact"
-msgstr "جهة اتصال "
+msgstr "جهة الاتصال"
 
 #. module: event_booth_sale
 #: model:ir.model.fields,field_description:event_booth_sale.field_event_booth_registration__contact_email
 msgid "Contact Email"
-msgstr "البريد الإلكتروني لجهة الاتصال"
+msgstr "البريد الإلكتروني "
 
 #. module: event_booth_sale
 #: model:ir.model.fields,field_description:event_booth_sale.field_event_booth_registration__contact_mobile
@@ -160,7 +159,6 @@ msgstr "الفعالية"
 #. module: event_booth_sale
 #: model:ir.model,name:event_booth_sale.model_event_booth
 #: model:ir.model.fields.selection,name:event_booth_sale.selection__product_template__detailed_type__event_booth
-#: model:product.product,name:event_booth_sale.product_product_event_booth
 msgid "Event Booth"
 msgstr "جناح الفعالية "
 
@@ -183,7 +181,7 @@ msgstr "أداة تهيئة جناح الفعالية "
 #: model:ir.model,name:event_booth_sale.model_event_booth_registration
 #: model:ir.model.fields,field_description:event_booth_sale.field_event_booth__event_booth_registration_ids
 msgid "Event Booth Registration"
-msgstr "تسجيل جناح الفعالية "
+msgstr "تسجيل كشك الفعالية "
 
 #. module: event_booth_sale
 #: model:ir.model,name:event_booth_sale.model_event_type_booth
@@ -214,7 +212,7 @@ msgstr "جناح فعالية "
 #. module: event_booth_sale
 #: model:ir.model.fields,field_description:event_booth_sale.field_event_booth__is_paid
 msgid "Is Paid"
-msgstr "مدفوع "
+msgstr "تم الدفع "
 
 #. module: event_booth_sale
 #: model:ir.model,name:event_booth_sale.model_account_move
@@ -247,7 +245,7 @@ msgstr "موافق"
 #. module: event_booth_sale
 #: model:ir.model.fields,field_description:event_booth_sale.field_event_booth__sale_order_id
 msgid "Order Reference"
-msgstr "الرقم المرجعي للطلب "
+msgstr "مرجع الطلب "
 
 #. module: event_booth_sale
 #: model_terms:ir.ui.view,arch_db:event_booth_sale.event_booth_view_form_from_event
@@ -277,7 +275,7 @@ msgid "Price Reduce Tax inc"
 msgstr "الخصم شامل ضريبة القيمة المضافة "
 
 #. module: event_booth_sale
-#: model:ir.model,name:event_booth_sale.model_product_product
+#: model:ir.model,name:event_booth_sale.model_product_template
 #: model:ir.model.fields,field_description:event_booth_sale.field_event_booth__product_id
 #: model:ir.model.fields,field_description:event_booth_sale.field_event_booth_category__product_id
 #: model:ir.model.fields,field_description:event_booth_sale.field_event_booth_configurator__product_id
@@ -288,15 +286,15 @@ msgid "Product"
 msgstr "المنتج"
 
 #. module: event_booth_sale
-#: model:ir.model,name:event_booth_sale.model_product_template
-msgid "Product Template"
-msgstr "قالب المنتج"
-
-#. module: event_booth_sale
 #: model:ir.model.fields,field_description:event_booth_sale.field_product_product__detailed_type
 #: model:ir.model.fields,field_description:event_booth_sale.field_product_template__detailed_type
 msgid "Product Type"
 msgstr "نوع المنتج"
+
+#. module: event_booth_sale
+#: model:ir.model,name:event_booth_sale.model_product_product
+msgid "Product Variant"
+msgstr "متغير المنتج "
 
 #. module: event_booth_sale
 #: model:ir.model,name:event_booth_sale.model_sale_order_template_line
@@ -314,6 +312,7 @@ msgid "Registrations"
 msgstr "التسجيلات"
 
 #. module: event_booth_sale
+#. odoo-python
 #: code:addons/event_booth_sale/models/sale_order_line.py:0
 #, python-format
 msgid "Registrations from the same Order Line must belong to a single event."
@@ -351,6 +350,7 @@ msgid "Select an event booth"
 msgstr "اختر جناح فعالية "
 
 #. module: event_booth_sale
+#. odoo-python
 #: code:addons/event_booth_sale/models/sale_order_line.py:0
 #, python-format
 msgid ""
@@ -364,9 +364,9 @@ msgid "There can be only one registration for a booth by sale order line"
 msgstr "لا يمكن أن يكون هناك أكثر من تسجيل واحد لكل بند أمر مبيعات "
 
 #. module: event_booth_sale
-#: model:product.product,uom_name:event_booth_sale.product_product_event_booth
-msgid "Units"
-msgstr "الوحدات"
+#: model_terms:ir.ui.view,arch_db:event_booth_sale.event_booth_view_tree_from_event
+msgid "Total"
+msgstr "الإجمالي"
 
 #. module: event_booth_sale
 #: model:ir.model.fields,help:event_booth_sale.field_sale_order_line__event_booth_pending_ids
@@ -374,6 +374,7 @@ msgid "Used to create registration when providing the desired event booth."
 msgstr "يُستخدَم لإنشاء التسجيل عند تقديم جناح الفعالية المطلوب. "
 
 #. module: event_booth_sale
+#. odoo-python
 #: code:addons/event_booth_sale/models/event_booth.py:0
 #, python-format
 msgid ""
@@ -382,12 +383,14 @@ msgid ""
 msgstr "لا يمكنك حذف الأجنحة التالية لارتباطها بأوامر المبيعات: %(booths)s "
 
 #. module: event_booth_sale
+#. odoo-python
 #: code:addons/event_booth_sale/wizard/event_booth_configurator.py:0
 #, python-format
 msgid "You have to select at least one booth."
 msgstr "عليك تحديد جناح واحد على الأقل. "
 
 #. module: event_booth_sale
+#. odoo-python
 #: code:addons/event_booth_sale/models/event_booth_registration.py:0
 #, python-format
 msgid ""

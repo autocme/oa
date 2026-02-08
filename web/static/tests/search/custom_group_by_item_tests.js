@@ -2,7 +2,7 @@
 
 import { browser } from "@web/core/browser/browser";
 import { ControlPanel } from "@web/search/control_panel/control_panel";
-import { patchWithCleanup } from "../helpers/utils";
+import { getFixture, patchWithCleanup } from "../helpers/utils";
 import {
     applyGroup,
     getFacetTexts,
@@ -15,6 +15,7 @@ import {
     toggleMenuItem,
 } from "./helpers";
 
+let target;
 let serverData;
 QUnit.module("Search", (hooks) => {
     hooks.beforeEach(async () => {
@@ -40,6 +41,7 @@ QUnit.module("Search", (hooks) => {
             setTimeout: (fn) => fn(),
             clearTimeout: () => {},
         });
+        target = getFixture();
     });
 
     QUnit.module("CustomGroupByItem");
@@ -47,7 +49,7 @@ QUnit.module("Search", (hooks) => {
     QUnit.test("simple rendering", async function (assert) {
         assert.expect(5);
 
-        const controlPanel = await makeWithSearch({
+        await makeWithSearch({
             serverData,
             resModel: "foo",
             Component: ControlPanel,
@@ -55,20 +57,20 @@ QUnit.module("Search", (hooks) => {
             searchViewId: false,
         });
 
-        await toggleGroupByMenu(controlPanel);
+        await toggleGroupByMenu(target);
 
-        const customGroupByItem = controlPanel.el.querySelector(".o_add_custom_group_menu");
+        const customGroupByItem = target.querySelector(".o_add_custom_group_menu");
         assert.strictEqual(customGroupByItem.innerText.trim(), "Add Custom Group");
 
         assert.containsOnce(customGroupByItem, "button.dropdown-toggle");
         assert.containsNone(customGroupByItem, ".dropdown-menu");
 
-        await toggleAddCustomGroup(controlPanel);
+        await toggleAddCustomGroup(target);
 
         assert.containsOnce(customGroupByItem, ".dropdown-menu");
 
         assert.deepEqual(
-            [...controlPanel.el.querySelectorAll(".o_add_custom_group_menu select option")].map(
+            [...target.querySelectorAll(".o_add_custom_group_menu select option")].map(
                 (el) => el.innerText
             ),
             ["Birthday", "Date", "Foo"]
@@ -80,7 +82,7 @@ QUnit.module("Search", (hooks) => {
         async function (assert) {
             assert.expect(1);
 
-            const controlPanel = await makeWithSearch({
+            await makeWithSearch({
                 serverData,
                 resModel: "foo",
                 Component: ControlPanel,
@@ -92,16 +94,52 @@ QUnit.module("Search", (hooks) => {
                 },
             });
 
-            await toggleGroupByMenu(controlPanel);
-            await toggleAddCustomGroup(controlPanel);
+            await toggleGroupByMenu(target);
+            await toggleAddCustomGroup(target);
 
             assert.deepEqual(
                 [
-                    ...controlPanel.el.querySelectorAll(
+                    ...target.querySelectorAll(
                         ".o_add_custom_group_menu .dropdown-menu select option"
                     ),
                 ].map((el) => el.innerText),
                 ["Foo"]
+            );
+        }
+    );
+
+    QUnit.test(
+        'stored many2many should be proposed in "Add Custom Group" menu',
+        async function (assert) {
+            assert.expect(1);
+
+            await makeWithSearch({
+                serverData,
+                resModel: "foo",
+                Component: ControlPanel,
+                searchMenuTypes: ["groupBy"],
+                searchViewId: false,
+                searchViewFields: {
+                    char_a: { string: "Char A", type: "char", store: true, sortable: true },
+                    m2m_no_stored: { string: "M2M Not Stored", type: "many2many" },
+                    m2m_stored: {
+                        string: "M2M Stored",
+                        type: "many2many",
+                        store: true,
+                    },
+                },
+            });
+
+            await toggleGroupByMenu(target);
+            await toggleAddCustomGroup(target);
+
+            assert.deepEqual(
+                [
+                    ...target.querySelectorAll(
+                        ".o_add_custom_group_menu .dropdown-menu select option"
+                    ),
+                ].map((el) => el.innerText),
+                ["Char A", "M2M Stored"]
             );
         }
     );
@@ -122,28 +160,28 @@ QUnit.module("Search", (hooks) => {
                     id: { sortable: true, string: "ID", type: "integer" },
                 },
             });
-            await toggleGroupByMenu(controlPanel);
+            await toggleGroupByMenu(target);
 
             assert.deepEqual(controlPanel.env.searchModel.groupBy, []);
-            assert.containsNone(controlPanel, ".o_menu_item");
+            assert.containsNone(target, ".o_menu_item");
 
-            await toggleAddCustomGroup(controlPanel);
-            await applyGroup(controlPanel);
+            await toggleAddCustomGroup(target);
+            await applyGroup(target);
 
             assert.deepEqual(controlPanel.env.searchModel.groupBy, ["date_field:month"]);
-            assert.deepEqual(getFacetTexts(controlPanel), ["Date: Month"]);
-            assert.ok(isItemSelected(controlPanel, "Date"));
+            assert.deepEqual(getFacetTexts(target), ["Date: Month"]);
+            assert.ok(isItemSelected(target, "Date"));
 
-            await toggleMenuItem(controlPanel, "Date");
+            await toggleMenuItem(target, "Date");
 
-            assert.ok(isOptionSelected(controlPanel, "Date", "Month"));
+            assert.ok(isOptionSelected(target, "Date", "Month"));
         }
     );
 
     QUnit.test("click on add custom group toggle group selector", async function (assert) {
         assert.expect(4);
 
-        const controlPanel = await makeWithSearch({
+        await makeWithSearch({
             serverData,
             resModel: "foo",
             Component: ControlPanel,
@@ -153,25 +191,25 @@ QUnit.module("Search", (hooks) => {
             },
         });
 
-        await toggleGroupByMenu(controlPanel);
+        await toggleGroupByMenu(target);
 
-        const addCustomGroupMenu = controlPanel.el.querySelector(".o_add_custom_group_menu");
+        const addCustomGroupMenu = target.querySelector(".o_add_custom_group_menu");
 
         assert.strictEqual(addCustomGroupMenu.innerText.trim(), "Add Custom Group");
 
-        await toggleAddCustomGroup(controlPanel);
+        await toggleAddCustomGroup(target);
 
         // Single select node with a single option
-        assert.containsOnce(controlPanel, ".o_add_custom_group_menu .dropdown-menu select");
+        assert.containsOnce(target, ".o_add_custom_group_menu .dropdown-menu select");
         assert.strictEqual(
-            controlPanel.el
+            target
                 .querySelector(".o_add_custom_group_menu .dropdown-menu select option")
                 .innerText.trim(),
             "Super Date"
         );
 
         // Button apply
-        assert.containsOnce(controlPanel, ".o_add_custom_group_menu .dropdown-menu .btn");
+        assert.containsOnce(target, ".o_add_custom_group_menu .dropdown-menu .btn");
     });
 
     QUnit.test(
@@ -179,7 +217,7 @@ QUnit.module("Search", (hooks) => {
         async function (assert) {
             assert.expect(4);
 
-            const controlPanel = await makeWithSearch({
+            await makeWithSearch({
                 serverData,
                 resModel: "foo",
                 Component: ControlPanel,
@@ -193,14 +231,14 @@ QUnit.module("Search", (hooks) => {
                 },
             });
 
-            await toggleGroupByMenu(controlPanel);
-            await toggleAddCustomGroup(controlPanel);
-            await applyGroup(controlPanel);
+            await toggleGroupByMenu(target);
+            await toggleAddCustomGroup(target);
+            await applyGroup(target);
 
-            assert.containsOnce(controlPanel, ".o_group_by_menu .o_menu_item");
-            assert.containsOnce(controlPanel, ".o_add_custom_group_menu .dropdown-toggle");
-            assert.containsOnce(controlPanel, ".o_add_custom_group_menu .dropdown-menu");
-            assert.deepEqual(getFacetTexts(controlPanel), ["Candlelight"]);
+            assert.containsOnce(target, ".o_group_by_menu .o_menu_item");
+            assert.containsOnce(target, ".o_add_custom_group_menu .dropdown-toggle");
+            assert.containsOnce(target, ".o_add_custom_group_menu .dropdown-menu");
+            assert.deepEqual(getFacetTexts(target), ["Candlelight"]);
         }
     );
 });

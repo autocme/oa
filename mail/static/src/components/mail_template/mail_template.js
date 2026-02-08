@@ -11,50 +11,16 @@ export class MailTemplate extends Component {
     //--------------------------------------------------------------------------
 
     /**
-     * @returns {mail.activity}
+     * @returns {MailTemplateView}
      */
-    get activity() {
-        return this.messaging && this.messaging.models['mail.activity'].get(this.props.activityLocalId);
-    }
-
-    /**
-     * @returns {mail.mail_template}
-     */
-    get mailTemplate() {
-        return this.messaging && this.messaging.models['mail.mail_template'].get(this.props.mailTemplateLocalId);
-    }
-
-    //--------------------------------------------------------------------------
-    // Handlers
-    //--------------------------------------------------------------------------
-
-    /**
-     * @private
-     * @param {MouseEvent} ev
-     */
-    _onClickPreview(ev) {
-        ev.stopPropagation();
-        ev.preventDefault();
-        this.mailTemplate.preview(this.activity);
-    }
-
-    /**
-     * @private
-     * @param {MouseEvent} ev
-     */
-    _onClickSend(ev) {
-        ev.stopPropagation();
-        ev.preventDefault();
-        this.mailTemplate.send(this.activity);
+    get mailTemplateView() {
+        return this.props.record;
     }
 
 }
 
 Object.assign(MailTemplate, {
-    props: {
-        activityLocalId: String,
-        mailTemplateLocalId: String,
-    },
+    props: { record: Object },
     template: 'mail.MailTemplate',
 });
 

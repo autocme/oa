@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
 
-from odoo import api,fields, models
+from odoo import api, fields, models, _
 from odoo.exceptions import UserError, ValidationError
 from odoo.tools import float_is_zero, float_compare
 
@@ -43,7 +43,7 @@ class StockPicking(models.Model):
             )
 
             positive_picking._create_move_from_pos_order_lines(positive_lines)
-            self.env['base'].flush()
+            self.env.flush_all()
             try:
                 with self.env.cr.savepoint():
                     positive_picking._action_done()
@@ -63,7 +63,7 @@ class StockPicking(models.Model):
                 self._prepare_picking_vals(partner, return_picking_type, location_dest_id, return_location_id)
             )
             negative_picking._create_move_from_pos_order_lines(negative_lines)
-            self.env['base'].flush()
+            self.env.flush_all()
             try:
                 with self.env.cr.savepoint():
                     negative_picking._action_done()
@@ -109,7 +109,7 @@ class StockPicking(models.Model):
                 for keys in returnable_qty_by_product:
                     if move.product_id.id == keys[0] and keys[1] and returnable_qty_by_product[keys] > 0:
                         move.write({'owner_id': keys[1]})
-                        returnable_qty_by_product[keys] -= move.product_uom_qty
+                        returnable_qty_by_product[keys] -= move.qty_done
 
 
     def _send_confirmation_email(self):
@@ -155,6 +155,25 @@ class StockPicking(models.Model):
                 move.action_post()
         return res
 
+class StockPickingType(models.Model):
+    _inherit = 'stock.picking.type'
+
+    @api.depends('warehouse_id')
+    def _compute_hide_reservation_method(self):
+        super()._compute_hide_reservation_method()
+        for picking_type in self:
+            if picking_type == picking_type.warehouse_id.pos_type_id:
+                picking_type.hide_reservation_method = True
+
+    @api.constrains('active')
+    def _check_active(self):
+        for picking_type in self:
+            if picking_type.active:
+                continue
+            pos_config = self.env['pos.config'].sudo().search([('picking_type_id', '=', picking_type.id)], limit=1)
+            if pos_config:
+                raise ValidationError(_("You cannot archive '%s' as it is used by a POS configuration '%s'.", picking_type.name, pos_config.name))
+
 class ProcurementGroup(models.Model):
     _inherit = 'procurement.group'
 
@@ -183,7 +202,7 @@ class StockMove(models.Model):
     def _complete_done_qties(self, set_quantity_done_on_move=False):
         self._action_assign()
         for move_line in self.move_line_ids:
-            move_line.qty_done = move_line.product_uom_qty
+            move_line.qty_done = move_line.reserved_uom_qty
         mls_vals = []
         moves_to_set = set()
         for move in self:
@@ -202,9 +221,9 @@ class StockMove(models.Model):
             :param lines: pos order lines with pack lot ids.
             :type lines: pos.order.line recordset.
 
-            :return stock.product.lot recordset.
+            :return stock.lot recordset.
         '''
-        valid_lots = self.env['stock.production.lot']
+        valid_lots = self.env['stock.lot']
         moves = self.filtered(lambda m: m.picking_type_id.use_existing_lots)
         # Already called in self._action_confirm() but just to be safe when coming from _launch_stock_rule_from_pos_order_lines.
         self._check_company()
@@ -212,7 +231,7 @@ class StockMove(models.Model):
             moves_product_ids = set(moves.mapped('product_id').ids)
             lots = lines.pack_lot_ids.filtered(lambda l: l.lot_name and l.product_id.id in moves_product_ids)
             lots_data = set(lots.mapped(lambda l: (l.product_id.id, l.lot_name)))
-            existing_lots = self.env['stock.production.lot'].search([
+            existing_lots = self.env['stock.lot'].search([
                 ('company_id', '=', moves[0].picking_type_id.company_id.id),
                 ('product_id', 'in', lines.product_id.ids),
                 ('name', 'in', lots.mapped('lot_name')),
@@ -228,12 +247,12 @@ class StockMove(models.Model):
                 missing_lot_values = []
                 for lot_product_id, lot_name in filter(lambda l: l[0] in moves_product_ids, lots_data):
                     missing_lot_values.append({'company_id': self.company_id.id, 'product_id': lot_product_id, 'name': lot_name})
-                valid_lots |= self.env['stock.production.lot'].create(missing_lot_values)
+                valid_lots |= self.env['stock.lot'].create(missing_lot_values)
         return valid_lots
 
     def _add_mls_related_to_order(self, related_order_lines, are_qties_done=True):
         lines_data = self._prepare_lines_data_dict(related_order_lines)
-        qty_fname = 'qty_done' if are_qties_done else 'product_uom_qty'
+        qty_fname = 'qty_done' if are_qties_done else 'reserved_uom_qty'
         # Moves with product_id not in related_order_lines. This can happend e.g. when product_id has a phantom-type bom.
         moves_to_assign = self.filtered(lambda m: m.product_id.id not in lines_data or m.product_id.tracking == 'none'
                                                   or (not m.picking_type_id.use_existing_lots and not m.picking_type_id.use_create_lots))

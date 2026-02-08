@@ -11,7 +11,6 @@ const _t = core._t;
 
 const ImageCropWidget = Widget.extend({
     template: ['wysiwyg.widgets.crop'],
-    xmlDependencies: ['/web_editor/static/src/xml/wysiwyg.xml'],
     events: {
         'click.crop_options [data-action]': '_onCropOptionClick',
         // zoom event is triggered by the cropperjs library when the user zooms.
@@ -21,7 +20,7 @@ const ImageCropWidget = Widget.extend({
     /**
      * @constructor
      */
-    init(parent, media) {
+    init(parent, media, options = {}) {
         this._super(...arguments);
         this.media = media;
         this.parent = parent;
@@ -40,7 +39,8 @@ const ImageCropWidget = Widget.extend({
         const data = Object.assign({}, media.dataset);
         this.initialSrc = src;
         this.aspectRatio = data.aspectRatio || "0/0";
-        this.mimetype = data.mimetype || src.endsWith('.png') ? 'image/png' : 'image/jpeg';
+        const mimetype = data.mimetype || src.endsWith('.png') ? 'image/png' : 'image/jpeg';
+        this.mimetype = options.mimetype || mimetype;
     },
     /**
      * @override
@@ -94,8 +94,9 @@ const ImageCropWidget = Widget.extend({
         this._onDocumentKeydown = this._onDocumentKeydown.bind(this);
         // We use capture so that the handler is called before other editor handlers
         // like save, such that we can restore the src before a save.
-        this.document.addEventListener('mousedown', this._onDocumentMousedown, {capture: true});
-        this.document.addEventListener('keydown', this._onDocumentKeydown, {capture: true});
+        // We need to add event listeners to the owner document of the widget.
+        this.el.ownerDocument.addEventListener('mousedown', this._onDocumentMousedown, {capture: true});
+        this.el.ownerDocument.addEventListener('keydown', this._onDocumentKeydown, {capture: true});
         return _super(...arguments);
     },
     /**
@@ -104,8 +105,8 @@ const ImageCropWidget = Widget.extend({
     destroy() {
         if (this.$cropperImage) {
             this.$cropperImage.cropper('destroy');
-            this.document.removeEventListener('mousedown', this._onDocumentMousedown, {capture: true});
-            this.document.removeEventListener('keydown', this._onDocumentKeydown, {capture: true});
+            this.el.ownerDocument.removeEventListener('mousedown', this._onDocumentMousedown, {capture: true});
+            this.el.ownerDocument.removeEventListener('keydown', this._onDocumentKeydown, {capture: true});
         }
         this.media.setAttribute('src', this.initialSrc);
         this.$media.trigger('image_cropper_destroyed');
@@ -154,7 +155,7 @@ const ImageCropWidget = Widget.extend({
             }
         });
         delete this.media.dataset.resizeWidth;
-        this.initialSrc = await applyModifications(this.media);
+        this.initialSrc = await applyModifications(this.media, {forceModification: true, mimetype: this.mimetype});
         this.media.classList.toggle('o_we_image_cropped', cropped);
         this.$media.trigger('image_cropped');
         this.destroy();
@@ -239,7 +240,6 @@ const ImageCropWidget = Widget.extend({
                 break;
             case 'rotate':
                 this.$cropperImage.cropper(action, value);
-                this._resetCropBox();
                 break;
             case 'flip': {
                 const amount = this.$cropperImage.cropper('getData')[scaleDirection] * -1;
@@ -258,7 +258,7 @@ const ImageCropWidget = Widget.extend({
      * @param {MouseEvent} ev
      */
     _onDocumentMousedown(ev) {
-        if (document.body.contains(ev.target) && this.$(ev.target).length === 0) {
+        if (this.el.ownerDocument.body.contains(ev.target) && this.$(ev.target).length === 0) {
             return this.destroy();
         }
     },

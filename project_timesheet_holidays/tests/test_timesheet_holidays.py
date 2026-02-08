@@ -7,6 +7,7 @@ from freezegun import freeze_time
 
 from odoo import fields, SUPERUSER_ID
 
+from odoo.exceptions import UserError
 from odoo.tests import common, new_test_user
 from odoo.addons.hr_timesheet.tests.test_timesheet import TestCommonTimesheet
 import time
@@ -104,6 +105,11 @@ class TestTimesheetHolidays(TestCommonTimesheet):
             'number_of_days': number_of_days,
         })
         holiday.with_user(SUPERUSER_ID).action_validate()
+
+        # The leave type and timesheet are linked to the same project and task'
+        self.assertEqual(holiday.timesheet_ids.project_id.id, self.internal_project.id)
+        self.assertEqual(holiday.timesheet_ids.task_id.id, self.internal_task_leaves.id)
+
         self.assertEqual(len(holiday.timesheet_ids), number_of_days, 'Number of generated timesheets should be the same as the leave duration (1 per day between %s and %s)' % (fields.Datetime.to_string(self.leave_start_datetime), fields.Datetime.to_string(self.leave_end_datetime)))
 
         # manager refuse the leave
@@ -123,6 +129,81 @@ class TestTimesheetHolidays(TestCommonTimesheet):
         })
         holiday.with_user(SUPERUSER_ID).action_validate()
         self.assertEqual(len(holiday.timesheet_ids), 0, 'Number of generated timesheets should be zero since the leave type does not generate timesheet')
+
+    @freeze_time('2018-02-05')  # useful to be able to cancel the validated time off
+    def test_cancel_validate_holidays(self):
+        number_of_days = (self.leave_end_datetime - self.leave_start_datetime).days
+        holiday = self.Requests.with_user(self.user_employee).create({
+            'name': 'Leave 1',
+            'employee_id': self.empl_employee.id,
+            'holiday_status_id': self.hr_leave_type_with_ts.id,
+            'date_from': self.leave_start_datetime,
+            'date_to': self.leave_end_datetime,
+            'number_of_days': number_of_days,
+        })
+        holiday.with_user(self.env.user).action_validate()
+        self.assertEqual(len(holiday.timesheet_ids), number_of_days, 'Number of generated timesheets should be the same as the leave duration (1 per day between %s and %s)' % (fields.Datetime.to_string(self.leave_start_datetime), fields.Datetime.to_string(self.leave_end_datetime)))
+
+        self.env['hr.holidays.cancel.leave'].with_user(self.user_employee).with_context(default_leave_id=holiday.id) \
+            .new({'reason': 'Test remove holiday'}) \
+            .action_cancel_leave()
+        self.assertFalse(holiday.active, 'The time off should be archived')
+        self.assertEqual(len(holiday.timesheet_ids), 0, 'The timesheets generated should be unlink.')
+
+    def test_timesheet_time_off_including_public_holiday(self):
+        """ Generate one timesheet for the public holiday and 4 timesheets for the time off.
+            Test Case:
+            =========
+            1) Create a public time off on Wednesday
+            2) In the same week, create a time off during one week for an employee
+            3) Check if there are five timesheets generated for time off and public
+               holiday.4 timesheets should be linked to the time off and 1 for
+               the public one.
+        """
+
+        leave_start_datetime = datetime(2022, 1, 24, 7, 0, 0, 0) # Monday
+        leave_end_datetime = datetime(2022, 1, 28, 18, 0, 0, 0)
+
+        # Create a public holiday
+        self.env['resource.calendar.leaves'].create({
+            'name': 'Test',
+            'calendar_id': self.employee_working_calendar.id,
+            'date_from': datetime(2022, 1, 26, 7, 0, 0, 0),  # This is Wednesday and India Independence
+            'date_to': datetime(2022, 1, 26, 18, 0, 0, 0),
+        })
+
+        holiday = self.Requests.with_user(self.user_employee).create({
+            'name': 'Leave 1',
+            'employee_id': self.empl_employee.id,
+            'holiday_status_id': self.hr_leave_type_with_ts.id,
+            'date_from': leave_start_datetime,
+            'date_to': leave_end_datetime,
+        })
+        holiday.with_user(SUPERUSER_ID).action_validate()
+        self.assertEqual(len(holiday.timesheet_ids), 4, '4 timesheets should be generated for this time off.')
+
+        timesheets = self.env['account.analytic.line'].search([
+            ('date', '>=', leave_start_datetime),
+            ('date', '<=', leave_end_datetime),
+            ('employee_id', '=', self.empl_employee.id),
+        ])
+
+        # should not able to update timeoff timesheets
+        with self.assertRaises(UserError):
+            timesheets.with_user(self.empl_employee).write({'task_id': 4})
+
+        # should not able to create timesheet in timeoff task
+        with self.assertRaises(UserError):
+            self.env['account.analytic.line'].with_user(self.empl_employee).create({
+                'name': "my timesheet",
+                'project_id': self.internal_project.id,
+                'task_id': self.internal_task_leaves.id,
+                'date': '2021-10-04',
+                'unit_amount': 8.0,
+            })
+
+        self.assertEqual(len(timesheets.filtered('holiday_id')), 4, "4 timesheet should be linked to employee's timeoff")
+        self.assertEqual(len(timesheets.filtered('global_leave_id')), 1, '1 timesheet should be linked to global leave')
 
     @freeze_time('2018-02-01 08:00:00')
     def test_timesheet_when_archiving_employee(self):

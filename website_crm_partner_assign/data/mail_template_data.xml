@@ -8,6 +8,7 @@
             <field name="subject">Fwd: Lead: {{ ctx['partner_id'].name }}</field>
             <field name="email_from">{{ user.email_formatted }}</field>
             <field name="email_to">{{ ctx['partner_id'].email_formatted }}</field>
+            <field name="description">Sent to partner when a lead has been assigned to him</field>
             <field name="body_html" type="html">
 <table border="0" cellpadding="0" cellspacing="0" style="padding-top: 16px; background-color: #F1F1F1; font-family:Verdana, Arial,sans-serif; color: #454748; width: 100%; border-collapse:separate;"><tr><td align="center">
 <table border="0" cellpadding="0" cellspacing="0" width="590" style="padding: 16px; background-color: white; color: #454748; border-collapse:separate;">
@@ -40,7 +41,7 @@
                                 <li t-foreach="ctx['partner_leads']" t-as="lead"><a t-att-href="lead['lead_link']" t-out="lead['lead_id'].name or 'Subject Undefined'">Subject Undefined</a>, <t t-out="lead['lead_id'].partner_name or lead['lead_id'].contact_name or 'Contact Name Undefined'">Contact Name Undefined</t>, <t t-out="lead['lead_id'].country_id and lead['lead_id'].country_id.name or 'Country Undefined'">Country Undefined</t>, <t t-out="lead['lead_id'].email_from or 'Email Undefined' or ''">Email Undefined</t>, <t t-out="lead['lead_id'].phone or ''">+1 650-123-4567</t> </li><br/>
                             </ol>
                             <t t-if="ctx.get('partner_in_portal')">
-                                Please connect to your <a t-att-href="'%s' % (object.get_base_url())">Partner Portal</a> to get details. On each lead are two buttons on the top left corner that you should press after having contacted the lead: "I'm interested" &amp; "I'm not interested".<br/>
+                                Please connect to your <a t-att-href="'%s?db=%s' % (object.get_base_url(), object.env.cr.dbname)">Partner Portal</a> to get details. On each lead are two buttons on the top left corner that you should press after having contacted the lead: "I'm interested" &amp; "I'm not interested".<br/>
                             </t>
                             <t t-else="">
                                 You do not have yet a portal access to our database. Please contact

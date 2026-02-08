@@ -1,14 +1,15 @@
 odoo.define('web.CustomFilterItem', function (require) {
     "use strict";
 
+    const { Dropdown } = require("@web/core/dropdown/dropdown");
     const { DatePicker, DateTimePicker } = require('web.DatePickerOwl');
     const Domain = require('web.Domain');
     const { FIELD_OPERATORS, FIELD_TYPES } = require('web.searchUtils');
     const field_utils = require('web.field_utils');
     const { useModel } = require('web.Model');
+    const { LegacyComponent } = require("@web/legacy/legacy_component");
 
-    const { Component, hooks } = owl;
-    const { useState } = hooks;
+    const { useState } = owl;
 
     /**
      * Filter generator menu
@@ -42,10 +43,8 @@ odoo.define('web.CustomFilterItem', function (require) {
      *                         [date_field, '<=', y],
      *                     ]
      */
-    class CustomFilterItem extends Component {
-        constructor() {
-            super(...arguments);
-
+    class CustomFilterItem extends LegacyComponent {
+        setup() {
             this.model = useModel('searchModel');
 
             this.conditions = useState([]);
@@ -210,10 +209,10 @@ odoo.define('web.CustomFilterItem', function (require) {
          * @private
          * @param {Object} condition
          * @param {number} valueIndex
-         * @param {OwlEvent} ev
+         * @param {Date} date
          */
-        onDateChanged(condition, valueIndex, ev) {
-            condition.value[valueIndex] = ev.detail.date;
+        onDateTimeChanged(condition, valueIndex, date) {
+            condition.value[valueIndex] = date;
         }
 
         /**
@@ -266,7 +265,7 @@ odoo.define('web.CustomFilterItem', function (require) {
                     condition.value = field_utils.parse[type](ev.target.value);
                     // Write displayed value in the input and 'displayedValue' property
                     condition.displayedValue = ev.target.value;
-                } catch (err) {
+                } catch (_err) {
                     // Parsing error: reverts to previous value
                     ev.target.value = condition.displayedValue;
                 }
@@ -276,7 +275,7 @@ odoo.define('web.CustomFilterItem', function (require) {
         }
     }
 
-    CustomFilterItem.components = { DatePicker, DateTimePicker };
+    CustomFilterItem.components = { DatePicker, DateTimePicker, Dropdown };
     CustomFilterItem.props = { fields: Object };
     CustomFilterItem.template = "web.CustomFilterItem";
 

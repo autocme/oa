@@ -6,8 +6,8 @@ from odoo import api, fields, models
 class ResCompany(models.Model):
     _inherit = 'res.company'
 
-    payment_acquirer_onboarding_state = fields.Selection(
-        string="State of the onboarding payment acquirer step",
+    payment_provider_onboarding_state = fields.Selection(
+        string="State of the onboarding payment provider step",
         selection=[('not_done', "Not done"), ('just_done', "Just done"), ('done', "Done")],
         default='not_done')
     payment_onboarding_payment_method = fields.Selection(
@@ -19,22 +19,8 @@ class ResCompany(models.Model):
             ('other', "Other"),
         ])
 
-    @api.model
-    def action_open_payment_onboarding_payment_acquirer(self):
-        """ Called by onboarding panel above the customer invoice list. """
-        # TODO remove me in master.
-        #  This action is never used anywhere because the onboarding step's method is overridden in
-        #  website_sale to call action_open_website_sale_onboarding_payment_acquirer instead.
-        # Fail if there are no existing accounts
-        self.env.company.get_chart_of_accounts_or_fail()
-
-        action = self.env['ir.actions.actions']._for_xml_id(
-            'payment.action_open_payment_onboarding_payment_acquirer_wizard'
-        )
-        return action
-
     def _run_payment_onboarding_step(self, menu_id):
-        """ Install the suggested payment modules and configure the acquirers.
+        """ Install the suggested payment modules and configure the providers.
 
         It's checked that the current company has a Chart of Account.
 
@@ -55,17 +41,18 @@ class ResCompany(models.Model):
             [('type', '=', 'bank'), ('company_id', '=', new_env.company.id)], limit=1
         )
 
-        stripe_acquirer = new_env['payment.acquirer'].search(
-            [('company_id', '=', self.env.company.id), ('name', '=', 'Stripe')], limit=1
+        stripe_provider = new_env['payment.provider'].search(
+            [('company_id', '=', self.env.company.id), ('code', '=', 'stripe')], limit=1
         )
-        if not stripe_acquirer:
-            base_acquirer = self.env.ref('payment.payment_acquirer_stripe')
-            # Use sudo to access payment acquirer record that can be in different company.
-            stripe_acquirer = base_acquirer.sudo().copy(default={'company_id': self.env.company.id})
-            stripe_acquirer.company_id = self.env.company.id
-        stripe_acquirer.journal_id = stripe_acquirer.journal_id or default_journal
+        if not stripe_provider:
+            base_provider = self.env.ref('payment.payment_provider_stripe')
+            # Use sudo to access payment provider record that can be in different company.
+            stripe_provider = base_provider.sudo().with_context(
+                stripe_connect_onboarding=True,
+            ).copy(default={'company_id': self.env.company.id})
+        stripe_provider.journal_id = stripe_provider.journal_id or default_journal
 
-        return stripe_acquirer.action_stripe_connect_account(menu_id=menu_id)
+        return stripe_provider.action_stripe_connect_account(menu_id=menu_id)
 
     def _install_modules(self, module_names):
         modules_sudo = self.env['ir.module.module'].sudo().search([('name', 'in', module_names)])
@@ -77,9 +64,9 @@ class ResCompany(models.Model):
 
         :return: None
         """
-        self.set_onboarding_step_done('payment_acquirer_onboarding_state')
+        self.set_onboarding_step_done('payment_provider_onboarding_state')
 
     def get_account_invoice_onboarding_steps_states_names(self):
         """ Override of account. """
         steps = super().get_account_invoice_onboarding_steps_states_names()
-        return steps + ['payment_acquirer_onboarding_state']
+        return steps + ['payment_provider_onboarding_state']

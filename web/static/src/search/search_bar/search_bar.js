@@ -7,8 +7,7 @@ import { KeepLast } from "@web/core/utils/concurrency";
 import { useAutofocus, useBus, useService } from "@web/core/utils/hooks";
 import { fuzzyTest } from "@web/core/utils/search";
 
-const { Component, hooks } = owl;
-const { useExternalListener, useRef, useState } = hooks;
+import { Component, useExternalListener, useRef, useState } from "@odoo/owl";
 const parsers = registry.category("parsers");
 
 const CHAR_FIELDS = ["char", "html", "many2many", "many2one", "one2many", "text"];
@@ -19,6 +18,7 @@ export class SearchBar extends Component {
     setup() {
         this.fields = this.env.searchModel.searchViewFields;
         this.searchItems = this.env.searchModel.getSearchItems((f) => f.type === "field");
+        this.root = useRef("root");
 
         // core state
         this.state = useState({
@@ -28,18 +28,16 @@ export class SearchBar extends Component {
         });
 
         // derived state
-        this.items = [];
+        this.items = useState([]);
         this.subItems = {};
 
         this.orm = useService("orm");
 
         this.keepLast = new KeepLast();
 
-        this.focusOnUpdate = useAutofocus();
+        this.inputRef = this.env.config.disableSearchBarAutofocus ? useRef("autofocus") : useAutofocus();
 
-        this.inputRef = useRef("search-input");
-
-        useBus(this.env.bus, "FOCUS-SEARCH-BAR", () => {
+        useBus(this.env.searchModel, "focus-search", () => {
             this.inputRef.el.focus();
         });
 
@@ -93,8 +91,7 @@ export class SearchBar extends Component {
 
         const trimmedQuery = this.state.query.trim();
 
-        this.items = [];
-
+        this.items.length = 0;
         if (!trimmedQuery) {
             return;
         }
@@ -132,11 +129,11 @@ export class SearchBar extends Component {
             try {
                 switch (type) {
                     case "date": {
-                        value = serializeDate(parser(trimmedQuery, { timezone: false }));
+                        value = serializeDate(parser(trimmedQuery));
                         break;
                     }
                     case "datetime": {
-                        value = serializeDateTime(parser(trimmedQuery, { timezone: true }));
+                        value = serializeDateTime(parser(trimmedQuery));
                         break;
                     }
                     case "many2one": {
@@ -147,7 +144,7 @@ export class SearchBar extends Component {
                         value = parser(trimmedQuery);
                     }
                 }
-            } catch (e) {
+            } catch (_e) {
                 continue;
             }
 
@@ -186,7 +183,7 @@ export class SearchBar extends Component {
         if (searchItem.domain) {
             try {
                 domain = new Domain(searchItem.domain).toList();
-            } catch (e) {
+            } catch (_e) {
                 // Pass
             }
         }
@@ -196,7 +193,7 @@ export class SearchBar extends Component {
             limit: 8,
             name: query.trim(),
         });
-        let subItems = [];
+        const subItems = [];
         if (options.length) {
             const operator = searchItem.operator || "=";
             for (const [value, label] of options) {
@@ -225,7 +222,7 @@ export class SearchBar extends Component {
      * @param {number} [index]
      */
     focusFacet(index) {
-        const facets = this.el.getElementsByClassName("o_searchview_facet");
+        const facets = this.root.el.getElementsByClassName("o_searchview_facet");
         if (facets.length) {
             if (index === undefined) {
                 facets[facets.length - 1].focus();
@@ -240,12 +237,14 @@ export class SearchBar extends Component {
      */
     removeFacet(facet) {
         this.env.searchModel.deactivateGroup(facet.groupId);
-        this.focusOnUpdate();
+        this.inputRef.el.focus();
     }
 
-    resetState() {
+    resetState(options = { focus: true }) {
         this.computeState({ expanded: [], focusedIndex: 0, query: "", subItems: [] });
-        this.focusOnUpdate();
+        if (options.focus) {
+            this.inputRef.el.focus();
+        }
     }
 
     /**
@@ -299,7 +298,7 @@ export class SearchBar extends Component {
                 break;
             }
             case "ArrowRight": {
-                const facets = this.el.getElementsByClassName("o_searchview_facet");
+                const facets = this.root.el.getElementsByClassName("o_searchview_facet");
                 if (facetIndex === facets.length - 1) {
                     this.inputRef.el.focus();
                 } else {
@@ -349,7 +348,7 @@ export class SearchBar extends Component {
                         focusedIndex = this.state.focusedIndex + 1;
                     }
                 } else {
-                    this.env.bus.trigger("FOCUS-VIEW");
+                    this.env.searchModel.trigger("focus-view");
                 }
                 break;
             case "ArrowUp":
@@ -445,8 +444,8 @@ export class SearchBar extends Component {
      * @param {MouseEvent} ev
      */
     onWindowClick(ev) {
-        if (this.items.length && !this.el.contains(ev.target)) {
-            this.resetState();
+        if (this.items.length && !this.root.el.contains(ev.target)) {
+            this.resetState({ focus: false });
         }
     }
 

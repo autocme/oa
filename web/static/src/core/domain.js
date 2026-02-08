@@ -1,5 +1,6 @@
 /** @odoo-module **/
 
+import { shallowEqual } from "@web/core/utils/arrays";
 import { evaluate, formatAST, parseExpr } from "./py_js/py";
 import { toPyValue } from "./py_js/py_utils";
 
@@ -10,7 +11,7 @@ import { toPyValue } from "./py_js/py_utils";
  * @typedef {DomainListRepr | string | Domain} DomainRepr
  */
 
-class InvalidDomainError extends Error {}
+export class InvalidDomainError extends Error {}
 
 /**
  * Javascript representation of an Odoo domain
@@ -151,20 +152,31 @@ function toAST(domain) {
 
 function normalizeDomainAST(domain, op = "&") {
     if (domain.type !== 4 /* List */) {
-        throw new InvalidDomainError("Invalid domain AST");
+        if (domain.type === 10 /* Tuple */) {
+            const value = domain.value;
+            /* Tuple contains at least one Tuple and optionally string */
+            if (
+                value.findIndex((e) => e.type === 10) === -1 ||
+                !value.every((e) => e.type === 10 || e.type === 1)
+            ) {
+                throw new InvalidDomainError("Invalid domain AST");
+            }
+        } else {
+            throw new InvalidDomainError("Invalid domain AST");
+        }
     }
     if (domain.value.length === 0) {
         return domain;
     }
     let expected = 1;
-    for (let child of domain.value) {
+    for (const child of domain.value) {
         if (child.type === 1 /* String */ && (child.value === "&" || child.value === "|")) {
             expected++;
         } else if (child.type !== 1 /* String */ || child.value !== "!") {
             expected--;
         }
     }
-    let values = domain.value.slice();
+    const values = domain.value.slice();
     while (expected < 0) {
         expected++;
         values.unshift({ type: 1 /* String */, value: op });
@@ -187,6 +199,14 @@ function matchCondition(record, condition) {
         return condition;
     }
     const [field, operator, value] = condition;
+
+    if (typeof field === "string") {
+        const names = field.split(".");
+        if (names.length >= 2) {
+            return matchCondition(record[names[0]], [names.slice(1).join("."), operator, value]);
+        }
+    }
+
     const fieldValue = typeof field === "number" ? field : record[field];
     switch (operator) {
         case "=?":
@@ -196,10 +216,13 @@ function matchCondition(record, condition) {
         // eslint-disable-next-line no-fallthrough
         case "=":
         case "==":
+            if (Array.isArray(fieldValue) && Array.isArray(value)) {
+                return shallowEqual(fieldValue, value);
+            }
             return fieldValue === value;
         case "!=":
         case "<>":
-            return fieldValue !== value;
+            return !matchCondition(record, [field, "==", value]);
         case "<":
             return fieldValue < value;
         case "<=":

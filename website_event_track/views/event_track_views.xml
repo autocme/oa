@@ -12,11 +12,26 @@
         </field>
     </record>
 
+    <record id="event_track_view_form_quick_create" model="ir.ui.view">
+        <field name="name">event.track.view.form.quick.create</field>
+        <field name="model">event.track</field>
+        <field name="priority">1000</field>
+        <field name="arch" type="xml">
+            <form>
+                <group>
+                    <field name="event_id" invisible="context.get('default_event_id', False)"/>
+                    <field name="name" placeholder="e.g. Inspiring Business Talk"/>
+                    <field name="date"/>
+                </group>
+            </form>
+        </field>
+    </record>
+
     <record model="ir.ui.view" id="view_event_track_kanban">
         <field name="name">event.track.kanban</field>
         <field name="model">event.track</field>
         <field name="arch" type="xml">
-            <kanban default_group_by="stage_id">
+            <kanban default_group_by="stage_id" quick_create_view="website_event_track.event_track_view_form_quick_create">
                 <field name="color"/>
                 <field name="partner_id"/>
                 <field name="stage_id" options='{"group_by_tooltip": {"description": "Description"}}'/>
@@ -32,7 +47,7 @@
                         <div t-attf-class="{{!selection_mode ? 'oe_kanban_color_' + kanban_getcolor(record.color.raw_value) : ''}} oe_kanban_card oe_kanban_global_click">
                             <div class="o_dropdown_kanban dropdown" groups="base.group_user">
 
-                                <a role="button" class="dropdown-toggle o-no-caret btn" data-toggle="dropdown" href="#" aria-label="Dropdown menu" title="Dropdown menu">
+                                <a role="button" class="dropdown-toggle o-no-caret btn" data-bs-toggle="dropdown" href="#" aria-label="Dropdown menu" title="Dropdown menu">
                                     <span class="fa fa-ellipsis-v"/>
                                 </a>
                                 <div class="dropdown-menu" role="menu">
@@ -97,6 +112,8 @@
                 <field name="partner_id"/>
                 <filter string="My Tracks" name="my_tracks" domain="[('user_id', '=', uid)]"/>
                 <separator/>
+                <filter string="Published" name="filter_published" domain="[('website_published', '=', True)]"/>
+                <separator/>
                 <filter string="Unread Messages" name="message_needaction" domain="[('message_needaction', '=', True)]"/>
                 <separator/>
                 <filter string="Always Wishlisted" name="filter_wishlisted_by_default" domain="[('wishlisted_by_default', '=', True)]"/>
@@ -147,14 +164,14 @@
                     <field name="legend_normal" invisible="1"/>
                     <field name="legend_done" invisible="1"/>
                     <widget name="web_ribbon" text="Archived" bg_color="bg-danger" attrs="{'invisible': [('active', '=', True)]}"/>
-                    <div class="d-flex mb-3">
+                    <div class="d-flex gap-4 mb-3">
                         <div class="flex-grow-1">
                             <label for="name"/>
                             <h1>
                                 <field name="name" placeholder="e.g. Inspiring Business Talk"/>
                             </h1>
                         </div>
-                        <field name="website_image" widget="image" class="oe_avatar mx-4"/>
+                        <field name="website_image" widget="image" class="oe_avatar"/>
                         <field name="kanban_state" widget="state_selection"/>
                     </div>
                     <group>
@@ -199,11 +216,11 @@
                                 </group>
                             </group>
                             <group>
-                                <field name="partner_biography" string="Biography"/>
+                                <field name="partner_biography" string="Biography" placeholder='e.g. "John Doe was born in..."'/>
                             </group>
                         </page>
                         <page string="Description" name="description">
-                            <field name="description"/>
+                            <field name="description" placeholder='e.g. "This talk will be about..."'/>
                         </page>
                         <page string="Interactivity" name="interactivity">
                             <group>
@@ -263,6 +280,8 @@
             <graph string="Tracks" sample="1">
                 <field name="location_id"/>
                 <field name="duration" operator="+"/>
+                <field name="website_cta_delay" invisible="1"/>
+                <field name="color" invisible="1"/>
             </graph>
         </field>
     </record>

@@ -11,7 +11,6 @@ var debounce = timingUtils.debounce;
 var _t = core._t;
 
 var ColorpickerWidget = Widget.extend({
-    xmlDependencies: ['/web/static/src/legacy/xml/colorpicker.xml'],
     template: 'Colorpicker',
     events: {
         'click': '_onClick',
@@ -50,7 +49,7 @@ var ColorpickerWidget = Widget.extend({
             try {
                 const document = frame.document;
                 return !!document;
-            } catch (error) {
+            } catch {
                 // We cannot access the document (cross origin).
                 return false;
             }

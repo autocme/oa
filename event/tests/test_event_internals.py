@@ -1,90 +1,120 @@
 # -*- coding: utf-8 -*-
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
 
-from datetime import date, datetime, timedelta
-from unittest.mock import patch
+from datetime import datetime, timedelta
+from freezegun import freeze_time
 
 from odoo import Command
-from odoo.addons.event.tests.common import TestEventCommon
+from odoo.addons.event.tests.common import EventCase
 from odoo import exceptions
-from odoo.fields import Datetime as FieldsDatetime, Date as FieldsDate
-from odoo.tests.common import users, Form
+from odoo.fields import Datetime as FieldsDatetime
+from odoo.tests.common import users, Form, tagged
 from odoo.tools import mute_logger
 
 
-class TestEventData(TestEventCommon):
+class TestEventInternalsCommon(EventCase):
 
     @classmethod
     def setUpClass(cls):
-        super(TestEventData, cls).setUpClass()
-        cls.patcher = patch('odoo.addons.event.models.event_event.fields.Datetime', wraps=FieldsDatetime)
-        cls.mock_datetime = cls.patcher.start()
-        cls.mock_datetime.now.return_value = datetime(2020, 1, 31, 10, 0, 0)
-        cls.addClassCleanup(cls.patcher.stop)
+        super(TestEventInternalsCommon, cls).setUpClass()
 
-        cls.event_0.write({
-            'date_begin': datetime(2020, 2, 1, 8, 30, 0),
-            'date_end': datetime(2020, 2, 4, 18, 45, 0),
+        cls.event_type_complex = cls.env['event.type'].create({
+            'name': 'Update Type',
+            'auto_confirm': True,
+            'has_seats_limitation': True,
+            'seats_max': 30,
+            'default_timezone': 'Europe/Paris',
+            'event_type_ticket_ids': [
+                (0, 0, {'name': 'First Ticket',}),
+                (0, 0, {'name': 'Second Ticket',}),
+            ],
+            'event_type_mail_ids': [
+                (0, 0, {  # right at subscription
+                    'interval_unit': 'now',
+                    'interval_type': 'after_sub',
+                    'template_ref': 'mail.template,%i' % cls.env['ir.model.data']._xmlid_to_res_id('event.event_subscription')}),
+                (0, 0, {  # 1 days before event
+                    'interval_nbr': 1,
+                    'interval_unit': 'days',
+                    'interval_type': 'before_event',
+                    'template_ref': 'mail.template,%i' % cls.env['ir.model.data']._xmlid_to_res_id('event.event_reminder')}),
+            ],
         })
+
+        # Mock dates to have reproducible computed fields based on time
+        cls.reference_now = datetime(2020, 1, 31, 10, 0, 0)
+        cls.reference_beg = datetime(2020, 2, 1, 8, 30, 0)
+        cls.reference_end = datetime(2020, 2, 4, 18, 45, 0)
+
+        cls.event_0 = cls.env['event.event'].create({
+            'auto_confirm': True,
+            'date_begin': cls.reference_beg,
+            'date_end': cls.reference_end,
+            'date_tz': 'Europe/Brussels',
+            'name': 'TestEvent',
+        })
+
+
+@tagged('event_event')
+class TestEventData(TestEventInternalsCommon):
 
     @users('user_eventmanager')
     def test_event_date_computation(self):
         event = self.event_0.with_user(self.env.user)
-        event.write({
-            'registration_ids': [(0, 0, {'partner_id': self.event_customer.id, 'name': 'test_reg'})],
-            'date_begin': datetime(2020, 1, 31, 15, 0, 0),
-            'date_end': datetime(2020, 4, 5, 18, 0, 0),
-        })
-        registration = event.registration_ids[0]
-        self.assertEqual(registration.get_date_range_str(), u'today')
+        with freeze_time(self.reference_now):
+            event.write({
+                'registration_ids': [(0, 0, {'partner_id': self.event_customer.id, 'name': 'test_reg'})],
+                'date_begin': datetime(2020, 1, 31, 15, 0, 0),
+                'date_end': datetime(2020, 4, 5, 18, 0, 0),
+            })
+            registration = event.registration_ids[0]
+            self.assertEqual(registration.get_date_range_str(), u'today')
 
-        event.date_begin = datetime(2020, 2, 1, 15, 0, 0)
-        self.assertEqual(registration.get_date_range_str(), u'tomorrow')
+            event.date_begin = datetime(2020, 2, 1, 15, 0, 0)
+            self.assertEqual(registration.get_date_range_str(), u'tomorrow')
 
-        event.date_begin = datetime(2020, 2, 2, 6, 0, 0)
-        self.assertEqual(registration.get_date_range_str(), u'in 2 days')
+            event.date_begin = datetime(2020, 2, 2, 6, 0, 0)
+            self.assertEqual(registration.get_date_range_str(), u'in 2 days')
 
-        event.date_begin = datetime(2020, 2, 20, 17, 0, 0)
-        self.assertEqual(registration.get_date_range_str(), u'next month')
+            event.date_begin = datetime(2020, 2, 20, 17, 0, 0)
+            self.assertEqual(registration.get_date_range_str(), u'next month')
 
-        event.date_begin = datetime(2020, 3, 1, 10, 0, 0)
-        self.assertEqual(registration.get_date_range_str(), u'on Mar 1, 2020, 11:00:00 AM')
+            event.date_begin = datetime(2020, 3, 1, 10, 0, 0)
+            self.assertEqual(registration.get_date_range_str(), u'on Mar 1, 2020')
 
-        # Is actually 8:30 to 20:00 in Mexico
-        event.write({
-            'date_begin': datetime(2020, 1, 31, 14, 30, 0),
-            'date_end': datetime(2020, 2, 1, 2, 0, 0),
-            'date_tz': 'America/Mexico_City'
-        })
-        self.assertTrue(event.is_one_day)
+            # Is actually 8:30 to 20:00 in Mexico
+            event.write({
+                'date_begin': datetime(2020, 1, 31, 14, 30, 0),
+                'date_end': datetime(2020, 2, 1, 2, 0, 0),
+                'date_tz': 'America/Mexico_City'
+            })
+            self.assertTrue(event.is_one_day)
 
         # Checks case when mocked today changes date before event, when event.date_tz considered
-        self.mock_datetime.now.return_value = datetime(2020, 6, 20, 20, 0, 0)
-        event.write({
-            'date_begin': datetime(2020, 6, 27, 1, 0, 0),
-            'date_end': datetime(2020, 7, 8, 2, 0, 0),
-            'date_tz': 'America/Los_Angeles'
-        })
-        # event_date_tz = 2020-06-26 18:00
-        # today_tz = 2020-06-20 13:00
-        # event_date_tz.date() - today_tz.date() = 6 days
-        self.assertEqual(registration.get_date_range_str(), u'in 6 days')
+        with freeze_time(datetime(2020, 6, 20, 20, 0, 0)):
+            event.write({
+                'date_begin': datetime(2020, 6, 27, 1, 0, 0),
+                'date_end': datetime(2020, 7, 8, 2, 0, 0),
+                'date_tz': 'America/Los_Angeles'
+            })
+            # event_date_tz = 2020-06-26 18:00
+            # today_tz = 2020-06-20 13:00
+            # event_date_tz.date() - today_tz.date() = 6 days
+            self.assertEqual(registration.get_date_range_str(), 'in 6 days')
 
         # Checks case when event changes date before mocked today, when event.date_tz considered
-        self.mock_datetime.now.return_value = datetime(2020, 6, 20, 13, 0, 0)
-        event.write({
-            'date_begin': datetime(2020, 6, 25, 20, 0, 0),
-            'date_end': datetime(2020, 7, 8, 2, 0, 0),
-            'date_tz': 'Australia/Sydney'
-        })
-        # event_date_tz = 2020-06-26 06:00
-        # today_tz = 2020-06-20 23:00
-        # event_date_tz.date() - today_tz.date() = 6 days
-        self.assertEqual(registration.get_date_range_str(), u'in 6 days')
+        with freeze_time(datetime(2020, 6, 20, 13, 0, 0)):
+            event.write({
+                'date_begin': datetime(2020, 6, 25, 20, 0, 0),
+                'date_end': datetime(2020, 7, 8, 2, 0, 0),
+                'date_tz': 'Australia/Sydney'
+            })
+            # event_date_tz = 2020-06-26 06:00
+            # today_tz = 2020-06-20 23:00
+            # event_date_tz.date() - today_tz.date() = 6 days
+            self.assertEqual(registration.get_date_range_str(), 'in 6 days')
 
-        # Resets mocked 'Today' value back to original
-        self.mock_datetime.now.return_value = datetime(2020, 1, 31, 10, 0, 0)
-
+    @freeze_time('2020-1-31 10:00:00')
     @users('user_eventmanager')
     def test_event_date_timezone(self):
         event = self.event_0.with_user(self.env.user)
@@ -376,6 +406,7 @@ class TestEventData(TestEventCommon):
         templates = self.env['mail.template'].with_context(filter_template_on_event=True).name_search('test template')
         self.assertEqual(len(templates), 1, 'Should return only mail templates related to the event registration model')
 
+    @freeze_time('2020-1-31 10:00:00')
     @users('user_eventmanager')
     def test_event_registrable(self):
         """Test if `_compute_event_registrations_open` works properly."""
@@ -428,6 +459,7 @@ class TestEventData(TestEventCommon):
         self.assertTrue(ticket.is_expired)
         self.assertFalse(event.event_registrations_open)
 
+    @freeze_time('2020-1-31 10:00:00')
     @users('user_eventmanager')
     def test_event_ongoing(self):
         event_1 = self.env['event.event'].create({
@@ -479,12 +511,13 @@ class TestEventData(TestEventCommon):
 
         # create registration in order to check the seats computation
         self.assertTrue(event.auto_confirm)
-        for x in range(5):
-            reg = self.env['event.registration'].create({
-                'event_id': event.id,
-                'name': 'reg_open',
-            })
-            self.assertEqual(reg.state, 'open')
+        reg_open_multiple = self.env['event.registration'].create([{
+            'event_id': event.id,
+            'name': 'reg_open',
+        } for _ in range(5)])
+        self.assertEqual(set(reg_open_multiple.mapped('state')), {'open'})
+        reg_open = reg_open_multiple[0]
+
         reg_draft = self.env['event.registration'].create({
             'event_id': event.id,
             'name': 'reg_draft',
@@ -501,14 +534,79 @@ class TestEventData(TestEventCommon):
         self.assertEqual(event.seats_used, 1)
         self.assertEqual(event.seats_expected, 7)
 
+        # ------------------------------------------------------------
+        # SEATS AVAILABILITY AND (UN-)ARCHIVING REGISTRATIONS
+        # ------------------------------------------------------------
 
-class TestEventRegistrationData(TestEventCommon):
+        # Archiving and seats availability
+        reg_open.action_archive()
+        self.assertEqual(event.seats_reserved, 4)
+        self.assertEqual(event.seats_available, event.event_type_id.seats_max - 5)
+        self.assertEqual(event.seats_expected, 6)
+
+        reg_draft.action_archive()
+        self.assertEqual(event.seats_unconfirmed, 0)
+        self.assertEqual(event.seats_available, event.event_type_id.seats_max - 5)
+        self.assertEqual(event.seats_expected, 5)
+
+        # Un-archiving confirmed seats requires available seat(s)
+        reg_open.action_unarchive()
+        self.assertEqual(event.seats_reserved, 5)
+        self.assertEqual(event.seats_available, event.event_type_id.seats_max - 6)
+        self.assertEqual(event.seats_expected, 6)
+
+        reg_draft.action_unarchive()
+        self.assertEqual(event.seats_unconfirmed, 1)
+        self.assertEqual(event.seats_available, event.event_type_id.seats_max - 6)
+        self.assertEqual(event.seats_expected, 7)
+
+        reg_open.action_archive()
+        self.assertEqual(event.seats_reserved, 4)
+
+        # It is not possible to set a seats_max value below number of current
+        # confirmed registrations. (4 "reserved" + 1 "used")
+        with self.assertRaises(exceptions.ValidationError):
+            event.write({'seats_max': 4})
+        event.write({'seats_max': 5})
+        self.assertEqual(event.seats_available, 0)
+
+        # It is not possible to unarchive a confirmed seat if the event is fully booked
+        with self.assertRaises(exceptions.ValidationError):
+            reg_open.action_unarchive()
+
+        # raising the limit allows it
+        event.write({'seats_max': 6})
+        self.assertEqual(reg_open.state, "open")
+        reg_open.action_unarchive()
+
+        # It is not possible to confirm a draft reservation if the event is
+        # fully booked
+        with self.assertRaises(exceptions.ValidationError):
+            reg_draft.write({'state': 'open'})
+
+        # With auto-confirm, it is also impossible to create a draft
+        # registration when the event is full
+        new_draft_to_autoconfirm = {
+            'event_id': event.id,
+            'name': 'New registration with auto confirm'
+        }
+        with self.assertRaises(exceptions.ValidationError):
+            self.env['event.registration'].create(new_draft_to_autoconfirm)
+
+        # If the seats limitation is removed, it becomes possible of course
+        event.write({'seats_limited': 0})
+        self.env['event.registration'].create(new_draft_to_autoconfirm)
+
+
+@tagged('event_registration')
+class TestEventRegistrationData(TestEventInternalsCommon):
 
     @users('user_eventmanager')
     def test_registration_partner_sync(self):
         """ Test registration computed fields about partner """
         test_email = '"Nibbler In Space" <nibbler@futurama.example.com>'
         test_phone = '0456001122'
+        test_phone_fmt = '+32456001122'
 
         event = self.env['event.event'].browse(self.event_0.ids)
         customer = self.env['res.partner'].browse(self.event_customer.id)
@@ -555,12 +653,12 @@ class TestEventRegistrationData(TestEventCommon):
         new_reg = event.registration_ids.sorted()[0]
         self.assertEqual(new_reg.name, 'Nibbler In Space')
         self.assertEqual(new_reg.email, False)
-        self.assertEqual(new_reg.phone, test_phone)
+        self.assertEqual(new_reg.phone, test_phone_fmt)
         new_reg.write({'partner_id': customer.id})
         self.assertEqual(new_reg.partner_id, customer)
         self.assertEqual(new_reg.name, 'Nibbler In Space')
         self.assertEqual(new_reg.email, customer.email)
-        self.assertEqual(new_reg.phone, test_phone)
+        self.assertEqual(new_reg.phone, test_phone_fmt)
 
     @users('user_eventmanager')
     def test_registration_partner_sync_company(self):
@@ -596,38 +694,144 @@ class TestEventRegistrationData(TestEventCommon):
         self.assertEqual(new_reg.phone, contact.phone)
 
 
-class TestEventTicketData(TestEventCommon):
+@tagged('event_registration', 'phone_number')
+class TestEventRegistrationPhone(EventCase):
 
-    def setUp(self):
-        super(TestEventTicketData, self).setUp()
-        self.ticket_date_patcher = patch('odoo.addons.event.models.event_ticket.fields.Date', wraps=FieldsDate)
-        self.ticket_date_patcher_mock = self.ticket_date_patcher.start()
-        self.ticket_date_patcher_mock.context_today.return_value = date(2020, 1, 31)
-        self.ticket_datetime_patcher = patch('odoo.addons.event.models.event_ticket.fields.Datetime', wraps=FieldsDatetime)
-        self.ticket_datetime_patcher_mock = self.ticket_datetime_patcher.start()
-        self.ticket_datetime_patcher_mock.now.return_value = datetime(2020, 1, 31, 10, 0, 0)
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
 
-    def tearDown(self):
-        super(TestEventTicketData, self).tearDown()
-        self.ticket_date_patcher.stop()
-        self.ticket_datetime_patcher.stop()
+        cls.test_event_address = cls.env['res.partner'].create({
+            'city': 'Gandhinagar',
+            'country_id': cls.env.ref("base.in").id,
+            'name': 'Odoo In',
+            'zip': '382007',
+        })
+        cls.test_event = cls.env['event.event'].create({
+            'address_id': cls.test_event_address.id,
+            'company_id': cls.company_admin.id,
+            'date_begin': datetime(2023, 6, 5, 8, 0, 0),
+            'date_end': datetime(2023, 6, 8, 18, 0, 0),
+            'name': 'Test Phone Format',
+        })
 
+    @users('user_eventregistrationdesk')
+    def test_assert_initial_values(self):
+        customer = self.event_customer.with_env(self.env)
+        customer2 = self.event_customer2.with_env(self.env)
+        event = self.test_event.with_env(self.env)
+
+        self.assertFalse(customer.mobile)
+        self.assertEqual(customer.phone, '0485112233')
+        self.assertEqual(customer2.mobile, '0456654321')
+        self.assertEqual(customer2.phone, '0456987654')
+
+        self.assertEqual(event.company_id.country_id, self.env.ref("base.be"))
+        self.assertEqual(event.country_id, self.env.ref("base.in"))
+
+    @users('user_eventregistrationdesk')
+    def test_registration_form_phone(self):
+        """ Test onchange on phone / mobile, should try to format number """
+        event = self.test_event.with_user(self.env.user)
+
+        lead_form = Form(self.env['event.registration'])
+        lead_form.event_id = event
+        lead_form.mobile = '7200000011'
+        lead_form.phone = '7200000000'
+        self.assertEqual(lead_form.mobile, '+917200000011')
+        self.assertEqual(lead_form.phone, '+917200000000')
+
+    @users('user_eventregistrationdesk')
+    def test_registration_phone_format(self):
+        """ Test phone formatting: based on partner (BE numbers) or event
+        (IN numbers) or company (BE numbers). """
+        event = self.test_event.with_user(self.env.user)
+
+        # customer_id, mobile, phone -> based on partner or event country
+        sources = [
+            (self.event_customer.id, None, None),  # BE local on partner
+            (self.event_customer2.id, None, None),  # BE local on partner
+            (self.event_customer2.id, '0456001122', None),  # BE local + on partner
+            (False, '0456778899', '+32456778899'),  # BE local + BE global
+            (False, '7200000000', False),  # IN local
+            (False, False, '7200000011'),  # IN local
+            (False, '7200000000', '7200000011'),  # IN local
+            (False, '+917200000088', '+917200000099'),  # IN global
+        ]
+        # mobile, phone
+        expected = [
+            (False, '0485112233'),  # partner values, no format
+            ('0456654321', '0456987654'),  # partner values, no format
+            ('+32456001122', '0456987654'),  # BE on partner / partner value, no format
+            ('0456778899', '+32456778899'),  # IN on event -> cannot format BE
+            ('+917200000000', False),  # IN on event
+            (False, '+917200000011'),  # IN on event
+            ('+917200000000', '+917200000011'),  # IN on event
+            ('+917200000088', '+917200000099'),  # already formatted
+        ]
+        for (partner_id, mobile, phone), (exp_mobile, exp_phone) in zip(sources, expected):
+            with self.subTest(partner_id=partner_id, mobile=mobile, phone=phone):
+                create_vals = {
+                    'event_id': event.id,
+                    'partner_id': partner_id,
+                }
+                if mobile is not None:
+                    create_vals['mobile'] = mobile
+                if phone is not None:
+                    create_vals['phone'] = phone
+                reg = self.env['event.registration'].create(create_vals)
+                self.assertEqual(reg.mobile, exp_mobile)
+                self.assertEqual(reg.phone, exp_phone)
+
+        # no country on event -> based on partner or event company country
+        self.test_event.write({'address_id': False})
+        expected = [
+            (False, '0485112233'),  # partner values, no format
+            ('0456654321', '0456987654'),  # partner values, no format
+            ('+32456001122', '0456987654'),  # BE on partner / partner value, no format
+            ('+32456778899', '+32456778899'),  # BE on company
+            ('7200000000', False),  # BE on company -> cannot format IN
+            (False, '7200000011'),  # BE on company -> cannot format IN
+            ('7200000000', '7200000011'),  # BE on company -> cannot format IN
+            ('+917200000088', '+917200000099'),  # already formatted
+        ]
+        for (partner_id, mobile, phone), (exp_mobile, exp_phone) in zip(sources, expected):
+            with self.subTest(partner_id=partner_id, mobile=mobile, phone=phone):
+                create_vals = {
+                    'event_id': event.id,
+                    'partner_id': partner_id,
+                }
+                if mobile is not None:
+                    create_vals['mobile'] = mobile
+                if phone is not None:
+                    create_vals['phone'] = phone
+                reg = self.env['event.registration'].create(create_vals)
+                self.assertEqual(reg.mobile, exp_mobile)
+                self.assertEqual(reg.phone, exp_phone)
+
+
+@tagged('event_ticket')
+class TestEventTicketData(TestEventInternalsCommon):
+
+    @freeze_time('2020-1-31 10:00:00')
     @users('user_eventmanager')
     def test_event_ticket_fields(self):
         """ Test event ticket fields synchronization """
+        INITIAL_TICKET_SEATS_MAX = 30
         event = self.event_0.with_user(self.env.user)
         event.write({
             'event_ticket_ids': [
                 (5, 0),
                 (0, 0, {
                     'name': 'First Ticket',
-                    'seats_max': 30,
+                    'seats_max': INITIAL_TICKET_SEATS_MAX,
                 }), (0, 0, {  # limited in time, available (01/10 (start) < 01/31 (today) < 02/10 (end))
                     'name': 'Second Ticket',
                     'start_sale_datetime': datetime(2020, 1, 10, 0, 0, 0),
                     'end_sale_datetime': datetime(2020, 2, 10, 23, 59, 59),
                 })
             ],
+            'auto_confirm': False  # to interact with registrations states
         })
         first_ticket = event.event_ticket_ids.filtered(lambda t: t.name == 'First Ticket')
         second_ticket = event.event_ticket_ids.filtered(lambda t: t.name == 'Second Ticket')
@@ -656,7 +860,7 @@ class TestEventTicketData(TestEventCommon):
             'end_sale_datetime': datetime(2020, 2, 20, 23, 59, 59),
         })
         self.assertTrue(second_ticket.sale_available)
-        self.assertTrue(second_ticket.is_launched())
+        self.assertTrue(second_ticket.is_launched)
         self.assertFalse(second_ticket.is_expired)
         # incoherent dates are invalid
         with self.assertRaises(exceptions.UserError):
@@ -665,7 +869,7 @@ class TestEventTicketData(TestEventCommon):
         #test if event start/end dates are taking datetime fields (hours, minutes, seconds) into account
         second_ticket.write({'start_sale_datetime': datetime(2020, 1, 31, 11, 0, 0)})
         self.assertFalse(second_ticket.sale_available)
-        self.assertFalse(second_ticket.is_launched())
+        self.assertFalse(second_ticket.is_launched)
 
         second_ticket.write({
             'start_sale_datetime': datetime(2020, 1, 31, 7, 0, 0),
@@ -673,7 +877,7 @@ class TestEventTicketData(TestEventCommon):
         })
 
         self.assertTrue(second_ticket.sale_available)
-        self.assertTrue(second_ticket.is_launched())
+        self.assertTrue(second_ticket.is_launched)
         self.assertFalse(second_ticket.is_expired)
 
         second_ticket.write({
@@ -683,8 +887,94 @@ class TestEventTicketData(TestEventCommon):
         self.assertFalse(second_ticket.sale_available)
         self.assertTrue(second_ticket.is_expired)
 
+        # ------------------------------------------------------------
+        # (UN -)ARCHIVING REGISTRATIONS AND SEATS AVAILABILITY
+        # ------------------------------------------------------------
 
-class TestEventTypeData(TestEventCommon):
+        # Archiving and seats availability
+        reg_draft_multiple = self.env['event.registration'].create([{
+            'event_id': event.id,
+            'name': f'reg_draft #{idx}',
+            'event_ticket_id': first_ticket.id,
+        } for idx in range(3)])
+        reg_draft = reg_draft_multiple[0]
+
+        reg_open = self.env['event.registration'].create({
+            'event_id': event.id,
+            'name': 'reg_open',
+            'event_ticket_id': first_ticket.id,
+            'state': 'open'
+        })
+
+        reg_done = self.env['event.registration'].create({
+            'event_id': event.id,
+            'name': 'reg_done',
+            'event_ticket_id': first_ticket.id,
+            'state': 'done'
+        })
+
+        self.assertEqual(first_ticket.seats_unconfirmed, 3)
+        self.assertEqual(first_ticket.seats_reserved, 1)
+        self.assertEqual(first_ticket.seats_used, 1)
+        self.assertEqual(first_ticket.seats_available, INITIAL_TICKET_SEATS_MAX - 2)
+
+        reg_done.action_archive()
+        self.assertEqual(first_ticket.seats_used, 0)
+        self.assertEqual(first_ticket.seats_available, INITIAL_TICKET_SEATS_MAX - 1)
+
+        reg_open.action_archive()
+        self.assertEqual(first_ticket.seats_reserved, 0)
+        self.assertEqual(first_ticket.seats_available, INITIAL_TICKET_SEATS_MAX)
+
+        reg_draft.action_archive()
+        self.assertEqual(first_ticket.seats_unconfirmed, 2)
+
+        # Un-archiving confirmed/done seats requires available seat(s)
+        reg_open.action_unarchive()
+        self.assertEqual(first_ticket.seats_reserved, 1)
+        self.assertEqual(first_ticket.seats_available, INITIAL_TICKET_SEATS_MAX - 1)
+
+        reg_done.action_unarchive()
+        self.assertEqual(first_ticket.seats_used, 1)
+        self.assertEqual(first_ticket.seats_available, INITIAL_TICKET_SEATS_MAX - 2)
+
+        reg_draft.action_unarchive()
+        self.assertEqual(first_ticket.seats_unconfirmed, 3)
+        self.assertEqual(first_ticket.seats_available, INITIAL_TICKET_SEATS_MAX - 2)
+
+        # It is not possible to set a seats_max value below the current number of confirmed
+        # registrations. (There is still 1 "used" seat too)
+        with self.assertRaises(exceptions.ValidationError):
+            first_ticket.write({'seats_max': 1})
+
+        reg_open.action_archive()
+        first_ticket.write({'seats_max': 1})
+
+        # It is not possible to unarchive confirmed seat if ticket is fully booked
+        with self.assertRaises(exceptions.ValidationError):
+            reg_open.action_unarchive()
+
+        # SEATS AVAILABILITY
+
+        # With auto-confirm, it is impossible to create a draft
+        # registration when the ticket is fully booked (1 used + 1 reserved)
+        self.assertEqual(event.seats_available, 0)
+        first_ticket.event_id.auto_confirm = True
+        with self.assertRaises(exceptions.ValidationError):
+            self.env['event.registration'].create({
+                'event_id': event.id,
+                'name': 'New registration with auto confirm',
+                'event_ticket_id': first_ticket.id,
+            })
+
+        # It is not possible to convert a draft to an open registration
+        # when the event is fully booked
+        with self.assertRaises(exceptions.ValidationError):
+            reg_draft.write({'state': 'open'})
+
+
+@tagged('event_event')
+class TestEventTypeData(TestEventInternalsCommon):
 
     @users('user_eventmanager')
     def test_event_type_fields(self):

@@ -3,16 +3,16 @@
 # 	* hr_work_entry_holidays
 # 
 # Translators:
-# Martin Trigaux, 2021
+# Martin Trigaux, 2022
 # Erwin van der Ploeg <erwin@odooexperts.nl>, 2022
 # Jolien De Paepe, 2023
 # 
 msgid ""
 msgstr ""
-"Project-Id-Version: Odoo Server saas~14.5\n"
+"Project-Id-Version: Odoo Server 15.5alpha1\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2021-09-14 10:28+0000\n"
-"PO-Revision-Date: 2021-09-14 12:23+0000\n"
+"POT-Creation-Date: 2022-09-20 09:01+0000\n"
+"PO-Revision-Date: 2022-09-22 05:52+0000\n"
 "Last-Translator: Jolien De Paepe, 2023\n"
 "Language-Team: Dutch (https://app.transifex.com/odoo/teams/41243/nl/)\n"
 "MIME-Version: 1.0\n"
@@ -25,7 +25,7 @@ msgstr ""
 #: code:addons/hr_work_entry_holidays/models/hr_leave.py:0
 #, python-format
 msgid "%s: Time Off"
-msgstr "%s: verlof"
+msgstr "%s: Verlof"
 
 #. module: hr_work_entry_holidays
 #: code:addons/hr_work_entry_holidays/models/hr_leave.py:0
@@ -43,7 +43,7 @@ msgid ""
 msgstr ""
 "Een verlof kan niet worden verdeeld over meerdere contracten met verschillende werkroosters.\n"
 "\n"
-"Maak voor elk contract een vrije tijd aan.\n"
+"Maak één verlof aan voor elk contract.\n"
 "\n"
 "Verlof:\n"
 "%s\n"
@@ -57,15 +57,6 @@ msgid "Employee Contract"
 msgstr "Arbeidsovereenkomst"
 
 #. module: hr_work_entry_holidays
-#: model:ir.model.fields,help:hr_work_entry_holidays.field_hr_work_entry_type__leave_type_ids
-msgid ""
-"Every new time off type in this list will be reported as select work entry "
-"in payslip."
-msgstr ""
-"Elke nieuwe verlofsoort in deze lijst wordt gerapporteerd als geselecteerde "
-"werkvermelding in de loonstrook."
-
-#. module: hr_work_entry_holidays
 #: model:ir.model,name:hr_work_entry_holidays.model_hr_work_entry
 msgid "HR Work Entry"
 msgstr "HR werkboeking"
@@ -73,7 +64,7 @@ msgstr "HR werkboeking"
 #. module: hr_work_entry_holidays
 #: model:ir.model,name:hr_work_entry_holidays.model_hr_work_entry_type
 msgid "HR Work Entry Type"
-msgstr "HR werkboekingssoort"
+msgstr "HR werkboekingstype"
 
 #. module: hr_work_entry_holidays
 #: model_terms:ir.ui.view,arch_db:hr_work_entry_holidays.work_entry_type_leave_form_inherit
@@ -118,9 +109,14 @@ msgstr "Verlof"
 #: model:ir.model,name:hr_work_entry_holidays.model_hr_leave_type
 #: model:ir.model.fields,field_description:hr_work_entry_holidays.field_hr_work_entry_type__leave_type_ids
 msgid "Time Off Type"
-msgstr "Soort verlof"
+msgstr "Verloftype"
 
 #. module: hr_work_entry_holidays
 #: model:ir.model.fields,field_description:hr_work_entry_holidays.field_hr_leave_type__work_entry_type_id
 msgid "Work Entry Type"
-msgstr "Soort werkboeking"
+msgstr "Werkboekingstype"
+
+#. module: hr_work_entry_holidays
+#: model:ir.model.fields,help:hr_work_entry_holidays.field_hr_work_entry_type__leave_type_ids
+msgid "Work entry used in the payslip."
+msgstr "Werkboeking gebruikt op de loonstrook"

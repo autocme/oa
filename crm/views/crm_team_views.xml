@@ -101,7 +101,7 @@
         <record id="action_report_crm_lead_salesteam_view_tree" model="ir.actions.act_window.view">
             <field name="sequence">4</field>
             <field name="view_mode">tree</field>
-            <field name="view_id" ref="crm_case_tree_view_leads"/>
+            <field name="view_id" ref="crm_lead_view_tree_reporting"/>
             <field name="act_window_id" ref="action_report_crm_lead_salesteam"/>
         </record>
 
@@ -113,7 +113,7 @@
             <field name="context">{
                 'search_default_team_id': [active_id],
                 'tree_view_ref': 'crm.crm_case_tree_view_oppor',
-                'search_default_opportunity': True,
+                'search_default_filter_opportunity': True,
                 'search_default_filter_create_date': 1}</field>
             <field name="domain">[]</field>
             <field name="help">Opportunities Analysis gives you an instant access to your opportunities with information such as the expected revenue, planned cost, missed deadlines or the number of interactions per opportunity. This report is mainly used by the sales manager in order to do the periodic review with the channels of the sales pipeline.</field>
@@ -137,6 +137,7 @@
             <field name="priority">12</field>
             <field name="arch" type="xml">
                 <xpath expr="//sheet" position="before">
+                    <field name="use_leads" invisible="1"/>
                     <header>
                         <button name="action_assign_leads" type="object"
                             string="Assign Leads"
@@ -166,7 +167,7 @@
                             string="Email Alias" required="0"
                             attrs="{'invisible': [('alias_domain', '=', False)]}"/>
                         <div class="oe_inline" name="edit_alias" style="display: inline;" >
-                            <div class="oe_edit_only" attrs="{'invisible': [('alias_domain', '=', False)]}">
+                            <div class="oe_edit_only" attrs="{'invisible': [('alias_domain', '=', False)]}" dir="ltr">
                                 <field name="alias_name" class="oe_inline"/>@<field name="alias_domain" class="oe_inline" readonly="1"/>
                             </div>
                             <button icon="fa-arrow-right" type="action" name="%(base_setup.action_general_configuration)d" string="Configure a custom domain" class="p-0 btn-link" attrs="{'invisible': [('alias_domain', '!=', False)]}"/>
@@ -263,7 +264,7 @@
                         <div class="row" t-if="record.lead_unassigned_count.raw_value">
                             <div class="col-8">
                                 <a name="%(crm_case_form_view_salesteams_lead)d" type="action" context="{'search_default_unassigned_leads': 1}">
-                                    <field name="lead_unassigned_count"/>
+                                    <field name="lead_unassigned_count" class="me-1"/>
                                     <t t-if="record.lead_unassigned_count.raw_value == 1">Unassigned Lead</t>
                                     <t t-else="">Unassigned Leads</t>
                                 </a>
@@ -272,24 +273,24 @@
                         <div class="row" t-if="record.opportunities_count.raw_value">
                             <div class="col-8">
                                 <a name="%(crm_case_form_view_salesteams_opportunity)d" type="action" context="{'search_default_open_opportunities': True}"> <!-- context="{'search_default_probability': NOT or < 100}" -->
-                                    <field name="opportunities_count"/>
+                                    <field name="opportunities_count" class="me-1"/>
                                     <t t-if="record.opportunities_count.raw_value == 1">Open Opportunity</t>
                                     <t t-else="">Open Opportunities</t>
                                 </a>
                             </div>
-                            <div class="col-4 text-right text-truncate">
+                            <div class="col-4 text-end text-truncate">
                                 <field name="opportunities_amount" widget="monetary" options="{'currency_field': 'currency_id'}"/>
                             </div>
                         </div>
                         <div class="row" t-if="record.opportunities_overdue_count.raw_value">
                             <div class="col-8">
                                 <a name="%(crm_lead_action_team_overdue_opportunity)d" type="action">
-                                    <field name="opportunities_overdue_count"/>
+                                    <field name="opportunities_overdue_count" class="me-1"/>
                                     <t t-if="record.opportunities_overdue_count.raw_value == 1">Overdue Opportunity</t>
                                     <t t-else="">Overdue Opportunities</t>
                                 </a>
                             </div>
-                             <div class="col-4 text-right text-truncate">
+                             <div class="col-4 text-end text-truncate">
                                 <field name="opportunities_overdue_amount" widget="monetary" options="{'currency_field': 'currency_id'}"/>
                             </div>
                         </div>

@@ -221,6 +221,7 @@ class SMSCase(MockSMS):
 
             notif = notifications.filtered(lambda n: n.res_partner_id == partner and n.sms_number == number and n.notification_status == state)
             self.assertTrue(notif, 'SMS: not found notification for %s (number: %s, state: %s)' % (partner, number, state))
+            self.assertEqual(notif.author_id, notif.mail_message_id.author_id, 'SMS: Message and notification should have the same author')
             for field_name, expected_value in (mail_message_values or {}).items():
                 self.assertEqual(notif.mail_message_id[field_name], expected_value)
             if state not in ('sent', 'ready', 'canceled'):
@@ -241,7 +242,9 @@ class SMSCase(MockSMS):
                     raise NotImplementedError('Not implemented')
 
         if messages is not None:
-            with patch("odoo.tools.mail.tags_to_remove", tools.mail.tags_to_remove + ["a"]):
+            sanitize_tags = {**tools.mail.SANITIZE_TAGS}
+            sanitize_tags['remove_tags'] = [*sanitize_tags['remove_tags'] + ['a']]
+            with patch('odoo.tools.mail.SANITIZE_TAGS', sanitize_tags):
                 for message in messages:
                     self.assertEqual(content, tools.html2plaintext(tools.html_sanitize(message.body)).rstrip('\n'))
 
@@ -253,7 +256,7 @@ class SMSCase(MockSMS):
             self.assertEqual(tools.html2plaintext(message.body).rstrip('\n'), body)
 
 
-class SMSCommon(MailCommon, MockSMS):
+class SMSCommon(MailCommon, SMSCase):
 
     @classmethod
     def setUpClass(cls):

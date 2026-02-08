@@ -22,7 +22,6 @@
         "data/account_chart_template_configure_data.xml",
         "data/menuitem_data.xml",
         "views/account_move.xml",
-        "views/res_partner.xml",
         "views/report_invoice.xml",
     ],
     "demo": ["demo/demo_company.xml"],

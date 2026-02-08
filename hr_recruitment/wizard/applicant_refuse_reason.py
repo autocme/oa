@@ -8,7 +8,7 @@ class ApplicantGetRefuseReason(models.TransientModel):
     _name = 'applicant.get.refuse.reason'
     _description = 'Get Refuse Reason'
 
-    refuse_reason_id = fields.Many2one('hr.applicant.refuse.reason', 'Refuse Reason')
+    refuse_reason_id = fields.Many2one('hr.applicant.refuse.reason', 'Refuse Reason', required=True)
     applicant_ids = fields.Many2many('hr.applicant')
     send_mail = fields.Boolean("Send Email", compute='_compute_send_mail', store=True, readonly=False)
     template_id = fields.Many2one('mail.template', string='Email Template',
@@ -31,7 +31,7 @@ class ApplicantGetRefuseReason(models.TransientModel):
             if applicants and wizard.send_mail:
                 wizard.applicant_without_email = "%s\n%s" % (
                     _("The email will not be sent to the following applicant(s) as they don't have email address."),
-                    "\n".join([i.partner_name for i in applicants])
+                    "\n".join([i.partner_name or i.name for i in applicants])
                 )
             else:
                 wizard.applicant_without_email = False

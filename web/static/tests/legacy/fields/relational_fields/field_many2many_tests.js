@@ -7,9 +7,9 @@ var testUtils = require('web.test_utils');
 const cpHelpers = require('@web/../tests/search/helpers');
 var createView = testUtils.createView;
 
-QUnit.module('fields', {}, function () {
+QUnit.module('Legacy fields', {}, function () {
 
-    QUnit.module('relational_fields', {
+    QUnit.module('Legacy relational_fields', {
         beforeEach: function () {
             this.data = {
                 partner: {
@@ -115,7 +115,7 @@ QUnit.module('fields', {}, function () {
             };
         },
     }, function () {
-        QUnit.module('FieldMany2Many');
+        QUnit.module('Legacy FieldMany2Many');
 
         QUnit.test('many2many kanban: edition', async function (assert) {
             assert.expect(33);
@@ -136,7 +136,7 @@ QUnit.module('fields', {}, function () {
                     '<templates>' +
                     '<t t-name="kanban-box">' +
                     '<div class="oe_kanban_global_click">' +
-                    '<a t-if="!read_only_mode" type="delete" class="fa fa-times float-right delete_icon"/>' +
+                    '<a t-if="!read_only_mode" type="delete" class="fa fa-times float-end delete_icon"/>' +
                     '<span><t t-esc="record.display_name.value"/></span>' +
                     '</div>' +
                     '</t>' +
@@ -184,7 +184,7 @@ QUnit.module('fields', {}, function () {
                 event.data.callback({ user_context: {} });
             });
 
-            assert.ok(!form.$('.o_kanban_view .delete_icon').length,
+            assert.ok(!form.$('.o_legacy_kanban_view .delete_icon').length,
                 'delete icon should not be visible in readonly');
             assert.ok(!form.$('.o_field_many2many .o-kanban-button-new').length,
                 '"Add" button should not be visible in readonly');
@@ -195,7 +195,7 @@ QUnit.module('fields', {}, function () {
                 'should contain 2 records');
             assert.strictEqual(form.$('.o_kanban_record:first() span').text(), 'gold',
                 'display_name of subrecord should be the one in DB');
-            assert.ok(form.$('.o_kanban_view .delete_icon').length,
+            assert.ok(form.$('.o_legacy_kanban_view .delete_icon').length,
                 'delete icon should be visible in edit');
             assert.ok(form.$('.o_field_many2many .o-kanban-button-new').length,
                 '"Add" button should be visible in edit');
@@ -205,7 +205,7 @@ QUnit.module('fields', {}, function () {
             // edit existing subrecord
             await testUtils.dom.click(form.$('.oe_kanban_global_click:first()'));
 
-            await testUtils.fields.editInput($('.modal .o_form_view input'), 'new name');
+            await testUtils.fields.editInput($('.modal .o_legacy_form_view input'), 'new name');
             await testUtils.dom.click($('.modal .modal-footer .btn-primary'));
             assert.strictEqual(form.$('.o_kanban_record:first() span').text(), 'new name',
                 'value of subrecord should have been updated');
@@ -213,11 +213,11 @@ QUnit.module('fields', {}, function () {
             // add subrecords
             // -> single select
             await testUtils.dom.click(form.$('.o_field_many2many .o-kanban-button-new'));
-            assert.ok($('.modal .o_list_view').length, "should have opened a list view in a modal");
-            assert.strictEqual($('.modal .o_list_view tbody .o_list_record_selector').length, 3,
+            assert.ok($('.modal .o_legacy_list_view').length, "should have opened a list view in a modal");
+            assert.strictEqual($('.modal .o_legacy_list_view tbody .o_list_record_selector').length, 3,
                 "list view should contain 3 records");
-            await testUtils.dom.click($('.modal .o_list_view tbody tr:contains(red)'));
-            assert.ok(!$('.modal .o_list_view').length, "should have closed the modal");
+            await testUtils.dom.click($('.modal .o_legacy_list_view tbody tr:contains(red)'));
+            assert.ok(!$('.modal .o_legacy_list_view').length, "should have closed the modal");
             assert.strictEqual(form.$('.o_kanban_record:not(.o_kanban_ghost)').length, 3,
                 'kanban should now contain 3 records');
             assert.ok(form.$('.o_kanban_record:contains(red)').length,
@@ -226,20 +226,20 @@ QUnit.module('fields', {}, function () {
             // -> multiple select
             await testUtils.dom.click(form.$('.o_field_many2many .o-kanban-button-new'));
             assert.ok($('.modal .o_select_button').prop('disabled'), "select button should be disabled");
-            assert.strictEqual($('.modal .o_list_view tbody .o_list_record_selector').length, 2,
+            assert.strictEqual($('.modal .o_legacy_list_view tbody .o_list_record_selector').length, 2,
                 "list view should contain 2 records");
-            await testUtils.dom.click($('.modal .o_list_view thead .o_list_record_selector input'));
+            await testUtils.dom.click($('.modal .o_legacy_list_view thead .o_list_record_selector input'));
             await testUtils.dom.click($('.modal .o_select_button'));
             assert.ok(!$('.modal .o_select_button').prop('disabled'), "select button should be enabled");
-            assert.ok(!$('.modal .o_list_view').length, "should have closed the modal");
+            assert.ok(!$('.modal .o_legacy_list_view').length, "should have closed the modal");
             assert.strictEqual(form.$('.o_kanban_record:not(.o_kanban_ghost)').length, 5,
                 'kanban should now contain 5 records');
             // -> created record
             await testUtils.dom.click(form.$('.o_field_many2many .o-kanban-button-new'));
             await testUtils.dom.click($('.modal .modal-footer .btn-primary:nth(1)'));
-            assert.ok($('.modal .o_form_view.o_form_editable').length,
+            assert.ok($('.modal .o_legacy_form_view.o_form_editable').length,
                 "should have opened a form view in edit mode, in a modal");
-            await testUtils.fields.editInput($('.modal .o_form_view input'), 'A new type');
+            await testUtils.fields.editInput($('.modal .o_legacy_form_view input'), 'A new type');
             await testUtils.dom.click($('.modal:nth(1) footer .btn-primary:first()'));
             assert.ok(!$('.modal').length, "should have closed both modals");
             assert.strictEqual(form.$('.o_kanban_record:not(.o_kanban_ghost)').length, 6,
@@ -317,7 +317,7 @@ QUnit.module('fields', {}, function () {
                     '<templates>' +
                     '<t t-name="kanban-box">' +
                     '<div class="oe_kanban_global_click">' +
-                    '<a t-if="!read_only_mode" type="delete" class="fa fa-times float-right delete_icon"/>' +
+                    '<a t-if="!read_only_mode" type="delete" class="fa fa-times float-end delete_icon"/>' +
                     '<span><t t-esc="record.display_name.value"/></span>' +
                     '</div>' +
                     '</t>' +
@@ -342,7 +342,7 @@ QUnit.module('fields', {}, function () {
 
             assert.ok(form.$('.o-kanban-button-new').length,
                 '"Add" button should be available in edit');
-            assert.ok(form.$('.o_kanban_view .delete_icon').length,
+            assert.ok(form.$('.o_legacy_kanban_view .delete_icon').length,
                 'delete icon should be visible in edit');
 
             await testUtils.dom.click(form.$('.o-kanban-button-new'));
@@ -420,6 +420,41 @@ QUnit.module('fields', {}, function () {
             form.destroy();
         });
 
+        QUnit.test('many2many kanban: action/type attribute', async function (assert) {
+            assert.expect(2);
+
+            this.data.partner.records[0].timmy = [12];
+
+            var form = await createView({
+                View: FormView,
+                model: 'partner',
+                data: this.data,
+                arch: '<form string="Partners">' +
+                    '<field name="timmy" add-label="Add timmy" mode="kanban">' +
+                    '<kanban action="a1" type="object">' +
+                    '<templates>' +
+                    '<t t-name="kanban-box">' +
+                    '<div class="oe_kanban_details">' +
+                    '<field name="display_name"/>' +
+                    '</div>' +
+                    '</t>' +
+                    '</templates>' +
+                    '</kanban>' +
+                    '</field>' +
+                    '</form>',
+                res_id: 1,
+            });
+
+            testUtils.mock.intercept(form, 'execute_action', function (event) {
+                assert.strictEqual(event.data.action_data.type, "object");
+                assert.strictEqual(event.data.action_data.name, "a1");
+                event.data.on_closed();
+            });
+
+            testUtils.dom.click(form.$('.oe_kanban_details').first());
+            form.destroy();
+        });
+
         QUnit.test('many2many list (non editable): edition', async function (assert) {
             assert.expect(29);
 
@@ -446,7 +481,7 @@ QUnit.module('fields', {}, function () {
                 },
                 res_id: 1,
                 mockRPC: function (route, args) {
-                    if (args.method !== 'load_views') {
+                    if (args.method !== 'get_views') {
                         assert.step(_.last(route.split('/')));
                     }
                     if (args.method === 'write' && args.model === 'partner') {
@@ -464,9 +499,9 @@ QUnit.module('fields', {}, function () {
 
             await testUtils.form.clickEdit(form);
 
-            assert.containsN(form, '.o_list_view td.o_list_number', 2,
+            assert.containsN(form, '.o_legacy_list_view td.o_list_number', 2,
                 'should contain 2 records');
-            assert.strictEqual(form.$('.o_list_view tbody td:first()').text(), 'gold',
+            assert.strictEqual(form.$('.o_legacy_list_view tbody td:first()').text(), 'gold',
                 'display_name of first subrecord should be the one in DB');
             assert.ok(form.$('.o_list_record_remove').length,
                 'delete icon should be visible in edit');
@@ -474,42 +509,42 @@ QUnit.module('fields', {}, function () {
                 '"Add an item" should be visible in edit');
 
             // edit existing subrecord
-            await testUtils.dom.click(form.$('.o_list_view tbody tr:first()'));
+            await testUtils.dom.click(form.$('.o_legacy_list_view tbody tr:first()'));
 
             assert.containsNone($('.modal .modal-footer .o_btn_remove'),
                 'there should not be a "Remove" button in the modal footer');
 
-            await testUtils.fields.editInput($('.modal .o_form_view input'), 'new name');
+            await testUtils.fields.editInput($('.modal .o_legacy_form_view input'), 'new name');
             await testUtils.dom.click($('.modal .modal-footer .btn-primary'));
-            assert.strictEqual(form.$('.o_list_view tbody td:first()').text(), 'new name',
+            assert.strictEqual(form.$('.o_legacy_list_view tbody td:first()').text(), 'new name',
                 'value of subrecord should have been updated');
 
             // add new subrecords
             await testUtils.dom.click(form.$('.o_field_x2many_list_row_add a'));
             assert.containsNone($('.modal .modal-footer .o_btn_remove'),
                 'there should not be a "Remove" button in the modal footer');
-            assert.strictEqual($('.modal .o_list_view').length, 1,
+            assert.strictEqual($('.modal .o_legacy_list_view').length, 1,
                 "a modal should be open");
-            assert.strictEqual($('.modal .o_list_view .o_data_row').length, 1,
+            assert.strictEqual($('.modal .o_legacy_list_view .o_data_row').length, 1,
                 "the list should contain one row");
-            await testUtils.dom.click($('.modal .o_list_view .o_data_row'));
-            assert.strictEqual($('.modal .o_list_view').length, 0,
+            await testUtils.dom.click($('.modal .o_legacy_list_view .o_data_row'));
+            assert.strictEqual($('.modal .o_legacy_list_view').length, 0,
                 "the modal should be closed");
-            assert.containsN(form, '.o_list_view td.o_list_number', 3,
+            assert.containsN(form, '.o_legacy_list_view td.o_list_number', 3,
                 'should contain 3 subrecords');
 
             // remove subrecords
             await testUtils.dom.click(form.$('.o_list_record_remove:nth(1)'));
-            assert.containsN(form, '.o_list_view td.o_list_number', 2,
+            assert.containsN(form, '.o_legacy_list_view td.o_list_number', 2,
                 'should contain 2 subrecords');
-            assert.strictEqual(form.$('.o_list_view .o_data_row td:first').text(), 'new name',
+            assert.strictEqual(form.$('.o_legacy_list_view .o_data_row td:first').text(), 'new name',
                 'the updated row still has the correct values');
 
             // save
             await testUtils.form.clickSave(form);
-            assert.containsN(form, '.o_list_view td.o_list_number', 2,
+            assert.containsN(form, '.o_legacy_list_view td.o_list_number', 2,
                 'should contain 2 subrecords');
-            assert.strictEqual(form.$('.o_list_view .o_data_row td:first').text(),
+            assert.strictEqual(form.$('.o_legacy_list_view .o_data_row td:first').text(),
                 'new name', 'the updated row still has the correct values');
 
             assert.verifySteps([
@@ -550,7 +585,7 @@ QUnit.module('fields', {}, function () {
                     'partner_type,false,search': '<search><field name="display_name"/></search>',
                 },
                 mockRPC: function (route, args) {
-                    if (args.method !== 'load_views') {
+                    if (args.method !== 'get_views') {
                         assert.step(_.last(route.split('/')));
                     }
                     if (args.method === 'write') {
@@ -571,9 +606,9 @@ QUnit.module('fields', {}, function () {
 
             await testUtils.form.clickEdit(form);
 
-            assert.containsN(form, '.o_list_view td.o_list_number', 2,
+            assert.containsN(form, '.o_legacy_list_view td.o_list_number', 2,
                 'should contain 2 records');
-            assert.strictEqual(form.$('.o_list_view tbody td:first()').text(), 'gold',
+            assert.strictEqual(form.$('.o_legacy_list_view tbody td:first()').text(), 'gold',
                 'display_name of first subrecord should be the one in DB');
             assert.ok(form.$('.o_list_record_remove').length,
                 'delete icon should be visible in edit');
@@ -583,47 +618,47 @@ QUnit.module('fields', {}, function () {
                 '"Add an item" should not visible in edit');
 
             // edit existing subrecord
-            await testUtils.dom.click(form.$('.o_list_view tbody td:first()'));
+            await testUtils.dom.click(form.$('.o_legacy_list_view tbody td:first()'));
             assert.ok(!$('.modal').length,
                 'in edit, clicking on a subrecord should not open a dialog');
-            assert.hasClass(form.$('.o_list_view tbody tr:first()'),'o_selected_row',
+            assert.hasClass(form.$('.o_legacy_list_view tbody tr:first()'),'o_selected_row',
                 'first row should be in edition');
-            await testUtils.fields.editInput(form.$('.o_list_view input:first()'), 'new name');
-            assert.hasClass(form.$('.o_list_view .o_data_row:first'),'o_selected_row',
+            await testUtils.fields.editInput(form.$('.o_legacy_list_view input:first()'), 'new name');
+            assert.hasClass(form.$('.o_legacy_list_view .o_data_row:first'),'o_selected_row',
                 'first row should still be in edition');
-            assert.strictEqual(form.$('.o_list_view input[name=display_name]').get(0),
+            assert.strictEqual(form.$('.o_legacy_list_view input[name=display_name]').get(0),
                 document.activeElement, 'edited field should still have the focus');
             await testUtils.dom.click(form.$el);
-            assert.doesNotHaveClass(form.$('.o_list_view tbody tr:first'), 'o_selected_row',
+            assert.doesNotHaveClass(form.$('.o_legacy_list_view tbody tr:first'), 'o_selected_row',
                 'first row should not be in edition anymore');
-            assert.strictEqual(form.$('.o_list_view tbody td:first()').text(), 'new name',
+            assert.strictEqual(form.$('.o_legacy_list_view tbody td:first()').text(), 'new name',
                 'value of subrecord should have been updated');
             assert.verifySteps(['read', 'read']);
 
             // add new subrecords
             await testUtils.dom.click(form.$('.o_field_x2many_list_row_add a'));
-            assert.strictEqual($('.modal .o_list_view').length, 1,
+            assert.strictEqual($('.modal .o_legacy_list_view').length, 1,
                 "a modal should be open");
-            assert.strictEqual($('.modal .o_list_view .o_data_row').length, 1,
+            assert.strictEqual($('.modal .o_legacy_list_view .o_data_row').length, 1,
                 "the list should contain one row");
-            await testUtils.dom.click($('.modal .o_list_view .o_data_row'));
-            assert.strictEqual($('.modal .o_list_view').length, 0,
+            await testUtils.dom.click($('.modal .o_legacy_list_view .o_data_row'));
+            assert.strictEqual($('.modal .o_legacy_list_view').length, 0,
                 "the modal should be closed");
-            assert.containsN(form, '.o_list_view td.o_list_number', 3,
+            assert.containsN(form, '.o_legacy_list_view td.o_list_number', 3,
                 'should contain 3 subrecords');
 
             // remove subrecords
             await testUtils.dom.click(form.$('.o_list_record_remove:nth(1)'));
-            assert.containsN(form, '.o_list_view td.o_list_number', 2,
+            assert.containsN(form, '.o_legacy_list_view td.o_list_number', 2,
                 'should contain 2 subrecord');
-            assert.strictEqual(form.$('.o_list_view tbody .o_data_row td:first').text(),
+            assert.strictEqual(form.$('.o_legacy_list_view tbody .o_data_row td:first').text(),
                 'new name', 'the updated row still has the correct values');
 
             // save
             await testUtils.form.clickSave(form);
-            assert.containsN(form, '.o_list_view td.o_list_number', 2,
+            assert.containsN(form, '.o_legacy_list_view td.o_list_number', 2,
                 'should contain 2 subrecords');
-            assert.strictEqual(form.$('.o_list_view .o_data_row td:first').text(),
+            assert.strictEqual(form.$('.o_legacy_list_view .o_data_row td:first').text(),
                 'new name', 'the updated row still has the correct values');
 
             assert.verifySteps([
@@ -759,7 +794,7 @@ QUnit.module('fields', {}, function () {
             assert.containsOnce($('.modal-footer'), 'button.o_select_button');
             assert.containsOnce($('.modal-footer'), 'button.o_form_button_cancel');
 
-            await testUtils.dom.click($('.modal .o_list_view .o_data_cell:first()'));
+            await testUtils.dom.click($('.modal .o_legacy_list_view .o_data_cell:first()'));
             assert.containsNone(document.body, '.modal');
 
             assert.containsOnce(form, '.o_field_many2many .o_data_row');
@@ -1088,23 +1123,23 @@ QUnit.module('fields', {}, function () {
                 }
             });
 
-            assert.notOk(form.$('.o_form_view .custom-checkbox input').eq(0).prop('checked'),
+            assert.notOk(form.$('.o_legacy_form_view .form-check input').eq(0).prop('checked'),
                 "first checkbox should not be checked");
-            assert.notOk(form.$('.o_form_view .custom-checkbox input').eq(1).prop('checked'),
+            assert.notOk(form.$('.o_legacy_form_view .form-check input').eq(1).prop('checked'),
                 "second checkbox should not be checked");
-            assert.ok(form.$('.o_form_view .custom-checkbox input').eq(2).prop('checked'),
+            assert.ok(form.$('.o_legacy_form_view .form-check input').eq(2).prop('checked'),
                 "third checkbox should be checked");
 
-            await testUtils.dom.click(form.$('.o_form_view .custom-checkbox input:checked'));
-            await testUtils.dom.click(form.$('.o_form_view .custom-checkbox input').first());
-            await testUtils.dom.click(form.$('.o_form_view .custom-checkbox input').first());
-            await testUtils.dom.click(form.$('.o_form_view .custom-checkbox input').first());
+            await testUtils.dom.click(form.$('.o_legacy_form_view .form-check input:checked'));
+            await testUtils.dom.click(form.$('.o_legacy_form_view .form-check input').first());
+            await testUtils.dom.click(form.$('.o_legacy_form_view .form-check input').first());
+            await testUtils.dom.click(form.$('.o_legacy_form_view .form-check input').first());
 
-            assert.ok(form.$('.o_form_view .custom-checkbox input').eq(0).prop('checked'),
+            assert.ok(form.$('.o_legacy_form_view .form-check input').eq(0).prop('checked'),
                 "first checkbox should be checked");
-            assert.notOk(form.$('.o_form_view .custom-checkbox input').eq(1).prop('checked'),
+            assert.notOk(form.$('.o_legacy_form_view .form-check input').eq(1).prop('checked'),
                 "second checkbox should not be checked");
-            assert.notOk(form.$('.o_form_view .custom-checkbox input').eq(2).prop('checked'),
+            assert.notOk(form.$('.o_legacy_form_view .form-check input').eq(2).prop('checked'),
                 "third checkbox should not be checked");
 
             await testUtils.form.clickSave(form);
@@ -1139,7 +1174,7 @@ QUnit.module('fields', {}, function () {
                         '</search>',
                 },
                 mockRPC: function (route, args) {
-                    if (args.method !== 'load_views') {
+                    if (args.method !== 'get_views') {
                         assert.step(_.last(route.split('/')) + ' on ' + args.model);
                     }
                     if (args.model === 'turtle') {
@@ -1264,7 +1299,7 @@ QUnit.module('fields', {}, function () {
             assert.verifySteps([
                 'read', // read initial record (on partner)
                 'read', // read many2many turtles
-                'load_views', // load arch of turtles form view
+                'get_views', // load arch of turtles form view
                 'read', // read missing field when opening record in modal form view
                 'write', // when saving the modal
                 'onchange', // onchange should be triggered on partner
@@ -1448,16 +1483,16 @@ QUnit.module('fields', {}, function () {
             await testUtils.form.clickEdit(form);
             await testUtils.fields.many2one.clickOpenDropdown('timmy');
             await testUtils.fields.many2one.clickItem('timmy','Search More');
-            assert.ok($('.modal .o_list_view'), "should have open the modal");
+            assert.ok($('.modal .o_legacy_list_view'), "should have open the modal");
 
             // + 1 for the select all
-            assert.containsN($(document),'.modal .o_list_view .o_list_record_selector input', this.data.partner_type.records.length + 1,
+            assert.containsN($(document),'.modal .o_legacy_list_view .o_list_record_selector input', this.data.partner_type.records.length + 1,
                 "Should have record selector checkboxes to select multiple records");
             //multiple select tag
-            await testUtils.dom.click($('.modal .o_list_view thead .o_list_record_selector input'));
+            await testUtils.dom.click($('.modal .o_legacy_list_view thead .o_list_record_selector input'));
             assert.ok(!$('.modal .o_select_button').prop('disabled'), "select button should be enabled");
             await testUtils.dom.click($('.o_select_button'));
-            assert.containsNone($(document),'.modal .o_list_view', "should have closed the modal");
+            assert.containsNone($(document),'.modal .o_legacy_list_view', "should have closed the modal");
             assert.containsN(form, '.o_field_many2manytags[name="timmy"] .badge', this.data.partner_type.records.length,
                 "many2many tag should now contain 12 records");
             form.destroy();
@@ -1490,16 +1525,16 @@ QUnit.module('fields', {}, function () {
 
             await testUtils.fields.many2one.clickOpenDropdown('timmy');
             await testUtils.fields.many2one.clickItem('timmy','Search More');
-            assert.ok($('.modal .o_list_view'), "should have open the modal");
+            assert.ok($('.modal .o_legacy_list_view'), "should have open the modal");
 
             // -1 for the one that is already on the form & +1 for the select all,
-            assert.containsN($(document), '.modal .o_list_view .o_list_record_selector input', this.data.partner_type.records.length - 1 + 1,
+            assert.containsN($(document), '.modal .o_legacy_list_view .o_list_record_selector input', this.data.partner_type.records.length - 1 + 1,
                 "Should have record selector checkboxes to select multiple records");
             //multiple select tag
-            await testUtils.dom.click($('.modal .o_list_view thead .o_list_record_selector input'));
+            await testUtils.dom.click($('.modal .o_legacy_list_view thead .o_list_record_selector input'));
             assert.ok(!$('.modal .o_select_button').prop('disabled'), "select button should be enabled");
             await testUtils.dom.click($('.o_select_button'));
-            assert.containsNone($(document),'.modal .o_list_view', "should have closed the modal");
+            assert.containsNone($(document),'.modal .o_legacy_list_view', "should have closed the modal");
             assert.containsN(form, '.o_field_many2manytags[name="timmy"] .badge', this.data.partner_type.records.length,
                 "many2many tag should now contain 12 records");
             form.destroy();
@@ -1528,18 +1563,18 @@ QUnit.module('fields', {}, function () {
           await testUtils.form.clickEdit(form);
 
           await testUtils.fields.many2one.createAndEdit('timmy',"Ralts");
-          assert.containsOnce($(document), '.modal .o_form_view', "should have opened the modal");
+          assert.containsOnce($(document), '.modal .o_legacy_form_view', "should have opened the modal");
 
           // Create multiple records with save & new
           await testUtils.fields.editInput($('.modal input:first'), 'Ralts');
           await testUtils.dom.click($('.modal .btn-primary:nth-child(2)'));
-          assert.containsOnce($(document), '.modal .o_form_view', "modal should still be open");
+          assert.containsOnce($(document), '.modal .o_legacy_form_view', "modal should still be open");
           assert.equal($('.modal input:first')[0].value, '', "input should be empty")
 
           // Create another record and click save & close
           await testUtils.fields.editInput($('.modal input:first'), 'Pikachu');
           await testUtils.dom.click($('.modal .btn-primary:first'));
-          assert.containsNone($(document),'.modal .o_list_view', "should have closed the modal");
+          assert.containsNone($(document),'.modal .o_legacy_list_view', "should have closed the modal");
           assert.containsN(form, '.o_field_many2manytags[name="timmy"] .badge', 2, "many2many tag should now contain 2 records");
 
           form.destroy();
@@ -1578,12 +1613,12 @@ QUnit.module('fields', {}, function () {
 
             await testUtils.fields.editInput($('.o_field_widget input'), 'hello');
             await testUtils.fields.many2one.clickItem('timmy', 'Create and Edit');
-            assert.strictEqual(document.querySelector('.modal .o_form_view input').value, "hello",
+            assert.strictEqual(document.querySelector('.modal .o_legacy_form_view input').value, "hello",
                 "should contain the 'hello' in the tag name input field");
 
             // Create record with save & new
             await testUtils.dom.click(document.querySelector('.modal .btn-primary:nth-child(2)'));
-            assert.strictEqual(document.querySelector('.modal .o_form_view input').value, "",
+            assert.strictEqual(document.querySelector('.modal .o_legacy_form_view input').value, "",
                 "should display the blank value in the tag name input field");
 
             form.destroy();
@@ -1721,7 +1756,6 @@ QUnit.module('fields', {}, function () {
             // type something that doesn't exist
             await testUtils.fields.editAndTrigger(form.$('.o_field_many2one input'),
                 'Something that does not exist', 'keydown');
-            // await testUtils.nextTick();
             assert.containsN(form.$('.o_field_many2one input').autocomplete('widget'), 'li.o_m2o_dropdown_option', 2,
                 'autocomplete should contain Create and Create and Edit... options');
 
@@ -1801,7 +1835,7 @@ QUnit.module('fields', {}, function () {
             });
 
             // as the quick create failed, a dialog should be open to 'slow create' the record
-            assert.containsOnce(document.body, '.modal .o_form_view');
+            assert.containsOnce(document.body, '.modal .o_legacy_form_view');
             assert.strictEqual($('.modal .o_field_widget[name=name]').val(), 'new partner');
 
             await testUtils.fields.editInput($('.modal .o_field_widget[name=color]'), 8);

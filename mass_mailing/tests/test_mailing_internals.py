@@ -1,22 +1,27 @@
 # -*- coding: utf-8 -*-
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
 
+import base64
 import re
 from ast import literal_eval
 from datetime import datetime
 from unittest.mock import patch
 
 from freezegun import freeze_time
+from psycopg2 import IntegrityError
+from unittest.mock import patch
 
 from odoo.addons.base.tests.test_ir_cron import CronMixinCase
 from odoo.addons.mass_mailing.tests.common import MassMailCommon
+from odoo.exceptions import ValidationError
+from odoo.sql_db import Cursor
 from odoo.tests.common import users, Form, HttpCase, tagged
-from odoo.tools import formataddr, mute_logger
+from odoo.tools import mute_logger
 
 BASE_64_STRING = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII='
 
 
-@tagged('mass_mailing')
+@tagged("mass_mailing")
 class TestMassMailValues(MassMailCommon):
 
     @classmethod
@@ -25,22 +30,71 @@ class TestMassMailValues(MassMailCommon):
         cls._create_mailing_list()
 
     @users('user_marketing')
+    def test_mailing_body_cropped_vml_image(self):
+        """ Testing mail mailing responsive bg-image cropping for Outlook.
+
+        Outlook needs background images to be converted to VML but there is no
+        way to emulate `background-size: cover` that works for Windows Mail as
+        well. We therefore need to crop the image in the VML version to mimick
+        the style of other email clients.
+        """
+        attachment = {}
+        def patched_get_image(self, url, session):
+            return base64.b64decode(BASE_64_STRING)
+        original_images_to_urls = self.env['mailing.mailing']._create_attachments_from_inline_images
+        def patched_images_to_urls(self, b64images):
+            urls = original_images_to_urls(b64images)
+            if len(urls) == 1:
+                (attachment_id, attachment_token) = re.search(r'/web/image/(?P<id>[0-9]+)\?access_token=(?P<token>.*)', urls[0]).groups()
+                attachment['id'] = attachment_id
+                attachment['token'] = attachment_token
+                return urls
+            else:
+                return []
+        with patch("odoo.addons.mass_mailing.models.mailing.MassMailing._get_image_by_url",
+                   new=patched_get_image), \
+             patch("odoo.addons.mass_mailing.models.mailing.MassMailing._create_attachments_from_inline_images",
+                   new=patched_images_to_urls):
+            mailing = self.env['mailing.mailing'].create({
+                'name': 'Test',
+                'subject': 'Test',
+                'state': 'draft',
+                'mailing_model_id': self.env['ir.model']._get('res.partner').id,
+                'body_html': """
+                    <html>
+                        <!--[if mso]>
+                            <v:image src="https://www.example.com/image" style="width:100px;height:100px;"/>
+                        <![endif]-->
+                    </html>
+                """,
+            })
+        self.assertEqual(str(mailing.body_html), f"""
+                    <html>
+                        <!--[if mso]>
+                            <v:image src="/web/image/{attachment['id']}?access_token={attachment['token']}" style="width:100px;height:100px;"/>
+                        <![endif]-->
+                    </html>
+        """.strip())
+
+    @users('user_marketing')
     def test_mailing_body_inline_image(self):
         """ Testing mail mailing base64 image conversion to attachment.
+
         This test ensures that the base64 images are correctly converted to
-        attachments.
+        attachments, even when they appear in MSO conditional comments.
         """
         attachments = []
-        original_images_to_urls = self.env['mailing.mailing']._image_to_url
-        def patched_images_to_urls(self, b64image):
-            url = original_images_to_urls(b64image)
-            (attachment_id, attachment_token) = re.search(r'/web/image/(?P<id>[0-9]+)\?access_token=(?P<token>.*)', url).groups()
-            attachments.append({
-                'id': attachment_id,
-                'token': attachment_token,
-            })
-            return url
-        with patch("odoo.addons.mass_mailing.models.mailing.MassMailing._image_to_url",
+        original_images_to_urls = self.env['mailing.mailing']._create_attachments_from_inline_images
+        def patched_images_to_urls(self, b64images):
+            urls = original_images_to_urls(b64images)
+            for url in urls:
+                (attachment_id, attachment_token) = re.search(r'/web/image/(?P<id>[0-9]+)\?access_token=(?P<token>.*)', url).groups()
+                attachments.append({
+                    'id': attachment_id,
+                    'token': attachment_token,
+                })
+            return urls
+        with patch("odoo.addons.mass_mailing.models.mailing.MassMailing._create_attachments_from_inline_images",
                    new=patched_images_to_urls):
             mailing = self.env['mailing.mailing'].create({
                     'name': 'Test',
@@ -49,26 +103,55 @@ class TestMassMailValues(MassMailCommon):
                     'mailing_model_id': self.env['ir.model']._get('res.partner').id,
                     'body_html': f"""
                         <html><body>
-                            <img src="data:image/png;base64,{BASE_64_STRING}">
-                            <div style='color: red; background-image:url("data:image/jpg;base64,{BASE_64_STRING}"); display: block;'/>
-                            <div style="color: red; background-image:url('data:image/jpg;base64,{BASE_64_STRING}'); display: block;"/>
-                            <div style="color: red; background-image:url(&quot;data:image/jpg;base64,{BASE_64_STRING}&quot;); display: block;"/>
-                            <div style="color: red; background-image:url(&#34;data:image/jpg;base64,{BASE_64_STRING}&#34;); display: block;"/>
-                            <div style="color: red; background-image:url(data:image/jpg;base64,{BASE_64_STRING}); display: block;"/>
-                            <div style="color: red; background-image: url(data:image/jpg;base64,{BASE_64_STRING}); background: url('data:image/jpg;base64,{BASE_64_STRING}'); display: block;"/>
+                            <img src="data:image/png;base64,{BASE_64_STRING}0">
+                            <img src="data:image/jpg;base64,{BASE_64_STRING}1">
+                            <div style='color: red; background-image:url("data:image/jpg;base64,{BASE_64_STRING}2"); display: block;'/>
+                            <div style="color: red; background-image:url('data:image/jpg;base64,{BASE_64_STRING}3'); display: block;"/>
+                            <div style="color: red; background-image:url(&quot;data:image/jpg;base64,{BASE_64_STRING}4&quot;); display: block;"/>
+                            <div style="color: red; background-image:url(&#34;data:image/jpg;base64,{BASE_64_STRING}5&#34;); display: block;"/>
+                            <div style="color: red; background-image:url(data:image/jpg;base64,{BASE_64_STRING}6); display: block;"/>
+                            <div style="color: red; background-image: url(data:image/jpg;base64,{BASE_64_STRING}7); background: url('data:image/jpg;base64,{BASE_64_STRING}8'); display: block;"/>
+                            <!--[if mso]>
+                                <img src="data:image/png;base64,{BASE_64_STRING}9">Fake url, in text: img src="data:image/png;base64,{BASE_64_STRING}"
+                                Fake url, in text: img src="data:image/png;base64,{BASE_64_STRING}"
+                                <img src="data:image/jpg;base64,{BASE_64_STRING}10">
+                                <div style='color: red; background-image:url("data:image/jpg;base64,{BASE_64_STRING}11"); display: block;'>Fake url, in text: style="background-image:url('data:image/png;base64,{BASE_64_STRING}');"
+                                Fake url, in text: style="background-image:url('data:image/png;base64,{BASE_64_STRING}');"</div>
+                                <div style="color: red; background-image:url('data:image/jpg;base64,{BASE_64_STRING}12'); display: block;"/>
+                                <div style="color: red; background-image:url(&quot;data:image/jpg;base64,{BASE_64_STRING}13&quot;); display: block;"/>
+                                <div style="color: red; background-image:url(&#34;data:image/jpg;base64,{BASE_64_STRING}14&#34;); display: block;"/>
+                                <div style="color: red; background-image:url(data:image/jpg;base64,{BASE_64_STRING}15); display: block;"/>
+                                <div style="color: red; background-image: url(data:image/jpg;base64,{BASE_64_STRING}16); background: url('data:image/jpg;base64,{BASE_64_STRING}17'); display: block;"/>
+                            <![endif]-->
+                            <img src="data:image/png;base64,{BASE_64_STRING}0">
                         </body></html>
                     """,
                 })
-        self.assertEqual(len(attachments), 8)
-        self.assertEqual(str(mailing.body_html).strip(), f"""
+        self.assertEqual(len(attachments), 19)
+        self.assertEqual(attachments[0]['id'], attachments[18]['id'])
+        self.assertEqual(str(mailing.body_html), f"""
                         <html><body>
                             <img src="/web/image/{attachments[0]['id']}?access_token={attachments[0]['token']}">
-                            <div style='color: red; background-image:url("/web/image/{attachments[1]['id']}?access_token={attachments[1]['token']}"); display: block;'/>
-                            <div style="color: red; background-image:url('/web/image/{attachments[2]['id']}?access_token={attachments[2]['token']}'); display: block;"/>
-                            <div style="color: red; background-image:url(&quot;/web/image/{attachments[3]['id']}?access_token={attachments[3]['token']}&quot;); display: block;"/>
-                            <div style="color: red; background-image:url(&#34;/web/image/{attachments[4]['id']}?access_token={attachments[4]['token']}&#34;); display: block;"/>
-                            <div style="color: red; background-image:url(/web/image/{attachments[5]['id']}?access_token={attachments[5]['token']}); display: block;"/>
-                            <div style="color: red; background-image: url(/web/image/{attachments[7]['id']}?access_token={attachments[7]['token']}); background: url('/web/image/{attachments[6]['id']}?access_token={attachments[6]['token']}'); display: block;"/>
+                            <img src="/web/image/{attachments[1]['id']}?access_token={attachments[1]['token']}">
+                            <div style='color: red; background-image:url("/web/image/{attachments[2]['id']}?access_token={attachments[2]['token']}"); display: block;'></div>
+                            <div style="color: red; background-image:url('/web/image/{attachments[3]['id']}?access_token={attachments[3]['token']}'); display: block;"></div>
+                            <div style='color: red; background-image:url("/web/image/{attachments[4]['id']}?access_token={attachments[4]['token']}"); display: block;'></div>
+                            <div style='color: red; background-image:url("/web/image/{attachments[5]['id']}?access_token={attachments[5]['token']}"); display: block;'></div>
+                            <div style="color: red; background-image:url(/web/image/{attachments[6]['id']}?access_token={attachments[6]['token']}); display: block;"></div>
+                            <div style="color: red; background-image: url(/web/image/{attachments[7]['id']}?access_token={attachments[7]['token']}); background: url('/web/image/{attachments[8]['id']}?access_token={attachments[8]['token']}'); display: block;"></div>
+                            <!--[if mso]>
+                                <img src="/web/image/{attachments[9]['id']}?access_token={attachments[9]['token']}">Fake url, in text: img src="data:image/png;base64,{BASE_64_STRING}"
+                                Fake url, in text: img src="data:image/png;base64,{BASE_64_STRING}"
+                                <img src="/web/image/{attachments[10]['id']}?access_token={attachments[10]['token']}">
+                                <div style='color: red; background-image:url("/web/image/{attachments[11]['id']}?access_token={attachments[11]['token']}"); display: block;'>Fake url, in text: style="background-image:url('data:image/png;base64,{BASE_64_STRING}');"
+                                Fake url, in text: style="background-image:url('data:image/png;base64,{BASE_64_STRING}');"</div>
+                                <div style="color: red; background-image:url('/web/image/{attachments[12]['id']}?access_token={attachments[12]['token']}'); display: block;"/>
+                                <div style="color: red; background-image:url(&quot;/web/image/{attachments[13]['id']}?access_token={attachments[13]['token']}&quot;); display: block;"/>
+                                <div style="color: red; background-image:url(&#34;/web/image/{attachments[14]['id']}?access_token={attachments[14]['token']}&#34;); display: block;"/>
+                                <div style="color: red; background-image:url(/web/image/{attachments[15]['id']}?access_token={attachments[15]['token']}); display: block;"/>
+                                <div style="color: red; background-image: url(/web/image/{attachments[16]['id']}?access_token={attachments[16]['token']}); background: url('/web/image/{attachments[17]['id']}?access_token={attachments[17]['token']}'); display: block;"/>
+                            <![endif]-->
+                            <img src="/web/image/{attachments[18]['id']}?access_token={attachments[18]['token']}">
                         </body></html>
         """.strip())
 
@@ -162,6 +245,65 @@ class TestMassMailValues(MassMailCommon):
         self.assertFalse(mailing.reply_to)
 
     @users('user_marketing')
+    def test_mailing_computed_fields_domain_w_filter(self):
+        """ Test domain update, involving mailing.filters added in 15.1. """
+        # Create on res.partner, with default values for computed fields
+        mailing = self.env['mailing.mailing'].create({
+            'name': 'TestMailing',
+            'subject': 'Test',
+            'mailing_type': 'mail',
+            'body_html': '<p>Hello <t t-out="object.name"/></p>',
+            'mailing_model_id': self.env['ir.model']._get('res.partner').id,
+        })
+        # default for partner: remove blacklisted
+        self.assertEqual(literal_eval(mailing.mailing_domain), [('is_blacklisted', '=', False)])
+
+        # prepare initial data
+        filter_1, filter_2, filter_3 = self.env['mailing.filter'].create([
+            {'name': 'General channel',
+             'mailing_domain' : [('name', '=', 'general')],
+             'mailing_model_id': self.env['ir.model']._get('mail.channel').id,
+            },
+            {'name': 'LLN City',
+             'mailing_domain' : [('city', 'ilike', 'LLN')],
+             'mailing_model_id': self.env['ir.model']._get('res.partner').id,
+            },
+            {'name': 'Email based',
+             'mailing_domain' : [('email', 'ilike', 'info@odoo.com')],
+             'mailing_model_id': self.env['ir.model']._get('res.partner').id,
+            }
+        ])
+
+        # check that adding mailing_filter_id updates domain correctly
+        mailing.mailing_filter_id = filter_2
+        self.assertEqual(literal_eval(mailing.mailing_domain), literal_eval(filter_2.mailing_domain))
+
+        # cannot set a filter linked to another model
+        with self.assertRaises(ValidationError):
+            mailing.mailing_filter_id = filter_1
+
+        # resetting model should reset domain, even if filter was chosen previously
+        mailing.mailing_model_id = self.env['ir.model']._get('mail.channel').id
+        self.assertEqual(literal_eval(mailing.mailing_domain), [])
+
+        # changing the filter should update the mailing domain correctly
+        mailing.mailing_filter_id = filter_1
+        self.assertEqual(literal_eval(mailing.mailing_domain), literal_eval(filter_1.mailing_domain))
+
+        # changing the domain should not empty the mailing_filter_id
+        mailing.mailing_domain = "[('email', 'ilike', 'info_be@odoo.com')]"
+        self.assertEqual(mailing.mailing_filter_id, filter_1, "Filter should not be unset even if domain is changed")
+
+        # deleting the filter record should not delete the domain on mailing
+        mailing.mailing_model_id = self.env['ir.model']._get('res.partner').id
+        mailing.mailing_filter_id = filter_3
+        filter_3_domain = filter_3.mailing_domain
+        self.assertEqual(literal_eval(mailing.mailing_domain), literal_eval(filter_3_domain))
+        filter_3.unlink()  # delete the filter record
+        self.assertFalse(mailing.mailing_filter_id, "Should unset filter if it is deleted")
+        self.assertEqual(literal_eval(mailing.mailing_domain), literal_eval(filter_3_domain), "Should still have the same domain")
+
+    @users('user_marketing')
     def test_mailing_computed_fields_default(self):
         mailing = self.env['mailing.mailing'].with_context(
             default_mailing_domain=repr([('email', 'ilike', 'test.example.com')])
@@ -175,6 +317,68 @@ class TestMassMailValues(MassMailCommon):
         self.assertEqual(literal_eval(mailing.mailing_domain), [('email', 'ilike', 'test.example.com')])
 
     @users('user_marketing')
+    def test_mailing_computed_fields_default_email_from(self):
+        # Testing if the email_from is correctly computed when an
+        # alias domain for the company is set
+
+        # Setup mail outgoing server for use cases
+
+        from_filter_match, from_filter_missmatch = self.env['ir.mail_server'].sudo().create([
+            # Case where alias domain is set and there is a default outgoing email server
+            # for mass mailing. from_filter matches domain of company alias domain
+            # before record creation
+            {
+                    'name': 'mass_mailing_test_match_from_filter',
+                    'from_filter': self.alias_domain,
+                    'smtp_host': 'not_real@smtp.com',
+            },
+            # Case where alias domain is set and there is a default outgoing email server
+            # for mass mailing. from_filter DOES NOT match domain of company alias domain
+            # before record creation
+            {
+                    'name': 'mass_mailing_test_from_missmatch',
+                    'from_filter': 'notcompanydomain.com',
+                    'smtp_host': 'not_real@smtp.com',
+            },
+        ])
+
+        # Expected combos of server vs FROM values
+
+        servers = [
+            self.env['ir.mail_server'],
+            from_filter_match,
+            from_filter_missmatch,
+        ]
+        expected_from_all = [
+            self.env.user.email_formatted,  # default when no server
+            self.env['ir.mail_server']._get_default_from_address(),  # matches company alias domain
+            self.env.user.email_formatted,  # not matching from filter -> back to user from
+        ]
+
+        for mail_server, expected_from in zip(servers, expected_from_all):
+            with self.subTest(server_name=mail_server.name):
+                # When a mail server is set, we update the mass mailing
+                # settings to designate a dedicated outgoing email server
+                if mail_server:
+                    self.env['res.config.settings'].sudo().create({
+                        'mass_mailing_mail_server_id': mail_server.id,
+                        'mass_mailing_outgoing_mail_server': mail_server,
+                    }).execute()
+
+                # Create mailing
+                mailing = self.env['mailing.mailing'].create({
+                    'name': f'TestMailing {mail_server.name}',
+                    'subject': f'Test {mail_server.name}',
+                })
+
+                # Check email_from
+                self.assertEqual(mailing.email_from, expected_from)
+
+                # If configured, check if dedicated email outgoing server is
+                # on mailing record
+                self.assertEqual(mailing.mail_server_id, mail_server)
+
+    @users('user_marketing')
     def test_mailing_computed_fields_form(self):
         mailing_form = Form(self.env['mailing.mailing'].with_context(
             default_mailing_domain="[('email', 'ilike', 'test.example.com')]",
@@ -185,6 +389,187 @@ class TestMassMailValues(MassMailCommon):
             [('email', 'ilike', 'test.example.com')],
         )
         self.assertEqual(mailing_form.mailing_model_real, 'res.partner')
+
+    @mute_logger('odoo.sql_db')
+    @users('user_marketing')
+    def test_mailing_trace_values(self):
+        recipient = self.partner_employee
+
+        # both void and 0 are invalid, document should have an id != 0
+        with self.assertRaises(IntegrityError):
+            self.env['mailing.trace'].create({
+                'model': recipient._name,
+            })
+        with self.assertRaises(IntegrityError):
+            self.env['mailing.trace'].create({
+                'model': recipient._name,
+                'res_id': 0,
+            })
+        with self.assertRaises(IntegrityError):
+            self.env['mailing.trace'].create({
+                'res_id': 3,
+            })
+
+        activity = self.env['mailing.trace'].create({
+            'model': recipient._name,
+            'res_id': recipient.id,
+        })
+        with self.assertRaises(IntegrityError):
+            activity.write({'model': False})
+            self.env.flush_all()
+        with self.assertRaises(IntegrityError):
+            activity.write({'res_id': False})
+            self.env.flush_all()
+        with self.assertRaises(IntegrityError):
+            activity.write({'res_id': 0})
+            self.env.flush_all()
+
+    def test_mailing_editor_created_attachments(self):
+        mailing = self.env['mailing.mailing'].create({
+            'name': 'TestMailing',
+            'subject': 'Test',
+            'mailing_type': 'mail',
+            'body_html': '<p>Hello</p>',
+            'mailing_model_id': self.env['ir.model']._get('res.partner').id,
+        })
+        blob_b64 = base64.b64encode(b'blob1')
+
+        # Created when uploading an image
+        original_svg_attachment = self.env['ir.attachment'].create({
+            "name": "test SVG",
+            "mimetype": "image/svg+xml",
+            "datas": blob_b64,
+            "public": True,
+            "res_model": "mailing.mailing",
+            "res_id": mailing.id,
+        })
+
+        # Created when saving the mass_mailing
+        png_duplicate_of_svg_attachment = self.env['ir.attachment'].create({
+            "name": "test SVG duplicate",
+            "mimetype": "image/png",
+            "datas": blob_b64,
+            "public": True,
+            "res_model": "mailing.mailing",
+            "res_id": mailing.id,
+            "original_id": original_svg_attachment.id
+        })
+
+        # Created by uploading new image
+        original_png_attachment = self.env['ir.attachment'].create({
+            "name": "test PNG",
+            "mimetype": "image/png",
+            "datas": blob_b64,
+            "public": True,
+            "res_model": "mailing.mailing",
+            "res_id": mailing.id,
+        })
+
+        # Created by modify_image in editor controller
+        self.env['ir.attachment'].create({
+            "name": "test PNG duplicate",
+            "mimetype": "image/png",
+            "datas": blob_b64,
+            "public": True,
+            "res_model": "mailing.mailing",
+            "res_id": mailing.id,
+            "original_id": original_png_attachment.id
+        })
+
+        mail_thread_attachments = mailing._get_mail_thread_data_attachments()
+        self.assertSetEqual(set(mail_thread_attachments.ids), {png_duplicate_of_svg_attachment.id, original_png_attachment.id})
+
+    @users('user_marketing')
+    @mute_logger('odoo.addons.mail.models.mail_mail')
+    def test_process_mailing_queue_without_html_body(self):
+        """ Test mailing with past schedule date and without any html body """
+        mailing = self.env['mailing.mailing'].create({
+                'name': 'mailing',
+                'subject': 'some subject',
+                'mailing_model_id': self.env['ir.model']._get('res.partner').id,
+                'preview': "Check it out before its too late",
+                'body_html': False,
+                'schedule_date': datetime(2023, 2, 17, 11, 0),
+            })
+        mailing.action_put_in_queue()
+        with self.mock_mail_gateway(mail_unlink_sent=False):
+            mailing._process_mass_mailing_queue()
+
+        self.assertFalse(mailing.body_html)
+        self.assertEqual(mailing.mailing_model_name, 'res.partner')
+
+
+@tagged("mass_mailing", "utm")
+class TestMassMailUTM(MassMailCommon):
+
+    @freeze_time('2022-01-02')
+    @patch.object(Cursor, 'now', lambda *args, **kwargs: datetime(2022, 1, 2))
+    @users('user_marketing')
+    def test_mailing_unique_name(self):
+        """Test that the names are generated and unique for each mailing.
+
+        If the name is missing, it's generated from the subject. Then we should ensure
+        that this generated name is unique.
+        """
+        mailing_0 = self.env['mailing.mailing'].create({'subject': 'First subject'})
+        self.assertEqual(mailing_0.name, 'First subject (Mass Mailing created on 2022-01-02)')
+
+        mailing_1, mailing_2, mailing_3, mailing_4, mailing_5, mailing_6 = self.env['mailing.mailing'].create([{
+            'subject': 'First subject',
+        }, {
+            'subject': 'First subject',
+        }, {
+            'subject': 'First subject',
+            'source_id': self.env['utm.source'].create({'name': 'Custom Source'}).id,
+        }, {
+            'subject': 'First subject',
+            'name': 'Mailing',
+        }, {
+            'subject': 'Second subject',
+            'name': 'Mailing',
+        }, {
+            'subject': 'Second subject',
+        }])
+
+        self.assertEqual(mailing_0.name, 'First subject (Mass Mailing created on 2022-01-02)')
+        self.assertEqual(mailing_1.name, 'First subject (Mass Mailing created on 2022-01-02) [2]')
+        self.assertEqual(mailing_2.name, 'First subject (Mass Mailing created on 2022-01-02) [3]')
+        self.assertEqual(mailing_3.name, 'Custom Source')
+        self.assertEqual(mailing_4.name, 'Mailing')
+        self.assertEqual(mailing_5.name, 'Mailing [2]')
+        self.assertEqual(mailing_6.name, 'Second subject (Mass Mailing created on 2022-01-02)')
+
+        # should generate same name (coming from same subject)
+        mailing_0.subject = 'First subject'
+        self.assertEqual(mailing_0.name, 'First subject (Mass Mailing created on 2022-01-02)',
+            msg='The name should not be updated')
+
+        # take a (long) existing name -> should increment
+        mailing_0.name = 'Second subject (Mass Mailing created on 2022-01-02)'
+        self.assertEqual(mailing_0.name, 'Second subject (Mass Mailing created on 2022-01-02) [2]',
+            msg='The name must be unique, it was already taken')
+
+        # back to first subject: not linked to any record so should take it back
+        mailing_0.subject = 'First subject'
+        self.assertEqual(mailing_0.name, 'First subject (Mass Mailing created on 2022-01-02)',
+            msg='The name should be back to first one')
+
+    def test_mailing_create_with_context(self):
+        """ Test that the default_name provided via context is ignored to prevent constraint violations."""
+        mailing_1, mailing_2 = self.env["mailing.mailing"].create([
+            {
+                "subject": "First subject",
+                "name": "Mailing",
+            },
+            {
+                "subject": "Second subject",
+                "name": "Mailing",
+            },
+        ])
+        self.assertEqual(mailing_1.name, "Mailing")
+        self.assertEqual(mailing_2.name, "Mailing [2]")
+        mailing_3 = self.env["mailing.mailing"].with_context({"default_name": "Mailing"}).create({"subject": "Third subject"})
+        self.assertEqual(mailing_3.name, "Mailing [3]")
 
 
 @tagged('mass_mailing')
@@ -437,7 +822,6 @@ class TestMailingHeaders(MassMailCommon, HttpCase):
             self.assertEqual(headers.get("Precedence"), "list")
 
             # check outgoing email has real links
-            view_url = test_mailing._get_view_url(contact.email, contact.id)
             self.assertNotIn("/unsubscribe_from_list", email["body"])
 
             # unsubscribe in one-click

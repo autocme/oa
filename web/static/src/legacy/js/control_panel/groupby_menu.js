@@ -1,17 +1,16 @@
 odoo.define('web.GroupByMenu', function (require) {
     "use strict";
 
-    const CustomGroupByItem = require('web.CustomGroupByItem');
+    const { Dropdown } = require("@web/core/dropdown/dropdown");
+    const { SearchDropdownItem } = require("@web/search/search_dropdown_item/search_dropdown_item");
+    const { CustomGroupByItem } = require('@web/search/group_by_menu/custom_group_by_item');
     const { FACET_ICONS, GROUPABLE_TYPES } = require('web.searchUtils');
     const { useModel } = require('web.Model');
-    const { SearchDropdownItem } = require("@web/search/search_dropdown_item/search_dropdown_item");
+    const { LegacyComponent } = require("@web/legacy/legacy_component");
 
-    const { Component } = owl;
+    class GroupByMenu extends LegacyComponent {
 
-    class GroupByMenu extends Component {
-
-        constructor() {
-            super(...arguments);
+        setup() {
             this.icon = FACET_ICONS.groupBy;
 
             this.fields = Object.values(this.props.fields)
@@ -54,21 +53,24 @@ odoo.define('web.GroupByMenu', function (require) {
         //---------------------------------------------------------------------
 
         /**
-         * @private
-         * @param {OwlEvent} ev
+         * @param {Object} param0
+         * @param {number} param0.itemId
+         * @param {number} [param0.optionId]
          */
-        onGroupBySelected(ev) {
-            ev.stopPropagation();
-            const { itemId, optionId } = ev.detail.payload;
+        onGroupBySelected({ itemId, optionId }) {
             if (optionId) {
                 this.model.dispatch('toggleFilterWithOptions', itemId, optionId);
             } else {
                 this.model.dispatch('toggleFilter', itemId);
             }
         }
+        onAddCustomGroup(fieldName) {
+            const field = this.props.fields[fieldName];
+            this.model.dispatch("createNewGroupBy", field);
+        }
     }
 
-    GroupByMenu.components = { CustomGroupByItem, DropdownItem: SearchDropdownItem };
+    GroupByMenu.components = { CustomGroupByItem, Dropdown, DropdownItem: SearchDropdownItem };
     GroupByMenu.props = { fields: Object };
     GroupByMenu.template = "web.GroupByMenu";
 

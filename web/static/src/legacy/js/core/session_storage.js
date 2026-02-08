@@ -7,8 +7,9 @@ var mixins = require('web.mixins');
 // use a fake sessionStorage in RAM if the native sessionStorage is unavailable
 // (e.g. private browsing in Safari)
 var storage;
-var sessionStorage = window.sessionStorage;
+let sessionStorage;
 try {
+    sessionStorage = window.sessionStorage;
     var uid = new Date();
     sessionStorage.setItem(uid, uid);
     sessionStorage.removeItem(uid);
@@ -41,12 +42,12 @@ try {
                         newValue: newValue,
                     });
                 }
-            } catch (error) {}
+            } catch (_error) {}
         });
         return storage;
     })();
 
-} catch (exception) {
+} catch (_exception) {
     console.warn('Fail to load sessionStorage');
     storage = new RamStorage();
 }

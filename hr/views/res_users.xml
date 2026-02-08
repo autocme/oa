@@ -34,7 +34,7 @@
                 <field name="tz" position="after">
                     <field name="is_system" invisible="1"/>
                 </field>
-                <xpath expr="//button[@name='%(base.res_lang_act_window)d']" position="attributes">
+                <xpath expr="//button[@name='%(base.action_view_base_language_install)d']" position="attributes">
                     <attribute name="attrs">{'invisible': [('is_system', '=', False)]}</attribute>
                 </xpath>
             </field>
@@ -92,15 +92,15 @@
                         </h1>
                     </div>
                     <div class="row">
-                        <h2 class="col-6 pl-0">
-                            <field name="job_title" placeholder="Job Position" attrs="{'readonly': [('can_edit', '=', False)]}"/>
+                        <h2 class="col-lg-6 ps-lg-0">
+                            <field name="job_title" class="w-100" placeholder="Job Position" attrs="{'readonly': [('can_edit', '=', False)]}"/>
                         </h2>
                     </div>
                     <group>
                         <group>
                             <field name="can_edit" invisible="1"/>
-                            <field name="mobile_phone" widget="phone" attrs="{'readonly': [('can_edit', '=', False)]}" options="{'enable_sms': false}"/>
-                            <field name="work_phone" widget="phone" attrs="{'readonly': [('can_edit', '=', False)]}" options="{'enable_sms': false}"/>
+                            <field name="mobile_phone" widget="phone" attrs="{'readonly': [('can_edit', '=', False)]}"/>
+                            <field name="work_phone" widget="phone" attrs="{'readonly': [('can_edit', '=', False)]}"/>
                         </group>
                         <group>
                             <field name="work_email" widget="email" attrs="{'readonly': [('can_edit', '=', False)]}"/>
@@ -115,8 +115,8 @@
                 </notebook>
                 <notebook position="inside">
                     <page name="public" string="Work Information">
-                        <div id="o_work_employee_container"> <!-- These two div are used to position org_chart -->
-                            <div id="o_work_employee_main">
+                        <div id="o_work_employee_container" class="d-lg-flex"> <!-- These two div are used to position org_chart -->
+                            <div id="o_work_employee_main" class="flex-grow-1">
                                 <group string="Location">
                                     <field name="department_id" attrs="{'readonly': [('can_edit', '=', False)]}"/>
                                     <field name="address_id"
@@ -146,7 +146,7 @@
                                 </div>
 
                                 <field name="private_email" string="Email" attrs="{'readonly': [('can_edit', '=', False)], 'invisible': [('address_home_id', '=', False)]}"/>
-                                <field name="employee_phone" string="Phone" class="o_force_ltr" attrs="{'readonly': [('can_edit', '=', False)], 'invisible': [('address_home_id', '=', False)]}" options="{'enable_sms': false}"/>
+                                <field name="employee_phone" string="Phone" class="o_force_ltr" attrs="{'readonly': [('can_edit', '=', False)], 'invisible': [('address_home_id', '=', False)]}"/>
                                 <field name="private_lang" string="Language" attrs="{'readonly': [('can_edit', '=', False)], 'invisible': [('address_home_id', '=', False)]}"/>
                                 <field name="employee_bank_account_id" attrs="{'readonly': [('can_edit', '=', False)]}"/>
                                 <field name="km_home_work" attrs="{'readonly': [('can_edit', '=', False)]}"/>
@@ -175,7 +175,7 @@
                             </group>
                             <group string="Emergency">
                                 <field name="emergency_contact" attrs="{'readonly': [('can_edit', '=', False)]}"/>
-                                <field name="emergency_phone" widget="phone" attrs="{'readonly': [('can_edit', '=', False)]}" options="{'enable_sms': false}"/>
+                                <field name="emergency_phone" widget="phone" attrs="{'readonly': [('can_edit', '=', False)]}"/>
                             </group>
                             <group string="Work Permit" name="has_work_permit">
                                 <field name="visa_no" attrs="{'readonly': [('can_edit', '=', False)]}"/>
@@ -196,6 +196,33 @@
                         </group>
                     </page>
                 </notebook>
+            </field>
+        </record>
+
+        <record id="view_users_simple_form_inherit_hr" model="ir.ui.view">
+            <field name="name">view.users.simple.form.inherit.hr</field>
+            <field name="model">res.users</field>
+            <field name="inherit_id" ref="base.view_users_simple_form"/>
+            <field name="arch" type="xml">
+                <xpath expr="//field[@name='mobile']" position="after">
+                    <field name="create_employee_id" force_save="1" invisible="1"/>
+                    <field name="create_employee" force_save="1" string="Create Employee" invisible="not context.get('allow_create_employee', True)" attrs="{'invisible': [('create_employee_id', '>', 0)]}"/>
+                </xpath>
+            </field>
+        </record>
+
+        <record id="view_users_simple_form" model="ir.ui.view">
+            <field name="name">view.users.simple.form.hr</field>
+            <field name="model">res.users</field>
+            <field name="inherit_id" ref="base.view_users_simple_form"/>
+            <field name="mode">primary</field>
+            <field name="arch" type="xml">
+                <sheet position="after">
+                    <footer>
+                        <button string="Save" special="save" class="btn btn-primary"/>
+                        <button string="Cancel" special="cancel" class="btn btn-secondary"/>
+                    </footer>
+                </sheet>
             </field>
         </record>
 

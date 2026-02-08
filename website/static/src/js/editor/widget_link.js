@@ -5,9 +5,6 @@ var weWidgets = require('wysiwyg.widgets');
 var wUtils = require('website.utils');
 
 weWidgets.LinkTools.include({
-    xmlDependencies: (weWidgets.LinkTools.prototype.xmlDependencies || []).concat(
-        ['/website/static/src/xml/website.editor.xml']
-    ),
     custom_events: _.extend({}, weWidgets.LinkTools.prototype.custom_events || {}, {
         website_url_chosen: '_onAutocompleteClose',
     }),
@@ -34,6 +31,7 @@ weWidgets.LinkTools.include({
             classes: {
                 "ui-autocomplete": 'o_website_ui_autocomplete'
             },
+            body: this.$editable[0].ownerDocument.body,
         };
         wUtils.autocompleteWithPages(this, this.$('input[name="url"]'), options);
         this._adaptPageAnchor();
@@ -69,7 +67,7 @@ weWidgets.LinkTools.include({
                     $pageAnchor[0].querySelector('we-toggler').textContent = weTogglerText;
                 };
                 const urlWithoutHash = urlInputValue.split("#")[0];
-                wUtils.loadAnchors(urlWithoutHash).then(anchors => {
+                wUtils.loadAnchors(urlWithoutHash, this.$editable[0].ownerDocument.body).then(anchors => {
                     for (const anchor of anchors) {
                         const $option = $('<we-button class="dropdown-item">');
                         $option.text(anchor);

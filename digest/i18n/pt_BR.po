@@ -3,17 +3,18 @@
 # 	* digest
 # 
 # Translators:
-# Martin Trigaux, 2021
+# grazziano <grazziano.do+transifex@gmail.com>, 2022
+# Martin Trigaux, 2022
 # a75f12d3d37ea5bf159c4b3e85eb30e7_0fa6927, 2023
 # Kevilyn Rosa, 2023
 # Maitê Dietze, 2024
 # 
 msgid ""
 msgstr ""
-"Project-Id-Version: Odoo Server 15.0\n"
+"Project-Id-Version: Odoo Server 16.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2022-01-24 08:19+0000\n"
-"PO-Revision-Date: 2021-09-14 12:21+0000\n"
+"POT-Creation-Date: 2024-02-06 13:31+0000\n"
+"PO-Revision-Date: 2022-09-22 05:45+0000\n"
 "Last-Translator: Maitê Dietze, 2024\n"
 "Language-Team: Portuguese (Brazil) (https://app.transifex.com/odoo/teams/41243/pt_BR/)\n"
 "MIME-Version: 1.0\n"
@@ -21,6 +22,11 @@ msgstr ""
 "Content-Transfer-Encoding: \n"
 "Language: pt_BR\n"
 "Plural-Forms: nplurals=3; plural=(n == 0 || n == 1) ? 0 : n != 0 && n % 1000000 == 0 ? 1 : 2;\n"
+
+#. module: digest
+#: model_terms:ir.ui.view,arch_db:digest.digest_digest_view_form
+msgid "<i class=\"fa fa-arrow-right\"/> Check our Documentation"
+msgstr ""
 
 #. module: digest
 #: model_terms:ir.ui.view,arch_db:digest.digest_mail_main
@@ -44,6 +50,7 @@ msgstr "Ativar"
 
 #. module: digest
 #: model:ir.model.fields.selection,name:digest.selection__digest_digest__state__activated
+#: model_terms:ir.ui.view,arch_db:digest.digest_digest_view_search
 msgid "Activated"
 msgstr "Ativado"
 
@@ -65,6 +72,7 @@ msgid "Available Fields"
 msgstr "Campos Disponíveis"
 
 #. module: digest
+#. odoo-python
 #: code:addons/digest/models/digest.py:0
 #, python-format
 msgid "Choose the metrics you care about"
@@ -78,7 +86,7 @@ msgstr "Empresa"
 #. module: digest
 #: model:ir.model,name:digest.model_res_config_settings
 msgid "Config Settings"
-msgstr "Ajuste de configurações"
+msgstr "Configurações"
 
 #. module: digest
 #: model_terms:ir.ui.view,arch_db:digest.res_config_settings_view_form
@@ -86,6 +94,7 @@ msgid "Configure Digest Emails"
 msgstr "Configurar boletim"
 
 #. module: digest
+#. odoo-python
 #: code:addons/digest/models/digest.py:0
 #, python-format
 msgid "Connect"
@@ -95,15 +104,6 @@ msgstr "Conectar"
 #: model:ir.model.fields,field_description:digest.field_digest_digest__kpi_res_users_connected
 msgid "Connected Users"
 msgstr "Usuários Conectados"
-
-#. module: digest
-#: model_terms:ir.ui.view,arch_db:digest.digest_digest_view_form
-msgid ""
-"Create or edit the mail template: you may get computed KPI's value using "
-"these fields:"
-msgstr ""
-"Crie ou edite o modelo de e-mail: você pode obter o valor do KPI calculado "
-"usando estes campos:"
 
 #. module: digest
 #: model:ir.model.fields,field_description:digest.field_digest_digest__create_uid
@@ -123,63 +123,78 @@ msgid "Currency"
 msgstr "Moeda"
 
 #. module: digest
+#: model_terms:ir.ui.view,arch_db:digest.digest_digest_view_form
+msgid "Custom"
+msgstr "Personalizado"
+
+#. module: digest
 #: model:ir.model.fields.selection,name:digest.selection__digest_digest__periodicity__daily
 msgid "Daily"
 msgstr "Diariamente"
 
 #. module: digest
 #: model_terms:ir.ui.view,arch_db:digest.digest_digest_view_form
-msgid "Deactivate for everyone"
-msgstr "Desativar para todos"
+msgid "Deactivate"
+msgstr "Desativar"
 
 #. module: digest
 #: model:ir.model.fields.selection,name:digest.selection__digest_digest__state__deactivated
+#: model_terms:ir.ui.view,arch_db:digest.digest_digest_view_search
 msgid "Deactivated"
 msgstr "Desativados"
 
 #. module: digest
 #: model:ir.model,name:digest.model_digest_digest
 msgid "Digest"
-msgstr "Resumo"
+msgstr "Boletim periódico"
 
 #. module: digest
 #: model:ir.model.fields,field_description:digest.field_res_config_settings__digest_id
 #: model_terms:ir.ui.view,arch_db:digest.res_config_settings_view_form
 msgid "Digest Email"
-msgstr "E-mail Resumo"
+msgstr "E-mail do boletim"
 
 #. module: digest
 #: model:ir.actions.act_window,name:digest.digest_digest_action
 #: model:ir.actions.server,name:digest.ir_cron_digest_scheduler_action_ir_actions_server
 #: model:ir.cron,cron_name:digest.ir_cron_digest_scheduler_action
-#: model:ir.cron,name:digest.ir_cron_digest_scheduler_action
 #: model:ir.model.fields,field_description:digest.field_res_config_settings__digest_emails
 #: model:ir.ui.menu,name:digest.digest_menu
 msgid "Digest Emails"
 msgstr "E-mails de boletim"
 
 #. module: digest
-#: model_terms:ir.ui.view,arch_db:digest.digest_digest_view_form
-msgid "Digest Name"
-msgstr ""
-
-#. module: digest
 #: model_terms:ir.ui.view,arch_db:digest.portal_digest_unsubscribed
 msgid "Digest Subscriptions"
-msgstr "Inscrição para receber o e-mail com o resumo"
+msgstr "Inscrições do boletim"
 
 #. module: digest
 #: model:ir.actions.act_window,name:digest.digest_tip_action
 #: model:ir.model,name:digest.model_digest_tip
 #: model:ir.ui.menu,name:digest.digest_tip_menu
 msgid "Digest Tips"
-msgstr "Dicas para o e-mail com o resumo"
+msgstr "Dicas para o boletim"
+
+#. module: digest
+#: model_terms:ir.ui.view,arch_db:digest.digest_digest_view_form
+msgid "Digest Title"
+msgstr "Título do boletim"
 
 #. module: digest
 #: model:ir.model.fields,field_description:digest.field_digest_digest__display_name
 #: model:ir.model.fields,field_description:digest.field_digest_tip__display_name
 msgid "Display Name"
 msgstr "Nome exibido"
+
+#. module: digest
+#: model_terms:ir.ui.view,arch_db:digest.res_config_settings_view_form
+msgid "Documentation"
+msgstr "Documentação"
+
+#. module: digest
+#: model_terms:ir.ui.view,arch_db:digest.digest_digest_view_form
+msgid "Email Address"
+msgstr "Endereço de E-mail"
 
 #. module: digest
 #: model_terms:ir.ui.view,arch_db:digest.digest_digest_view_form
@@ -202,22 +217,13 @@ msgstr ""
 "online."
 
 #. module: digest
-#: model_terms:ir.ui.view,arch_db:digest.digest_digest_view_form
-msgid "How to customize your digest?"
-msgstr "Como personalizar o seu e-mail com o resumo"
-
-#. module: digest
 #: model:ir.model.fields,field_description:digest.field_digest_digest__id
 #: model:ir.model.fields,field_description:digest.field_digest_tip__id
 msgid "ID"
 msgstr "ID"
 
 #. module: digest
-#: model_terms:ir.ui.view,arch_db:digest.digest_digest_view_form
-msgid "In order to build your customized digest, follow these steps:"
-msgstr "Para construir o seu e-mail com resumo, siga estes passos:"
-
-#. module: digest
+#. odoo-python
 #: code:addons/digest/controllers/portal.py:0
 #, python-format
 msgid "Invalid periodicity set on digest"
@@ -260,18 +266,21 @@ msgid "Kpi Res Users Connected Value"
 msgstr "Valor conectado de usuários do KPI"
 
 #. module: digest
+#. odoo-python
 #: code:addons/digest/models/digest.py:0
 #, python-format
 msgid "Last 24 hours"
 msgstr "Últimas 24 horas"
 
 #. module: digest
+#. odoo-python
 #: code:addons/digest/models/digest.py:0
 #, python-format
 msgid "Last 30 Days"
 msgstr "Últimos 30 Dias"
 
 #. module: digest
+#. odoo-python
 #: code:addons/digest/models/digest.py:0
 #, python-format
 msgid "Last 7 Days"
@@ -297,8 +306,8 @@ msgstr "Última atualização em"
 
 #. module: digest
 #: model:ir.model.fields,field_description:digest.field_digest_digest__kpi_mail_message_total
-msgid "Messages"
-msgstr "Mensagens"
+msgid "Messages Sent"
+msgstr "Mensagens enviadas"
 
 #. module: digest
 #: model:ir.model.fields.selection,name:digest.selection__digest_digest__periodicity__monthly
@@ -322,8 +331,8 @@ msgstr ""
 
 #. module: digest
 #: model:ir.model.fields,field_description:digest.field_digest_digest__next_run_date
-msgid "Next Send Date"
-msgstr "Próxima Data de Envio"
+msgid "Next Mailing Date"
+msgstr "Próxima data de envio"
 
 #. module: digest
 #: model_terms:ir.ui.view,arch_db:digest.digest_section_mobile
@@ -342,6 +351,7 @@ msgid "Powered by"
 msgstr "Desenvolvido por"
 
 #. module: digest
+#. odoo-python
 #: code:addons/digest/models/digest.py:0
 #, python-format
 msgid "Prefer a broader overview ?"
@@ -375,11 +385,6 @@ msgstr "Administre sua empresa de qualquer lugar com o <b>Odoo Mobile</b>."
 
 #. module: digest
 #: model_terms:ir.ui.view,arch_db:digest.digest_digest_view_form
-msgid "Select your KPIs in the KPI's tab."
-msgstr "Selecione seus KPIs na aba de KPIs."
-
-#. module: digest
-#: model_terms:ir.ui.view,arch_db:digest.digest_digest_view_form
 msgid "Send Now"
 msgstr "Enviar Agora"
 
@@ -391,7 +396,7 @@ msgstr "Enviado por"
 #. module: digest
 #: model:ir.model.fields,field_description:digest.field_digest_tip__sequence
 msgid "Sequence"
-msgstr "Seqüência"
+msgstr "Sequência"
 
 #. module: digest
 #: model_terms:ir.ui.view,arch_db:digest.res_config_settings_view_form
@@ -404,11 +409,7 @@ msgid "Status"
 msgstr "Situação"
 
 #. module: digest
-#: model_terms:ir.ui.view,arch_db:digest.digest_digest_view_form
-msgid "Subscribe"
-msgstr "Inscrever"
-
-#. module: digest
+#. odoo-python
 #: code:addons/digest/models/digest.py:0
 #, python-format
 msgid "Switch to weekly Digests"
@@ -470,6 +471,11 @@ msgid "Tip: Speed up your workflow with shortcuts"
 msgstr "Dica: Acelere seu fluxo de trabalho com atalhos"
 
 #. module: digest
+#: model_terms:ir.ui.view,arch_db:digest.digest_digest_view_tree
+msgid "Title"
+msgstr "Título"
+
+#. module: digest
 #: model_terms:digest.tip,tip_description:digest.digest_tip_digest_3
 msgid ""
 "Type \"@\" to notify someone in a message, or \"#\" to link to a channel. "
@@ -479,11 +485,6 @@ msgstr ""
 "um canal. Tente notificar @OdooBot para testar o recurso."
 
 #. module: digest
-#: model_terms:ir.ui.view,arch_db:digest.digest_digest_view_form
-msgid "Unsubscribe me"
-msgstr "Cancelar minha inscrição"
-
-#. module: digest
 #: model:ir.model.fields,help:digest.field_digest_tip__sequence
 msgid "Used to display digest tip in email template base on order"
 msgstr ""
@@ -491,8 +492,8 @@ msgstr ""
 
 #. module: digest
 #: model:ir.model,name:digest.model_res_users
-msgid "Users"
-msgstr "Usuários"
+msgid "User"
+msgstr "Usuário"
 
 #. module: digest
 #: model:ir.model.fields,help:digest.field_digest_tip__user_ids
@@ -500,12 +501,19 @@ msgid "Users having already received this tip"
 msgstr "Os usuários já receberam esta dica"
 
 #. module: digest
+#: model_terms:ir.ui.view,arch_db:digest.digest_digest_view_form
+msgid "Want to add your own KPIs?<br/>"
+msgstr "Deseja adicionar seus próprios KPIs? <br/>"
+
+#. module: digest
+#. odoo-python
 #: code:addons/digest/models/digest.py:0
 #, python-format
 msgid "Want to customize this email?"
 msgstr "Quer personalizar este e-mail?"
 
 #. module: digest
+#. odoo-python
 #: code:addons/digest/models/digest.py:0
 #, python-format
 msgid ""
@@ -518,7 +526,7 @@ msgstr ""
 #. module: digest
 #: model:ir.model.fields.selection,name:digest.selection__digest_digest__periodicity__weekly
 msgid "Weekly"
-msgstr "Semanalmente"
+msgstr "Semanal"
 
 #. module: digest
 #: model_terms:digest.tip,tip_description:digest.digest_tip_digest_2
@@ -542,13 +550,8 @@ msgstr ""
 
 #. module: digest
 #: model_terms:ir.ui.view,arch_db:digest.portal_digest_unsubscribed
-msgid "You have been successfully unsubscribed from"
-msgstr "Você cancelou sua inscrição"
-
-#. module: digest
-#: model_terms:ir.ui.view,arch_db:digest.digest_digest_view_form
-msgid "You may want to add new computed fields with Odoo Studio:"
-msgstr "Você pode querer adicionar novos campos calculados com o Odoo Studio:"
+msgid "You have been successfully unsubscribed from:<br/>"
+msgstr "Sua inscrição foi cancelada com sucesso: <br/>"
 
 #. module: digest
 #: model:digest.digest,name:digest.digest_digest_default
@@ -561,51 +564,22 @@ msgid "e.g. Your Weekly Digest"
 msgstr "Ex.: Seu resumo semanal"
 
 #. module: digest
-#: model_terms:ir.ui.view,arch_db:digest.digest_digest_view_form
-msgid ""
-"first create a boolean field called\n"
-"                                                <code>kpi_myfield</code>\n"
-"                                                and display it in the KPI's tab;"
-msgstr ""
-"primeiramente crie um campo boleano chamado\n"
-"                                                <code>kpi_myfield</code>\n"
-"                                                e mostre-o na aba dos KPI's;"
-
-#. module: digest
+#. odoo-python
 #: code:addons/digest/models/digest.py:0
 #, python-format
 msgid "monthly"
 msgstr "mensal"
 
 #. module: digest
+#. odoo-python
 #: code:addons/digest/models/digest.py:0
 #, python-format
 msgid "quarterly"
 msgstr "trimestralmente"
 
 #. module: digest
-#: model_terms:ir.ui.view,arch_db:digest.digest_digest_view_form
-msgid ""
-"then create a computed field called\n"
-"                                                <code>kpi_myfield_value</code>\n"
-"                                                that will compute your customized KPI."
-msgstr ""
-"depois crie um campo calculado chamado\n"
-"                                                <code>kpi_myfield_value</code>\n"
-"                                                que vai calcular seu KPI personalizado."
-
-#. module: digest
+#. odoo-python
 #: code:addons/digest/models/digest.py:0
 #, python-format
 msgid "weekly"
 msgstr "semanal"
-
-#. module: digest
-#: model_terms:ir.ui.view,arch_db:digest.digest_digest_view_form
-msgid ""
-"you must create 2 fields on the\n"
-"                                                <code>digest</code>\n"
-"                                                object:"
-msgstr ""
-"você precisa criar 2 campos no objeto\n"
-"                                                <code>resumo</code>:"

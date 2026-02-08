@@ -43,7 +43,7 @@ class TestStockLandedCostsRounding(TestStockLandedCostsCommon):
         vals = dict(picking_default_vals, **{
             'name': 'LC_pick_3',
             'picking_type_id': self.warehouse.in_type_id.id,
-            'move_lines': [(0, 0, {
+            'move_ids': [(0, 0, {
                 'product_id': product_landed_cost_3.id,
                 'product_uom_qty': 13,
                 'product_uom': product_uom_unit_round_1.id,
@@ -53,15 +53,15 @@ class TestStockLandedCostsRounding(TestStockLandedCostsCommon):
         })
         picking_landed_cost_3 = self.env['stock.picking'].new(vals)
         picking_landed_cost_3._onchange_picking_type()
-        picking_landed_cost_3.move_lines._onchange_product_id()
-        picking_landed_cost_3.move_lines.name = 'move 3'
+        picking_landed_cost_3.move_ids._onchange_product_id()
+        picking_landed_cost_3.move_ids.name = 'move 3'
         vals = picking_landed_cost_3._convert_to_write(picking_landed_cost_3._cache)
         picking_landed_cost_3 = self.env['stock.picking'].create(vals)
 
         vals = dict(picking_default_vals, **{
             'name': 'LC_pick_4',
             'picking_type_id': self.warehouse.in_type_id.id,
-            'move_lines': [(0, 0, {
+            'move_ids': [(0, 0, {
                 'product_id': product_landed_cost_4.id,
                 'product_uom_qty': 1,
                 'product_uom': self.ref('uom.product_uom_dozen'),
@@ -72,14 +72,14 @@ class TestStockLandedCostsRounding(TestStockLandedCostsCommon):
         })
         picking_landed_cost_4 = self.env['stock.picking'].new(vals)
         picking_landed_cost_4._onchange_picking_type()
-        picking_landed_cost_4.move_lines._onchange_product_id()
-        picking_landed_cost_4.move_lines.name = 'move 4'
+        picking_landed_cost_4.move_ids._onchange_product_id()
+        picking_landed_cost_4.move_ids.name = 'move 4'
         vals = picking_landed_cost_4._convert_to_write(picking_landed_cost_4._cache)
         picking_landed_cost_4 = self.env['stock.picking'].create(vals)
 
         # We perform all the tests for LC_pick_3
         # I receive picking LC_pick_3, and check how many quants are created
-        picking_landed_cost_3.move_lines.price_unit = 1.0
+        picking_landed_cost_3.move_ids.price_unit = 1.0
         picking_landed_cost_3.action_confirm()
         picking_landed_cost_3.action_assign()
         picking_landed_cost_3._action_done()
@@ -118,7 +118,7 @@ class TestStockLandedCostsRounding(TestStockLandedCostsCommon):
 
         # We perform all the tests for LC_pick_4
         # I receive picking LC_pick_4, and check how many quants are created
-        picking_landed_cost_4.move_lines.price_unit = 17.0/12.0
+        picking_landed_cost_4.move_ids.price_unit = 17.0/12.0
         picking_landed_cost_4.action_confirm()
         picking_landed_cost_4.action_assign()
         picking_landed_cost_4._action_done()
@@ -229,7 +229,7 @@ class TestStockLandedCostsRounding(TestStockLandedCostsCommon):
             'picking_type_id': self.warehouse.in_type_id.id,
             'location_id': supplier_location_id,
             'location_dest_id': stock_location.id,
-            'move_lines': [(0, 0, {
+            'move_ids': [(0, 0, {
                 'name': self.product_a.name,
                 'product_id': self.product_a.id,
                 'price_unit': price,
@@ -246,7 +246,7 @@ class TestStockLandedCostsRounding(TestStockLandedCostsCommon):
         ]])
 
         receipts.action_confirm()
-        for m in receipts.move_lines:
+        for m in receipts.move_ids:
             m.quantity_done = m.product_uom_qty
         receipts.button_validate()
 
@@ -269,7 +269,7 @@ class TestStockLandedCostsRounding(TestStockLandedCostsCommon):
             'picking_type_id': self.warehouse.out_type_id.id,
             'location_id': stock_location.id,
             'location_dest_id': customer_location_id,
-            'move_lines': [(0, 0, {
+            'move_ids': [(0, 0, {
                 'name': self.product_a.name,
                 'product_id': self.product_a.id,
                 'product_uom': self.product_a.uom_id.id,
@@ -280,7 +280,7 @@ class TestStockLandedCostsRounding(TestStockLandedCostsCommon):
         } for qty in [23, 2, 10]])
 
         deliveries.action_confirm()
-        for m in deliveries.move_lines:
+        for m in deliveries.move_ids:
             m.quantity_done = m.product_uom_qty
         deliveries.button_validate()
 

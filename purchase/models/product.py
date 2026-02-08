@@ -11,11 +11,7 @@ class ProductTemplate(models.Model):
     _name = 'product.template'
     _inherit = 'product.template'
 
-    property_account_creditor_price_difference = fields.Many2one(
-        'account.account', string="Price Difference Account", company_dependent=True,
-        help="This account is used in automated inventory valuation to "\
-             "record the price difference between a purchase order and its related vendor bill when validating this vendor bill.")
-    purchased_product_qty = fields.Float(compute='_compute_purchased_product_qty', string='Purchased')
+    purchased_product_qty = fields.Float(compute='_compute_purchased_product_qty', string='Purchased', digits='Product Unit of Measure')
     purchase_method = fields.Selection([
         ('purchase', 'On ordered quantities'),
         ('receive', 'On received quantities'),
@@ -35,8 +31,10 @@ class ProductTemplate(models.Model):
                 product.purchase_method = default_purchase_method
 
     def _compute_purchased_product_qty(self):
-        for template in self:
-            template.purchased_product_qty = float_round(sum([p.purchased_product_qty for p in template.product_variant_ids]), precision_rounding=template.uom_id.rounding)
+        for template in self.with_context(active_test=False):
+            template.purchased_product_qty = float_round(sum(p.purchased_product_qty for
+                p in template.product_variant_ids), precision_rounding=template.uom_id.rounding
+            )
 
     @api.model
     def get_import_templates(self):
@@ -49,12 +47,12 @@ class ProductTemplate(models.Model):
         return res
 
     def action_view_po(self):
-        action = self.env["ir.actions.actions"]._for_xml_id("purchase.action_purchase_order_report_all")
-        action['domain'] = ['&', ('state', 'in', ['purchase', 'done']), ('product_tmpl_id', 'in', self.ids)]
-        action['context'] = {
-            'graph_measure': 'qty_ordered',
-            'search_default_later_than_a_year_ago': True
-        }
+        action = self.env["ir.actions.actions"]._for_xml_id("purchase.action_purchase_history")
+        action['domain'] = [
+            ('state', 'in', ['purchase', 'done']),
+            ('product_id', 'in', self.with_context(active_test=False).product_variant_ids.ids),
+        ]
+        action['display_name'] = _("Purchase History for %s", self.display_name)
         return action
 
 
@@ -62,7 +60,8 @@ class ProductProduct(models.Model):
     _name = 'product.product'
     _inherit = 'product.product'
 
-    purchased_product_qty = fields.Float(compute='_compute_purchased_product_qty', string='Purchased')
+    purchased_product_qty = fields.Float(compute='_compute_purchased_product_qty', string='Purchased',
+        digits='Product Unit of Measure')
 
     def _compute_purchased_product_qty(self):
         date_from = fields.Datetime.to_string(fields.Date.context_today(self) - relativedelta(years=1))
@@ -71,7 +70,7 @@ class ProductProduct(models.Model):
             ('product_id', 'in', self.ids),
             ('order_id.date_approve', '>=', date_from)
         ]
-        order_lines = self.env['purchase.order.line'].read_group(domain, ['product_id', 'product_uom_qty'], ['product_id'])
+        order_lines = self.env['purchase.order.line']._read_group(domain, ['product_id', 'product_uom_qty'], ['product_id'])
         purchased_data = dict([(data['product_id'][0], data['product_uom_qty']) for data in order_lines])
         for product in self:
             if not product.id:
@@ -80,30 +79,18 @@ class ProductProduct(models.Model):
             product.purchased_product_qty = float_round(purchased_data.get(product.id, 0), precision_rounding=product.uom_id.rounding)
 
     def action_view_po(self):
-        action = self.env["ir.actions.actions"]._for_xml_id("purchase.action_purchase_order_report_all")
+        action = self.env["ir.actions.actions"]._for_xml_id("purchase.action_purchase_history")
         action['domain'] = ['&', ('state', 'in', ['purchase', 'done']), ('product_id', 'in', self.ids)]
-        action['context'] = {
-            'graph_measure': 'qty_ordered',
-            'search_default_later_than_a_year_ago': True
-        }
+        action['display_name'] = _("Purchase History for %s", self.display_name)
         return action
-
-
-class ProductCategory(models.Model):
-    _inherit = "product.category"
-
-    property_account_creditor_price_difference_categ = fields.Many2one(
-        'account.account', string="Price Difference Account",
-        company_dependent=True,
-        help="This account will be used to value price difference between purchase price and accounting cost.")
 
 
 class ProductSupplierinfo(models.Model):
     _inherit = "product.supplierinfo"
 
-    @api.onchange('name')
-    def _onchange_name(self):
-        self.currency_id = self.name.property_purchase_currency_id.id or self.env.company.currency_id.id
+    @api.onchange('partner_id')
+    def _onchange_partner_id(self):
+        self.currency_id = self.partner_id.property_purchase_currency_id.id or self.env.company.currency_id.id
 
 
 class ProductPackaging(models.Model):

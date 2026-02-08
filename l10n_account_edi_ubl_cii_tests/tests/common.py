@@ -2,27 +2,28 @@
 import base64
 
 from freezegun import freeze_time
+from collections import Counter
 
 from odoo.addons.account_edi.tests.common import AccountEdiTestCommon
 from odoo import fields
 from odoo.modules.module import get_resource_path
 from odoo.tests import tagged
-from odoo.tools import float_round
-
 from lxml import etree
 
 
-@tagged('post_install_l10n', 'post_install', '-at_install')
 class TestUBLCommon(AccountEdiTestCommon):
 
     @classmethod
     def setUpClass(cls, chart_template_ref=None, edi_format_ref=None):
         super().setUpClass(chart_template_ref=chart_template_ref, edi_format_ref=edi_format_ref)
 
+        # Required for `product_uom_id` to be visible in the form views
+        cls.env.user.groups_id += cls.env.ref('uom.group_uom')
+
         # Ensure the testing currency is using a valid ISO code.
         real_usd = cls.env.ref('base.USD')
         real_usd.name = 'FUSD'
-        real_usd.flush(['name'])
+        real_usd.flush_model(['name'])
         cls.currency_data['currency'].name = 'USD'
 
         # remove this tax, otherwise, at import, this tax with children taxes can be selected and the total is wrong
@@ -84,17 +85,15 @@ class TestUBLCommon(AccountEdiTestCommon):
     # -------------------------------------------------------------------------
 
     @freeze_time('2017-01-01')
-    def _assert_imported_invoice_from_etree(self, invoice, xml_etree, xml_filename):
+    def _assert_imported_invoice_from_etree(self, invoice, attachment):
         """
-        Create an account.move directly from an xml file, asserts the invoice obtained is the same as the expected
+        Create an account.move directly from an attachment file, asserts the invoice obtained is the same as the expected
         invoice.
         """
-        new_invoice = self.edi_format._create_invoice_from_xml_tree(
-            xml_filename,
-            xml_etree,
-            # /!\ use the same journal as the invoice's one to import the xml !
-            invoice.journal_id,
-        )
+        # /!\ use the same journal as the invoice's one to import the attachment !
+        new_invoice = self.edi_format\
+            .with_context(default_move_type=invoice.move_type)\
+            ._create_document_from_attachment(attachment)
 
         self.assertTrue(new_invoice)
         self.assert_same_invoice(invoice, new_invoice)
@@ -134,15 +133,20 @@ class TestUBLCommon(AccountEdiTestCommon):
             'amount_tax': amount_tax,
             'currency_id': currency_id,
         }])
+        self.assertEqual(
+            Counter(invoice.invoice_line_ids.mapped('price_subtotal')),
+            Counter(list_line_subtotals),
+        )
         if list_line_price_unit:
             self.assertEqual(invoice.invoice_line_ids.mapped('price_unit'), list_line_price_unit)
         if list_line_discount:
-            dp = self.env['decimal.precision'].precision_get("Discount")
-            self.assertListEqual([float_round(line.discount, precision_digits=dp) for line in invoice.invoice_line_ids], list_line_discount)
+            # See test_import_tax_included: sometimes, it's impossible to retrieve the exact discount at import because
+            # of rounding during export. The obtained discount might be 10.001 while the expected is 10.
+            dp = self.env.ref('product.decimal_discount').precision_get("Discount")
+            self.assertEqual([round(d, dp) for d in invoice.invoice_line_ids.mapped('discount')], list_line_discount)
         if list_line_taxes:
             for line, taxes in zip(invoice.invoice_line_ids, list_line_taxes):
                 self.assertEqual(line.tax_ids, taxes)
-        self.assertEqual(invoice.invoice_line_ids.mapped('price_subtotal'), list_line_subtotals)
 
     # -------------------------------------------------------------------------
     # EXPORT HELPERS
@@ -211,7 +215,7 @@ class TestUBLCommon(AccountEdiTestCommon):
             modified_etree,
         )
 
-        return xml_etree, xml_filename
+        return attachment
 
     def _import_invoice_attachment(self, invoice, edi_code, journal):
         """ Extract the attachment from the invoice and import it on the given journal.

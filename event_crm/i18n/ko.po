@@ -3,19 +3,18 @@
 # 	* event_crm
 # 
 # Translators:
-# Martin Trigaux, 2021
-# JH CHOI <hwangtog@gmail.com>, 2021
-# Linkup <link-up@naver.com>, 2021
-# Heesoo Choi, 2021
-# Sarah Park, 2023
+# Martin Trigaux, 2022
+# Heesoo Choi, 2022
+# JH CHOI <hwangtog@gmail.com>, 2022
+# Sarah Park, 2025
 # 
 msgid ""
 msgstr ""
-"Project-Id-Version: Odoo Server saas~14.5\n"
+"Project-Id-Version: Odoo Server 16.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2021-09-14 10:28+0000\n"
-"PO-Revision-Date: 2021-09-14 12:21+0000\n"
-"Last-Translator: Sarah Park, 2023\n"
+"POT-Creation-Date: 2025-02-10 08:27+0000\n"
+"PO-Revision-Date: 2022-09-22 05:45+0000\n"
+"Last-Translator: Sarah Park, 2025\n"
 "Language-Team: Korean (https://app.transifex.com/odoo/teams/41243/ko/)\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
@@ -35,6 +34,7 @@ msgid "# Registrations"
 msgstr "# 등록"
 
 #. module: event_crm
+#. odoo-python
 #: code:addons/event_crm/models/event_registration.py:0
 #, python-format
 msgid "(updated)"
@@ -96,16 +96,6 @@ msgstr "생성한 영업제안을 해당 영업직원에게 자동으로 배정�
 #: model:ir.model.fields,field_description:event_crm.field_event_lead_rule__company_id
 msgid "Company"
 msgstr "회사"
-
-#. module: event_crm
-#: model:ir.model.fields,help:event_crm.field_event_event__lead_count
-msgid "Counter for the leads linked to this event"
-msgstr ""
-
-#. module: event_crm
-#: model:ir.model.fields,help:event_crm.field_event_registration__lead_count
-msgid "Counter for the leads linked to this registration"
-msgstr ""
 
 #. module: event_crm
 #: model:ir.model.fields,help:event_crm.field_crm_lead__registration_count
@@ -193,6 +183,11 @@ msgstr "행사 등록"
 #: model:ir.model.fields,help:event_crm.field_crm_lead__event_id
 msgid "Event triggering the rule that created this lead"
 msgstr "이 영업제안을 생성하는 규칙이 작동되는 행사"
+
+#. module: event_crm
+#: model_terms:ir.ui.view,arch_db:event_crm.crm_lead_merge_summary_inherit_event_crm
+msgid "Event:"
+msgstr "행사:"
 
 #. module: event_crm
 #: model:ir.model.fields,help:event_crm.field_event_lead_rule__event_registration_filter
@@ -294,11 +289,6 @@ msgid "Leads"
 msgstr "영업제안"
 
 #. module: event_crm
-#: model:ir.model.fields,help:event_crm.field_event_registration__lead_ids
-msgid "Leads generated from the registration."
-msgstr ""
-
-#. module: event_crm
 #: model:ir.model.fields,help:event_crm.field_event_event__lead_ids
 msgid "Leads generated from this event"
 msgstr "이 행사에서 생성된 영업제안"
@@ -309,6 +299,7 @@ msgid "Name"
 msgstr "이름"
 
 #. module: event_crm
+#. odoo-python
 #: code:addons/event_crm/models/event_lead_rule.py:0
 #, python-format
 msgid "New registrations"
@@ -331,6 +322,7 @@ msgid "Opportunity"
 msgstr "영업 기회"
 
 #. module: event_crm
+#. odoo-python
 #: code:addons/event_crm/models/event_registration.py:0
 #: code:addons/event_crm/models/event_registration.py:0
 #, python-format
@@ -360,6 +352,11 @@ msgstr "주문별"
 #: model:ir.model.fields,field_description:event_crm.field_crm_lead__event_lead_rule_id
 msgid "Registration Rule"
 msgstr "등록 규칙"
+
+#. module: event_crm
+#: model_terms:ir.ui.view,arch_db:event_crm.crm_lead_merge_summary_inherit_event_crm
+msgid "Registration Rule:"
+msgstr "등록 규칙:"
 
 #. module: event_crm
 #: model:ir.model.fields,field_description:event_crm.field_event_lead_rule__event_registration_filter
@@ -403,7 +400,7 @@ msgstr "영업팀"
 #. module: event_crm
 #: model:ir.model.fields,field_description:event_crm.field_event_lead_rule__lead_user_id
 msgid "Salesperson"
-msgstr "영업사원"
+msgstr "영업 담당자"
 
 #. module: event_crm
 #: model_terms:ir.ui.view,arch_db:event_crm.event_lead_rule_view_search
@@ -436,6 +433,7 @@ msgid "Trigger Type"
 msgstr "트리거 유형"
 
 #. module: event_crm
+#. odoo-python
 #: code:addons/event_crm/models/event_registration.py:0
 #: code:addons/event_crm/models/event_registration.py:0
 #, python-format

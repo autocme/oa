@@ -3,7 +3,7 @@
 
 import time
 
-from odoo import api, fields, models
+from odoo import api, fields, models, _
 
 
 class ProductProduct(models.Model):
@@ -20,7 +20,7 @@ class ProductProduct(models.Model):
     sale_avg_price = fields.Float(compute='_compute_product_margin_fields_values', string='Avg. Sale Unit Price',
         help="Avg. Price in Customer Invoices.")
     purchase_avg_price = fields.Float(compute='_compute_product_margin_fields_values', string='Avg. Purchase Unit Price',
-        help="Avg. Price in Vendor Bills ")
+        help="Avg. Price in Vendor Bills")
     sale_num_invoiced = fields.Float(compute='_compute_product_margin_fields_values', string='# Invoiced in Sale',
         help="Sum of Quantity in Customer Invoices")
     purchase_num_invoiced = fields.Float(compute='_compute_product_margin_fields_values', string='# Invoiced in Purchase',
@@ -60,7 +60,7 @@ class ProductProduct(models.Model):
             field_no_aggr, _sep, agg = field.partition(':')
             if field_no_aggr in fields_list:
                 if agg and agg != 'sum':
-                    raise NotImplementedError('Aggregate functions other than \':sum\' are not allowed.')
+                    raise NotImplementedError(_('Aggregate functions other than \':sum\' are not allowed.'))
                 return field_no_aggr
             return field
         fields = {truncate_aggr(field) for field in fields}
@@ -116,16 +116,16 @@ class ProductProduct(models.Model):
             company_id = self.env.context['force_company']
         else:
             company_id = self.env.company.id
-        self.env['account.move.line'].flush(['price_unit', 'quantity', 'balance', 'product_id', 'display_type'])
-        self.env['account.move'].flush(['state', 'payment_state', 'move_type', 'invoice_date', 'company_id'])
-        self.env['product.template'].flush(['list_price'])
+        self.env['account.move.line'].flush_model(['price_unit', 'quantity', 'balance', 'product_id', 'display_type'])
+        self.env['account.move'].flush_model(['state', 'payment_state', 'move_type', 'invoice_date', 'company_id'])
+        self.env['product.template'].flush_model(['list_price'])
         sqlstr = """
-                WITH currency_rate AS ({})
+                WITH currency_rate AS MATERIALIZED ({})
                 SELECT
                     l.product_id as product_id,
                     SUM(
-                        l.price_unit / (CASE COALESCE(cr.rate, 0) WHEN 0 THEN 1.0 ELSE cr.rate END) *
-                        l.quantity * (CASE WHEN i.move_type IN ('out_invoice', 'in_invoice') THEN 1 ELSE -1 END) * ((100 - l.discount) * 0.01)
+                        l.price_subtotal / (CASE COALESCE(cr.rate, 0) WHEN 0 THEN 1.0 ELSE cr.rate END) *
+                        (CASE WHEN i.move_type IN ('out_invoice', 'in_invoice') THEN 1 ELSE -1 END)
                     ) / NULLIF(SUM(l.quantity * (CASE WHEN i.move_type IN ('out_invoice', 'in_invoice') THEN 1 ELSE -1 END)), 0) AS avg_unit_price,
                     SUM(l.quantity * (CASE WHEN i.move_type IN ('out_invoice', 'in_invoice') THEN 1 ELSE -1 END)) AS num_qty,
                     SUM(ABS(l.balance) * (CASE WHEN i.move_type IN ('out_invoice', 'in_invoice') THEN 1 ELSE -1 END)) AS total,
@@ -145,8 +145,7 @@ class ProductProduct(models.Model):
                 AND i.move_type IN %s
                 AND i.invoice_date BETWEEN %s AND  %s
                 AND i.company_id = %s
-                AND l.display_type IS NULL
-                AND l.exclude_from_invoice_tab = false
+                AND l.display_type = 'product'
                 GROUP BY l.product_id
                 """.format(self.env['res.currency']._select_companies_rates())
         invoice_types = ('out_invoice', 'out_refund')
@@ -177,5 +176,5 @@ class ProductProduct(models.Model):
             res[product.id]['purchase_gap'] = res[product.id]['normal_cost'] - res[product.id]['total_cost']
             res[product.id]['expected_margin'] = res[product.id].get('sale_expected', 0.0) - res[product.id]['normal_cost']
             res[product.id]['expected_margin_rate'] = res[product.id].get('sale_expected', 0.0) and res[product.id]['expected_margin'] * 100 / res[product.id].get('sale_expected', 0.0) or 0.0
-            product.write(res[product.id])
+            product.update(res[product.id])
         return res

@@ -15,9 +15,8 @@
 
                                 <label for="fiscalyear_last_month" string="Fiscal Year End"/>
                                 <div>
-                                    <field name="fiscalyear_last_day" class="oe_inline text-center" style="width: 20% !important;"/>
-                                    <span style="width: 5%; display: inline-block"/>
-                                    <field name="fiscalyear_last_month" class="oe_inline" style="width: 75% !important;"/>
+                                    <field name="fiscalyear_last_day" class="text-center me-2" style="width: 20% !important;"/>
+                                    <field name="fiscalyear_last_month" class="w-75"/>
                                 </div>
                             </group>
                         </group>
@@ -49,12 +48,14 @@
                             </group>
                         </group>
                         <group attrs="{'invisible': [('num_journals_without_account', '=', 0)]}">
-                           <group>
-                            <field name="linked_journal_id" options="{'no_create': True}"/>
-                          </group>
-                          <group>
-                               <span class="text-muted">Leave empty to create a new journal for this bank account, or select a journal to link it with the bank account.</span>
-                           </group>
+                            <group>
+                                <field name="linked_journal_id" options="{'no_create': True}"/>
+                            </group>
+                            <group>
+                                <span class="text-muted" colspan="2">
+                                    Leave empty to create a new journal for this bank account, or select a journal to link it with the bank account.
+                                </span>
+                            </group>
                         </group>
                     </sheet>
                     <footer>
@@ -73,15 +74,15 @@
                     <field name="code"/>
                     <field name="name"/>
                     <field name="company_id" invisible="1"/>
-                    <field name="user_type_id" widget="account_hierarchy_selection"/>
+                    <field name="account_type" widget="account_type_selection"/>
                     <field name="reconcile" widget="boolean_toggle"/>
-                    <field name="opening_debit"/>
-                    <field name="opening_credit"/>
-                    <field name="opening_balance" optional="hide"/>
+                    <field name="opening_debit" options="{'no_symbol': True}"/>
+                    <field name="opening_credit" options="{'no_symbol': True}"/>
+                    <field name="opening_balance" optional="hide" options="{'no_symbol': True}"/>
                     <field name="tax_ids" optional="hide" widget="many2many_tags"/>
                     <field name="tag_ids" optional="hide" widget="many2many_tags"/>
                     <field name="allowed_journal_ids" optional="hide" widget="many2many_tags"/>
-                    <button name="action_read_account" type="object" string="Setup" class="float-right btn-secondary"/>
+                    <button name="action_read_account" type="object" string="Setup" class="float-end btn-secondary"/>
                 </tree>
             </field>
         </record>

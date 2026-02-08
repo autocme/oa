@@ -108,7 +108,7 @@ class PurchaseRequisition(models.Model):
         # try to set all associated quotations to cancel state
         for requisition in self:
             for requisition_line in requisition.line_ids:
-                requisition_line.supplier_info_ids.unlink()
+                requisition_line.supplier_info_ids.sudo().unlink()
             requisition.purchase_ids.button_cancel()
             for po in requisition.purchase_ids:
                 po.message_post(body=_('Cancelled by the agreement associated to this quotation.'))
@@ -129,12 +129,8 @@ class PurchaseRequisition(models.Model):
         else:
             self.write({'state': 'in_progress'})
         # Set the sequence number regarding the requisition type
-        self = self.with_company(self.company_id)
         if self.name == 'New':
-            if self.is_quantity_copy != 'none':
-                self.name = self.env['ir.sequence'].next_by_code('purchase.requisition.purchase.tender')
-            else:
-                self.name = self.env['ir.sequence'].next_by_code('purchase.requisition.blanket.order')
+            self.name = self.env['ir.sequence'].with_company(self.company_id).next_by_code('purchase.requisition.blanket.order')
 
     def action_open(self):
         self.write({'state': 'open'})
@@ -152,13 +148,13 @@ class PurchaseRequisition(models.Model):
             raise UserError(_('You have to cancel or validate every RfQ before closing the purchase requisition.'))
         for requisition in self:
             for requisition_line in requisition.line_ids:
-                requisition_line.supplier_info_ids.unlink()
+                requisition_line.supplier_info_ids.sudo().unlink()
         self.write({'state': 'done'})
 
     @api.ondelete(at_uninstall=False)
     def _unlink_if_draft_or_cancel(self):
         if any(requisition.state not in ('draft', 'cancel') for requisition in self):
-            raise UserError(_('You can only delete draft requisitions.'))
+            raise UserError(_('You can only delete draft or cancelled requisitions.'))
 
     def unlink(self):
         # Draft requisitions could have some requisition lines.
@@ -168,6 +164,7 @@ class PurchaseRequisition(models.Model):
 
 class PurchaseRequisitionLine(models.Model):
     _name = "purchase.requisition.line"
+    _inherit = 'analytic.mixin'
     _description = "Purchase Requisition Line"
     _rec_name = 'product_id'
 
@@ -180,26 +177,32 @@ class PurchaseRequisitionLine(models.Model):
     qty_ordered = fields.Float(compute='_compute_ordered_qty', string='Ordered Quantities')
     requisition_id = fields.Many2one('purchase.requisition', required=True, string='Purchase Agreement', ondelete='cascade')
     company_id = fields.Many2one('res.company', related='requisition_id.company_id', string='Company', store=True, readonly=True)
-    account_analytic_id = fields.Many2one('account.analytic.account', string='Analytic Account', store=True, compute='_compute_account_analytic_id', readonly=False)
-    analytic_tag_ids = fields.Many2many('account.analytic.tag', string='Analytic Tags', store=True, compute='_compute_analytic_tag_ids', readonly=False)
     schedule_date = fields.Date(string='Scheduled Date')
     supplier_info_ids = fields.One2many('product.supplierinfo', 'purchase_requisition_line_id')
 
-    @api.model
-    def create(self,vals):
-        res = super(PurchaseRequisitionLine, self).create(vals)
-        if res.requisition_id.state not in ['draft', 'cancel', 'done'] and res.requisition_id.is_quantity_copy == 'none':
-            supplier_infos = self.env['product.supplierinfo'].search([
-                ('product_id', '=', vals.get('product_id')),
-                ('name', '=', res.requisition_id.vendor_id.id),
-            ])
-            if not any(s.purchase_requisition_id for s in supplier_infos):
-                res.create_supplier_info()
-            if vals['price_unit'] <= 0.0:
-                raise UserError(_('You cannot confirm the blanket order without price.'))
-        return res
+    @api.model_create_multi
+    def create(self, vals_list):
+        # TODO: replace with computes in master
+        for vals in vals_list:
+            if not vals.get('product_uom_id'):
+                vals['product_uom_id'] = self.env["product.product"].browse(vals.get('product_id')).uom_id.id
+        lines = super().create(vals_list)
+        for line, vals in zip(lines, vals_list):
+            if line.requisition_id.state not in ['draft', 'cancel', 'done'] and line.requisition_id.is_quantity_copy == 'none':
+                supplier_infos = self.env['product.supplierinfo'].search([
+                    ('product_id', '=', vals.get('product_id')),
+                    ('partner_id', '=', line.requisition_id.vendor_id.id),
+                ])
+                if not any(s.purchase_requisition_id for s in supplier_infos):
+                    line.create_supplier_info()
+                if vals['price_unit'] <= 0.0:
+                    raise UserError(_('You cannot confirm the blanket order without price.'))
+        return lines
 
     def write(self, vals):
+        # TODO: replace with computes in master
+        if vals.get('product_id') and not vals.get('product_uom_id'):
+            vals['product_uom_id'] = self.env["product.product"].browse(vals.get('product_id')).uom_id.id
         res = super(PurchaseRequisitionLine, self).write(vals)
         if 'price_unit' in vals:
             if vals['price_unit'] <= 0.0 and any(
@@ -219,8 +222,8 @@ class PurchaseRequisitionLine(models.Model):
         purchase_requisition = self.requisition_id
         if purchase_requisition.type_id.quantity_copy == 'none' and purchase_requisition.vendor_id:
             # create a supplier_info only in case of blanket order
-            self.env['product.supplierinfo'].create({
-                'name': purchase_requisition.vendor_id.id,
+            self.env['product.supplierinfo'].sudo().create({
+                'partner_id': purchase_requisition.vendor_id.id,
                 'product_id': self.product_id.id,
                 'product_tmpl_id': self.product_id.product_tmpl_id.id,
                 'price': self.price_unit,
@@ -244,30 +247,6 @@ class PurchaseRequisitionLine(models.Model):
                 line_found[line.requisition_id].add(line.product_id)
             else:
                 line.qty_ordered = 0
-
-    @api.depends('product_id', 'schedule_date')
-    def _compute_account_analytic_id(self):
-        for line in self:
-            default_analytic_account = line.env['account.analytic.default'].sudo().account_get(
-                product_id=line.product_id.id,
-                partner_id=line.requisition_id.vendor_id.id,
-                user_id=line.env.uid,
-                date=line.schedule_date,
-                company_id=line.company_id.id,
-            )
-            line.account_analytic_id = default_analytic_account.analytic_id
-
-    @api.depends('product_id', 'schedule_date')
-    def _compute_analytic_tag_ids(self):
-        for line in self:
-            default_analytic_account = line.env['account.analytic.default'].sudo().account_get(
-                product_id=line.product_id.id,
-                partner_id=line.requisition_id.vendor_id.id,
-                user_id=line.env.uid,
-                date=line.schedule_date,
-                company_id=line.company_id.id,
-            )
-            line.analytic_tag_ids = default_analytic_account.analytic_tag_ids
 
     @api.onchange('product_id')
     def _onchange_product_id(self):
@@ -294,6 +273,5 @@ class PurchaseRequisitionLine(models.Model):
             'price_unit': price_unit,
             'taxes_id': [(6, 0, taxes_ids)],
             'date_planned': date_planned,
-            'account_analytic_id': self.account_analytic_id.id,
-            'analytic_tag_ids': self.analytic_tag_ids.ids,
+            'analytic_distribution': self.analytic_distribution,
         }

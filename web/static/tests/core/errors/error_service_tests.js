@@ -2,15 +2,12 @@
 
 import { browser } from "@web/core/browser/browser";
 import { dialogService } from "@web/core/dialog/dialog_service";
-import {
-    ClientErrorDialog,
-    RPCErrorDialog,
-    NetworkErrorDialog,
-} from "@web/core/errors/error_dialogs";
-import { errorService } from "@web/core/errors/error_service";
+import { ClientErrorDialog, RPCErrorDialog } from "@web/core/errors/error_dialogs";
+import { errorService, UncaughtPromiseError } from "@web/core/errors/error_service";
 import { ConnectionLostError, RPCError } from "@web/core/network/rpc_service";
 import { notificationService } from "@web/core/notifications/notification_service";
 import { registry } from "@web/core/registry";
+import { uiService } from "@web/core/ui/ui_service";
 import { registerCleanup } from "../../helpers/cleanup";
 import { makeTestEnv } from "../../helpers/mock_env";
 import {
@@ -19,11 +16,9 @@ import {
     makeFakeNotificationService,
     makeFakeRPCService,
 } from "../../helpers/mock_services";
-import { makeDeferred, nextTick, patchWithCleanup } from "../../helpers/utils";
-import { session } from "@web/session";
-import { userService } from "@web/core/user_service";
+import { getFixture, makeDeferred, mount, nextTick, patchWithCleanup } from "../../helpers/utils";
 
-const { Component, tags } = owl;
+import { Component, xml, onError, OwlError, onWillStart } from "@odoo/owl";
 const errorDialogRegistry = registry.category("error_dialogs");
 const errorHandlerRegistry = registry.category("error_handlers");
 const serviceRegistry = registry.category("services");
@@ -38,19 +33,45 @@ QUnit.module("Error Service", {
         serviceRegistry.add("notification", notificationService);
         serviceRegistry.add("rpc", makeFakeRPCService());
         serviceRegistry.add("localization", makeFakeLocalizationService());
+        serviceRegistry.add("ui", uiService);
         const windowAddEventListener = browser.addEventListener;
         browser.addEventListener = (type, cb) => {
             if (type === "unhandledrejection") {
-                unhandledRejectionCb = cb;
+                unhandledRejectionCb = (ev) => {
+                    ev.preventDefault();
+                    cb(ev);
+                };
             }
             if (type === "error") {
-                errorCb = cb;
+                errorCb = (ev) => {
+                    ev.preventDefault();
+                    cb(ev);
+                };
             }
         };
         registerCleanup(() => {
             browser.addEventListener = windowAddEventListener;
         });
     },
+});
+
+QUnit.test("can handle rejected promise errors with a string as reason", async (assert) => {
+    assert.expect(1);
+
+    errorHandlerRegistry.add(
+        "__test_handler__",
+        (env, err, originalError) => {
+            assert.strictEqual(originalError, "-- something went wrong --");
+        },
+        { sequence: 0 }
+    );
+    await makeTestEnv();
+    const errorEvent = new PromiseRejectionEvent("error", {
+        reason: "-- something went wrong --",
+        promise: null,
+        cancelable: true,
+    });
+    unhandledRejectionCb(errorEvent);
 });
 
 QUnit.test("handle RPC_ERROR of type='server' and no associated dialog class", async (assert) => {
@@ -78,7 +99,11 @@ QUnit.test("handle RPC_ERROR of type='server' and no associated dialog class", a
     }
     serviceRegistry.add("dialog", makeFakeDialogService(addDialog), { force: true });
     await makeTestEnv();
-    const errorEvent = new PromiseRejectionEvent("error", { reason: error, promise: null });
+    const errorEvent = new PromiseRejectionEvent("error", {
+        reason: error,
+        promise: null,
+        cancelable: true,
+    });
     await unhandledRejectionCb(errorEvent);
 });
 
@@ -87,7 +112,7 @@ QUnit.test(
     async (assert) => {
         assert.expect(4);
         class CustomDialog extends Component {}
-        CustomDialog.template = tags.xml`<RPCErrorDialog title="'Strange Error'"/>`;
+        CustomDialog.template = xml`<RPCErrorDialog title="'Strange Error'"/>`;
         CustomDialog.components = { RPCErrorDialog };
         const error = new RPCError();
         error.code = 701;
@@ -114,7 +139,11 @@ QUnit.test(
         serviceRegistry.add("dialog", makeFakeDialogService(addDialog), { force: true });
         await makeTestEnv();
         errorDialogRegistry.add("strange_error", CustomDialog);
-        const errorEvent = new PromiseRejectionEvent("error", { reason: error, promise: null });
+        const errorEvent = new PromiseRejectionEvent("error", {
+            reason: error,
+            promise: null,
+            cancelable: true,
+        });
         await unhandledRejectionCb(errorEvent);
     }
 );
@@ -124,10 +153,10 @@ QUnit.test(
     async (assert) => {
         assert.expect(4);
         class CustomDialog extends Component {}
-        CustomDialog.template = tags.xml`<RPCErrorDialog title="'Strange Error'"/>`;
+        CustomDialog.template = xml`<RPCErrorDialog title="'Strange Error'"/>`;
         CustomDialog.components = { RPCErrorDialog };
         class NormalDialog extends Component {}
-        NormalDialog.template = tags.xml`<RPCErrorDialog title="'Normal Error'"/>`;
+        NormalDialog.template = xml`<RPCErrorDialog title="'Normal Error'"/>`;
         NormalDialog.components = { RPCErrorDialog };
         const error = new RPCError();
         error.code = 701;
@@ -155,7 +184,11 @@ QUnit.test(
         await makeTestEnv();
         errorDialogRegistry.add("strange_error", CustomDialog);
         errorDialogRegistry.add("normal_error", NormalDialog);
-        const errorEvent = new PromiseRejectionEvent("error", { reason: error, promise: null });
+        const errorEvent = new PromiseRejectionEvent("error", {
+            reason: error,
+            promise: null,
+            cancelable: true,
+        });
         await unhandledRejectionCb(errorEvent);
     }
 );
@@ -190,7 +223,11 @@ QUnit.test("handle CONNECTION_LOST_ERROR", async (assert) => {
     };
     await makeTestEnv({ mockRPC });
     const error = new ConnectionLostError();
-    const errorEvent = new PromiseRejectionEvent("error", { reason: error, promise: null });
+    const errorEvent = new PromiseRejectionEvent("error", {
+        reason: error,
+        promise: null,
+        cancelable: true,
+    });
     await unhandledRejectionCb(errorEvent);
     await nextTick(); // wait for mocked RPCs
     assert.verifySteps([
@@ -214,8 +251,64 @@ QUnit.test("will let handlers from the registry handle errors first", async (ass
     testEnv.someValue = 14;
     const error = new Error();
     error.name = "boom";
-    const errorEvent = new PromiseRejectionEvent("error", { reason: error, promise: null });
+    const errorEvent = new PromiseRejectionEvent("error", {
+        reason: error,
+        promise: null,
+        cancelable: true,
+    });
     await unhandledRejectionCb(errorEvent);
+    assert.verifySteps(["in handler"]);
+});
+
+QUnit.test("originalError is the root cause of the error chain", async (assert) => {
+    errorHandlerRegistry.add("__test_handler__", (env, err, originalError) => {
+        assert.ok(err instanceof UncaughtPromiseError); // Wrapped by error service
+        assert.ok(err.cause instanceof OwlError); // Wrapped by owl
+        assert.strictEqual(err.cause.cause, originalError); // original error
+        assert.step("in handler");
+    });
+    const testEnv = await makeTestEnv();
+    testEnv.someValue = 14;
+    const error = new Error();
+    error.name = "boom";
+
+    class ErrHandler extends Component {
+        setup() {
+            onError(async (err) => {
+                await unhandledRejectionCb(
+                    new PromiseRejectionEvent("error", {
+                        reason: err,
+                        promise: null,
+                        cancelable: true,
+                    })
+                );
+                prom.resolve();
+            });
+        }
+    }
+    ErrHandler.template = xml`<t t-component="props.comp"/>`;
+    class ThrowInSetup extends Component {
+        setup() {
+            throw error;
+        }
+    }
+    ThrowInSetup.template = xml``;
+    let prom = makeDeferred();
+    mount(ErrHandler, getFixture(), { props: { comp: ThrowInSetup } });
+    await prom;
+    assert.verifySteps(["in handler"]);
+
+    class ThrowInWillStart extends Component {
+        setup() {
+            onWillStart(() => {
+                throw error;
+            });
+        }
+    }
+    ThrowInWillStart.template = xml``;
+    prom = makeDeferred();
+    mount(ErrHandler, getFixture(), { props: { comp: ThrowInWillStart } });
+    await prom;
     assert.verifySteps(["in handler"]);
 });
 
@@ -237,7 +330,11 @@ QUnit.test("handle uncaught promise errors", async (assert) => {
     serviceRegistry.add("dialog", makeFakeDialogService(addDialog), { force: true });
     await makeTestEnv();
 
-    const errorEvent = new PromiseRejectionEvent("error", { reason: error, promise: null });
+    const errorEvent = new PromiseRejectionEvent("error", {
+        reason: error,
+        promise: null,
+        cancelable: true,
+    });
     await unhandledRejectionCb(errorEvent);
 });
 
@@ -260,6 +357,7 @@ QUnit.test("handle uncaught client errors", async (assert) => {
         colno: 1,
         lineno: 1,
         filename: "test",
+        cancelable: true,
     });
     await errorCb(errorEvent);
 });
@@ -278,7 +376,7 @@ QUnit.test("don't show dialog for errors in third-party scripts", async (assert)
 
     // Error events from errors in third-party scripts hav no colno, no lineno and no filename
     // because of CORS.
-    const errorEvent = new ErrorEvent("error", { error });
+    const errorEvent = new ErrorEvent("error", { error, cancelable: true });
     await errorCb(errorEvent);
     assert.verifySteps([]);
 });
@@ -298,29 +396,7 @@ QUnit.test("show dialog for errors in third-party scripts in debug mode", async 
 
     // Error events from errors in third-party scripts hav no colno, no lineno and no filename
     // because of CORS.
-    const errorEvent = new ErrorEvent("error", { error });
-    await errorCb(errorEvent);
-    assert.verifySteps(["Uncaught CORS Error"]);
-});
-
-QUnit.test("show dialog for errors in third-party scripts when logged in", async (assert) => {
-    class TestError extends Error {}
-    const error = new TestError();
-    error.message = "Script error.";
-    error.name = "Script error.";
-    patchWithCleanup(session, { uid: 1 });
-
-    function addDialog(_dialogClass, props) {
-        assert.step(props.message);
-    }
-    serviceRegistry.add("dialog", makeFakeDialogService(addDialog), { force: true });
-    serviceRegistry.add("user", userService);
-
-    await makeTestEnv();
-
-    // Error events from errors in third-party scripts hav no colno, no lineno and no filename
-    // because of CORS.
-    const errorEvent = new ErrorEvent("error", { error });
+    const errorEvent = new ErrorEvent("error", { error, cancelable: true });
     await errorCb(errorEvent);
     assert.verifySteps(["Uncaught CORS Error"]);
 });
@@ -347,7 +423,11 @@ QUnit.test("check retry", async (assert) => {
     error.message = "This is an error test";
     error.name = "TestError";
 
-    const errorEvent = new PromiseRejectionEvent("error", { reason: error, promise: null });
+    const errorEvent = new PromiseRejectionEvent("error", {
+        reason: error,
+        promise: null,
+        cancelable: true,
+    });
     await unhandledRejectionCb(errorEvent);
 
     assert.verifySteps([]);
@@ -361,7 +441,11 @@ QUnit.test("check retry", async (assert) => {
 
 QUnit.test("lazy loaded handlers", async (assert) => {
     await makeTestEnv();
-    const errorEvent = new PromiseRejectionEvent("error", { reason: new Error(), promise: null });
+    const errorEvent = new PromiseRejectionEvent("error", {
+        reason: new Error(),
+        promise: null,
+        cancelable: true,
+    });
 
     await unhandledRejectionCb(errorEvent);
     assert.verifySteps([]);
@@ -372,4 +456,86 @@ QUnit.test("lazy loaded handlers", async (assert) => {
 
     await unhandledRejectionCb(errorEvent);
     assert.verifySteps(["in handler"]);
+});
+
+// The following test(s) do not want the preventDefault to be done automatically.
+QUnit.module("Error Service", {
+    beforeEach() {
+        serviceRegistry.add("error", errorService);
+        serviceRegistry.add("dialog", dialogService);
+        serviceRegistry.add("notification", notificationService);
+        serviceRegistry.add("rpc", makeFakeRPCService());
+        serviceRegistry.add("localization", makeFakeLocalizationService());
+        serviceRegistry.add("ui", uiService);
+        const windowAddEventListener = browser.addEventListener;
+        browser.addEventListener = (type, cb) => {
+            if (type === "unhandledrejection") {
+                unhandledRejectionCb = cb;
+            } else if (type === "error") {
+                errorCb = cb;
+            }
+        };
+        registerCleanup(() => {
+            browser.addEventListener = windowAddEventListener;
+        });
+    },
+});
+
+QUnit.test("logs the traceback of the full error chain for unhandledrejection", async (assert) => {
+    assert.expect(2);
+    const regexParts = [
+        /^.*This is a wrapper error/,
+        /Caused by:.*This is a second wrapper error/,
+        /Caused by:.*This is the original error/,
+    ];
+    const errorRegex = new RegExp(regexParts.map((re) => re.source).join(/[\s\S]*/.source));
+    patchWithCleanup(console, {
+        error(errorMessage) {
+            assert.ok(errorRegex.test(errorMessage));
+        },
+    });
+
+    const error = new Error("This is a wrapper error");
+    error.cause = new Error("This is a second wrapper error");
+    error.cause.cause = new Error("This is the original error");
+
+    // start the services
+    await makeTestEnv();
+    const errorEvent = new PromiseRejectionEvent("unhandledrejection", {
+        reason: error,
+        promise: null,
+        cancelable: true,
+    });
+    await unhandledRejectionCb(errorEvent);
+    assert.ok(errorEvent.defaultPrevented);
+});
+
+QUnit.test("logs the traceback of the full error chain for uncaughterror", async (assert) => {
+    assert.expect(2);
+    const regexParts = [
+        /^.*This is a wrapper error/,
+        /Caused by:.*This is a second wrapper error/,
+        /Caused by:.*This is the original error/,
+    ];
+    const errorRegex = new RegExp(regexParts.map((re) => re.source).join(/[\s\S]*/.source));
+    patchWithCleanup(console, {
+        error(errorMessage) {
+            assert.ok(errorRegex.test(errorMessage));
+        },
+    });
+
+    const error = new Error("This is a wrapper error");
+    error.cause = new Error("This is a second wrapper error");
+    error.cause.cause = new Error("This is the original error");
+
+    // start the services
+    await makeTestEnv();
+    const errorEvent = new Event("error", {
+        promise: null,
+        cancelable: true,
+    });
+    errorEvent.error = error;
+    errorEvent.filename = "dummy_file.js"; // needed to not be treated as a CORS error
+    await errorCb(errorEvent);
+    assert.ok(errorEvent.defaultPrevented);
 });

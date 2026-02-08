@@ -3,12 +3,12 @@
 
 from odoo.addons.hr_expense.tests.common import TestExpenseCommon
 from odoo.addons.sale.tests.common import TestSaleCommon
-from odoo.tests import tagged
+from odoo.tests import Form, tagged
 
 
 @tagged('post_install', '-at_install')
 class TestSaleExpense(TestExpenseCommon, TestSaleCommon):
-    
+
     def test_sale_expense(self):
         """ Test the behaviour of sales orders when managing expenses """
 
@@ -26,7 +26,6 @@ class TestSaleExpense(TestExpenseCommon, TestSaleCommon):
             })],
             'pricelist_id': self.env.ref('product.list0').id,
         })
-        so._compute_tax_id()
         so.action_confirm()
         so._create_analytic_account()  # normally created at so confirmation when you use the right products
         init_price = so.amount_total
@@ -34,14 +33,14 @@ class TestSaleExpense(TestExpenseCommon, TestSaleCommon):
         # create some expense and validate it (expense at cost)
         # Submit to Manager
         sheet = self.env['hr.expense.sheet'].create({
-            'name': 'Expense for John Smith',
+            'name': 'Expense for John Smith 1',
             'employee_id': self.expense_employee.id,
             'journal_id': self.company_data['default_journal_purchase'].id,
         })
         exp = self.env['hr.expense'].create({
             'name': 'Air Travel',
             'product_id': self.company_data['product_delivery_cost'].id,
-            'analytic_account_id': so.analytic_account_id.id,
+            'analytic_distribution': {so.analytic_account_id.id: 100},
             'unit_amount': 621.54,
             'employee_id': self.expense_employee.id,
             'sheet_id': sheet.id,
@@ -68,17 +67,18 @@ class TestSaleExpense(TestExpenseCommon, TestSaleCommon):
             'list_price': 0.50,
             'uom_id': self.env.ref('uom.product_uom_km').id,
             'uom_po_id': self.env.ref('uom.product_uom_km').id,
+            'standard_price': 1,
         })
         # Submit to Manager
         sheet = self.env['hr.expense.sheet'].create({
-            'name': 'Expense for John Smith',
+            'name': 'Expense for John Smith 2',
             'employee_id': self.expense_employee.id,
             'journal_id': self.company_data['default_journal_purchase'].id,
         })
         exp = self.env['hr.expense'].create({
             'name': 'Car Travel',
             'product_id': prod_exp_2.id,
-            'analytic_account_id': so.analytic_account_id.id,
+            'analytic_distribution': {so.analytic_account_id.id: 100},
             'product_uom_id': self.env.ref('uom.product_uom_km').id,
             'unit_amount': 0.15,
             'quantity': 100,
@@ -100,3 +100,24 @@ class TestSaleExpense(TestExpenseCommon, TestSaleCommon):
         # both expenses should be invoiced
         inv = so._create_invoices()
         self.assertEqual(inv.amount_untaxed, 621.54 + (prod_exp_2.list_price * 100.0), 'Sale Expense: invoicing of expense is wrong')
+
+    def test_analytic_account_expense_policy(self):
+        with Form(self.product_a.product_tmpl_id) as product_form:
+            product_form.can_be_expensed = True
+            product_form.expense_policy = 'cost'
+            product_form.can_be_expensed = False
+
+            self.product_a.product_tmpl_id = product_form.save()
+
+        so = self.env['sale.order'].create({
+            'partner_id': self.partner_a.id,
+            'order_line': [(0, 0, {
+                'name': self.product_a.name,
+                'product_id': self.product_a.id,
+                'product_uom_qty': 2,
+                'product_uom': self.product_a.uom_id.id,
+                'price_unit': self.product_a.list_price,
+            })],
+        })
+        so.action_confirm()
+        self.assertFalse(so.analytic_account_id)

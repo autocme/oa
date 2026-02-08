@@ -2,6 +2,8 @@
 
 import { registry } from "./core/registry";
 
+import { EventBus } from "@odoo/owl";
+
 // -----------------------------------------------------------------------------
 // Types
 // -----------------------------------------------------------------------------
@@ -9,8 +11,8 @@ import { registry } from "./core/registry";
 /**
  * @typedef {Object} OdooEnv
  * @property {Object} services
- * @property {owl.core.EventBus} bus
- * @property {owl.QWeb} qweb
+ * @property {EventBus} bus
+ * @property {QWeb} qweb
  * @property {string} debug
  * @property {(str: string) => string} _t
  * @property {boolean} [isSmall]
@@ -27,8 +29,7 @@ import { registry } from "./core/registry";
  */
 export function makeEnv() {
     return {
-        qweb: new owl.QWeb(),
-        bus: new owl.core.EventBus(),
+        bus: new EventBus(),
         services: {},
         debug: odoo.debug,
         _t: () => {
@@ -47,6 +48,7 @@ export function makeEnv() {
 const serviceRegistry = registry.category("services");
 
 export const SERVICES_METADATA = {};
+let startServicesPromise = null;
 
 /**
  * Start all services registered in the service registry, while making sure
@@ -57,12 +59,12 @@ export const SERVICES_METADATA = {};
  */
 export async function startServices(env) {
     const toStart = new Set();
-    serviceRegistry.on("UPDATE", null, async (payload) => {
+    serviceRegistry.addEventListener("UPDATE", async (ev) => {
         // Wait for all synchronous code so that if new services that depend on
         // one another are added to the registry, they're all present before we
         // start them regardless of the order they're added to the registry.
         await Promise.resolve();
-        const { operation, key: name, value: service } = payload;
+        const { operation, key: name, value: service } = ev.detail;
         if (operation === "delete") {
             // We hardly see why it would be usefull to remove a service.
             // Furthermore we could encounter problems with dependencies.
@@ -84,6 +86,9 @@ export async function startServices(env) {
 }
 
 async function _startServices(env, toStart) {
+    if (startServicesPromise) {
+        return startServicesPromise.then(() => _startServices(env, toStart));
+    }
     const services = env.services;
     for (const [name, service] of serviceRegistry.getEntries()) {
         if (!(name in services)) {
@@ -97,7 +102,7 @@ async function _startServices(env, toStart) {
         let service = null;
         const proms = [];
         while ((service = findNext())) {
-            let name = service.name;
+            const name = service.name;
             toStart.delete(service);
             const entries = (service.dependencies || []).map((dep) => [dep, services[dep]]);
             const dependencies = Object.fromEntries(entries);
@@ -113,14 +118,14 @@ async function _startServices(env, toStart) {
             }
             if (value instanceof Promise) {
                 proms.push(
-                    new Promise(async (resolve) => {
+                    new Promise((resolve) => {
                         value
                             .then((val) => {
                                 services[name] = val || null;
                             })
                             .catch((error) => {
                                 services[name] = error;
-                                console.error(error);
+                                console.error("Can't load service '" + name + "' because:", error);
                             })
                             .finally(resolve);
                     })
@@ -134,7 +139,9 @@ async function _startServices(env, toStart) {
             return start();
         }
     }
-    await start();
+    startServicesPromise = start();
+    await startServicesPromise;
+    startServicesPromise = null;
     if (toStart.size) {
         const names = [...toStart].map((s) => s.name);
         const missingDeps = new Set();
@@ -152,7 +159,7 @@ async function _startServices(env, toStart) {
     }
 
     function findNext() {
-        for (let s of toStart) {
+        for (const s of toStart) {
             if (s.dependencies) {
                 if (s.dependencies.every((d) => d in services)) {
                     return s;

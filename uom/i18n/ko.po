@@ -3,19 +3,16 @@
 # 	* uom
 # 
 # Translators:
-# Martin Trigaux, 2021
-# JH CHOI <hwangtog@gmail.com>, 2021
-# Link Up링크업 <linkup.way@gmail.com>, 2021
-# Linkup <link-up@naver.com>, 2021
+# Martin Trigaux, 2022
 # Daye Jeong, 2023
 # Sarah Park, 2023
 # 
 msgid ""
 msgstr ""
-"Project-Id-Version: Odoo Server saas~14.4\n"
+"Project-Id-Version: Odoo Server 16.0beta\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2021-07-12 07:50+0000\n"
-"PO-Revision-Date: 2021-09-14 12:27+0000\n"
+"POT-Creation-Date: 2022-09-23 08:03+0000\n"
+"PO-Revision-Date: 2022-09-22 05:55+0000\n"
 "Last-Translator: Sarah Park, 2023\n"
 "Language-Team: Korean (https://app.transifex.com/odoo/teams/41243/ko/)\n"
 "MIME-Version: 1.0\n"
@@ -126,11 +123,6 @@ msgstr "표시명"
 #: model:uom.uom,name:uom.product_uom_dozen
 msgid "Dozens"
 msgstr "다스"
-
-#. module: uom
-#: model:ir.model.fields,help:uom.field_uom_category__reference_uom_id
-msgid "Dummy field to keep track of reference uom change"
-msgstr ""
 
 #. module: uom
 #: model_terms:ir.ui.view,arch_db:uom.uom_uom_view_search
@@ -375,7 +367,13 @@ msgstr ""
 "             시간, 일."
 
 #. module: uom
-#: code:addons/uom/models/uom_uom.py:0 code:addons/uom/models/uom_uom.py:0
+#: code:addons/uom/models/uom_uom.py:0
+#, python-format
+msgid "UoM category %s must have at least one reference unit of measure."
+msgstr "%s 측정 단위 카테고리에는 기준 측정 단위가 적어도 하나는 있어야 합니다."
+
+#. module: uom
+#: code:addons/uom/models/uom_uom.py:0
 #, python-format
 msgid "UoM category %s should have a reference unit of measure."
 msgstr "%s 측정 단위 카테고리에는 기준 측정 단위가 있어야 합니다."
@@ -401,12 +399,6 @@ msgstr "부피"
 #, python-format
 msgid "Warning for %s"
 msgstr "%s에 대한 경고"
-
-#. module: uom
-#: code:addons/uom/models/uom_uom.py:0
-#, python-format
-msgid "Warning!"
-msgstr "경고!"
 
 #. module: uom
 #: model:uom.category,name:uom.product_uom_categ_kgm
@@ -511,3 +503,8 @@ msgstr "oz"
 #: model:uom.uom,name:uom.product_uom_qt
 msgid "qt (US)"
 msgstr "qt (US)"
+
+#. module: uom
+#: model:uom.uom,name:uom.product_uom_yard
+msgid "yd"
+msgstr "yd"

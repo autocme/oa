@@ -3,19 +3,17 @@
 # 	* mrp_account
 # 
 # Translators:
-# Link Up링크업 <linkup.way@gmail.com>, 2021
-# Linkup <link-up@naver.com>, 2021
-# JH CHOI <hwangtog@gmail.com>, 2021
+# Sarah Park, 2023
 # Martin Trigaux, 2023
-# Daye Jeong, 2024
+# Daye Jeong, 2023
 # 
 msgid ""
 msgstr ""
-"Project-Id-Version: Odoo Server 15.0\n"
+"Project-Id-Version: Odoo Server 16.0+e\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-08-14 15:43+0000\n"
-"PO-Revision-Date: 2021-09-14 12:24+0000\n"
-"Last-Translator: Daye Jeong, 2024\n"
+"POT-Creation-Date: 2022-12-15 12:51+0000\n"
+"PO-Revision-Date: 2022-09-22 05:53+0000\n"
+"Last-Translator: Daye Jeong, 2023\n"
 "Language-Team: Korean (https://app.transifex.com/odoo/teams/41243/ko/)\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
@@ -101,25 +99,13 @@ msgstr "비용 기록"
 
 #. module: mrp_account
 #: model:ir.model.fields,field_description:mrp_account.field_mrp_production__extra_cost
-msgid "Extra Cost"
-msgstr "추가 비용"
-
-#. module: mrp_account
-#: model:ir.model.fields,help:mrp_account.field_mrp_production__extra_cost
-msgid "Extra cost per produced unit"
-msgstr "생산된 단위당 추가 비용"
-
-#. module: mrp_account
-#: model:ir.model.fields,help:mrp_account.field_mrp_workcenter__costs_hour_account_id
-msgid ""
-"Fill this only if you want automatic analytic accounting entries on "
-"production orders."
-msgstr "생산 주문에 자동 분석 회계 항목을 원하는 경우에만 입력하세요."
+msgid "Extra Unit Cost"
+msgstr "추가 단위 비용"
 
 #. module: mrp_account
 #: model:ir.model,name:mrp_account.model_account_move_line
 msgid "Journal Item"
-msgstr "전표 항목"
+msgstr "분개 항목"
 
 #. module: mrp_account
 #: model:ir.model.fields.selection,name:mrp_account.selection__account_analytic_line__category__manufacturing_order
@@ -145,14 +131,21 @@ msgid "Mo Analytic Account Line"
 msgstr "제조 주문서 분석 계정 내역"
 
 #. module: mrp_account
-#: model:ir.model,name:mrp_account.model_product_product
+#: model:ir.model.fields,help:mrp_account.field_mrp_workcenter__costs_hour_account_id
+msgid ""
+"Posts analytical accounting entries in real time for both component and "
+"operational costs."
+msgstr "부품 및 운영 비용에 대한 분석 회계 항목을 실시간으로 게시합니다."
+
+#. module: mrp_account
+#: model:ir.model,name:mrp_account.model_product_template
 msgid "Product"
 msgstr "품목"
 
 #. module: mrp_account
-#: model:ir.model,name:mrp_account.model_product_template
-msgid "Product Template"
-msgstr "품목 양식"
+#: model:ir.model,name:mrp_account.model_product_product
+msgid "Product Variant"
+msgstr "품목 세부선택"
 
 #. module: mrp_account
 #: model:ir.model,name:mrp_account.model_mrp_production
@@ -175,17 +168,6 @@ msgid "Stock Rule"
 msgstr "재고 규칙"
 
 #. module: mrp_account
-#: model:ir.model.fields,help:mrp_account.field_mrp_workcenter_productivity__cost_already_recorded
-msgid ""
-"Technical field automatically checked when a ongoing production posts "
-"journal entries for its costs. This way, we can record one production's cost"
-" multiple times and only consider new entries in the work centers time "
-"lines."
-msgstr ""
-"진행중인 생산에서 해당 비용에 대한 분개장 기입 항목이 전기되면 기술 필드가 자동으로 점검됩니다. 이렇게하면 한 번의 생산 비용을 여러 "
-"번 기록하고 작업장 시간대의 새로운 항목만 고려할 수 있습니다."
-
-#. module: mrp_account
 #: model_terms:ir.ui.view,arch_db:mrp_account.mrp_production_form_view_inherited
 msgid "Valuation"
 msgstr "평가"
@@ -199,6 +181,11 @@ msgstr "Wc 분석 계정 내역"
 #: model:ir.model,name:mrp_account.model_mrp_workcenter
 msgid "Work Center"
 msgstr "작업장"
+
+#. module: mrp_account
+#: model:ir.model,name:mrp_account.model_mrp_routing_workcenter
+msgid "Work Center Usage"
+msgstr "작업장 사용율"
 
 #. module: mrp_account
 #: model:ir.model,name:mrp_account.model_mrp_workorder
@@ -227,12 +214,14 @@ msgid "Workcenters"
 msgstr "작업장"
 
 #. module: mrp_account
+#. odoo-python
 #: code:addons/mrp_account/models/stock_move.py:0
 #, python-format
 msgid "[Raw] %s"
 msgstr "[Raw] %s"
 
 #. module: mrp_account
+#. odoo-python
 #: code:addons/mrp_account/models/mrp_production.py:0
 #: code:addons/mrp_account/models/mrp_workorder.py:0
 #, python-format

@@ -3,9 +3,9 @@ odoo.define('web.DropdownMenu', function (require) {
 
     const { _t } = require('web.core');
     const DropdownMenuItem = require('web.DropdownMenuItem');
+    const { LegacyComponent } = require("@web/legacy/legacy_component");
 
-    const { Component, hooks } = owl;
-    const { useExternalListener, useRef, useState } = hooks;
+    const { useExternalListener, useRef, useState } = owl;
 
     /**
      * Dropdown menu
@@ -28,10 +28,8 @@ odoo.define('web.DropdownMenu', function (require) {
      *      the behaviour of these items, @see DropdownMenuItem.
      * @extends Component
      */
-    class DropdownMenu extends Component {
-        constructor() {
-            super(...arguments);
-
+    class DropdownMenu extends LegacyComponent {
+        setup() {
             this.dropdownMenu = useRef('dropdown');
             this.state = useState({ open: false });
 
@@ -75,9 +73,9 @@ odoo.define('web.DropdownMenu', function (require) {
                 const threshold = document.documentElement.clientWidth / 2;
                 const { left, right } = this.el.getBoundingClientRect();
                 if (_t.database.parameters.direction === 'rtl') {
-                    return right > threshold ? 'dropdown-menu-left' : 'dropdown-menu-right';
+                    return right > threshold ? 'dropdown-menu-start' : 'dropdown-menu-end';
                 }
-                return left > threshold ? 'dropdown-menu-right' : 'dropdown-menu-left';
+                return left > threshold ? 'dropdown-menu-end' : 'dropdown-menu-start';
             }
             return '';
         }

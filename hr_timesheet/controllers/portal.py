@@ -11,6 +11,7 @@ from odoo.tools import date_utils, groupby as groupbyelem
 from odoo.osv.expression import AND, OR
 
 from odoo.addons.portal.controllers.portal import CustomerPortal, pager as portal_pager
+from odoo.addons.project.controllers.portal import ProjectCustomerPortal
 
 
 class TimesheetCustomerPortal(CustomerPortal):
@@ -32,9 +33,9 @@ class TimesheetCustomerPortal(CustomerPortal):
             'name': {'input': 'name', 'label': _('Search in Description')},
         }
 
-    def _task_get_searchbar_sortings(self):
-        values = super()._task_get_searchbar_sortings()
-        values['progress'] = {'label': _('Progress'), 'order': 'progress asc', 'sequence': 9}
+    def _task_get_searchbar_sortings(self, milestones_allowed):
+        values = super()._task_get_searchbar_sortings(milestones_allowed)
+        values['progress'] = {'label': _('Progress'), 'order': 'progress asc', 'sequence': 10}
         return values
 
     def _get_searchbar_groupby(self):
@@ -173,3 +174,20 @@ class TimesheetCustomerPortal(CustomerPortal):
             'is_uom_day': request.env['account.analytic.line']._is_timesheet_encode_uom_day(),
         })
         return request.render("hr_timesheet.portal_my_timesheets", values)
+
+class TimesheetProjectCustomerPortal(ProjectCustomerPortal):
+
+    def _show_task_report(self, task_sudo, report_type, download):
+        domain = request.env['account.analytic.line']._timesheet_get_portal_domain()
+        task_domain = AND([domain, [('task_id', '=', task_sudo.id)]])
+        timesheets = request.env['account.analytic.line'].sudo().search(task_domain)
+        return self._show_report(model=timesheets,
+            report_type=report_type, report_ref='hr_timesheet.timesheet_report_task_timesheets', download=download)
+
+    def _prepare_tasks_values(self, page, date_begin, date_end, sortby, search, search_in, groupby, url="/my/tasks", domain=None, su=False):
+        values = super()._prepare_tasks_values(page, date_begin, date_end, sortby, search, search_in, groupby, url, domain, su)
+        values.update(
+            is_uom_day=request.env['account.analytic.line']._is_timesheet_encode_uom_day(),
+        )
+
+        return values

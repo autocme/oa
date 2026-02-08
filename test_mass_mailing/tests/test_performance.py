@@ -2,40 +2,25 @@
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
 
 from odoo.addons.mail.tests.common import mail_new_test_user
-from odoo.tests.common import TransactionCase, users, warmup
+from odoo.addons.test_mail.tests.test_performance import BaseMailPerformance
+from odoo.tests.common import users, warmup
 from odoo.tests import tagged
 from odoo.tools import mute_logger
 
 
-@tagged('mail_performance', 'post_install', '-at_install')
-class TestMassMailPerformanceBase(TransactionCase):
+class TestMassMailPerformanceBase(BaseMailPerformance):
 
-    def setUp(self):
-        super(TestMassMailPerformanceBase, self).setUp()
+    @classmethod
+    def setUpClass(cls):
+        super(TestMassMailPerformanceBase, cls).setUpClass()
 
-        self.user_employee = mail_new_test_user(
-            self.env, login='emp',
-            groups='base.group_user',
-            name='Ernest Employee', notification_type='inbox')
-
-        self.user_marketing = mail_new_test_user(
-            self.env, login='marketing',
+        cls.user_marketing = mail_new_test_user(
+            cls.env,
             groups='base.group_user,mass_mailing.group_mass_mailing_user',
-            name='Martial Marketing', signature='--\nMartial')
-
-        # setup mail gateway
-        self.alias_domain = 'example.com'
-        self.alias_catchall = 'catchall.test'
-        self.alias_bounce = 'bounce.test'
-        self.default_from = 'notifications'
-        self.env['ir.config_parameter'].set_param('mail.bounce.alias', self.alias_bounce)
-        self.env['ir.config_parameter'].set_param('mail.catchall.domain', self.alias_domain)
-        self.env['ir.config_parameter'].set_param('mail.catchall.alias', self.alias_catchall)
-        self.env['ir.config_parameter'].set_param('mail.default.from', self.default_from)
-
-        # patch registry to simulate a ready environment
-        self.patch(self.env.registry, 'ready', True)
-
+            login='marketing',
+            name='Martial Marketing',
+            signature='--\nMartial'
+        )
 
 @tagged('mail_performance', 'post_install', '-at_install')
 class TestMassMailPerformance(TestMassMailPerformanceBase):
@@ -61,12 +46,15 @@ class TestMassMailPerformance(TestMassMailPerformanceBase):
             'mailing_domain': [('id', 'in', self.mm_recs.ids)],
         })
 
-        # runbot needs +151 compared to local
-        with self.assertQueryCount(__system__=1672, marketing=1673):  # tmm 1521/1522
+        # runbot needs +51 compared to local
+        with self.assertQueryCount(__system__=1473, marketing=1474):
             mailing.action_send_mail()
 
         self.assertEqual(mailing.sent, 50)
         self.assertEqual(mailing.delivered, 50)
+
+        mails = self.env['mail.mail'].sudo().search([('mailing_id', '=', mailing.id)])
+        self.assertFalse(mails, 'Should have auto-deleted the <mail.mail>')
 
 
 @tagged('mail_performance', 'post_install', '-at_install')
@@ -86,7 +74,7 @@ class TestMassMailBlPerformance(TestMassMailPerformanceBase):
             self.env['mail.blacklist'].create({
                 'email': 'rec.%s@example.com' % (x * 5)
             })
-        self.env['mailing.performance.blacklist'].flush()
+        self.env.flush_all()
 
     @users('__system__', 'marketing')
     @warmup
@@ -101,9 +89,12 @@ class TestMassMailBlPerformance(TestMassMailPerformanceBase):
             'mailing_domain': [('id', 'in', self.mm_recs.ids)],
         })
 
-        # runbot needs +175 compared to local
-        with self.assertQueryCount(__system__=1961, marketing=1962):  # tmm 1786/1787
+        # runbot needs +51 compared to local
+        with self.assertQueryCount(__system__=1546, marketing=1547):
             mailing.action_send_mail()
 
         self.assertEqual(mailing.sent, 50)
         self.assertEqual(mailing.delivered, 50)
+
+        cancelled_mail_count = self.env['mail.mail'].sudo().search([('mailing_id', '=', mailing.id)])
+        self.assertEqual(len(cancelled_mail_count), 12, 'Should not have auto deleted the blacklisted emails')

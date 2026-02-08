@@ -5,7 +5,6 @@
     'version': '1.0',
     'category': 'Human Resources',
     'summary': 'Get history of driven cars by employees',
-    'description': "",
     'depends': ['hr', 'fleet'],
     'data': [
         'security/ir.model.access.csv',
@@ -18,6 +17,11 @@
     'demo': [
         'data/hr_fleet_demo.xml',
     ],
+    'assets': {
+        'web.assets_backend': [
+            'hr_fleet/static/src/views/**/*',
+        ],
+    },
     'auto_install': True,
     'license': 'LGPL-3',
 }

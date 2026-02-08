@@ -2,9 +2,10 @@
 
 import '@mail/../tests/helpers/mock_server'; // ensure mail overrides are applied first
 
-import MockServer from 'web.MockServer';
+import { patch } from "@web/core/utils/patch";
+import { MockServer } from "@web/../tests/helpers/mock_server";
 
-MockServer.include({
+patch(MockServer.prototype, 'im_livechat', {
     //--------------------------------------------------------------------------
     // Private
     //--------------------------------------------------------------------------
@@ -12,19 +13,13 @@ MockServer.include({
     /**
      * @override
      */
-    async _performRpc(route, args) {
+    async _performRPC(route, args) {
         if (route === '/im_livechat/get_session') {
             const channel_id = args.channel_id;
             const anonymous_name = args.anonymous_name;
             const previous_operator_id = args.previous_operator_id;
             const context = args.context;
             return this._mockRouteImLivechatGetSession(channel_id, anonymous_name, previous_operator_id, context);
-        }
-        if (route === '/im_livechat/notify_typing') {
-            const uuid = args.uuid;
-            const is_typing = args.is_typing;
-            const context = args.context;
-            return this._mockRouteImLivechatNotifyTyping(uuid, is_typing, context);
         }
         return this._super(...arguments);
     },
@@ -54,12 +49,12 @@ MockServer.include({
         }
         // don't use the anonymous name if the user is logged in
         if (user_id) {
-            const user = this._getRecords('res.users', [['id', '=', user_id]])[0];
+            const user = this.getRecords('res.users', [['id', '=', user_id]])[0];
             country_id = user.country_id;
         } else {
             // simulate geoip
             const countryCode = context.mockedCountryCode;
-            const country = this._getRecords('res.country', [['code', '=', countryCode]])[0];
+            const country = this.getRecords('res.country', [['code', '=', countryCode]])[0];
             if (country) {
                 country_id = country.id;
                 anonymous_name = anonymous_name + ' (' + country.name + ')';
@@ -67,76 +62,27 @@ MockServer.include({
         }
         return this._mockImLivechatChannel_openLivechatMailChannel(channel_id, anonymous_name, previous_operator_id, user_id, country_id);
     },
-    /**
-     * Simulates the `/im_livechat/notify_typing` route.
-     *
-     * @private
-     * @param {string} uuid
-     * @param {boolean} is_typing
-     * @param {Object} [context]
-     */
-    _mockRouteImLivechatNotifyTyping(uuid, is_typing, context) {
-        const mailChannel = this._getRecords('mail.channel', [['uuid', '=', uuid]])[0];
-        this._mockMailChannelNotifyTyping([mailChannel.id], is_typing, context);
-    },
 
     //--------------------------------------------------------------------------
     // Private Mocked Methods
     //--------------------------------------------------------------------------
 
     /**
-     * Simulates `_channel_get_livechat_visitor_info` on `mail.channel`.
-     *
-     * @private
-     * @param {integer[]} ids
-     * @returns {Object}
-     */
-    _mockMailChannel_ChannelGetLivechatVisitorInfo(ids) {
-        const id = ids[0]; // ensure_one
-        const mailChannel = this._getRecords('mail.channel', [['id', '=', id]])[0];
-        // remove active test to ensure public partner is taken into account
-        let members = this._getRecords(
-            'res.partner',
-            [['id', 'in', mailChannel.members]],
-            { active_test: false },
-        );
-        members = members.filter(member => member.id !== mailChannel.livechat_operator_id);
-        if (members.length === 0 && mailChannel.livechat_operator_id) {
-            // operator probably testing the livechat with his own user
-            members = [mailChannel.livechat_operator_id];
-        }
-        if (members.length > 0 && members[0].id !== this.publicPartnerId) {
-            // legit non-public partner
-            const country = this._getRecords('res.country', [['id', '=', members[0].country_id]])[0];
-            return {
-                'country': country ? [country.id, country.name] : false,
-                'id': members[0].id,
-                'name': members[0].name,
-            };
-        }
-        return {
-            'country': false,
-            'id': false,
-            'name': mailChannel.anonymous_name || "Visitor",
-        };
-    },
-    /**
      * @override
      */
     _mockMailChannelChannelInfo(ids) {
         const channelInfos = this._super(...arguments);
         for (const channelInfo of channelInfos) {
-            const channel = this._getRecords('mail.channel', [['id', '=', channelInfo.id]])[0];
+            const channel = this.getRecords('mail.channel', [['id', '=', channelInfo.id]])[0];
+            channelInfo['channel']['anonymous_name'] = channel.anonymous_name;
             // add the last message date
             if (channel.channel_type === 'livechat') {
                 // add the operator id
                 if (channel.livechat_operator_id) {
-                    const operator = this._getRecords('res.partner', [['id', '=', channel.livechat_operator_id]])[0];
+                    const operator = this.getRecords('res.partner', [['id', '=', channel.livechat_operator_id]])[0];
                     // livechat_username ignored for simplicity
                     channelInfo.operator_pid = [operator.id, operator.display_name.replace(',', '')];
                 }
-                // add the anonymous or partner name
-                channelInfo.livechat_visitor = this._mockMailChannel_ChannelGetLivechatVisitorInfo([channel.id]);
             }
         }
         return channelInfos;
@@ -149,8 +95,8 @@ MockServer.include({
      * @returns {Object}
      */
     _mockImLivechatChannel_getAvailableUsers(id) {
-        const livechatChannel = this._getRecords('im_livechat.channel', [['id', '=', id]])[0];
-        const users = this._getRecords('res.users', [['id', 'in', livechatChannel.user_ids]]);
+        const livechatChannel = this.getRecords('im_livechat.channel', [['id', '=', id]])[0];
+        const users = this.getRecords('res.users', [['id', 'in', livechatChannel.user_ids]]);
         return users.filter(user => user.im_status === 'online');
     },
     /**
@@ -163,30 +109,26 @@ MockServer.include({
     _mockImLivechatChannel_getLivechatMailChannelVals(id, anonymous_name, operator, user_id, country_id) {
         // partner to add to the mail.channel
         const operator_partner_id = operator.partner_id;
-        const members = [[4, operator_partner_id]];
+        const membersToAdd = [[0, 0, {
+            is_pinned: false,
+            partner_id: operator_partner_id,
+        }]];
         let visitor_user;
         if (user_id) {
-            const visitor_user = this._getRecords('res.users', [['id', '=', user_id]])[0];
-            if (visitor_user && visitor_user.active) {
+            const visitor_user = this.getRecords('res.users', [['id', '=', user_id]])[0];
+            if (visitor_user && visitor_user.active && visitor_user !== operator) {
                 // valid session user (not public)
-                members.push([4, visitor_user.partner_id.id]);
+                membersToAdd.push([0, 0, { partner_id: visitor_user.partner_id.id }]);
             }
         } else {
-            // for simplicity of not having mocked channel.partner, add public partner here
-            members.push([4, this.publicPartnerId]);
+            membersToAdd.push([0, 0, { partner_id: this.publicPartnerId }]);
         }
         const membersName = [
             visitor_user ? visitor_user.display_name : anonymous_name,
             operator.livechat_username ? operator.livechat_username : operator.name,
         ];
         return {
-            // Limitation of mocked models not having channel.partner: is_pinned
-            // is not supposed to be false for the visitor but must be false for
-            // the operator (writing on channel_partner_ids does not trigger the
-            // defaults that would set it to true) and here operator and visitor
-            // can't be differentiated in that regard.
-            'is_pinned': false,
-            'members': members, // channel_partner_ids
+            'channel_member_ids': membersToAdd,
             'livechat_active': true,
             'livechat_operator_id': operator_partner_id,
             'livechat_channel_id': id,
@@ -194,7 +136,6 @@ MockServer.include({
             'country_id': country_id,
             'channel_type': 'livechat',
             'name': membersName.join(' '),
-            'public': 'private',
         };
     },
     /**
@@ -235,7 +176,7 @@ MockServer.include({
         }
         // create the session, and add the link with the given channel
         const mailChannelVals = this._mockImLivechatChannel_getLivechatMailChannelVals(id, anonymous_name, operator, user_id, country_id);
-        const mailChannelId = this._mockCreate('mail.channel', mailChannelVals);
+        const mailChannelId = this.pyEnv['mail.channel'].create(mailChannelVals);
         this._mockMailChannel_broadcast([mailChannelId], [operator.partner_id]);
         return this._mockMailChannelChannelInfo([mailChannelId])[0];
     },
@@ -243,11 +184,11 @@ MockServer.include({
      * @override
      */
     _mockResPartner_GetChannelsAsMember(ids) {
-        const partner = this._getRecords('res.partner', [['id', 'in', ids]])[0];
-        const livechats = this._getRecords('mail.channel', [
+        const partner = this.getRecords('res.partner', [['id', 'in', ids]])[0];
+        const members = this.getRecords('mail.channel.member', [['partner_id', '=', partner.id], ['is_pinned', '=', true]]);
+        const livechats = this.getRecords('mail.channel', [
             ['channel_type', '=', 'livechat'],
-            ['is_pinned', '=', true],
-            ['members', 'in', partner.id],
+            ['channel_member_ids', 'in', members.map(member => member.id)],
         ]);
         return [
             ...this._super(ids),

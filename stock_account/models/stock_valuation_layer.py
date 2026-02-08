@@ -1,8 +1,12 @@
 # -*- coding: utf-8 -*-
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
 
-from odoo import fields, models, tools
+from odoo import api, fields, models, tools
 from odoo.tools import float_compare, float_is_zero
+
+from itertools import chain
+from odoo.tools import groupby
+from collections import defaultdict
 
 
 class StockValuationLayer(models.Model):
@@ -18,7 +22,7 @@ class StockValuationLayer(models.Model):
     product_id = fields.Many2one('product.product', 'Product', readonly=True, required=True, check_company=True, auto_join=True)
     categ_id = fields.Many2one('product.category', related='product_id.categ_id')
     product_tmpl_id = fields.Many2one('product.template', related='product_id.product_tmpl_id')
-    quantity = fields.Float('Quantity', help='Quantity', readonly=True, digits='Product Unit of Measure')
+    quantity = fields.Float('Quantity', readonly=True, digits='Product Unit of Measure')
     uom_id = fields.Many2one(related='product_id.uom_id', readonly=True, required=True)
     currency_id = fields.Many2one('res.currency', 'Currency', related='company_id.currency_id', readonly=True, required=True)
     unit_cost = fields.Monetary('Unit Value', readonly=True)
@@ -29,33 +33,81 @@ class StockValuationLayer(models.Model):
     stock_valuation_layer_id = fields.Many2one('stock.valuation.layer', 'Linked To', readonly=True, check_company=True, index=True)
     stock_valuation_layer_ids = fields.One2many('stock.valuation.layer', 'stock_valuation_layer_id')
     stock_move_id = fields.Many2one('stock.move', 'Stock Move', readonly=True, check_company=True, index=True)
-    account_move_id = fields.Many2one('account.move', 'Journal Entry', readonly=True, check_company=True, index=True)
+    account_move_id = fields.Many2one('account.move', 'Journal Entry', readonly=True, check_company=True, index="btree_not_null")
+    account_move_line_id = fields.Many2one('account.move.line', 'Invoice Line', readonly=True, check_company=True, index="btree_not_null")
+    reference = fields.Char(related='stock_move_id.reference')
+    price_diff_value = fields.Float('Invoice value correction with invoice currency')
 
     def init(self):
         tools.create_index(
             self._cr, 'stock_valuation_layer_index',
             self._table, ['product_id', 'remaining_qty', 'stock_move_id', 'company_id', 'create_date']
         )
+        tools.create_index(
+            self._cr, 'stock_valuation_company_product_index',
+            self._table, ['product_id', 'company_id', 'id', 'value', 'quantity']
+        )
 
     def _validate_accounting_entries(self):
         am_vals = []
+        aml_to_reconcile = defaultdict(set)
         for svl in self:
             if not svl.with_company(svl.company_id).product_id.valuation == 'real_time':
                 continue
             if svl.currency_id.is_zero(svl.value):
                 continue
-            am_vals += svl.stock_move_id.with_company(svl.company_id)._account_entry_move(svl.quantity, svl.description, svl.id, svl.value)
+            move = svl.stock_move_id
+            if not move:
+                move = svl.stock_valuation_layer_id.stock_move_id
+            am_vals += move.with_company(svl.company_id)._account_entry_move(svl.quantity, svl.description, svl.id, svl.value)
         if am_vals:
             account_moves = self.env['account.move'].sudo().create(am_vals)
             account_moves._post()
-        for svl in self:
-            # Eventually reconcile together the invoice and valuation accounting entries on the stock interim accounts
-            if svl.company_id.anglo_saxon_accounting:
-                svl.stock_move_id._get_related_invoices()._stock_account_anglo_saxon_reconcile_valuation(product=svl.product_id)
+        products_svl = groupby(self, lambda svl: (svl.product_id, svl.company_id.anglo_saxon_accounting))
+        for (product, anglo_saxon_accounting), svls in products_svl:
+            svls = self.browse(svl.id for svl in svls)
+            moves = svls.stock_move_id
+            if anglo_saxon_accounting:
+                moves._get_related_invoices()._stock_account_anglo_saxon_reconcile_valuation(product=product)
+            moves = (moves | moves.origin_returned_move_id).with_prefetch(chain(moves._prefetch_ids, moves.origin_returned_move_id._prefetch_ids))
+            for aml in moves._get_all_related_aml():
+                if aml.reconciled or aml.move_id.state != "posted" or not aml.account_id.reconcile:
+                    continue
+                aml_to_reconcile[(product, aml.account_id)].add(aml.id)
+        for aml_ids in aml_to_reconcile.values():
+            self.env['account.move.line'].browse(aml_ids).reconcile()
 
     def _validate_analytic_accounting_entries(self):
         for svl in self:
             svl.stock_move_id._account_analytic_entry_move()
+
+    @api.model
+    def read_group(self, domain, fields, groupby, offset=0, limit=None, orderby=False, lazy=True):
+        if 'unit_cost' in fields:
+            fields.remove('unit_cost')
+        return super().read_group(domain, fields, groupby, offset, limit, orderby, lazy)
+
+    def action_open_layer(self):
+        self.ensure_one()
+        return {
+            'res_model': self._name,
+            'type': 'ir.actions.act_window',
+            'views': [[False, "form"]],
+            'res_id': self.id,
+        }
+
+    def action_open_reference(self):
+        self.ensure_one()
+        if self.stock_move_id:
+            action = self.stock_move_id.action_open_reference()
+            if action['res_model'] != 'stock.move':
+                return action
+        return {
+            'res_model': self._name,
+            'type': 'ir.actions.act_window',
+            'views': [[False, "form"]],
+            'res_id': self.id,
+        }
 
     def _consume_specific_qty(self, qty_valued, qty_to_value):
         """
@@ -66,10 +118,10 @@ class StockValuationLayer(models.Model):
         if not self:
             return 0, 0
 
-        rounding = self.product_id.uom_id.rounding
         qty_to_take_on_candidates = qty_to_value
         tmp_value = 0  # to accumulate the value taken on the candidates
         for candidate in self:
+            rounding = candidate.product_id.uom_id.rounding
             if float_is_zero(candidate.quantity, precision_rounding=rounding):
                 continue
             candidate_quantity = abs(candidate.quantity)
@@ -102,13 +154,15 @@ class StockValuationLayer(models.Model):
         if not self:
             return 0, 0
 
-        rounding = self.product_id.uom_id.rounding
+        min_rounding = 1.0
         qty_total = -qty_valued
         value_total = -valued
         new_valued_qty = 0
         new_valuation = 0
 
         for svl in self:
+            rounding = svl.product_id.uom_id.rounding
+            min_rounding = min(min_rounding, rounding)
             if float_is_zero(svl.quantity, precision_rounding=rounding):
                 continue
             relevant_qty = abs(svl.quantity)
@@ -120,9 +174,13 @@ class StockValuationLayer(models.Model):
             qty_total += relevant_qty
             value_total += relevant_qty * ((svl.value + sum(svl.stock_valuation_layer_ids.mapped('value'))) / svl.quantity)
 
-        if float_compare(qty_total, 0, precision_rounding=rounding) > 0:
+        if float_compare(qty_total, 0, precision_rounding=min_rounding) > 0:
             unit_cost = value_total / qty_total
             new_valued_qty = min(qty_total, qty_to_value)
             new_valuation = unit_cost * new_valued_qty
 
         return new_valued_qty, new_valuation
+
+    def _should_impact_price_unit_receipt_value(self):
+        self.ensure_one()
+        return True

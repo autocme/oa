@@ -1,13 +1,11 @@
 /** @odoo-module **/
 
+import { useComponentToModel } from '@mail/component_hooks/use_component_to_model';
+import { useRefs } from '@mail/component_hooks/use_refs';
 import { registerMessagingComponent } from '@mail/utils/messaging_component';
-import { useRefs } from '@mail/component_hooks/use_refs/use_refs';
-import { link } from '@mail/model/model_field_command';
-
 import { hidePDFJSButtons } from '@web/legacy/js/libs/pdfjs';
 
-const { Component } = owl;
-const { useRef } = owl.hooks;
+const { Component, onMounted, onPatched, onWillUnmount, useRef } = owl;
 
 const MIN_SCALE = 0.5;
 const SCROLL_ZOOM_STEP = 0.1;
@@ -18,8 +16,9 @@ export class AttachmentViewer extends Component {
     /**
      * @override
      */
-    constructor(...args) {
-        super(...args);
+    setup() {
+        super.setup();
+        useComponentToModel({ fieldName: 'component' });
         this.MIN_SCALE = MIN_SCALE;
         /**
          * Used to ensure that the ref is always up to date, which seems to be needed if the element
@@ -27,12 +26,6 @@ export class AttachmentViewer extends Component {
          * This was made to remove the display of the previous image as soon as the src changes.
          */
         this._getRefs = useRefs();
-        /**
-         * Determine whether the user is currently dragging the image.
-         * This is useful to determine whether a click outside of the image
-         * should close the attachment viewer or not.
-         */
-        this._isDragging = false;
         /**
          * Reference of the zoomer node. Useful to apply translate
          * transformation on image visualisation.
@@ -51,10 +44,16 @@ export class AttachmentViewer extends Component {
          */
         this._translate = { x: 0, y: 0, dx: 0, dy: 0 };
         this._onClickGlobal = this._onClickGlobal.bind(this);
+        onMounted(() => this._mounted());
+        onPatched(() => this._patched());
+        onWillUnmount(() => this._willUnmount());
     }
 
-    mounted() {
-        this.el.focus();
+    _mounted() {
+        if (!this.root.el) {
+            return;
+        }
+        this.root.el.focus();
         this._handleImageLoad();
         this._hideUnwantedPdfJsButtons();
         document.addEventListener('click', this._onClickGlobal);
@@ -63,12 +62,12 @@ export class AttachmentViewer extends Component {
     /**
      * When a new image is displayed, show a spinner until it is loaded.
      */
-    patched() {
+    _patched() {
         this._handleImageLoad();
         this._hideUnwantedPdfJsButtons();
     }
 
-    willUnmount() {
+    _willUnmount() {
         document.removeEventListener('click', this._onClickGlobal);
     }
 
@@ -77,67 +76,15 @@ export class AttachmentViewer extends Component {
     //--------------------------------------------------------------------------
 
     /**
-     * @returns {mail.attachment_viewer}
+     * @returns {AttachmentViewer}
      */
     get attachmentViewer() {
-        return this.messaging && this.messaging.models['mail.attachment_viewer'].get(this.props.localId);
-    }
-
-    /**
-     * Compute the style of the image (scale + rotation).
-     *
-     * @returns {string}
-     */
-    get imageStyle() {
-        const attachmentViewer = this.attachmentViewer;
-        let style = `transform: ` +
-            `scale3d(${attachmentViewer.scale}, ${attachmentViewer.scale}, 1) ` +
-            `rotate(${attachmentViewer.angle}deg);`;
-
-        if (attachmentViewer.angle % 180 !== 0) {
-            style += `` +
-                `max-height: ${window.innerWidth}px; ` +
-                `max-width: ${window.innerHeight}px;`;
-        } else {
-            style += `` +
-                `max-height: 100%; ` +
-                `max-width: 100%;`;
-        }
-        return style;
-    }
-
-    /**
-     * Mandatory method for dialog components.
-     * Prevent closing the dialog when clicking on the mask when the user is
-     * currently dragging the image.
-     *
-     * @returns {boolean}
-     */
-    isCloseable() {
-        return !this._isDragging;
+        return this.props.record;
     }
 
     //--------------------------------------------------------------------------
     // Private
     //--------------------------------------------------------------------------
-
-    /**
-     * Close the dialog with this attachment viewer.
-     *
-     * @private
-     */
-    _close() {
-        this.attachmentViewer.close();
-    }
-
-    /**
-     * Download the attachment.
-     *
-     * @private
-     */
-    _download() {
-        this.attachmentViewer.attachment.download();
-    }
 
     /**
      * Determine whether the current image is rendered for the 1st time, and if
@@ -146,13 +93,13 @@ export class AttachmentViewer extends Component {
      * @private
      */
     _handleImageLoad() {
-        if (!this.attachmentViewer || !this.attachmentViewer.attachment) {
+        if (!this.attachmentViewer.exists() || !this.attachmentViewer.attachmentViewerViewable) {
             return;
         }
         const refs = this._getRefs();
-        const image = refs[`image_${this.attachmentViewer.attachment.id}`];
+        const image = refs[`image_${this.attachmentViewer.attachmentViewerViewable.localId}`];
         if (
-            this.attachmentViewer.attachment.isImage &&
+            this.attachmentViewer.attachmentViewerViewable.isImage &&
             (!image || !image.complete)
         ) {
             this.attachmentViewer.update({ isImageLoading: true });
@@ -171,83 +118,12 @@ export class AttachmentViewer extends Component {
     }
 
     /**
-     * Display the previous attachment in the list of attachments.
-     *
-     * @private
-     */
-    _next() {
-        const attachmentViewer = this.attachmentViewer;
-        const index = attachmentViewer.attachments.findIndex(attachment =>
-            attachment === attachmentViewer.attachment
-        );
-        const nextIndex = (index + 1) % attachmentViewer.attachments.length;
-        attachmentViewer.update({
-            attachment: link(attachmentViewer.attachments[nextIndex]),
-        });
-    }
-
-    /**
-     * Display the previous attachment in the list of attachments.
-     *
-     * @private
-     */
-    _previous() {
-        const attachmentViewer = this.attachmentViewer;
-        const index = attachmentViewer.attachments.findIndex(attachment =>
-            attachment === attachmentViewer.attachment
-        );
-        const nextIndex = index === 0
-            ? attachmentViewer.attachments.length - 1
-            : index - 1;
-        attachmentViewer.update({
-            attachment: link(attachmentViewer.attachments[nextIndex]),
-        });
-    }
-
-    /**
-     * Prompt the browser print of this attachment.
-     *
-     * @private
-     */
-    _print() {
-        const printWindow = window.open('about:blank', '_new');
-        printWindow.document.open();
-        printWindow.document.write(`
-            <html>
-                <head>
-                    <script>
-                        function onloadImage() {
-                            setTimeout('printImage()', 10);
-                        }
-                        function printImage() {
-                            window.print();
-                            window.close();
-                        }
-                    </script>
-                </head>
-                <body onload='onloadImage()'>
-                    <img src="${this.attachmentViewer.imageUrl}" alt=""/>
-                </body>
-            </html>`);
-        printWindow.document.close();
-    }
-
-    /**
-     * Rotate the image by 90 degrees to the right.
-     *
-     * @private
-     */
-    _rotate() {
-        this.attachmentViewer.update({ angle: this.attachmentViewer.angle + 90 });
-    }
-
-    /**
      * Stop dragging interaction of the user.
      *
      * @private
      */
     _stopDragging() {
-        this._isDragging = false;
+        this.attachmentViewer.update({ isDragging: false });
         this._translate.x += this._translate.dx;
         this._translate.y += this._translate.dy;
         this._translate.dx = 0;
@@ -266,7 +142,12 @@ export class AttachmentViewer extends Component {
     _updateZoomerStyle() {
         const attachmentViewer = this.attachmentViewer;
         const refs = this._getRefs();
-        const image = refs[`image_${this.attachmentViewer.attachment.id}`];
+        const image = refs[`image_${this.attachmentViewer.attachmentViewerViewable.localId}`];
+        // some actions are too fast that sometimes this function is called
+        // before setting the refs, so we just do nothing when image is null
+        if (!image) {
+            return;
+        }
         const tx = image.offsetWidth * attachmentViewer.scale > this._zoomerRef.el.offsetWidth
             ? this._translate.x + this._translate.dx
             : 0;
@@ -333,131 +214,18 @@ export class AttachmentViewer extends Component {
     //--------------------------------------------------------------------------
 
     /**
-     * Called when clicking on mask of attachment viewer.
-     *
-     * @private
-     * @param {MouseEvent} ev
-     */
-    _onClick(ev) {
-        if (this._isDragging) {
-            return;
-        }
-        // TODO: clicking on the background should probably be handled by the dialog?
-        // task-2092965
-        this._close();
-    }
-
-    /**
-     * Called when clicking on cross icon.
-     *
-     * @private
-     * @param {MouseEvent} ev
-     */
-    _onClickClose(ev) {
-        this._close();
-    }
-
-    /**
-     * Called when clicking on download icon.
-     *
-     * @private
-     * @param {MouseEvent} ev
-     */
-    _onClickDownload(ev) {
-        ev.stopPropagation();
-        this._download();
-    }
-
-    /**
      * @private
      * @param {MouseEvent} ev
      */
     _onClickGlobal(ev) {
-        if (!this._isDragging) {
+        if (!this.attachmentViewer.exists()) {
+            return;
+        }
+        if (!this.attachmentViewer.isDragging) {
             return;
         }
         ev.stopPropagation();
         this._stopDragging();
-    }
-
-    /**
-     * Called when clicking on the header. Stop propagation of event to prevent
-     * closing the dialog.
-     *
-     * @private
-     * @param {MouseEvent} ev
-     */
-    _onClickHeader(ev) {
-        ev.stopPropagation();
-    }
-
-    /**
-     * Called when clicking on image. Stop propagation of event to prevent
-     * closing the dialog.
-     *
-     * @private
-     * @param {MouseEvent} ev
-     */
-    _onClickImage(ev) {
-        if (this._isDragging) {
-            return;
-        }
-        ev.stopPropagation();
-    }
-
-    /**
-     * Called when clicking on next icon.
-     *
-     * @private
-     * @param {MouseEvent} ev
-     */
-    _onClickNext(ev) {
-        ev.stopPropagation();
-        this._next();
-    }
-
-    /**
-     * Called when clicking on previous icon.
-     *
-     * @private
-     * @param {MouseEvent} ev
-     */
-    _onClickPrevious(ev) {
-        ev.stopPropagation();
-        this._previous();
-    }
-
-    /**
-     * Called when clicking on print icon.
-     *
-     * @private
-     * @param {MouseEvent} ev
-     */
-    _onClickPrint(ev) {
-        ev.stopPropagation();
-        this._print();
-    }
-
-    /**
-     * Called when clicking on rotate icon.
-     *
-     * @private
-     * @param {MouseEvent} ev
-     */
-    _onClickRotate(ev) {
-        ev.stopPropagation();
-        this._rotate();
-    }
-
-    /**
-     * Called when clicking on embed video player. Stop propagation to prevent
-     * closing the dialog.
-     *
-     * @private
-     * @param {MouseEvent} ev
-     */
-    _onClickVideo(ev) {
-        ev.stopPropagation();
     }
 
     /**
@@ -500,19 +268,19 @@ export class AttachmentViewer extends Component {
     _onKeydown(ev) {
         switch (ev.key) {
             case 'ArrowRight':
-                this._next();
+                this.attachmentViewer.next();
                 break;
             case 'ArrowLeft':
-                this._previous();
+                this.attachmentViewer.previous();
                 break;
             case 'Escape':
-                this._close();
+                this.attachmentViewer.close();
                 break;
             case 'q':
-                this._close();
+                this.attachmentViewer.close();
                 break;
             case 'r':
-                this._rotate();
+                this.attachmentViewer.rotate();
                 break;
             case '+':
                 this._zoomIn();
@@ -530,29 +298,21 @@ export class AttachmentViewer extends Component {
     }
 
     /**
-     * Called when new image has been loaded
-     *
-     * @private
-     * @param {Event} ev
-     */
-    _onLoadImage(ev) {
-        ev.stopPropagation();
-        this.attachmentViewer.update({ isImageLoading: false });
-    }
-
-    /**
      * @private
      * @param {DragEvent} ev
      */
     _onMousedownImage(ev) {
-        if (this._isDragging) {
+        if (!this.attachmentViewer.exists()) {
+            return;
+        }
+        if (this.attachmentViewer.isDragging) {
             return;
         }
         if (ev.button !== 0) {
             return;
         }
         ev.stopPropagation();
-        this._isDragging = true;
+        this.attachmentViewer.update({ isDragging: true });
         this._dragstartX = ev.clientX;
         this._dragstartY = ev.clientY;
     }
@@ -562,7 +322,10 @@ export class AttachmentViewer extends Component {
      * @param {DragEvent}
      */
     _onMousemoveView(ev) {
-        if (!this._isDragging) {
+        if (!this.attachmentViewer.exists()) {
+            return;
+        }
+        if (!this.attachmentViewer.isDragging) {
             return;
         }
         this._translate.dx = ev.clientX - this._dragstartX;
@@ -576,7 +339,7 @@ export class AttachmentViewer extends Component {
      */
     _onWheelImage(ev) {
         ev.stopPropagation();
-        if (!this.el) {
+        if (!this.root.el) {
             return;
         }
         if (ev.deltaY > 0) {
@@ -589,9 +352,7 @@ export class AttachmentViewer extends Component {
 }
 
 Object.assign(AttachmentViewer, {
-    props: {
-        localId: String,
-    },
+    props: { record: Object },
     template: 'mail.AttachmentViewer',
 });
 

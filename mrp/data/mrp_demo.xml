@@ -40,6 +40,7 @@
         </record>
         <record id="mrp_routing_workcenter_0" model="mrp.routing.workcenter">
             <field name="bom_id" ref="mrp_bom_manufacture"/>
+            <field name="active">False</field>
             <field name="workcenter_id" ref="mrp_workcenter_3"/>
             <field name="name">Manual Assembly</field>
             <field name="time_cycle">60</field>
@@ -78,13 +79,6 @@
             <field name="product_qty">3</field>
             <field name="bom_id" ref="mrp_bom_manufacture"/>
         </record>
-
-        <function model="stock.move" name="create">
-            <value model="stock.move" eval="
-                obj().env.ref('mrp.mrp_production_1')._get_moves_raw_values() +
-                obj().env.ref('mrp.mrp_production_1')._get_moves_finished_values()"/>
-        </function>
-
         <!-- Table -->
 
         <record id="product_product_computer_desk" model="product.product">
@@ -242,6 +236,7 @@
         </record>
         <record id="mrp_routing_workcenter_5" model="mrp.routing.workcenter">
             <field name="bom_id" ref="mrp_bom_desk"/>
+            <field name="active">False</field>
             <field name="workcenter_id" ref="mrp_workcenter_3"/>
             <field name="time_cycle">120</field>
             <field name="sequence">10</field>
@@ -293,12 +288,6 @@
             <field name="bom_id" ref="mrp_bom_desk"/>
         </record>
 
-        <function model="stock.move" name="create">
-            <value model="stock.move" eval="
-                obj().env.ref('mrp.mrp_production_3')._get_moves_raw_values() +
-                obj().env.ref('mrp.mrp_production_3')._get_moves_finished_values()"/>
-        </function>
-
         <record id="mrp_bom_table_top" model="mrp.bom">
             <field name="product_tmpl_id" ref="product_product_computer_desk_head_product_template"/>
             <field name="product_uom_id" ref="uom.product_uom_unit"/>
@@ -306,6 +295,7 @@
         </record>
         <record id="mrp_routing_workcenter_0" model="mrp.routing.workcenter">
             <field name="bom_id" ref="mrp_bom_table_top"/>
+            <field name="active">False</field>
             <field name="workcenter_id" ref="mrp_workcenter_3"/>
             <field name="name">Manual Assembly</field>
             <field name="time_cycle">60</field>
@@ -336,6 +326,7 @@
         </record>
         <record id="mrp_routing_workcenter_1" model="mrp.routing.workcenter">
             <field name="bom_id" ref="mrp_bom_plastic_laminate"/>
+            <field name="active">False</field>
             <field name="workcenter_id" ref="mrp_workcenter_3"/>
             <field name="name">Long time assembly</field>
             <field name="time_cycle">180</field>
@@ -346,6 +337,7 @@
 
         <record id="mrp_routing_workcenter_3" model="mrp.routing.workcenter">
             <field name="bom_id" ref="mrp_bom_plastic_laminate"/>
+            <field name="active">False</field>
             <field name="workcenter_id" ref="mrp_workcenter_3"/>
             <field name="name">Testing</field>
             <field name="time_cycle">60</field>
@@ -356,6 +348,7 @@
 
         <record id="mrp_routing_workcenter_4" model="mrp.routing.workcenter">
             <field name="bom_id" ref="mrp_bom_plastic_laminate"/>
+            <field name="active">False</field>
             <field name="workcenter_id" ref="mrp_workcenter_1"/>
             <field name="name">Packing</field>
             <field name="time_cycle">30</field>
@@ -400,14 +393,6 @@
             <field name="location_dest_id" ref="stock.stock_location_stock"/>
             <field name="bom_id" ref="mrp_bom_table_top"/>
         </record>
-
-        <!-- Generate Table & Table Top MO's moves -->
-        <function model="stock.move" name="create">
-            <value model="stock.move" eval="
-                obj().env.ref('mrp.mrp_production_4')._get_moves_raw_values() +
-                obj().env.ref('mrp.mrp_production_4')._get_moves_finished_values()"/>
-        </function>
-
         <!-- Table Kit -->
 
         <record id="product_product_table_kit" model="product.product">
@@ -487,24 +472,24 @@
             <field name="tracking">lot</field>
         </record>
 
-        <record id="lot_product_27_0" model="stock.production.lot">
+        <record id="lot_product_27_0" model="stock.lot">
             <field name="name">0000000000030</field>
             <field name="product_id" ref="product.product_product_27"/>
             <field name="company_id" ref="base.main_company"/>
         </record>
-        <record id="lot_product_27_1" model="stock.production.lot">
+        <record id="lot_product_27_1" model="stock.lot">
             <field name="name">0000000000031</field>
             <field name="product_id" ref="product.product_product_27"/>
             <field name="company_id" ref="base.main_company"/>
         </record>
 
-        <record id="lot_product_product_drawer_drawer_0" model="stock.production.lot">
+        <record id="lot_product_product_drawer_drawer_0" model="stock.lot">
             <field name="name">0000000010001</field>
             <field name="product_id" ref="product_product_drawer_drawer"/>
             <field name="company_id" ref="base.main_company"/>
         </record>
 
-        <record id="lot_product_product_drawer_case_0" model="stock.production.lot">
+        <record id="lot_product_product_drawer_case_0" model="stock.lot">
             <field name="name">0000000020045</field>
             <field name="product_id" ref="product_product_drawer_case"/>
             <field name="company_id" ref="base.main_company"/>
@@ -595,6 +580,7 @@
         </record>
         <record id="mrp_routing_workcenter_1" model="mrp.routing.workcenter">
             <field name="bom_id" ref="mrp_bom_drawer_rout"/>
+            <field name="active">False</field>
             <field name="workcenter_id" ref="mrp_workcenter_3"/>
             <field name="name">Long time assembly</field>
             <field name="time_cycle">180</field>
@@ -605,6 +591,7 @@
 
         <record id="mrp_routing_workcenter_3" model="mrp.routing.workcenter">
             <field name="bom_id" ref="mrp_bom_drawer_rout"/>
+            <field name="active">False</field>
             <field name="workcenter_id" ref="mrp_workcenter_3"/>
             <field name="name">Testing</field>
             <field name="time_cycle">60</field>
@@ -615,6 +602,7 @@
 
         <record id="mrp_routing_workcenter_4" model="mrp.routing.workcenter">
             <field name="bom_id" ref="mrp_bom_drawer_rout"/>
+            <field name="active">False</field>
             <field name="workcenter_id" ref="mrp_workcenter_1"/>
             <field name="name">Packing</field>
             <field name="time_cycle">30</field>
@@ -648,12 +636,6 @@
             <field name="location_dest_id" ref="stock.stock_location_stock"/>
             <field name="bom_id" ref="mrp_bom_drawer"/>
         </record>
-
-        <function model="stock.move" name="create">
-            <value model="stock.move" eval="
-                obj().env.ref('mrp.mrp_production_drawer')._get_moves_raw_values() +
-                obj().env.ref('mrp.mrp_production_drawer')._get_moves_finished_values()"/>
-        </function>
 
         <!-- Run Scheduler -->
         <function model="procurement.group" name="run_scheduler"/>
@@ -702,10 +684,6 @@
             <field name="date_start" eval="(datetime.now() - timedelta(hours=1)).strftime('%Y-%m-%d %H:%M:%S')"/>
         </record>
 
-        <function model="mrp.production" name="_create_workorder">
-            <value eval="[ref('mrp.mrp_production_3')]"/>
-        </function>
-
         <function model="mrp.production" name="action_confirm" eval="[[
             ref('mrp.mrp_production_3'),
             ref('mrp.mrp_production_4'),
@@ -728,10 +706,6 @@
         <function model="stock.move" name="write">
             <value model="stock.move" eval="obj().env['stock.move'].search([('raw_material_production_id', '=', obj().env.ref('mrp.mrp_production_drawer').id)]).ids"/>
             <value eval="{'quantity_done': 5}"/>
-        </function>
-
-        <function model="mrp.production" name="_post_inventory">
-            <value eval="[ref('mrp.mrp_production_drawer')]"/>
         </function>
 
         <function model="mrp.production" name="button_mark_done">

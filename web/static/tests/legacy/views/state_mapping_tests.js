@@ -1,6 +1,6 @@
 /** @odoo-module **/
 
-import { legacyExtraNextTick, patchWithCleanup } from "@web/../tests/helpers/utils";
+import { getFixture, legacyExtraNextTick, patchWithCleanup } from "@web/../tests/helpers/utils";
 import {
     getFacetTexts,
     removeFacet,
@@ -14,7 +14,6 @@ import {
     toggleSaveFavorite,
 } from "@web/../tests/search/helpers";
 import { createWebClient, doAction } from "@web/../tests/webclient/helpers";
-import { dialogService } from "@web/core/dialog/dialog_service";
 import { _lt } from "@web/core/l10n/translation";
 import { registry } from "@web/core/registry";
 import { ControlPanel } from "@web/search/control_panel/control_panel";
@@ -24,14 +23,17 @@ import ActionModel from "web.ActionModel";
 import { mock } from "web.test_utils";
 import legacyViewRegistry from "web.view_registry";
 import { browser } from "@web/core/browser/browser";
+import { LegacyComponent } from "@web/legacy/legacy_component";
 
-const serviceRegistry = registry.category("services");
+import { xml } from "@odoo/owl";
 const viewRegistry = registry.category("views");
-const searchModelRegistry = registry.category("search_models");
 
 let serverData;
-QUnit.module("Views", (hooks) => {
+let target;
+QUnit.module("LegacyViews", (hooks) => {
     hooks.beforeEach(async () => {
+        target = getFixture();
+
         serverData = {
             models: {
                 foo: {
@@ -73,20 +75,18 @@ QUnit.module("Views", (hooks) => {
         };
         setupControlPanelFavoriteMenuRegistry();
         setupControlPanelServiceRegistry();
-        serviceRegistry.add("dialog", dialogService);
 
-        class ToyView extends owl.Component {}
-        ToyView.components = { ControlPanel };
-        ToyView.display_name = _lt("Toy view");
-        ToyView.icon = "fab fa-android";
-        ToyView.multiRecord = true;
-        ToyView.searchMenuTypes = ["filter", "groupBy", "comparison", "favorite"];
-        ToyView.template = owl.tags.xml`
-            <div class="o_toy_view">
-                <ControlPanel />
-            </div>
-        `;
-        ToyView.type = "toy";
+        class ToyController extends LegacyComponent {}
+        ToyController.template = xml`<div class="o_toy_view"><ControlPanel /></div>`;
+        ToyController.components = { ControlPanel};
+
+        viewRegistry.add("toy", {
+            type: "toy",
+            display_name: _lt("Toy view"),
+            multiRecord: true,
+            searchMenuTypes: ["filter", "groupBy", "comparison", "favorite"],
+            Controller: ToyController,
+        });
 
         const LegacyToyView = AbstractView.extend({
             display_name: _lt("Legacy toy view"),
@@ -96,7 +96,6 @@ QUnit.module("Views", (hooks) => {
             searchMenuTypes: ["filter", "groupBy", "comparison", "favorite"],
         });
 
-        viewRegistry.add("toy", ToyView);
         legacyViewRegistry.add("legacy_toy", LegacyToyView);
     });
 
@@ -128,9 +127,9 @@ QUnit.module("Views", (hooks) => {
                 },
             });
 
-            assert.containsOnce(webClient, ".o_switch_view.o_toy.active");
+            assert.containsOnce(target, ".o_switch_view.o_toy.active");
             assert.deepEqual(
-                getFacetTexts(webClient).map((s) => s.replace(/\s/, "")),
+                getFacetTexts(target).map((s) => s.replace(/\s/, "")),
                 [
                     "FooABC",
                     "TrueDomainorDate Filter: July 2021",
@@ -138,11 +137,11 @@ QUnit.module("Views", (hooks) => {
                 ]
             );
 
-            await toggleMenu(webClient, "Comparison");
-            await toggleMenuItem(webClient, "Date Filter: Previous Period");
+            await toggleMenu(target, "Comparison");
+            await toggleMenuItem(target, "Date Filter: Previous Period");
 
             assert.deepEqual(
-                getFacetTexts(webClient).map((s) => s.replace(/\s/, "")),
+                getFacetTexts(target).map((s) => s.replace(/\s/, "")),
                 [
                     "FooABC",
                     "TrueDomainorDate Filter: July 2021",
@@ -151,12 +150,12 @@ QUnit.module("Views", (hooks) => {
                 ]
             );
 
-            await switchView(webClient, "legacy_toy");
+            await switchView(target, "legacy_toy");
             await legacyExtraNextTick();
 
-            assert.containsOnce(webClient, ".o_switch_view.o_legacy_toy.active");
+            assert.containsOnce(target, ".o_switch_view.o_legacy_toy.active");
             assert.deepEqual(
-                getFacetTexts(webClient).map((s) => s.replace(/\s/, "")),
+                getFacetTexts(target).map((s) => s.replace(/\s/, "")),
                 [
                     "FooABC",
                     "TrueDomainorDate Filter: July 2021",
@@ -165,21 +164,21 @@ QUnit.module("Views", (hooks) => {
                 ]
             );
 
-            await removeFacet(webClient, 1);
+            await removeFacet(target, 1);
 
             assert.deepEqual(
-                getFacetTexts(webClient).map((s) => s.replace(/\s/, "")),
+                getFacetTexts(target).map((s) => s.replace(/\s/, "")),
                 [
                     "FooABC",
                     "DateGroupBy: Month>Bar",
                 ]
             );
 
-            await switchView(webClient, "toy");
+            await switchView(target, "toy");
 
-            assert.containsOnce(webClient, ".o_switch_view.o_toy.active");
+            assert.containsOnce(target, ".o_switch_view.o_toy.active");
             assert.deepEqual(
-                getFacetTexts(webClient).map((s) => s.replace(/\s/, "")),
+                getFacetTexts(target).map((s) => s.replace(/\s/, "")),
                 [
                     "FooABC",
                     "DateGroupBy: Month>Bar",
@@ -187,19 +186,19 @@ QUnit.module("Views", (hooks) => {
             );
 
             // Check if update works
-            await removeFacet(webClient, 1);
+            await removeFacet(target, 1);
 
             assert.deepEqual(
-                getFacetTexts(webClient).map((s) => s.replace(/\s/, "")),
+                getFacetTexts(target).map((s) => s.replace(/\s/, "")),
                 [
                     "FooABC",
                 ]
             );
 
-            await switchView(webClient, "legacy_toy");
+            await switchView(target, "legacy_toy");
 
             assert.deepEqual(
-                getFacetTexts(webClient).map((s) => s.replace(/\s/, "")),
+                getFacetTexts(target).map((s) => s.replace(/\s/, "")),
                 [
                     "FooABC",
                 ]
@@ -238,19 +237,19 @@ QUnit.module("Views", (hooks) => {
                 ],
             });
 
-            assert.containsOnce(webClient, ".o_switch_view.o_toy.active");
-            assert.deepEqual(getFacetTexts(webClient), ["My favorite"]);
+            assert.containsOnce(target, ".o_switch_view.o_toy.active");
+            assert.deepEqual(getFacetTexts(target), ["My favorite"]);
 
-            await switchView(webClient, "legacy_toy");
+            await switchView(target, "legacy_toy");
             await legacyExtraNextTick();
 
-            assert.containsOnce(webClient, ".o_switch_view.o_legacy_toy.active");
-            assert.deepEqual(getFacetTexts(webClient), ["My favorite"]);
+            assert.containsOnce(target, ".o_switch_view.o_legacy_toy.active");
+            assert.deepEqual(getFacetTexts(target), ["My favorite"]);
 
-            await switchView(webClient, "toy");
+            await switchView(target, "toy");
 
-            assert.containsOnce(webClient, ".o_switch_view.o_toy.active");
-            assert.deepEqual(getFacetTexts(webClient), ["My favorite"]);
+            assert.containsOnce(target, ".o_switch_view.o_toy.active");
+            assert.deepEqual(getFacetTexts(target), ["My favorite"]);
         }
     );
 
@@ -281,19 +280,19 @@ QUnit.module("Views", (hooks) => {
                 ],
             });
 
-            assert.containsOnce(webClient, ".o_switch_view.o_toy.active");
+            assert.containsOnce(target, ".o_switch_view.o_toy.active");
 
-            await toggleFavoriteMenu(webClient);
-            await toggleSaveFavorite(webClient);
-            await saveFavorite(webClient);
+            await toggleFavoriteMenu(target);
+            await toggleSaveFavorite(target);
+            await saveFavorite(target);
 
-            assert.deepEqual(getFacetTexts(webClient), ["Action name"]);
+            assert.deepEqual(getFacetTexts(target), ["Action name"]);
 
-            await switchView(webClient, "legacy_toy");
+            await switchView(target, "legacy_toy");
             await legacyExtraNextTick();
 
-            assert.containsOnce(webClient, ".o_switch_view.o_legacy_toy.active");
-            assert.deepEqual(getFacetTexts(webClient), ["Action name"]);
+            assert.containsOnce(target, ".o_switch_view.o_legacy_toy.active");
+            assert.deepEqual(getFacetTexts(target), ["Action name"]);
         }
     );
 
@@ -363,17 +362,17 @@ QUnit.module("Views", (hooks) => {
                 ],
             });
 
-            assert.containsOnce(webClient, ".o_switch_view.o_toy.active");
+            assert.containsOnce(target, ".o_switch_view.o_toy.active");
 
-            await switchView(webClient, "legacy_toy");
+            await switchView(target, "legacy_toy");
             await legacyExtraNextTick();
 
-            assert.containsOnce(webClient, ".o_switch_view.o_legacy_toy.active");
+            assert.containsOnce(target, ".o_switch_view.o_legacy_toy.active");
             assert.verifySteps([`{"locationId":"Grand-Rosière"}`]);
 
-            await switchView(webClient, "toy");
+            await switchView(target, "toy");
 
-            assert.containsOnce(webClient, ".o_switch_view.o_toy.active");
+            assert.containsOnce(target, ".o_switch_view.o_toy.active");
             assert.verifySteps([`{"locationId":"Grand-Rosière"}`]);
 
             await doAction(webClient, {
@@ -387,18 +386,18 @@ QUnit.module("Views", (hooks) => {
             });
             await legacyExtraNextTick();
 
-            assert.containsOnce(webClient, ".o_switch_view.o_legacy_toy.active");
+            assert.containsOnce(target, ".o_switch_view.o_legacy_toy.active");
             assert.verifySteps([`no state`]);
 
-            await switchView(webClient, "toy");
+            await switchView(target, "toy");
 
-            assert.containsOnce(webClient, ".o_switch_view.o_toy.active");
+            assert.containsOnce(target, ".o_switch_view.o_toy.active");
             assert.verifySteps([`{"locationId":"The place to be"}`]);
 
-            await switchView(webClient, "legacy_toy");
+            await switchView(target, "legacy_toy");
             await legacyExtraNextTick();
 
-            assert.containsOnce(webClient, ".o_switch_view.o_legacy_toy.active");
+            assert.containsOnce(target, ".o_switch_view.o_legacy_toy.active");
             assert.verifySteps([`{"locationId":"The place to be"}`]);
         }
     );

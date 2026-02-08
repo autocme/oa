@@ -3,7 +3,7 @@
 import { browser } from "../browser/browser";
 
 /**
- * Trasnforms a key value mapping to a string formatted as url hash, e.g.
+ * Transforms a key value mapping to a string formatted as url hash, e.g.
  * {a: "x", b: 2} -> "a=x&b=2"
  *
  * @param {Object} obj
@@ -11,7 +11,7 @@ import { browser } from "../browser/browser";
  */
 export function objectToUrlEncodedString(obj) {
     return Object.entries(obj)
-        .map(([k, v]) => (v ? `${k}=${encodeURIComponent(v)}` : k))
+        .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v || "")}`)
         .join("&");
 }
 
@@ -53,4 +53,32 @@ export function url(route, queryParams, options = {}) {
     );
     prefix = prefix ? "" : origin;
     return `${prefix}${route}${queryString}`;
+}
+
+/**
+ * Gets dataURL (base64 data) from the given file or blob.
+ * Technically wraps FileReader.readAsDataURL in Promise.
+ *
+ * @param {Blob | File} file
+ * @returns {Promise} resolved with the dataURL, or rejected if the file is
+ *  empty or if an error occurs.
+ */
+export function getDataURLFromFile(file) {
+    if (!file) {
+        return Promise.reject();
+    }
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.addEventListener("load", () => {
+            // Handle Chrome bug that creates invalid data URLs for empty files
+            if (reader.result === "data:") {
+                resolve(`data:${file.type};base64,`);
+            } else {
+                resolve(reader.result);
+            }
+        });
+        reader.addEventListener("abort", reject);
+        reader.addEventListener("error", reject);
+        reader.readAsDataURL(file);
+    });
 }

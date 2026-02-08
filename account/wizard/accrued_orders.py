@@ -14,9 +14,9 @@ class AccruedExpenseRevenue(models.TransientModel):
 
     def _get_account_domain(self):
         if self.env.context.get('active_model') == 'purchase.order':
-            return [('user_type_id', '=', self.env.ref('account.data_account_type_current_liabilities').id), ('company_id', '=', self._get_default_company())]
+            return [('account_type', '=', 'liability_current'), ('company_id', '=', self._get_default_company())]
         else:
-            return [('user_type_id', '=', self.env.ref('account.data_account_type_current_assets').id), ('company_id', '=', self._get_default_company())]
+            return [('account_type', '=', 'asset_current'), ('company_id', '=', self._get_default_company())]
 
     def _get_default_company(self):
         if not self._context.get('active_model'):
@@ -47,6 +47,8 @@ class AccruedExpenseRevenue(models.TransientModel):
         compute="_compute_reversal_date",
         required=True,
         readonly=False,
+        store=True,
+        precompute=True,
     )
     amount = fields.Monetary(string='Amount', help="Specify an arbitrary value that will be accrued on a \
         default account for the entire order, regardless of the products on the different lines.")
@@ -97,8 +99,8 @@ class AccruedExpenseRevenue(models.TransientModel):
             preview_columns = [
                 {'field': 'account_id', 'label': _('Account')},
                 {'field': 'name', 'label': _('Label')},
-                {'field': 'debit', 'label': _('Debit'), 'class': 'text-right text-nowrap'},
-                {'field': 'credit', 'label': _('Credit'), 'class': 'text-right text-nowrap'},
+                {'field': 'debit', 'label': _('Debit'), 'class': 'text-end text-nowrap'},
+                {'field': 'credit', 'label': _('Credit'), 'class': 'text-end text-nowrap'},
             ]
             record.preview_data = json.dumps({
                 'groups_vals': preview_vals,
@@ -106,6 +108,7 @@ class AccruedExpenseRevenue(models.TransientModel):
                     'columns': preview_columns,
                 },
             })
+
     def _get_computed_account(self, order, product, is_purchase):
         accounts = product.with_company(order.company_id).product_tmpl_id.get_product_accounts(fiscal_pos=order.fiscal_position_id)
         if is_purchase:
@@ -114,7 +117,7 @@ class AccruedExpenseRevenue(models.TransientModel):
             return accounts['income']
 
     def _compute_move_vals(self):
-        def _get_aml_vals(order, balance, amount_currency, account_id, label=""):
+        def _get_aml_vals(order, balance, amount_currency, account_id, label="", analytic_distribution=None):
             if not is_purchase:
                 balance *= -1
                 amount_currency *= -1
@@ -124,6 +127,10 @@ class AccruedExpenseRevenue(models.TransientModel):
                 'credit': balance * -1 if balance < 0 else 0.0,
                 'account_id': account_id,
             }
+            if analytic_distribution:
+                values.update({
+                    'analytic_distribution': analytic_distribution,
+                })
             if len(order) == 1 and self.company_id.currency_id != order.currency_id:
                 values.update({
                     'amount_currency': amount_currency,
@@ -143,16 +150,22 @@ class AccruedExpenseRevenue(models.TransientModel):
 
         if orders.filtered(lambda o: o.company_id != self.company_id):
             raise UserError(_('Entries can only be created for a single company at a time.'))
-
+        if orders.currency_id and len(orders.currency_id) > 1:
+            raise UserError(_('Cannot create an accrual entry with orders in different currencies.'))
         orders_with_entries = []
         fnames = []
         total_balance = 0.0
         for order in orders:
-            if len(orders) == 1 and self.amount and order.order_line:
+            product_lines = order.order_line.filtered(lambda x: x.product_id)
+            if len(orders) == 1 and product_lines and self.amount and order.order_line:
                 total_balance = self.amount
-                order_line = order.order_line[0]
+                order_line = product_lines[0]
                 account = self._get_computed_account(order, order_line.product_id, is_purchase)
-                values = _get_aml_vals(order, self.amount, 0, account.id, label=_('Manual entry'))
+                distribution = order_line.analytic_distribution if order_line.analytic_distribution else {}
+                if not is_purchase and order.analytic_account_id:
+                    analytic_account_id = str(order.analytic_account_id.id)
+                    distribution[analytic_account_id] = distribution.get(analytic_account_id, 0) + 100.0
+                values = _get_aml_vals(order, self.amount, 0, account.id, label=_('Manual entry'), analytic_distribution=distribution)
                 move_lines.append(Command.create(values))
             else:
                 other_currency = self.company_id.currency_id != order.currency_id
@@ -167,14 +180,14 @@ class AccruedExpenseRevenue(models.TransientModel):
                     o.order_line.with_context(accrual_entry_date=self.date)._compute_qty_delivered()
                     o.order_line.with_context(accrual_entry_date=self.date)._compute_qty_invoiced()
                     o.order_line.with_context(accrual_entry_date=self.date)._compute_untaxed_amount_invoiced()
-                    o.order_line.with_context(accrual_entry_date=self.date)._get_to_invoice_qty()
+                    o.order_line.with_context(accrual_entry_date=self.date)._compute_qty_to_invoice()
                 lines = o.order_line.filtered(
                     lambda l: l.display_type not in ['line_section', 'line_note'] and
                     fields.Float.compare(
                         l.qty_to_invoice,
                         0,
                         precision_rounding=l.product_uom.rounding,
-                    ) == 1
+                    ) != 0
                 )
                 for order_line in lines:
                     if is_purchase:
@@ -199,15 +212,30 @@ class AccruedExpenseRevenue(models.TransientModel):
                         amount_currency = order_line.untaxed_amount_to_invoice
                         fnames = ['qty_to_invoice', 'untaxed_amount_to_invoice', 'qty_invoiced', 'qty_delivered', 'invoice_lines']
                         label = _('%s - %s; %s Invoiced, %s Delivered at %s each', order.name, _ellipsis(order_line.name, 20), order_line.qty_invoiced, order_line.qty_delivered, formatLang(self.env, order_line.price_unit, currency_obj=order.currency_id))
-                    values = _get_aml_vals(order, amount, amount_currency, account.id, label=label)
+                    distribution = order_line.analytic_distribution if order_line.analytic_distribution else {}
+                    if not is_purchase and order.analytic_account_id:
+                        analytic_account_id = str(order.analytic_account_id.id)
+                        distribution[analytic_account_id] = distribution.get(analytic_account_id, 0) + 100.0
+                    values = _get_aml_vals(order, amount, amount_currency, account.id, label=label, analytic_distribution=distribution)
                     move_lines.append(Command.create(values))
                     total_balance += amount
                 # must invalidate cache or o can mess when _create_invoices().action_post() of original order after this
-                order.order_line.invalidate_cache(fnames=fnames)
+                order.order_line.invalidate_model(fnames)
 
         if not self.company_id.currency_id.is_zero(total_balance):
             # globalized counterpart for the whole orders selection
-            values = _get_aml_vals(orders, -total_balance, 0.0, self.account_id.id, label=_('Accrued total'))
+            analytic_distribution = {}
+            total = sum(order.amount_total for order in orders)
+            for line in orders.order_line:
+                ratio = line.price_total / total
+                if not is_purchase and line.order_id.analytic_account_id:
+                    account_id = str(line.order_id.analytic_account_id.id)
+                    analytic_distribution.update({account_id: analytic_distribution.get(account_id, 0) +100.0*ratio})
+                if not line.analytic_distribution:
+                    continue
+                for account_id, distribution in line.analytic_distribution.items():
+                    analytic_distribution.update({account_id : analytic_distribution.get(account_id, 0) + distribution*ratio})
+            values = _get_aml_vals(orders, -total_balance, 0.0, self.account_id.id, label=_('Accrued total'), analytic_distribution=analytic_distribution)
             move_lines.append(Command.create(values))
 
         move_type = _('Expense') if is_purchase else _('Revenue')
@@ -216,6 +244,7 @@ class AccruedExpenseRevenue(models.TransientModel):
             'journal_id': self.journal_id.id,
             'date': self.date,
             'line_ids': move_lines,
+            'currency_id': orders.currency_id.id or self.company_id.currency_id.id,
         }
         return move_vals, orders_with_entries
 
@@ -224,7 +253,6 @@ class AccruedExpenseRevenue(models.TransientModel):
 
         if self.reversal_date <= self.date:
             raise UserError(_('Reversal date must be posterior to date.'))
-
         move_vals, orders_with_entries = self._compute_move_vals()
         move = self.env['account.move'].create(move_vals)
         move._post()
@@ -234,12 +262,12 @@ class AccruedExpenseRevenue(models.TransientModel):
         }])
         reverse_move._post()
         for order in orders_with_entries:
-            body = _('Accrual entry created on %s: <a href=# data-oe-model=account.move data-oe-id=%d>%s</a>.\
-                    And its <a href=# data-oe-model=account.move data-oe-id=%d>reverse entry</a>.') % (
-                self.date,
-                move.id,
-                move.name,
-                reverse_move.id,
+            body = _(
+                'Accrual entry created on %(date)s: %(accrual_entry)s.\
+                    And its reverse entry: %(reverse_entry)s.',
+                date=self.date,
+                accrual_entry=move._get_html_link(),
+                reverse_entry=reverse_move._get_html_link(),
             )
             order.message_post(body=body)
         return {

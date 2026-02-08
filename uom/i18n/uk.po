@@ -3,15 +3,15 @@
 # 	* uom
 # 
 # Translators:
-# Martin Trigaux, 2021
+# Martin Trigaux, 2022
 # Alina Lisnenko <alina.lisnenko@erp.co.ua>, 2023
 # 
 msgid ""
 msgstr ""
-"Project-Id-Version: Odoo Server saas~14.4\n"
+"Project-Id-Version: Odoo Server 16.0beta\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2021-07-12 07:50+0000\n"
-"PO-Revision-Date: 2021-09-14 12:27+0000\n"
+"POT-Creation-Date: 2022-09-23 08:03+0000\n"
+"PO-Revision-Date: 2022-09-22 05:55+0000\n"
 "Last-Translator: Alina Lisnenko <alina.lisnenko@erp.co.ua>, 2023\n"
 "Language-Team: Ukrainian (https://app.transifex.com/odoo/teams/41243/uk/)\n"
 "MIME-Version: 1.0\n"
@@ -39,7 +39,7 @@ msgid ""
 "                                </span>"
 msgstr ""
 "<span class=\"oe_grey oe_inline\">\n"
-"                                    напр.: 1*(цю од.)=спів-я*(од. реф.)\n"
+"                                    напр.: 1*(цю од.)=спів-я*(реф. од.)\n"
 "                                </span>"
 
 #. module: uom
@@ -86,7 +86,7 @@ msgstr "Колір"
 #. module: uom
 #: model:ir.model.fields,field_description:uom.field_uom_uom__ratio
 msgid "Combined Ratio"
-msgstr "Комбінований коефіціент"
+msgstr "Комбінований коефіцієнт"
 
 #. module: uom
 #: model:ir.model.fields,help:uom.field_uom_uom__category_id
@@ -96,7 +96,7 @@ msgid ""
 msgstr ""
 "Конвертація між одиницями вимірювання може відбуватися лише у тому випадку, "
 "якщо вони належать до однієї і тієї ж категорії. Конвертація буде "
-"здійснюватися на основі співвідношення."
+"здійснюватися на основі коефіцієнтів."
 
 #. module: uom
 #: model:ir.model.fields,field_description:uom.field_uom_category__create_uid
@@ -108,7 +108,7 @@ msgstr "Створив"
 #: model:ir.model.fields,field_description:uom.field_uom_category__create_date
 #: model:ir.model.fields,field_description:uom.field_uom_uom__create_date
 msgid "Created on"
-msgstr "Створено на"
+msgstr "Створено"
 
 #. module: uom
 #: model:uom.uom,name:uom.product_uom_day
@@ -119,17 +119,12 @@ msgstr "Дні"
 #: model:ir.model.fields,field_description:uom.field_uom_category__display_name
 #: model:ir.model.fields,field_description:uom.field_uom_uom__display_name
 msgid "Display Name"
-msgstr "Відобразити назву"
+msgstr "Назва для відображення"
 
 #. module: uom
 #: model:uom.uom,name:uom.product_uom_dozen
 msgid "Dozens"
 msgstr "Дюжини"
-
-#. module: uom
-#: model:ir.model.fields,help:uom.field_uom_category__reference_uom_id
-msgid "Dummy field to keep track of reference uom change"
-msgstr "Фіктивне поле для відстеження зміни од. вим. референсу"
 
 #. module: uom
 #: model_terms:ir.ui.view,arch_db:uom.uom_uom_view_search
@@ -170,7 +165,7 @@ msgstr "ID"
 #: model:ir.model.fields,field_description:uom.field_uom_category____last_update
 #: model:ir.model.fields,field_description:uom.field_uom_uom____last_update
 msgid "Last Modified on"
-msgstr "Останні зміни на"
+msgstr "Остання модифікація"
 
 #. module: uom
 #: model:ir.model.fields,field_description:uom.field_uom_category__write_uid
@@ -277,7 +272,7 @@ msgstr ""
 #. module: uom
 #: model:ir.model.constraint,message:uom.constraint_uom_uom_factor_gt_zero
 msgid "The conversion ratio for a unit of measure cannot be 0!"
-msgstr "Коефіцієнт конверсії одиниці вимірювання не може бути 0!"
+msgstr "Коефіцієнт конверсії одиниці виміру не може бути 0!"
 
 #. module: uom
 #: code:addons/uom/models/uom_uom.py:0
@@ -335,7 +330,7 @@ msgstr ""
 #. module: uom
 #: model:uom.category,name:uom.product_uom_categ_unit
 msgid "Unit"
-msgstr "Одиниця"
+msgstr "Одиниці"
 
 #. module: uom
 #: model:ir.model.fields,field_description:uom.field_uom_uom__name
@@ -369,7 +364,7 @@ msgstr "Категорії одиниць вимірювання"
 #: model_terms:ir.ui.view,arch_db:uom.product_uom_categ_form_view
 #: model_terms:ir.ui.view,arch_db:uom.product_uom_categ_tree_view
 msgid "Units of Measure categories"
-msgstr "Категорії одиниць вимірювання"
+msgstr "Категорії одиниць виміру"
 
 #. module: uom
 #: model_terms:ir.actions.act_window,help:uom.product_uom_categ_form_action
@@ -385,7 +380,15 @@ msgstr ""
 "години, дні."
 
 #. module: uom
-#: code:addons/uom/models/uom_uom.py:0 code:addons/uom/models/uom_uom.py:0
+#: code:addons/uom/models/uom_uom.py:0
+#, python-format
+msgid "UoM category %s must have at least one reference unit of measure."
+msgstr ""
+"Категорія од. вим. %s повинна містити хоча би один референс одиниці "
+"вимірювання."
+
+#. module: uom
+#: code:addons/uom/models/uom_uom.py:0
 #, python-format
 msgid "UoM category %s should have a reference unit of measure."
 msgstr "Категорія од. вим. %s повинна мати опорну одиницю виміру."
@@ -413,12 +416,6 @@ msgstr "Об'єм"
 #, python-format
 msgid "Warning for %s"
 msgstr "Попередження для %s"
-
-#. module: uom
-#: code:addons/uom/models/uom_uom.py:0
-#, python-format
-msgid "Warning!"
-msgstr "Увага!"
 
 #. module: uom
 #: model:uom.category,name:uom.product_uom_categ_kgm
@@ -523,3 +520,8 @@ msgstr "oz"
 #: model:uom.uom,name:uom.product_uom_qt
 msgid "qt (US)"
 msgstr "qt (US)"
+
+#. module: uom
+#: model:uom.uom,name:uom.product_uom_yard
+msgid "yd"
+msgstr "yd"

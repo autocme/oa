@@ -4,8 +4,14 @@ odoo.define('web.ActionMenus', function (require) {
     const Context = require('web.Context');
     const DropdownMenu = require('web.DropdownMenu');
     const Registry = require('web.Registry');
+    const { LegacyComponent } = require("@web/legacy/legacy_component");
 
-    const { Component } = owl;
+    const {
+        onMounted,
+        onPatched,
+        onWillStart,
+        onWillUpdateProps,
+    } = owl;
 
     let registryActionId = 1;
 
@@ -21,34 +27,30 @@ odoo.define('web.ActionMenus', function (require) {
      * Action menu.
      * @extends Component
      */
-    class ActionMenus extends Component {
+    class ActionMenus extends LegacyComponent {
         setup() {
             this.actionButtonStrings = {
                 title: this.env._t("Action"),
-                hotkey: this.env._t("Additional actions"),
+                hotkey: this.env._t("Additionnal actions"),
             };
             this.printButtonStrings = {
                 title: this.env._t("Print"),
                 hotkey: this.env._t("Printing options"),
             };
-        }
-
-        async willStart() {
-            this.actionItems = await this._setActionItems(this.props);
-            this.printItems = await this._setPrintItems(this.props);
-        }
-
-        async willUpdateProps(nextProps) {
-            this.actionItems = await this._setActionItems(nextProps);
-            this.printItems = await this._setPrintItems(nextProps);
-        }
-
-        mounted() {
-            this._addTooltips();
-        }
-
-        patched() {
-            this._addTooltips();
+            onWillStart(async () => {
+                this.actionItems = await this._setActionItems(this.props);
+                this.printItems = await this._setPrintItems(this.props);
+            });
+            onWillUpdateProps(async (nextProps) => {
+                this.actionItems = await this._setActionItems(nextProps);
+                this.printItems = await this._setPrintItems(nextProps);
+            });
+            onMounted(() => {
+                this._addTooltips();
+            });
+            onPatched(() => {
+                this._addTooltips();
+            });
         }
 
         //---------------------------------------------------------------------
@@ -152,8 +154,6 @@ odoo.define('web.ActionMenus', function (require) {
             });
             result.context = new Context(result.context || {}, activeIdsContext)
                 .set_eval_context(context);
-            result.flags = result.flags || {};
-            result.flags.new_window = true;
             this.trigger('do-action', {
                 action: result,
                 options: {
@@ -202,7 +202,7 @@ odoo.define('web.ActionMenus', function (require) {
             },
         },
     };
-    ActionMenus.template = 'web.ActionMenus';
+    ActionMenus.template = 'web.Legacy.ActionMenus';
 
     return ActionMenus;
 });

@@ -4,15 +4,15 @@
 # 
 # Translators:
 # Martin Trigaux, 2023
-# Malaz Abuidris <msea@odoo.com>, 2024
+# Malaz Abuidris <msea@odoo.com>, 2023
 # 
 msgid ""
 msgstr ""
-"Project-Id-Version: Odoo Server 15.0\n"
+"Project-Id-Version: Odoo Server 16.0+e\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-08-14 15:43+0000\n"
-"PO-Revision-Date: 2021-09-14 12:24+0000\n"
-"Last-Translator: Malaz Abuidris <msea@odoo.com>, 2024\n"
+"POT-Creation-Date: 2022-12-15 12:51+0000\n"
+"PO-Revision-Date: 2022-09-22 05:53+0000\n"
+"Last-Translator: Malaz Abuidris <msea@odoo.com>, 2023\n"
 "Language-Team: Arabic (https://app.transifex.com/odoo/teams/41243/ar/)\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
@@ -104,27 +104,13 @@ msgstr "تم تسجيل التكلفة"
 
 #. module: mrp_account
 #: model:ir.model.fields,field_description:mrp_account.field_mrp_production__extra_cost
-msgid "Extra Cost"
-msgstr "التكلفة الإضافية "
-
-#. module: mrp_account
-#: model:ir.model.fields,help:mrp_account.field_mrp_production__extra_cost
-msgid "Extra cost per produced unit"
-msgstr "التكلفة الإضافية لكل وحدة منتجة "
-
-#. module: mrp_account
-#: model:ir.model.fields,help:mrp_account.field_mrp_workcenter__costs_hour_account_id
-msgid ""
-"Fill this only if you want automatic analytic accounting entries on "
-"production orders."
-msgstr ""
-"املأ هذه فقط إذا كنت تريد إنشاء قيود محاسبية تحليلية تلقائية في أوامر "
-"الإنتاج. "
+msgid "Extra Unit Cost"
+msgstr "تكلفة الوحدة الإضافية "
 
 #. module: mrp_account
 #: model:ir.model,name:mrp_account.model_account_move_line
 msgid "Journal Item"
-msgstr "عنصر دفتر اليومية "
+msgstr "عنصر اليومية"
 
 #. module: mrp_account
 #: model:ir.model.fields.selection,name:mrp_account.selection__account_analytic_line__category__manufacturing_order
@@ -150,14 +136,23 @@ msgid "Mo Analytic Account Line"
 msgstr "بند الحساب التحليلي لأمر التصنيع "
 
 #. module: mrp_account
-#: model:ir.model,name:mrp_account.model_product_product
+#: model:ir.model.fields,help:mrp_account.field_mrp_workcenter__costs_hour_account_id
+msgid ""
+"Posts analytical accounting entries in real time for both component and "
+"operational costs."
+msgstr ""
+"يقوم بترحيل القيود التحليلية المحاسبية في الوقت الفعلي لكل من تكاليف "
+"المكونات والتكاليف التشغيلية. "
+
+#. module: mrp_account
+#: model:ir.model,name:mrp_account.model_product_template
 msgid "Product"
 msgstr "المنتج"
 
 #. module: mrp_account
-#: model:ir.model,name:mrp_account.model_product_template
-msgid "Product Template"
-msgstr "قالب المنتج"
+#: model:ir.model,name:mrp_account.model_product_product
+msgid "Product Variant"
+msgstr "متغير المنتج "
 
 #. module: mrp_account
 #: model:ir.model,name:mrp_account.model_mrp_production
@@ -180,18 +175,6 @@ msgid "Stock Rule"
 msgstr "قاعدة المخزون"
 
 #. module: mrp_account
-#: model:ir.model.fields,help:mrp_account.field_mrp_workcenter_productivity__cost_already_recorded
-msgid ""
-"Technical field automatically checked when a ongoing production posts "
-"journal entries for its costs. This way, we can record one production's cost"
-" multiple times and only consider new entries in the work centers time "
-"lines."
-msgstr ""
-"حقل تقني يتم تحديده تلقائياً عندما تقوم عملية إنتاج جارية بترحيل قيود "
-"اليومية لتكاليفها. بهذه الطريقة، بإمكاننا تسجيل تكلفة إنتاج واحد عدة مرات "
-"واعتبار القيود الجديدة فقط في المخطط الزمني لمراكز العمل. "
-
-#. module: mrp_account
 #: model_terms:ir.ui.view,arch_db:mrp_account.mrp_production_form_view_inherited
 msgid "Valuation"
 msgstr "التقييم "
@@ -205,6 +188,11 @@ msgstr "بند مركز العمل لأمر التصنيع "
 #: model:ir.model,name:mrp_account.model_mrp_workcenter
 msgid "Work Center"
 msgstr "مركز العمل"
+
+#. module: mrp_account
+#: model:ir.model,name:mrp_account.model_mrp_routing_workcenter
+msgid "Work Center Usage"
+msgstr "استخدام مركز العمل "
 
 #. module: mrp_account
 #: model:ir.model,name:mrp_account.model_mrp_workorder
@@ -233,12 +221,14 @@ msgid "Workcenters"
 msgstr "مراكز العمل "
 
 #. module: mrp_account
+#. odoo-python
 #: code:addons/mrp_account/models/stock_move.py:0
 #, python-format
 msgid "[Raw] %s"
 msgstr "[Raw] %s"
 
 #. module: mrp_account
+#. odoo-python
 #: code:addons/mrp_account/models/mrp_production.py:0
 #: code:addons/mrp_account/models/mrp_workorder.py:0
 #, python-format

@@ -17,8 +17,10 @@ import {
 } from "./utils/dates";
 import { FACET_ICONS } from "./utils/misc";
 
+import { EventBus, toRaw } from "@odoo/owl";
 const { DateTime } = luxon;
-const EventBus = owl.core.EventBus;
+
+/** @typedef {import("../views/relational_model").OrderTerm} OrderTerm */
 
 /**
  * @typedef {Object} ComparisonDomain
@@ -38,7 +40,7 @@ const EventBus = owl.core.EventBus;
  * @property {Context} context
  * @property {DomainListRepr} domain
  * @property {string[]} groupBy
- * @property {string[]} orderBy
+ * @property {OrderTerm[]} orderBy
  * @property {boolean} [useSampleModel] to remove?
  */
 
@@ -198,7 +200,7 @@ export class SearchModel extends EventBus {
      * @param {string[]} [config.groupBy=[]]
      * @param {boolean} [config.loadIrFilters=false]
      * @param {boolean} [config.display.searchPanel=true]
-     * @param {string[]} [config.orderBy=[]]
+     * @param {OrderTerm[]} [config.orderBy=[]]
      * @param {string[]} [config.searchMenuTypes=["filter", "groupBy", "favorite"]]
      * @param {Object} [config.state]
      */
@@ -212,13 +214,14 @@ export class SearchModel extends EventBus {
         // used to avoid useless recomputations
         this._reset();
 
-        const { comparison, context, domain, groupBy, orderBy } = config;
+        const { comparison, context, domain, groupBy, hideCustomGroupBy, orderBy } = config;
 
         this.globalComparison = comparison;
-        this.globalContext = Object.assign({}, context);
+        this.globalContext = toRaw(Object.assign({}, context));
         this.globalDomain = domain || [];
         this.globalGroupBy = groupBy || [];
         this.globalOrderBy = orderBy || [];
+        this.hideCustomGroupBy = hideCustomGroupBy;
 
         this.searchMenuTypes = new Set(config.searchMenuTypes || ["filter", "groupBy", "favorite"]);
 
@@ -229,7 +232,7 @@ export class SearchModel extends EventBus {
 
         const searchViewDescription = {};
         if (loadSearchView) {
-            const viewDescriptions = await this.viewService.loadViews(
+            const result = await this.viewService.loadViews(
                 {
                     context: this.globalContext,
                     resModel,
@@ -240,13 +243,11 @@ export class SearchModel extends EventBus {
                     loadIrFilters: loadIrFilters || false,
                 }
             );
-            Object.assign(searchViewDescription, viewDescriptions.search);
+            Object.assign(searchViewDescription, result.views.search);
+            searchViewFields = searchViewFields || result.fields;
         }
         if (searchViewArch) {
             searchViewDescription.arch = searchViewArch;
-        }
-        if (searchViewFields) {
-            searchViewDescription.fields = searchViewFields;
         }
         if (irFilters) {
             searchViewDescription.irFilters = irFilters;
@@ -254,9 +255,8 @@ export class SearchModel extends EventBus {
         if (searchViewId !== undefined) {
             searchViewDescription.viewId = searchViewId;
         }
-
         this.searchViewArch = searchViewDescription.arch || "<search/>";
-        this.searchViewFields = searchViewDescription.fields || {};
+        this.searchViewFields = searchViewFields || {};
         if (searchViewDescription.irFilters) {
             this.irFilters = searchViewDescription.irFilters;
         }
@@ -264,16 +264,20 @@ export class SearchModel extends EventBus {
             this.searchViewId = searchViewDescription.viewId;
         }
 
-        const { searchDefaults, searchPanelDefaults } =
-            this._extractSearchDefaultsFromGlobalContext();
+        const {
+            searchDefaults,
+            searchPanelDefaults,
+        } = this._extractSearchDefaultsFromGlobalContext();
 
         if (config.state) {
             this._importState(config.state);
-            this.__legacyParseSearchPanelArchAnyway(searchViewDescription);
+            this.__legacyParseSearchPanelArchAnyway(searchViewDescription, searchViewFields);
             this.domainParts = {};
             this.display = this._getDisplay(config.display);
-
-            return this._reloadSections();
+            if (!this.searchPanelInfo.loaded) {
+                return this._reloadSections();
+            }
+            return;
         }
 
         this.blockNotification = true;
@@ -290,12 +294,13 @@ export class SearchModel extends EventBus {
 
         const parser = new SearchArchParser(
             searchViewDescription,
+            searchViewFields,
             searchDefaults,
             searchPanelDefaults
         );
         const { labels, preSearchItems, searchPanelInfo, sections } = parser.parse();
 
-        this.searchPanelInfo = { ...searchPanelInfo, shouldReload: false };
+        this.searchPanelInfo = { ...searchPanelInfo, loaded: false, shouldReload: false };
 
         await Promise.all(labels.map((cb) => cb(this.orm)));
 
@@ -358,7 +363,7 @@ export class SearchModel extends EventBus {
      * @param {Object} [config.context={}]
      * @param {Array} [config.domain=[]]
      * @param {string[]} [config.groupBy=[]]
-     * @param {string[]} [config.orderBy=[]]
+     * @param {OrderTerm[]} [config.orderBy=[]]
      */
     async reload(config = {}) {
         this._reset();
@@ -470,6 +475,9 @@ export class SearchModel extends EventBus {
      * @returns {string[]}
      */
     get groupBy() {
+        if (!this.searchMenuTypes.has("groupBy")) {
+            return [];
+        }
         if (!this._groupBy) {
             this._groupBy = this._getGroupBy();
         }
@@ -477,7 +485,7 @@ export class SearchModel extends EventBus {
     }
 
     /**
-     * @returns {string[]}
+     * @returns {OrderTerm[]}
      */
     get orderBy() {
         if (!this._orderBy) {
@@ -664,7 +672,7 @@ export class SearchModel extends EventBus {
     }
 
     getDomainPart(partName) {
-        let part = this.domainParts[partName] || null;
+        const part = this.domainParts[partName] || null;
         if (part) {
             return deepCopy(part);
         }
@@ -730,6 +738,11 @@ export class SearchModel extends EventBus {
     getIrFilterValues(params) {
         const { irFilter } = this._getIrFilterDescription(params);
         return irFilter;
+    }
+
+    getPreFavoriteValues(params) {
+        const { preFavorite } = this._getIrFilterDescription(params);
+        return preFavorite;
     }
 
     /**
@@ -860,31 +873,35 @@ export class SearchModel extends EventBus {
         if (searchItem.type !== "dateFilter") {
             return;
         }
-        generatorId = generatorId || searchItem.defaultGeneratorId;
-        const index = this.query.findIndex(
-            (queryElem) =>
-                queryElem.searchItemId === searchItemId &&
-                "generatorId" in queryElem &&
-                queryElem.generatorId === generatorId
-        );
-        if (index >= 0) {
-            this.query.splice(index, 1);
-            if (!yearSelected(this._getSelectedGeneratorIds(searchItemId))) {
-                // This is the case where generatorId was the last option
-                // of type 'year' to be there before being removed above.
-                // Since other options of type 'month' or 'quarter' do
-                // not make sense without a year we deactivate all options.
-                this.query = this.query.filter(
-                    (queryElem) => queryElem.searchItemId !== searchItemId
-                );
-            }
-        } else {
-            this.query.push({ searchItemId, generatorId });
-            if (!yearSelected(this._getSelectedGeneratorIds(searchItemId))) {
-                // Here we add 'this_year' as options if no option of type
-                // year is already selected.
-                const { defaultYearId } = this.optionGenerators.find((o) => o.id === generatorId);
-                this.query.push({ searchItemId, generatorId: defaultYearId });
+        const generatorIds = generatorId ? [generatorId] : searchItem.defaultGeneratorIds;
+        for (const generatorId of generatorIds) {
+            const index = this.query.findIndex(
+                (queryElem) =>
+                    queryElem.searchItemId === searchItemId &&
+                    "generatorId" in queryElem &&
+                    queryElem.generatorId === generatorId
+            );
+            if (index >= 0) {
+                this.query.splice(index, 1);
+                if (!yearSelected(this._getSelectedGeneratorIds(searchItemId))) {
+                    // This is the case where generatorId was the last option
+                    // of type 'year' to be there before being removed above.
+                    // Since other options of type 'month' or 'quarter' do
+                    // not make sense without a year we deactivate all options.
+                    this.query = this.query.filter(
+                        (queryElem) => queryElem.searchItemId !== searchItemId
+                    );
+                }
+            } else {
+                this.query.push({ searchItemId, generatorId });
+                if (!yearSelected(this._getSelectedGeneratorIds(searchItemId))) {
+                    // Here we add 'this_year' as options if no option of type
+                    // year is already selected.
+                    const { defaultYearId } = this.optionGenerators.find(
+                        (o) => o.id === generatorId
+                    );
+                    this.query.push({ searchItemId, generatorId: defaultYearId });
+                }
             }
         }
         this._checkComparisonStatus();
@@ -1094,7 +1111,7 @@ export class SearchModel extends EventBus {
                 groupNumber: this.nextGroupNumber,
                 description: filter.description,
                 domain: filter.domain,
-                isDefault: true,
+                isDefault: "is_default" in filter ? filter.is_default : true,
                 type: "filter",
             };
         });
@@ -1235,6 +1252,7 @@ export class SearchModel extends EventBus {
                     [category.fieldName],
                     {
                         category_domain: this._getCategoryDomain(category.id),
+                        context: this.globalContext,
                         enable_counters: category.enableCounters,
                         expand: category.expand,
                         filter_domain: filterDomain,
@@ -1270,6 +1288,7 @@ export class SearchModel extends EventBus {
                     {
                         category_domain: categoryDomain,
                         comodel_domain: new Domain(filter.domain).toList(evalContext),
+                        context: this.globalContext,
                         enable_counters: filter.enableCounters,
                         filter_domain: this._getFilterDomain(filter.id),
                         expand: filter.expand,
@@ -1293,6 +1312,7 @@ export class SearchModel extends EventBus {
     async _fetchSections(categoriesToLoad, filtersToLoad) {
         await this._fetchCategories(categoriesToLoad);
         await this._fetchFilters(filtersToLoad);
+        this.searchPanelInfo.loaded = true;
     }
 
     _getActiveComparison() {
@@ -1375,7 +1395,7 @@ export class SearchModel extends EventBus {
      * is instanciated in a view (this doesn't apply for any other action type).
      * @private
      * @param {Object} [display={}]
-     * @returns {{ controlPanel: Object | false, searchPanel: boolean }}
+     * @returns {{ controlPanel: Object | false, searchPanel: boolean, banner: boolean }}
      */
     _getDisplay(display = {}) {
         const { viewTypes } = this.searchPanelInfo;
@@ -1432,7 +1452,9 @@ export class SearchModel extends EventBus {
         let domain;
         try {
             domain = Domain.and(domains);
-            return params.raw ? domain : domain.toList(this.userService.context);
+            return params.raw
+                ? domain
+                : domain.toList(Object.assign({}, this.globalContext, this.userService.context));
         } catch (error) {
             throw new Error(
                 `${this.env._t("Failed to evaluate the domain")} ${domain.toString()}.\n${
@@ -1524,7 +1546,10 @@ export class SearchModel extends EventBus {
         const domains = autocompleteValues.map(({ label, value, operator }) => {
             let domain;
             if (field.filterDomain) {
-                domain = new Domain(field.filterDomain).toList({ self: label, raw_value: value });
+                domain = new Domain(field.filterDomain).toList({
+                    self: label.trim(),
+                    raw_value: value,
+                });
             } else {
                 domain = [[field.fieldName, operator, value]];
             }
@@ -1690,7 +1715,7 @@ export class SearchModel extends EventBus {
         const groups = [];
         for (const preGroup of preGroups) {
             const { queryElements, id } = preGroup;
-            let activeItems = [];
+            const activeItems = [];
             for (const queryElem of queryElements) {
                 const { searchItemId } = queryElem;
                 let activeItem = activeItems.find(({ searchItemId: id }) => id === searchItemId);
@@ -1739,6 +1764,11 @@ export class SearchModel extends EventBus {
         const { description, isDefault, isShared } = params;
         const fns = this.env.__getContext__.callbacks;
         const localContext = Object.assign({}, ...fns.map((fn) => fn()));
+        const gs = this.env.__getOrderBy__.callbacks;
+        let localOrderBy;
+        if (gs.length) {
+            localOrderBy = gs.flatMap((g) => g());
+        }
         const context = makeContext([this._getContext(), localContext]);
         const userContext = this.userService.context;
         for (const key in context) {
@@ -1750,7 +1780,7 @@ export class SearchModel extends EventBus {
         const domain = this._getDomain({ raw: true, withGlobal: false }).toString();
         const groupBys = this._getGroupBy();
         const comparison = this.getFullComparison();
-        const orderBy = this._getOrderBy();
+        const orderBy = localOrderBy || this._getOrderBy();
         const userId = isShared ? false : this.userService.userId;
 
         const preFavorite = {
@@ -1782,11 +1812,11 @@ export class SearchModel extends EventBus {
     }
 
     /**
-     * @returns {string[]}
+     * @returns {OrderTerm[]}
      */
     _getOrderBy() {
         const groups = this._getGroups();
-        let orderBy = [];
+        const orderBy = [];
         for (const group of groups) {
             for (const activeItem of group.activeItems) {
                 const { searchItemId } = activeItem;
@@ -1796,8 +1826,7 @@ export class SearchModel extends EventBus {
                 }
             }
         }
-        orderBy = orderBy.length ? orderBy : this.globalOrderBy;
-        return typeof orderBy === "string" ? [orderBy] : orderBy;
+        return orderBy.length ? orderBy : this.globalOrderBy;
     }
 
     /**
@@ -2088,15 +2117,16 @@ export class SearchModel extends EventBus {
      * extension doesn't include the arch information, i.e. the class name and
      * view types. We have to extract those if they are not given.
      * @param {Object} searchViewDescription
+     * @param {Object} searchViewFields
      */
-    __legacyParseSearchPanelArchAnyway(searchViewDescription) {
+    __legacyParseSearchPanelArchAnyway(searchViewDescription, searchViewFields) {
         if (this.searchPanelInfo) {
             return;
         }
 
-        const parser = new SearchArchParser(searchViewDescription);
+        const parser = new SearchArchParser(searchViewDescription, searchViewFields);
         const { searchPanelInfo } = parser.parse();
 
-        this.searchPanelInfo = { ...searchPanelInfo, shouldReload: false };
+        this.searchPanelInfo = { ...searchPanelInfo, loaded: false, shouldReload: false };
     }
 }

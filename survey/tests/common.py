@@ -24,6 +24,7 @@ class SurveyCase(common.TransactionCase):
             'char_box': ('char_box', 'value_char_box'),
             'numerical_box': ('numerical_box', 'value_numerical_box'),
             'date': ('date', 'value_date'),
+            'datetime': ('datetime', 'value_datetime'),
             'simple_choice': ('suggestion', 'suggested_answer_id'),  # TDE: still unclear
             'multiple_choice': ('suggestion', 'suggested_answer_id'),  # TDE: still unclear
             'matrix': ('suggestion', ('suggested_answer_id', 'matrix_row_id')),  # TDE: still unclear
@@ -135,6 +136,8 @@ class SurveyCase(common.TransactionCase):
         qtype = self._type_match.get(question.question_type, (False, False))
         answer_type = kwargs.pop('answer_type', qtype[0])
         answer_fname = kwargs.pop('answer_fname', qtype[1])
+        if question.question_type == 'matrix':
+            answer_fname = qtype[1][0]
 
         base_alvals = {
             'user_input_id': answer.id,
@@ -143,6 +146,10 @@ class SurveyCase(common.TransactionCase):
             'answer_type': answer_type,
         }
         base_alvals[answer_fname] = answer_value
+        if 'answer_value_row' in kwargs:
+            answer_value_row = kwargs.pop('answer_value_row')
+            base_alvals[qtype[1][1]] = answer_value_row
+
         base_alvals.update(kwargs)
         return self.env['survey.user_input.line'].create(base_alvals)
 
@@ -238,7 +245,7 @@ class SurveyCase(common.TransactionCase):
             if question_type == 'multiple_choice':
                 kwargs['labels'] = [{'value': 'MChoice0'}, {'value': 'MChoice1'}]
             elif question_type == 'simple_choice':
-                kwargs['labels'] = []
+                kwargs['labels'] = [{'value': 'SChoice0'}, {'value': 'SChoice1'}]
             elif question_type == 'matrix':
                 kwargs['labels'] = [{'value': 'Column0'}, {'value': 'Column1'}]
                 kwargs['labels_2'] = [{'value': 'Row0'}, {'value': 'Row1'}]
@@ -254,7 +261,7 @@ class TestSurveyCommon(SurveyCase):
         """ Create test data: a survey with some pre-defined questions and various test users for ACL """
         self.survey_manager = mail_new_test_user(
             self.env, name='Gustave Doré', login='survey_manager', email='survey.manager@example.com',
-            groups='survey.group_survey_manager,base.group_user'
+            groups='survey.group_survey_manager,base.group_user', tz='Europe/Brussels',
         )
 
         self.survey_user = mail_new_test_user(
@@ -293,6 +300,7 @@ class TestSurveyCommon(SurveyCase):
             'survey_id': self.survey.id,
             'sequence': 1,
             'is_page': True,
+            'question_type': False,
         })
         self.question_ft = self.env['survey.question'].with_user(self.survey_manager).create({
             'title': 'Test Free Text',

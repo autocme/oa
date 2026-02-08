@@ -12,5 +12,5 @@ class TestMailMailStableSelection(TransactionCase):
         self.env['mail.mail']._fields_get_message_type_update_selection(self.env['mail.message']._fields['message_type'].selection)
         # force convert to cache with specific language so it has to fetch related from DB
         mail = self.env['mail.mail'].create({'subject': 'test', 'message_type': 'auto_comment'})
-        self.env['mail.mail'].invalidate_cache(['message_type'])
+        mail.invalidate_recordset(['message_type'])
         self.assertEqual(mail.with_context(lang="en_US").message_type, 'auto_comment')

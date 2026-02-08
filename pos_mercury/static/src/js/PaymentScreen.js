@@ -94,8 +94,8 @@ odoo.define('pos_mercury.PaymentScreen', function (require) {
 
     const PosMercuryPaymentScreen = (PaymentScreen) =>
         class extends PaymentScreen {
-            constructor() {
-                super(...arguments);
+            setup() {
+                super.setup();
                 if (this.env.pos.getOnlinePaymentMethods().length !== 0) {
                     useBarcodeReader({
                         credit: this.credit_code_action,
@@ -131,6 +131,16 @@ odoo.define('pos_mercury.PaymentScreen', function (require) {
             async validateOrder(isForceValidate) {
                 NumberBuffer.capture();
                 return super.validateOrder(...arguments);
+            }
+
+            /**
+             * Finish any pending input before sending a request to a terminal.
+             *
+             * @override
+             */
+            async _sendPaymentRequest({ detail: line }) {
+                NumberBuffer.capture();
+                return super._sendPaymentRequest(...arguments);
             }
 
             _get_swipe_pending_line() {
@@ -362,8 +372,6 @@ odoo.define('pos_mercury.PaymentScreen', function (require) {
                                 order.selected_paymentline.set_credit_card_name();
 
                                 NumberBuffer.reset();
-                                order.trigger('change', order); // needed so that export_to_JSON gets triggered
-                                self.render();
 
                                 if (response.message === 'PARTIAL AP') {
                                     def.resolve({
@@ -448,7 +456,6 @@ odoo.define('pos_mercury.PaymentScreen', function (require) {
             remove_paymentline_by_ref(line) {
                 this.env.pos.get_order().remove_paymentline(line);
                 NumberBuffer.reset();
-                this.render();
             }
 
             do_reversal(line, is_voidsale, old_deferred, retry_nr) {
@@ -580,8 +587,6 @@ odoo.define('pos_mercury.PaymentScreen', function (require) {
                 const res = super.addNewPaymentLine(...arguments);
                 if (res && paymentMethod.pos_mercury_config_id) {
                     order.selected_paymentline.mercury_swipe_pending = true;
-                    order.trigger('change', order);
-                    this.render();
                 }
             }
         };

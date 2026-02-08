@@ -1,6 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
-
     <record id="rs_sale_vat_20" model="account.tax.template">
         <field name="sequence">10</field>
         <field name="description">VAT 20%</field>
@@ -16,13 +15,14 @@
             (0, 0, {
                 'factor_percent': 100,
                 'repartition_type': 'base',
-                'plus_report_line_ids': [ref('tax_report_line_003')],
+                'plus_report_expression_ids': [ref('tax_report_line_003_tag')],
             }),
+
             (0, 0, {
                 'factor_percent': 100,
                 'repartition_type': 'tax',
                 'account_id': ref('rs_470'),
-                'plus_report_line_ids': [ref('tax_report_line_103')],
+                'plus_report_expression_ids': [ref('tax_report_line_103_tag')],
             }),
         ]"/>
         <field name="refund_repartition_line_ids" eval="[(5, 0, 0),
@@ -30,15 +30,15 @@
                 'factor_percent': 100,
                 'repartition_type': 'base',
             }),
+
             (0, 0, {
                 'factor_percent': 100,
                 'repartition_type': 'tax',
                 'account_id': ref('rs_470'),
-                'minus_report_line_ids': [ref('tax_report_line_103')],
+                'minus_report_expression_ids': [ref('tax_report_line_103_tag')],
             }),
         ]"/>
     </record>
-
     <record id="rs_sale_vat_10" model="account.tax.template">
         <field name="sequence">20</field>
         <field name="description">VAT 10%</field>
@@ -54,13 +54,14 @@
             (0, 0, {
                 'factor_percent': 100,
                 'repartition_type': 'base',
-                'plus_report_line_ids': [ref('tax_report_line_004')],
+                'plus_report_expression_ids': [ref('tax_report_line_004_tag')],
             }),
+
             (0, 0, {
                 'factor_percent': 100,
                 'repartition_type': 'tax',
                 'account_id': ref('rs_471'),
-                'plus_report_line_ids': [ref('tax_report_line_104')],
+                'plus_report_expression_ids': [ref('tax_report_line_104_tag')],
             }),
         ]"/>
         <field name="refund_repartition_line_ids" eval="[(5, 0, 0),
@@ -68,15 +69,15 @@
                 'factor_percent': 100,
                 'repartition_type': 'base',
             }),
+
             (0, 0, {
                 'factor_percent': 100,
                 'repartition_type': 'tax',
                 'account_id': ref('rs_471'),
-                'minus_report_line_ids': [ref('tax_report_line_104')],
+                'minus_report_expression_ids': [ref('tax_report_line_104_tag')],
             }),
         ]"/>
     </record>
-
     <record id="rs_sale_vat_0" model="account.tax.template">
         <field name="sequence">30</field>
         <field name="description">VAT 0%</field>
@@ -93,6 +94,7 @@
                 'factor_percent': 100,
                 'repartition_type': 'base',
             }),
+
             (0, 0, {
                 'factor_percent': 100,
                 'repartition_type': 'tax',
@@ -104,6 +106,7 @@
                 'factor_percent': 100,
                 'repartition_type': 'base',
             }),
+
             (0, 0, {
                 'factor_percent': 100,
                 'repartition_type': 'tax',
@@ -111,7 +114,6 @@
             }),
         ]"/>
     </record>
-
     <record id="rs_sale_vat_0_deduct_previous_tax" model="account.tax.template">
         <field name="sequence">40</field>
         <field name="description">VAT 0% with the right to deduct previous tax</field>
@@ -127,8 +129,9 @@
             (0, 0, {
                 'factor_percent': 100,
                 'repartition_type': 'base',
-                'plus_report_line_ids': [ref('tax_report_line_001')],
+                'plus_report_expression_ids': [ref('tax_report_line_001_tag')],
             }),
+
             (0, 0, {
                 'factor_percent': 100,
                 'repartition_type': 'tax',
@@ -139,13 +142,13 @@
                 'factor_percent': 100,
                 'repartition_type': 'base',
             }),
+
             (0, 0, {
                 'factor_percent': 100,
                 'repartition_type': 'tax',
             }),
         ]"/>
     </record>
-
     <record id="rs_sale_vat_0_no_deduct_previous_tax" model="account.tax.template">
         <field name="sequence">50</field>
         <field name="description">VAT 0% without the right to deduct previous tax</field>
@@ -161,8 +164,9 @@
             (0, 0, {
                 'factor_percent': 100,
                 'repartition_type': 'base',
-                'plus_report_line_ids': [ref('tax_report_line_002')],
+                'plus_report_expression_ids': [ref('tax_report_line_002_tag')],
             }),
+
             (0, 0, {
                 'factor_percent': 100,
                 'repartition_type': 'tax',
@@ -173,13 +177,13 @@
                 'factor_percent': 100,
                 'repartition_type': 'base',
             }),
+
             (0, 0, {
                 'factor_percent': 100,
                 'repartition_type': 'tax',
             }),
         ]"/>
     </record>
-
     <record id="rs_purchase_vat_20" model="account.tax.template">
         <field name="sequence">60</field>
         <field name="description">VAT 20%</field>
@@ -195,13 +199,14 @@
             (0, 0, {
                 'factor_percent': 100,
                 'repartition_type': 'base',
-                'plus_report_line_ids': [ref('tax_report_line_008')],
+                'plus_report_expression_ids': [ref('tax_report_line_008_tag')],
             }),
+
             (0, 0, {
                 'factor_percent': 100,
                 'repartition_type': 'tax',
                 'account_id': ref('rs_270'),
-                'plus_report_line_ids': [ref('tax_report_line_108')],
+                'plus_report_expression_ids': [ref('tax_report_line_108_tag')],
             }),
         ]"/>
         <field name="refund_repartition_line_ids" eval="[(5, 0, 0),
@@ -209,15 +214,15 @@
                 'factor_percent': 100,
                 'repartition_type': 'base',
             }),
+
             (0, 0, {
                 'factor_percent': 100,
                 'repartition_type': 'tax',
                 'account_id': ref('rs_270'),
-                'minus_report_line_ids': [ref('tax_report_line_108')],
+                'minus_report_expression_ids': [ref('tax_report_line_108_tag')],
             }),
         ]"/>
     </record>
-
     <record id="rs_purchase_vat_10" model="account.tax.template">
         <field name="sequence">70</field>
         <field name="description">VAT 10%</field>
@@ -233,13 +238,14 @@
             (0, 0, {
                 'factor_percent': 100,
                 'repartition_type': 'base',
-                'plus_report_line_ids': [ref('tax_report_line_008')],
+                'plus_report_expression_ids': [ref('tax_report_line_008_tag')],
             }),
+
             (0, 0, {
                 'factor_percent': 100,
                 'repartition_type': 'tax',
                 'account_id': ref('rs_271'),
-                'plus_report_line_ids': [ref('tax_report_line_108')],
+                'plus_report_expression_ids': [ref('tax_report_line_108_tag')],
             }),
         ]"/>
         <field name="refund_repartition_line_ids" eval="[(5, 0, 0),
@@ -247,15 +253,15 @@
                 'factor_percent': 100,
                 'repartition_type': 'base',
             }),
+
             (0, 0, {
                 'factor_percent': 100,
                 'repartition_type': 'tax',
                 'account_id': ref('rs_271'),
-                'minus_report_line_ids': [ref('tax_report_line_108')],
+                'minus_report_expression_ids': [ref('tax_report_line_108_tag')],
             }),
         ]"/>
     </record>
-
     <record id="rs_purchase_vat_0" model="account.tax.template">
         <field name="sequence">80</field>
         <field name="description">VAT 0%</field>
@@ -272,6 +278,7 @@
                 'factor_percent': 100,
                 'repartition_type': 'base',
             }),
+
             (0, 0, {
                 'factor_percent': 100,
                 'repartition_type': 'tax',
@@ -282,13 +289,13 @@
                 'factor_percent': 100,
                 'repartition_type': 'base',
             }),
+
             (0, 0, {
                 'factor_percent': 100,
                 'repartition_type': 'tax',
             }),
         ]"/>
     </record>
-
     <record id="rs_purchase_import_vat_0" model="account.tax.template">
         <field name="sequence">90</field>
         <field name="description">VAT 0% - import VAT exempt</field>
@@ -304,8 +311,9 @@
             (0, 0, {
                 'factor_percent': 100,
                 'repartition_type': 'base',
-                'plus_report_line_ids': [ref('tax_report_line_006')],
+                'plus_report_expression_ids': [ref('tax_report_line_006_tag')],
             }),
+
             (0, 0, {
                 'factor_percent': 100,
                 'repartition_type': 'tax',
@@ -316,13 +324,13 @@
                 'factor_percent': 100,
                 'repartition_type': 'base',
             }),
+
             (0, 0, {
                 'factor_percent': 100,
                 'repartition_type': 'tax',
             }),
         ]"/>
     </record>
-
     <record id="rs_purchase_import_vat_20" model="account.tax.template">
         <field name="sequence">100</field>
         <field name="description">VAT 20% - import general rate</field>
@@ -338,30 +346,30 @@
             (0, 0, {
                 'factor_percent': 100,
                 'repartition_type': 'base',
-                'plus_report_line_ids': [ref('tax_report_line_006')],
+                'plus_report_expression_ids': [ref('tax_report_line_006_tag')],
             }),
+
             (0, 0, {
                 'factor_percent': 100,
                 'repartition_type': 'tax',
                 'account_id': ref('rs_274'),
-                'plus_report_line_ids': [ref('tax_report_line_106')],
-
-            }),
+                'plus_report_expression_ids': [ref('tax_report_line_106_tag')],
+             }),
         ]"/>
         <field name="refund_repartition_line_ids" eval="[(5, 0, 0),
             (0, 0, {
                 'factor_percent': 100,
                 'repartition_type': 'base',
             }),
+
             (0, 0, {
                 'factor_percent': 100,
                 'repartition_type': 'tax',
                 'account_id': ref('rs_274'),
-                'minus_report_line_ids': [ref('tax_report_line_106')],
+                'minus_report_expression_ids': [ref('tax_report_line_106_tag')],
             }),
         ]"/>
     </record>
-
     <record id="rs_purchase_import_vat_10" model="account.tax.template">
         <field name="sequence">110</field>
         <field name="description">VAT 10% - import specific rate</field>
@@ -377,30 +385,30 @@
             (0, 0, {
                 'factor_percent': 100,
                 'repartition_type': 'base',
-                'plus_report_line_ids': [ref('tax_report_line_006')],
+                'plus_report_expression_ids': [ref('tax_report_line_006_tag')],
             }),
+
             (0, 0, {
                 'factor_percent': 100,
                 'repartition_type': 'tax',
                 'account_id': ref('rs_275'),
-                'plus_report_line_ids': [ref('tax_report_line_106')],
-
-            }),
+                'plus_report_expression_ids': [ref('tax_report_line_106_tag')],
+             }),
         ]"/>
         <field name="refund_repartition_line_ids" eval="[(5, 0, 0),
             (0, 0, {
                 'factor_percent': 100,
                 'repartition_type': 'base',
             }),
+
             (0, 0, {
                 'factor_percent': 100,
                 'repartition_type': 'tax',
                 'account_id': ref('rs_275'),
-                'minus_report_line_ids': [ref('tax_report_line_106')],
+                'minus_report_expression_ids': [ref('tax_report_line_106_tag')],
             }),
         ]"/>
     </record>
-
     <record id="rs_purchase_farmer_deductible_vat_8" model="account.tax.template">
         <field name="sequence">120</field>
         <field name="description">VAT 8% - deductible farmers compensation</field>
@@ -416,30 +424,30 @@
             (0, 0, {
                 'factor_percent': 100,
                 'repartition_type': 'base',
-                'plus_report_line_ids': [ref('tax_report_line_007')],
+                'plus_report_expression_ids': [ref('tax_report_line_007_tag')],
             }),
+
             (0, 0, {
                 'factor_percent': 100,
                 'repartition_type': 'tax',
                 'account_id': ref('rs_278'),
-                'plus_report_line_ids': [ref('tax_report_line_107')],
-
-            }),
+                'plus_report_expression_ids': [ref('tax_report_line_107_tag')],
+             }),
         ]"/>
         <field name="refund_repartition_line_ids" eval="[(5, 0, 0),
             (0, 0, {
                 'factor_percent': 100,
                 'repartition_type': 'base',
             }),
+
             (0, 0, {
                 'factor_percent': 100,
                 'repartition_type': 'tax',
                 'account_id': ref('rs_278'),
-                'minus_report_line_ids': [ref('tax_report_line_107')],
+                'minus_report_expression_ids': [ref('tax_report_line_107_tag')],
             }),
         ]"/>
     </record>
-
     <record id="rs_purchase_farmer_non_deductible_vat_8" model="account.tax.template">
         <field name="sequence">130</field>
         <field name="description">VAT 8% - non-deductible farmers compensation</field>
@@ -455,8 +463,9 @@
             (0, 0, {
                 'factor_percent': 100,
                 'repartition_type': 'base',
-                'plus_report_line_ids': [ref('tax_report_line_007')],
+                'plus_report_expression_ids': [ref('tax_report_line_007_tag')],
             }),
+
             (0, 0, {
                 'factor_percent': 100,
                 'repartition_type': 'tax',
@@ -467,11 +476,11 @@
                 'factor_percent': 100,
                 'repartition_type': 'base',
             }),
+
             (0, 0, {
                 'factor_percent': 100,
                 'repartition_type': 'tax',
             }),
         ]"/>
     </record>
-
 </odoo>

@@ -11,8 +11,8 @@ export const FieldNameWithSubTaskCount = FieldChar.extend({
         this._super(...arguments);
         if (this.viewType === 'kanban') {
             // remove click event handler
-            const {click, ...events} = this.events;
-            this.events = events;
+            this.events = { ...this.events };
+            delete this.events.click;
         }
     },
 
@@ -20,7 +20,7 @@ export const FieldNameWithSubTaskCount = FieldChar.extend({
         let result = this._super.apply(this, arguments);
         if (this.recordData.allow_subtasks && this.recordData.child_text) {
             this.$el.append($('<span>')
-                    .addClass("text-muted ml-2")
+                    .addClass("text-muted ms-2")
                     .text(this.recordData.child_text)
                     .css('font-weight', 'normal'));
         }

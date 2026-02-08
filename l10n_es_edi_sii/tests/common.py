@@ -3,12 +3,14 @@ import base64
 from pytz import timezone
 from datetime import datetime
 
-from odoo.tests import tagged
-from odoo.tools import misc, float_compare
+from odoo.tools import misc
 from odoo.addons.account_edi.tests.common import AccountEdiTestCommon
 
 
-@tagged('post_install_l10n', 'post_install', '-at_install')
+def mocked_l10n_es_edi_call_web_service_sign(edi_format, invoices, info_list):
+    return {inv: {"success": True} for inv in invoices}
+
+
 class TestEsEdiCommon(AccountEdiTestCommon):
 
     @classmethod
@@ -24,8 +26,8 @@ class TestEsEdiCommon(AccountEdiTestCommon):
 
         cls.certificate = cls.env['l10n_es_edi.certificate'].create({
             'content': base64.encodebytes(
-                misc.file_open("l10n_es_edi_sii/demo/certificates/sello_entidad_act.p12", 'rb').read()),
-            'password': 'IZDesa2021',
+                misc.file_open("l10n_es_edi_sii/demo/certificates/aeat_1234.p12", 'rb').read()),
+            'password': '1234',
         })
 
         cls.company_data['company'].write({
@@ -37,6 +39,10 @@ class TestEsEdiCommon(AccountEdiTestCommon):
             'l10n_es_edi_tax_agency': 'bizkaia',
         })
 
+        # To be sure it is put by default on purchase journals as well (tbai module)
+        cls.company_data['default_journal_purchase'].write({
+            'edi_format_ids': [(6, 0, cls.edi_format.ids)],
+        })
         # ==== Business ====
 
         cls.partner_a.write({

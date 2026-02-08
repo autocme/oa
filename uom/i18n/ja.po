@@ -3,19 +3,16 @@
 # 	* uom
 # 
 # Translators:
-# Tim Siu Lai <tl@roomsfor.hk>, 2022
-# Yoshi Tashiro (Quartile) <tashiro@roomsfor.hk>, 2022
-# Norimichi Sugimoto <norimichi.sugimoto@tls-ltd.co.jp>, 2022
 # Martin Trigaux, 2022
-# Ryoko Tsuda <ryoko@quartile.co>, 2022
+# Ryoko Tsuda <ryoko@quartile.co>, 2023
 # Junko Augias, 2023
 # 
 msgid ""
 msgstr ""
-"Project-Id-Version: Odoo Server saas~14.4\n"
+"Project-Id-Version: Odoo Server 16.0beta\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2021-07-12 07:50+0000\n"
-"PO-Revision-Date: 2021-09-14 12:27+0000\n"
+"POT-Creation-Date: 2022-09-23 08:03+0000\n"
+"PO-Revision-Date: 2022-09-22 05:55+0000\n"
 "Last-Translator: Junko Augias, 2023\n"
 "Language-Team: Japanese (https://app.transifex.com/odoo/teams/41243/ja/)\n"
 "MIME-Version: 1.0\n"
@@ -126,11 +123,6 @@ msgstr "表示名"
 #: model:uom.uom,name:uom.product_uom_dozen
 msgid "Dozens"
 msgstr "ダース"
-
-#. module: uom
-#: model:ir.model.fields,help:uom.field_uom_category__reference_uom_id
-msgid "Dummy field to keep track of reference uom change"
-msgstr ""
 
 #. module: uom
 #: model_terms:ir.ui.view,arch_db:uom.uom_uom_view_search
@@ -373,7 +365,13 @@ msgstr ""
 "            時間, 日数."
 
 #. module: uom
-#: code:addons/uom/models/uom_uom.py:0 code:addons/uom/models/uom_uom.py:0
+#: code:addons/uom/models/uom_uom.py:0
+#, python-format
+msgid "UoM category %s must have at least one reference unit of measure."
+msgstr "UoMカテゴリ%sには、少なくとも1つの参照単位がある必要があります。"
+
+#. module: uom
+#: code:addons/uom/models/uom_uom.py:0
 #, python-format
 msgid "UoM category %s should have a reference unit of measure."
 msgstr "単位カテゴリ%sには基準となる単位を設定する必要があります。"
@@ -399,12 +397,6 @@ msgstr "容積"
 #, python-format
 msgid "Warning for %s"
 msgstr "%s の警告です。"
-
-#. module: uom
-#: code:addons/uom/models/uom_uom.py:0
-#, python-format
-msgid "Warning!"
-msgstr "警告！"
 
 #. module: uom
 #: model:uom.category,name:uom.product_uom_categ_kgm
@@ -507,3 +499,8 @@ msgstr "oz"
 #: model:uom.uom,name:uom.product_uom_qt
 msgid "qt (US)"
 msgstr "qt (US)"
+
+#. module: uom
+#: model:uom.uom,name:uom.product_uom_yard
+msgid "yd"
+msgstr "yd"

@@ -3,16 +3,16 @@
 # 	* website_event_questions
 # 
 # Translators:
-# Martin Trigaux, 2021
-# Alina Lisnenko <alina.lisnenko@erp.co.ua>, 2021
+# Martin Trigaux, 2022
+# Alina Lisnenko <alina.lisnenko@erp.co.ua>, 2024
 # 
 msgid ""
 msgstr ""
-"Project-Id-Version: Odoo Server 15.0\n"
+"Project-Id-Version: Odoo Server 16.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-08-14 15:43+0000\n"
-"PO-Revision-Date: 2021-09-14 12:28+0000\n"
-"Last-Translator: Alina Lisnenko <alina.lisnenko@erp.co.ua>, 2021\n"
+"POT-Creation-Date: 2024-02-06 13:32+0000\n"
+"PO-Revision-Date: 2022-09-22 05:56+0000\n"
+"Last-Translator: Alina Lisnenko <alina.lisnenko@erp.co.ua>, 2024\n"
 "Language-Team: Ukrainian (https://app.transifex.com/odoo/teams/41243/uk/)\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
@@ -53,8 +53,8 @@ msgstr "Відповіді"
 
 #. module: website_event_questions
 #: model:ir.model.fields,field_description:website_event_questions.field_event_question__once_per_order
-msgid "Ask only once per order"
-msgstr "Запитувати лише раз на замовлення"
+msgid "Ask once per order"
+msgstr "Запитувати один раз на замовлення"
 
 #. module: website_event_questions
 #: model:ir.model.fields,field_description:website_event_questions.field_event_registration__registration_answer_ids
@@ -88,14 +88,14 @@ msgstr "Створив"
 #: model:ir.model.fields,field_description:website_event_questions.field_event_question_answer__create_date
 #: model:ir.model.fields,field_description:website_event_questions.field_event_registration_answer__create_date
 msgid "Created on"
-msgstr "Створено на"
+msgstr "Створено"
 
 #. module: website_event_questions
 #: model:ir.model.fields,field_description:website_event_questions.field_event_question__display_name
 #: model:ir.model.fields,field_description:website_event_questions.field_event_question_answer__display_name
 #: model:ir.model.fields,field_description:website_event_questions.field_event_registration_answer__display_name
 msgid "Display Name"
-msgstr "Відобразити назву"
+msgstr "Назва для відображення"
 
 #. module: website_event_questions
 #: model:ir.model,name:website_event_questions.model_event_event
@@ -172,7 +172,7 @@ msgstr ""
 #: model:ir.model.fields,field_description:website_event_questions.field_event_question_answer____last_update
 #: model:ir.model.fields,field_description:website_event_questions.field_event_registration_answer____last_update
 msgid "Last Modified on"
-msgstr "Останні зміни на"
+msgstr "Остання модифікація"
 
 #. module: website_event_questions
 #: model:ir.model.fields,field_description:website_event_questions.field_event_question__write_uid
@@ -187,6 +187,11 @@ msgstr "Востаннє оновив"
 #: model:ir.model.fields,field_description:website_event_questions.field_event_registration_answer__write_date
 msgid "Last Updated on"
 msgstr "Останнє оновлення"
+
+#. module: website_event_questions
+#: model:ir.model.fields,field_description:website_event_questions.field_event_question__is_mandatory_answer
+msgid "Mandatory Answer"
+msgstr "Обов'язкова відповідь"
 
 #. module: website_event_questions
 #: model:event.question,title:website_event_questions.event_0_question_0
@@ -233,10 +238,11 @@ msgid "Question Type"
 msgstr "Тип запитання"
 
 #. module: website_event_questions
+#. odoo-python
 #: code:addons/website_event_questions/models/event_question.py:0
 #, python-format
 msgid "Question cannot be linked to both an Event and an Event Type."
-msgstr ""
+msgstr "Запитання не можна пов’язувати одночасно з подією та типом події."
 
 #. module: website_event_questions
 #: model:ir.model.fields,field_description:website_event_questions.field_event_event__question_ids
@@ -261,6 +267,11 @@ msgstr "Пошук"
 #: model:event.question.answer,name:website_event_questions.event_7_question_0_answer_1
 msgid "Sales"
 msgstr "Продажі"
+
+#. module: website_event_questions
+#: model_terms:ir.ui.view,arch_db:website_event_questions.event_registration_view_tree
+msgid "Selected Answers"
+msgstr "Обрані відповіді"
 
 #. module: website_event_questions
 #: model_terms:ir.ui.view,arch_db:website_event_questions.event_registration_answer_view_tree
@@ -306,7 +317,7 @@ msgstr "Має бути запропоноване значення або те�
 #. module: website_event_questions
 #: model:ir.model.fields,field_description:website_event_questions.field_event_question__title
 msgid "Title"
-msgstr "Звертання"
+msgstr "Заголовок"
 
 #. module: website_event_questions
 #: model_terms:ir.ui.view,arch_db:website_event_questions.event_event_view_form
@@ -330,8 +341,31 @@ msgid "Yes"
 msgstr "Так"
 
 #. module: website_event_questions
+#. odoo-python
 #: code:addons/website_event_questions/models/event_question.py:0
 #, python-format
 msgid ""
 "You cannot change the question type of a question that already has answers!"
 msgstr "Ви не можете змінити тип запитання, яке вже має відповідь!"
+
+#. module: website_event_questions
+#. odoo-python
+#: code:addons/website_event_questions/models/event_question.py:0
+#, python-format
+msgid ""
+"You cannot delete a question that has already been answered by attendees."
+msgstr "Ви не можете видалити запитання, на яке учасники вже відповіли."
+
+#. module: website_event_questions
+#. odoo-python
+#: code:addons/website_event_questions/models/event_question.py:0
+#, python-format
+msgid ""
+"You cannot delete an answer that has already been selected by attendees."
+msgstr "Ви не можете видалити відповідь, яку вже вибрали учасники."
+
+#. module: website_event_questions
+#: model_terms:ir.ui.view,arch_db:website_event_questions.event_event_view_form
+#: model_terms:ir.ui.view,arch_db:website_event_questions.event_question_view_form
+msgid "e.g. \"Do you have any diet restrictions?\""
+msgstr "напр. \"У вас є якісь дієтичні обмеження?\""

@@ -21,6 +21,7 @@ class MailGroupMessage(models.Model):
     _description = 'Mailing List Message'
     _rec_name = 'subject'
     _order = 'create_date DESC'
+    _primary_email = 'email_from'
 
     # <mail.message> fields, can not be done with inherits because it will impact
     # the performance of the <mail.message> model (different cache, so the ORM will need
@@ -39,7 +40,7 @@ class MailGroupMessage(models.Model):
     # Parent and children
     group_message_parent_id = fields.Many2one(
         'mail.group.message', string='Parent', store=True)
-    group_message_child_ids = fields.One2many('mail.group.message', 'group_message_parent_id', string='Childs')
+    group_message_child_ids = fields.One2many('mail.group.message', 'group_message_parent_id', string='Children')
     # Moderation
     author_moderation = fields.Selection([('ban', 'Banned'), ('allow', 'Whitelisted')], string='Author Moderation Status',
                                          compute='_compute_author_moderation')
@@ -51,6 +52,7 @@ class MailGroupMessage(models.Model):
         string='Status', index=True, copy=False,
         required=True, default='pending_moderation')
     moderator_id = fields.Many2one('res.users', string='Moderated By')
+    create_date = fields.Datetime(string='Posted')
 
     @api.depends('email_from')
     def _compute_email_from_normalized(self):

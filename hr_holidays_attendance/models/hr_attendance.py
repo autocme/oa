@@ -4,6 +4,7 @@
 from odoo import models
 from odoo.osv.expression import AND
 
+
 class HrAttendance(models.Model):
     _inherit = "hr.attendance"
 

@@ -7,18 +7,16 @@ const { Component } = owl;
 export class ChannelMemberList extends Component {
 
     /**
-     * @returns {mail.thread}
+     * @returns {ChannelMemberListView}
      */
-    get channel() {
-        return this.messaging.models['mail.thread'].get(this.props.channelLocalId);
+    get channelMemberListView() {
+        return this.props.record;
     }
 
 }
 
 Object.assign(ChannelMemberList, {
-    props: {
-        channelLocalId: String,
-    },
+    props: { record: Object },
     template: 'mail.ChannelMemberList',
 });
 

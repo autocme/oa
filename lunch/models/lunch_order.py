@@ -23,6 +23,8 @@ class LunchOrder(models.Model):
                        default=fields.Date.context_today)
     supplier_id = fields.Many2one(
         string='Vendor', related='product_id.supplier_id', store=True, index=True)
+    available_today = fields.Boolean(related='supplier_id.available_today')
+    order_deadline_passed = fields.Boolean(related='supplier_id.order_deadline_passed')
     user_id = fields.Many2one('res.users', 'User', readonly=True,
                               states={'new': [('readonly', False)]},
                               default=lambda self: self.env.uid)
@@ -31,10 +33,12 @@ class LunchOrder(models.Model):
     price = fields.Monetary('Total Price', compute='_compute_total_price', readonly=True, store=True)
     active = fields.Boolean('Active', default=True)
     state = fields.Selection([('new', 'To Order'),
-                              ('ordered', 'Ordered'),
-                              ('confirmed', 'Received'),
+                              ('ordered', 'Ordered'),       # "Internally" ordered
+                              ('sent', 'Sent'),             # Order sent to the supplier
+                              ('confirmed', 'Received'),    # Order received
                               ('cancelled', 'Cancelled')],
                              'Status', readonly=True, index=True, default='new')
+    notified = fields.Boolean(default=False)
     company_id = fields.Many2one('res.company', default=lambda self: self.env.company.id)
     currency_id = fields.Many2one(related='company_id.currency_id', store=True)
     quantity = fields.Float('Quantity', required=True, default=1)
@@ -74,7 +78,7 @@ class LunchOrder(models.Model):
     def _compute_display_reorder_button(self):
         show_button = self.env.context.get('show_reorder_button')
         for order in self:
-            order.display_reorder_button = show_button and order.state == 'confirmed'
+            order.display_reorder_button = show_button and order.state == 'confirmed' and order.supplier_id.available_today
 
     def init(self):
         self._cr.execute("""CREATE INDEX IF NOT EXISTS lunch_order_user_product_date ON %s (user_id, product_id, date)"""
@@ -115,18 +119,22 @@ class LunchOrder(models.Model):
                     if not check:
                         raise ValidationError(errors[quantity] % label)
 
-    @api.model
-    def create(self, values):
-        lines = self._find_matching_lines({
-            **values,
-            'toppings': self._extract_toppings(values),
-        })
-        if lines:
-            # YTI FIXME This will update multiple lines in the case there are multiple
-            # matching lines which should not happen through the interface
-            lines.update_quantity(1)
-            return lines[:1]
-        return super().create(values)
+    @api.model_create_multi
+    def create(self, vals_list):
+        orders = self.env['lunch.order']
+        for vals in vals_list:
+            lines = self._find_matching_lines({
+                **vals,
+                'toppings': self._extract_toppings(vals),
+            })
+            if lines.filtered(lambda l: l.state not in ['sent', 'confirmed']):
+                # YTI FIXME This will update multiple lines in the case there are multiple
+                # matching lines which should not happen through the interface
+                lines.update_quantity(1)
+                orders |= lines[:1]
+            else:
+                orders |= super().create(vals)
+        return orders
 
     def write(self, values):
         merge_needed = 'note' in values or 'topping_ids_1' in values or 'topping_ids_2' in values or 'topping_ids_3' in values
@@ -141,7 +149,7 @@ class LunchOrder(models.Model):
                 # This also forces us to invalidate the cache for topping_ids_2 and topping_ids_3 that
                 # could have changed through topping_ids_1 without the cache knowing about it
                 toppings = self._extract_toppings(values)
-                self.invalidate_cache(['topping_ids_2', 'topping_ids_3'])
+                self.invalidate_model(['topping_ids_2', 'topping_ids_3'])
                 values['topping_ids_1'] = [(6, 0, toppings)]
                 matching_lines = self._find_matching_lines({
                     'user_id': values.get('user_id', line.user_id.id),
@@ -182,7 +190,7 @@ class LunchOrder(models.Model):
             line.display_toppings = ' + '.join(toppings.mapped('name'))
 
     def update_quantity(self, increment):
-        for line in self.filtered(lambda line: line.state != 'confirmed'):
+        for line in self.filtered(lambda line: line.state not in ['sent', 'confirmed']):
             if line.quantity <= -increment:
                 # TODO: maybe unlink the order?
                 line.active = False
@@ -199,7 +207,7 @@ class LunchOrder(models.Model):
         return True
 
     def _check_wallet(self):
-        self.flush()
+        self.env.flush_all()
         for line in self:
             if self.env['lunch.cashmove'].get_wallet_balance(line.user_id) < 0:
                 raise ValidationError(_('Your wallet does not contain enough money to order that. To add some money to your wallet, please contact your lunch manager.'))
@@ -236,3 +244,32 @@ class LunchOrder(models.Model):
 
     def action_reset(self):
         self.write({'state': 'ordered'})
+
+    def action_send(self):
+        self.state = 'sent'
+
+    def action_notify(self):
+        self -= self.filtered('notified')
+        if not self:
+            return
+        notified_users = set()
+        # (company, lang): (subject, body)
+        translate_cache = dict()
+        for order in self:
+            user = order.user_id
+            if user in notified_users:
+                continue
+            _key = (order.company_id, user.lang)
+            if _key not in translate_cache:
+                context = {'lang': user.lang}
+                translate_cache[_key] = (_('Lunch notification'), order.company_id.with_context(lang=user.lang).lunch_notify_message)
+                del context
+            subject, body = translate_cache[_key]
+            user.partner_id.message_notify(
+                subject=subject,
+                body=body,
+                partner_ids=user.partner_id.ids,
+                email_layout_xmlid='mail.mail_notification_light',
+            )
+            notified_users.add(user)
+        self.write({'notified': True})

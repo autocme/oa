@@ -1,15 +1,18 @@
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
 
 import base64
+import logging
 
 from dateutil.relativedelta import relativedelta
 
 from odoo import http, tests
 from odoo.addons.base.tests.common import HttpCaseWithUserPortal
 from odoo.addons.gamification.tests.common import HttpCaseGamification
-from odoo.fields import Datetime
+from odoo.fields import Command, Datetime
 from odoo.modules.module import get_module_resource
+from odoo.tools.misc import file_open
 
+_logger = logging.getLogger(__name__)
 
 class TestUICommon(HttpCaseGamification, HttpCaseWithUserPortal):
 
@@ -42,32 +45,32 @@ class TestUICommon(HttpCaseGamification, HttpCaseWithUserPortal):
                 (0, 0, {
                     'name': 'Gardening: The Know-How',
                     'sequence': 1,
-                    'datas': pdf_content,
-                    'slide_type': 'presentation',
+                    'binary_content': pdf_content,
+                    'slide_category': 'document',
                     'is_published': True,
                     'is_preview': True,
                 }), (0, 0, {
                     'name': 'Home Gardening',
                     'sequence': 2,
                     'image_1920': img_content,
-                    'slide_type': 'infographic',
+                    'slide_category': 'infographic',
                     'is_published': True,
                 }), (0, 0, {
                     'name': 'Mighty Carrots',
                     'sequence': 3,
                     'image_1920': img_content,
-                    'slide_type': 'infographic',
+                    'slide_category': 'infographic',
                     'is_published': True,
                 }), (0, 0, {
                     'name': 'How to Grow and Harvest The Best Strawberries | Basics',
                     'sequence': 4,
-                    'datas': pdf_content,
-                    'slide_type': 'document',
+                    'binary_content': pdf_content,
+                    'slide_category': 'document',
                     'is_published': True,
                 }), (0, 0, {
                     'name': 'Test your knowledge',
                     'sequence': 5,
-                    'slide_type': 'quiz',
+                    'slide_category': 'quiz',
                     'is_published': True,
                     'question_ids': [
                         (0, 0, {
@@ -109,7 +112,6 @@ class TestUi(TestUICommon):
 
     def test_course_member_employee(self):
         user_demo = self.user_demo
-        user_demo.flush()
         user_demo.write({
             'karma': 1,
             'groups_id': [(6, 0, self.env.ref('base.group_user').ids)]
@@ -123,7 +125,6 @@ class TestUi(TestUICommon):
 
     def test_course_member_elearning_officer(self):
         user_demo = self.user_demo
-        user_demo.flush()
         user_demo.write({
             'karma': 1,
             'groups_id': [(6, 0, (self.env.ref('base.group_user') | self.env.ref('website_slides.group_website_slides_officer')).ids)]
@@ -137,7 +138,6 @@ class TestUi(TestUICommon):
 
     def test_course_member_portal(self):
         user_portal = self.user_portal
-        user_portal.flush()
         user_portal.karma = 1
 
         self.browser_js(
@@ -146,8 +146,12 @@ class TestUi(TestUICommon):
             'odoo.__DEBUG__.services["web_tour.tour"].tours.course_member.ready',
             login=user_portal.login)
 
-    def test_full_screen_edition_website_publisher(self):
+    def test_full_screen_edition_website_restricted_editor(self):
         # group_website_designer
+        user_demo = self.user_demo
+        user_demo.write({
+            'groups_id': [(5, 0), (4, self.env.ref('base.group_user').id), (4, self.env.ref('website.group_website_restricted_editor').id)]
+        })
         user_demo = self.user_demo
         self.env['slide.slide.partner'].create({
             'slide_id': self.channel.slide_ids[1].id,
@@ -159,13 +163,9 @@ class TestUi(TestUICommon):
             'channel_id': self.channel.id,
             'partner_id': self.partner_demo.id,
         })
-        user_demo.flush()
-        user_demo.write({
-            'groups_id': [(5, 0), (4, self.env.ref('base.group_user').id), (4, self.env.ref('website.group_website_designer').id)]
-        })
 
         self.browser_js(
-            '/slides',
+            self.env['website'].get_client_action_url('/slides'),
             'odoo.__DEBUG__.services["web_tour.tour"].run("full_screen_web_editor")',
             'odoo.__DEBUG__.services["web_tour.tour"].tours.full_screen_web_editor.ready',
             login=user_demo.login)
@@ -188,13 +188,45 @@ class TestUi(TestUICommon):
             login=user_demo.login)
 
 
+@tests.common.tagged('post_install', '-at_install', '-standard', 'breaking_16', 'no_network')
+class TestUiPublisher(HttpCaseGamification):
+
+    def fetch_proxy(self, url):
+        if url.endswith('ThreeTimeAKCGoldWinnerPembrookeWelshCorgi.jpg'):
+            _logger.info('External chrome request during tests: Sending dummy image for %s', url)
+            with file_open('base/tests/odoo.jpg', 'rb') as f:
+                content = f.read()
+            return self.make_fetch_proxy_response(content)
+        return super().fetch_proxy(url)
+
+    def test_course_publisher_elearning_manager(self):
+        user_demo = self.user_demo
+        user_demo.write({
+            'groups_id': [
+                (5, 0),
+                (4, self.env.ref('base.group_user').id),
+                (4, self.env.ref('website_slides.group_website_slides_manager').id)
+            ],
+        })
+        self.env['slide.channel.tag.group'].create([{
+            'name': 'Your Favorite Role',
+            'tag_ids': [Command.create({'name': 'Gardening'})]}
+        ])
+        self.env['slide.tag'].create({'name': 'Practice'})
+
+        self.browser_js(
+            self.env['website'].get_client_action_url('/slides'),
+            'odoo.__DEBUG__.services["web_tour.tour"].run("course_publisher_standard")',
+            'odoo.__DEBUG__.services["web_tour.tour"].tours.course_publisher_standard.ready',
+            login=user_demo.login)
+
+
 @tests.common.tagged('external', 'post_install', '-standard', '-at_install')
-class TestUiYoutube(HttpCaseGamification):
+class TestUiPublisherYoutube(HttpCaseGamification):
 
     def test_course_member_yt_employee(self):
         # remove membership because we need to be able to join the course during the tour
         user_demo = self.user_demo
-        user_demo.flush()
         user_demo.write({
             'groups_id': [(5, 0), (4, self.env.ref('base.group_user').id)]
         })
@@ -208,13 +240,12 @@ class TestUiYoutube(HttpCaseGamification):
 
     def test_course_publisher_elearning_manager(self):
         user_demo = self.user_demo
-        user_demo.flush()
         user_demo.write({
             'groups_id': [(5, 0), (4, self.env.ref('base.group_user').id), (4, self.env.ref('website_slides.group_website_slides_manager').id)]
         })
 
         self.browser_js(
-            '/slides',
+            self.env['website'].get_client_action_url('/slides'),
             'odoo.__DEBUG__.services["web_tour.tour"].run("course_publisher")',
             'odoo.__DEBUG__.services["web_tour.tour"].tours.course_publisher.ready',
             login=user_demo.login)

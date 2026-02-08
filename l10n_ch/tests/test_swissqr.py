@@ -3,6 +3,7 @@
 import time
 
 from odoo.addons.account.tests.common import AccountTestInvoicingCommon
+from odoo.exceptions import UserError
 from odoo.tests import tagged
 from odoo.tools.misc import mod10r
 
@@ -52,9 +53,8 @@ class TestSwissQR(AccountTestInvoicingCommon):
     def create_invoice(self, currency_to_use='base.CHF'):
         """ Generates a test invoice """
 
-        acc_type = self.env.ref('account.data_account_type_current_assets')
         account = self.env['account.account'].search(
-            [('user_type_id', '=', acc_type.id)], limit=1
+            [('account_type', '=', 'asset_current')], limit=1
         )
         invoice = (
             self.env['account.move']
@@ -120,20 +120,22 @@ class TestSwissQR(AccountTestInvoicingCommon):
             "0200\n"
             "1\n"
             "{iban}\n"
-            "K\n"
+            "S\n"
             "company_1_data\n"
-            "Route de Berne 88\n"
-            "2000 Neuchâtel\n"
-            "\n\n"
+            "Route de Berne\n"
+            "88\n"
+            "2000\n"
+            "Neuchâtel\n"
             "CH\n"
             "\n\n\n\n\n\n\n"
             "42.00\n"
             "CHF\n"
-            "K\n"
+            "S\n"
             "Partner\n"
-            "Route de Berne 41\n"
-            "1000 Lausanne\n"
-            "\n\n"
+            "Route de Berne\n"
+            "41\n"
+            "1000\n"
+            "Lausanne\n"
             "CH\n"
             "{ref_type}\n"
             "{struct_ref}\n"
@@ -165,8 +167,9 @@ class TestSwissQR(AccountTestInvoicingCommon):
     def test_swissQR_missing_bank(self):
         # Let us test the generation of a SwissQR for an invoice, first by showing an
         # QR is included in the invoice is only generated when Odoo has all the data it needs.
-        self.invoice1.action_post()
-        self.swissqr_not_generated(self.invoice1)
+        with self.assertRaises(UserError), self.cr.savepoint():
+            self.invoice1.action_post()
+            self.swissqr_not_generated(self.invoice1)
 
     def test_swissQR_iban(self):
         # Now we add an account for payment to our invoice
@@ -192,18 +195,28 @@ class TestSwissQR(AccountTestInvoicingCommon):
         if 'sale.order' not in self.env:
             self.skipTest('`sale` is not installed')
 
-        acquirer = self.env['payment.acquirer'].create({'name': 'Test',})
+        payment_custom = self.env['ir.module.module']._get('payment_custom')
+        if payment_custom.state != 'installed':
+            self.skipTest("payment_custom module is not installed")
+
+        provider = self.env['payment.provider'].create({
+            'name': 'Test',
+            'code': 'custom',
+        })
+        invoice_journal = self.env['account.journal'].search(
+            [('type', '=', 'sale'), ('company_id', '=', self.env.company.id)], limit=1)
+        invoice_journal.write({'invoice_reference_model': 'ch'})
         order = self.env['sale.order'].create({
             'name': "S00001",
-            'partner_id': self.customer.id,
+            'partner_id': self.env['res.partner'].search([("name", '=', 'Partner')])[0].id,
             'order_line': [
                 (0, 0, {'product_id': self.product_a.id, 'price_unit': 100}),
             ],
         })
         payment_transaction = self.env['payment.transaction'].create({
-            'acquirer_id': acquirer.id,
+            'provider_id': provider.id,
             'sale_order_ids': [order.id],
-            'partner_id': self.customer.id,
+            'partner_id': self.env['res.partner'].search([("name", '=', 'Partner')])[0].id,
             'amount': 100,
             'currency_id': self.env.company.currency_id.id,
         })

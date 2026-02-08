@@ -3,14 +3,11 @@ odoo.define('website_jitsi.chat_room', function (require) {
 
 const config = require("web.config");
 const core = require('web.core');
-const Dialog = require('web.Dialog');
 const publicWidget = require('web.public.widget');
 const QWeb = core.qweb;
-const _t = core._t;
 
 publicWidget.registry.ChatRoom = publicWidget.Widget.extend({
     selector: '.o_wjitsi_room_widget',
-    xmlDependencies: ['/website_jitsi/static/src/xml/chat_room_modal.xml'],
     events: {
         'click .o_wjitsi_room_link': '_onChatRoomClick',
     },
@@ -234,7 +231,7 @@ publicWidget.registry.ChatRoom = publicWidget.Widget.extend({
     _openMobileApplication: async function (roomName) {
         if (config.device.isMobile) {
             // we are on mobile, open the room in the application
-            window.location = `intent://${this.jitsiServer}/${roomName}#Intent;scheme=org.jitsi.meet;package=org.jitsi.meet;end`;
+            window.location = `intent://${this.jitsiServer}/${encodeURIComponent(roomName)}#Intent;scheme=org.jitsi.meet;package=org.jitsi.meet;end`;
             return true;
         }
         return false;

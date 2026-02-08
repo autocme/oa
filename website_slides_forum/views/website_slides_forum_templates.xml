@@ -27,7 +27,7 @@
         </xpath>
     </template>
 
-    <template name="Split regular forums/courses" id="website_slides_forum_index" inherit_id="website_forum.forum_all" active="True" customize_show="True">
+    <template name="Split regular forums/courses" id="website_slides_forum_index" inherit_id="website_forum.forum_all" active="True">
         <xpath expr="//div[@id='o_wforum_forums_index_list']/*[@t-if='forums']" position="replace">
             <t t-if="forums">
                 <t t-set="courses_discussions" t-value="forums.filtered(lambda f: f.slide_channel_id)"/>
@@ -66,7 +66,7 @@
 
                 <div class="d-flex border-bottom pb-1 pt-3 mb-3">
                     <h2 class="h4 mb-0 text-muted">Courses Discussions</h2>
-                    <div class="flex-grow-1 text-right">
+                    <div class="flex-grow-1 text-end">
                         <a href="/slides" title="See all Courses">Check our Courses <i class="fa fa-chevron-right"/></a>
                     </div>
                 </div>

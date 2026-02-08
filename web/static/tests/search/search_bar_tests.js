@@ -1,12 +1,12 @@
 /** @odoo-module **/
 
-import { registerCleanup } from "@web/../tests/helpers/cleanup";
 import { ControlPanel } from "@web/search/control_panel/control_panel";
 import {
     click,
     getFixture,
     makeDeferred,
     nextTick,
+    patchTimeZone,
     patchWithCleanup,
     triggerEvent,
 } from "../helpers/utils";
@@ -23,6 +23,9 @@ function getDomain(controlPanel) {
     return controlPanel.env.searchModel.domain;
 }
 
+import { onWillUpdateProps } from "@odoo/owl";
+
+let target;
 let serverData;
 QUnit.module("Search", (hooks) => {
     hooks.beforeEach(async () => {
@@ -114,6 +117,7 @@ QUnit.module("Search", (hooks) => {
             },
         };
         setupControlPanelServiceRegistry();
+        target = getFixture();
     });
 
     QUnit.module("SearchBar");
@@ -121,7 +125,7 @@ QUnit.module("Search", (hooks) => {
     QUnit.test("basic rendering", async function (assert) {
         assert.expect(1);
 
-        const controlPanel = await makeWithSearch({
+        await makeWithSearch({
             serverData,
             resModel: "partner",
             Component: ControlPanel,
@@ -131,7 +135,7 @@ QUnit.module("Search", (hooks) => {
 
         assert.strictEqual(
             document.activeElement,
-            controlPanel.el.querySelector(".o_searchview input"),
+            target.querySelector(".o_searchview input"),
             "searchview input should be focused"
         );
     });
@@ -139,7 +143,7 @@ QUnit.module("Search", (hooks) => {
     QUnit.test("navigation with facets", async function (assert) {
         assert.expect(4);
 
-        const controlPanel = await makeWithSearch({
+        await makeWithSearch({
             serverData,
             resModel: "partner",
             Component: ControlPanel,
@@ -149,32 +153,26 @@ QUnit.module("Search", (hooks) => {
         });
 
         assert.containsOnce(
-            controlPanel,
+            target,
             ".o_searchview .o_searchview_facet",
             "there should be one facet"
         );
-        assert.strictEqual(
-            document.activeElement,
-            controlPanel.el.querySelector(".o_searchview input")
-        );
+        assert.strictEqual(document.activeElement, target.querySelector(".o_searchview input"));
 
         // press left to focus the facet
         await triggerEvent(document.activeElement, null, "keydown", { key: "ArrowLeft" });
         assert.strictEqual(
             document.activeElement,
-            controlPanel.el.querySelector(".o_searchview .o_searchview_facet")
+            target.querySelector(".o_searchview .o_searchview_facet")
         );
 
         // press right to focus the input
         await triggerEvent(document.activeElement, null, "keydown", { key: "ArrowRight" });
-        assert.strictEqual(
-            document.activeElement,
-            controlPanel.el.querySelector(".o_searchview input")
-        );
+        assert.strictEqual(document.activeElement, target.querySelector(".o_searchview input"));
     });
 
     QUnit.test("navigation with facets (2)", async function (assert) {
-        const controlPanel = await makeWithSearch({
+        await makeWithSearch({
             serverData,
             resModel: "partner",
             Component: ControlPanel,
@@ -186,49 +184,39 @@ QUnit.module("Search", (hooks) => {
             },
         });
 
-        assert.containsN(controlPanel, ".o_searchview .o_searchview_facet", 2);
-        assert.strictEqual(
-            document.activeElement,
-            controlPanel.el.querySelector(".o_searchview input")
-        );
+        assert.containsN(target, ".o_searchview .o_searchview_facet", 2);
+        assert.strictEqual(document.activeElement, target.querySelector(".o_searchview input"));
 
         // press left to focus the rightmost facet
         await triggerEvent(document.activeElement, null, "keydown", { key: "ArrowLeft" });
         assert.strictEqual(
             document.activeElement,
-            controlPanel.el.querySelector(".o_searchview .o_searchview_facet:nth-child(2)")
+            target.querySelector(".o_searchview .o_searchview_facet:nth-child(2)")
         );
 
         // press left to focus the leftmost facet
         await triggerEvent(document.activeElement, null, "keydown", { key: "ArrowLeft" });
         assert.strictEqual(
             document.activeElement,
-            controlPanel.el.querySelector(".o_searchview .o_searchview_facet:nth-child(1)")
+            target.querySelector(".o_searchview .o_searchview_facet:nth-child(1)")
         );
 
         // press left to focus the input
         await triggerEvent(document.activeElement, null, "keydown", { key: "ArrowLeft" });
-        assert.strictEqual(
-            document.activeElement,
-            controlPanel.el.querySelector(".o_searchview input")
-        );
+        assert.strictEqual(document.activeElement, target.querySelector(".o_searchview input"));
 
         // press left to focus the leftmost facet
         await triggerEvent(document.activeElement, null, "keydown", { key: "ArrowRight" });
         assert.strictEqual(
             document.activeElement,
-            controlPanel.el.querySelector(".o_searchview .o_searchview_facet:nth-child(1)")
+            target.querySelector(".o_searchview .o_searchview_facet:nth-child(1)")
         );
     });
 
     QUnit.test("search date and datetime fields. Support of timezones", async function (assert) {
         assert.expect(4);
 
-        const originalZoneName = luxon.Settings.defaultZoneName;
-        luxon.Settings.defaultZoneName = new luxon.FixedOffsetZone.instance(360);
-        registerCleanup(() => {
-            luxon.Settings.defaultZoneName = originalZoneName;
-        });
+        patchTimeZone(360);
 
         const controlPanel = await makeWithSearch({
             serverData,
@@ -239,13 +227,13 @@ QUnit.module("Search", (hooks) => {
         });
 
         // Date case
-        await editSearch(controlPanel, "07/15/1983");
-        let searchInput = controlPanel.el.querySelector(".o_searchview input");
+        await editSearch(target, "07/15/1983");
+        let searchInput = target.querySelector(".o_searchview input");
         await triggerEvent(searchInput, null, "keydown", { key: "ArrowDown" });
         await triggerEvent(searchInput, null, "keydown", { key: "Enter" }); // select
 
         assert.deepEqual(
-            getFacetTexts(controlPanel).map((str) => str.replace(/\s+/, " ")),
+            getFacetTexts(target).map((str) => str.replace(/\s+/, " ")),
             ["Birthday 07/15/1983"],
             "The format of the date in the facet should be in locale"
         );
@@ -253,17 +241,16 @@ QUnit.module("Search", (hooks) => {
         assert.deepEqual(getDomain(controlPanel), [["birthday", "=", "1983-07-15"]]);
 
         // Close Facet
-        await click(controlPanel.el.querySelector(".o_searchview_facet .o_facet_remove"));
+        await click(target.querySelector(".o_searchview_facet .o_facet_remove"));
 
         // DateTime case
-        await editSearch(controlPanel, "07/15/1983 00:00:00");
-        searchInput = controlPanel.el.querySelector(".o_searchview input");
-        await triggerEvent(searchInput, null, "keydown", { key: "ArrowDown" });
+        await editSearch(target, "07/15/1983 00:00:00");
+        searchInput = target.querySelector(".o_searchview input");
         await triggerEvent(searchInput, null, "keydown", { key: "ArrowDown" });
         await triggerEvent(searchInput, null, "keydown", { key: "Enter" }); // select
 
         assert.deepEqual(
-            getFacetTexts(controlPanel).map((str) => str.replace(/\s+/, " ")),
+            getFacetTexts(target).map((str) => str.replace(/\s+/, " ")),
             ["Birth DateTime\n07/15/1983 00:00:00"],
             "The format of the datetime in the facet should be in locale"
         );
@@ -272,9 +259,9 @@ QUnit.module("Search", (hooks) => {
     });
 
     QUnit.test("autocomplete menu clickout interactions", async function (assert) {
-        assert.expect(9);
+        assert.expect(10);
 
-        const controlPanel = await makeWithSearch({
+        await makeWithSearch({
             serverData,
             resModel: "partner",
             Component: ControlPanel,
@@ -291,29 +278,35 @@ QUnit.module("Search", (hooks) => {
                 `,
         });
 
-        const input = controlPanel.el.querySelector(".o_searchview input");
+        const input = target.querySelector(".o_searchview input");
 
-        assert.containsNone(controlPanel, ".o_searchview_autocomplete");
+        // Create an input outside of the search panel to simulate another input outside of the search panel
+        const outsideInput = document.createElement('input');
+        getFixture().appendChild(outsideInput);
 
-        await editSearch(controlPanel, "Hello there");
+        assert.containsNone(target, ".o_searchview_autocomplete");
+
+        await editSearch(target, "Hello there");
 
         assert.strictEqual(input.value, "Hello there", "input value should be updated");
-        assert.containsOnce(controlPanel, ".o_searchview_autocomplete");
+        assert.containsOnce(target, ".o_searchview_autocomplete");
 
         await triggerEvent(input, null, "keydown", { key: "Escape" });
 
         assert.strictEqual(input.value, "", "input value should be empty");
-        assert.containsNone(controlPanel, ".o_searchview_autocomplete");
+        assert.containsNone(target, ".o_searchview_autocomplete");
 
-        await editSearch(controlPanel, "General Kenobi");
+        await editSearch(target, "General Kenobi");
 
         assert.strictEqual(input.value, "General Kenobi", "input value should be updated");
-        assert.containsOnce(controlPanel, ".o_searchview_autocomplete");
+        assert.containsOnce(target, ".o_searchview_autocomplete");
 
-        await click(document.body);
+        outsideInput.focus();
+        await click(outsideInput);
 
         assert.strictEqual(input.value, "", "input value should be empty");
-        assert.containsNone(controlPanel, ".o_searchview_autocomplete");
+        assert.containsNone(target, ".o_searchview_autocomplete");
+        assert.strictEqual(document.activeElement, outsideInput);
     });
 
     QUnit.test("select an autocomplete field", async function (assert) {
@@ -327,20 +320,18 @@ QUnit.module("Search", (hooks) => {
             searchViewId: false,
         });
 
-        await editSearch(controlPanel, "a");
+        await editSearch(target, "a");
         assert.containsN(
-            controlPanel,
+            target,
             ".o_searchview_autocomplete li",
             3,
             "there should be 3 result for 'a' in search bar autocomplete"
         );
 
-        const searchInput = controlPanel.el.querySelector(".o_searchview input");
+        const searchInput = target.querySelector(".o_searchview input");
         await triggerEvent(searchInput, null, "keydown", { key: "Enter" });
         assert.strictEqual(
-            controlPanel.el
-                .querySelector(".o_searchview_input_container .o_facet_values")
-                .innerText.trim(),
+            target.querySelector(".o_searchview_input_container .o_facet_values").innerText.trim(),
             "a",
             "There should be a field facet with label 'a'"
         );
@@ -353,9 +344,11 @@ QUnit.module("Search", (hooks) => {
 
         let updateCount = 0;
         patchWithCleanup(ControlPanel.prototype, {
-            async willUpdateProps() {
-                updateCount++;
-                await this._super(...arguments);
+            setup() {
+                this._super();
+                onWillUpdateProps(() => {
+                    updateCount++;
+                });
             },
         });
 
@@ -368,15 +361,15 @@ QUnit.module("Search", (hooks) => {
         });
 
         // 'r' key to filter on bar "First Record"
-        await editSearch(controlPanel, "record");
-        const searchInput = controlPanel.el.querySelector(".o_searchview input");
+        await editSearch(target, "record");
+        const searchInput = target.querySelector(".o_searchview input");
         await triggerEvent(searchInput, null, "keydown", { key: "ArrowDown" });
         await triggerEvent(searchInput, null, "keydown", { key: "ArrowRight" });
         await triggerEvent(searchInput, null, "keydown", { key: "ArrowDown" });
         await triggerEvent(searchInput, null, "keydown", { key: "Enter" });
 
         assert.deepEqual(
-            getFacetTexts(controlPanel).map((str) => str.replace(/\s+/, "")),
+            getFacetTexts(target).map((str) => str.replace(/\s+/, "")),
             ["BarFirst record"]
         );
 
@@ -386,7 +379,7 @@ QUnit.module("Search", (hooks) => {
         assert.deepEqual(controlPanel.env.searchModel.context.bar, [1]);
 
         // 'r' key to filter on bar "Second Record"
-        await editSearch(controlPanel, "record");
+        await editSearch(target, "record");
         await triggerEvent(searchInput, null, "keydown", { key: "ArrowDown" });
         await triggerEvent(searchInput, null, "keydown", { key: "ArrowRight" });
         await triggerEvent(searchInput, null, "keydown", { key: "ArrowDown" });
@@ -394,7 +387,7 @@ QUnit.module("Search", (hooks) => {
         await triggerEvent(searchInput, null, "keydown", { key: "Enter" });
 
         assert.deepEqual(
-            getFacetTexts(controlPanel).map((str) => str.replace(/\s+/, "")),
+            getFacetTexts(target).map((str) => str.replace(/\s+/, "")),
             ["BarFirst recordorSecond record"]
         );
 
@@ -409,13 +402,15 @@ QUnit.module("Search", (hooks) => {
 
         let updateCount = 0;
         patchWithCleanup(ControlPanel.prototype, {
-            async willUpdateProps() {
-                updateCount++;
-                await this._super(...arguments);
+            setup() {
+                this._super();
+                onWillUpdateProps(() => {
+                    updateCount++;
+                });
             },
         });
 
-        const controlPanel = await makeWithSearch({
+        await makeWithSearch({
             serverData,
             resModel: "partner",
             Component: ControlPanel,
@@ -423,17 +418,17 @@ QUnit.module("Search", (hooks) => {
             searchViewId: false,
         });
 
-        const searchInput = controlPanel.el.querySelector(".o_searchview input");
+        const searchInput = target.querySelector(".o_searchview input");
         await triggerEvent(searchInput, null, "keydown", { key: "Enter" });
 
-        assert.containsNone(controlPanel, ".o_searchview_facet_label");
+        assert.containsNone(target, ".o_searchview_facet_label");
         assert.strictEqual(updateCount, 1, "should have been updated once");
     });
 
     QUnit.test("selecting (no result) triggers a search bar rendering", async function (assert) {
         assert.expect(3);
 
-        const controlPanel = await makeWithSearch({
+        await makeWithSearch({
             serverData,
             resModel: "partner",
             Component: ControlPanel,
@@ -446,27 +441,25 @@ QUnit.module("Search", (hooks) => {
                 `,
         });
 
-        await editSearch(controlPanel, "hello there");
+        await editSearch(target, "hello there");
 
         // 'a' key to filter nothing on bar
-        const searchInput = controlPanel.el.querySelector(".o_searchview input");
+        const searchInput = target.querySelector(".o_searchview input");
         await triggerEvent(searchInput, null, "keydown", { key: "ArrowDown" });
         await triggerEvent(searchInput, null, "keydown", { key: "ArrowRight" });
         await triggerEvent(searchInput, null, "keydown", { key: "ArrowDown" });
 
         assert.strictEqual(
-            controlPanel.el
-                .querySelector(".o_searchview_autocomplete .o_selection_focus")
-                .innerText.trim(),
+            target.querySelector(".o_searchview_autocomplete .focus").innerText.trim(),
             "(no result)",
             "there should be no result for 'a' in bar"
         );
 
         await triggerEvent(searchInput, null, "keydown", { key: "Enter" });
 
-        assert.containsNone(controlPanel, ".o_searchview_facet_label");
+        assert.containsNone(target, ".o_searchview_facet_label");
         assert.strictEqual(
-            controlPanel.el.querySelector(".o_searchview input").value,
+            target.querySelector(".o_searchview input").value,
             "",
             "the search input should be re-rendered"
         );
@@ -482,7 +475,7 @@ QUnit.module("Search", (hooks) => {
             // not handled but are triggered to ensure they do not interfere.
             const TEST = "TEST";
             const テスト = "テスト";
-            const controlPanel = await makeWithSearch({
+            await makeWithSearch({
                 serverData,
                 resModel: "partner",
                 Component: ControlPanel,
@@ -490,7 +483,7 @@ QUnit.module("Search", (hooks) => {
                 searchViewId: false,
             });
 
-            const searchInput = controlPanel.el.querySelector(".o_searchview input");
+            const searchInput = target.querySelector(".o_searchview input");
 
             // Simulate typing "TEST" on search view.
             for (let i = 0; i < TEST.length; i++) {
@@ -515,12 +508,12 @@ QUnit.module("Search", (hooks) => {
                 });
             }
             assert.containsOnce(
-                controlPanel.el,
+                target,
                 ".o_searchview_autocomplete",
                 "should display autocomplete dropdown menu on typing something in search view"
             );
             assert.strictEqual(
-                controlPanel.el.querySelector(".o_searchview_autocomplete li").innerText.trim(),
+                target.querySelector(".o_searchview_autocomplete li").innerText.trim(),
                 "Search Foo for: TEST",
                 `1st filter suggestion should be based on typed word "TEST"`
             );
@@ -545,7 +538,7 @@ QUnit.module("Search", (hooks) => {
             });
 
             assert.strictEqual(
-                controlPanel.el.querySelector(".o_searchview_autocomplete li").innerText.trim(),
+                target.querySelector(".o_searchview_autocomplete li").innerText.trim(),
                 "Search Foo for: テスト",
                 `1st filter suggestion should be updated with soft-selection typed word "テスト"`
             );
@@ -573,7 +566,7 @@ QUnit.module("Search", (hooks) => {
             await triggerEvent(searchInput, null, "compositionend");
 
             assert.strictEqual(
-                controlPanel.el.querySelector(".o_searchview_autocomplete li").innerText.trim(),
+                target.querySelector(".o_searchview_autocomplete li").innerText.trim(),
                 "Search Foo for: TEST",
                 `1st filter suggestion should finally be updated with click selection on word "TEST" from IME`
             );
@@ -583,7 +576,7 @@ QUnit.module("Search", (hooks) => {
     QUnit.test("open search view autocomplete on paste value using mouse", async function (assert) {
         assert.expect(1);
 
-        const controlPanel = await makeWithSearch({
+        await makeWithSearch({
             serverData,
             resModel: "partner",
             Component: ControlPanel,
@@ -592,11 +585,11 @@ QUnit.module("Search", (hooks) => {
         });
 
         // Simulate paste text through the mouse.
-        const searchInput = controlPanel.el.querySelector(".o_searchview input");
+        const searchInput = target.querySelector(".o_searchview input");
         searchInput.value = "ABC";
         await triggerEvent(searchInput, null, "input", { inputType: "insertFromPaste" });
         assert.containsOnce(
-            controlPanel,
+            target,
             ".o_searchview_autocomplete",
             "should display autocomplete dropdown menu on paste in search view"
         );
@@ -623,20 +616,18 @@ QUnit.module("Search", (hooks) => {
 
         assert.deepEqual(getDomain(controlPanel), []);
 
-        await editSearch(controlPanel, "rec");
-        await click(controlPanel.el.querySelector(".o_searchview_autocomplete li:last-child"));
+        await editSearch(target, "rec");
+        await click(target.querySelector(".o_searchview_autocomplete li:last-child"));
 
         assert.deepEqual(getDomain(controlPanel), [["bar", "child_of", "rec"]]);
 
-        await removeFacet(controlPanel);
+        await removeFacet(target);
 
         assert.deepEqual(getDomain(controlPanel), []);
 
-        await editSearch(controlPanel, "rec");
-        await click(controlPanel.el.querySelector(".o_expand"));
-        await click(
-            controlPanel.el.querySelector(".o_searchview_autocomplete li.o_menu_item.o_indent")
-        );
+        await editSearch(target, "rec");
+        await click(target.querySelector(".o_expand"));
+        await click(target.querySelector(".o_searchview_autocomplete li.o_menu_item.o_indent"));
 
         assert.deepEqual(getDomain(controlPanel), [["bar", "child_of", 1]]);
     });
@@ -654,17 +645,14 @@ QUnit.module("Search", (hooks) => {
 
         assert.deepEqual(getDomain(controlPanel), []);
 
-        await editSearch(controlPanel, "null");
+        await editSearch(target, "null");
 
         assert.strictEqual(
-            controlPanel.el.querySelector(".o_searchview_autocomplete .o_selection_focus")
-                .innerText,
+            target.querySelector(".o_searchview_autocomplete .focus").innerText,
             "Search Foo for: null"
         );
 
-        await click(
-            controlPanel.el.querySelector(".o_searchview_autocomplete li.o_selection_focus a")
-        );
+        await click(target.querySelector(".o_searchview_autocomplete li.focus a"));
 
         assert.deepEqual(getDomain(controlPanel), [["foo", "ilike", "null"]]);
     });
@@ -687,35 +675,67 @@ QUnit.module("Search", (hooks) => {
 
         assert.deepEqual(getDomain(controlPanel), []);
 
-        await editSearch(controlPanel, "y");
+        await editSearch(target, "y");
 
-        assert.containsN(controlPanel, ".o_searchview_autocomplete li", 1);
+        assert.containsN(target, ".o_searchview_autocomplete li", 1);
         assert.strictEqual(
-            controlPanel.el.querySelector(".o_searchview_autocomplete li:last-child").innerText,
+            target.querySelector(".o_searchview_autocomplete li:last-child").innerText,
             "Search Bool for: Yes"
         );
 
         // select "Yes"
-        await click(controlPanel.el.querySelector(".o_searchview_autocomplete li:last-child"));
+        await click(target.querySelector(".o_searchview_autocomplete li:last-child"));
 
         assert.deepEqual(getDomain(controlPanel), [["bool", "=", true]]);
 
-        await removeFacet(controlPanel);
+        await removeFacet(target);
 
         assert.deepEqual(getDomain(controlPanel), []);
 
-        await editSearch(controlPanel, "No");
+        await editSearch(target, "No");
 
-        assert.containsN(controlPanel, ".o_searchview_autocomplete li", 1);
+        assert.containsN(target, ".o_searchview_autocomplete li", 1);
         assert.strictEqual(
-            controlPanel.el.querySelector(".o_searchview_autocomplete li:last-child").innerText,
+            target.querySelector(".o_searchview_autocomplete li:last-child").innerText,
             "Search Bool for: No"
         );
 
         // select "No"
-        await click(controlPanel.el.querySelector(".o_searchview_autocomplete li:last-child"));
+        await click(target.querySelector(".o_searchview_autocomplete li:last-child"));
 
         assert.deepEqual(getDomain(controlPanel), [["bool", "=", false]]);
+    });
+
+    QUnit.test("the search value is trimmed to remove unnecessary spaces", async function (assert) {
+        const controlPanel = await makeWithSearch({
+            serverData,
+            resModel: "partner",
+            Component: ControlPanel,
+            searchMenuTypes: [],
+            searchViewId: false,
+            searchViewArch: `
+                        <search>
+                            <field name="foo" filter_domain="[('foo', 'ilike', self)]"/>
+                        </search>
+                    `,
+        });
+        await editSearch(target, "bar");
+        await validateSearch(target);
+
+        assert.deepEqual(getDomain(controlPanel), [["foo", "ilike", "bar"]]);
+
+        await removeFacet(target);
+
+        assert.deepEqual(getDomain(controlPanel), []);
+
+        await editSearch(target, "   bar ");
+        await validateSearch(target);
+
+        assert.deepEqual(
+            getDomain(controlPanel),
+            [["foo", "ilike", "bar"]],
+            "the value has been trimmed"
+        );
     });
 
     QUnit.test("reference fields are supported in search view", async function (assert) {
@@ -742,17 +762,17 @@ QUnit.module("Search", (hooks) => {
 
         assert.deepEqual(getDomain(controlPanel), []);
 
-        await editSearch(controlPanel, "ref");
-        await validateSearch(controlPanel);
+        await editSearch(target, "ref");
+        await validateSearch(target);
 
         assert.deepEqual(getDomain(controlPanel), [["ref", "ilike", "ref"]]);
 
-        await removeFacet(controlPanel);
+        await removeFacet(target);
 
         assert.deepEqual(getDomain(controlPanel), []);
 
-        await editSearch(controlPanel, "ref002");
-        await validateSearch(controlPanel);
+        await editSearch(target, "ref002");
+        await validateSearch(target);
 
         assert.deepEqual(getDomain(controlPanel), [["ref", "ilike", "ref002"]]);
     });
@@ -768,7 +788,7 @@ QUnit.module("Search", (hooks) => {
                     await def;
                 }
             };
-            const controlPanel = await makeWithSearch({
+            await makeWithSearch({
                 serverData,
                 mockRPC,
                 resModel: "partner",
@@ -781,18 +801,18 @@ QUnit.module("Search", (hooks) => {
                     </search>
                 `,
             });
-            await editSearch(controlPanel, "rec");
-            await click(controlPanel.el.querySelector(".o_expand"));
+            await editSearch(target, "rec");
+            await click(target.querySelector(".o_expand"));
             await triggerEvent(
-                controlPanel.el,
+                target,
                 ".o_searchview_autocomplete li.o_menu_item:first-child",
                 "mousemove"
             );
-            assert.containsNone(controlPanel, ".o_searchview_autocomplete li.o_menu_item.o_indent");
+            assert.containsNone(target, ".o_searchview_autocomplete li.o_menu_item.o_indent");
 
             def.resolve();
             await nextTick();
-            assert.containsN(controlPanel, ".o_searchview_autocomplete li.o_menu_item.o_indent", 5);
+            assert.containsN(target, ".o_searchview_autocomplete li.o_menu_item.o_indent", 5);
         }
     );
 
@@ -807,7 +827,7 @@ QUnit.module("Search", (hooks) => {
                     await def;
                 }
             };
-            const controlPanel = await makeWithSearch({
+            await makeWithSearch({
                 serverData,
                 mockRPC,
                 resModel: "partner",
@@ -820,22 +840,22 @@ QUnit.module("Search", (hooks) => {
                     </search>
                 `,
             });
-            await editSearch(controlPanel, "rec");
-            await click(controlPanel.el.querySelector(".o_expand"));
-            const searchInput = controlPanel.el.querySelector(".o_searchview input");
+            await editSearch(target, "rec");
+            await click(target.querySelector(".o_expand"));
+            const searchInput = target.querySelector(".o_searchview input");
             await triggerEvent(searchInput, null, "keydown", { key: "ArrowDown" });
-            assert.containsNone(controlPanel, ".o_searchview_autocomplete li.o_menu_item.o_indent");
+            assert.containsNone(target, ".o_searchview_autocomplete li.o_menu_item.o_indent");
 
             def.resolve();
             await nextTick();
-            assert.containsN(controlPanel, ".o_searchview_autocomplete li.o_menu_item.o_indent", 5);
+            assert.containsN(target, ".o_searchview_autocomplete li.o_menu_item.o_indent", 5);
         }
     );
 
     QUnit.test("checks that an arrowDown always selects an item", async function (assert) {
         assert.expect(1);
 
-        const controlPanel = await makeWithSearch({
+        await makeWithSearch({
             serverData,
             resModel: "partner",
             Component: ControlPanel,
@@ -847,23 +867,23 @@ QUnit.module("Search", (hooks) => {
                     </search>
                 `,
         });
-        await editSearch(controlPanel, "rec");
-        await click(controlPanel.el.querySelector(".o_expand"));
-        click(controlPanel.el.querySelector(".o_expand"));
+        await editSearch(target, "rec");
+        await click(target.querySelector(".o_expand"));
+        click(target.querySelector(".o_expand"));
         triggerEvent(
-            controlPanel.el,
+            target,
             ".o_searchview_autocomplete li.o_menu_item.o_indent:last-child",
             "mousemove"
         );
-        const searchInput = controlPanel.el.querySelector(".o_searchview input");
+        const searchInput = target.querySelector(".o_searchview input");
         await triggerEvent(searchInput, null, "keydown", { key: "ArrowDown" });
-        assert.containsOnce(controlPanel, ".o_selection_focus");
+        assert.containsOnce(target, ".focus");
     });
 
     QUnit.test("checks that an arrowUp always selects an item", async function (assert) {
         assert.expect(1);
 
-        const controlPanel = await makeWithSearch({
+        await makeWithSearch({
             serverData,
             resModel: "partner",
             Component: ControlPanel,
@@ -875,21 +895,70 @@ QUnit.module("Search", (hooks) => {
                     </search>
                 `,
         });
-        await editSearch(controlPanel, "rec");
-        await click(controlPanel.el.querySelector(".o_expand"));
-        click(controlPanel.el.querySelector(".o_expand"));
+        await editSearch(target, "rec");
+        await click(target.querySelector(".o_expand"));
+        click(target.querySelector(".o_expand"));
         triggerEvent(
-            controlPanel.el,
+            target,
             ".o_searchview_autocomplete li.o_menu_item.o_indent:last-child",
             "mousemove"
         );
-        const searchInput = controlPanel.el.querySelector(".o_searchview input");
+        const searchInput = target.querySelector(".o_searchview input");
         await triggerEvent(searchInput, null, "keydown", { key: "ArrowUp" });
-        assert.containsOnce(controlPanel, ".o_selection_focus");
+        assert.containsOnce(target, ".focus");
+    });
+
+    QUnit.test("many2one_reference fields are supported in search view", async function (assert) {
+        serverData.models.partner.fields.res_id = {
+            string: "Resource ID",
+            type: "many2one_reference",
+        };
+
+        const controlPanel = await makeWithSearch({
+            serverData,
+            resModel: "partner",
+            Component: ControlPanel,
+            searchMenuTypes: [],
+            searchViewId: false,
+            searchViewArch: /*xml*/ `
+                <search>
+                    <field name="foo" />
+                    <field name="res_id" />
+                </search>
+            `,
+        });
+
+        assert.deepEqual(getDomain(controlPanel), []);
+
+        await editSearch(target, "12");
+        assert.deepEqual(
+            [...target.querySelectorAll(".o_searchview ul li.dropdown-item")].map(
+                (el) => el.innerText
+            ),
+            ["Search Foo for: 12", "Search Resource ID for: 12"]
+        );
+        await triggerEvent(target.querySelector(".o_searchview input"), null, "keydown", {
+            key: "ArrowDown",
+        });
+        await validateSearch(target);
+        assert.deepEqual(getDomain(controlPanel), [["res_id", "=", 12]]);
+
+        await removeFacet(target);
+        assert.deepEqual(getDomain(controlPanel), []);
+
+        await editSearch(target, "1a");
+        assert.deepEqual(
+            [...target.querySelectorAll(".o_searchview ul li.dropdown-item")].map(
+                (el) => el.innerText
+            ),
+            ["Search Foo for: 1a"]
+        );
+        await validateSearch(target);
+        assert.deepEqual(getDomain(controlPanel), [["foo", "ilike", "1a"]]);
     });
 
     QUnit.test("check kwargs of a rpc call with a domain", async function (assert) {
-        assert.expect(4);
+        assert.expect(3);
 
         const mockRPC = async (route, args) => {
             if (route.includes("/partner/name_search")) {
@@ -916,24 +985,22 @@ QUnit.module("Search", (hooks) => {
             searchViewId: false,
         });
 
-        assert.strictEqual(
-            document.activeElement,
-            controlPanel.el.querySelector(".o_searchview input")
-        );
-        await editSearch(controlPanel, "F");
+        await editSearch(target, "F");
         assert.containsN(
-            controlPanel,
+            target,
             ".o_searchview_autocomplete li",
             3,
             "there should be 3 result for 'F' in search bar autocomplete"
         );
-        await triggerEvent(document.activeElement, null, "keydown", { key: "ArrowDown" });
-        await triggerEvent(document.activeElement, null, "keydown", { key: "ArrowDown" });
-        await triggerEvent(document.activeElement, null, "keydown", { key: "ArrowRight" });
-        await triggerEvent(document.activeElement, null, "keydown", { key: "ArrowDown" });
-        await triggerEvent(document.activeElement, null, "keydown", { key: "ArrowDown" });
-        await triggerEvent(document.activeElement, null, "keydown", { key: "ArrowDown" });
-        await triggerEvent(document.activeElement, null, "keydown", { key: "Enter" });
+
+        const searchInput = target.querySelector(".o_searchview input");
+        await triggerEvent(searchInput, null, "keydown", { key: "ArrowDown" });
+        await triggerEvent(searchInput, null, "keydown", { key: "ArrowDown" });
+        await triggerEvent(searchInput, null, "keydown", { key: "ArrowRight" });
+        await triggerEvent(searchInput, null, "keydown", { key: "ArrowDown" });
+        await triggerEvent(searchInput, null, "keydown", { key: "ArrowDown" });
+        await triggerEvent(searchInput, null, "keydown", { key: "ArrowDown" });
+        await triggerEvent(searchInput, null, "keydown", { key: "Enter" });
         assert.deepEqual(getDomain(controlPanel), [["company", "=", 5]]);
     });
 

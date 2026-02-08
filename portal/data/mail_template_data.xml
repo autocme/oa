@@ -7,6 +7,7 @@
             <field name="model_id" ref="portal.model_portal_wizard_user"/>
             <field name="subject">Your account at {{ object.user_id.company_id.name }}</field>
             <field name="email_to">{{ object.user_id.email_formatted }}</field>
+            <field name="description">Invitation email to contacts to create a user account</field>
             <field name="body_html" type="html">
 <table border="0" cellpadding="0" cellspacing="0" style="padding-top: 16px; background-color: #F1F1F1; font-family:Verdana, Arial,sans-serif; color: #454748; width: 100%; border-collapse:separate;"><tr><td align="center">
 <table border="0" cellpadding="0" cellspacing="0" width="590" style="padding: 16px; background-color: white; color: #454748; border-collapse:separate;">
@@ -40,9 +41,6 @@
                         <div style="margin: 16px 0px 16px 0px; text-align: center;">
                             <a t-att-href="object.user_id.signup_url" style="display: inline-block; padding: 10px; text-decoration: none; font-size: 12px; background-color: #875A7B; color: #fff; border-radius: 5px;">
                                 <strong>Activate Account</strong>
-                            </a>
-                            <a href="/web/login" style="display: inline-block; padding: 10px; text-decoration: none; font-size: 12px;">
-                                <strong>Log in</strong>
                             </a>
                         </div>
                         <t t-out="object.wizard_id.welcome_message or ''">Welcome to our company's portal.</t>

@@ -3,17 +3,17 @@
 # 	* website_event_questions
 # 
 # Translators:
-# Martin Trigaux, 2021
-# Khwunchai Jaengsawang <khwunchai.j@ku.th>, 2021
-# Wichanon Jamwutthipreecha, 2021
+# Khwunchai Jaengsawang <khwunchai.j@ku.th>, 2022
+# Martin Trigaux, 2022
+# Wichanon Jamwutthipreecha, 2022
 # Rasareeyar Lappiam, 2024
 # 
 msgid ""
 msgstr ""
-"Project-Id-Version: Odoo Server 15.0\n"
+"Project-Id-Version: Odoo Server 16.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-08-14 15:43+0000\n"
-"PO-Revision-Date: 2021-09-14 12:28+0000\n"
+"POT-Creation-Date: 2024-02-06 13:32+0000\n"
+"PO-Revision-Date: 2022-09-22 05:56+0000\n"
 "Last-Translator: Rasareeyar Lappiam, 2024\n"
 "Language-Team: Thai (https://app.transifex.com/odoo/teams/41243/th/)\n"
 "MIME-Version: 1.0\n"
@@ -35,7 +35,7 @@ msgstr "โรคภูมิแพ้"
 #. module: website_event_questions
 #: model:ir.model.fields,field_description:website_event_questions.field_event_question_answer__name
 msgid "Answer"
-msgstr "ตอบ"
+msgstr "คำตอบ"
 
 #. module: website_event_questions
 #: model:ir.actions.act_window,name:website_event_questions.action_event_registration_report
@@ -51,12 +51,12 @@ msgstr "เฉลยคำตอบ"
 #: model_terms:ir.ui.view,arch_db:website_event_questions.event_event_view_form
 #: model_terms:ir.ui.view,arch_db:website_event_questions.event_question_view_form
 msgid "Answers"
-msgstr "ตอบ"
+msgstr "คำตอบ"
 
 #. module: website_event_questions
 #: model:ir.model.fields,field_description:website_event_questions.field_event_question__once_per_order
-msgid "Ask only once per order"
-msgstr "ถามเพียงครั้งเดียวต่อการสั่งซื้อ"
+msgid "Ask once per order"
+msgstr "ถามหนึ่งครั้งต่อคำสั่งซื้อ"
 
 #. module: website_event_questions
 #: model:ir.model.fields,field_description:website_event_questions.field_event_registration__registration_answer_ids
@@ -174,21 +174,26 @@ msgstr ""
 #: model:ir.model.fields,field_description:website_event_questions.field_event_question_answer____last_update
 #: model:ir.model.fields,field_description:website_event_questions.field_event_registration_answer____last_update
 msgid "Last Modified on"
-msgstr "แก้ไขครั้งสุดท้ายเมื่อ"
+msgstr "แก้ไขครั้งล่าสุดเมื่อ"
 
 #. module: website_event_questions
 #: model:ir.model.fields,field_description:website_event_questions.field_event_question__write_uid
 #: model:ir.model.fields,field_description:website_event_questions.field_event_question_answer__write_uid
 #: model:ir.model.fields,field_description:website_event_questions.field_event_registration_answer__write_uid
 msgid "Last Updated by"
-msgstr "อัปเดตครั้งสุดท้ายโดย"
+msgstr "อัปเดตครั้งล่าสุดโดย"
 
 #. module: website_event_questions
 #: model:ir.model.fields,field_description:website_event_questions.field_event_question__write_date
 #: model:ir.model.fields,field_description:website_event_questions.field_event_question_answer__write_date
 #: model:ir.model.fields,field_description:website_event_questions.field_event_registration_answer__write_date
 msgid "Last Updated on"
-msgstr "อัปเดตครั้งสุดท้ายเมื่อ"
+msgstr "อัปเดตครั้งล่าสุดเมื่อ"
+
+#. module: website_event_questions
+#: model:ir.model.fields,field_description:website_event_questions.field_event_question__is_mandatory_answer
+msgid "Mandatory Answer"
+msgstr "คำตอบบังคับ"
 
 #. module: website_event_questions
 #: model:event.question,title:website_event_questions.event_0_question_0
@@ -235,6 +240,7 @@ msgid "Question Type"
 msgstr "ประเภทคำถาม"
 
 #. module: website_event_questions
+#. odoo-python
 #: code:addons/website_event_questions/models/event_question.py:0
 #, python-format
 msgid "Question cannot be linked to both an Event and an Event Type."
@@ -262,7 +268,12 @@ msgstr "วิจัย"
 #. module: website_event_questions
 #: model:event.question.answer,name:website_event_questions.event_7_question_0_answer_1
 msgid "Sales"
-msgstr "ขาย"
+msgstr "การขาย"
+
+#. module: website_event_questions
+#: model_terms:ir.ui.view,arch_db:website_event_questions.event_registration_view_tree
+msgid "Selected Answers"
+msgstr "คำตอบที่เลือก"
 
 #. module: website_event_questions
 #: model_terms:ir.ui.view,arch_db:website_event_questions.event_registration_answer_view_tree
@@ -272,7 +283,7 @@ msgstr "คำตอบที่เลือก"
 #. module: website_event_questions
 #: model:ir.model.fields.selection,name:website_event_questions.selection__event_question__question_type__simple_choice
 msgid "Selection"
-msgstr "เลือก"
+msgstr "การเลือก"
 
 #. module: website_event_questions
 #: model:ir.model.fields,field_description:website_event_questions.field_event_question__sequence
@@ -308,7 +319,7 @@ msgstr "จะต้องมีค่าที่แนะนำหรือค
 #. module: website_event_questions
 #: model:ir.model.fields,field_description:website_event_questions.field_event_question__title
 msgid "Title"
-msgstr "คำนำหน้าชื่อ"
+msgstr "ชื่อเรื่อง"
 
 #. module: website_event_questions
 #: model_terms:ir.ui.view,arch_db:website_event_questions.event_event_view_form
@@ -332,8 +343,31 @@ msgid "Yes"
 msgstr "ใช่"
 
 #. module: website_event_questions
+#. odoo-python
 #: code:addons/website_event_questions/models/event_question.py:0
 #, python-format
 msgid ""
 "You cannot change the question type of a question that already has answers!"
 msgstr "คุณไม่สามารถเปลี่ยนประเภทคำถามของคำถามที่มีคำตอบอยู่แล้ว!"
+
+#. module: website_event_questions
+#. odoo-python
+#: code:addons/website_event_questions/models/event_question.py:0
+#, python-format
+msgid ""
+"You cannot delete a question that has already been answered by attendees."
+msgstr "คุณไม่สามารถลบคำถามที่ผู้เข้าร่วมตอบไปแล้วได้"
+
+#. module: website_event_questions
+#. odoo-python
+#: code:addons/website_event_questions/models/event_question.py:0
+#, python-format
+msgid ""
+"You cannot delete an answer that has already been selected by attendees."
+msgstr "คุณไม่สามารถลบคำตอบที่ผู้เข้าร่วมเลือกไว้แล้วได้"
+
+#. module: website_event_questions
+#: model_terms:ir.ui.view,arch_db:website_event_questions.event_event_view_form
+#: model_terms:ir.ui.view,arch_db:website_event_questions.event_question_view_form
+msgid "e.g. \"Do you have any diet restrictions?\""
+msgstr "เช่น “คุณมีข้อจำกัดเรื่องอาหารหรือไม่?”"

@@ -1,22 +1,21 @@
 /** @odoo-module **/
 
-import tour from 'web_tour.tour';
+import { patch } from '@web/core/utils/patch';
+import { VideoSelector } from '@web_editor/components/media_dialog/video_selector';
+import wTourUtils from 'website.tour_utils';
 
 const VIDEO_URL = 'https://www.youtube.com/watch?v=Dpq87YCHmJc';
 
 /**
  * The purpose of this tour is to check the media replacement flow.
  */
-tour.register('test_replace_media', {
+wTourUtils.registerWebsitePreviewTour('test_replace_media', {
     url: '/',
-    test: true
+    test: true,
+    edition: true,
 }, [
     {
-        content: "enter edit mode",
-        trigger: "a[data-action=edit]"
-    },
-    {
-        trigger: 'body.editor_enable.editor_has_snippets',
+        trigger: "body",
         run: function () {
             // Patch the VideoDialog so that it does not do external calls
             // during the test (note that we don't unpatch but as the patch
@@ -24,10 +23,10 @@ tour.register('test_replace_media', {
             // specific to an URL only, it is acceptable).
             // TODO if we ever give the possibility to upload its own videos,
             // this won't be necessary anymore.
-            odoo.__DEBUG__.services['wysiwyg.widgets.media'].VideoWidget.include({
-                _getVideoURLData: function (src) {
+            patch(VideoSelector.prototype, "Video selector patch", {
+                async _getVideoURLData(src, options) {
                     if (src === VIDEO_URL || src === 'about:blank') {
-                        return {type: 'youtube', embedURL: 'about:blank'};
+                        return {platform: 'youtube', embed_url: 'about:blank'};
                     }
                     return this._super(...arguments);
                 },
@@ -37,25 +36,32 @@ tour.register('test_replace_media', {
     {
         content: "drop picture snippet",
         trigger: "#oe_snippets .oe_snippet[name='Picture'] .oe_snippet_thumbnail:not(.o_we_already_dragging)",
-        moveTrigger: ".oe_drop_zone",
-        run: "drag_and_drop #wrap",
+        moveTrigger: "iframe .oe_drop_zone",
+        run: "drag_and_drop iframe #wrap",
     },
     {
         content: "select image",
-        trigger: "#wrapwrap .s_picture figure img",
+        trigger: "iframe .s_picture figure img",
     },
     {
         content: "ensure image size is displayed",
         trigger: "#oe_snippets we-title:contains('Image') .o_we_image_weight:contains('kb')",
         run: function () {}, // check
     },
+    wTourUtils.changeOption("ImageTools", 'we-select[data-name="shape_img_opt"] we-toggler'),
+    wTourUtils.changeOption("ImageTools", "we-button[data-set-img-shape]"),
     {
         content: "replace image",
         trigger: "#oe_snippets we-button[data-replace-media]",
     },
     {
-        content: "select gif",
-        trigger: ".o_select_media_dialog img[title='sample.gif']",
+        content: "select svg",
+        trigger: ".o_select_media_dialog img[title='sample.svg']",
+    },
+    {
+        content: "ensure the svg doesn't have a shape",
+        trigger: "iframe .s_picture figure img:not([data-shape])",
+        run: function () {}, // check
     },
     {
         content: "ensure image size is not displayed",
@@ -68,11 +74,11 @@ tour.register('test_replace_media', {
     },
     {
         content: "go to pictogram tab",
-        trigger: ".o_select_media_dialog .nav-link#editor-media-icon-tab",
+        trigger: ".o_select_media_dialog .nav-link:contains('Icons')",
     },
     {
         content: "select an icon",
-        trigger: ".o_select_media_dialog .tab-pane#editor-media-icon span.fa-lemon-o",
+        trigger: ".o_select_media_dialog:has(.nav-link.active:contains('Icons')) .tab-content span.fa-lemon-o",
     },
     {
         content: "ensure icon block is displayed",
@@ -81,11 +87,11 @@ tour.register('test_replace_media', {
     },
     {
         content: "select footer",
-        trigger: "#wrapwrap footer",
+        trigger: "iframe footer",
     },
     {
         content: "select icon",
-        trigger: "#wrapwrap .s_picture figure span.fa-lemon-o",
+        trigger: "iframe .s_picture figure span.fa-lemon-o",
     },
     {
         content: "ensure icon block is still displayed",
@@ -98,7 +104,7 @@ tour.register('test_replace_media', {
     },
     {
         content: "go to video tab",
-        trigger: ".o_select_media_dialog .nav-link#editor-media-video-tab",
+        trigger: ".o_select_media_dialog .nav-link:contains('Video')",
     },
     {
         content: "enter a video URL",
@@ -127,11 +133,11 @@ tour.register('test_replace_media', {
     },
     {
         content: "go to pictogram tab",
-        trigger: ".o_select_media_dialog .nav-link#editor-media-icon-tab",
+        trigger: ".o_select_media_dialog .nav-link:contains('Icons')",
     },
     {
         content: "select an icon",
-        trigger: ".o_select_media_dialog .tab-pane#editor-media-icon span.fa-lemon-o",
+        trigger: ".o_select_media_dialog:has(.nav-link.active:contains('Icons')) .tab-content span.fa-lemon-o",
     },
     {
         content: "ensure icon block is displayed",
@@ -140,11 +146,11 @@ tour.register('test_replace_media', {
     },
     {
         content: "select footer",
-        trigger: "#wrapwrap footer",
+        trigger: "iframe footer",
     },
     {
         content: "select icon",
-        trigger: "#wrapwrap .s_picture figure span.fa-lemon-o",
+        trigger: "iframe .s_picture figure span.fa-lemon-o",
     },
     {
         content: "ensure icon block is still displayed",

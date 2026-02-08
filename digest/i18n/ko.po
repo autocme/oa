@@ -3,20 +3,16 @@
 # 	* digest
 # 
 # Translators:
-# Martin Trigaux, 2021
-# Link Up링크업 <linkup.way@gmail.com>, 2021
-# Linkup <link-up@naver.com>, 2021
-# Seongseok Shin <shinss61@hotmail.com>, 2021
-# JH CHOI <hwangtog@gmail.com>, 2022
+# Martin Trigaux, 2022
 # Sarah Park, 2023
 # Daye Jeong, 2023
 # 
 msgid ""
 msgstr ""
-"Project-Id-Version: Odoo Server 15.0\n"
+"Project-Id-Version: Odoo Server 16.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2022-01-24 08:19+0000\n"
-"PO-Revision-Date: 2021-09-14 12:21+0000\n"
+"POT-Creation-Date: 2024-02-06 13:31+0000\n"
+"PO-Revision-Date: 2022-09-22 05:45+0000\n"
 "Last-Translator: Daye Jeong, 2023\n"
 "Language-Team: Korean (https://app.transifex.com/odoo/teams/41243/ko/)\n"
 "MIME-Version: 1.0\n"
@@ -24,6 +20,11 @@ msgstr ""
 "Content-Transfer-Encoding: \n"
 "Language: ko\n"
 "Plural-Forms: nplurals=1; plural=0;\n"
+
+#. module: digest
+#: model_terms:ir.ui.view,arch_db:digest.digest_digest_view_form
+msgid "<i class=\"fa fa-arrow-right\"/> Check our Documentation"
+msgstr ""
 
 #. module: digest
 #: model_terms:ir.ui.view,arch_db:digest.digest_mail_main
@@ -47,6 +48,7 @@ msgstr "활성화"
 
 #. module: digest
 #: model:ir.model.fields.selection,name:digest.selection__digest_digest__state__activated
+#: model_terms:ir.ui.view,arch_db:digest.digest_digest_view_search
 msgid "Activated"
 msgstr "활성화됨"
 
@@ -66,6 +68,7 @@ msgid "Available Fields"
 msgstr "사용 가능한 필드"
 
 #. module: digest
+#. odoo-python
 #: code:addons/digest/models/digest.py:0
 #, python-format
 msgid "Choose the metrics you care about"
@@ -87,6 +90,7 @@ msgid "Configure Digest Emails"
 msgstr "요약 이메일 구성"
 
 #. module: digest
+#. odoo-python
 #: code:addons/digest/models/digest.py:0
 #, python-format
 msgid "Connect"
@@ -96,13 +100,6 @@ msgstr "연결"
 #: model:ir.model.fields,field_description:digest.field_digest_digest__kpi_res_users_connected
 msgid "Connected Users"
 msgstr "연결된 사용자"
-
-#. module: digest
-#: model_terms:ir.ui.view,arch_db:digest.digest_digest_view_form
-msgid ""
-"Create or edit the mail template: you may get computed KPI's value using "
-"these fields:"
-msgstr "메일 서식 작성 또는 편집 : 다음 필드를 사용하여 계산된 KPI 값을 얻을 수 있습니다."
 
 #. module: digest
 #: model:ir.model.fields,field_description:digest.field_digest_digest__create_uid
@@ -122,17 +119,23 @@ msgid "Currency"
 msgstr "통화"
 
 #. module: digest
+#: model_terms:ir.ui.view,arch_db:digest.digest_digest_view_form
+msgid "Custom"
+msgstr "사용자 정의"
+
+#. module: digest
 #: model:ir.model.fields.selection,name:digest.selection__digest_digest__periodicity__daily
 msgid "Daily"
 msgstr "일별"
 
 #. module: digest
 #: model_terms:ir.ui.view,arch_db:digest.digest_digest_view_form
-msgid "Deactivate for everyone"
-msgstr "모든 사용자를 비활성화"
+msgid "Deactivate"
+msgstr "비활성화"
 
 #. module: digest
 #: model:ir.model.fields.selection,name:digest.selection__digest_digest__state__deactivated
+#: model_terms:ir.ui.view,arch_db:digest.digest_digest_view_search
 msgid "Deactivated"
 msgstr "비활성화"
 
@@ -151,16 +154,10 @@ msgstr "요약 이메일"
 #: model:ir.actions.act_window,name:digest.digest_digest_action
 #: model:ir.actions.server,name:digest.ir_cron_digest_scheduler_action_ir_actions_server
 #: model:ir.cron,cron_name:digest.ir_cron_digest_scheduler_action
-#: model:ir.cron,name:digest.ir_cron_digest_scheduler_action
 #: model:ir.model.fields,field_description:digest.field_res_config_settings__digest_emails
 #: model:ir.ui.menu,name:digest.digest_menu
 msgid "Digest Emails"
 msgstr "요약 이메일"
-
-#. module: digest
-#: model_terms:ir.ui.view,arch_db:digest.digest_digest_view_form
-msgid "Digest Name"
-msgstr ""
 
 #. module: digest
 #: model_terms:ir.ui.view,arch_db:digest.portal_digest_unsubscribed
@@ -175,10 +172,25 @@ msgid "Digest Tips"
 msgstr "요약 팁"
 
 #. module: digest
+#: model_terms:ir.ui.view,arch_db:digest.digest_digest_view_form
+msgid "Digest Title"
+msgstr "요약 제목"
+
+#. module: digest
 #: model:ir.model.fields,field_description:digest.field_digest_digest__display_name
 #: model:ir.model.fields,field_description:digest.field_digest_tip__display_name
 msgid "Display Name"
 msgstr "표시명"
+
+#. module: digest
+#: model_terms:ir.ui.view,arch_db:digest.res_config_settings_view_form
+msgid "Documentation"
+msgstr "문서화"
+
+#. module: digest
+#: model_terms:ir.ui.view,arch_db:digest.digest_digest_view_form
+msgid "Email Address"
+msgstr "이메일 주소"
 
 #. module: digest
 #: model_terms:ir.ui.view,arch_db:digest.digest_digest_view_form
@@ -200,22 +212,13 @@ msgstr ""
 "점으로 표시됩니다."
 
 #. module: digest
-#: model_terms:ir.ui.view,arch_db:digest.digest_digest_view_form
-msgid "How to customize your digest?"
-msgstr "요약을 사용자 정의하는 방법은?"
-
-#. module: digest
 #: model:ir.model.fields,field_description:digest.field_digest_digest__id
 #: model:ir.model.fields,field_description:digest.field_digest_tip__id
 msgid "ID"
 msgstr "ID"
 
 #. module: digest
-#: model_terms:ir.ui.view,arch_db:digest.digest_digest_view_form
-msgid "In order to build your customized digest, follow these steps:"
-msgstr "사용자 정의된 요약을 작성하려면 다음 단계를 따르십시오."
-
-#. module: digest
+#. odoo-python
 #: code:addons/digest/controllers/portal.py:0
 #, python-format
 msgid "Invalid periodicity set on digest"
@@ -258,18 +261,21 @@ msgid "Kpi Res Users Connected Value"
 msgstr "Kpi 등록 사용자 연결된 값"
 
 #. module: digest
+#. odoo-python
 #: code:addons/digest/models/digest.py:0
 #, python-format
 msgid "Last 24 hours"
 msgstr "최근 24시간"
 
 #. module: digest
+#. odoo-python
 #: code:addons/digest/models/digest.py:0
 #, python-format
 msgid "Last 30 Days"
 msgstr "최근 30일"
 
 #. module: digest
+#. odoo-python
 #: code:addons/digest/models/digest.py:0
 #, python-format
 msgid "Last 7 Days"
@@ -295,8 +301,8 @@ msgstr "최근 갱신 일자"
 
 #. module: digest
 #: model:ir.model.fields,field_description:digest.field_digest_digest__kpi_mail_message_total
-msgid "Messages"
-msgstr "메시지"
+msgid "Messages Sent"
+msgstr "메시지 전송 완료"
 
 #. module: digest
 #: model:ir.model.fields.selection,name:digest.selection__digest_digest__periodicity__monthly
@@ -318,8 +324,8 @@ msgstr "새 사용자는 다음과 같은 요약 이메일의 수신자로 자�
 
 #. module: digest
 #: model:ir.model.fields,field_description:digest.field_digest_digest__next_run_date
-msgid "Next Send Date"
-msgstr "다음 전송 날짜"
+msgid "Next Mailing Date"
+msgstr "다음 발송일"
 
 #. module: digest
 #: model_terms:ir.ui.view,arch_db:digest.digest_section_mobile
@@ -338,6 +344,7 @@ msgid "Powered by"
 msgstr "저작권자"
 
 #. module: digest
+#. odoo-python
 #: code:addons/digest/models/digest.py:0
 #, python-format
 msgid "Prefer a broader overview ?"
@@ -369,11 +376,6 @@ msgstr "<b>Odoo 모바일</b>를 통해 언제 어디서나 비즈니스를 운�
 
 #. module: digest
 #: model_terms:ir.ui.view,arch_db:digest.digest_digest_view_form
-msgid "Select your KPIs in the KPI's tab."
-msgstr "KPI 탭에서 KPI를 선택합니다."
-
-#. module: digest
-#: model_terms:ir.ui.view,arch_db:digest.digest_digest_view_form
 msgid "Send Now"
 msgstr "지금 보내기"
 
@@ -398,11 +400,7 @@ msgid "Status"
 msgstr "상태"
 
 #. module: digest
-#: model_terms:ir.ui.view,arch_db:digest.digest_digest_view_form
-msgid "Subscribe"
-msgstr "구독"
-
-#. module: digest
+#. odoo-python
 #: code:addons/digest/models/digest.py:0
 #, python-format
 msgid "Switch to weekly Digests"
@@ -464,6 +462,11 @@ msgid "Tip: Speed up your workflow with shortcuts"
 msgstr " 바로가기를 활용하여 업무 속도를 향상시킵니다"
 
 #. module: digest
+#: model_terms:ir.ui.view,arch_db:digest.digest_digest_view_tree
+msgid "Title"
+msgstr "제목"
+
+#. module: digest
 #: model_terms:digest.tip,tip_description:digest.digest_tip_digest_3
 msgid ""
 "Type \"@\" to notify someone in a message, or \"#\" to link to a channel. "
@@ -473,18 +476,13 @@ msgstr ""
 "수 있습니다."
 
 #. module: digest
-#: model_terms:ir.ui.view,arch_db:digest.digest_digest_view_form
-msgid "Unsubscribe me"
-msgstr "본인 구독 취소"
-
-#. module: digest
 #: model:ir.model.fields,help:digest.field_digest_tip__sequence
 msgid "Used to display digest tip in email template base on order"
 msgstr "다음 주문을 바탕으로 하는 이메일 서식에 요약 팁을 표시하는 데 사용"
 
 #. module: digest
 #: model:ir.model,name:digest.model_res_users
-msgid "Users"
+msgid "User"
 msgstr "사용자"
 
 #. module: digest
@@ -493,12 +491,19 @@ msgid "Users having already received this tip"
 msgstr "이 팁을 이미 받은 사용자입니다."
 
 #. module: digest
+#: model_terms:ir.ui.view,arch_db:digest.digest_digest_view_form
+msgid "Want to add your own KPIs?<br/>"
+msgstr "내 KPI를 추가하고 싶으신가요?<br/>"
+
+#. module: digest
+#. odoo-python
 #: code:addons/digest/models/digest.py:0
 #, python-format
 msgid "Want to customize this email?"
 msgstr "이 이메일을 맞춤 설정하고 싶으신가요?"
 
 #. module: digest
+#. odoo-python
 #: code:addons/digest/models/digest.py:0
 #, python-format
 msgid ""
@@ -533,13 +538,8 @@ msgstr ""
 
 #. module: digest
 #: model_terms:ir.ui.view,arch_db:digest.portal_digest_unsubscribed
-msgid "You have been successfully unsubscribed from"
-msgstr "다음에서 성공적으로 탈퇴했습니다."
-
-#. module: digest
-#: model_terms:ir.ui.view,arch_db:digest.digest_digest_view_form
-msgid "You may want to add new computed fields with Odoo Studio:"
-msgstr "Odoo Studio에서 새로운 계산된 필드를 추가할 수 있습니다."
+msgid "You have been successfully unsubscribed from:<br/>"
+msgstr "구독을 성공적으로 취소했습니다:<br/>"
 
 #. module: digest
 #: model:digest.digest,name:digest.digest_digest_default
@@ -552,52 +552,22 @@ msgid "e.g. Your Weekly Digest"
 msgstr "예. 주간 요약"
 
 #. module: digest
-#: model_terms:ir.ui.view,arch_db:digest.digest_digest_view_form
-msgid ""
-"first create a boolean field called\n"
-"                                                <code>kpi_myfield</code>\n"
-"                                                and display it in the KPI's tab;"
-msgstr ""
-"먼저 <code>kpi_myfield</code>라는 \n"
-"                                                     부울 필드를 작성하고 \n"
-"                                                     KPI 탭에 표시합니다. ;"
-
-#. module: digest
+#. odoo-python
 #: code:addons/digest/models/digest.py:0
 #, python-format
 msgid "monthly"
 msgstr "월간"
 
 #. module: digest
+#. odoo-python
 #: code:addons/digest/models/digest.py:0
 #, python-format
 msgid "quarterly"
 msgstr "분기별"
 
 #. module: digest
-#: model_terms:ir.ui.view,arch_db:digest.digest_digest_view_form
-msgid ""
-"then create a computed field called\n"
-"                                                <code>kpi_myfield_value</code>\n"
-"                                                that will compute your customized KPI."
-msgstr ""
-"그런 다음 사용자 정의된 KPI를 계산할 \n"
-"                                                   <code>kpi_myfield_value</code>\n"
-"                                                   라는 계산된 필드를 생성합니다."
-
-#. module: digest
+#. odoo-python
 #: code:addons/digest/models/digest.py:0
 #, python-format
 msgid "weekly"
 msgstr "매주"
-
-#. module: digest
-#: model_terms:ir.ui.view,arch_db:digest.digest_digest_view_form
-msgid ""
-"you must create 2 fields on the\n"
-"                                                <code>digest</code>\n"
-"                                                object:"
-msgstr ""
-"<code>요약</code> 개체에 \n"
-"                                                 다음 두 개의 필드를 \n"
-"                                                 생성해야 합니다. :"

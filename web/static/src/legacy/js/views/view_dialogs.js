@@ -9,6 +9,8 @@ import select_create_controllers_registry from 'web.select_create_controllers_re
 
 var _t = core._t;
 
+import { markup } from "@odoo/owl";
+
 /**
  * Class with everything which is common between FormViewDialog and
  * SelectCreateDialog.
@@ -119,6 +121,7 @@ var FormViewDialog = ViewDialog.extend({
                 text: options.close_text || (readonly ? _t("Close") : _t("Discard")),
                 classes: "btn-secondary o_form_button_cancel",
                 close: true,
+                hotkey: 'j',
                 click: function () {
                     if (!readonly) {
                         self.form_view.model.discardChanges(self.form_view.handle, {
@@ -132,6 +135,7 @@ var FormViewDialog = ViewDialog.extend({
                 options.buttons.unshift({
                     text: options.save_text || (multi_select ? _t("Save & Close") : _t("Save")),
                     classes: "btn-primary",
+                    hotkey: 's',
                     click: function () {
                         self._save().then(self.close.bind(self));
                     }
@@ -141,6 +145,7 @@ var FormViewDialog = ViewDialog.extend({
                     options.buttons.splice(1, 0, {
                         text: _t("Save & New"),
                         classes: "btn-primary",
+                        hotkey: 'n',
                         click: function () {
                             self._save()
                                 .then(function () {
@@ -186,7 +191,6 @@ var FormViewDialog = ViewDialog.extend({
     open: function () {
         var self = this;
         var _super = this._super.bind(this);
-        var FormView = view_registry.get('form');
         var fields_view_def;
         if (this.options.fields_view) {
             fields_view_def = Promise.resolve(this.options.fields_view);
@@ -198,6 +202,9 @@ var FormViewDialog = ViewDialog.extend({
             var refinedContext = _.pick(self.context, function (value, key) {
                 return key.indexOf('_view_ref') === -1;
             });
+            var xml = new DOMParser().parseFromString(viewInfo.arch, "text/xml")
+            var key = xml.documentElement.getAttribute("js_class");
+            var FormView = view_registry.get(key || 'form');
             var formview = new FormView(viewInfo, {
                 modelName: self.res_model,
                 context: refinedContext,
@@ -296,8 +303,9 @@ var FormViewDialog = ViewDialog.extend({
     _setRemoveButtonOption(options, btnClasses) {
         const self = this;
         options.buttons.push({
-            text: _t("Remove"),
+            text: options.removeButtonText || _t("Remove"),
             classes: 'btn-secondary ' + btnClasses,
+            hotkey: 'x',
             click: function() {
                 self._remove().then(self.close.bind(self));
             }
@@ -392,7 +400,7 @@ var SelectCreateDialog = ViewDialog.extend({
         var view = new ViewClass(fieldsViews[this.viewType], _.extend(viewOptions, {
             action: {
                 controlPanelFieldsView: fieldsViews.search,
-                help: _.str.sprintf("<p>%s</p>", _t("No records found!")),
+                help: markup(_.str.sprintf("<p>%s</p>", _.escape(_t("No records found!")))),
             },
             action_buttons: false,
             dynamicFilters: this.options.dynamicFilters,
@@ -452,12 +460,14 @@ var SelectCreateDialog = ViewDialog.extend({
             text: _t("Cancel"),
             classes: 'btn-secondary o_form_button_cancel',
             close: true,
+            hotkey: 'z'
         }];
         if (!this.options.no_create) {
             this.__buttons.unshift({
                 text: _t("Create"),
                 classes: 'btn-primary',
-                click: this.create_edit_record.bind(this)
+                click: this.create_edit_record.bind(this),
+                hotkey: 'c'
             });
         }
         if (!this.options.disable_multiple_selection) {
@@ -466,6 +476,7 @@ var SelectCreateDialog = ViewDialog.extend({
                 classes: 'btn-primary o_select_button',
                 disabled: true,
                 close: true,
+                hotkey: 'v',
                 click: async () => {
                     const values = await this.viewController.getSelectedRecordsWithDomain();
                     this.on_selected(values);

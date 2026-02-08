@@ -10,7 +10,9 @@ from collections import defaultdict
 from datetime import time, timedelta
 
 from odoo import api, fields, models
+from odoo.exceptions import UserError
 from odoo.osv import expression
+from odoo.tools import format_date
 from odoo.tools.translate import _
 from odoo.tools.float_utils import float_round
 from odoo.addons.resource.models.resource import Intervals
@@ -69,9 +71,9 @@ class HolidaysType(models.Model):
     virtual_leaves_taken = fields.Float(
         compute='_compute_leaves', string='Virtual Time Off Already Taken',
         help='Sum of validated and non validated time off requests.')
-    # KBA TODO in master: rename, change to int
-    group_days_allocation = fields.Float(
-        compute='_compute_group_days_allocation', string='Days Allocated')
+    closest_allocation_to_expire = fields.Many2one('hr.leave.allocation', 'Allocation', compute='_compute_leaves')
+    allocation_count = fields.Integer(
+        compute='_compute_allocation_count', string='Allocations')
     group_days_leave = fields.Float(
         compute='_compute_group_days_leave', string='Group Time Off')
     company_id = fields.Many2one('res.company', string='Company', default=lambda self: self.env.company)
@@ -87,17 +89,24 @@ class HolidaysType(models.Model):
         ('both', "By Employee's Approver and Time Off Officer")], default='hr', string='Leave Validation')
     requires_allocation = fields.Selection([
         ('yes', 'Yes'),
-        ('no', 'No Limit')], default="yes", required=True, string='Requires allocation')
+        ('no', 'No Limit')], default="yes", required=True, string='Requires allocation',
+        help="""Yes: Time off requests need to have a valid allocation.\n
+              No Limit: Time Off requests can be taken without any prior allocation.""")
     employee_requests = fields.Selection([
         ('yes', 'Extra Days Requests Allowed'),
-        ('no', 'Not Allowed')], default="no", required=True, string="Employee Requests")
+        ('no', 'Not Allowed')], default="no", required=True, string="Employee Requests",
+        help="""Extra Days Requests Allowed: User can request an allocation for himself.\n
+        Not Allowed: User cannot request an allocation.""")
     allocation_validation_type = fields.Selection([
-        ('no', 'No validation needed'),
         ('officer', 'Approved by Time Off Officer'),
-        ('set', "Set by Time Off Officer")], default='officer', string='Approval')
+        ('no', 'No validation needed')], default='no', string='Approval',
+        compute='_compute_allocation_validation_type', store=True, readonly=False,
+        help="""Select the level of approval needed in case of request by employee
+        - No validation needed: The employee's request is automatically approved.
+        - Approved by Time Off Officer: The employee's request need to be manually approved by the Time Off Officer.""")
     has_valid_allocation = fields.Boolean(compute='_compute_valid', search='_search_valid', help='This indicates if it is still possible to use this type of leave')
-    time_type = fields.Selection([('leave', 'Time Off'), ('other', 'Other')], default='leave', string="Kind of Leave",
-                                 help="Whether this should be computed as a holiday or as work time (eg: formation)")
+    time_type = fields.Selection([('other', 'Worked Time'), ('leave', 'Absence')], default='leave', string="Kind of Time Off",
+                                 help="The distinction between working time (ex. Attendance) and absence (ex. Training) will be used in the computation of Accrual's plan rate.")
     request_unit = fields.Selection([
         ('day', 'Day'),
         ('half_day', 'Half Day'),
@@ -173,6 +182,16 @@ class HolidaysType(models.Model):
             else:
                 holiday_type.has_valid_allocation = True
 
+    def _load_records_write(self, values):
+        if 'requires_allocation' in values and self.requires_allocation == values['requires_allocation']:
+            values.pop('requires_allocation')
+        return super()._load_records_write(values)
+
+    @api.constrains('requires_allocation')
+    def check_allocation_requirement_edit_validity(self):
+        if self.env['hr.leave'].search_count([('holiday_status_id', 'in', self.ids)], limit=1):
+            raise UserError(_("The allocation requirement of a time off type cannot be changed once leaves of that type have been taken. You should create a new time off type instead."))
+
     def _search_max_leaves(self, operator, value):
         value = float(value)
         employee_id = self._get_contextual_employee_id()
@@ -227,20 +246,23 @@ class HolidaysType(models.Model):
         return [('id', 'in', valid_leave_types.ids)]
 
     def _get_employees_days_per_allocation(self, employee_ids, date=None):
-        leaves = self.env['hr.leave'].search([
+        if not date:
+            date = fields.Date.to_date(self.env.context.get('default_date_from')) or fields.Date.context_today(self)
+
+        leaves_domain = [
             ('employee_id', 'in', employee_ids),
             ('state', 'in', ['confirm', 'validate1', 'validate']),
             ('holiday_status_id', 'in', self.ids)
-        ])
+        ]
+        if self.env.context.get("ignore_future"):
+            leaves_domain.append(('date_from', '<=', date))
+        leaves = self.env['hr.leave'].search(leaves_domain)
 
         allocations = self.env['hr.leave.allocation'].with_context(active_test=False).search([
             ('employee_id', 'in', employee_ids),
             ('state', 'in', ['validate']),
             ('holiday_status_id', 'in', self.ids),
         ])
-
-        if not date:
-            date = fields.Date.to_date(self.env.context.get('default_date_from')) or fields.Date.context_today(self)
 
         # The allocation_employees dictionary groups the allocations based on the employee and the holiday type
         # The structure is the following:
@@ -298,6 +320,7 @@ class HolidaysType(models.Model):
         #              |--virtual_remaining_leaves
         #              |--remaining_leaves
         #              |--max_leaves
+        #              |--closest_allocation_to_expire
         # - VALUES:
         # Integer representing the number of (virtual) remaining leaves, (virtual) leaves taken or max leaves for each allocation.
         # The unit is in hour or days depending on the leave type request unit
@@ -319,6 +342,7 @@ class HolidaysType(models.Model):
                         sorted_available_allocations = available_allocations.filtered('date_to').sorted(key='date_to')
                         sorted_available_allocations += available_allocations.filtered(lambda allocation: not allocation.date_to)
                         leave_intervals = leaves_interval_by_status[holiday_status_id]._items
+                        sorted_allocations_with_remaining_leaves = self.env['hr.leave.allocation']
                         for leave_interval in leave_intervals:
                             leaves = leave_interval[2]
                             for leave in leaves:
@@ -339,15 +363,18 @@ class HolidaysType(models.Model):
                                         if leave.state == 'validate':
                                             days_consumed[available_allocation]['leaves_taken'] += max_leaves
                                         leave_duration -= max_leaves
+                                        # Check valid allocations with still availabe leaves on it
+                                        if days_consumed[available_allocation]['virtual_remaining_leaves'] > 0 and available_allocation.date_to and available_allocation.date_to > date:
+                                            sorted_allocations_with_remaining_leaves |= available_allocation
                                     if leave_duration > 0:
                                         # There are not enough allocation for the number of leaves
                                         days_consumed[False]['virtual_remaining_leaves'] -= leave_duration
-                                        # Hack to make sure that a sum of several allocations does not hide an error
-                                        days_consumed['error']['virtual_remaining_leaves'] -= leave_duration
                                 else:
                                     days_consumed[False]['virtual_leaves_taken'] += leave_duration
                                     if leave.state == 'validate':
                                         days_consumed[False]['leaves_taken'] += leave_duration
+                        # no need to sort the allocations again
+                        allocations_days_consumed[employee_id][holiday_status_id][False]['closest_allocation_to_expire'] = sorted_allocations_with_remaining_leaves[0] if sorted_allocations_with_remaining_leaves else False
 
         # Future available leaves
         future_allocations_date_from = fields.datetime.combine(date, time.min)
@@ -362,6 +389,10 @@ class HolidaysType(models.Model):
                     future_allocations_date_to,
                     self.env['hr.leave'])])
                 search_date = date
+                closest_allocations = self.env['hr.leave.allocation']
+                for interval in intervals._items:
+                    closest_allocations |= interval[2]
+                allocations_with_remaining_leaves = self.env['hr.leave.allocation']
                 for interval_from, interval_to, interval_allocations in future_allocation_intervals._items:
                     if interval_from.date() > search_date:
                         continue
@@ -374,6 +405,7 @@ class HolidaysType(models.Model):
                         if interval_to != future_allocations_date_to
                         else {'days': float('inf'), 'hours': float('inf')}
                     )
+                    reached_remaining_days_limit = False
                     for allocation in interval_allocations:
                         if allocation.date_from > search_date:
                             continue
@@ -386,12 +418,17 @@ class HolidaysType(models.Model):
                             remaining_days_allocation = (allocation.number_of_hours_display - days_consumed['virtual_leaves_taken'])
                         if quantity_available <= remaining_days_allocation:
                             search_date = interval_to.date() + timedelta(days=1)
-                        days_consumed['virtual_remaining_leaves'] += min(quantity_available, remaining_days_allocation)
                         days_consumed['max_leaves'] = allocation.number_of_days if allocation.type_request_unit in ['day', 'half_day'] else allocation.number_of_hours_display
-                        days_consumed['remaining_leaves'] = days_consumed['max_leaves'] - days_consumed['leaves_taken']
+                        if not reached_remaining_days_limit:
+                            days_consumed['virtual_remaining_leaves'] += min(quantity_available, remaining_days_allocation)
+                            days_consumed['remaining_leaves'] = days_consumed['max_leaves'] - days_consumed['leaves_taken']
                         if remaining_days_allocation >= quantity_available:
-                            break
-
+                            reached_remaining_days_limit = True
+                        # Check valid allocations with still availabe leaves on it
+                        if days_consumed['virtual_remaining_leaves'] > 0 and allocation.date_to and allocation.date_to > date:
+                            allocations_with_remaining_leaves |= allocation
+                allocations_sorted = sorted(allocations_with_remaining_leaves, key=lambda a: a.date_to)
+                allocations_days_consumed[employee_id][holiday_status_id][False]['closest_allocation_to_expire'] = allocations_sorted[0] if allocations_sorted else False
         return allocations_days_consumed
 
 
@@ -405,6 +442,7 @@ class HolidaysType(models.Model):
                     'remaining_leaves': 0,
                     'virtual_remaining_leaves': 0,
                     'virtual_leaves_taken': 0,
+                    'closest_allocation_to_expire': False,
                 } for leave_type in self
             } for employee_id in employee_ids
         }
@@ -418,15 +456,17 @@ class HolidaysType(models.Model):
 
         for employee_id in allocations_days_consumed:
             for holiday_status_id in allocations_days_consumed[employee_id]:
-                if allocations_days_consumed[employee_id][holiday_status_id].get('error'):
-                    for leave_key in leave_keys:
-                        result[employee_id][holiday_status_id if isinstance(holiday_status_id, int) else holiday_status_id.id][leave_key] = allocations_days_consumed[employee_id][holiday_status_id]['error'][leave_key]
-                    continue
                 for allocation in allocations_days_consumed[employee_id][holiday_status_id]:
-                    if allocation and allocation.date_to and (allocation.date_to < date or allocation.date_from > date):
-                        continue
-                    for leave_key in leave_keys:
-                        result[employee_id][holiday_status_id if isinstance(holiday_status_id, int) else holiday_status_id.id][leave_key] += allocations_days_consumed[employee_id][holiday_status_id][allocation][leave_key]
+                    if allocation:
+                        if allocation.date_to and (allocation.date_to < date or allocation.date_from > date):
+                            continue
+                        for leave_key in leave_keys:
+                            result[employee_id][holiday_status_id if isinstance(holiday_status_id, int) else holiday_status_id.id][leave_key] += allocations_days_consumed[employee_id][holiday_status_id][allocation][leave_key]
+                    else:
+                        result[employee_id][holiday_status_id if isinstance(holiday_status_id, int) else holiday_status_id.id]['closest_allocation_to_expire'] = allocations_days_consumed[employee_id][holiday_status_id][False]['closest_allocation_to_expire']
+                        for leave_key in leave_keys:
+                            if allocations_days_consumed[employee_id][holiday_status_id][False].get(leave_key):
+                                result[employee_id][holiday_status_id if isinstance(holiday_status_id, int) else holiday_status_id.id][leave_key] = allocations_days_consumed[employee_id][holiday_status_id][False][leave_key]
 
         return result
 
@@ -437,6 +477,16 @@ class HolidaysType(models.Model):
 
     def _get_days_request(self):
         self.ensure_one()
+        result = self._get_employees_days_per_allocation(self.closest_allocation_to_expire.employee_id.ids)
+        closest_allocation_remaining = 0
+        if self.closest_allocation_to_expire:
+            # Shows the sum of allocation expiring on the same day as the closest to expire
+            employee_allocations = result[self.closest_allocation_to_expire.employee_id.id][self].items()
+            closest_allocation_remaining = sum(
+                res['virtual_remaining_leaves']
+                for alloc, res in employee_allocations
+                if alloc and alloc.date_to == self.closest_allocation_to_expire.date_to
+            )
         return (self.name, {
                 'remaining_leaves': ('%.2f' % self.remaining_leaves).rstrip('0').rstrip('.'),
                 'usable_remaining_leaves': ('%.2f' % self.virtual_remaining_leaves).rstrip('0').rstrip('.'),
@@ -444,6 +494,10 @@ class HolidaysType(models.Model):
                 'max_leaves': ('%.2f' % self.max_leaves).rstrip('0').rstrip('.'),
                 'leaves_taken': ('%.2f' % self.leaves_taken).rstrip('0').rstrip('.'),
                 'virtual_leaves_taken': ('%.2f' % self.virtual_leaves_taken).rstrip('0').rstrip('.'),
+                'leaves_requested': ('%.2f' % (self.virtual_leaves_taken - self.leaves_taken)).rstrip('0').rstrip('.'),
+                'leaves_approved': ('%.2f' % self.leaves_taken).rstrip('0').rstrip('.'),
+                'closest_allocation_remaining': ('%.2f' % closest_allocation_remaining).rstrip('0').rstrip('.'),
+                'closest_allocation_expire': format_date(self.env, self.closest_allocation_to_expire.date_to) if self.closest_allocation_to_expire.date_to else False,
                 'request_unit': self.request_unit,
                 'icon': self.sudo().icon_id.url,
                 }, self.requires_allocation, self.id)
@@ -473,21 +527,38 @@ class HolidaysType(models.Model):
             holiday_status.remaining_leaves = result.get('remaining_leaves', 0)
             holiday_status.virtual_remaining_leaves = result.get('virtual_remaining_leaves', 0)
             holiday_status.virtual_leaves_taken = result.get('virtual_leaves_taken', 0)
+            holiday_status.closest_allocation_to_expire = result.get('closest_allocation_to_expire', 0)
 
-    def _compute_group_days_allocation(self):
-        grouped_res = self.env['hr.leave.allocation'].read_group(
-            [('holiday_status_id', 'in', self.ids), ],
+    def _compute_allocation_count(self):
+        min_datetime = fields.Datetime.to_string(datetime.datetime.now().replace(month=1, day=1, hour=0, minute=0, second=0, microsecond=0))
+        max_datetime = fields.Datetime.to_string(datetime.datetime.now().replace(month=12, day=31, hour=23, minute=59, second=59))
+        domain = [
+            ('holiday_status_id', 'in', self.ids),
+            ('date_from', '>=', min_datetime),
+            ('date_from', '<=', max_datetime),
+            ('state', 'in', ('confirm', 'validate')),
+        ]
+
+        grouped_res = self.env['hr.leave.allocation']._read_group(
+            domain,
             ['holiday_status_id'],
             ['holiday_status_id'],
         )
         grouped_dict = dict((data['holiday_status_id'][0], data['holiday_status_id_count']) for data in grouped_res)
         for allocation in self:
-            allocation.group_days_allocation = grouped_dict.get(allocation.id, 0)
+            allocation.allocation_count = grouped_dict.get(allocation.id, 0)
 
     def _compute_group_days_leave(self):
-        grouped_res = self.env['hr.leave'].read_group(
-            [('holiday_status_id', 'in', self.ids),
-             ('date_from', '>=', fields.Datetime.to_string(datetime.datetime.now().replace(month=1, day=1, hour=0, minute=0, second=0, microsecond=0)))],
+        min_datetime = fields.Datetime.to_string(datetime.datetime.now().replace(month=1, day=1, hour=0, minute=0, second=0, microsecond=0))
+        max_datetime = fields.Datetime.to_string(datetime.datetime.now().replace(month=12, day=31, hour=23, minute=59, second=59))
+        domain = [
+            ('holiday_status_id', 'in', self.ids),
+            ('date_from', '>=', min_datetime),
+            ('date_from', '<=', max_datetime),
+            ('state', 'in', ('validate', 'validate1', 'confirm')),
+        ]
+        grouped_res = self.env['hr.leave']._read_group(
+            domain,
             ['holiday_status_id'],
             ['holiday_status_id'],
         )
@@ -496,13 +567,22 @@ class HolidaysType(models.Model):
             allocation.group_days_leave = grouped_dict.get(allocation.id, 0)
 
     def _compute_accrual_count(self):
-        accrual_allocations = self.env['hr.leave.accrual.plan'].read_group([('time_off_type_id', 'in', self.ids)], ['time_off_type_id'], ['time_off_type_id'])
+        accrual_allocations = self.env['hr.leave.accrual.plan']._read_group([('time_off_type_id', 'in', self.ids)], ['time_off_type_id'], ['time_off_type_id'])
         mapped_data = dict((data['time_off_type_id'][0], data['time_off_type_id_count']) for data in accrual_allocations)
         for leave_type in self:
             leave_type.accrual_count = mapped_data.get(leave_type.id, 0)
 
+    @api.depends('employee_requests')
+    def _compute_allocation_validation_type(self):
+        for leave_type in self:
+            if leave_type.employee_requests == 'no':
+                leave_type.allocation_validation_type = 'officer'
+
+    def requested_name_get(self):
+        return self._context.get('holiday_status_name_get', True) and self._context.get('employee_id')
+
     def name_get(self):
-        if not self._context.get('employee_id'):
+        if not self.requested_name_get():
             # leave counts is based on employee_id, would be inaccurate if not based on correct employee
             return super(HolidaysType, self).name_get()
         res = []
@@ -543,12 +623,17 @@ class HolidaysType(models.Model):
     def action_see_days_allocated(self):
         self.ensure_one()
         action = self.env["ir.actions.actions"]._for_xml_id("hr_holidays.hr_leave_allocation_action_all")
+        date_from = fields.Datetime.to_string(
+                datetime.datetime.now().replace(month=1, day=1, hour=0, minute=0, second=0, microsecond=0))
         action['domain'] = [
             ('holiday_status_id', 'in', self.ids),
         ]
         action['context'] = {
+            'employee_id': False,
             'default_holiday_type': 'department',
             'default_holiday_status_id': self.ids[0],
+            'search_default_approved_state': 1,
+            'search_default_year': 1,
         }
         return action
 
@@ -557,10 +642,11 @@ class HolidaysType(models.Model):
         action = self.env["ir.actions.actions"]._for_xml_id("hr_holidays.hr_leave_action_action_approve_department")
         action['domain'] = [
             ('holiday_status_id', '=', self.ids[0]),
-            ('date_from', '>=', fields.Datetime.to_string(datetime.datetime.now().replace(month=1, day=1, hour=0, minute=0, second=0, microsecond=0)))
         ]
         action['context'] = {
             'default_holiday_status_id': self.ids[0],
+            'search_default_need_approval_approved': 1,
+            'search_default_this_year': 1,
         }
         return action
 

@@ -4,6 +4,7 @@ import {
     createFile,
     inputFiles,
 } from 'web.test_utils_file';
+import { contains } from '@web/../tests/utils';
 
 import tour from 'web_tour.tour';
 
@@ -16,8 +17,16 @@ import tour from 'web_tour.tour';
 tour.register('mail/static/tests/tours/mail_full_composer_test_tour.js', {
     test: true,
 }, [{
+    content: "Wait for the chatter to be fully loaded",
+    trigger: ".o_Chatter",
+    async run() {
+        await contains(".o_Message", { count: 1 });
+        document.body.setAttribute("data-found-message", 1);
+    },
+}, {
     content: "Click on Send Message",
     trigger: '.o_ChatterTopbar_buttonSendMessage',
+    extra_trigger: 'body[data-found-message=1]',
 }, {
     content: "Write something in composer",
     trigger: '.o_ComposerTextInput_textarea',
@@ -31,8 +40,10 @@ tour.register('mail/static/tests/tours/mail_full_composer_test_tour.js', {
             contentType: 'text/plain',
             name: 'text.txt',
         });
+        const messaging = await odoo.__DEBUG__.messaging;
+        const uploader = messaging.models['ComposerView'].all()[0].fileUploader;
         inputFiles(
-            document.querySelector('.o_FileUploader_input'),
+            uploader.fileInput,
             [file]
         );
     },
@@ -46,20 +57,20 @@ tour.register('mail/static/tests/tours/mail_full_composer_test_tour.js', {
     run() {},
 }, {
     content: "Check subject is autofilled",
-    trigger: 'input[name="subject"]',
+    trigger: '[name="subject"] input',
     run() {
-        const subjectValue = document.querySelector('input[name="subject"]').value;
-        if (subjectValue !== "Re: Test User") {
+        const subjectValue = document.querySelector('[name="subject"] input').value;
+        if (subjectValue !== "Re: Jane") {
             console.error(
-                `Full composer should have "Re: Test User" in subject input (actual: ${subjectValue})`
+                `Full composer should have "Re: Jane" in subject input (actual: ${subjectValue})`
             );
         }
     },
 }, {
     content: "Check composer content is kept",
-    trigger: '.oe_form_field[name="body"]',
+    trigger: '.o_field_html[name="body"]',
     run() {
-        const bodyContent = document.querySelector('.oe_form_field[name="body"]').textContent;
+        const bodyContent = document.querySelector('.o_field_html[name="body"]').textContent;
         if (!bodyContent.includes("blahblah")) {
             console.error(
                 `Full composer should contain text from small composer ("blahblah") in body input (actual: ${bodyContent})`

@@ -8,8 +8,6 @@ except ImportError:
     phonenumbers = None
 
 from odoo.tests.common import BaseCase
-from odoo.tools.parse_version import parse_version
-from odoo.addons.phone_validation.lib import phonenumbers_patch
 
 class TestPhonenumbersPatch(BaseCase):
 
@@ -58,7 +56,7 @@ class TestPhonenumbersPatch(BaseCase):
         :param parse_test_lines: An iterable consisting of PhoneInputOutputLine
         """
         if not phonenumbers:
-            self.skipTest(f'Cannot test parsing without phonenumbers module installed.')
+            self.skipTest('Cannot test parsing without phonenumbers module installed.')
 
         for parse_test_line in parse_test_lines:
             with self.subTest(**parse_test_line._asdict()):
@@ -96,16 +94,16 @@ class TestPhonenumbersPatch(BaseCase):
 
     def test_region_CI_monkey_patch(self):
         """Makes sure that patch for Ivory Coast phone numbers work"""
-        parse_test_lines_CI=(
+        parse_test_lines_CI = (
             self.PhoneInputOutputLine("+2250506007995"),
-            self.PhoneInputOutputLine("0506007995", region='CI' ,gt_national_number=506007995, gt_country_code=225, gt_italian_leading_zero=True),
+            self.PhoneInputOutputLine("0506007995", region='CI', gt_national_number=506007995, gt_country_code=225, gt_italian_leading_zero=True),
             self.PhoneInputOutputLine("+225 05 20 963 777", gt_national_number=520963777, gt_country_code=225, gt_italian_leading_zero=True),
         )
         self._assert_parsing_phonenumbers(parse_test_lines_CI)
 
     def test_region_CO_monkey_patch(self):
         """Makes sure that patch for Colombian phone numbers work"""
-        parse_test_lines_CO=(
+        parse_test_lines_CO = (
             self.PhoneInputOutputLine("3241234567", "CO"),
             self.PhoneInputOutputLine("+57 324 1234567"),
         )
@@ -123,20 +121,20 @@ class TestPhonenumbersPatch(BaseCase):
 
     def test_region_MA_monkey_patch(self):
         """Makes sure that patch for Morocco phone numbers work"""
-        parse_test_lines_MU = (
+        parse_test_lines_MA = (
             self.PhoneInputOutputLine("+212 6 23 24 56 28"),
             self.PhoneInputOutputLine("+212603190852"),
-            self.PhoneInputOutputLine("+212780137429", region="MA"),
-            self.PhoneInputOutputLine("+212546547649", region="MU"),
-            self.PhoneInputOutputLine("+212690979618", region="MU"),
+            self.PhoneInputOutputLine("+212780137429"),
+            self.PhoneInputOutputLine("+212546547649"),
+            self.PhoneInputOutputLine("+212690979618"),
         )
-        self._assert_parsing_phonenumbers(parse_test_lines_MU)
+        self._assert_parsing_phonenumbers(parse_test_lines_MA)
 
     def test_region_MU_monkey_patch(self):
         """Makes sure that patch for Mauritius phone numbers work"""
         gt_MU_number = 57654321  # what national number we expect after parsing
-        gt_MU_code = 230 # what country code we expect after parsing
-        parse_test_lines_MU=(
+        gt_MU_code = 230  # what country code we expect after parsing
+        parse_test_lines_MU = (
             self.PhoneInputOutputLine("+23057654321", gt_national_number=gt_MU_number, gt_country_code=gt_MU_code),
             self.PhoneInputOutputLine("+2305 76/54 3-21 ", gt_national_number=gt_MU_number, gt_country_code=gt_MU_code),
             self.PhoneInputOutputLine("57654321", region="MU", gt_national_number=gt_MU_number, gt_country_code=gt_MU_code),
@@ -163,7 +161,7 @@ class TestPhonenumbersPatch(BaseCase):
 
     def test_region_PA_monkey_patch(self):
         """Makes sure that patch for Panama's phone numbers work"""
-        parse_test_lines_PA=(
+        parse_test_lines_PA = (
             self.PhoneInputOutputLine("6198 5462", "PA", gt_country_code=507),
             self.PhoneInputOutputLine("+507 833 8744", gt_national_number=8338744),
         )
@@ -171,7 +169,7 @@ class TestPhonenumbersPatch(BaseCase):
 
     def test_region_SN_monkey_patch(self):
         """Makes sure that patch for Senegalese phone numbers work"""
-        parse_test_lines_SN=(
+        parse_test_lines_SN = (
             self.PhoneInputOutputLine("+221750142092"),
             self.PhoneInputOutputLine("+22176 707 0065"),
         )

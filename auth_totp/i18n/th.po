@@ -3,16 +3,17 @@
 # 	* auth_totp
 # 
 # Translators:
-# Martin Trigaux, 2021
+# Martin Trigaux, 2022
 # Wichanon Jamwutthipreecha, 2022
+# Rasareeyar Lappiam, 2023
 # 
 msgid ""
 msgstr ""
-"Project-Id-Version: Odoo Server saas~14.5\n"
+"Project-Id-Version: Odoo Server 16.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2021-09-14 10:28+0000\n"
-"PO-Revision-Date: 2021-09-14 12:20+0000\n"
-"Last-Translator: Wichanon Jamwutthipreecha, 2022\n"
+"POT-Creation-Date: 2025-02-10 08:26+0000\n"
+"PO-Revision-Date: 2022-09-22 05:45+0000\n"
+"Last-Translator: Rasareeyar Lappiam, 2023\n"
 "Language-Team: Thai (https://app.transifex.com/odoo/teams/41243/th/)\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
@@ -21,6 +22,7 @@ msgstr ""
 "Plural-Forms: nplurals=1; plural=0;\n"
 
 #. module: auth_totp
+#. odoo-python
 #: code:addons/auth_totp/controllers/home.py:0
 #, python-format
 msgid "%(browser)s on %(platform)s"
@@ -32,14 +34,41 @@ msgid "2-Factor Setup Wizard"
 msgstr "วิซาร์ดการตั้งค่า 2-Factor"
 
 #. module: auth_totp
+#. odoo-python
 #: code:addons/auth_totp/wizard/auth_totp_wizard.py:0
 #, python-format
 msgid "2-Factor authentication is now enabled."
 msgstr "เปิดใช้งานการตรวจสอบสิทธิ์แบบ 2 ปัจจัยแล้ว"
 
 #. module: auth_totp
-#: model_terms:ir.ui.view,arch_db:auth_totp.view_totp_field
 #: model_terms:ir.ui.view,arch_db:auth_totp.view_totp_form
+msgid ""
+"<i title=\"Documentation\" class=\"fa fa-fw o_button_icon fa-info-circle\"/>\n"
+"                                    Learn More"
+msgstr ""
+"<i title=\"Documentation\" class=\"fa fa-fw o_button_icon fa-info-circle\"/>\n"
+"                                    เรียนรู้เพิ่มเติม"
+
+#. module: auth_totp
+#: model_terms:ir.ui.view,arch_db:auth_totp.view_totp_field
+msgid ""
+"<i title=\"Documentation\" class=\"fa fa-fw o_button_icon fa-info-circle\"/>\n"
+"                            Learn More"
+msgstr ""
+"<i title=\"Documentation\" class=\"fa fa-fw o_button_icon fa-info-circle\"/>\n"
+"                            เรียนรู้เพิ่มเติม"
+
+#. module: auth_totp
+#: model_terms:ir.ui.view,arch_db:auth_totp.view_totp_form
+msgid ""
+"<span attrs=\"{'invisible': [('totp_enabled', '=', False)]}\" class=\"text-"
+"muted\">This account is protected!</span>"
+msgstr ""
+"<span attrs=\"{'invisible': [('totp_enabled', '=', False)]}\" class=\"text-"
+"muted\">บัญชีนี้มีการป้องกัน!</span>"
+
+#. module: auth_totp
+#: model_terms:ir.ui.view,arch_db:auth_totp.view_totp_field
 msgid ""
 "<span attrs=\"{'invisible': [('totp_enabled', '=', False)]}\" class=\"text-"
 "muted\">Your account is protected!</span>"
@@ -85,6 +114,7 @@ msgid "Activate"
 msgstr "เปิดใช้งาน"
 
 #. module: auth_totp
+#: model_terms:ir.ui.view,arch_db:auth_totp.view_totp_field
 #: model_terms:ir.ui.view,arch_db:auth_totp.view_totp_form
 msgid "Added On"
 msgstr "เพิ่มลงบน"
@@ -92,11 +122,18 @@ msgstr "เพิ่มลงบน"
 #. module: auth_totp
 #: model_terms:ir.ui.view,arch_db:auth_totp.view_totp_form
 msgid ""
-"Are you sure? Two-factor authentication will be required again on all your "
+"Are you sure? The user may be asked to enter two-factor codes again on those"
+" devices"
+msgstr ""
+"คุณแน่ใจไหม? ผู้ใช้อาจถูกขอให้ป้อนรหัส two-factor อีกครั้งบนอุปกรณ์เหล่านั้น"
+
+#. module: auth_totp
+#: model_terms:ir.ui.view,arch_db:auth_totp.view_totp_field
+msgid ""
+"Are you sure? You may be asked to enter two-factor codes again on those "
 "devices"
 msgstr ""
-"คุณแน่ใจไหม? "
-"คุณจะต้องใช้การตรวจสอบสิทธิ์แบบสองปัจจัยอีกครั้งบนอุปกรณ์ทั้งหมดของคุณ"
+"คุณแน่ใจไหม? คุณอาจถูกขอให้ป้อนรหัส two-factor อีกครั้งบนอุปกรณ์เหล่านั้น"
 
 #. module: auth_totp
 #: model_terms:ir.ui.view,arch_db:auth_totp.auth_totp_form
@@ -115,7 +152,6 @@ msgstr "การตั้งค่าแอป Authenticator"
 
 #. module: auth_totp
 #: model_terms:ir.ui.view,arch_db:auth_totp.auth_totp_form
-#: model_terms:ir.ui.view,arch_db:auth_totp.view_totp_form
 #: model_terms:ir.ui.view,arch_db:auth_totp.view_totp_wizard
 msgid "Cancel"
 msgstr "ยกเลิก"
@@ -151,9 +187,10 @@ msgid "Description"
 msgstr "คำอธิบาย"
 
 #. module: auth_totp
+#: model_terms:ir.ui.view,arch_db:auth_totp.view_totp_field
 #: model_terms:ir.ui.view,arch_db:auth_totp.view_totp_form
-msgid "Device Name"
-msgstr "ชื่ออุปกรณ์"
+msgid "Device"
+msgstr "อุปกรณ์"
 
 #. module: auth_totp
 #: model_terms:ir.ui.view,arch_db:auth_totp.view_totp_field
@@ -200,6 +237,7 @@ msgid "ID"
 msgstr "ไอดี"
 
 #. module: auth_totp
+#. odoo-python
 #: code:addons/auth_totp/controllers/home.py:0
 #, python-format
 msgid "Invalid authentication code format."
@@ -230,7 +268,7 @@ msgstr "เรียนรู้เพิ่มเติม"
 
 #. module: auth_totp
 #: model_terms:ir.ui.view,arch_db:auth_totp.auth_totp_form
-msgid "Login"
+msgid "Log in"
 msgstr "เข้าสู่ระบบ"
 
 #. module: auth_totp
@@ -254,11 +292,13 @@ msgid "Qrcode"
 msgstr "Qrcode"
 
 #. module: auth_totp
+#: model_terms:ir.ui.view,arch_db:auth_totp.view_totp_field
 #: model_terms:ir.ui.view,arch_db:auth_totp.view_totp_form
 msgid "Revoke"
 msgstr "เพิกถอน"
 
 #. module: auth_totp
+#: model_terms:ir.ui.view,arch_db:auth_totp.view_totp_field
 #: model_terms:ir.ui.view,arch_db:auth_totp.view_totp_form
 msgid "Revoke All"
 msgstr "เพิกถอนทั้งหมด"
@@ -274,6 +314,7 @@ msgid "Secret"
 msgstr "ความลับ"
 
 #. module: auth_totp
+#. odoo-python
 #: code:addons/auth_totp/wizard/auth_totp_wizard.py:0
 #, python-format
 msgid "The verification code should only contain numbers"
@@ -294,17 +335,14 @@ msgid "Totp Secret"
 msgstr "Totp Secret"
 
 #. module: auth_totp
-#: model_terms:ir.ui.view,arch_db:auth_totp.view_totp_form
-msgid "Trusted Device"
-msgstr "อุปกรณ์ที่เชื่อถือได้"
-
-#. module: auth_totp
 #: model:ir.model.fields,field_description:auth_totp.field_res_users__totp_trusted_device_ids
+#: model_terms:ir.ui.view,arch_db:auth_totp.view_totp_field
 #: model_terms:ir.ui.view,arch_db:auth_totp.view_totp_form
 msgid "Trusted Devices"
 msgstr "อุปกรณ์ที่เชื่อถือได้"
 
 #. module: auth_totp
+#. odoo-python
 #: code:addons/auth_totp/models/res_users.py:0
 #, python-format
 msgid "Two-Factor Authentication Activation"
@@ -332,12 +370,12 @@ msgstr ""
 #: model_terms:ir.ui.view,arch_db:auth_totp.view_totp_field
 msgid ""
 "Two-factor Authentication (\"2FA\") is a system of double authentication.\n"
-"                            The first one is done with your password and the second one with a code you get from a dedicated mobile app.\n"
-"                            Popular ones include Authy, Google Authenticator or the Microsoft Authenticator."
+"                        The first one is done with your password and the second one with a code you get from a dedicated mobile app.\n"
+"                        Popular ones include Authy, Google Authenticator or the Microsoft Authenticator."
 msgstr ""
-"การรับรองความถูกต้องแบบสองปัจจัย (\"2FA\") เป็นระบบการตรวจสอบสิทธิ์แบบคู่\n"
-"                            อันแรกใช้รหัสผ่านของคุณและอันที่สองใช้โค้ดที่คุณได้รับจากแอปมือถือเฉพาะ\n"
-"                            รายการยอดนิยม ได้แก่ Authy, Google Authenticator หรือ Microsoft Authenticator"
+"การตรวจสอบสิทธิ์แบบ Two-factor (\"2FA\") คือระบบการตรวจสอบสิทธิ์แบบสองชั้น\n"
+"                        อันแรกใช้รหัสผ่านของคุณและอันที่สองใช้รหัสที่คุณได้รับจากแอปมือถือโดยเฉพาะ\n"
+"                        แอปยอดนิยม ได้แก่ Authy, Google Authenticator หรือ Microsoft Authenticator"
 
 #. module: auth_totp
 #: model:ir.model.fields,field_description:auth_totp.field_res_users__totp_enabled
@@ -355,12 +393,14 @@ msgid "Two-factor authentication Enabled"
 msgstr "เปิดใช้งานการรับรองความถูกต้องแบบสองปัจจัย"
 
 #. module: auth_totp
+#. odoo-python
 #: code:addons/auth_totp/models/res_users.py:0
 #, python-format
 msgid "Two-factor authentication already enabled"
 msgstr "เปิดใช้งานการรับรองความถูกต้องแบบสองปัจจัยแล้ว"
 
 #. module: auth_totp
+#. odoo-python
 #: code:addons/auth_totp/models/res_users.py:0
 #, python-format
 msgid "Two-factor authentication can only be enabled for yourself"
@@ -368,6 +408,7 @@ msgstr ""
 "การตรวจสอบสิทธิ์แบบสองปัจจัยสามารถเปิดใช้งานได้สำหรับตัวคุณเองเท่านั้น"
 
 #. module: auth_totp
+#. odoo-python
 #: code:addons/auth_totp/models/res_users.py:0
 #, python-format
 msgid "Two-factor authentication disabled for the following user(s): %s"
@@ -379,14 +420,10 @@ msgid "Url"
 msgstr "Url"
 
 #. module: auth_totp
+#: model:ir.model,name:auth_totp.model_res_users
 #: model:ir.model.fields,field_description:auth_totp.field_auth_totp_device__user_id
 #: model:ir.model.fields,field_description:auth_totp.field_auth_totp_wizard__user_id
 msgid "User"
-msgstr "ผู้ใช้"
-
-#. module: auth_totp
-#: model:ir.model,name:auth_totp.model_res_users
-msgid "Users"
 msgstr "ผู้ใช้"
 
 #. module: auth_totp
@@ -396,11 +433,12 @@ msgid "Verification Code"
 msgstr "โค้ดยืนยัน"
 
 #. module: auth_totp
+#. odoo-python
 #: code:addons/auth_totp/models/res_users.py:0
 #: code:addons/auth_totp/wizard/auth_totp_wizard.py:0
 #, python-format
 msgid "Verification failed, please double-check the 6-digit code"
-msgstr "การยืนยันล้มเหลว โปรดตรวจสอบรหัส 6 หลักอีกครั้ง"
+msgstr "การยืนยันล้มเหลว โปรดตรวจสอบ 6 หลักอีกครั้ง"
 
 #. module: auth_totp
 #: model_terms:ir.ui.view,arch_db:auth_totp.auth_totp_form

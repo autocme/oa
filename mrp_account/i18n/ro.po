@@ -3,19 +3,18 @@
 # 	* mrp_account
 # 
 # Translators:
-# Cozmin Candea <office@terrabit.ro>, 2021
-# Hongu Cosmin <cosmin513@gmail.com>, 2021
+# Hongu Cosmin <cosmin513@gmail.com>, 2022
+# Cozmin Candea <office@terrabit.ro>, 2022
 # Martin Trigaux, 2023
 # Dorin Hongu <dhongu@gmail.com>, 2024
-# Wil Odoo, 2024
 # 
 msgid ""
 msgstr ""
-"Project-Id-Version: Odoo Server 15.0\n"
+"Project-Id-Version: Odoo Server 16.0+e\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-08-14 15:43+0000\n"
-"PO-Revision-Date: 2021-09-14 12:24+0000\n"
-"Last-Translator: Wil Odoo, 2024\n"
+"POT-Creation-Date: 2022-12-15 12:51+0000\n"
+"PO-Revision-Date: 2022-09-22 05:53+0000\n"
+"Last-Translator: Dorin Hongu <dhongu@gmail.com>, 2024\n"
 "Language-Team: Romanian (https://app.transifex.com/odoo/teams/41243/ro/)\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
@@ -103,27 +102,13 @@ msgstr "Cost Înregistrat"
 
 #. module: mrp_account
 #: model:ir.model.fields,field_description:mrp_account.field_mrp_production__extra_cost
-msgid "Extra Cost"
-msgstr "Cost suplimentar"
-
-#. module: mrp_account
-#: model:ir.model.fields,help:mrp_account.field_mrp_production__extra_cost
-msgid "Extra cost per produced unit"
-msgstr "Cost suplimentar pe unitate produsă"
-
-#. module: mrp_account
-#: model:ir.model.fields,help:mrp_account.field_mrp_workcenter__costs_hour_account_id
-msgid ""
-"Fill this only if you want automatic analytic accounting entries on "
-"production orders."
-msgstr ""
-"Completați doar dacă doriți înregistrări contabile analitice automate ale "
-"comenzilor de producție."
+msgid "Extra Unit Cost"
+msgstr "Cost unitar suplimentar"
 
 #. module: mrp_account
 #: model:ir.model,name:mrp_account.model_account_move_line
 msgid "Journal Item"
-msgstr "Element de jurnal"
+msgstr "Element jurnal"
 
 #. module: mrp_account
 #: model:ir.model.fields.selection,name:mrp_account.selection__account_analytic_line__category__manufacturing_order
@@ -149,14 +134,21 @@ msgid "Mo Analytic Account Line"
 msgstr "CP Linie cont analitic"
 
 #. module: mrp_account
-#: model:ir.model,name:mrp_account.model_product_product
+#: model:ir.model.fields,help:mrp_account.field_mrp_workcenter__costs_hour_account_id
+msgid ""
+"Posts analytical accounting entries in real time for both component and "
+"operational costs."
+msgstr ""
+
+#. module: mrp_account
+#: model:ir.model,name:mrp_account.model_product_template
 msgid "Product"
 msgstr "Produs"
 
 #. module: mrp_account
-#: model:ir.model,name:mrp_account.model_product_template
-msgid "Product Template"
-msgstr "Șablon produs"
+#: model:ir.model,name:mrp_account.model_product_product
+msgid "Product Variant"
+msgstr "Variantă produs"
 
 #. module: mrp_account
 #: model:ir.model,name:mrp_account.model_mrp_production
@@ -179,15 +171,6 @@ msgid "Stock Rule"
 msgstr "Regulă stoc"
 
 #. module: mrp_account
-#: model:ir.model.fields,help:mrp_account.field_mrp_workcenter_productivity__cost_already_recorded
-msgid ""
-"Technical field automatically checked when a ongoing production posts "
-"journal entries for its costs. This way, we can record one production's cost"
-" multiple times and only consider new entries in the work centers time "
-"lines."
-msgstr ""
-
-#. module: mrp_account
 #: model_terms:ir.ui.view,arch_db:mrp_account.mrp_production_form_view_inherited
 msgid "Valuation"
 msgstr "Evaluare"
@@ -201,6 +184,11 @@ msgstr "CL Linie cont analitic"
 #: model:ir.model,name:mrp_account.model_mrp_workcenter
 msgid "Work Center"
 msgstr "Centru de lucru"
+
+#. module: mrp_account
+#: model:ir.model,name:mrp_account.model_mrp_routing_workcenter
+msgid "Work Center Usage"
+msgstr "Utilizare Centru de lucru"
 
 #. module: mrp_account
 #: model:ir.model,name:mrp_account.model_mrp_workorder
@@ -229,12 +217,14 @@ msgid "Workcenters"
 msgstr ""
 
 #. module: mrp_account
+#. odoo-python
 #: code:addons/mrp_account/models/stock_move.py:0
 #, python-format
 msgid "[Raw] %s"
 msgstr ""
 
 #. module: mrp_account
+#. odoo-python
 #: code:addons/mrp_account/models/mrp_production.py:0
 #: code:addons/mrp_account/models/mrp_workorder.py:0
 #, python-format

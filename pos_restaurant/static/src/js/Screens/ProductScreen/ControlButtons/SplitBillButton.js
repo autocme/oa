@@ -3,18 +3,17 @@ odoo.define('pos_restaurant.SplitBillButton', function(require) {
 
     const PosComponent = require('point_of_sale.PosComponent');
     const ProductScreen = require('point_of_sale.ProductScreen');
-    const { useListener } = require('web.custom_hooks');
+    const { useListener } = require("@web/core/utils/hooks");
     const Registries = require('point_of_sale.Registries');
 
     class SplitBillButton extends PosComponent {
-        constructor() {
-            super(...arguments);
+        setup() {
+            super.setup();
             useListener('click', this.onClick);
         }
         async onClick() {
             const order = this.env.pos.get_order();
             if (order.get_orderlines().length > 0) {
-                this.trigger('close-popup');
                 this.showScreen('SplitBillScreen');
             }
         }

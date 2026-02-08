@@ -42,6 +42,7 @@
                 <field name="price_average" optional="hide" sum="Total"/>
                 <field name="quantity" optional="hide" sum="Total"/>
                 <field name="price_subtotal" optional="show" sum="Total"/>
+                <field name="price_total" optional="show" sum="Total"/>
                 <field name="state" optional="hide"/>
                 <field name="payment_state" optional="hide"/>
                 <field name="move_type" optional="hide"/>
@@ -117,22 +118,13 @@
                     <filter string="Status" name="status" context="{'group_by':'state'}"/>
                     <filter string="Company" name="company" context="{'group_by':'company_id'}" groups="base.group_multi_company"/>
                     <separator orientation="vertical" />
-                    <filter string="Date" name="invoice_date" context="{'group_by':'invoice_date'}"/>
+                    <filter string="Date" name="invoice_date" context="{'group_by':'invoice_date'}"
+                            invisible="context.get('invoice_report_view_hide_invoice_date')"/>
+                    <filter string="Date" name="group_by_invoice_date_week" context="{'group_by':'invoice_date:week'}"
+                            invisible="not context.get('invoice_report_view_hide_invoice_date')"/>
                     <filter string="Due Date" name="duemonth" context="{'group_by':'invoice_date_due:month'}"/>
                 </group>
             </search>
-        </field>
-    </record>
-
-    <record id="view_account_invoice_report_search_analytic_accounting" model="ir.ui.view">
-        <field name="name">account.invoice.report.search_analytic_accounting</field>
-        <field name="model">account.invoice.report</field>
-        <field name="inherit_id" ref="account.view_account_invoice_report_search"/>
-        <field name="groups_id" eval="[(4, ref('analytic.group_analytic_accounting'))]"/>
-        <field name="arch" type="xml">
-            <filter name="status" position="after">
-                <filter string="Analytic Account" name="analytic_account_id" context="{'group_by':'analytic_account_id'}"/>
-            </filter>
         </field>
     </record>
 

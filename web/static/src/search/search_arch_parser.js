@@ -17,13 +17,13 @@ const DEFAULT_VIEWS_WITH_SEARCH_PANEL = ["kanban", "list"];
  * @param {string} context
  * @returns {string[]}
  */
-const getContextGroubBy = (context) => {
+function getContextGroubBy(context) {
     try {
         return makeContext([context]).group_by.split(":");
-    } catch (err) {
+    } catch (_err) {
         return [];
     }
-};
+}
 
 function reduceType(type) {
     if (type === "dateFilter") {
@@ -36,10 +36,10 @@ function reduceType(type) {
 }
 
 export class SearchArchParser extends XMLParser {
-    constructor(searchViewDescription, searchDefaults = {}, searchPanelDefaults = {}) {
+    constructor(searchViewDescription, fields, searchDefaults = {}, searchPanelDefaults = {}) {
         super();
 
-        const { fields, irFilters, arch } = searchViewDescription;
+        const { irFilters, arch } = searchViewDescription;
 
         this.fields = fields || {};
         this.irFilters = irFilters || [];
@@ -109,11 +109,9 @@ export class SearchArchParser extends XMLParser {
     visitField(node) {
         this.pushGroup("field");
         const preField = { type: "field" };
-        if (node.hasAttribute("modifiers")) {
-            const modifiers = JSON.parse(node.getAttribute("modifiers"));
-            if (modifiers.invisible) {
-                preField.invisible = true;
-            }
+        const modifiers = JSON.parse(node.getAttribute("modifiers") || "{}");
+        if (modifiers.invisible === true) {
+            preField.invisible = true;
         }
         if (node.hasAttribute("domain")) {
             preField.domain = node.getAttribute("domain");
@@ -152,7 +150,7 @@ export class SearchArchParser extends XMLParser {
                 preField.defaultRank = -10;
                 const { fieldType, fieldName } = preField;
                 const { selection, context, relation } = this.fields[fieldName];
-                preField.defaultAutocompleteValue = { label: value, operator, value };
+                preField.defaultAutocompleteValue = { label: `${value}`, operator, value };
                 if (fieldType === "selection") {
                     const option = selection.find((sel) => sel[0] === value);
                     if (!option) {
@@ -207,9 +205,11 @@ export class SearchArchParser extends XMLParser {
                 preSearchItem.type = "dateFilter";
                 preSearchItem.fieldName = fieldName;
                 preSearchItem.fieldType = this.fields[fieldName].type;
-                preSearchItem.defaultGeneratorId = DEFAULT_PERIOD;
+                preSearchItem.defaultGeneratorIds = [DEFAULT_PERIOD];
                 if (node.hasAttribute("default_period")) {
-                    preSearchItem.defaultGeneratorId = node.getAttribute("default_period");
+                    preSearchItem.defaultGeneratorIds = node
+                        .getAttribute("default_period")
+                        .split(",");
                 }
             } else {
                 let stringRepr = "[]";
@@ -219,22 +219,21 @@ export class SearchArchParser extends XMLParser {
                 preSearchItem.domain = stringRepr;
             }
         }
-        if (node.hasAttribute("modifiers")) {
-            const modifiers = JSON.parse(node.getAttribute("modifiers"));
-            if (modifiers.invisible) {
-                preSearchItem.invisible = true;
-                let fieldName = preSearchItem.fieldName;
-                if (fieldName && !this.fields[fieldName]) {
-                    // In some case when a field is limited to specific groups
-                    // on the model, we need to ensure to discard related filter
-                    // as it may still be present in the view (in 'invisible' state)
-                    return;
-                }
+        const modifiers = JSON.parse(node.getAttribute("modifiers") || "{}");
+        if (modifiers.invisible === true) {
+            preSearchItem.invisible = true;
+            const fieldName = preSearchItem.fieldName;
+            if (fieldName && !this.fields[fieldName]) {
+                // In some case when a field is limited to specific groups
+                // on the model, we need to ensure to discard related filter
+                // as it may still be present in the view (in 'invisible' state)
+                return;
             }
         }
         preSearchItem.groupNumber = this.groupNumber;
         if (node.hasAttribute("name")) {
             const name = node.getAttribute("name");
+            preSearchItem.name = name;
             if (name in this.searchDefaults) {
                 preSearchItem.isDefault = true;
                 if (["groupBy", "dateGroupBy"].includes(preSearchItem.type)) {
@@ -289,8 +288,8 @@ export class SearchArchParser extends XMLParser {
             if (node.nodeType !== 1 || node.tagName !== "field") {
                 continue;
             }
-            const isInvisible = Boolean(evaluateExpr(node.getAttribute("invisible") || "0"));
-            if (isInvisible) {
+            const modifiers = JSON.parse(node.getAttribute("modifiers") || "{}");
+            if (modifiers.invisible === true) {
                 continue;
             }
             const attrs = {};

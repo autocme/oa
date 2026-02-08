@@ -2,29 +2,37 @@
 
 import { browser } from "@web/core/browser/browser";
 import { DebugMenu } from "@web/core/debug/debug_menu";
-import { regenerateAssets } from "@web/core/debug/debug_menu_items";
+import { regenerateAssets, becomeSuperuser } from "@web/core/debug/debug_menu_items";
 import { registry } from "@web/core/registry";
 import { useDebugCategory, useOwnDebugContext } from "@web/core/debug/debug_context";
 import { ormService } from "@web/core/orm_service";
 import { uiService } from "@web/core/ui/ui_service";
-import { useSetupView } from "@web/views/helpers/view_hook";
+import { useSetupView } from "@web/views/view_hook";
 import { ActionDialog } from "@web/webclient/actions/action_dialog";
 import { hotkeyService } from "@web/core/hotkeys/hotkey_service";
-import { registerCleanup } from "../../helpers/cleanup";
-import { makeTestEnv, prepareRegistriesWithCleanup } from "../../helpers/mock_env";
+import { makeTestEnv, utils } from "../../helpers/mock_env";
 import {
+    fakeCompanyService,
     fakeCommandService,
     makeFakeDialogService,
     makeFakeLocalizationService,
     makeFakeUserService,
 } from "../../helpers/mock_services";
-import { click, getFixture, legacyExtraNextTick, patchWithCleanup } from "../../helpers/utils";
+import {
+    click,
+    getFixture,
+    getNodesTextContent,
+    legacyExtraNextTick,
+    mount,
+    nextTick,
+    patchWithCleanup,
+} from "../../helpers/utils";
 import { createWebClient, doAction, getActionManagerServerData } from "../../webclient/helpers";
 import { openViewItem } from "@web/webclient/debug_items";
-import { editSearchView, editView } from "@web/views/debug_items";
+import { editSearchView, editView, setDefaults, viewMetadata } from "@web/views/debug_items";
 
-const { Component, mount, tags } = owl;
-const { xml } = tags;
+import { Component, xml } from "@odoo/owl";
+const { prepareRegistriesWithCleanup } = utils;
 
 export class DebugMenuParent extends Component {
     setup() {
@@ -101,19 +109,16 @@ QUnit.module("DebugMenu", (hooks) => {
                 return null;
             });
         const env = await makeTestEnv(testConfig);
-        const debugManager = await mount(DebugMenuParent, { env, target });
-        registerCleanup(() => debugManager.destroy());
-        let debugManagerEl = debugManager.el;
-        await click(debugManager.el.querySelector("button.dropdown-toggle"));
-        debugManagerEl = debugManager.el;
-        assert.containsN(debugManagerEl, ".dropdown-menu .dropdown-item", 3);
-        assert.containsOnce(debugManagerEl, ".dropdown-divider");
-        const children = [...(debugManagerEl.querySelector(".dropdown-menu").children || [])];
+        await mount(DebugMenuParent, target, { env });
+        await click(target.querySelector("button.dropdown-toggle"));
+        assert.containsN(target, ".dropdown-menu .dropdown-item", 3);
+        assert.containsOnce(target, ".dropdown-divider");
+        const children = [...(target.querySelector(".dropdown-menu").children || [])];
         assert.deepEqual(
             children.map((el) => el.tagName),
             ["SPAN", "SPAN", "DIV", "SPAN"]
         );
-        const items = [...debugManagerEl.querySelectorAll(".dropdown-menu .dropdown-item")] || [];
+        const items = [...target.querySelectorAll(".dropdown-menu .dropdown-item")] || [];
         assert.deepEqual(
             items.map((el) => el.textContent),
             ["Item 2", "Item 1", "Item 3"]
@@ -158,10 +163,9 @@ QUnit.module("DebugMenu", (hooks) => {
                 };
             });
         const env = await makeTestEnv(testConfig);
-        const debugManager = await mount(DebugMenuParent, { env, target });
-        registerCleanup(() => debugManager.destroy());
-        await click(debugManager.el.querySelector("button.dropdown-toggle"));
-        const items = [...debugManager.el.querySelectorAll(".dropdown-menu .dropdown-item")];
+        await mount(DebugMenuParent, target, { env });
+        await click(target.querySelector("button.dropdown-toggle"));
+        const items = [...target.querySelectorAll(".dropdown-menu .dropdown-item")];
         assert.deepEqual(
             items.map((el) => el.textContent),
             ["Item 1", "Item 2", "Item 3", "Item 4"]
@@ -170,13 +174,13 @@ QUnit.module("DebugMenu", (hooks) => {
 
     QUnit.test("Don't display the DebugMenu if debug mode is disabled", async (assert) => {
         const env = await makeTestEnv(testConfig);
-        const actionDialog = await mount(ActionDialog, {
+        env.dialogData = {
+            isActive: true,
+            close() {},
+        };
+        await mount(ActionDialog, target, {
             env,
-            target,
             props: { close: () => {} },
-        });
-        registerCleanup(() => {
-            actionDialog.destroy();
         });
         assert.containsOnce(target, ".o_dialog");
         assert.containsNone(target, ".o_dialog .o_debug_manager .fa-bug");
@@ -227,13 +231,13 @@ QUnit.module("DebugMenu", (hooks) => {
             }
             patchWithCleanup(odoo, { debug: "1" });
             const env = await makeTestEnv(testConfig);
-            const actionDialog = await mount(WithCustom, {
+            env.dialogData = {
+                isActive: true,
+                close() {},
+            };
+            await mount(WithCustom, target, {
                 env,
-                target,
                 props: { close: () => {} },
-            });
-            registerCleanup(() => {
-                actionDialog.destroy();
             });
             assert.containsOnce(target, ".o_dialog");
             assert.containsOnce(target, ".o_dialog .o_debug_manager .fa-bug");
@@ -272,14 +276,30 @@ QUnit.module("DebugMenu", (hooks) => {
         });
         debugRegistry.category("default").add("regenerateAssets", regenerateAssets);
         const env = await makeTestEnv(testConfig);
-        const debugManager = await mount(DebugMenuParent, { env, target });
-        registerCleanup(() => debugManager.destroy());
-        await click(debugManager.el.querySelector("button.dropdown-toggle"));
-        assert.containsOnce(debugManager.el, ".dropdown-menu .dropdown-item");
-        const item = debugManager.el.querySelector(".dropdown-menu .dropdown-item");
+        await mount(DebugMenuParent, target, { env });
+        await click(target.querySelector("button.dropdown-toggle"));
+        assert.containsOnce(target, ".dropdown-menu .dropdown-item");
+        const item = target.querySelector(".dropdown-menu .dropdown-item");
         assert.strictEqual(item.textContent, "Regenerate Assets Bundles");
         await click(item);
         assert.verifySteps(["ir.attachment/regenerate_assets_bundles", "reloadPage"]);
+    });
+
+    QUnit.test("cannot acess the Become superuser menu if not admin", async (assert) => {
+        const mockRPC = async (route, args) => {
+            if (args.method === "check_access_rights") {
+                return Promise.resolve(true);
+            }
+        };
+        debugRegistry.category("default").add("becomeSuperuser", becomeSuperuser);
+
+        testConfig = { mockRPC };
+        const env = await makeTestEnv(testConfig);
+        env.services.user.isAdmin = false;
+        await mount(DebugMenuParent, target, { env });
+
+        await click(target.querySelector("button.dropdown-toggle"));
+        assert.containsNone(target, ".dropdown-menu .dropdown-item");
     });
 
     QUnit.test("can open a view", async (assert) => {
@@ -291,6 +311,7 @@ QUnit.module("DebugMenu", (hooks) => {
             }
         };
         prepareRegistriesWithCleanup();
+        registry.category("services").add("company", fakeCompanyService);
 
         patchWithCleanup(odoo, {
             debug: true,
@@ -323,16 +344,14 @@ QUnit.module("DebugMenu", (hooks) => {
             "partner,1,form": `<form><div class="some_view"/></form>`,
         });
 
-        const webClient = await createWebClient({ serverData, mockRPC });
-        await click(webClient.el.querySelector(".o_debug_manager button"));
-        await click(webClient.el.querySelector(".o_debug_manager .dropdown-item"));
-        await legacyExtraNextTick();
-        assert.containsOnce(webClient, ".modal .o_list_view");
+        await createWebClient({ serverData, mockRPC });
+        await click(target.querySelector(".o_debug_manager button"));
+        await click(target.querySelector(".o_debug_manager .dropdown-item"));
+        assert.containsOnce(target, ".modal .o_list_view");
 
-        await click(webClient.el.querySelector(".modal .o_list_view .o_data_row"));
-        await legacyExtraNextTick();
-        assert.containsNone(webClient, ".modal");
-        assert.containsOnce(webClient, ".some_view");
+        await click(target.querySelector(".modal .o_list_view .o_data_row td"));
+        assert.containsNone(target, ".modal");
+        assert.containsOnce(target, ".some_view");
     });
 
     QUnit.test("can edit a pivot view", async (assert) => {
@@ -368,12 +387,11 @@ QUnit.module("DebugMenu", (hooks) => {
 
         const webClient = await createWebClient({ serverData, mockRPC });
         await doAction(webClient, 1234);
-        await click(webClient.el.querySelector(".o_debug_manager button"));
-        await click(webClient.el.querySelector(".o_debug_manager .dropdown-item"));
-        await legacyExtraNextTick();
-        assert.containsOnce(webClient, ".modal .o_form_view");
+        await click(target.querySelector(".o_debug_manager button"));
+        await click(target.querySelector(".o_debug_manager .dropdown-item"));
+        assert.containsOnce(target, ".modal .o_form_view");
         assert.strictEqual(
-            webClient.el.querySelector(".modal .o_form_view .o_field_widget[name=id]").value,
+            target.querySelector(".modal .o_form_view .o_field_widget[name=id] input").value,
             "18"
         );
     });
@@ -385,6 +403,7 @@ QUnit.module("DebugMenu", (hooks) => {
             }
         };
         prepareRegistriesWithCleanup();
+        registry.category("services").add("company", fakeCompanyService);
 
         patchWithCleanup(odoo, {
             debug: true,
@@ -404,12 +423,12 @@ QUnit.module("DebugMenu", (hooks) => {
 
         const webClient = await createWebClient({ serverData, mockRPC });
         await doAction(webClient, 1);
-        await click(webClient.el.querySelector(".o_debug_manager button"));
-        await click(webClient.el.querySelector(".o_debug_manager .dropdown-item"));
+        await click(target.querySelector(".o_debug_manager button"));
+        await click(target.querySelector(".o_debug_manager .dropdown-item"));
         await legacyExtraNextTick();
-        assert.containsOnce(webClient, ".modal .o_form_view");
+        assert.containsOnce(target, ".modal .o_form_view");
         assert.strictEqual(
-            webClient.el.querySelector(".modal .o_form_view .o_field_widget[name=id]").value,
+            target.querySelector(".modal .o_form_view .o_field_widget[name=id] input").value,
             "293"
         );
     });
@@ -419,15 +438,18 @@ QUnit.module("DebugMenu", (hooks) => {
         // removing the toy view and using the kanban view directly
         prepareRegistriesWithCleanup();
 
-        class ToyView extends Component {
+        class ToyController extends Component {
             setup() {
                 useSetupView();
             }
         }
-        ToyView.template = xml`<div class="o-toy-view"/>`;
-        ToyView.type = "toy";
-        ToyView.display_name = "toy view";
-        registry.category("views").add("toy", ToyView);
+        ToyController.template = xml`<div class="o-toy-view"/>`;
+
+        registry.category("views").add("toy", {
+            type: "toy",
+            display_name: "toy view",
+            Controller: ToyController,
+        });
 
         const mockRPC = async (route, args) => {
             if (args.method === "check_access_rights") {
@@ -462,14 +484,14 @@ QUnit.module("DebugMenu", (hooks) => {
 
         const webClient = await createWebClient({ serverData, mockRPC });
         await doAction(webClient, 1);
-        assert.containsOnce(webClient, ".o-toy-view");
+        assert.containsOnce(target, ".o-toy-view");
 
-        await click(webClient.el.querySelector(".o_debug_manager button"));
-        await click(webClient.el.querySelector(".o_debug_manager .dropdown-item"));
+        await click(target.querySelector(".o_debug_manager button"));
+        await click(target.querySelector(".o_debug_manager .dropdown-item"));
         await legacyExtraNextTick();
-        assert.containsOnce(webClient, ".modal .o_form_view");
+        assert.containsOnce(target, ".modal .o_form_view");
         assert.strictEqual(
-            webClient.el.querySelector(".modal .o_form_view .o_field_widget[name=id]").value,
+            target.querySelector(".modal .o_form_view .o_field_widget[name=id] input").value,
             "293"
         );
     });
@@ -494,8 +516,369 @@ QUnit.module("DebugMenu", (hooks) => {
             const webClient = await createWebClient({ serverData, mockRPC });
             // opens a form view in a dialog without a control panel.
             await doAction(webClient, 5);
-            await click(webClient.el.querySelector(".o_dialog .o_debug_manager button"));
-            assert.containsNone(webClient, ".o_debug_manager .dropdown-item");
+            await click(target.querySelector(".o_dialog .o_debug_manager button"));
+            assert.containsNone(target, ".o_debug_manager .dropdown-item");
         }
     );
+
+    QUnit.test("set defaults: basic rendering", async (assert) => {
+        prepareRegistriesWithCleanup();
+        patchWithCleanup(odoo, {
+            debug: true,
+        });
+
+        registry.category("services").add("user", makeFakeUserService());
+        registry.category("debug").category("form").add("setDefaults", setDefaults);
+
+        const serverData = getActionManagerServerData();
+        serverData.actions[1234] = {
+            id: 1234,
+            xml_id: "action_1234",
+            name: "Partners",
+            res_model: "partner",
+            res_id: 1,
+            type: "ir.actions.act_window",
+            views: [[18, "form"]],
+        };
+        serverData.views["partner,18,form"] = `
+            <form>
+                <field name="m2o"/>
+                <field name="foo"/>
+                <field name="o2m"/>
+            </form>`;
+        serverData.models["ir.ui.view"] = {
+            fields: {},
+            records: [{ id: 18 }],
+        };
+        serverData.models.partner.records = [{ id: 1, display_name: "p1", foo: "hello" }];
+
+        const mockRPC = async (route, args) => {
+            if (args.method === "check_access_rights") {
+                return Promise.resolve(true);
+            }
+        };
+        const webClient = await createWebClient({ serverData, mockRPC });
+        await doAction(webClient, 1234);
+        await click(target.querySelector(".o_debug_manager button"));
+        await click(target.querySelector(".o_debug_manager .dropdown-item"));
+        assert.containsOnce(target, ".modal");
+        assert.containsOnce(target, ".modal select#formview_default_fields");
+        assert.containsN(target.querySelector(".modal #formview_default_fields"), "option", 2);
+        const options = target.querySelectorAll(".modal #formview_default_fields option");
+        assert.strictEqual(options[0].value, "");
+        assert.strictEqual(options[1].value, "foo");
+    });
+
+    QUnit.test("set defaults: click close", async (assert) => {
+        prepareRegistriesWithCleanup();
+        patchWithCleanup(odoo, {
+            debug: true,
+        });
+
+        registry.category("services").add("user", makeFakeUserService());
+        registry.category("debug").category("form").add("setDefaults", setDefaults);
+
+        const serverData = getActionManagerServerData();
+        serverData.actions[1234] = {
+            id: 1234,
+            xml_id: "action_1234",
+            name: "Partners",
+            res_model: "partner",
+            res_id: 1,
+            type: "ir.actions.act_window",
+            views: [[18, "form"]],
+        };
+        serverData.views["partner,18,form"] = `
+            <form>
+                <field name="foo"/>
+            </form>`;
+        serverData.models["ir.ui.view"] = {
+            fields: {},
+            records: [{ id: 18 }],
+        };
+        serverData.models.partner.records = [{ id: 1, display_name: "p1", foo: "hello" }];
+
+        const mockRPC = async (route, args) => {
+            if (args.method === "set" && args.model === "ir.default") {
+                throw new Error("should not create a default");
+            }
+            if (args.method === "check_access_rights") {
+                return Promise.resolve(true);
+            }
+        };
+        const webClient = await createWebClient({ serverData, mockRPC });
+        await doAction(webClient, 1234);
+        await click(target.querySelector(".o_debug_manager button"));
+        await click(target.querySelector(".o_debug_manager .dropdown-item"));
+        assert.containsOnce(target, ".modal");
+
+        await click(target.querySelector(".modal .modal-footer button"));
+        assert.containsNone(target, ".modal");
+    });
+
+    QUnit.test("set defaults: select and save", async (assert) => {
+        assert.expect(3);
+
+        prepareRegistriesWithCleanup();
+        patchWithCleanup(odoo, {
+            debug: true,
+        });
+
+        registry.category("services").add("user", makeFakeUserService());
+        registry.category("debug").category("form").add("setDefaults", setDefaults);
+
+        const serverData = getActionManagerServerData();
+        serverData.actions[1234] = {
+            id: 1234,
+            xml_id: "action_1234",
+            name: "Partners",
+            res_model: "partner",
+            res_id: 1,
+            type: "ir.actions.act_window",
+            views: [[18, "form"]],
+        };
+        serverData.views["partner,18,form"] = `
+            <form>
+                <field name="foo"/>
+            </form>`;
+        serverData.models["ir.ui.view"] = {
+            fields: {},
+            records: [{ id: 18 }],
+        };
+        serverData.models.partner.records = [{ id: 1, display_name: "p1", foo: "hello" }];
+
+        const mockRPC = async (route, args) => {
+            if (args.method === "check_access_rights") {
+                return Promise.resolve(true);
+            }
+            if (args.method === "set" && args.model === "ir.default") {
+                assert.deepEqual(args.args, ["partner", "foo", "hello", true, true, false]);
+                return true;
+            }
+        };
+        const webClient = await createWebClient({ serverData, mockRPC });
+        await doAction(webClient, 1234);
+        await click(target.querySelector(".o_debug_manager button"));
+        await click(target.querySelector(".o_debug_manager .dropdown-item"));
+        assert.containsOnce(target, ".modal");
+
+        const select = target.querySelector(".modal #formview_default_fields");
+        select.value = "foo";
+        select.dispatchEvent(new Event("change"));
+        await nextTick();
+        await click(target.querySelectorAll(".modal .modal-footer button")[1]);
+        assert.containsNone(target, ".modal");
+    });
+
+    QUnit.test("view metadata: basic rendering", async (assert) => {
+        prepareRegistriesWithCleanup();
+        patchWithCleanup(odoo, {
+            debug: true,
+        });
+
+        registry.category("services").add("user", makeFakeUserService());
+        registry.category("debug").category("form").add("viewMetadata", viewMetadata);
+
+        const serverData = getActionManagerServerData();
+        serverData.actions[1234] = {
+            id: 1234,
+            xml_id: "action_1234",
+            name: "Partners",
+            res_model: "partner",
+            res_id: 27,
+            type: "ir.actions.act_window",
+            views: [[false, "form"]],
+        };
+        serverData.models.partner.records = [{ id: 27, display_name: "p1" }];
+
+        const mockRPC = async (route, args) => {
+            if (args.method === "check_access_rights") {
+                return Promise.resolve(true);
+            }
+            if (args.method === "get_metadata") {
+                return [
+                    {
+                        create_date: "2023-01-26 14:12:10",
+                        create_uid: [4, "Some user"],
+                        id: 27,
+                        noupdate: false,
+                        write_date: "2023-01-26 14:13:31",
+                        write_uid: [6, "Another User"],
+                        xmlid: "abc.partner_16",
+                        xmlids: [{ xmlid: "abc.partner_16", noupdate: false }],
+                    },
+                ];
+            }
+        };
+        const webClient = await createWebClient({ serverData, mockRPC });
+        await doAction(webClient, 1234);
+        await click(target.querySelector(".o_debug_manager button"));
+        await click(target.querySelector(".o_debug_manager .dropdown-item"));
+        assert.containsOnce(target, ".modal");
+        assert.deepEqual(
+            getNodesTextContent(
+                target.querySelectorAll(".modal-body table tr th, .modal-body table tr td")
+            ),
+            [
+                "ID:",
+                "27",
+                "XML ID:",
+                "abc.partner_16",
+                "No Update:",
+                "false (change)",
+                "Creation User:",
+                "Some user",
+                "Creation Date:",
+                "01/26/2023 15:12:10",
+                "Latest Modification by:",
+                "Another User",
+                "Latest Modification Date:",
+                "01/26/2023 15:13:31",
+            ]
+        );
+    });
+
+    QUnit.test("set defaults: setting default value for datetime field", async (assert) => {
+        assert.expect(7);
+
+        prepareRegistriesWithCleanup();
+        patchWithCleanup(odoo, {
+            debug: true,
+        });
+
+        registry.category("services").add("user", makeFakeUserService());
+        registry.category("debug").category("form").add("setDefaults", setDefaults);
+
+        const serverData = getActionManagerServerData();
+        serverData.actions[1234] = {
+            id: 1234,
+            xml_id: "action_1234",
+            name: "Partners",
+            res_model: "partner",
+            res_id: 1,
+            type: "ir.actions.act_window",
+            views: [[18, "form"]],
+        };
+        serverData.models.partner.fields.datetime = {string: 'Datetime', type: 'datetime'}
+        serverData.models.partner.fields.reference = {string: 'Reference', type: 'reference', selection: [["pony", "Pony"]]}
+        serverData.views["partner,18,form"] = `
+            <form>
+                <field name="datetime"/>
+                <field name="reference"/>
+                <field name="m2o"/>
+            </form>`;
+        serverData.models["ir.ui.view"] = {
+            fields: {},
+            records: [{ id: 18 }],
+        };
+        serverData.models.pony.records = [{
+            id: 1,
+            name: "Test"
+        }];
+        serverData.models.partner.records = [{
+            id: 1,
+            display_name: "p1",
+            datetime: "2024-01-24 16:46:16",
+            reference: 'pony,1',
+            m2o: 1
+        }];
+
+        const mockRPC = async (route, args) => {
+            if (args.method === "check_access_rights") {
+                return Promise.resolve(true);
+            }
+            if (args.method === "set" && args.model === "ir.default") {
+                arg_steps.push(args.args)
+                return true;
+            }
+        };
+        const webClient = await createWebClient({serverData, mockRPC});
+        let arg_steps = [];
+        for (const field_name of ['datetime', 'reference', 'm2o']) {
+            await doAction(webClient, 1234);
+            await click(target.querySelector(".o_debug_manager button"));
+            await click(target.querySelector(".o_debug_manager .dropdown-item"));
+            assert.containsOnce(target, ".modal");
+
+            const select = target.querySelector(".modal #formview_default_fields");
+            select.value = field_name;
+            select.dispatchEvent(new Event("change"));
+            await nextTick();
+            await click(target.querySelectorAll(".modal .modal-footer button")[1]);
+            assert.containsNone(target, ".modal");
+        }
+        assert.deepEqual(arg_steps, [
+            ["partner", "datetime", "2024-01-24 16:46:16", true, true, false],
+            ["partner", "reference", {"displayName": "Test", "resId": 1, "resModel": "pony"}, true, true, false],
+            ["partner", "m2o", 1, true, true, false],
+        ]);
+    });
+
+    QUnit.test("set defaults: settings default value for a very long value", async (assert) => {
+        prepareRegistriesWithCleanup();
+        patchWithCleanup(odoo, {
+            debug: true,
+        });
+        registry.category("services").add("user", makeFakeUserService());
+        registry.category("debug").category("form").add("setDefaults", setDefaults);
+
+        const serverData = getActionManagerServerData();
+        serverData.models.partner.fields.description = { string: "Description", type: "html" };
+        serverData.actions[1234] = {
+            id: 1234,
+            xml_id: "action_1234",
+            name: "Partners",
+            res_model: "partner",
+            res_id: 1,
+            type: "ir.actions.act_window",
+            views: [[18, "form"]],
+        };
+        const fooValue = "12".repeat(250);
+        serverData.views["partner,18,form"] = `
+            <form>
+                <group>
+                    <field name="display_name"/>
+                    <field name="description"/>
+                    <field name="foo"/>
+                </group>
+            </form>
+        `;
+        serverData.models.partner.records[0].foo = fooValue;
+        serverData.models.partner.records[0].description = fooValue;
+        const mockRPC = async (route, args) => {
+            if (args.method === "check_access_rights") {
+                return Promise.resolve(true);
+            }
+            if (args.method === "set" && args.model === "ir.default") {
+                assert.step("setting default");
+                assert.deepEqual(args.args, ["partner", "foo", fooValue, true, true, false]);
+                return true;
+            }
+        };
+        const webClient = await createWebClient({ serverData, mockRPC });
+        await doAction(webClient, 1234);
+        await click(target.querySelector(".o_debug_manager button"));
+        await click(target.querySelector(".o_debug_manager .dropdown-item"));
+        const select = target.querySelector(".modal #formview_default_fields");
+
+        const options = Object.fromEntries(
+            Array.from(select.querySelectorAll("option")).map((option) => [
+                option.value,
+                option.textContent,
+            ])
+        );
+        assert.deepEqual(options, {
+            "": "",
+            display_name: "Display Name = First record",
+            foo: "Foo = 121212121212121212121212121212121212121212121212121212121...",
+            description:
+                "Description = 121212121212121212121212121212121212121212121212121212121...",
+        });
+
+        select.value = "foo";
+        select.dispatchEvent(new Event("change"));
+        await nextTick();
+        await click(target.querySelectorAll(".modal .modal-footer button")[1]);
+        assert.verifySteps(["setting default"]);
+    });
 });

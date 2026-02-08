@@ -21,7 +21,7 @@ class TestSaleMrpInvoices(AccountTestInvoicingCommon):
         })
         cls.warehouse = cls.env['stock.warehouse'].search([('company_id', '=', cls.env.company.id)], limit=1)
         cls.stock_location = cls.warehouse.lot_stock_id
-        cls.lot = cls.env['stock.production.lot'].create({
+        cls.lot = cls.env['stock.lot'].create({
             'name': 'LOT0001',
             'product_id': cls.product_by_lot.id,
             'company_id': cls.env.company.id,
@@ -67,10 +67,10 @@ class TestSaleMrpInvoices(AccountTestInvoicingCommon):
         invoice = so._create_invoices()
         invoice.action_post()
 
-        report = self.env['ir.actions.report']._get_report_from_name('account.report_invoice_with_payments')
-        html = report._render_qweb_html(invoice.ids)[0]
+        html = self.env['ir.actions.report']._render_qweb_html(
+            'account.report_invoice_with_payments', invoice.ids)[0]
         text = html2plaintext(html)
-        self.assertRegex(text, r'Product By Lot\n1.00\nUnits\nLOT0001', "There should be a line that specifies 1 x LOT0001")
+        self.assertRegex(text, r'Product By Lot\n1.00Units\nLOT0001', "There should be a line that specifies 1 x LOT0001")
 
     def test_report_forecast_for_mto_procure_method(self):
         """
@@ -111,17 +111,17 @@ class TestSaleMrpInvoices(AccountTestInvoicingCommon):
 
         ])
         (so_1 | so_2).action_confirm()
-        report_lines = self.env['report.stock.report_product_product_replenishment'].with_context(warehouse=warehouse.id)._get_report_values(docids=product.ids)['docs']['lines']
+        report_lines = self.env['report.stock.report_product_product_replenishment'].with_context(warehouse=warehouse.id).get_report_values(docids=product.ids)['docs']['lines']
         self.assertEqual(len(report_lines), 3)
         so_1_line = next(filter(lambda line: line.get('document_out') == so_1, report_lines))
         self.assertEqual(
             [so_1_line['quantity'], so_1_line['move_out'], so_1_line['replenishment_filled']],
-            [8.0, so_1.picking_ids.move_lines, True]
+            [8.0, so_1.picking_ids.move_ids, True]
         )
         so_2_line = next(filter(lambda line: line.get('document_out') == so_2, report_lines))
         self.assertEqual(
             [so_2_line['quantity'], so_2_line['move_out'], so_2_line['replenishment_filled']],
-            [7.0, so_2.picking_ids.move_lines, False]
+            [7.0, so_2.picking_ids.move_ids, False]
         )
         quant_line = next(filter(lambda line: not line.get('document_out'), report_lines))
         self.assertEqual(

@@ -1,7 +1,6 @@
 /** @odoo-module **/
 
 import { companyService } from "@web/webclient/company_service";
-import { dialogService } from "@web/core/dialog/dialog_service";
 import { getGraphRenderer } from "@web/../tests/views/graph_view_tests";
 import { makeView } from "@web/../tests/views/helpers";
 import { patchWithCleanup } from "@web/../tests/helpers/utils";
@@ -11,7 +10,7 @@ import { setupControlPanelServiceRegistry } from "@web/../tests/search/helpers";
 
 const serviceRegistry = registry.category("services");
 
-QUnit.module('Views', function (hooks) {
+QUnit.module('hr_timesheet', function (hooks) {
     let serverData;
     hooks.beforeEach(() => {
         serverData = {
@@ -36,11 +35,10 @@ QUnit.module('Views', function (hooks) {
             }
         }
         setupControlPanelServiceRegistry();
-        serviceRegistry.add("company", companyService);
-        serviceRegistry.add("dialog", dialogService);
+        serviceRegistry.add("company", companyService, { force: true });
     });
 
-    QUnit.module("hrTimesheetGraphView");
+    QUnit.module("hr_timesheet_graphview");
 
     QUnit.test('the timesheet graph view data are not multiplied by a factor that is company related (factor = 1)', async function (assert) {
         assert.expect(1);

@@ -19,8 +19,8 @@ tour.register('blog_autocomplete_with_date', {
     run: 'text a',
 }, {
     content: "Wait for suggestions then click on search icon",
-    extra_trigger: '.o_searchbar_form .dropdown-menu .o_search_result_item',
-    trigger: '.o_searchbar_form button:has(i.fa-search)',
+    extra_trigger: '.o_searchbar_form .o_dropdown_menu .o_search_result_item',
+    trigger: '.o_searchbar_form button:has(i.oi-search)',
 }, {
     content: "Ensure both filters are applied",
     trigger: '#o_wblog_posts_loop:has(span:has(i.fa-calendar-o):has(a[href="/blog?search=a"])):has(span:has(i.fa-search):has(a[href^="/blog?date_begin"]))',

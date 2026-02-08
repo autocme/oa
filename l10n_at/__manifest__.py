@@ -10,7 +10,7 @@
 
 {
     "name": "Austria - Accounting",
-    "version": "3.1",
+    "version": "3.1.1",
     "author": "WT-IO-IT GmbH, Wolfgang Taferner",
     "website": "https://www.wt-io-it.at",
     'category': 'Accounting/Localizations/Account Charts',
@@ -32,6 +32,7 @@ Austrian charts of accounts (Einheitskontenrahmen 2010).
         "account",
         "base_iban",
         "base_vat",
+        "l10n_din5008",
     ],
     "data": [
         'data/res.country.state.csv',

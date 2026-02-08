@@ -3,24 +3,25 @@
 # 	* mrp_account
 # 
 # Translators:
-# Ediz Duman <neps1192@gmail.com>, 2021
-# Ayhan KIZILTAN <akiziltan76@hotmail.com>, 2021
-# Levent Karakaş <levent@mektup.at>, 2021
-# Murat Kaplan <muratk@projetgrup.com>, 2021
-# Nadir Gazioglu <nadirgazioglu@gmail.com>, 2021
-# Özlem Atalay <ozlema@eskayazilim.com.tr>, 2021
-# Buket Şeker <buket_skr@hotmail.com>, 2021
+# Özlem Atalay <ozlema@eskayazilim.com.tr>, 2022
+# Levent Karakaş <levent@mektup.at>, 2022
+# Ayhan KIZILTAN <akiziltan76@hotmail.com>, 2022
+# Ertuğrul Güreş <ertugrulg@projetgrup.com>, 2022
+# Nadir Gazioglu <nadirgazioglu@gmail.com>, 2022
+# Buket Şeker <buket_skr@hotmail.com>, 2022
+# Ediz Duman <neps1192@gmail.com>, 2022
+# Murat Kaplan <muratk@projetgrup.com>, 2022
 # Tugay Hatıl <tugayh@projetgrup.com>, 2022
 # Martin Trigaux, 2023
-# Ertuğrul Güreş <ertugrulg@projetgrup.com>, 2024
+# İlknur Gözütok, 2023
 # 
 msgid ""
 msgstr ""
-"Project-Id-Version: Odoo Server 15.0\n"
+"Project-Id-Version: Odoo Server 16.0+e\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-08-14 15:43+0000\n"
-"PO-Revision-Date: 2021-09-14 12:24+0000\n"
-"Last-Translator: Ertuğrul Güreş <ertugrulg@projetgrup.com>, 2024\n"
+"POT-Creation-Date: 2022-12-15 12:51+0000\n"
+"PO-Revision-Date: 2022-09-22 05:53+0000\n"
+"Last-Translator: İlknur Gözütok, 2023\n"
 "Language-Team: Turkish (https://app.transifex.com/odoo/teams/41243/tr/)\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
@@ -112,22 +113,8 @@ msgstr "Maliyet Kaydedildi"
 
 #. module: mrp_account
 #: model:ir.model.fields,field_description:mrp_account.field_mrp_production__extra_cost
-msgid "Extra Cost"
-msgstr "Ekstra Maliyet"
-
-#. module: mrp_account
-#: model:ir.model.fields,help:mrp_account.field_mrp_production__extra_cost
-msgid "Extra cost per produced unit"
-msgstr "Üretilen birim başına ekstra maliyet"
-
-#. module: mrp_account
-#: model:ir.model.fields,help:mrp_account.field_mrp_workcenter__costs_hour_account_id
-msgid ""
-"Fill this only if you want automatic analytic accounting entries on "
-"production orders."
-msgstr ""
-"Bunu yalnızca üretim emirlerinde otomatik analitik muhasebe girişleri "
-"isterseniz doldurun."
+msgid "Extra Unit Cost"
+msgstr "Ekstra Birim Maliyet"
 
 #. module: mrp_account
 #: model:ir.model,name:mrp_account.model_account_move_line
@@ -158,14 +145,23 @@ msgid "Mo Analytic Account Line"
 msgstr "MO Analitik Hesap Satırları"
 
 #. module: mrp_account
-#: model:ir.model,name:mrp_account.model_product_product
+#: model:ir.model.fields,help:mrp_account.field_mrp_workcenter__costs_hour_account_id
+msgid ""
+"Posts analytical accounting entries in real time for both component and "
+"operational costs."
+msgstr ""
+"Hem bileşen hem de operasyonel maliyetler için analitik muhasebe girişlerini"
+" gerçek zamanlı olarak deftere nakleder."
+
+#. module: mrp_account
+#: model:ir.model,name:mrp_account.model_product_template
 msgid "Product"
 msgstr "Ürün"
 
 #. module: mrp_account
-#: model:ir.model,name:mrp_account.model_product_template
-msgid "Product Template"
-msgstr "Ürün Şablonu"
+#: model:ir.model,name:mrp_account.model_product_product
+msgid "Product Variant"
+msgstr "Ürün Varyantı"
 
 #. module: mrp_account
 #: model:ir.model,name:mrp_account.model_mrp_production
@@ -188,19 +184,6 @@ msgid "Stock Rule"
 msgstr "Stok Kuralı"
 
 #. module: mrp_account
-#: model:ir.model.fields,help:mrp_account.field_mrp_workcenter_productivity__cost_already_recorded
-msgid ""
-"Technical field automatically checked when a ongoing production posts "
-"journal entries for its costs. This way, we can record one production's cost"
-" multiple times and only consider new entries in the work centers time "
-"lines."
-msgstr ""
-"Teknik alan, devam eden bir üretim günlüğüne maliyet kayıtları gönderdiğinde"
-" otomatik olarak kontrol edildi. Böylelikle, bir üretim maliyetini birden "
-"çok kez kaydedebilir ve yalnızca iş merkezleri çalışma çizelgelerinde yeni "
-"girdiler düşünebiliriz."
-
-#. module: mrp_account
 #: model_terms:ir.ui.view,arch_db:mrp_account.mrp_production_form_view_inherited
 msgid "Valuation"
 msgstr "Değerleme"
@@ -214,6 +197,11 @@ msgstr "İş Merkezi Analitik Hesap Satırı"
 #: model:ir.model,name:mrp_account.model_mrp_workcenter
 msgid "Work Center"
 msgstr "İş Merkezi"
+
+#. module: mrp_account
+#: model:ir.model,name:mrp_account.model_mrp_routing_workcenter
+msgid "Work Center Usage"
+msgstr "İş Merkezi Kullanımı"
 
 #. module: mrp_account
 #: model:ir.model,name:mrp_account.model_mrp_workorder
@@ -242,12 +230,14 @@ msgid "Workcenters"
 msgstr "İş Merkezleri"
 
 #. module: mrp_account
+#. odoo-python
 #: code:addons/mrp_account/models/stock_move.py:0
 #, python-format
 msgid "[Raw] %s"
 msgstr "[Bileşen] %s"
 
 #. module: mrp_account
+#. odoo-python
 #: code:addons/mrp_account/models/mrp_production.py:0
 #: code:addons/mrp_account/models/mrp_workorder.py:0
 #, python-format

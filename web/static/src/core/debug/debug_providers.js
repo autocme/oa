@@ -10,6 +10,15 @@ commandProviderRegistry.add("debug", {
     provide: (env, options) => {
         const result = [];
         if (env.debug) {
+            if (!env.debug.includes("assets")) {
+                result.push({
+                    action() {
+                        browser.location.search = "?debug=assets";
+                    },
+                    category: "debug",
+                    name: env._t("Activate debug mode (with assets)"),
+                });
+            }
             result.push({
                 action() {
                     const route = env.services.router.current;
@@ -19,6 +28,22 @@ commandProviderRegistry.add("debug", {
                 category: "debug",
                 name: env._t("Deactivate debug mode"),
             });
+            result.push({
+                action() {
+                    const runTestsURL = browser.location.origin + "/web/tests?debug=assets";
+                    browser.open(runTestsURL);
+                },
+                category: "debug",
+                name: env._t("Run JS Tests"),
+            });
+            result.push({
+                action() {
+                    const runTestsURL = browser.location.origin + "/web/tests/mobile?debug=assets";
+                    browser.open(runTestsURL);
+                },
+                category: "debug",
+                name: env._t("Run JS Mobile Tests"),
+            });
         } else {
             const debugKey = "debug";
             if (options.searchValue.toLowerCase() === debugKey) {
@@ -27,7 +52,7 @@ commandProviderRegistry.add("debug", {
                         browser.location.search = "?debug=assets";
                     },
                     category: "debug",
-                    name: `${env._t("Activate debug mode")} (${debugKey})`,
+                    name: `${env._t("Activate debug mode (with assets)")} (${debugKey})`,
                 });
             }
         }

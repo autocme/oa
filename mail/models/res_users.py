@@ -3,7 +3,7 @@
 
 from collections import defaultdict
 
-from odoo import _, api, exceptions, fields, models, modules
+from odoo import _, api, fields, models, modules, tools
 from odoo.addons.base.models.res_users import is_selection_groups
 
 
@@ -18,16 +18,40 @@ class Users(models.Model):
     """
     _name = 'res.users'
     _inherit = ['res.users']
-    _description = 'Users'
 
     notification_type = fields.Selection([
         ('email', 'Handle by Emails'),
         ('inbox', 'Handle in Odoo')],
         'Notification', required=True, default='email',
+        compute='_compute_notification_type', store=True, readonly=False,
         help="Policy on how to handle Chatter notifications:\n"
              "- Handle by Emails: notifications are sent to your email address\n"
              "- Handle in Odoo: notifications appear in your Odoo Inbox")
     res_users_settings_ids = fields.One2many('res.users.settings', 'user_id')
+    # Provide a target for relateds that is not a x2Many field.
+    res_users_settings_id = fields.Many2one('res.users.settings', string="Settings", compute='_compute_res_users_settings_id', search='_search_res_users_settings_id')
+
+    _sql_constraints = [(
+        "notification_type",
+        "CHECK (notification_type = 'email' OR NOT share)",
+        "Only internal user can receive notifications in Odoo",
+    )]
+
+    @api.depends('share')
+    def _compute_notification_type(self):
+        for user in self:
+            # Only the internal users can receive notifications in Odoo
+            if user.share or not user.notification_type:
+                user.notification_type = 'email'
+
+    @api.depends('res_users_settings_ids')
+    def _compute_res_users_settings_id(self):
+        for user in self:
+            user.res_users_settings_id = user.res_users_settings_ids and user.res_users_settings_ids[0]
+
+    @api.model
+    def _search_res_users_settings_id(self, operator, operand):
+        return [('res_users_settings_ids', operator, operand)]
 
     # ------------------------------------------------------------
     # CRUD
@@ -43,11 +67,6 @@ class Users(models.Model):
 
     @api.model_create_multi
     def create(self, vals_list):
-        for values in vals_list:
-            if not values.get('login', False):
-                action = self.env.ref('base.action_res_users')
-                msg = _("You cannot create a new user from here.\n To create new user please go to configuration panel.")
-                raise exceptions.RedirectWarning(msg, action.id, _('Go to the configuration panel'))
 
         users = super(Users, self).create(vals_list)
 
@@ -106,17 +125,17 @@ class Users(models.Model):
         return super().unlink()
 
     def _unsubscribe_from_non_public_channels(self):
-        """ This method un-subscribes users from private mail channels. Main purpose of this
-            method is to prevent sending internal communication to archived / deleted users.
+        """ This method un-subscribes users from group restricted channels. Main purpose
+            of this method is to prevent sending internal communication to archived / deleted users.
             We do not un-subscribes users from public channels because in most common cases,
             public channels are mailing list (e-mail based) and so users should always receive
             updates from public channels until they manually un-subscribe themselves.
         """
-        current_cp = self.env['mail.channel.partner'].sudo().search([
+        current_cm = self.env['mail.channel.member'].sudo().search([
             ('partner_id', 'in', self.partner_id.ids),
         ])
-        current_cp.filtered(
-            lambda cp: cp.channel_id.public != 'public' and cp.channel_id.channel_type == 'channel'
+        current_cm.filtered(
+            lambda cm: (cm.channel_id.channel_type == 'channel' and cm.channel_id.group_public_id)
         ).unlink()
 
     def _get_portal_access_update_body(self, access_granted):
@@ -124,6 +143,34 @@ class Users(models.Model):
         if self.partner_id.email:
             return '%s (%s)' % (body, self.partner_id.email)
         return body
+
+    def _deactivate_portal_user(self, **post):
+        """Blacklist the email of the user after deleting it.
+
+        Log a note on the related partner so we know why it's archived.
+        """
+        current_user = self.env.user
+        for user in self:
+            user.partner_id._message_log(
+                body=_('Archived because %(user_name)s (#%(user_id)s) deleted the portal account',
+                       user_name=current_user.name, user_id=current_user.id)
+            )
+
+        if post.get('request_blacklist'):
+            users_to_blacklist = [(user, user.email) for user in self.filtered(
+                lambda user: tools.email_normalize(user.email))]
+        else:
+            users_to_blacklist = []
+
+        super(Users, self)._deactivate_portal_user(**post)
+
+        for user, user_email in users_to_blacklist:
+            blacklist = self.env['mail.blacklist']._add(user_email)
+            blacklist._message_log(
+                body=_('Blocked by deletion of portal account %(portal_user_name)s by %(user_name)s (#%(user_id)s)',
+                       user_name=current_user.name, user_id=current_user.id,
+                       portal_user_name=user.name),
+            )
 
     # ------------------------------------------------------------
     # DISCUSS
@@ -139,60 +186,43 @@ class Users(models.Model):
             'current_partner': self.partner_id.mail_partner_format().get(self.partner_id),
             'current_user_id': self.id,
             'current_user_settings': self.env['res.users.settings']._find_or_create_for_user(self)._res_users_settings_format(),
-            'mail_failures': [],
+            'hasLinkPreviewFeature': self.env['mail.link.preview']._is_link_preview_enabled(),
+            'internalUserGroupId': self.env.ref('base.group_user').id,
             'menu_id': self.env['ir.model.data']._xmlid_to_res_id('mail.menu_root_discuss'),
             'needaction_inbox_counter': self.partner_id._get_needaction_count(),
             'partner_root': partner_root.sudo().mail_partner_format().get(partner_root),
-            'public_partners': list(self.env.ref('base.group_public').sudo().with_context(active_test=False).users.partner_id.mail_partner_format().values()),
-            'shortcodes': self.env['mail.shortcode'].sudo().search_read([], ['source', 'substitution', 'description']),
+            'shortcodes': self.env['mail.shortcode'].sudo().search_read([], ['source', 'substitution']),
             'starred_counter': self.env['mail.message'].search_count([('starred_partner_ids', 'in', self.partner_id.ids)]),
         }
         return values
 
     @api.model
     def systray_get_activities(self):
-        query = """SELECT array_agg(res_id) as res_ids, m.id, count(*),
-                    CASE
-                        WHEN %(today)s::date - act.date_deadline::date = 0 Then 'today'
-                        WHEN %(today)s::date - act.date_deadline::date > 0 Then 'overdue'
-                        WHEN %(today)s::date - act.date_deadline::date < 0 Then 'planned'
-                    END AS states
-                FROM mail_activity AS act
-                JOIN ir_model AS m ON act.res_model_id = m.id
-                WHERE user_id = %(user_id)s
-                GROUP BY m.id, states;
-                """
-        self.env.cr.execute(query, {
-            'today': fields.Date.context_today(self),
-            'user_id': self.env.uid,
-        })
-        activity_data = self.env.cr.dictfetchall()
-        records_by_state_by_model = defaultdict(lambda: {"today": set(), "overdue": set(), "planned": set(), "all": set()})
-        for data in activity_data:
-            records_by_state_by_model[data["id"]][data["states"]] = set(data["res_ids"])
-            records_by_state_by_model[data["id"]]["all"] = records_by_state_by_model[data["id"]]["all"] | set(data["res_ids"])
+        activities = self.env["mail.activity"].search([("user_id", "=", self.env.uid)])
+        activities_by_record_by_model_name = defaultdict(lambda: defaultdict(lambda: self.env["mail.activity"]))
+        for activity in activities:
+            record = self.env[activity.res_model].browse(activity.res_id)
+            activities_by_record_by_model_name[activity.res_model][record] += activity
+        model_ids = list({self.env["ir.model"]._get(name).id for name in activities_by_record_by_model_name.keys()})
         user_activities = {}
-        for model_id in records_by_state_by_model:
-            model_dic = records_by_state_by_model[model_id]
-            model = self.env["ir.model"].sudo().browse(model_id).with_prefetch(tuple(records_by_state_by_model.keys()))
-            if not self.env[model.model].check_access_rights('read', raise_exception=False):
-                continue
-            allowed_records = self.env[model.model].search([("id", "in", tuple(model_dic["all"]))])
+        for model_name, activities_by_record in activities_by_record_by_model_name.items():
+            domain = [("id", "in", list({r.id for r in activities_by_record.keys()}))]
+            allowed_records = self.env[model_name].search(domain)
             if not allowed_records:
                 continue
-            module = self.env[model.model]._original_module
+            module = self.env[model_name]._original_module
             icon = module and modules.module.get_module_icon(module)
-            today = len(model_dic["today"] & set(allowed_records.ids))
-            overdue = len(model_dic["overdue"] & set(allowed_records.ids))
-            user_activities[model.model] = {
+            model = self.env["ir.model"]._get(model_name).with_prefetch(model_ids)
+            user_activities[model_name] = {
+                "id": model.id,
                 "name": model.name,
-                "model": model.model,
+                "model": model_name,
                 "type": "activity",
                 "icon": icon,
-                "total_count": today + overdue,
-                "today_count": today,
-                "overdue_count": overdue,
-                "planned_count": len(model_dic["planned"] & set(allowed_records.ids)),
+                "total_count": 0,
+                "today_count": 0,
+                "overdue_count": 0,
+                "planned_count": 0,
                 "actions": [
                     {
                         "icon": "fa-clock-o",
@@ -200,4 +230,11 @@ class Users(models.Model):
                     }
                 ],
             }
+            for record, activities in activities_by_record.items():
+                if record not in allowed_records:
+                    continue
+                for activity in activities:
+                    user_activities[model_name]["%s_count" % activity.state] += 1
+                    if activity.state in ("today", "overdue"):
+                        user_activities[model_name]["total_count"] += 1
         return list(user_activities.values())

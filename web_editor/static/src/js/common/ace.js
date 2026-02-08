@@ -1,7 +1,6 @@
 odoo.define('web_editor.ace', function (require) {
 'use strict';
 
-var ajax = require('web.ajax');
 var config = require('web.config');
 var concurrency = require('web.concurrency');
 var core = require('web.core');
@@ -144,7 +143,6 @@ function formatSCSS(scss) {
  */
 var ViewEditor = Widget.extend({
     template: 'web_editor.ace_view_editor',
-    xmlDependencies: ['/web_editor/static/src/xml/ace.xml'],
     jsLibs: [
         '/web/static/lib/ace/ace.js',
         [
@@ -164,7 +162,7 @@ var ViewEditor = Widget.extend({
         'click button[data-action=reset]': '_onResetClick',
         'click button[data-action=format]': '_onFormatClick',
         'click button[data-action=close]': '_onCloseClick',
-        'click #ace-view-id > .alert-warning .close': '_onCloseWarningClick'
+        'click #ace-view-id > .alert-warning .btn-close': '_onCloseWarningClick'
     },
 
     /**
@@ -339,10 +337,12 @@ var ViewEditor = Widget.extend({
         function startResizing(e) {
             refX = e.pageX;
             resizing = true;
+            document.body.classList.add("o_ace_view_editor_resizing");
         }
         function stopResizing() {
             if (resizing) {
                 resizing = false;
+                document.body.classList.remove("o_ace_view_editor_resizing");
 
                 if (this.errorSession) {
                     // To trigger an update of the error display
@@ -593,11 +593,9 @@ var ViewEditor = Widget.extend({
         } else {
             var resource = type === 'scss' ? this.scss[resID] : this.js[resID];
             return this._rpc({
-                route: '/web_editor/reset_asset',
-                params: {
-                    url: resID,
-                    bundle: resource.bundle,
-                },
+                model: 'web_editor.assets',
+                method: 'reset_asset',
+                args: [resID, resource.bundle],
             });
         }
     },
@@ -616,13 +614,9 @@ var ViewEditor = Widget.extend({
         var bundle = sessionIdEndsWithJS ? this.js[session.id].bundle : this.scss[session.id].bundle;
         var fileType = sessionIdEndsWithJS ? 'js' : 'scss';
         return self._rpc({
-            route: '/web_editor/save_asset',
-            params: {
-                url: session.id,
-                bundle,
-                content: session.text,
-                file_type: fileType,
-            },
+            model: 'web_editor.assets',
+            method: 'save_asset',
+            args: [session.id, bundle, session.text, fileType],
         }).then(function () {
             self._toggleDirtyInfo(session.id, fileType, false);
         });
@@ -792,7 +786,7 @@ var ViewEditor = Widget.extend({
                 placement: 'left',
                 container: 'body',
                 trigger: 'manual',
-                template: '<div class="popover o_ace_error_popover" role="tooltip"><div class="arrow"></div><h3 class="popover-header"></h3><div class="popover-body"></div></div>'
+                template: '<div class="popover o_ace_error_popover" role="tooltip"><div class="tooltip-arrow"></div><h3 class="popover-header"></h3><div class="popover-body"></div></div>'
             });
             this.$errorLine.popover('show');
         }
@@ -1011,7 +1005,12 @@ var ViewEditor = Widget.extend({
      * @private
      */
     _onSaveClick: function (ev) {
-        const restore = dom.addButtonLoadingEffect(ev.currentTarget);
+        const restoreSave = dom.addButtonLoadingEffect(ev.currentTarget);
+        const restore = () => {
+            restoreSave();
+            this.$resetButton[0].disabled = false;
+        };
+        this.$resetButton[0].disabled = true;
         this._saveResources().then(restore).guardedCatch(restore);
     },
     /**

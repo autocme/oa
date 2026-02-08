@@ -3,13 +3,11 @@
 # 	* phone_validation
 # 
 # Translators:
-# Kristoffer Grundström <lovaren@gmail.com>, 2021
-# Martin Trigaux, 2021
-# Martin Wilderoth <martin.wilderoth@linserv.se>, 2021
-# Robert Frykelius <robert.frykelius@linserv.se>, 2021
-# Simon S, 2021
-# 3eec91a23d05c632ffac786ac42b81b8_b6fff7b <8985b7bc57db860af29969457dbb51b3_1018915>, 2021
-# Kim Asplund <kim.asplund@gmail.com>, 2021
+# Martin Trigaux, 2022
+# Mikael Åkerberg <mikael.akerberg@mariaakerberg.com>, 2022
+# Martin Wilderoth <martin.wilderoth@linserv.se>, 2022
+# Simon S, 2022
+# Kristoffer Grundström <lovaren@gmail.com>, 2022
 # Chrille Hedberg <hedberg.chrille@gmail.com>, 2022
 # Lasse L, 2023
 # Anders Wallenquist <anders.wallenquist@vertel.se>, 2024
@@ -17,10 +15,10 @@
 # 
 msgid ""
 msgstr ""
-"Project-Id-Version: Odoo Server saas~14.5\n"
+"Project-Id-Version: Odoo Server 15.5alpha1\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2021-09-14 10:29+0000\n"
-"PO-Revision-Date: 2021-09-14 12:24+0000\n"
+"POT-Creation-Date: 2022-09-20 09:03+0000\n"
+"PO-Revision-Date: 2022-09-22 05:53+0000\n"
 "Last-Translator: Jakob Krabbe <jakob.krabbe@vertel.se>, 2024\n"
 "Language-Team: Swedish (https://app.transifex.com/odoo/teams/41243/sv/)\n"
 "MIME-Version: 1.0\n"
@@ -68,7 +66,7 @@ msgstr "Är du säker på att du vill avblacklista det här telefonnumret?"
 #: model:ir.model.fields,field_description:phone_validation.field_mail_thread_phone__message_attachment_count
 #: model:ir.model.fields,field_description:phone_validation.field_phone_blacklist__message_attachment_count
 msgid "Attachment Count"
-msgstr "Antal Bilagor"
+msgstr "Antal bilagor"
 
 #. module: phone_validation
 #: model_terms:ir.ui.view,arch_db:phone_validation.phone_blacklist_view_form
@@ -101,6 +99,16 @@ msgid "Blacklisted phone numbers won't receive SMS Mailings anymore."
 msgstr "Svartlistade telefonnummer kommer inte att få SMS-utskick längre."
 
 #. module: phone_validation
+#: code:addons/phone_validation/models/res_users.py:0
+#, python-format
+msgid ""
+"Blocked by deletion of portal account %(portal_user_name)s by %(user_name)s "
+"(#%(user_id)s)"
+msgstr ""
+"Blockerad av borttagning av portalkonto %(portal_user_name)s av "
+"%(user_name)s (#%(user_id)s)"
+
+#. module: phone_validation
 #: model_terms:ir.ui.view,arch_db:phone_validation.phone_blacklist_remove_view_form
 msgid "Confirm"
 msgstr "Bekräfta"
@@ -120,7 +128,7 @@ msgstr "Skapad av"
 #: model:ir.model.fields,field_description:phone_validation.field_phone_blacklist__create_date
 #: model:ir.model.fields,field_description:phone_validation.field_phone_blacklist_remove__create_date
 msgid "Created on"
-msgstr "Skapad den"
+msgstr "Skapad"
 
 #. module: phone_validation
 #: model_terms:ir.ui.view,arch_db:phone_validation.phone_blacklist_remove_view_form
@@ -152,13 +160,13 @@ msgstr "Följare"
 #: model:ir.model.fields,field_description:phone_validation.field_mail_thread_phone__message_partner_ids
 #: model:ir.model.fields,field_description:phone_validation.field_phone_blacklist__message_partner_ids
 msgid "Followers (Partners)"
-msgstr "Följare (kontakter)"
+msgstr "Följare (partners)"
 
 #. module: phone_validation
 #: model:ir.model.fields,field_description:phone_validation.field_mail_thread_phone__has_message
 #: model:ir.model.fields,field_description:phone_validation.field_phone_blacklist__has_message
 msgid "Has Message"
-msgstr "Har Meddelande"
+msgstr "Har meddelande"
 
 #. module: phone_validation
 #: model:ir.model.fields,field_description:phone_validation.field_phone_blacklist__id
@@ -168,18 +176,15 @@ msgstr "ID"
 
 #. module: phone_validation
 #: model:ir.model.fields,help:phone_validation.field_mail_thread_phone__message_needaction
-#: model:ir.model.fields,help:phone_validation.field_mail_thread_phone__message_unread
 #: model:ir.model.fields,help:phone_validation.field_phone_blacklist__message_needaction
-#: model:ir.model.fields,help:phone_validation.field_phone_blacklist__message_unread
 msgid "If checked, new messages require your attention."
-msgstr ""
-"Om den är markerad så finns det meddelanden som kräver din uppmärksamhet."
+msgstr "Om markerad så finns det meddelanden som kräver din uppmärksamhet."
 
 #. module: phone_validation
 #: model:ir.model.fields,help:phone_validation.field_mail_thread_phone__message_has_error
 #: model:ir.model.fields,help:phone_validation.field_phone_blacklist__message_has_error
 msgid "If checked, some messages have a delivery error."
-msgstr "Om markerad så har det blivit ett leveransfel för några meddelanden."
+msgstr "Om markerad har det uppstått leveransfel för vissa meddelanden."
 
 #. module: phone_validation
 #: model:ir.model.fields,help:phone_validation.field_mail_thread_phone__phone_sanitized_blacklisted
@@ -241,7 +246,7 @@ msgstr "Är följare"
 #: model:ir.model.fields,field_description:phone_validation.field_phone_blacklist____last_update
 #: model:ir.model.fields,field_description:phone_validation.field_phone_blacklist_remove____last_update
 msgid "Last Modified on"
-msgstr "Senast redigerad"
+msgstr "Senast redigerad den"
 
 #. module: phone_validation
 #: model:ir.model.fields,field_description:phone_validation.field_phone_blacklist__write_uid
@@ -253,13 +258,13 @@ msgstr "Senast uppdaterad av"
 #: model:ir.model.fields,field_description:phone_validation.field_phone_blacklist__write_date
 #: model:ir.model.fields,field_description:phone_validation.field_phone_blacklist_remove__write_date
 msgid "Last Updated on"
-msgstr "Senast uppdaterad"
+msgstr "Senast uppdaterad på"
 
 #. module: phone_validation
 #: model:ir.model.fields,field_description:phone_validation.field_mail_thread_phone__message_main_attachment_id
 #: model:ir.model.fields,field_description:phone_validation.field_phone_blacklist__message_main_attachment_id
 msgid "Main Attachment"
-msgstr "Huvudbilaga"
+msgstr "Bilaga"
 
 #. module: phone_validation
 #: model:ir.model.fields,field_description:phone_validation.field_mail_thread_phone__message_has_error
@@ -299,20 +304,14 @@ msgstr "Antal fel"
 #. module: phone_validation
 #: model:ir.model.fields,help:phone_validation.field_mail_thread_phone__message_needaction_counter
 #: model:ir.model.fields,help:phone_validation.field_phone_blacklist__message_needaction_counter
-msgid "Number of messages which requires an action"
-msgstr "Antal meddelanden som kräver en åtgärd"
+msgid "Number of messages requiring action"
+msgstr "Antal meddelanden som kräver åtgärd"
 
 #. module: phone_validation
 #: model:ir.model.fields,help:phone_validation.field_mail_thread_phone__message_has_error_counter
 #: model:ir.model.fields,help:phone_validation.field_phone_blacklist__message_has_error_counter
 msgid "Number of messages with delivery error"
 msgstr "Antal meddelanden med leveransfel"
-
-#. module: phone_validation
-#: model:ir.model.fields,help:phone_validation.field_mail_thread_phone__message_unread_counter
-#: model:ir.model.fields,help:phone_validation.field_phone_blacklist__message_unread_counter
-msgid "Number of unread messages"
-msgstr "Antal olästa meddelanden"
 
 #. module: phone_validation
 #: model:ir.model.fields,help:phone_validation.field_phone_blacklist__number
@@ -395,16 +394,9 @@ msgid "Unblacklisting Reason: %s"
 msgstr "Orsak till borttagning från svartlistning: %s"
 
 #. module: phone_validation
-#: model:ir.model.fields,field_description:phone_validation.field_mail_thread_phone__message_unread
-#: model:ir.model.fields,field_description:phone_validation.field_phone_blacklist__message_unread
-msgid "Unread Messages"
-msgstr "Olästa meddelanden"
-
-#. module: phone_validation
-#: model:ir.model.fields,field_description:phone_validation.field_mail_thread_phone__message_unread_counter
-#: model:ir.model.fields,field_description:phone_validation.field_phone_blacklist__message_unread_counter
-msgid "Unread Messages Counter"
-msgstr "Räknare olästa meddelanden"
+#: model:ir.model,name:phone_validation.model_res_users
+msgid "User"
+msgstr "Användare"
 
 #. module: phone_validation
 #: model_terms:ir.ui.view,arch_db:phone_validation.phone_blacklist_remove_view_form

@@ -20,6 +20,7 @@ var GreetingMessage = AbstractAction.extend({
         var self = this;
         this._super.apply(this, arguments);
         this.activeBarcode = true;
+        this.kioskDelay = action.kiosk_delay;
 
         // if no correct action given (due to an erroneous back or refresh from the browser), we set the dismiss button to return
         // to the (likely) appropriate menu, according to the user access rights
@@ -54,8 +55,11 @@ var GreetingMessage = AbstractAction.extend({
         this.attendance.check_out_time = this.attendance.check_out && this.attendance.check_out.format(this.format_time);
 
         // extra hours amount displayed in the greeting message template.
+        this.show_total_overtime = action.show_total_overtime;
         this.total_overtime_float = action.total_overtime; // Used for comparison in template
-        this.total_overtime = field_utils.format.float_time(this.total_overtime_float)
+        this.total_overtime = field_utils.format.float_time(this.total_overtime_float);
+        this.today_overtime_float = action.overtime_today;
+        this.today_overtime = field_utils.format.float_time(this.today_overtime_float);
 
         if (action.hours_today) {
             var duration = moment.duration(action.hours_today, "hours");
@@ -79,7 +83,9 @@ var GreetingMessage = AbstractAction.extend({
     welcome_message: function() {
         var self = this;
         var now = this.attendance.check_in.clone();
-        this.return_to_main_menu = setTimeout( function() { self.do_action(self.next_action, {clear_breadcrumbs: true}); }, 5000);
+        if (this.kioskDelay > 0) {
+            this.return_to_main_menu = setTimeout( function() { self.do_action(self.next_action, {clear_breadcrumbs: true}); }, this.kioskDelay);
+        }
 
         if (now.hours() < 5) {
             this.$('.o_hr_attendance_message_message').append(_t("Good night"));
@@ -115,13 +121,17 @@ var GreetingMessage = AbstractAction.extend({
     farewell_message: function() {
         var self = this;
         var now = this.attendance.check_out.clone();
-        this.return_to_main_menu = setTimeout( function() { self.do_action(self.next_action, {clear_breadcrumbs: true}); }, 5000);
+        if (this.kioskDelay > 0) {
+            this.return_to_main_menu = setTimeout( function() { self.do_action(self.next_action, {clear_breadcrumbs: true}); }, this.kioskDelay);
+        }
 
         if(this.previous_attendance_change_date){
             var last_check_in_date = this.previous_attendance_change_date.clone();
             if(now - last_check_in_date > 1000*60*60*12){
                 this.$('.o_hr_attendance_warning_message').show().append(_t("<b>Warning! Last check in was over 12 hours ago.</b><br/>If this isn't right, please contact Human Resource staff"));
-                clearTimeout(this.return_to_main_menu);
+                if (this.return_to_main_menu) {
+                    clearTimeout(this.return_to_main_menu);
+                }
                 this.activeBarcode = false;
             } else if(now - last_check_in_date > 1000*60*60*8){
                 this.$('.o_hr_attendance_random_message').html(_t("Another good day's work! See you soon!"));
@@ -155,6 +165,7 @@ var GreetingMessage = AbstractAction.extend({
                 clearTimeout(this.return_to_main_menu);
             }
             core.bus.off('barcode_scanned', this, this._onBarcodeScanned);
+            const kioskDelay = this.kioskDelay;
             this._rpc({
                     model: 'hr.employee',
                     method: 'attendance_scan',
@@ -165,10 +176,14 @@ var GreetingMessage = AbstractAction.extend({
                         self.do_action(result.action);
                     } else if (result.warning) {
                         self.displayNotification({ title: result.warning, type: 'danger' });
-                        setTimeout( function() { self.do_action(self.next_action, {clear_breadcrumbs: true}); }, 5000);
+                        if (kioskDelay > 0) {
+                            setTimeout( function() { self.do_action(self.next_action, {clear_breadcrumbs: true}); }, kioskDelay);
+                        }
                     }
                 }, function () {
-                    setTimeout( function() { self.do_action(self.next_action, {clear_breadcrumbs: true}); }, 5000);
+                    if (kioskDelay > 0) {
+                        setTimeout( function() { self.do_action(self.next_action, {clear_breadcrumbs: true}); }, kioskDelay);
+                    }
                 });
         }
     },

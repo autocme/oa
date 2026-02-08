@@ -23,23 +23,28 @@ class ProductReplenish(models.TransientModel):
         'stock.warehouse', string='Warehouse', required=True,
         domain="[('company_id', '=', company_id)]")
     route_ids = fields.Many2many(
-        'stock.location.route', string='Preferred Routes',
+        'stock.route', string='Preferred Routes',
         help="Apply specific route(s) for the replenishment instead of product's default routes.",
         domain="['|', ('company_id', '=', False), ('company_id', '=', company_id)]")
     company_id = fields.Many2one('res.company')
+
+    @api.onchange('product_id')
+    def _onchange_product_id(self):
+        self.quantity = abs(self.product_id.virtual_available) if self.product_id.virtual_available < 0 else 1
 
     @api.model
     def default_get(self, fields):
         res = super(ProductReplenish, self).default_get(fields)
         product_tmpl_id = self.env['product.template']
-        if 'product_id' in fields:
-            if self.env.context.get('default_product_id'):
-                product_id = self.env['product.product'].browse(self.env.context['default_product_id'])
-                product_tmpl_id = product_id.product_tmpl_id
+        if self.env.context.get('default_product_id'):
+            product_id = self.env['product.product'].browse(self.env.context['default_product_id'])
+            product_tmpl_id = product_id.product_tmpl_id
+            if 'product_id' in fields:
                 res['product_tmpl_id'] = product_id.product_tmpl_id.id
                 res['product_id'] = product_id.id
-            elif self.env.context.get('default_product_tmpl_id'):
-                product_tmpl_id = self.env['product.template'].browse(self.env.context['default_product_tmpl_id'])
+        elif self.env.context.get('default_product_tmpl_id'):
+            product_tmpl_id = self.env['product.template'].browse(self.env.context['default_product_tmpl_id'])
+            if 'product_id' in fields:
                 res['product_tmpl_id'] = product_tmpl_id.id
                 res['product_id'] = product_tmpl_id.product_variant_id.id
                 if len(product_tmpl_id.product_variant_ids) > 1:
@@ -58,7 +63,7 @@ class ProductReplenish(models.TransientModel):
 
     def launch_replenishment(self):
         uom_reference = self.product_id.uom_id
-        self.quantity = self.product_uom_id._compute_quantity(self.quantity, uom_reference)
+        self.quantity = self.product_uom_id._compute_quantity(self.quantity, uom_reference, rounding_method='HALF-UP')
         try:
             self.env['procurement.group'].with_context(clean_context(self.env.context)).run([
                 self.env['procurement.group'].Procurement(

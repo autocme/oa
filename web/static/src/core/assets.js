@@ -1,53 +1,32 @@
 /** @odoo-module **/
 
-const { useEnv, onWillStart } = owl.hooks;
 import { memoize } from "./utils/functions";
 import { browser } from "./browser/browser";
+import { registry } from "./registry";
+import { session } from "@web/session";
+
+/**
+ * This export is done only in order to modify the behavior of the exported
+ * functions. This is done in order to be able to make a test environment.
+ * Modules should only use the methods exported below.
+ */
+export const assets = {
+    retries: {
+        count: 3,
+        delay: 5000,
+        extraDelay: 2500,
+    },
+};
 
 class AssetsLoadingError extends Error {}
-
-//------------------------------------------------------------------------------
-// Types
-//------------------------------------------------------------------------------
-
-/**
- * An object describing a bundle to load
- * @typedef {Object} Bundle
- * @property {boolean} [templates] whether to load the qweb templates
- * @property {boolean} [js] whether to load the js from the bundle. Currently
- *      not implemented.
- * @property {boolean} [css] whether to load the css from the bundle. Currently
- *      not implemented.
- */
-
-/**
- * An object describing a bundle to load. The keys are bundle names.
- * @typedef {Object<string, Bundle>} Bundles
- */
-
-/**
- * An object describing a loaded bundle
- * @typedef {Object} LoadedBundle
- * @property {XMLDocument} templates an XML document containing the owl
- *      templates defined in that bundle
- */
-
-/**
- * An object describing a loaded bundle. The keys are bundle names.
- * @typedef {Object<string, LoadedBundle>} LoadedBundles
- */
-
-//------------------------------------------------------------------------------
-// Helpers
-//------------------------------------------------------------------------------
 
 /**
  * Loads the given url inside a script tag.
  *
  * @param {string} url the url of the script
- * @returns {Promise} resolved when the script has been loaded
+ * @returns {Promise<true>} resolved when the script has been loaded
  */
-const loadJS = memoize(function loadJS(url) {
+export const _loadJS = (assets.loadJS = memoize(function loadJS(url) {
     if (document.querySelector(`script[src="${url}"]`)) {
         // Already in the DOM and wasn't loaded through this function
         // Unfortunately there is no way to check whether a script has loaded
@@ -55,24 +34,26 @@ const loadJS = memoize(function loadJS(url) {
         // so we assume it is.
         return Promise.resolve();
     }
+
     const scriptEl = document.createElement("script");
     scriptEl.type = "text/javascript";
     scriptEl.src = url;
     document.head.appendChild(scriptEl);
     return new Promise((resolve, reject) => {
-        scriptEl.addEventListener("load", resolve);
+        scriptEl.addEventListener("load", () => resolve(true));
         scriptEl.addEventListener("error", () => {
             reject(new AssetsLoadingError(`The loading of ${url} failed`));
         });
     });
-});
+}));
+
 /**
  * Loads the given url as a stylesheet.
  *
  * @param {string} url the url of the stylesheet
- * @returns {Promise} resolved when the stylesheet has been loaded
+ * @returns {Promise<true>} resolved when the stylesheet has been loaded
  */
-const loadCSS = memoize(function loadCSS(url) {
+export const _loadCSS = (assets.loadCSS = memoize(function loadCSS(url, retryCount = 0) {
     if (document.querySelector(`link[href="${url}"]`)) {
         // Already in the DOM and wasn't loaded through this function
         // Unfortunately there is no way to check whether a link has loaded
@@ -84,168 +65,220 @@ const loadCSS = memoize(function loadCSS(url) {
     linkEl.type = "text/css";
     linkEl.rel = "stylesheet";
     linkEl.href = url;
-    document.head.appendChild(linkEl);
-    return new Promise(function (resolve, reject) {
-        linkEl.addEventListener("load", resolve);
-        linkEl.addEventListener("error", () => {
-            reject(new AssetsLoadingError(`The loading of ${url} failed`));
+    const promise = new Promise((resolve, reject) => {
+        linkEl.addEventListener("load", () => resolve(true));
+        linkEl.addEventListener("error", async () => {
+            if (retryCount < assets.retries.count) {
+                await new Promise(resolve => setTimeout(resolve, assets.retries.delay + assets.retries.extraDelay * retryCount));
+                linkEl.remove();
+                loadCSS(url, retryCount + 1).then(resolve).catch(reject);
+            } else {
+                reject(new AssetsLoadingError(`The loading of ${url} failed`));
+            }
         });
     });
-});
-/**
- * Loads the qweb templates from a given bundle name.
- *
- * @param {string} name the name of the bundle as declared in the manifest.
- * @returns {Promise<XMLDocument>} A Promise of an XML document containing the
- *      owl templates.
- */
-export const loadBundleTemplates = memoize(async function loadBundleTemplates(name) {
-    // TODO: quid of the "unique" in the URL? We can"t have one cache_hash
-    // for each and every bundle I"m guessing.
-    const bundleURL = `/web/webclient/qweb/${Date.now()}?bundle=${name}`;
-    const templates = await (await browser.fetch(bundleURL)).text();
-    return processTemplates(templates);
-});
+    document.head.appendChild(linkEl);
+    return promise;
+}));
 
-const bundlesCache = {};
 /**
- * Loads a bundle.
- *
- * @param {string} name the name of the bundle to load
- * @param {Bundle} options parts of the bundle to load (see Bundle typedef)
- * @returns {Promise<LoadedBundle>}
+ * Container dom containing all the owl templates that have been loaded.
+ * This can be imported by the modules in order to use it when loading the
+ * application and the components.
  */
-async function loadBundle(name, options) {
-    const { templates } = options;
-    if (!bundlesCache[name]) {
-        bundlesCache[name] = { name };
+export const templates = new DOMParser().parseFromString("<odoo/>", "text/xml");
+
+let defaultApp;
+/**
+ * Loads the given xml template.
+ *
+ * @param {string} xml the string defining the templates
+ * @param {App} [app=defaultApp] optional owl App instance (default value
+ *      can be changed with setLoadXmlDefaultApp method)
+ * @returns {Promise<true>} resolved when the template xml has been loaded
+ */
+export const _loadXML = (assets.loadXML = function loadXML(xml, app = defaultApp) {
+    const doc = new DOMParser().parseFromString(xml, "text/xml");
+    if (doc.querySelector("parsererror")) {
+        // The generated error XML is non-standard so we log the full content to
+        // ensure that the relevant info is actually logged.
+        throw new Error(doc.querySelector("parsererror").textContent.trim());
     }
-    if (templates && !bundlesCache[name].templates) {
-        bundlesCache[name].templates = loadBundleTemplates(name);
-    }
-    // TODO: if ("js/css") {...} to support lazy loading js/css from bundles
 
-    // Wait only for the requested keys
-    const entries = await Promise.all(
-        Object.keys(options).map(async (key) => [key, await bundlesCache[name][key]])
-    );
-    return Object.fromEntries(entries);
-}
-
-//------------------------------------------------------------------------------
-// Exports
-//------------------------------------------------------------------------------
-
-/**
- * Process the qweb templates to obtain only the owl templates. This function
- * does NOT register the templates into Owl.
- *
- * @param {string} templates An xml string describing templates
- * @returns {XMLDocument} An xml document containing only the owl templates
- */
-export function processTemplates(templates) {
-    const doc = new DOMParser().parseFromString(templates, "text/xml");
-    // as we currently have two qweb engines (owl and legacy), owl templates are
-    // flagged with attribute `owl="1"`. The following lines removes the "owl"
-    // attribute from the templates, so that it doesn't appear in the DOM. We
-    // also remove the non-owl templates, as those shouldn't be loaded in the
-    // owl environment's QWeb, and will be loaded separately.
-    for (const template of [...doc.querySelector("templates").children]) {
-        if (template.hasAttribute("owl")) {
-            template.removeAttribute("owl");
+    for (const element of doc.querySelectorAll("templates > [t-name][owl]")) {
+        element.removeAttribute("owl");
+        const name = element.getAttribute("t-name");
+        const previous = templates.querySelector(`[t-name="${name}"]`);
+        if (previous) {
+            console.debug("Override template: " + name);
+            previous.replaceWith(element);
         } else {
-            template.remove();
+            templates.documentElement.appendChild(element);
         }
     }
-    return doc;
-}
-/**
- * Renders a public asset template and loads the libraries defined inside of it.
- * Only loads js and css, template declarations will be ignored. Only loads
- * scripts and styles that are defined in script src and link href, ignores
- * inline scripts and styles.
- *
- * @deprecated
- * @param {string} xmlid The xmlid of the template that defines the public asset
- * @param {ORM} orm An ORM object capable of calling methods on models
- * @returns {Promise} Resolved when the contents of the asset is loaded
- */
-export const loadPublicAsset = memoize(async function loadPublicAsset(xmlid, orm) {
-    const xml = await orm.call("ir.ui.view", "render_public_asset", [xmlid]);
-    const doc = new DOMParser().parseFromString(`<xml>${xml}</xml>`, "text/xml");
-    return loadAssets({
-        cssLibs: [...doc.querySelectorAll("link[href]")].map((node) => node.getAttribute("href")),
-        jsLibs: [...doc.querySelectorAll("script[src]")].map((node) => node.getAttribute("src")),
-    });
+    if (app || defaultApp) {
+        console.debug("Add templates in Owl app.");
+        app.addTemplates(templates, app || defaultApp);
+    } else {
+        console.debug("Add templates on window Owl container.");
+    }
 });
 /**
- * Loads the given assets. Currently, when passing bundles, only the templates
- * key is supported, as loading a bundle's JS/CSS asynchronously requires some
- * groundwork.
+ * Update the default app to load templates.
  *
- * @param {Object} assets
- * @param {Bundles} [assets.bundles] an object describing the bundles to load.
- *      The keys are bundle names, and the values describe whether to load the
- *      templates, js and/or css from that bundle.
- * @param {string[]} [assets.jsLibs] urls of the javascript libraries to load
- * @param {string[]} [assets.cssLibs] urls of the css libraries to load
- * @returns {Promise<{[bundles: LoadedBundle[]]}>} An object describing the loaded
- *      assets. The js and css libs are loaded globally and will be loaded when
- *      this promise is resolved, the owl xml templates will be loaded in the
- *      `templates` key of each LoadedBundle object.
+ * @param {App} app owl App instance
  */
-export async function loadAssets(assets) {
-    const proms = [];
-    const loadedAssets = {};
-    if ("bundles" in assets) {
-        const bundles = Object.entries(assets.bundles);
-        const bundlesProm = Promise.all(
-            bundles.map(async ([name, options]) => [name, await loadBundle(name, options)])
-        ).then((loadedBundles) => {
-            loadedAssets.bundles = Object.fromEntries(loadedBundles);
-        });
-        proms.push(bundlesProm);
-    }
-    if ("jsLibs" in assets) {
-        proms.push(Promise.all(assets.jsLibs.map(loadJS)));
-    }
-    if ("cssLibs" in assets) {
-        proms.push(Promise.all(assets.cssLibs.map(loadCSS)));
-    }
-    await Promise.all(proms);
-    return loadedAssets;
+export function setLoadXmlDefaultApp(app) {
+    defaultApp = app;
 }
+
 /**
- * Loads the given assets, and adds the loaded owl templates into the current
- * environment's qweb instance.
+ * Get the files information as descriptor object from a public asset template.
  *
- * @param {Object} assets
- * @param {Bundles} [assets.bundles] the bundles to load. See above typedef for
- *      details.
- * @param {string[]} [assets.jsLibs] urls of the javascript libraries to load
- * @param {string[]} [assets.cssLibs] urls of the css libraries to load
+ * @param {string} bundleName Name of the bundle containing the list of files
+ * @returns {Promise<{cssLibs, cssContents, jsLibs, jsContents}>}
  */
-export function useAssets(assets) {
-    const env = useEnv();
-    onWillStart(async () => {
-        const loadedAssets = await loadAssets(assets);
-        // TODO: { js, css } = loadedAssets when we support lazy loading js/css from bundles
-        const { bundles } = loadedAssets;
-        if (bundles) {
-            const templateDocs = Object.values(bundles).map(({ templates }) => templates);
-            // Some templates might already be defined by another bundle, but need
-            // to be included in the current bundle for primary inherits to work.
-            // We don't want to add those again. We also have to add them to qweb
-            // one bundle at a time in case multiple bundles were specified that
-            // include the same template (e.g. for inheritance)
-            for (const xmlDoc of templateDocs) {
-                for (const template of [...xmlDoc.querySelector("templates").children]) {
-                    if (template.getAttribute("t-name") in env.qweb.templates) {
-                        template.remove();
-                    }
-                }
-                env.qweb.addTemplates(xmlDoc);
+export const _getBundle = (assets.getBundle = memoize(async function getBundle(bundleName) {
+    const url = new URL(`/web/bundle/${bundleName}`, location.origin);
+    for (const [key, value] of Object.entries(session.bundle_params || {})) {
+        url.searchParams.set(key, value);
+    }
+    const response = await browser.fetch(url.href);
+    const json = await response.json();
+    const assets = {
+        cssLibs: [],
+        cssContents: [],
+        jsLibs: [],
+        jsContents: [],
+    };
+    for (const key in json) {
+        const file = json[key];
+        if (file.type === "link") {
+            assets.cssLibs.push(file.src);
+        } else if (file.type === "style") {
+            assets.cssContents.push(file.content);
+        } else {
+            if (file.src) {
+                assets.jsLibs.push(file.src);
+            } else {
+                assets.jsContents.push(file.content);
             }
         }
+    }
+    return assets;
+}));
+
+/**
+ * Loads the given js/css libraries and asset bundles. Note that no library or
+ * asset will be loaded if it was already done before.
+ *
+ * @param {Object} desc
+ * @param {Array<string|string[]>} [desc.assetLibs=[]]
+ *      The list of assets to load. Each list item may be a string (the xmlID
+ *      of the asset to load) or a list of strings. The first level is loaded
+ *      sequentially (so use this if the order matters) while the assets in
+ *      inner lists are loaded in parallel (use this for efficiency but only
+ *      if the order does not matter, should rarely be the case for assets).
+ * @param {string[]} [desc.cssLibs=[]]
+ *      The list of CSS files to load. They will all be loaded in parallel but
+ *      put in the DOM in the given order (only the order in the DOM is used
+ *      to determine priority of CSS rules, not loaded time).
+ * @param {Array<string|string[]>} [desc.jsLibs=[]]
+ *      The list of JS files to load. Each list item may be a string (the URL
+ *      of the file to load) or a list of strings. The first level is loaded
+ *      sequentially (so use this if the order matters) while the files in inner
+ *      lists are loaded in parallel (use this for efficiency but only
+ *      if the order does not matter).
+ * @param {string[]} [desc.cssContents=[]]
+ *      List of inline styles to add after loading the CSS files.
+ * @param {string[]} [desc.jsContents=[]]
+ *      List of inline scripts to add after loading the JS files.
+ *
+ * @returns {Promise}
+ */
+export const _loadBundle = (assets.loadBundle = async function loadBundle(desc) {
+    // Load css in parallel
+    const promiseCSS = Promise.all((desc.cssLibs || []).map(assets.loadCSS)).then(() => {
+        if (desc.cssContents && desc.cssContents.length) {
+            const style = document.createElement("style");
+            style.textContent = desc.cssContents.join("\n");
+            document.head.appendChild(style);
+        }
     });
+    // Load JavaScript (don't wait for the css loading)
+    for (const urlData of desc.jsLibs || []) {
+        if (typeof urlData === "string") {
+            // serial loading
+            await assets.loadJS(urlData);
+            // Wait template if the JavaScript come from bundle.
+            const bundle = urlData.match(/\/web\/assets\/.*\/([^/]+?)(\.min)?\.js/);
+            if (bundle) {
+                await odoo.ready(bundle[1] + ".bundle.xml");
+            }
+        } else {
+            // parallel loading
+            await Promise.all(urlData.map(loadJS));
+        }
+    }
+
+    if (desc.jsContents && desc.jsContents.length) {
+        const script = document.createElement("script");
+        script.type = "text/javascript";
+        script.textContent = desc.jsContents.join("\n");
+        document.head.appendChild(script);
+    }
+    // Wait for the scc loading to be completed before loading the other bundle
+    await promiseCSS;
+    // Load other desc
+    for (const bundleName of desc.assetLibs || []) {
+        if (typeof bundleName === "string") {
+            // serial loading
+            const desc = await assets.getBundle(bundleName);
+            await assets.loadBundle(desc);
+        } else {
+            // parallel loading
+            await Promise.all(
+                bundleName.map(async (bundleName) => {
+                    const desc = await assets.getBundle(bundleName);
+                    return assets.loadBundle(desc);
+                })
+            );
+        }
+    }
+});
+
+export const loadJS = function (url) {
+    return assets.loadJS(url);
+};
+export const loadCSS = function (url) {
+    return assets.loadCSS(url);
+};
+export const loadXML = function (xml, app = defaultApp) {
+    return assets.loadXML(xml, app);
+};
+export const getBundle = function (bundleName) {
+    return assets.getBundle(bundleName);
+};
+export const loadBundle = function (desc) {
+    return assets.loadBundle(desc);
+};
+
+import { Component, xml, onWillStart } from "@odoo/owl";
+/**
+ * Utility component that loads an asset bundle before instanciating a component
+ */
+export class LazyComponent extends Component {
+    setup() {
+        onWillStart(async () => {
+            const bundle = await getBundle(this.props.bundle);
+            await loadBundle(bundle);
+            this.Component = registry.category("lazy_components").get(this.props.Component);
+        });
+    }
 }
+LazyComponent.template = xml`<t t-component="Component" t-props="props.props"/>`;
+LazyComponent.props = {
+    Component: String,
+    bundle: String,
+    props: { type: Object, optional: true },
+};

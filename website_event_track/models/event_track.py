@@ -105,20 +105,15 @@ class Track(models.Model):
     date_end = fields.Datetime('Track End Date', compute='_compute_end_date', store=True)
     duration = fields.Float('Duration', default=0.5, help="Track duration in hours.")
     is_track_live = fields.Boolean(
-        'Is Track Live', compute='_compute_track_time_data',
-        help="Track has started and is ongoing")
+        'Is Track Live', compute='_compute_track_time_data')
     is_track_soon = fields.Boolean(
-        'Is Track Soon', compute='_compute_track_time_data',
-        help="Track begins soon")
+        'Is Track Soon', compute='_compute_track_time_data')
     is_track_today = fields.Boolean(
-        'Is Track Today', compute='_compute_track_time_data',
-        help="Track begins today")
+        'Is Track Today', compute='_compute_track_time_data')
     is_track_upcoming = fields.Boolean(
-        'Is Track Upcoming', compute='_compute_track_time_data',
-        help="Track is not yet started")
+        'Is Track Upcoming', compute='_compute_track_time_data')
     is_track_done = fields.Boolean(
-        'Is Track Done', compute='_compute_track_time_data',
-        help="Track is finished")
+        'Is Track Done', compute='_compute_track_time_data')
     track_start_remaining = fields.Integer(
         'Minutes before track starts', compute='_compute_track_time_data',
         help="Remaining time before track starts (seconds)")
@@ -333,7 +328,7 @@ class Track(models.Model):
 
     @api.depends('event_track_visitor_ids.visitor_id', 'event_track_visitor_ids.is_wishlisted')
     def _compute_wishlist_visitor_ids(self):
-        results = self.env['event.track.visitor'].read_group(
+        results = self.env['event.track.visitor']._read_group(
             [('track_id', 'in', self.ids), ('is_wishlisted', '=', True)],
             ['track_id', 'visitor_id:array_agg'],
             ['track_id']
@@ -345,7 +340,7 @@ class Track(models.Model):
 
     def _search_wishlist_visitor_ids(self, operator, operand):
         if operator == "not in":
-            raise NotImplementedError("Unsupported 'Not In' operation on track wishlist visitors")
+            raise NotImplementedError(_("Unsupported 'Not In' operation on track wishlist visitors"))
 
         track_visitors = self.env['event.track.visitor'].sudo().search([
             ('visitor_id', operator, operand),
@@ -455,7 +450,7 @@ class Track(models.Model):
         return {
             track.id: {
                 'partner_ids': [],
-                'email_to': track.contact_email or track.partner_email,
+                'email_to': ','.join(tools.email_normalize_all(track.contact_email or track.partner_email)) or track.contact_email or track.partner_email,
                 'email_cc': False
             } for track in self
         }

@@ -2,48 +2,50 @@
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
 
 from . import common
+from odoo import Command
 from odoo.exceptions import UserError
 from odoo.tests import Form
 
 
-class TestWarehouse(common.TestMrpCommon):
-    def setUp(self):
-        super(TestWarehouse, self).setUp()
+class TestWarehouseMrp(common.TestMrpCommon):
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
 
-        unit = self.env.ref("uom.product_uom_unit")
-        self.stock_location = self.env.ref('stock.stock_location_stock')
-        self.depot_location = self.env['stock.location'].create({
+        unit = cls.env.ref("uom.product_uom_unit")
+        cls.stock_location = cls.env.ref('stock.stock_location_stock')
+        cls.depot_location = cls.env['stock.location'].create({
             'name': 'Depot',
             'usage': 'internal',
-            'location_id': self.stock_location.id,
+            'location_id': cls.stock_location.id,
         })
-        self.env["stock.putaway.rule"].create({
-            "location_in_id": self.stock_location.id,
-            "location_out_id": self.depot_location.id,
-            'category_id': self.env.ref('product.product_category_all').id,
+        cls.env["stock.putaway.rule"].create({
+            "location_in_id": cls.stock_location.id,
+            "location_out_id": cls.depot_location.id,
+            'category_id': cls.env.ref('product.product_category_all').id,
         })
-        mrp_workcenter = self.env['mrp.workcenter'].create({
+        cls.env['mrp.workcenter'].create({
             'name': 'Assembly Line 1',
-            'resource_calendar_id': self.env.ref('resource.resource_calendar_std').id,
+            'resource_calendar_id': cls.env.ref('resource.resource_calendar_std').id,
         })
-        self.env['stock.quant'].create({
-            'location_id': self.stock_location_14.id,
-            'product_id': self.graphics_card.id,
+        cls.env['stock.quant'].create({
+            'location_id': cls.stock_location_14.id,
+            'product_id': cls.graphics_card.id,
             'inventory_quantity': 16.0
         }).action_apply_inventory()
 
-        self.bom_laptop = self.env['mrp.bom'].create({
-            'product_tmpl_id': self.laptop.product_tmpl_id.id,
+        cls.bom_laptop = cls.env['mrp.bom'].create({
+            'product_tmpl_id': cls.laptop.product_tmpl_id.id,
             'product_qty': 1,
             'product_uom_id': unit.id,
             'consumption': 'flexible',
             'bom_line_ids': [(0, 0, {
-                'product_id': self.graphics_card.id,
+                'product_id': cls.graphics_card.id,
                 'product_qty': 1,
                 'product_uom_id': unit.id
             })],
             'operation_ids': [
-                (0, 0, {'name': 'Cutting Machine', 'workcenter_id': self.workcenter_1.id, 'time_cycle': 12, 'sequence': 1}),
+                (0, 0, {'name': 'Cutting Machine', 'workcenter_id': cls.workcenter_1.id, 'time_cycle': 12, 'sequence': 1}),
             ],
         })
 
@@ -95,12 +97,12 @@ class TestWarehouse(common.TestMrpCommon):
         self.bom_3.bom_line_ids.filtered(lambda x: x.product_id == self.product_5).unlink()
 
         # Create Inventory Adjustment For Stick and Stone Tools with lot.
-        lot_product_4 = self.env['stock.production.lot'].create({
+        lot_product_4 = self.env['stock.lot'].create({
             'name': '0000000000001',
             'product_id': self.product_4.id,
             'company_id': self.env.company.id,
         })
-        lot_product_2 = self.env['stock.production.lot'].create({
+        lot_product_2 = self.env['stock.lot'].create({
             'name': '0000000000002',
             'product_id': self.product_2.id,
             'company_id': self.env.company.id,
@@ -143,7 +145,14 @@ class TestWarehouse(common.TestMrpCommon):
             scrap_id.do_scrap()
 
         # Scrap Product Wood with lot.
-        self.env['stock.scrap'].with_context(active_model='mrp.production', active_id=production_3.id).create({'product_id': self.product_2.id, 'scrap_qty': 1.0, 'product_uom_id': self.product_2.uom_id.id, 'location_id': location_id, 'lot_id': lot_product_2.id, 'production_id': production_3.id})
+        scrap_id = self.env['stock.scrap'].with_context(active_model='mrp.production', active_id=production_3.id).create({'product_id': self.product_2.id, 'scrap_qty': 1.0, 'product_uom_id': self.product_2.uom_id.id, 'location_id': location_id, 'lot_id': lot_product_2.id, 'production_id': production_3.id})
+        scrap_id.do_scrap()
+        scrap_move = scrap_id.move_id
+
+        self.assertTrue(scrap_move.raw_material_production_id)
+        self.assertTrue(scrap_move.scrapped)
+        self.assertEqual(scrap_move.location_dest_id, scrap_id.scrap_location_id)
+        self.assertEqual(scrap_move.price_unit, scrap_move.product_id.standard_price)
 
         #Check scrap move is created for this production order.
         #TODO: should check with scrap objects link in between
@@ -158,7 +167,7 @@ class TestWarehouse(common.TestMrpCommon):
         """
         self.laptop.tracking = 'serial'
         mo_laptop = self.new_mo_laptop()
-        serial = self.env['stock.production.lot'].create({'product_id': self.laptop.id, 'company_id': self.env.company.id})
+        serial = self.env['stock.lot'].create({'product_id': self.laptop.id, 'company_id': self.env.company.id})
 
         mo_form = Form(mo_laptop)
         mo_form.qty_producing = 1
@@ -189,7 +198,7 @@ class TestWarehouse(common.TestMrpCommon):
         package = self.env['stock.quant.package'].create({})
 
         picking = mo.picking_ids
-        picking.move_lines.move_line_ids.write({
+        picking.move_line_ids.write({
             'qty_done': 20,
             'result_package_id': package.id,
         })
@@ -199,19 +208,55 @@ class TestWarehouse(common.TestMrpCommon):
         wizard.process()
 
         backorder = picking.backorder_ids
-        backorder.move_lines.quantity_done = 80
+        backorder.move_line_ids.qty_done = 80
         backorder.button_validate()
 
         self.assertEqual(picking.state, 'done')
         self.assertEqual(backorder.state, 'done')
-        self.assertEqual(mo.move_raw_ids.move_line_ids.mapped('product_qty'), [20, 80])
+        self.assertEqual(mo.move_raw_ids.move_line_ids.mapped('reserved_qty'), [20, 80])
+
+    def test_unarchive_mto_route_active_needed_rules_only(self):
+        """ Ensure that activating a route will activate only its relevant rules.
+            Here, unarchiving the MTO route shouldn't active pull rule for the Pre-Production
+            location if manufacture is in 1 step since this location is archived.
+        """
+
+        self.env.user.groups_id += self.env.ref('stock.group_adv_location')
+        mto_route = self.env.ref('stock.route_warehouse0_mto')
+
+        # initially 'WH: Stock → Pre-Production (MTO)' is inactive and not shown in MTO route.
+        self.assertEqual(self.warehouse_1.manufacture_steps, 'mrp_one_step')
+        self.assertFalse(self.warehouse_1.pbm_mto_pull_id.active)
+        self.assertFalse(self.warehouse_1.pbm_mto_pull_id.location_dest_id.active)
+        self.assertFalse(mto_route.active)
+        self.assertNotIn(self.warehouse_1.pbm_mto_pull_id, mto_route.rule_ids)
+
+        # Activate the MTO route and still 'WH: Stock → Pre-Production (MTO)' is not shown in MTO route.
+        mto_route.active = True
+        self.assertFalse(self.warehouse_1.pbm_mto_pull_id.active)
+        self.assertFalse(self.warehouse_1.pbm_mto_pull_id.location_dest_id.active)
+        self.assertNotIn(self.warehouse_1.pbm_mto_pull_id, mto_route.rule_ids)
+
+        # Change MRP steps mrp_one_step to pbm_sam and now that rule is shown in mto route.
+        self.warehouse_1.manufacture_steps = 'pbm_sam'
+        self.assertTrue(self.warehouse_1.pbm_mto_pull_id.active)
+        self.assertTrue(self.warehouse_1.pbm_mto_pull_id.location_dest_id.active)
+        self.assertIn(self.warehouse_1.pbm_mto_pull_id, mto_route.rule_ids)
+
+        # Revert to mrp_one_step MRP and confirm rules visibility is updated correctly
+        self.warehouse_1.manufacture_steps = 'mrp_one_step'
+        self.assertFalse(self.warehouse_1.pbm_mto_pull_id.active)
+        self.assertFalse(self.warehouse_1.pbm_mto_pull_id.location_dest_id.active)
+        self.assertNotIn(self.warehouse_1.pbm_mto_pull_id, mto_route.rule_ids)
+
 
 class TestKitPicking(common.TestMrpCommon):
-    def setUp(self):
-        super(TestKitPicking, self).setUp()
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
 
         def create_product(name):
-            p = Form(self.env['product.product'])
+            p = Form(cls.env['product.product'])
             p.name = name
             p.detailed_type = 'product'
             return p.save()
@@ -240,13 +285,13 @@ class TestKitPicking(common.TestMrpCommon):
         kit_1 = create_product('Kit 1')
         kit_2 = create_product('Kit 2')
         kit_3 = create_product('kit 3')
-        self.kit_parent = create_product('Kit Parent')
+        cls.kit_parent = create_product('Kit Parent')
         # Linking the kits and the components via some 'phantom' BoMs
-        bom_kit_1 = self.env['mrp.bom'].create({
+        bom_kit_1 = cls.env['mrp.bom'].create({
             'product_tmpl_id': kit_1.product_tmpl_id.id,
             'product_qty': 1.0,
             'type': 'phantom'})
-        BomLine = self.env['mrp.bom.line']
+        BomLine = cls.env['mrp.bom.line']
         BomLine.create({
             'product_id': component_a.id,
             'product_qty': 2.0,
@@ -259,7 +304,7 @@ class TestKitPicking(common.TestMrpCommon):
             'product_id': component_c.id,
             'product_qty': 3.0,
             'bom_id': bom_kit_1.id})
-        bom_kit_2 = self.env['mrp.bom'].create({
+        bom_kit_2 = cls.env['mrp.bom'].create({
             'product_tmpl_id': kit_2.product_tmpl_id.id,
             'product_qty': 1.0,
             'type': 'phantom'})
@@ -271,8 +316,8 @@ class TestKitPicking(common.TestMrpCommon):
             'product_id': kit_1.id,
             'product_qty': 2.0,
             'bom_id': bom_kit_2.id})
-        bom_kit_parent = self.env['mrp.bom'].create({
-            'product_tmpl_id': self.kit_parent.product_tmpl_id.id,
+        bom_kit_parent = cls.env['mrp.bom'].create({
+            'product_tmpl_id': cls.kit_parent.product_tmpl_id.id,
             'product_qty': 1.0,
             'type': 'phantom'})
         BomLine.create({
@@ -283,7 +328,7 @@ class TestKitPicking(common.TestMrpCommon):
             'product_id': kit_2.id,
             'product_qty': 2.0,
             'bom_id': bom_kit_parent.id})
-        bom_kit_3 = self.env['mrp.bom'].create({
+        bom_kit_3 = cls.env['mrp.bom'].create({
             'product_tmpl_id': kit_3.product_tmpl_id.id,
             'product_qty': 1.0,
             'type': 'phantom'})
@@ -301,16 +346,16 @@ class TestKitPicking(common.TestMrpCommon):
             'bom_id': bom_kit_parent.id})
 
         # We create an 'immediate transfer' receipt for x3 kit_parent
-        self.test_partner = self.env['res.partner'].create({
+        cls.test_partner = cls.env['res.partner'].create({
             'name': 'Notthat Guyagain',
         })
-        self.test_supplier = self.env['stock.location'].create({
+        cls.test_supplier = cls.env['stock.location'].create({
             'name': 'supplier',
             'usage': 'supplier',
-            'location_id': self.env.ref('stock.stock_location_stock').id,
+            'location_id': cls.env.ref('stock.stock_location_stock').id,
         })
 
-        self.expected_quantities = {
+        cls.expected_quantities = {
             component_a: 24,
             component_b: 12,
             component_c: 36,
@@ -344,8 +389,8 @@ class TestKitPicking(common.TestMrpCommon):
         picking.button_validate()
 
         # We check that the picking has the correct quantities after its move were splitted.
-        self.assertEqual(len(picking.move_lines), 7)
-        for move_line in picking.move_lines:
+        self.assertEqual(len(picking.move_ids), 7)
+        for move_line in picking.move_ids:
             self.assertEqual(move_line.quantity_done, self.expected_quantities[move_line.product_id])
 
     def test_kit_planned_transfer(self):
@@ -372,8 +417,8 @@ class TestKitPicking(common.TestMrpCommon):
         picking.action_confirm()
 
         # We check that the picking has the correct quantities after its move were splitted.
-        self.assertEqual(len(picking.move_lines), 7)
-        for move_line in picking.move_lines:
+        self.assertEqual(len(picking.move_ids), 7)
+        for move_line in picking.move_ids:
             self.assertEqual(move_line.product_qty, self.expected_quantities[move_line.product_id])
 
     def test_add_sml_with_kit_to_confirmed_picking(self):
@@ -391,7 +436,7 @@ class TestKitPicking(common.TestMrpCommon):
             'picking_type_id': in_type.id,
             'location_id': customer_location.id,
             'location_dest_id': stock_location.id,
-            'move_lines': [(0, 0, {
+            'move_ids': [(0, 0, {
                 'name': product.name,
                 'product_id': product.id,
                 'product_uom_qty': 1,
@@ -414,7 +459,66 @@ class TestKitPicking(common.TestMrpCommon):
         receipt.button_validate()
 
         self.assertEqual(receipt.state, 'done')
-        self.assertRecordValues(receipt.move_lines, [
+        self.assertRecordValues(receipt.move_ids, [
             {'product_id': product.id, 'quantity_done': 1, 'state': 'done'},
             {'product_id': compo.id, 'quantity_done': 1, 'state': 'done'},
         ])
+
+    def test_move_line_aggregated_product_quantities_with_kit(self):
+        """ Test the `stock.move.line` method `_get_aggregated_product_quantities`,
+        who returns data used to print delivery slips, using kits.
+        """
+        uom_unit = self.env.ref('uom.product_uom_unit')
+        kit, kit_component_1, kit_component_2, not_kit_1, not_kit_2 = self.env['product.product'].create([{
+            'name': name,
+            'type': 'product',
+            'uom_id': uom_unit.id,
+        } for name in ['Kit', 'Kit Component 1', 'Kit Component 2', 'Not Kit 1', 'Not Kit 2']])
+
+        bom_kit = self.env['mrp.bom'].create({
+            'product_tmpl_id': kit.product_tmpl_id.id,
+            'product_uom_id': kit.product_tmpl_id.uom_id.id,
+            'product_id': kit.id,
+            'product_qty': 1.0,
+            'type': 'phantom',
+            'bom_line_ids': [
+                Command.create({
+                    'product_id': kit_component_1.id,
+                    'product_qty': 1,
+                }),
+                Command.create({
+                    'product_id': kit_component_2.id,
+                    'product_qty': 1,
+                }),
+            ]
+        })
+
+        delivery_form = Form(self.env['stock.picking'])
+        delivery_form.picking_type_id = self.env.ref('stock.picking_type_in')
+        with delivery_form.move_ids_without_package.new() as move:
+            move.product_id = bom_kit.product_id
+            move.product_uom_qty = 4
+        with delivery_form.move_ids_without_package.new() as move:
+            move.product_id = not_kit_1
+            move.product_uom_qty = 4
+        with delivery_form.move_ids_without_package.new() as move:
+            move.product_id = not_kit_2
+            move.product_uom_qty = 3
+        delivery = delivery_form.save()
+        delivery.action_confirm()
+
+        delivery.move_line_ids.filtered(lambda ml: ml.product_id == kit_component_1).qty_done = 3
+        delivery.move_line_ids.filtered(lambda ml: ml.product_id == kit_component_2).qty_done = 3
+        delivery.move_line_ids.filtered(lambda ml: ml.product_id == not_kit_1).qty_done = 4
+        delivery.move_line_ids.filtered(lambda ml: ml.product_id == not_kit_2).qty_done = 2
+        backorder_wizard_dict = delivery.button_validate()
+        backorder_wizard_form = Form(self.env[backorder_wizard_dict['res_model']].with_context(backorder_wizard_dict['context']))
+        backorder_wizard_form.save().process_cancel_backorder()
+
+        aggregate_not_kit_values = delivery.move_line_ids._get_aggregated_product_quantities()
+        self.assertEqual(len(aggregate_not_kit_values.keys()), 2)
+        self.assertTrue(all('Not' in val for val in aggregate_not_kit_values), 'Only non kit products should be included')
+
+        aggregate_kit_values = delivery.move_line_ids._get_aggregated_product_quantities(kit_name=bom_kit.product_id.name)
+        self.assertEqual(len(aggregate_kit_values.keys()), 2)
+        self.assertTrue(all('Component' in val for val in aggregate_kit_values), 'Only kit products should be included')

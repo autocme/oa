@@ -25,23 +25,21 @@ class SurveyInvite(models.TransientModel):
     # composer content
     attachment_ids = fields.Many2many(
         'ir.attachment', 'survey_mail_compose_message_ir_attachments_rel', 'wizard_id', 'attachment_id',
-        string='Attachments')
+        string='Attachments', compute='_compute_attachment_ids', store=True, readonly=False)
     # origin
     email_from = fields.Char(
-        'From', compute='_compute_email_from', readonly=False, store=True,
-        help="Email address of the sender.")
+        'From', compute='_compute_email_from', readonly=False, store=True)
     author_id = fields.Many2one(
         'res.partner', 'Author', index=True,
-        ondelete='set null', default=_get_default_author,
-        help="Author of the message.")
+        ondelete='set null', default=_get_default_author)
     # recipients
     partner_ids = fields.Many2many(
         'res.partner', 'survey_invite_partner_ids', 'invite_id', 'partner_id', string='Recipients',
-        domain="""[
-            '|', (survey_users_can_signup, '=', 1),
-            '|', (not survey_users_login_required, '=', 1),
-                 ('user_ids', '!=', False),
-        ]"""
+        domain="[ \
+            '|', (survey_users_can_signup, '=', 1), \
+            '|', (not survey_users_login_required, '=', 1), \
+                 ('user_ids', '!=', False), \
+        ]"
     )
     existing_partner_ids = fields.Many2many(
         'res.partner', compute='_compute_existing_partner_ids', readonly=True, store=False)
@@ -167,6 +165,18 @@ class SurveyInvite(models.TransientModel):
                 invite = invite.with_context(lang=langs.pop())
             super(SurveyInvite, invite)._compute_body()
 
+    @api.depends('template_id')
+    def _compute_attachment_ids(self):
+        """
+        'OnChange-like' behavior used for template selection: not intended to update records when
+            individual attachments get added
+        """
+        for invite in self:
+            if invite.template_id:
+                invite.attachment_ids = invite.template_id.attachment_ids
+            else:
+                invite.attachment_ids = False
+
     # ------------------------------------------------------
     # Wizard validation and send
     # ------------------------------------------------------
@@ -215,7 +225,7 @@ class SurveyInvite(models.TransientModel):
         email_from = self._render_field('email_from', answer.ids)[answer.id]
         if not email_from:
             raise UserError(_("Unable to post message, please configure the sender's email address."))
-        subject = self._render_field('subject', answer.ids, options={'render_safe': True})[answer.id]
+        subject = self._render_field('subject', answer.ids)[answer.id]
         body = self._render_field('body', answer.ids, post_process=True)[answer.id]
         # post the message
         mail_values = {
@@ -233,21 +243,19 @@ class SurveyInvite(models.TransientModel):
         else:
             mail_values['email_to'] = answer.email
 
-        # optional support of notif_layout in context
-        notif_layout = self.env.context.get('notif_layout', self.env.context.get('custom_layout'))
-        if notif_layout:
-            try:
-                template = self.env.ref(notif_layout, raise_if_not_found=True)
-            except ValueError:
-                _logger.warning('QWeb template %s not found when sending survey mails. Sending without layouting.' % (notif_layout))
-            else:
-                template_ctx = {
-                    'message': self.env['mail.message'].sudo().new(dict(body=mail_values['body_html'], record_name=self.survey_id.title)),
-                    'model_description': self.env['ir.model']._get('survey.survey').display_name,
-                    'company': self.env.company,
-                }
-                body = template._render(template_ctx, engine='ir.qweb', minimal_qcontext=True)
+        # optional support of default_email_layout_xmlid in context
+        email_layout_xmlid = self.env.context.get('default_email_layout_xmlid', self.env.context.get('notif_layout'))
+        if email_layout_xmlid:
+            template_ctx = {
+                'message': self.env['mail.message'].sudo().new(dict(body=mail_values['body_html'], record_name=self.survey_id.title)),
+                'model_description': self.env['ir.model']._get('survey.survey').display_name,
+                'company': self.env.company,
+            }
+            body = self.env['ir.qweb']._render(email_layout_xmlid, template_ctx, minimal_qcontext=True, raise_if_not_found=False)
+            if body:
                 mail_values['body_html'] = self.env['mail.render.mixin']._replace_local_links(body)
+            else:
+                _logger.warning('QWeb template %s not found or is empty when sending survey mails. Sending without layout', email_layout_xmlid)
 
         return self.env['mail.mail'].sudo().create(mail_values)
 

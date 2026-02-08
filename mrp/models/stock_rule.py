@@ -43,7 +43,6 @@ class StockRule(models.Model):
     @api.model
     def _run_manufacture(self, procurements):
         productions_values_by_company = defaultdict(list)
-        errors = []
         for procurement, rule in procurements:
             if float_compare(procurement.product_qty, 0, precision_rounding=procurement.product_uom.rounding) <= 0:
                 # If procurement contains negative quantity, don't create a MO that would be for a negative value.
@@ -52,15 +51,9 @@ class StockRule(models.Model):
 
             productions_values_by_company[procurement.company_id.id].append(rule._prepare_mo_vals(*procurement, bom))
 
-        if errors:
-            raise ProcurementException(errors)
-
         for company_id, productions_values in productions_values_by_company.items():
             # create the MO as SUPERUSER because the current user may not have the rights to do it (mto product launched by a sale for example)
             productions = self.env['mrp.production'].with_user(SUPERUSER_ID).sudo().with_company(company_id).create(productions_values)
-            self.env['stock.move'].sudo().create(productions._get_moves_raw_values())
-            self.env['stock.move'].sudo().create(productions._get_moves_finished_values())
-            productions._create_workorder()
             productions.filtered(self._should_auto_confirm_procurement_mo).action_confirm()
 
             for production in productions:
@@ -90,7 +83,7 @@ class StockRule(models.Model):
         for procurement, rule in procurements:
             warehouse_id = rule.warehouse_id
             if not warehouse_id:
-                warehouse_id = rule.location_id.warehouse_id
+                warehouse_id = rule.location_dest_id.warehouse_id
             manu_rule = rule.route_id.rule_ids.filtered(lambda r: r.action == 'manufacture' and r.warehouse_id == warehouse_id)
             if warehouse_id.manufacture_steps != 'pbm_sam' or not manu_rule:
                 continue
@@ -128,17 +121,17 @@ class StockRule(models.Model):
             return values['orderpoint_id'].bom_id
         return self.env['mrp.bom']._bom_find(product_id, picking_type=self.picking_type_id, bom_type='normal', company_id=company_id.id)[product_id]
 
-    def _prepare_mo_vals(self, product_id, product_qty, product_uom, location_id, name, origin, company_id, values, bom):
+    def _prepare_mo_vals(self, product_id, product_qty, product_uom, location_dest_id, name, origin, company_id, values, bom):
         date_planned = self._get_date_planned(product_id, company_id, values)
-        date_deadline = values.get('date_deadline') or date_planned + relativedelta(days=company_id.manufacturing_lead) + relativedelta(days=product_id.produce_delay)
+        date_deadline = values.get('date_deadline') or date_planned + relativedelta(days=product_id.produce_delay)
         mo_values = {
             'origin': origin,
             'product_id': product_id.id,
             'product_description_variants': values.get('product_description_variants'),
-            'product_qty': product_qty,
-            'product_uom_id': product_uom.id,
-            'location_src_id': self.location_src_id.id or self.picking_type_id.default_location_src_id.id or location_id.id,
-            'location_dest_id': location_id.id,
+            'product_qty': product_uom._compute_quantity(product_qty, bom.product_uom_id) if bom else product_qty,
+            'product_uom_id': bom.product_uom_id.id if bom else product_uom.id,
+            'location_src_id': self.location_src_id.id or self.picking_type_id.default_location_src_id.id or location_dest_id.id,
+            'location_dest_id': location_dest_id.id,
             'bom_id': bom.id,
             'date_deadline': date_deadline,
             'date_planned_start': date_planned,
@@ -153,7 +146,7 @@ class StockRule(models.Model):
         }
         # Use the procurement group created in _run_pull mrp override
         # Preserve the origin from the original stock move, if available
-        if location_id.warehouse_id.manufacture_steps == 'pbm_sam' and values.get('move_dest_ids') and values.get('group_id') and values['move_dest_ids'][0].origin != values['group_id'].name:
+        if location_dest_id.warehouse_id.manufacture_steps == 'pbm_sam' and values.get('move_dest_ids') and values.get('group_id') and values['move_dest_ids'][0].origin != values['group_id'].name:
             origin = values['move_dest_ids'][0].origin
             mo_values.update({
                 'name': values['group_id'].name,
@@ -165,7 +158,6 @@ class StockRule(models.Model):
     def _get_date_planned(self, product_id, company_id, values):
         format_date_planned = fields.Datetime.from_string(values['date_planned'])
         date_planned = format_date_planned - relativedelta(days=product_id.produce_delay)
-        date_planned = date_planned - relativedelta(days=company_id.manufacturing_lead)
         if date_planned == format_date_planned:
             date_planned = date_planned - relativedelta(hours=1)
         return date_planned
@@ -188,7 +180,10 @@ class StockRule(models.Model):
         delay += security_delay
         if not bypass_delay_description:
             delay_description.append((_('Manufacture Security Lead Time'), _('+ %d day(s)', security_delay)))
-        return delay, delay_description
+        days_to_order = values.get('days_to_order', product.product_tmpl_id.days_to_prepare_mo)
+        if not bypass_delay_description:
+            delay_description.append((_('Days to Supply Components'), _('+ %d day(s)', days_to_order)))
+        return delay + days_to_order, delay_description
 
     def _push_prepare_move_copy_values(self, move_to_copy, new_date):
         new_move_vals = super(StockRule, self)._push_prepare_move_copy_values(move_to_copy, new_date)

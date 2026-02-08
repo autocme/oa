@@ -10,6 +10,17 @@
             <field name="perm_read" eval="True"/>
         </record>
 
+        <!-- SOME DEFAULT TEST.MODEL RECORDS WITH DIFFERENT WEBSITE_ID -->
+        <record id="test_model_generic" model="test.model">
+            <field name="name">Test Model</field>
+        </record>
+        <record id="test_model_multi_generic" model="test.model.multi.website">
+            <field name="name">Test Multi Model Generic</field>
+        </record>
+        <record id="test_model_multi_website_1" model="test.model.multi.website">
+            <field name="name">Test Multi Model Website 1</field>
+            <field name="website_id" ref="website.default_website"/>
+        </record>
 
         <!-- RECORDS FOR RESET VIEWS TESTS -->
         <record id="test_view" model="ir.ui.view">
@@ -122,14 +133,15 @@
             <field name="key">test_website.test_image_progress</field>
             <field name="arch" type="xml">
                 <t t-call="website.layout">
-                    <t t-set="head">
-                        <script defer="defer" type="text/javascript" src="/test_website/static/src/js/mock_image_widget.js"></script>
-                    </t>
                     <div id="wrap" class="oe_structure oe_empty"/>
                 </t>
             </field>
             <field name="website_indexed" eval="False"/>
         </record>
 
+        <!-- Test model record -->
+        <record id="test_model_record" model="test.model">
+            <field name="name">Test Model Record</field>
+        </record>
     </data>
 </odoo>

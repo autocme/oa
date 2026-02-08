@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
-from datetime import datetime, timedelta
+from datetime import timedelta
 
 from odoo import fields
 from odoo.tests import Form
@@ -62,8 +62,8 @@ class TestProcurement(TestMrpCommon):
             'location_id': self.warehouse.lot_stock_id.id,
         }).action_apply_inventory()
         produce_product_4.action_assign()
-        self.assertEqual(produce_product_4.product_qty, 8, "Wrong quantity of finish product.")
-        self.assertEqual(produce_product_4.product_uom_id, self.uom_dozen, "Wrong quantity of finish product.")
+        self.assertEqual(produce_product_4.product_qty, 96, "Wrong quantity of finish product.")
+        self.assertEqual(produce_product_4.product_uom_id, self.uom_unit, "Wrong quantity of finish product.")
         self.assertEqual(produce_product_4.reservation_state, 'assigned', "Consume material not available")
 
         # produce product4
@@ -135,7 +135,7 @@ class TestProcurement(TestMrpCommon):
         self.env['stock.location']._parent_store_compute()
         warehouse.reception_route_id.rule_ids.filtered(
             lambda p: p.location_src_id == warehouse.wh_input_stock_loc_id and
-            p.location_id == warehouse.wh_qc_stock_loc_id).write({
+            p.location_dest_id == warehouse.wh_qc_stock_loc_id).write({
                 'procure_method': 'make_to_stock'
             })
 
@@ -250,9 +250,7 @@ class TestProcurement(TestMrpCommon):
         self.assertEqual(move_orig.product_qty, 10, 'the quantity to produce is not good relative to the move')
 
         new_sheduled_date = fields.Datetime.to_datetime(mo.date_planned_start) + timedelta(days=5)
-        mo_form = Form(mo)
-        mo_form.date_planned_start = new_sheduled_date
-        mo = mo_form.save()
+        mo.date_planned_start = new_sheduled_date
 
         self.assertAlmostEqual(mo.move_raw_ids.date, mo.date_planned_start, delta=timedelta(seconds=1))
         self.assertAlmostEqual(mo.move_finished_ids.date, mo.date_planned_finished, delta=timedelta(seconds=1))
@@ -447,7 +445,7 @@ class TestProcurement(TestMrpCommon):
             'picking_type_id': self.ref('stock.picking_type_out'),
             'location_id': self.warehouse.lot_stock_id.id,
             'location_dest_id': self.ref('stock.stock_location_customers'),
-            'move_lines': [(0, 0, {
+            'move_ids': [(0, 0, {
                 'name': '/',
                 'product_id': product_1.id,
                 'product_uom': product_1.uom_id.id,
@@ -543,7 +541,7 @@ class TestProcurement(TestMrpCommon):
             'name': 'Roger'
         })
         # This needs to be tried with MTO route activated
-        self.env['stock.location.route'].browse(self.ref('stock.route_warehouse0_mto')).action_unarchive()
+        self.env['stock.route'].browse(self.ref('stock.route_warehouse0_mto')).action_unarchive()
         # Define products requested for this BoM.
         product = self.env['product.product'].create({
             'name': 'product',
@@ -683,6 +681,8 @@ class TestProcurement(TestMrpCommon):
         This test ensures that, when running the scheduler, the generated MOs are based
         on the correct BoMs
         """
+        # Required for `picking_type_id` to be visible in the view
+        self.env.user.groups_id += self.env.ref('stock.group_adv_location')
         warehouse = self.env.ref('stock.warehouse0')
 
         stock_location01 = warehouse.lot_stock_id
@@ -775,14 +775,14 @@ class TestProcurement(TestMrpCommon):
                 raw_line.product_id = self.product_2
                 raw_line.product_uom_qty = 2.0
 
-        move_vals = mo._get_move_raw_values(self.product_10, 0, self.product_2.uom_id)
+        move_vals = mo._get_move_raw_values(self.product_3, 0, self.product_3.uom_id)
         mo.move_raw_ids = [(0, 0, move_vals)]
-        mo.move_raw_ids[-1].product_uom_qty = 10.0
+        mo.move_raw_ids[-1].product_uom_qty = 3.0
 
         expected_vals = [
             {'product_id': self.product_1.id, 'product_uom_qty': 1.0},
             {'product_id': self.product_2.id, 'product_uom_qty': 2.0},
-            {'product_id': self.product_10.id, 'product_uom_qty': 10.0},
+            {'product_id': self.product_3.id, 'product_uom_qty': 3.0},
         ]
         self.assertRecordValues(mo.move_raw_ids, expected_vals)
-        self.assertRecordValues(mo.picking_ids.move_lines, expected_vals)
+        self.assertRecordValues(mo.picking_ids.move_ids, expected_vals)

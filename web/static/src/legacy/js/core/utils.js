@@ -8,7 +8,8 @@ odoo.define('web.utils', function (require) {
  */
 
 var translation = require('web.translation');
-var cookieUtils = require('web.utils.cookies');
+
+const { Component } = require("@odoo/owl");
 
 var _t = translation._t;
 var id = -1;
@@ -253,11 +254,13 @@ _.escape = function escape(s) {
 // TODO (?)
 // * Markup.join / Markup#join => escapes items and returns a Markup
 // * Markup#replace => automatically escapes the replacements (difficult impl)
-class _Markup extends String {
-    [_.escapeMethod]() {
-        return this;
-    }
+
+// get a reference to the internalMarkup class from owl
+const _Markup = owl.markup('').constructor; 
+_Markup.prototype[_.escapeMethod] = function () {
+    return this;
 }
+
 // exposed for qweb2.js
 window._Markup = _Markup;
 
@@ -312,7 +315,7 @@ function Markup(v, ...exprs) {
     return new _Markup(s);
 }
 
-var utils = Object.assign({
+const utils = {
     AlreadyDefinedPatchError,
     UnknownPatchError,
     Markup,
@@ -406,7 +409,12 @@ var utils = Object.assign({
         return new Promise(function (resolve, reject) {
             var reader = new FileReader();
             reader.addEventListener('load', function () {
-                resolve(reader.result);
+                // Handle Chrome bug that creates invalid data URLs for empty files
+                if (reader.result === "data:") {
+                    resolve(`data:${file.type};base64,`);
+                } else {
+                    resolve(reader.result);
+                }
             });
             reader.addEventListener('abort', reject);
             reader.addEventListener('error', reject);
@@ -581,12 +589,12 @@ var utils = Object.assign({
         return (/^\d+(\.\d*)? [^0-9]+$/).test(v);
     },
     /**
-     * Checks if a class is an extension of owl.Component.
+     * Checks if a class is an extension of Component.
      *
      * @param {any} value A class reference
      */
     isComponent: function (value) {
-        return value.prototype instanceof owl.Component;
+        return value.prototype instanceof Component;
     },
     /**
      * Checks if a keyboard event concerns
@@ -629,7 +637,7 @@ var utils = Object.assign({
 
         if (typeof(node) === 'string') {
             return sindent + node.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-        } else if (typeof(node.tag) !== 'string' || !node.children instanceof Array || !node.attrs instanceof Object) {
+        } else if (typeof(node.tag) !== 'string' || node.children && !(node.children instanceof Array) || node.attrs && !(node.attrs instanceof Object)) {
             throw new Error(
                 _.str.sprintf(_t("Node [%s] is not a JSONified XML node"),
                             JSON.stringify(node)));
@@ -1125,23 +1133,7 @@ var utils = Object.assign({
         }
         return curr;
     },
-    /**
-     * Returns the domain targeting assets files.
-     *
-     * @returns {Array} Domain of assets files
-     */
-    assetsDomain: function () {
-        return [
-            '&',
-            ['res_model', '=', 'ir.ui.view'],
-            '|',
-            '|',
-            ['name', '=like', '%.assets\_%.css'],
-            ['name', '=like', '%.assets\_%.js'],
-            ['name', '=like', '%.report_assets\_%.css'],
-        ];
-    },
-}, cookieUtils);
+};
 
 return utils;
 

@@ -4,6 +4,7 @@
 from datetime import date, datetime, timedelta
 from dateutil.relativedelta import relativedelta
 from freezegun import freeze_time
+from psycopg2 import IntegrityError
 from unittest.mock import patch
 from unittest.mock import DEFAULT
 
@@ -22,7 +23,10 @@ class TestActivityCommon(TestMailCommon):
     @classmethod
     def setUpClass(cls):
         super(TestActivityCommon, cls).setUpClass()
-        cls.test_record = cls.env['mail.test.activity'].with_context(cls._test_context).create({'name': 'Test'})
+        cls.test_record, cls.test_record_2 = cls.env['mail.test.activity'].create([
+            {'name': 'Test'},
+            {'name': 'Test_2'},
+        ])
         # reset ctx
         cls._reset_mail_context(cls.test_record)
 
@@ -48,7 +52,7 @@ class TestActivityRights(TestActivityCommon):
     @mute_logger('odoo.addons.mail.models.mail_mail')
     def test_activity_security_user_noaccess_automated(self):
         def _employee_crash(*args, **kwargs):
-            """ If employee is test employee, consider he has no access on document """
+            """ If employee is test employee, consider they have no access on document """
             recordset = args[0]
             if recordset.env.uid == self.user_employee.id:
                 raise exceptions.AccessError('Hop hop hop Ernest, please step back.')
@@ -64,7 +68,7 @@ class TestActivityRights(TestActivityCommon):
 
     def test_activity_security_user_noaccess_manual(self):
         def _employee_crash(*args, **kwargs):
-            """ If employee is test employee, consider he has no access on document """
+            """ If employee is test employee, consider they have no access on document """
             recordset = args[0]
             if recordset.env.uid == self.user_employee.id:
                 raise exceptions.AccessError('Hop hop hop Ernest, please step back.')
@@ -77,6 +81,7 @@ class TestActivityRights(TestActivityCommon):
             'user_id': self.user_admin.id,
             'summary': 'Summary',
         })
+        test_activity.flush_recordset()
 
         # can _search activities if access to the document
         self.env['mail.activity'].with_user(self.user_employee)._search(
@@ -158,11 +163,9 @@ class TestActivityFlow(TestActivityCommon):
             self.assertEqual(test_record.activity_state, 'planned')
 
             test_record.activity_ids.write({'date_deadline': date.today() - relativedelta(days=1)})
-            test_record.invalidate_cache()  # TDE note: should not have to do it I think
             self.assertEqual(test_record.activity_state, 'overdue')
 
             test_record.activity_ids.write({'date_deadline': date.today()})
-            test_record.invalidate_cache()  # TDE note: should not have to do it I think
             self.assertEqual(test_record.activity_state, 'today')
 
             # activity is done
@@ -176,7 +179,7 @@ class TestActivityFlow(TestActivityCommon):
         rec = self.test_record.with_user(self.user_employee)
         with self.assertSinglePostNotifications(
                 [{'partner': self.partner_admin, 'type': 'email'}],
-                message_info={'content': 'assigned you an activity', 'subtype': 'mail.mt_note', 'message_type': 'user_notification'}):
+                message_info={'content': 'assigned you the following activity', 'subtype': 'mail.mt_note', 'message_type': 'user_notification'}):
             activity = rec.activity_schedule(
                 'test_mail.mail_act_test_todo',
                 user_id=self.user_admin.id)
@@ -201,7 +204,6 @@ class TestActivityFlow(TestActivityCommon):
             activity.with_user(self.user_admin).write({'user_id': self.user_employee.id})
         self.assertEqual(activity.user_id, self.user_employee)
 
-    @mute_logger('odoo.addons.mail.models.mail_mail')
     def test_activity_summary_sync(self):
         """ Test summary from type is copied on activities if set (currently only in form-based onchange) """
         ActivityType = self.env['mail.activity.type']
@@ -210,9 +212,9 @@ class TestActivityFlow(TestActivityCommon):
             'summary': 'Email Summary',
         })
         call_activity_type = ActivityType.create({'name': 'call'})
-        with Form(self.env['mail.activity'].with_context(default_res_model_id=self.env.ref('base.model_res_partner'))) as ActivityForm:
-            ActivityForm.res_model_id = self.env.ref('base.model_res_partner')
-
+        with Form(self.env['mail.activity'].with_context(default_res_model_id=self.env['ir.model']._get_id('mail.test.activity'), default_res_id=self.test_record.id)) as ActivityForm:
+            # `res_model_id` and `res_id` are invisible, see view `mail.mail_activity_view_form_popup`
+            # they must be set using defaults, see `action_feedback_schedule_next`
             ActivityForm.activity_type_id = call_activity_type
             # activity summary should be empty
             self.assertEqual(ActivityForm.summary, False)
@@ -224,6 +226,46 @@ class TestActivityFlow(TestActivityCommon):
             ActivityForm.activity_type_id = call_activity_type
             # activity summary remains unchanged from change of activity type as call activity doesn't have default summary
             self.assertEqual(ActivityForm.summary, email_activity_type.summary)
+
+    @mute_logger('odoo.sql_db')
+    def test_activity_values(self):
+        """ Test activities are created with right model / res_id values linking
+        to records without void values. 0 as res_id especially is not wanted. """
+        # creating activities on a temporary record generates activities with res_id
+        # being 0, which is annoying -> never create activities in transient mode
+        temp_record = self.env['mail.test.activity'].new({'name': 'Test'})
+        with self.assertRaises(IntegrityError):
+            activity = temp_record.activity_schedule('test_mail.mail_act_test_todo', user_id=self.user_employee.id)
+
+        test_record = self.env['mail.test.activity'].browse(self.test_record.ids)
+
+        with self.assertRaises(IntegrityError):
+            self.env['mail.activity'].create({
+                'res_model_id': self.env['ir.model']._get_id(test_record._name),
+            })
+        with self.assertRaises(IntegrityError):
+            self.env['mail.activity'].create({
+                'res_model_id': self.env['ir.model']._get_id(test_record._name),
+                'res_id': False,
+            })
+        with self.assertRaises(IntegrityError):
+            self.env['mail.activity'].create({
+                'res_id': test_record.id,
+            })
+
+        activity = self.env['mail.activity'].create({
+            'res_id': test_record.id,
+            'res_model_id': self.env['ir.model']._get_id(test_record._name),
+        })
+        with self.assertRaises(IntegrityError):
+            activity.write({'res_model_id': False})
+            self.env.flush_all()
+        with self.assertRaises(IntegrityError):
+            activity.write({'res_id': False})
+            self.env.flush_all()
+        with self.assertRaises(IntegrityError):
+            activity.write({'res_id': 0})
+            self.env.flush_all()
 
 
 @tests.tagged('mail_activity')
@@ -278,7 +320,7 @@ class TestActivityMixin(TestActivityCommon):
             # it therefore relies on the natural order of `activity_ids`, according to which activity comes first.
             # As we just created the activity, its not yet in the right order.
             # We force it by invalidating it so it gets fetched from database, in the right order.
-            self.test_record.invalidate_cache(['activity_ids'])
+            self.test_record.invalidate_recordset(['activity_ids'])
             self.assertEqual(self.test_record.activity_user_id, self.user_employee)
 
             act3 = self.test_record.activity_schedule(
@@ -290,17 +332,17 @@ class TestActivityMixin(TestActivityCommon):
             # it therefore relies on the natural order of `activity_ids`, according to which activity comes first.
             # As we just created the activity, its not yet in the right order.
             # We force it by invalidating it so it gets fetched from database, in the right order.
-            self.test_record.invalidate_cache(['activity_ids'])
+            self.test_record.invalidate_recordset(['activity_ids'])
             self.assertEqual(self.test_record.activity_user_id, self.user_employee)
 
-            self.test_record.invalidate_cache(ids=self.test_record.ids)
+            self.test_record.invalidate_recordset()
             self.assertEqual(self.test_record.activity_ids, act1 | act2 | act3)
 
             # Perform todo activities for admin
             self.test_record.activity_feedback(
                 ['test_mail.mail_act_test_todo'],
                 user_id=self.user_admin.id,
-                feedback='Test feedback',)
+                feedback='Test feedback 1')
             self.assertEqual(self.test_record.activity_ids, act2 | act3)
 
             # Reschedule all activities, should update the record state
@@ -314,19 +356,20 @@ class TestActivityMixin(TestActivityCommon):
             # Perform todo activities for remaining people
             self.test_record.activity_feedback(
                 ['test_mail.mail_act_test_todo'],
-                feedback='Test feedback')
+                feedback='Test feedback 2')
 
             # Setting activities as done should delete them and post messages
             self.assertEqual(self.test_record.activity_ids, act2)
-            self.assertEqual(len(self.test_record.message_ids), 2)
-            self.assertEqual(self.test_record.message_ids.mapped('subtype_id'), self.env.ref('mail.mt_activities'))
+            self.assertEqual(len(self.test_record.message_ids), 3)
+            feedback2, feedback1, _create_log = self.test_record.message_ids
+            self.assertEqual((feedback2 + feedback1).subtype_id, self.env.ref('mail.mt_activities'))
 
             # Perform meeting activities
             self.test_record.activity_unlink(['test_mail.mail_act_test_meeting'])
 
             # Canceling activities should simply remove them
             self.assertEqual(self.test_record.activity_ids, self.env['mail.activity'])
-            self.assertEqual(len(self.test_record.message_ids), 2)
+            self.assertEqual(len(self.test_record.message_ids), 3, 'Should not produce additional message')
 
     @mute_logger('odoo.addons.mail.models.mail_mail')
     def test_activity_mixin_archive(self):
@@ -390,7 +433,7 @@ class TestActivityMixin(TestActivityCommon):
         # Checking if the attachment has been forwarded to the message
         # when marking an activity as "Done"
         activity.action_feedback()
-        activity_message = test_record.message_ids[-1]
+        activity_message = test_record.message_ids[0]
         self.assertEqual(set(activity_message.attachment_ids.ids), set(attachments.ids))
         for attachment in attachments:
             self.assertEqual(attachment.res_id, activity_message.id)
@@ -491,6 +534,7 @@ class TestActivityMixin(TestActivityCommon):
             self.assertEqual(activity_2.state, 'overdue')
             self.assertEqual(activity_3.state, 'today')
 
+    @mute_logger('odoo.addons.mail.models.mail_mail', 'odoo.tests')
     def test_mail_activity_mixin_search_state_basic(self):
         """Test the search method on the "activity_state".
 
@@ -586,6 +630,7 @@ class TestActivityMixin(TestActivityCommon):
             self.assertTrue(len(result) > 0)
             self.assertEqual(result, all_activity_mixin_record.filtered(lambda p: p.activity_state in ('today', False)))
 
+    @mute_logger('odoo.addons.mail.models.mail_mail', 'odoo.tests')
     def test_mail_activity_mixin_search_state_different_day_but_close_time(self):
         """Test the case where there's less than 24 hours between the deadline and now_tz,
         but one day of difference (e.g. 23h 01/01/2020 & 1h 02/02/2020). So the state
@@ -651,6 +696,106 @@ class TestActivityMixin(TestActivityCommon):
         with self.with_user('employee'):
             record = self.env['mail.test.activity'].search([('my_activity_date_deadline', '=', date_today)])
             self.assertEqual(test_record_1, record)
+
+
+@tests.tagged("mail_activity", "post_install", "-at_install")
+class TestActivitySystray(TestActivityCommon):
+    """Test for systray_get_activities"""
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.test_lead_records = cls.env['mail.test.multi.company.with.activity'].create([
+            {'name': 'Test Lead 1'},
+            {'name': 'Test Lead 2'},
+            {'name': 'Test Lead 3 (to remove)'}
+        ])
+        cls.deleted_record = cls.test_lead_records[2]
+        cls.dt_reference = datetime(2024, 1, 15, 8, 0, 0)
+
+        # records and leads and free activities
+        # have 1 record (or activity) for today, one for tomorrow
+        cls.test_activities = cls.env['mail.activity']
+        for record, summary, dt in (
+            (cls.test_record, "Summary Today'", cls.dt_reference),
+            (cls.test_record_2, "Summary Tomorrow'", cls.dt_reference + timedelta(days=1)),
+            (cls.test_lead_records[0], "Summary Today'", cls.dt_reference),
+            (cls.test_lead_records[1], "Summary Tomorrow'", cls.dt_reference + timedelta(days=1)),
+            (cls.test_lead_records[2], "Summary Tomorrow'", cls.dt_reference + timedelta(days=1)),
+        ):
+            cls.test_activities += record.with_user(cls.user_employee).activity_schedule(
+                "test_mail.mail_act_test_todo_generic",
+                date_deadline=dt.date(),
+                summary=summary,
+                user_id=cls.user_employee.id,
+            )
+        cls.test_lead_activities = cls.test_activities[2:]
+
+        # add atttachments on lead-like test records
+        cls.lead_act_attachments = cls.env['ir.attachment'].create(
+            cls._generate_attachments_data(1, 'mail.activity', cls.test_lead_activities[-3]) +
+            cls._generate_attachments_data(1, 'mail.activity', cls.test_lead_activities[-2]) +
+            cls._generate_attachments_data(1, 'mail.activity', cls.test_lead_activities[-1])
+        )
+
+        # In the mean time, some FK deletes the record where the message is
+        # scheduled, skipping its unlink() override
+        cls.env.cr.execute(
+            f"DELETE FROM {cls.test_lead_records._table} WHERE id = %s", (cls.deleted_record.id,)
+        )
+        cls.env.invalidate_all()
+
+    @users("employee")
+    def test_systray_activities_for_various_records(self):
+        """Check that activities made on archived or not archived records, as
+        well as on removed record, to check systray activities behavior and
+        robustness. """
+        # archive record 1
+        self.test_record.action_archive()
+        self.assertFalse(self.test_activities[0].exists())
+
+        with freeze_time(self.dt_reference):
+            data = self.env['res.users'].with_user(self.user_employee).systray_get_activities()
+        self.assertEqual(len(data), 2, 'Should have activities for 2 test models')
+        for model_name, msg, (exp_total, exp_today, exp_planned, exp_overdue) in [
+            (self.test_record._name, 'Archiving removes activities', (0, 0, 1, 0)),
+            (self.test_lead_records._name, 'Planned do not count in total', (1, 1, 1, 0)),
+        ]:
+            with self.subTest(model_name=model_name, msg=msg):
+                group_values = next(values for values in data if values['model'] == model_name)
+                self.assertEqual(group_values['total_count'], exp_total)
+                self.assertEqual(group_values['today_count'], exp_today)
+                self.assertEqual(group_values['planned_count'], exp_planned)
+                self.assertEqual(group_values['overdue_count'], exp_overdue)
+
+        # check search results with removed records
+        self.env.invalidate_all()
+        test_with_removed = self.env['mail.activity'].sudo().search([
+            ('id', 'in', self.test_activities.ids),
+            ('res_model', '=', self.test_lead_records._name),
+        ])
+        self.assertEqual(len(test_with_removed), 3, 'Without ACL check, activities linked to removed records are kept')
+        test_with_removed = self.env['mail.activity'].search([
+            ('id', 'in', self.test_activities.ids),
+            ('res_model', '=', self.test_lead_records._name),
+        ])
+        self.assertEqual(len(test_with_removed), 2, 'Should filter out activities linked to removed records')
+
+        # be sure activities on removed records do not crash when managed, and that
+        # lost attachments are removed as well
+        self.env.invalidate_all()
+        lead_activities = self.test_lead_activities.with_user(self.user_employee)
+        lead_act_attachments = self.lead_act_attachments.with_user(self.user_employee)
+        self.assertEqual(len(lead_activities), 3, 'Simulate UI where activities are still displayed even if record removed')
+        self.assertEqual(len(lead_act_attachments), 3, 'Simulate UI where activities are still displayed even if record removed')
+        messages, _next_activities = lead_activities._action_done()
+        self.assertEqual(len(messages), 2, 'Should have posted one message / live record')
+        self.assertFalse(lead_activities.exists(), 'Mark done should unlink activities')
+        self.assertEqual(
+            set(lead_act_attachments.exists().mapped('res_id')), set(messages.ids),
+            'Mark done should clean up attachments linked to removed record, and linked other attachments to messages')
+        self.assertEqual(
+            set(lead_act_attachments.exists().mapped('res_model')), set(['mail.message'] * 2))
 
 
 @tests.tagged('mail_activity')

@@ -2,10 +2,10 @@
 
 import publicWidget from 'web.public.widget';
 import { _t } from 'web.core';
+import { SlideCoursePage } from '@website_slides/js/slides_course_page';
 
-publicWidget.registry.websiteSlidesCourseSlidesList = publicWidget.Widget.extend({
+publicWidget.registry.websiteSlidesCourseSlidesList = SlideCoursePage.extend({
     selector: '.o_wslides_slides_list',
-    xmlDependencies: ['/website_slides/static/src/xml/website_slides_upload.xml'],
 
     start: function () {
         this._super.apply(this,arguments);
@@ -59,7 +59,7 @@ publicWidget.registry.websiteSlidesCourseSlidesList = publicWidget.Widget.extend
             var $emptyFlag = $emptyFlagContainer.find('small');
             if (categorySlideCount === 0 && $emptyFlag.length === 0){
                 $emptyFlagContainer.append($('<small>', {
-                    'class': "ml-1 text-muted font-weight-bold",
+                    'class': "ms-1 text-muted fw-bold",
                     text: _t("(empty)")
                 }));
             } else if (categorySlideCount > 0 && $emptyFlag.length > 0){

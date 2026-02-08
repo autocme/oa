@@ -3,21 +3,16 @@
 # 	* website_sale_stock
 # 
 # Translators:
-# Abdul Munif Hanafi <amunifhanafi@gmail.com>, 2021
-# pnyet <david@zeromail.us>, 2022
-# Ryanto The <ry.the77@gmail.com>, 2022
 # Martin Trigaux, 2022
-# whenwesober, 2022
-# Wahyu Setiawan <wahyusetiaaa@gmail.com>, 2022
-# Abe Manyo, 2023
+# Abe Manyo, 2024
 # 
 msgid ""
 msgstr ""
-"Project-Id-Version: Odoo Server saas~14.5\n"
+"Project-Id-Version: Odoo Server 16.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2021-09-14 10:29+0000\n"
-"PO-Revision-Date: 2021-09-14 12:29+0000\n"
-"Last-Translator: Abe Manyo, 2023\n"
+"POT-Creation-Date: 2024-02-06 13:32+0000\n"
+"PO-Revision-Date: 2022-09-22 05:57+0000\n"
+"Last-Translator: Abe Manyo, 2024\n"
 "Language-Team: Indonesian (https://app.transifex.com/odoo/teams/41243/id/)\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
@@ -26,15 +21,18 @@ msgstr ""
 "Plural-Forms: nplurals=1; plural=0;\n"
 
 #. module: website_sale_stock
-#: model_terms:ir.ui.view,arch_db:website_sale_stock.website_sale_stock_cart_lines
-#: model_terms:ir.ui.view,arch_db:website_sale_stock.website_sale_stock_payment
-msgid "<strong>Warning!</strong>"
-msgstr "<strong>Peringatan!</strong>"
+#: model_terms:ir.ui.view,arch_db:website_sale_stock.res_config_settings_view_form
+msgid ""
+"<span attrs=\"{'invisible': [('show_availability', '=', "
+"False)]}\">Units</span>"
+msgstr ""
+"<span attrs=\"{'invisible': [('show_availability', '=', "
+"False)]}\">Unit</span>"
 
 #. module: website_sale_stock
-#: model:ir.model.fields,field_description:website_sale_stock.field_product_product__cart_qty
-msgid "Cart Qty"
-msgstr ""
+#: model:ir.model.fields,field_description:website_sale_stock.field_product_product__stock_notification_partner_ids
+msgid "Back in stock Notifications"
+msgstr "Notifikasi Kembali tersedia"
 
 #. module: website_sale_stock
 #: model:ir.model,name:website_sale_stock.model_res_config_settings
@@ -45,14 +43,19 @@ msgstr "Pengaturan Konfigurasi"
 #: model_terms:ir.ui.view,arch_db:website_sale_stock.product_template_form_view_inherit_website_sale_stock
 #: model_terms:ir.ui.view,arch_db:website_sale_stock.res_config_settings_view_form
 msgid "Continue Selling"
-msgstr "Lanjutkan Penjualan"
+msgstr "Lanjutkan Menjual"
 
 #. module: website_sale_stock
 #: model:ir.model.fields,field_description:website_sale_stock.field_product_product__allow_out_of_stock_order
 #: model:ir.model.fields,field_description:website_sale_stock.field_product_template__allow_out_of_stock_order
 #: model:ir.model.fields,field_description:website_sale_stock.field_res_config_settings__allow_out_of_stock_order
 msgid "Continue selling when out-of-stock"
-msgstr "Lanjutkan menjual saat habis persediaan"
+msgstr "Lanjutkan menjual saat persediaan habis "
+
+#. module: website_sale_stock
+#: model_terms:ir.ui.view,arch_db:website_sale_stock.availability_email_body
+msgid "Dear Customer,"
+msgstr "Yth Pelanggan,"
 
 #. module: website_sale_stock
 #: model_terms:ir.ui.view,arch_db:website_sale_stock.res_config_settings_view_form
@@ -69,23 +72,56 @@ msgid "Default visibility for custom messages."
 msgstr "Visibilitas standar untuk pesan-pesan kustom."
 
 #. module: website_sale_stock
-#: model_terms:ir.ui.view,arch_db:website_sale_stock.res_config_settings_view_form
-msgid "Inventory"
-msgstr "Stok Persediaan"
+#. odoo-javascript
+#: code:addons/website_sale_stock/static/src/xml/website_sale_stock_product_availability.xml:0
+#, python-format
+msgid "Get notified when back in stock"
+msgstr "Dapatkan notifikasi saat persediaan kembali tersedia"
 
 #. module: website_sale_stock
-#. openerp-web
+#: model_terms:ir.ui.view,arch_db:website_sale_stock.res_config_settings_view_form
+msgid "How to display products having low quantities (on hand - reserved)"
+msgstr ""
+"Bagaimana cara menampilkan produk yang memiliki kuantitas rendah (di "
+"persediaan - cadangan)"
+
+#. module: website_sale_stock
+#. odoo-python
+#: code:addons/website_sale_stock/controllers/main.py:0
+#, python-format
+msgid "Invalid Email"
+msgstr "Email Invalid"
+
+#. module: website_sale_stock
+#. odoo-javascript
+#: code:addons/website_sale_stock/static/src/xml/website_sale_stock_product_availability.xml:0
+#, python-format
+msgid "Invalid email"
+msgstr "Invalid email"
+
+#. module: website_sale_stock
+#: model_terms:ir.ui.view,arch_db:website_sale_stock.res_config_settings_view_form
+msgid "Inventory Defaults"
+msgstr "Inventaris Standar"
+
+#. module: website_sale_stock
+#. odoo-javascript
 #: code:addons/website_sale_stock/static/src/xml/website_sale_stock_product_availability.xml:0
 #, python-format
 msgid "Only"
-msgstr "Untuk tujuan internal saja"
+msgstr "Hanya"
 
 #. module: website_sale_stock
-#. openerp-web
+#: model_terms:ir.ui.view,arch_db:website_sale_stock.availability_email_body
+msgid "Order Now"
+msgstr "Pesan Sekarang"
+
+#. module: website_sale_stock
+#. odoo-javascript
 #: code:addons/website_sale_stock/static/src/xml/website_sale_stock_product_availability.xml:0
 #, python-format
 msgid "Out of Stock"
-msgstr "Kehabisan Persediaan"
+msgstr "Persediaan Habis"
 
 #. module: website_sale_stock
 #: model_terms:ir.ui.view,arch_db:website_sale_stock.product_template_form_view_inherit_website_sale_stock
@@ -100,24 +136,38 @@ msgid "Out-of-Stock Message"
 msgstr "Pesan Persediaan-Habis"
 
 #. module: website_sale_stock
-#: model:ir.model,name:website_sale_stock.model_product_product
+#. odoo-python
+#: code:addons/website_sale_stock/models/product_product.py:0
+#: model:ir.model,name:website_sale_stock.model_product_template
+#, python-format
 msgid "Product"
 msgstr "Produk"
 
 #. module: website_sale_stock
-#: model:ir.model,name:website_sale_stock.model_product_template
-msgid "Product Template"
-msgstr "Templete Produk"
+#: model:ir.model,name:website_sale_stock.model_product_product
+msgid "Product Variant"
+msgstr "Varian Produk"
+
+#. module: website_sale_stock
+#: model:ir.actions.server,name:website_sale_stock.ir_cron_send_availability_email_ir_actions_server
+#: model:ir.cron,cron_name:website_sale_stock.ir_cron_send_availability_email
+msgid "Product: send email regarding products availability"
+msgstr "Produk: kirim email mengenai ketersediaan produk"
+
+#. module: website_sale_stock
+#: model_terms:ir.ui.view,arch_db:website_sale_stock.availability_email_body
+msgid "Regards,"
+msgstr "Salam,"
 
 #. module: website_sale_stock
 #: model:ir.model,name:website_sale_stock.model_sale_order
 msgid "Sales Order"
-msgstr "Order Penjualan"
+msgstr "Pesanan Penjualan"
 
 #. module: website_sale_stock
 #: model:ir.model,name:website_sale_stock.model_sale_order_line
 msgid "Sales Order Line"
-msgstr "Detail Order Penjualan"
+msgstr "Baris Pesanan Penjualan"
 
 #. module: website_sale_stock
 #: model_terms:ir.ui.view,arch_db:website_sale_stock.product_template_form_view_inherit_website_sale_stock
@@ -140,6 +190,7 @@ msgid "Show availability Qty"
 msgstr "Tunjukkan ketersediaan Kuantitas"
 
 #. module: website_sale_stock
+#. odoo-python
 #: code:addons/website_sale_stock/models/sale_order.py:0
 #, python-format
 msgid ""
@@ -150,13 +201,31 @@ msgstr ""
 "Mohon maaf untuk ketidaknyamanan tersebut."
 
 #. module: website_sale_stock
+#: model_terms:ir.ui.view,arch_db:website_sale_stock.availability_email_body
+msgid "The following product is now available."
+msgstr "Produk berikut sekarang tersedia."
+
+#. module: website_sale_stock
+#. odoo-python
+#: code:addons/website_sale_stock/models/product_product.py:0
+#, python-format
+msgid "The product '%(product_name)s' is now available"
+msgstr "Produk '%(product_name)s' sekarang tersedia"
+
+#. module: website_sale_stock
+#. odoo-javascript
+#: code:addons/website_sale_stock/static/src/js/website_sale_reorder.js:0
+#, python-format
+msgid "This product is out of stock."
+msgstr "Produk ini sudah habis."
+
+#. module: website_sale_stock
 #: model:ir.model,name:website_sale_stock.model_stock_picking
 msgid "Transfer"
 msgstr "Transfer"
 
 #. module: website_sale_stock
 #: model_terms:ir.ui.view,arch_db:website_sale_stock.product_template_form_view_inherit_website_sale_stock
-#: model_terms:ir.ui.view,arch_db:website_sale_stock.res_config_settings_view_form
 msgid "Units"
 msgstr "Unit"
 
@@ -168,12 +237,11 @@ msgid "Warehouse"
 msgstr "Gudang"
 
 #. module: website_sale_stock
-#: model:ir.model.fields,field_description:website_sale_stock.field_sale_order__warning_stock
-#: model:ir.model.fields,field_description:website_sale_stock.field_sale_order_line__warning_stock
-#: model_terms:ir.ui.view,arch_db:website_sale_stock.website_sale_stock_cart_lines
-#: model_terms:ir.ui.view,arch_db:website_sale_stock.website_sale_stock_payment
-msgid "Warning"
-msgstr "Peringatan"
+#. odoo-javascript
+#: code:addons/website_sale_stock/static/src/xml/website_sale_stock_product_availability.xml:0
+#, python-format
+msgid "We'll notify you once the product is back in stock."
+msgstr "Kami akan memberikan notifikasi setelah produk tersedia lagi."
 
 #. module: website_sale_stock
 #: model:ir.model,name:website_sale_stock.model_website
@@ -183,45 +251,67 @@ msgstr "Website"
 
 #. module: website_sale_stock
 #: model:ir.model.fields,help:website_sale_stock.field_stock_picking__website_id
-msgid "Website this picking belongs to."
-msgstr ""
+msgid "Website where this order has been placed, for eCommerce orders."
+msgstr "Website dimana pesanan dilakukan, untuk pesanan eCommerce."
 
 #. module: website_sale_stock
-#. openerp-web
+#. odoo-javascript
 #: code:addons/website_sale_stock/static/src/xml/website_sale_stock_product_availability.xml:0
 #, python-format
 msgid "You already added"
 msgstr "Anda sudah menambahkan"
 
 #. module: website_sale_stock
-#. openerp-web
+#. odoo-javascript
 #: code:addons/website_sale_stock/static/src/xml/website_sale_stock_product_availability.xml:0
 #, python-format
 msgid "You already added all the available product in your cart."
 msgstr "Anda sudah menambahkan semua produk yang tersedia ke keranjang Anda."
 
 #. module: website_sale_stock
-#: code:addons/website_sale_stock/controllers/main.py:0
+#. odoo-javascript
+#: code:addons/website_sale_stock/static/src/js/website_sale_reorder.js:0
+#, python-format
+msgid "You already have %s Units in your cart."
+msgstr "Anda sudah memiliki %s produk di keranjang Anda."
+
+#. module: website_sale_stock
+#. odoo-python
+#: code:addons/website_sale_stock/models/sale_order_line.py:0
 #, python-format
 msgid ""
-"You ask for %(quantity)s products but only %(available_qty)s is available"
+"You ask for %(desired_qty)s %(product_name)s but only %(new_qty)s is "
+"available"
 msgstr ""
+"Anda meminta %(desired_qty)s %(product_name)s tapi hanya %(new_qty)s yang "
+"tersedia"
 
 #. module: website_sale_stock
+#. odoo-python
 #: code:addons/website_sale_stock/models/sale_order.py:0
 #, python-format
-msgid "You ask for %s products but only %s is available"
+msgid "You ask for %(desired_qty)s products but only %(new_qty)s is available"
 msgstr ""
+"Anda meminta %(desired_qty)s produk tapi hanya %(new_qty)s produk yang masih"
+" tersedia"
 
 #. module: website_sale_stock
-#. openerp-web
+#. odoo-javascript
+#: code:addons/website_sale_stock/static/src/js/website_sale_reorder.js:0
+#: code:addons/website_sale_stock/static/src/js/website_sale_reorder.js:0
+#, python-format
+msgid "You ask for %s Units but only %s are available."
+msgstr "Anda meminta %s barang tapi hanya %s yang masih tersedia."
+
+#. module: website_sale_stock
+#. odoo-javascript
 #: code:addons/website_sale_stock/static/src/xml/website_sale_stock_product_availability.xml:0
 #, python-format
 msgid "in your cart."
 msgstr "di keranjang Anda."
 
 #. module: website_sale_stock
-#. openerp-web
+#. odoo-javascript
 #: code:addons/website_sale_stock/static/src/xml/website_sale_stock_product_availability.xml:0
 #, python-format
 msgid "left in stock."
@@ -232,3 +322,10 @@ msgstr "tersisa di stok."
 #: model_terms:ir.ui.view,arch_db:website_sale_stock.res_config_settings_view_form
 msgid "only if below"
 msgstr "hanya bila di bawah"
+
+#. module: website_sale_stock
+#. odoo-javascript
+#: code:addons/website_sale_stock/static/src/xml/website_sale_stock_product_availability.xml:0
+#, python-format
+msgid "youremail@gmail.com"
+msgstr "youremail@gmail.com"

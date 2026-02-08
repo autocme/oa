@@ -3,19 +3,18 @@
 # 	* pos_hr
 # 
 # Translators:
-# Abdul Munif Hanafi <amunifhanafi@gmail.com>, 2022
-# dimas indra <dprahastra@gmail.com>, 2022
 # Martin Trigaux, 2022
 # Ryanto The <ry.the77@gmail.com>, 2022
 # Abe Manyo, 2023
+# Wil Odoo, 2025
 # 
 msgid ""
 msgstr ""
-"Project-Id-Version: Odoo Server saas~14.4\n"
+"Project-Id-Version: Odoo Server 16.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2021-07-12 07:50+0000\n"
-"PO-Revision-Date: 2021-09-14 12:25+0000\n"
-"Last-Translator: Abe Manyo, 2023\n"
+"POT-Creation-Date: 2025-02-10 08:27+0000\n"
+"PO-Revision-Date: 2022-09-22 05:54+0000\n"
+"Last-Translator: Wil Odoo, 2025\n"
 "Language-Team: Indonesian (https://app.transifex.com/odoo/teams/41243/id/)\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
@@ -25,8 +24,9 @@ msgstr ""
 
 #. module: pos_hr
 #: model_terms:ir.ui.view,arch_db:pos_hr.pos_config_form_view_inherit
-msgid "<span class=\"o_form_label oe_edit_only\">Allowed Employees </span>"
-msgstr ""
+#: model_terms:ir.ui.view,arch_db:pos_hr.res_config_settings_view_form
+msgid "Allowed Employees"
+msgstr "Karyawan yang Diizinkan"
 
 #. module: pos_hr
 #: model:ir.model.fields,field_description:pos_hr.field_pos_order__cashier
@@ -36,11 +36,16 @@ msgid "Cashier"
 msgstr "Kasir"
 
 #. module: pos_hr
-#. openerp-web
-#: code:addons/pos_hr/static/src/js/useSelectEmployee.js:0
+#. odoo-javascript
+#: code:addons/pos_hr/static/src/js/SelectCashierMixin.js:0
 #, python-format
 msgid "Change Cashier"
 msgstr "Ganti Kasir"
+
+#. module: pos_hr
+#: model:ir.model,name:pos_hr.model_res_config_settings
+msgid "Config Settings"
+msgstr "Pengaturan Konfigurasi"
 
 #. module: pos_hr
 #: model:ir.model,name:pos_hr.model_hr_employee
@@ -51,6 +56,7 @@ msgid "Employee"
 msgstr "Karyawan"
 
 #. module: pos_hr
+#. odoo-python
 #: code:addons/pos_hr/models/hr_employee.py:0
 #, python-format
 msgid "Employee: %s - PoS Config(s): %s \n"
@@ -58,31 +64,33 @@ msgstr "Karyawan: %s - Konfigurasi POS: %s \n"
 
 #. module: pos_hr
 #: model:ir.model.fields,field_description:pos_hr.field_pos_config__employee_ids
+#: model:ir.model.fields,field_description:pos_hr.field_res_config_settings__pos_employee_ids
 msgid "Employees with access"
 msgstr "Karyawan dengan akses"
 
 #. module: pos_hr
 #: model:ir.model.fields,help:pos_hr.field_pos_config__employee_ids
+#: model:ir.model.fields,help:pos_hr.field_res_config_settings__pos_employee_ids
 msgid "If left empty, all employees can log in to the PoS session"
 msgstr "Jika dibiarkan kosong, semua karyawan dapat log in ke sesi POS"
 
 #. module: pos_hr
-#. openerp-web
-#: code:addons/pos_hr/static/src/js/useSelectEmployee.js:0
+#. odoo-javascript
+#: code:addons/pos_hr/static/src/js/SelectCashierMixin.js:0
 #, python-format
 msgid "Incorrect Password"
 msgstr "Password Salah"
 
 #. module: pos_hr
-#. openerp-web
+#. odoo-javascript
 #: code:addons/pos_hr/static/src/xml/LoginScreen.xml:0
 #, python-format
 msgid "Log in to"
 msgstr "Log in ke"
 
 #. module: pos_hr
-#. openerp-web
-#: code:addons/pos_hr/static/src/js/useSelectEmployee.js:0
+#. odoo-javascript
+#: code:addons/pos_hr/static/src/js/SelectCashierMixin.js:0
 #, python-format
 msgid "Password ?"
 msgstr "Password ?"
@@ -112,20 +120,31 @@ msgid "Point of Sale Orders Report"
 msgstr "Laporan Order POS"
 
 #. module: pos_hr
-#. openerp-web
+#: model:ir.model,name:pos_hr.model_pos_session
+msgid "Point of Sale Session"
+msgstr "Sesi Point of Sale"
+
+#. module: pos_hr
+#: model:ir.model,name:pos_hr.model_hr_employee_public
+msgid "Public Employee"
+msgstr "Karyawan Publik"
+
+#. module: pos_hr
+#. odoo-javascript
 #: code:addons/pos_hr/static/src/xml/LoginScreen.xml:0
 #, python-format
 msgid "Scan your badge"
 msgstr "Pindai lencana Anda"
 
 #. module: pos_hr
-#. openerp-web
+#. odoo-javascript
 #: code:addons/pos_hr/static/src/xml/LoginScreen.xml:0
 #, python-format
 msgid "Select Cashier"
 msgstr "Pilih Kasir"
 
 #. module: pos_hr
+#. odoo-python
 #: code:addons/pos_hr/models/hr_employee.py:0
 #, python-format
 msgid ""
@@ -136,15 +155,8 @@ msgstr ""
 " yang aktif, harap tutup sesi tersebut terlebih dahulu:\n"
 
 #. module: pos_hr
-#. openerp-web
+#. odoo-javascript
 #: code:addons/pos_hr/static/src/xml/LoginScreen.xml:0
 #, python-format
 msgid "or"
 msgstr "atau"
-
-#. module: pos_hr
-#. openerp-web
-#: code:addons/pos_hr/static/src/xml/CashierName.xml:0
-#, python-format
-msgid "selectCashier"
-msgstr ""

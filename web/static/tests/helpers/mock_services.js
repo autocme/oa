@@ -3,17 +3,17 @@
 import { browser } from "@web/core/browser/browser";
 import { routerService } from "@web/core/browser/router_service";
 import { localization } from "@web/core/l10n/localization";
-import { translatedTerms } from "@web/core/l10n/translation";
+import { _t } from "@web/core/l10n/translation";
 import { rpcService } from "@web/core/network/rpc_service";
 import { userService } from "@web/core/user_service";
 import { effectService } from "@web/core/effects/effect_service";
 import { objectToUrlEncodedString } from "@web/core/utils/urls";
 import { registerCleanup } from "./cleanup";
 import { patchWithCleanup } from "./utils";
-import { companyService } from "@web/webclient/company_service";
 import { uiService } from "@web/core/ui/ui_service";
+import { ConnectionAbortedError } from "../../src/core/network/rpc_service";
 
-const { Component } = owl;
+import { Component, status } from "@odoo/owl";
 
 // -----------------------------------------------------------------------------
 // Mock Services
@@ -25,7 +25,7 @@ export const defaultLocalization = {
     dateTimeFormat: "MM/dd/yyyy HH:mm:ss",
     decimalPoint: ".",
     direction: "ltr",
-    grouping: [3, 0],
+    grouping: [],
     multiLang: false,
     thousandsSep: ",",
     weekStart: 7,
@@ -40,16 +40,14 @@ export function makeFakeLocalizationService(config = {}) {
     return {
         name: "localization",
         start: async (env) => {
-            const _t = (str) => translatedTerms[str] || str;
             env._t = _t;
-            env.qweb.translateFn = _t;
         },
     };
 }
 
 function buildMockRPC(mockRPC) {
     return async function (...args) {
-        if (this instanceof Component && this.__owl__.status === 5) {
+        if (this instanceof Component && status(this) === "destroyed") {
             return new Promise(() => {});
         }
         if (mockRPC) {
@@ -62,14 +60,29 @@ export function makeFakeRPCService(mockRPC) {
     return {
         name: "rpc",
         start() {
-            return buildMockRPC(mockRPC);
+            const rpcService = buildMockRPC(mockRPC);
+            return function () {
+                let rejectFn;
+                const rpcProm = new Promise((resolve, reject) => {
+                    rejectFn = reject;
+                    rpcService(...arguments)
+                        .then(resolve)
+                        .catch(reject);
+                });
+                rpcProm.abort = (rejectError = true) => {
+                    if (rejectError) {
+                        rejectFn(new ConnectionAbortedError("XmlHttpRequestError abort"));
+                    }
+                };
+                return rpcProm;
+            };
         },
         specializeForComponent: rpcService.specializeForComponent,
     };
 }
 
 export function makeMockXHR(response, sendCb, def) {
-    let MockXHR = function () {
+    const MockXHR = function () {
         return {
             _loadListener: null,
             url: "",
@@ -97,11 +110,13 @@ export function makeMockXHR(response, sendCb, def) {
                     if (typeof data === "string") {
                         try {
                             data = JSON.parse(data);
-                        } catch (e) {}
+                        } catch (_e) {
+                            // Ignore
+                        }
                     }
                     try {
                         await sendCb.call(this, data);
-                    } catch (e) {
+                    } catch (_e) {
                         listener = this._errorListener;
                     }
                 }
@@ -122,9 +137,8 @@ export function makeMockXHR(response, sendCb, def) {
 
 export function makeMockFetch(mockRPC) {
     const _rpc = buildMockRPC(mockRPC);
-    return async (input) => {
+    return async (input, params) => {
         let route = typeof input === "string" ? input : input.url;
-        let params;
         if (route.includes("load_menus")) {
             const routeArray = route.split("/");
             params = {
@@ -137,11 +151,20 @@ export function makeMockFetch(mockRPC) {
         try {
             res = await _rpc(route, params);
             status = 200;
-        } catch (e) {
+        } catch (_e) {
+            res = { error: _e.message };
             status = 500;
         }
         const blob = new Blob([JSON.stringify(res || {})], { type: "application/json" });
-        return new Response(blob, { status });
+        const response = new Response(blob, { status });
+        // Mock some functions of the Response API to make them almost synchronous (micro-tick level)
+        // as their native implementation is async (tick level), which can lead to undeterministic
+        // errors as it breaks the hypothesis that calling nextTick after fetching data is enough
+        // to see the result rendered in the DOM.
+        response.json = () => Promise.resolve(JSON.parse(JSON.stringify(res || {})));
+        response.text = () => Promise.resolve(String(res || {}));
+        response.blob = () => Promise.resolve(blob);
+        return response;
     };
 }
 
@@ -154,7 +177,8 @@ export function makeFakeRouterService(params = {}) {
     return {
         start({ bus }) {
             const router = routerService.start(...arguments);
-            bus.on("test:hashchange", null, (hash) => {
+            bus.addEventListener("test:hashchange", (ev) => {
+                const hash = ev.detail;
                 browser.location.hash = objectToUrlEncodedString(hash);
             });
             registerCleanup(router.cancelPushes);
@@ -221,6 +245,14 @@ export const fakeTitleService = {
     },
 };
 
+export const fakeColorSchemeService = {
+    start() {
+        return {
+            switchToColorScheme() {},
+        };
+    },
+};
+
 export function makeFakeNotificationService(mock) {
     return {
         start() {
@@ -236,11 +268,12 @@ export function makeFakeNotificationService(mock) {
     };
 }
 
-export function makeFakeDialogService(addDialog) {
+export function makeFakeDialogService(addDialog, closeAllDialog) {
     return {
         start() {
             return {
                 add: addDialog || (() => () => {}),
+                closeAll: closeAllDialog || (() => () => {}),
             };
         },
     };
@@ -257,8 +290,45 @@ export function makeFakeUserService(hasGroup = () => false) {
     };
 }
 
+export const fakeCompanyService = {
+    start() {
+        return {
+            availableCompanies: {},
+            allowedCompanyIds: [],
+            currentCompany: {},
+            setCompanies: () => {},
+        };
+    },
+};
+
+export function makeFakeHTTPService(getResponse, postResponse) {
+    getResponse =
+        getResponse ||
+        ((route, readMethod) => {
+            return readMethod === "json" ? {} : "";
+        });
+    postResponse =
+        postResponse ||
+        ((route, params, readMethod) => {
+            return readMethod === "json" ? {} : "";
+        });
+    return {
+        start() {
+            return {
+                async get(...args) {
+                    return getResponse(...args);
+                },
+                async post(...args) {
+                    return postResponse(...args);
+                },
+            };
+        },
+    };
+}
+
 export const mocks = {
-    company: () => companyService,
+    color_scheme: () => fakeColorSchemeService,
+    company: () => fakeCompanyService,
     command: () => fakeCommandService,
     cookie: () => fakeCookieService,
     effect: () => effectService, // BOI The real service ? Is this what we want ?

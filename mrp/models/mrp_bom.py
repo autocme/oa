@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
 
-from odoo import api, fields, models, _
+from odoo import api, fields, models, _, Command
 from odoo.exceptions import UserError, ValidationError
-from odoo.osv.expression import AND, NEGATIVE_TERM_OPERATORS, OR
+from odoo.osv.expression import AND, OR
 from odoo.tools import float_round
 
 from collections import defaultdict
@@ -15,6 +15,7 @@ class MrpBom(models.Model):
     _description = 'Bill of Material'
     _inherit = ['mail.thread']
     _rec_name = 'product_tmpl_id'
+    _rec_names_search = ['product_tmpl_id', 'code']
     _order = "sequence, id"
     _check_company_auto = True
 
@@ -22,9 +23,7 @@ class MrpBom(models.Model):
         return self.env['uom.uom'].search([], limit=1, order='id').id
 
     code = fields.Char('Reference')
-    active = fields.Boolean(
-        'Active', default=True,
-        help="If the active field is set to False, it will allow you to hide the bills of material without removing it.")
+    active = fields.Boolean('Active', default=True)
     type = fields.Selection([
         ('normal', 'Manufacture this product'),
         ('phantom', 'Kit')], 'BoM Type',
@@ -42,19 +41,19 @@ class MrpBom(models.Model):
     byproduct_ids = fields.One2many('mrp.bom.byproduct', 'bom_id', 'By-products', copy=True)
     product_qty = fields.Float(
         'Quantity', default=1.0,
-        digits='Unit of Measure', required=True,
+        digits='Product Unit of Measure', required=True,
         help="This should be the smallest quantity that this product can be produced in. If the BOM contains operations, make sure the work center capacity is accurate.")
     product_uom_id = fields.Many2one(
         'uom.uom', 'Unit of Measure',
         default=_get_default_product_uom_id, required=True,
         help="Unit of Measure (Unit of Measure) is the unit of measurement for the inventory control", domain="[('category_id', '=', product_uom_category_id)]")
     product_uom_category_id = fields.Many2one(related='product_tmpl_id.uom_id.category_id')
-    sequence = fields.Integer('Sequence', help="Gives the sequence order when displaying a list of bills of material.")
+    sequence = fields.Integer('Sequence')
     operation_ids = fields.One2many('mrp.routing.workcenter', 'bom_id', 'Operations', copy=True)
     ready_to_produce = fields.Selection([
         ('all_available', ' When all components are available'),
         ('asap', 'When components for 1st operation are available')], string='Manufacturing Readiness',
-        default='all_available', help="Defines when a Manufacturing Order is considered as ready to be started", required=True)
+        default='all_available', required=True)
     picking_type_id = fields.Many2one(
         'stock.picking.type', 'Operation Type', domain="[('code', '=', 'mrp_operation'), ('company_id', '=', company_id)]",
         check_company=True,
@@ -71,6 +70,7 @@ class MrpBom(models.Model):
         help="Defines if you can consume more or less components than the quantity defined on the BoM:\n"
              "  * Allowed: allowed for all manufacturing users.\n"
              "  * Allowed with warning: allowed for all manufacturing users with summary of consumption differences when closing the manufacturing order.\n"
+             "  Note that in the case of component Manual Consumption, where consumption is registered manually exclusively, consumption warnings will still be issued when appropriate also.\n"
              "  * Blocked: only a manager can close a manufacturing order when the BoM consumption is not respected.",
         default='warning',
         string='Flexible Consumption',
@@ -79,6 +79,9 @@ class MrpBom(models.Model):
     possible_product_template_attribute_value_ids = fields.Many2many(
         'product.template.attribute.value',
         compute='_compute_possible_product_template_attribute_value_ids')
+    allow_operation_dependencies = fields.Boolean('Operation Dependencies',
+        help="Create operation level dependencies that will influence both planning and the status of work orders upon MO confirmation. If this feature is ticked, and nothing is specified, Odoo will assume that all operations can be started simultaneously."
+    )
 
     _sql_constraints = [
         ('qty_positive', 'check (product_qty > 0)', 'The quantity to produce must be positive!'),
@@ -102,7 +105,7 @@ class MrpBom(models.Model):
 
     @api.constrains('active', 'product_id', 'product_tmpl_id', 'bom_line_ids')
     def _check_bom_cycle(self):
-        boms_dict = dict()
+        subcomponents_dict = dict()
 
         def _check_cycle(components, finished_products):
             """
@@ -117,16 +120,16 @@ class MrpBom(models.Model):
                     names = finished_products.mapped('display_name')
                     raise ValidationError(_("The current configuration is incorrect because it would create a cycle "
                                             "between these products: %s.") % ', '.join(names))
-                if component not in boms_dict:
+                if component not in subcomponents_dict:
                     products_to_find |= component
 
             bom_find_result = self._bom_find(products_to_find)
             for component in components:
-                if component not in boms_dict:
+                if component not in subcomponents_dict:
                     bom = bom_find_result[component]
-                    boms_dict[component] = bom
-                bom = boms_dict[component]
-                subcomponents = bom.bom_line_ids.filtered(lambda l: not l._skip_bom_line(component)).product_id
+                    subcomponents = bom.bom_line_ids.filtered(lambda l: not l._skip_bom_line(component)).product_id
+                    subcomponents_dict[component] = subcomponents
+                subcomponents = subcomponents_dict[component]
                 if subcomponents:
                     _check_cycle(subcomponents, finished_products | component)
 
@@ -183,7 +186,7 @@ class MrpBom(models.Model):
             if sum(bom.byproduct_ids.mapped('cost_share')) > 100:
                 raise ValidationError(_("The total cost share for a BoM's by-products cannot exceed 100."))
 
-    @api.onchange('bom_line_ids', 'product_qty')
+    @api.onchange('bom_line_ids', 'product_qty', 'product_id', 'product_tmpl_id')
     def onchange_bom_structure(self):
         if self.type == 'phantom' and self._origin and self.env['stock.move'].search([('bom_line_id', 'in', self._origin.bom_line_ids.ids)], limit=1):
             return {
@@ -226,11 +229,24 @@ class MrpBom(models.Model):
 
     def copy(self, default=None):
         res = super().copy(default)
-        for bom_line in res.bom_line_ids:
-            if bom_line.operation_id:
-                operation = res.operation_ids.filtered(lambda op: op._get_comparison_values() == bom_line.operation_id._get_comparison_values())
-                # Two operations could have the same values so we take the first one
-                bom_line.operation_id = operation[:1]
+        if self.operation_ids:
+            operations_mapping = {}
+            for original, copied in zip(self.operation_ids, res.operation_ids.sorted()):
+                operations_mapping[original] = copied
+            for bom_line in res.bom_line_ids:
+                if bom_line.operation_id:
+                    bom_line.operation_id = operations_mapping[bom_line.operation_id]
+            for byproduct in res.byproduct_ids:
+                if byproduct.operation_id:
+                    byproduct.operation_id = operations_mapping[byproduct.operation_id]
+            for operation in self.operation_ids:
+                if operation.blocked_by_operation_ids:
+                    copied_operation = operations_mapping[operation]
+                    dependencies = []
+                    for dependency in operation.blocked_by_operation_ids:
+                        dependencies.append(Command.link(operations_mapping[dependency].id))
+                    copied_operation.blocked_by_operation_ids = dependencies
+
         return res
 
     @api.model
@@ -258,16 +274,6 @@ class MrpBom(models.Model):
     def _unlink_except_running_mo(self):
         if self.env['mrp.production'].search([('bom_id', 'in', self.ids), ('state', 'not in', ['done', 'cancel'])], limit=1):
             raise UserError(_('You can not delete a Bill of Material with running manufacturing orders.\nPlease close or cancel it first.'))
-
-    @api.model
-    def _name_search(self, name='', args=None, operator='ilike', limit=100, name_get_uid=None):
-        args = args or []
-        domain = []
-        if (name or '').strip():
-            domain = ['|', (self._rec_name, operator, name), ('code', operator, name)]
-            if operator in NEGATIVE_TERM_OPERATORS:
-                domain = domain[1:]
-        return self._search(AND([domain, args]), limit=limit, access_rights_uid=name_get_uid)
 
     @api.model
     def _bom_find_domain(self, products, picking_type=None, company_id=False, bom_type=False):
@@ -305,7 +311,7 @@ class MrpBom(models.Model):
 
         products_ids = set(products.ids)
         for bom in boms:
-            products_implies = bom.product_id or bom.product_tmpl_id.product_variant_ids
+            products_implies = bom.product_id or bom.product_tmpl_id.with_context(active_test=False).product_variant_ids
             for product in products_implies:
                 if product.id in products_ids and product not in bom_by_product:
                     bom_by_product[product] = bom
@@ -444,6 +450,14 @@ class MrpBomLine(models.Model):
         'mrp.bom.line', string="BOM lines of the referred bom",
         compute='_compute_child_line_ids')
     attachments_count = fields.Integer('Attachments Count', compute='_compute_attachments_count')
+    tracking = fields.Selection(related='product_id.tracking')
+    manual_consumption = fields.Boolean(
+        'Manual Consumption', default=False, compute='_compute_manual_consumption',
+        readonly=False, store=True, copy=True,
+        help="When activated, then the registration of consumption for that component is recorded manually exclusively.\n"
+             "If not activated, and any of the components consumption is edited manually on the manufacturing order, Odoo assumes manual consumption also.")
+    manual_consumption_readonly = fields.Boolean(
+        'Manual Consumption Readonly', compute='_compute_manual_consumption_readonly')
 
     _sql_constraints = [
         ('bom_qty_zero', 'CHECK (product_qty>=0)', 'All product quantities must be greater or equal to 0.\n'
@@ -451,13 +465,25 @@ class MrpBomLine(models.Model):
             'You should install the mrp_byproduct module if you want to manage extra products on BoMs !'),
     ]
 
+    @api.depends('product_id', 'tracking', 'operation_id')
+    def _compute_manual_consumption(self):
+        for line in self:
+            line.manual_consumption = (line.tracking != 'none' or line.operation_id)
+
+    @api.depends('tracking', 'operation_id')
+    def _compute_manual_consumption_readonly(self):
+        for line in self:
+            line.manual_consumption_readonly = (line.tracking != 'none' or line.operation_id)
+
     @api.depends('product_id', 'bom_id')
     def _compute_child_bom_id(self):
+        products = self.product_id
+        bom_by_product = self.env['mrp.bom']._bom_find(products)
         for line in self:
             if not line.product_id:
                 line.child_bom_id = False
             else:
-                line.child_bom_id = self.env['mrp.bom']._bom_find(line.product_id)[line.product_id]
+                line.child_bom_id = bom_by_product.get(line.product_id, False)
 
     @api.depends('product_id')
     def _compute_attachments_count(self):
@@ -543,6 +569,7 @@ class MrpByProduct(models.Model):
         default=1.0, digits='Product Unit of Measure', required=True)
     product_uom_category_id = fields.Many2one(related='product_id.uom_id.category_id')
     product_uom_id = fields.Many2one('uom.uom', 'Unit of Measure', required=True,
+                                     compute="_compute_product_uom_id", store=True, readonly=False, precompute=True,
                                      domain="[('category_id', '=', product_uom_category_id)]")
     bom_id = fields.Many2one('mrp.bom', 'BoM', ondelete='cascade', index=True)
     allowed_operation_ids = fields.One2many('mrp.routing.workcenter', related='bom_id.operation_ids')
@@ -560,11 +587,11 @@ class MrpByProduct(models.Model):
         help="The percentage of the final production cost for this by-product line (divided between the quantity produced)."
              "The total of all by-products' cost share must be less than or equal to 100.")
 
-    @api.onchange('product_id')
-    def _onchange_product_id(self):
+    @api.depends('product_id')
+    def _compute_product_uom_id(self):
         """ Changes UoM if product_id changes. """
-        if self.product_id:
-            self.product_uom_id = self.product_id.uom_id.id
+        for record in self:
+            record.product_uom_id = record.product_id.uom_id.id
 
     def _skip_byproduct_line(self, product):
         """ Control if a byproduct line should be produced, can be inherited to add

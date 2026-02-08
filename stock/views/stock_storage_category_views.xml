@@ -5,6 +5,7 @@
         <field name="model">stock.storage.category</field>
         <field name="arch" type="xml">
             <form string="Storage Category">
+                <field name="company_id" invisible="1"/>
                 <sheet>
                     <div class="oe_button_box" name="button_box">
                         <button name="%(action_storage_category_locations)d" string="Locations" type="action" class="oe_stat_button" icon="fa-arrows-v"/>
@@ -86,6 +87,7 @@
                 <field name="quantity"/>
                 <field name="product_uom_id" groups="uom.group_uom" options="{'no_create': True, 'no_open': True}"/>
                 <field name="company_id" invisible="1"/>
+                <field name="package_type_id" invisible="1"/>
             </tree>
         </field>
     </record>
@@ -98,6 +100,5 @@
     </record>
 
     <menuitem id="menu_storage_categoty_config" action="action_storage_category" name="Storage Categories" parent="menu_warehouse_config" sequence="6" groups="stock.group_stock_storage_categories"/>
-    <menuitem id="menu_storage_categoty_capacity_config" action="action_storage_category_capacity" name="Storage Category Capacity" parent="menu_warehouse_config" sequence="7" groups="base.group_no_one"/>
 
 </odoo>

@@ -15,7 +15,7 @@
                     <page name="zatca_einvoicing" string="ZATCA" attrs="{'invisible': ['|', ('country_code', '!=', 'SA'), ('type', '!=', 'sale')]}">
                         <group>
                             <group>
-                                <field name="l10n_sa_serial_number"/>
+                                <field name="l10n_sa_serial_number" readonly="1" groups="base.group_no_one"/>
                             </group>
                         </group>
                         <p groups="base.group_system">
@@ -25,22 +25,22 @@
                             <ol class="mt-2 mb-4">
                                 <li>
                                     Set a Serial Number for your device
-                                    <i class="fa fa-check text-success ml-1"
+                                    <i class="fa fa-check text-success ms-1"
                                        attrs="{'invisible': [('l10n_sa_serial_number', '=', False)]}"/>
                                 </li>
                                 <li>
                                     Request a Compliance Certificate (CCSID)
-                                    <i class="fa fa-check text-success ml-1" groups="base.group_system"
+                                    <i class="fa fa-check text-success ms-1" groups="base.group_system"
                                        attrs="{'invisible': [('l10n_sa_compliance_csid_json', '=', False)]}"/>
                                 </li>
                                 <li>
                                     Complete the Compliance Checks
-                                    <i class="fa fa-check text-success ml-1"
+                                    <i class="fa fa-check text-success ms-1"
                                        attrs="{'invisible': [('l10n_sa_compliance_checks_passed', '=', False)]}"/>
                                 </li>
                                 <li>
                                     Request a Production Certificate (PCSID)
-                                    <i class="fa fa-check text-success ml-1" groups="base.group_system"
+                                    <i class="fa fa-check text-success ms-1" groups="base.group_system"
                                        attrs="{'invisible': [('l10n_sa_production_csid_json', '=', False)]}"/>
                                 </li>
                             </ol>
@@ -72,14 +72,14 @@
                             <p class="mb-0">
                                 The Production certificate is valid until
                                 <field name="l10n_sa_production_csid_validity" readonly="1" nolabel="1"
-                                       class="font-weight-bold"/>
+                                       class="fw-bold"/>
                             </p>
                             <div>
                                 <button name="%(l10n_sa_edi_otp_wizard_act_window)d" type="action" icon="fa-refresh"
                                         class="btn-info" context="{'default_l10n_sa_renewal': True}">
                                     Renew Production CSID
                                 </button>
-                                <button name="%(l10n_sa_edi_otp_wizard_act_window)d" type="action" icon="fa-refresh" class="btn-warning ml-2"
+                                <button name="%(l10n_sa_edi_otp_wizard_act_window)d" type="action" icon="fa-refresh" class="btn-warning ms-2"
                                     confirm="Are you sure you wish to re-onboard the Journal?">
                                     Re-Onboard
                                 </button>

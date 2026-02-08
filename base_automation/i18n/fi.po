@@ -3,24 +3,24 @@
 # 	* base_automation
 # 
 # Translators:
-# Eino Mäkitalo <eino.makitalo@netitbe.fi>, 2021
-# Martin Trigaux, 2021
-# Kari Lindgren <kari.lindgren@emsystems.fi>, 2021
-# Miku Laitinen <miku.laitinen@gmail.com>, 2021
-# Jussi Lehto <jussi@gulfeo.com>, 2021
-# Jarmo Kortetjärvi <jarmo.kortetjarvi@gmail.com>, 2021
-# Tuomo Aura <tuomo.aura@web-veistamo.fi>, 2021
-# Veikko Väätäjä <veikko.vaataja@gmail.com>, 2021
-# Teemu Ahonen <teemu.ahonen@web-veistamo.fi>, 2021
-# Tomi Tiainen, 2021
+# Teemu Ahonen <teemu.ahonen@web-veistamo.fi>, 2022
+# Veikko Väätäjä <veikko.vaataja@gmail.com>, 2022
+# Tomi Tiainen, 2022
+# Jussi Lehto <jussi@gulfeo.com>, 2022
+# Eino Mäkitalo <eino.makitalo@netitbe.fi>, 2022
+# Miku Laitinen <miku.laitinen@gmail.com>, 2022
+# Martin Trigaux, 2022
+# Jarmo Kortetjärvi <jarmo.kortetjarvi@gmail.com>, 2022
+# Tuomo Aura <tuomo.aura@web-veistamo.fi>, 2022
+# Kari Lindgren <kari.lindgren@emsystems.fi>, 2022
 # Ossi Mantylahti <ossi.mantylahti@obs-solutions.fi>, 2023
 # 
 msgid ""
 msgstr ""
-"Project-Id-Version: Odoo Server saas~14.5\n"
+"Project-Id-Version: Odoo Server 16.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2021-09-14 10:28+0000\n"
-"PO-Revision-Date: 2021-09-14 12:20+0000\n"
+"POT-Creation-Date: 2024-02-06 13:31+0000\n"
+"PO-Revision-Date: 2022-09-22 05:45+0000\n"
 "Last-Translator: Ossi Mantylahti <ossi.mantylahti@obs-solutions.fi>, 2023\n"
 "Language-Team: Finnish (https://app.transifex.com/odoo/teams/41243/fi/)\n"
 "MIME-Version: 1.0\n"
@@ -30,7 +30,7 @@ msgstr ""
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
 
 #. module: base_automation
-#. openerp-web
+#. odoo-javascript
 #: code:addons/base_automation/static/src/xml/base_automation_error_dialog.xml:0
 #, python-format
 msgid ""
@@ -110,7 +110,6 @@ msgstr "Automatisointi"
 #. module: base_automation
 #: model:ir.actions.server,name:base_automation.ir_cron_data_base_automation_check_ir_actions_server
 #: model:ir.cron,cron_name:base_automation.ir_cron_data_base_automation_check
-#: model:ir.cron,name:base_automation.ir_cron_data_base_automation_check
 msgid "Base Action Rule: check and execute"
 msgstr "Perustan toimintasääntö: tarkista ja suorita"
 
@@ -159,6 +158,19 @@ msgstr ""
 "palautettua arvoa käytetään palautusarvona globaalisti."
 
 #. module: base_automation
+#: model:ir.model.fields,help:base_automation.field_base_automation__mail_post_method
+msgid ""
+"Choose method for email sending:\n"
+"EMail: send directly emails\n"
+"Post as Message: post on document and notify followers\n"
+"Post as Note: log a note on document"
+msgstr ""
+"Valitse sähköpostin lähettämisen tapa:\n"
+"EMail: lähetä suoraan sähköpostina\n"
+"Lähetä viestinä: kirjoita dokumentiin ja lähetä huomatus seuraajille\n"
+"Lähetä huomiona: kirjaa huomio dokumenttiin"
+
+#. module: base_automation
 #: model:ir.model.fields,field_description:base_automation.field_base_automation__create_uid
 msgid "Created by"
 msgstr "Luonut"
@@ -177,9 +189,12 @@ msgstr "Päivää"
 #: model:ir.model.fields,help:base_automation.field_base_automation__trg_date_range
 msgid ""
 "Delay after the trigger date.\n"
-"                                    You can put a negative number if you need a delay before the\n"
-"                                    trigger date, like sending a reminder 15 minutes before a meeting."
+"        You can put a negative number if you need a delay before the\n"
+"        trigger date, like sending a reminder 15 minutes before a meeting."
 msgstr ""
+"Viivästytä laukaisupäivän jälkeen.\n"
+"        Voit asettaa negatiivisen luvun, jos tarvitaan viive ennen laukeamisaikaa.\n"
+"        Esimerkiksi 15 minuuttia ennen kokousta."
 
 #. module: base_automation
 #: model:ir.model.fields,field_description:base_automation.field_base_automation__trg_date_range
@@ -192,14 +207,14 @@ msgid "Delay type"
 msgstr "Viivästyksen tyyppi"
 
 #. module: base_automation
-#. openerp-web
+#. odoo-javascript
 #: code:addons/base_automation/static/src/xml/base_automation_error_dialog.xml:0
 #, python-format
 msgid "Disable Action"
 msgstr "Kytke toiminta pois päältä"
 
 #. module: base_automation
-#. openerp-web
+#. odoo-javascript
 #: code:addons/base_automation/static/src/xml/base_automation_error_dialog.xml:0
 #, python-format
 msgid ""
@@ -229,7 +244,7 @@ msgid "Due type"
 msgstr "Erääntymisen tyyppi"
 
 #. module: base_automation
-#. openerp-web
+#. odoo-javascript
 #: code:addons/base_automation/static/src/xml/base_automation_error_dialog.xml:0
 #, python-format
 msgid "Edit action"
@@ -241,6 +256,17 @@ msgid "Email Template"
 msgstr "Sähköpostin mallipohja"
 
 #. module: base_automation
+#. odoo-python
+#: code:addons/base_automation/models/base_automation.py:0
+#, python-format
+msgid ""
+"Email, followers or activities action types cannot be used when deleting "
+"records."
+msgstr ""
+"Sähköpostin, seuraajien tai tomintojen toimintotyyppejä ei voi käyttää kun "
+"poistetaan tietueita."
+
+#. module: base_automation
 #: model:ir.model.fields,field_description:base_automation.field_base_automation__xml_id
 msgid "External ID"
 msgstr "Ulkoinen ID"
@@ -249,6 +275,16 @@ msgstr "Ulkoinen ID"
 #: model:ir.model.fields,help:base_automation.field_base_automation__on_change_field_ids
 msgid "Fields that trigger the onchange."
 msgstr "Kentät, jotka käynnistävät onchange-laukaisimen."
+
+#. module: base_automation
+#. odoo-python
+#: code:addons/base_automation/models/base_automation.py:0
+#, python-format
+msgid ""
+"Form Modification based actions can only be used with code action type."
+msgstr ""
+"Toimintaan perustuvia lomakkeiden muokkauksia vio käyttää vain "
+"kooditomintojen tyypeissä."
 
 #. module: base_automation
 #: model:ir.model.fields,field_description:base_automation.field_base_automation__groups_id
@@ -263,7 +299,7 @@ msgstr "Tunnit"
 #. module: base_automation
 #: model:ir.model.fields,field_description:base_automation.field_base_automation__id
 msgid "ID"
-msgstr "Tunniste (ID)"
+msgstr "ID"
 
 #. module: base_automation
 #: model:ir.model.fields,help:base_automation.field_base_automation__xml_id
@@ -357,11 +393,14 @@ msgid "Note"
 msgstr "Muistiinpano"
 
 #. module: base_automation
+#. odoo-python
 #: code:addons/base_automation/models/base_automation.py:0
 #, python-format
 msgid ""
-"Note that this action can be trigged up to %d minutes after its schedule."
+"Note that this action can be triggered up to %d minutes after its schedule."
 msgstr ""
+"Huomaa, että tämä toiminto voidaan käynnistää enintään %d minuutin "
+"ajatuksensa jälkeen."
 
 #. module: base_automation
 #: model:ir.model.fields,field_description:base_automation.field_base_automation__on_change_field_ids
@@ -417,6 +456,11 @@ msgid "Responsible"
 msgstr "Vastuuhenkilö"
 
 #. module: base_automation
+#: model:ir.model.fields,field_description:base_automation.field_base_automation__mail_post_method
+msgid "Send as"
+msgstr "Lähetä nimellä"
+
+#. module: base_automation
 #: model:ir.model.fields,field_description:base_automation.field_base_automation__sequence
 msgid "Sequence"
 msgstr "Järjestys"
@@ -445,6 +489,11 @@ msgid "Setup a new automated automation"
 msgstr "Aseta uusi automaattinen toiminto"
 
 #. module: base_automation
+#: model:ir.model.fields,field_description:base_automation.field_base_automation__mail_post_autofollow
+msgid "Subscribe Recipients"
+msgstr "Tilaa vastaanottajat"
+
+#. module: base_automation
 #: model:ir.model.fields,field_description:base_automation.field_base_automation__activity_summary
 msgid "Summary"
 msgstr "Yhteenveto"
@@ -460,11 +509,7 @@ msgid "Target Model Name"
 msgstr "Kohdemallin nimi"
 
 #. module: base_automation
-#: model:ir.model.fields,help:base_automation.field_base_automation__activity_user_field_name
-msgid "Technical name of the user on the record"
-msgstr ""
-
-#. module: base_automation
+#. odoo-python
 #: code:addons/base_automation/models/base_automation.py:0
 #, python-format
 msgid ""
@@ -477,12 +522,14 @@ msgstr ""
 #. module: base_automation
 #: model:ir.model.fields,help:base_automation.field_base_automation__trigger_field_ids
 msgid ""
-"The action will be triggered if and only if one of these fields is "
-"updated.If empty, all fields are watched."
+"The action will be triggered if and only if one of these fields is updated. "
+"If empty, all fields are watched."
 msgstr ""
+"Toiminto voidaan laukaista vain jos jotain sen kentistä päivitetään. Jos "
+"nämä ovat tyhjiä, kaikkia kenttiä seurataan."
 
 #. module: base_automation
-#. openerp-web
+#. odoo-javascript
 #: code:addons/base_automation/static/src/xml/base_automation_error_dialog.xml:0
 #, python-format
 msgid ""
@@ -513,13 +560,23 @@ msgstr "Laukeavat kentät"
 msgid ""
 "Type of server action. The following values are available:\n"
 "- 'Execute Python Code': a block of python code that will be executed\n"
-"- 'Create': create a new record with new values\n"
+"- 'Create a new Record': create a new record with new values\n"
 "- 'Update a Record': update the values of a record\n"
 "- 'Execute several actions': define an action that triggers several other server actions\n"
-"- 'Send Email': automatically send an email (Discuss)\n"
+"- 'Send Email': post a message, a note or send an email (Discuss)\n"
 "- 'Add Followers': add followers to a record (Discuss)\n"
-"- 'Create Next Activity': create an activity (Discuss)"
+"- 'Create Next Activity': create an activity (Discuss)\n"
+"- 'Send SMS Text Message': send SMS, log them on documents (SMS)"
 msgstr ""
+"Palvelintoiminnon tyyppi. Seuraavat ovat mahdollisia:\n"
+"- 'Execute Python Code': ajaa Python-koodia\n"
+"- 'Create a new Record': luo uuden tietueen uusilla arvoilla\n"
+"- 'Update a Record': päivittää tietueen arvot\n"
+"- 'Execute several actions': määrittää toiminnon, joka käynnistää useita muita toimintoja\n"
+"- 'Send Email': lähettää viestin, huomion tai sähköpostin (Discuss)\n"
+"- 'Add Followers': lisää tietueelle seuraajia (Discuss)\n"
+"- 'Create Next Activity': luo uuden aktiviteetin (Discuss)\n"
+"- 'Send SMS Text Message': lähettää tekstiviestin (SMS), kirjaa ne dokumenttiin"
 
 #. module: base_automation
 #: model:ir.model.fields,field_description:base_automation.field_base_automation__usage
@@ -570,6 +627,7 @@ msgid "Value Mapping"
 msgstr "Arvojen kohdistus"
 
 #. module: base_automation
+#. odoo-python
 #: code:addons/base_automation/models/base_automation.py:0
 #: code:addons/base_automation/models/base_automation.py:0
 #, python-format
@@ -598,8 +656,10 @@ msgstr ""
 #: model:ir.model.fields,help:base_automation.field_base_automation__trg_date_id
 msgid ""
 "When should the condition be triggered.\n"
-"                                  If present, will be checked by the scheduler. If empty, will be checked at creation and update."
+"                If present, will be checked by the scheduler. If empty, will be checked at creation and update."
 msgstr ""
+"Milloin ehto pitäisi laukaista.\n"
+"                 Jos asetettu, Odoon eräajo-ohjelma (cron) käsittelee tämän. Jos tyhjä, tarkistetaan luonnin ja päivityksen yhteydessä."
 
 #. module: base_automation
 #: model:ir.model.fields,help:base_automation.field_base_automation__active
@@ -616,7 +676,7 @@ msgstr ""
 "käytettävissä; Ohjeet python-lausekkeesta löytyvät Ohje-välilehdeltä."
 
 #. module: base_automation
-#. openerp-web
+#. odoo-javascript
 #: code:addons/base_automation/static/src/xml/base_automation_error_dialog.xml:0
 #, python-format
 msgid ""
@@ -626,7 +686,7 @@ msgstr ""
 "automaattisen toiminnon."
 
 #. module: base_automation
-#. openerp-web
+#. odoo-javascript
 #: code:addons/base_automation/static/src/xml/base_automation_error_dialog.xml:0
 #, python-format
 msgid "You can disable this automated action or edit it to solve the issue."
@@ -635,6 +695,7 @@ msgstr ""
 "ratkaistaksesi ongelman."
 
 #. module: base_automation
+#. odoo-python
 #: code:addons/base_automation/models/base_automation.py:0
 #, python-format
 msgid ""

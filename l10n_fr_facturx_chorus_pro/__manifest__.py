@@ -10,7 +10,7 @@ Add supports to fill three optional fields used when using Chorus Pro, especiall
 """,
     'depends': [
         'account',
-        'account_edi_facturx',
+        'account_edi_ubl_cii',
         'l10n_fr'
     ],
     'data': [

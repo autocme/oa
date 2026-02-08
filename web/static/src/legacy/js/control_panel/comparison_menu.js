@@ -1,15 +1,14 @@
 odoo.define("web.ComparisonMenu", function (require) {
     "use strict";
 
+    const { Dropdown } = require("@web/core/dropdown/dropdown");
+    const { SearchDropdownItem } = require("@web/search/search_dropdown_item/search_dropdown_item");
     const { FACET_ICONS } = require("web.searchUtils");
     const { useModel } = require("web.Model");
-    const { SearchDropdownItem } = require("@web/search/search_dropdown_item/search_dropdown_item");
+    const { LegacyComponent } = require("@web/legacy/legacy_component");
 
-    const { Component } = owl;
-
-    class ComparisonMenu extends Component {
-        constructor() {
-            super(...arguments);
+    class ComparisonMenu extends LegacyComponent {
+        setup() {
             this.icon = FACET_ICONS.comparison;
             this.model = useModel('searchModel');
         }
@@ -23,15 +22,14 @@ odoo.define("web.ComparisonMenu", function (require) {
 
         /**
          * @private
-         * @param {OwlEvent} ev
+         * @param {number} itemId
          */
-        onComparisonSelected(ev) {
-            const { itemId } = ev.detail.payload;
+        onComparisonSelected(itemId) {
             this.model.dispatch("toggleComparison", itemId);
         }
     }
     ComparisonMenu.template = "web.ComparisonMenu";
-    ComparisonMenu.components = { DropdownItem: SearchDropdownItem };
+    ComparisonMenu.components = { Dropdown, DropdownItem: SearchDropdownItem };
 
     return ComparisonMenu;
 });

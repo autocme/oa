@@ -1,13 +1,16 @@
 /** @odoo-module **/
 
-const { Component, tags } = owl;
+import { Component, xml, onWillDestroy } from "@odoo/owl";
 
 export class EffectContainer extends Component {
     setup() {
         this.effect = null;
-        this.props.bus.on("UPDATE", this, (effect) => {
-            this.effect = effect;
+        const listenerRef = this.props.bus.addEventListener("UPDATE", (ev) => {
+            this.effect = ev.detail;
             this.render();
+        });
+        onWillDestroy(() => {
+            this.props.bus.removeEventListener("UPDATE", listenerRef);
         });
     }
     removeEffect() {
@@ -16,9 +19,9 @@ export class EffectContainer extends Component {
     }
 }
 
-EffectContainer.template = tags.xml`
+EffectContainer.template = xml`
   <div class="o_effects_manager">
     <t t-if="effect">
-        <t t-component="effect.Component" t-props="effect.props" t-key="effect.id" close="() => removeEffect()"/>
+        <t t-component="effect.Component" t-props="effect.props" t-key="effect.id" close="() => this.removeEffect()"/>
     </t>
   </div>`;

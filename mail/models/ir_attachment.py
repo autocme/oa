@@ -1,9 +1,7 @@
-# -*- coding: utf-8 -*-
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
 
 from odoo import _, models, SUPERUSER_ID
 from odoo.exceptions import AccessError, MissingError, UserError
-from odoo.http import request
 from odoo.tools import consteq
 
 
@@ -70,8 +68,7 @@ class IrAttachment(models.Model):
             })
         self.unlink()
 
-    def _attachment_format(self, commands=False):
-        safari = request and request.httprequest.user_agent and request.httprequest.user_agent.browser == 'safari'
+    def _attachment_format(self, legacy=False):
         res_list = []
         for attachment in self:
             res = {
@@ -79,12 +76,11 @@ class IrAttachment(models.Model):
                 'id': attachment.id,
                 'filename': attachment.name,
                 'name': attachment.name,
-                'mimetype': 'application/octet-stream' if safari and attachment.mimetype and 'video' in attachment.mimetype else attachment.mimetype,
+                'mimetype': attachment.mimetype,
+                'type': attachment.type,
+                'url': attachment.url,
             }
-            if attachment.res_id and issubclass(self.pool[attachment.res_model], self.pool['mail.thread']):
-                main_attachment = self.env[attachment.res_model].sudo().browse(attachment.res_id).message_main_attachment_id
-                res['is_main'] = attachment == main_attachment
-            if commands:
+            if not legacy:
                 res['originThread'] = [('insert', {
                     'id': attachment.res_id,
                     'model': attachment.res_model,

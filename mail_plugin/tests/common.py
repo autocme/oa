@@ -19,7 +19,7 @@ def mock_auth_method_outlook(login):
     :param login: Login of the user used for the authentication
     """
     def patched_auth_method_outlook(*args, **kwargs):
-        request.uid = request.env['res.users'].search([('login', '=', login)], limit=1).id
+        request.update_env(user=request.env['res.users'].search([('login', '=', login)], limit=1))
 
     with patch(
             'odoo.addons.mail_plugin.models.ir_http.IrHttp'
@@ -45,7 +45,6 @@ class TestMailPluginControllerCommon(HttpCase):
         The third argument "patched_iap_enrich" allow you to mock the IAP request and
         to return the response you want.
         """
-
         data = {
             "id": 0,
             "jsonrpc": "2.0",

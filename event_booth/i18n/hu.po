@@ -3,20 +3,21 @@
 # 	* event_booth
 # 
 # Translators:
-# Martin Trigaux, 2021
-# krnkris, 2021
-# Ákos Nagy <akos.nagy@oregional.hu>, 2021
-# Tibor Kőnig <konig.tibor@evitalit.hu>, 2021
+# Tibor Kőnig <konig.tibor@evitalit.hu>, 2022
+# Krisztián Juhász <juhasz.krisztian@josafar.hu>, 2022
+# Martin Trigaux, 2022
 # Tamás Németh <ntomasz81@gmail.com>, 2022
-# gezza <geza.nagy@oregional.hu>, 2023
+# Ákos Nagy <akos.nagy@oregional.hu>, 2022
+# krnkris, 2022
+# gezza <geza.nagy@oregional.hu>, 2024
 # 
 msgid ""
 msgstr ""
-"Project-Id-Version: Odoo Server 15.0\n"
+"Project-Id-Version: Odoo Server 16.0beta\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-08-14 15:43+0000\n"
-"PO-Revision-Date: 2021-09-14 12:21+0000\n"
-"Last-Translator: gezza <geza.nagy@oregional.hu>, 2023\n"
+"POT-Creation-Date: 2022-10-10 10:23+0000\n"
+"PO-Revision-Date: 2022-09-22 05:45+0000\n"
+"Last-Translator: gezza <geza.nagy@oregional.hu>, 2024\n"
 "Language-Team: Hungarian (https://app.transifex.com/odoo/teams/41243/hu/)\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
@@ -216,7 +217,6 @@ msgstr ""
 
 #. module: event_booth
 #: model_terms:ir.ui.view,arch_db:event_booth.event_booth_category_view_form
-#: model_terms:ir.ui.view,arch_db:event_booth.event_booth_view_search
 #: model_terms:ir.ui.view,arch_db:event_booth.event_type_booth_view_search
 msgid "Booth Type"
 msgstr ""
@@ -237,7 +237,6 @@ msgstr ""
 #: model:ir.ui.menu,name:event_booth.menu_event_booth
 #: model_terms:ir.ui.view,arch_db:event_booth.event_booth_view_form_from_event
 #: model_terms:ir.ui.view,arch_db:event_booth.event_booth_view_tree_from_event
-#: model_terms:ir.ui.view,arch_db:event_booth.event_event_view_form
 #: model_terms:ir.ui.view,arch_db:event_booth.event_type_view_form
 msgid "Booths"
 msgstr ""
@@ -290,7 +289,7 @@ msgstr "Leírás"
 #: model:ir.model.fields,field_description:event_booth.field_event_booth_category__display_name
 #: model:ir.model.fields,field_description:event_booth.field_event_type_booth__display_name
 msgid "Display Name"
-msgstr "Név megjelenítése"
+msgstr "Megjelenített név"
 
 #. module: event_booth
 #: model:ir.model,name:event_booth.model_event_event
@@ -342,6 +341,12 @@ msgstr ""
 #: model_terms:ir.ui.view,arch_db:event_booth.event_type_booth_view_search
 #: model_terms:ir.ui.view,arch_db:event_booth.event_type_booth_view_tree_from_type
 msgid "Event Type Booths"
+msgstr ""
+
+#. module: event_booth
+#: model_terms:ir.ui.view,arch_db:event_booth.event_booth_view_graph
+#: model_terms:ir.ui.view,arch_db:event_booth.event_booth_view_pivot
+msgid "Event booth"
 msgstr ""
 
 #. module: event_booth
@@ -404,7 +409,6 @@ msgstr "Kivétel tevékenységet jelző ikon"
 
 #. module: event_booth
 #: model:ir.model.fields,help:event_booth.field_event_booth__message_needaction
-#: model:ir.model.fields,help:event_booth.field_event_booth__message_unread
 msgid "If checked, new messages require your attention."
 msgstr "Ha be van jelölve, akkor az új üzenetek figyelmet igényelnek."
 
@@ -455,7 +459,7 @@ msgstr "Követő"
 #: model:ir.model.fields,field_description:event_booth.field_event_booth_category____last_update
 #: model:ir.model.fields,field_description:event_booth.field_event_type_booth____last_update
 msgid "Last Modified on"
-msgstr "Legutóbb módosítva"
+msgstr "Legutóbb frissítve"
 
 #. module: event_booth
 #: model:ir.model.fields,field_description:event_booth.field_event_booth__write_uid
@@ -469,7 +473,7 @@ msgstr "Frissítette"
 #: model:ir.model.fields,field_description:event_booth.field_event_booth_category__write_date
 #: model:ir.model.fields,field_description:event_booth.field_event_type_booth__write_date
 msgid "Last Updated on"
-msgstr "Frissítve "
+msgstr "Frissítve ekkor"
 
 #. module: event_booth
 #: model:ir.model.fields,field_description:event_booth.field_event_booth__message_main_attachment_id
@@ -533,18 +537,13 @@ msgstr "Hibák száma"
 
 #. module: event_booth
 #: model:ir.model.fields,help:event_booth.field_event_booth__message_needaction_counter
-msgid "Number of messages which requires an action"
-msgstr "Üzenetek száma, melyek műveletet igényelnek"
+msgid "Number of messages requiring action"
+msgstr "Üzenetek száma, melyek akciót igényelnek"
 
 #. module: event_booth
 #: model:ir.model.fields,help:event_booth.field_event_booth__message_has_error_counter
 msgid "Number of messages with delivery error"
 msgstr "Kézbesítési hibával rendelkező üzenetek száma"
-
-#. module: event_booth
-#: model:ir.model.fields,help:event_booth.field_event_booth__message_unread_counter
-msgid "Number of unread messages"
-msgstr "Olvasatlan üzenetek száma"
 
 #. module: event_booth
 #: model:event.booth,name:event_booth.event_booth_10_event_7
@@ -559,6 +558,13 @@ msgstr ""
 #. module: event_booth
 #: model:event.booth,name:event_booth.event_booth_12_event_7
 msgid "OpenWood Demonstrator 3"
+msgstr ""
+
+#. module: event_booth
+#: model_terms:ir.ui.view,arch_db:event_booth.event_booth_view_form_from_event
+#: model_terms:ir.ui.view,arch_db:event_booth.event_booth_view_form_quick_create
+#: model_terms:ir.ui.view,arch_db:event_booth.event_type_booth_view_form_from_type
+msgid "Pick a Booth Category..."
 msgstr ""
 
 #. module: event_booth
@@ -643,11 +649,6 @@ msgid "Showbooth 2"
 msgstr ""
 
 #. module: event_booth
-#: model:ir.model.fields,help:event_booth.field_event_booth__state
-msgid "Shows the availability of a Booth"
-msgstr ""
-
-#. module: event_booth
 #: model_terms:event.booth.category,description:event_booth.event_booth_category_standard
 msgid "Standard"
 msgstr "Általános"
@@ -692,16 +693,6 @@ msgid "Unavailable"
 msgstr ""
 
 #. module: event_booth
-#: model:ir.model.fields,field_description:event_booth.field_event_booth__message_unread
-msgid "Unread Messages"
-msgstr "Olvasatlan üzenetek"
-
-#. module: event_booth
-#: model:ir.model.fields,field_description:event_booth.field_event_booth__message_unread_counter
-msgid "Unread Messages Counter"
-msgstr "Olvasatlan üzenetek száma"
-
-#. module: event_booth
 #: model_terms:event.booth.category,description:event_booth.event_booth_category_vip
 msgid "VIP"
 msgstr "VIP"
@@ -725,6 +716,11 @@ msgstr "Honlap üzenetek"
 #: model:ir.model.fields,help:event_booth.field_event_booth__website_message_ids
 msgid "Website communication history"
 msgstr "Weboldali kommunikációs előzmények"
+
+#. module: event_booth
+#: model_terms:ir.ui.view,arch_db:event_booth.event_booth_category_view_form
+msgid "e.g. \"Those stands will be place near the entrance and...\""
+msgstr ""
 
 #. module: event_booth
 #: model_terms:ir.ui.view,arch_db:event_booth.event_booth_view_form_from_event

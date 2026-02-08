@@ -5,17 +5,16 @@ import logging
 
 import odoo.tests
 
-from odoo import api
+from odoo import api, Command
 from odoo.addons.base.tests.common import HttpCaseWithUserDemo, TransactionCaseWithUserDemo, HttpCaseWithUserPortal
 from odoo.addons.website_sale.controllers.main import WebsiteSale
-from odoo.addons.website_sale.tests.common import TestWebsiteSaleCommon
 from odoo.addons.website.tools import MockRequest
 
 _logger = logging.getLogger(__name__)
 
 
 @odoo.tests.tagged('post_install', '-at_install')
-class TestUi(HttpCaseWithUserDemo, TestWebsiteSaleCommon):
+class TestUi(HttpCaseWithUserDemo):
 
     def setUp(self):
         super(TestUi, self).setUp()
@@ -74,27 +73,40 @@ class TestUi(HttpCaseWithUserDemo, TestWebsiteSaleCommon):
         })
 
     def test_01_admin_shop_tour(self):
-        self.start_tour("/", 'shop', login="admin")
+        self.start_tour(self.env['website'].get_client_action_url('/shop'), 'shop', login='admin')
 
     def test_02_admin_checkout(self):
-        if 'l10n_ar_afip_responsibility_type_id' in self.env['res.partner']._fields:
-            self.env.company.partner_id.write({
-                'l10n_ar_afip_responsibility_type_id': 5,
-                'vat': '123456789',
-                'state_id': self.env.ref('base.state_us_39').id,
-            })
+        if self.env['ir.module.module']._get('payment_custom').state != 'installed':
+            self.skipTest("Transfer provider is not installed")
+
+        transfer_provider = self.env.ref('payment.payment_provider_transfer')
+        transfer_provider.write({
+            'state': 'enabled',
+            'is_published': True,
+        })
+        transfer_provider._transfer_ensure_pending_msg_is_set()
         self.start_tour("/", 'shop_buy_product', login="admin")
 
     def test_03_demo_checkout(self):
-        if 'l10n_ar_afip_responsibility_type_id' in self.env['res.partner']._fields:
-            self.env.company.partner_id.write({
-                'l10n_ar_afip_responsibility_type_id': 5,
-                'vat': '123456789',
-                'state_id': self.env.ref('base.state_us_39').id,
-            })
+        if self.env['ir.module.module']._get('payment_custom').state != 'installed':
+            self.skipTest("Transfer provider is not installed")
+
+        transfer_provider = self.env.ref('payment.payment_provider_transfer')
+        transfer_provider.write({
+            'state': 'enabled',
+            'is_published': True,
+        })
+        transfer_provider._transfer_ensure_pending_msg_is_set()
         self.start_tour("/", 'shop_buy_product', login="demo")
 
     def test_04_admin_website_sale_tour(self):
+        if self.env['ir.module.module']._get('payment_custom').state != 'installed':
+            self.skipTest("Transfer provider is not installed")
+
+        self.env.ref('payment.payment_provider_transfer').write({
+            'state': 'enabled',
+            'is_published': True,
+        })
         self.env.company.country_id = self.env.ref('base.us')
         tax_group = self.env['account.tax.group'].create({'name': 'Tax 15%'})
         tax = self.env['account.tax'].create({
@@ -120,14 +132,47 @@ class TestUi(HttpCaseWithUserDemo, TestWebsiteSaleCommon):
             'group_show_line_subtotals_tax_included': False,
         }).execute()
 
-        self.start_tour("/", 'website_sale_tour')
+        self.start_tour("/", 'website_sale_tour_1')
+        self.start_tour(self.env['website'].get_client_action_url('/shop/cart'), 'website_sale_tour_backend', login='admin')
+        self.start_tour("/", 'website_sale_tour_2', login="admin")
 
     def test_05_google_analytics_tracking(self):
-        if not odoo.tests.loaded_demo_data(self.env):
-            _logger.warning("This test relies on demo data. To be rewritten independently of demo data for accurate and reliable results.")
-            return
+        # Data for google_analytics_view_item
+        attribute = self.env['product.attribute'].create({
+            'name': 'Color',
+            'sequence': 10,
+            'display_type': 'color',
+            'value_ids': [
+                Command.create({
+                    'name': 'Red',
+                }),
+                Command.create({
+                    'name': 'Pink',
+                }),
+            ]
+        })
+        self.env['product.template'].create({
+            'name': 'Colored T-Shirt',
+            'standard_price': 500,
+            'list_price': 750,
+            'detailed_type': 'consu',
+            'website_published': True,
+            'attribute_line_ids': [
+                Command.create({
+                    'attribute_id': attribute.id,
+                    'value_ids': attribute.value_ids,
+                })
+            ]
+        })
         self.env['website'].browse(1).write({'google_analytics_key': 'G-XXXXXXXXXXX'})
         self.start_tour("/shop", 'google_analytics_view_item')
+        # Data for google_analytics_add_to_cart
+        self.env['product.template'].create({
+            'name': 'Basic Shirt',
+            'standard_price': 500,
+            'detailed_type': 'consu',
+            'website_published': True
+        })
         self.start_tour("/shop", 'google_analytics_add_to_cart')
 
 
@@ -148,8 +193,8 @@ class TestWebsiteSaleCheckoutAddress(TransactionCaseWithUserDemo, HttpCaseWithUs
             'city': 'ooo', 'zip': '1200', 'country_id': self.country_id, 'submitted': 1,
         }
 
-    def _create_so(self, partner_id=None):
-        return self.env['sale.order'].create({
+    def _create_so(self, partner_id=None, company_id=None):
+        values = {
             'partner_id': partner_id,
             'website_id': self.website.id,
             'order_line': [(0, 0, {
@@ -160,7 +205,10 @@ class TestWebsiteSaleCheckoutAddress(TransactionCaseWithUserDemo, HttpCaseWithUs
                     'sale_ok': True}).id,
                 'name': 'Product A',
             })]
-        })
+        }
+        if company_id:
+            values['company_id'] = company_id
+        return self.env['sale.order'].create(values)
 
     def _get_last_address(self, partner):
         ''' Useful to retrieve the last created shipping address '''
@@ -274,7 +322,55 @@ class TestWebsiteSaleCheckoutAddress(TransactionCaseWithUserDemo, HttpCaseWithUs
             self.WebsiteSaleController.pricelist('')
             self.assertNotEqual(so.pricelist_id, eur_pl, "Pricelist should be removed when sending an empty pl code")
 
-    def test_05_portal_user_address_and_company(self):
+    def test_04_pl_reset_on_login(self):
+        """Check that after login, the SO pricelist is correctly recomputed."""
+        test_user = self.env['res.users'].create({
+            'name': 'Toto',
+            'login': 'long_enough_password',
+            'password': 'long_enough_password',
+        })
+        eur_pl = self.env['product.pricelist'].create({
+            'name': 'EUR_test',
+            'website_id': self.website.id,
+            'code': 'EUR_test',
+        })
+        test_user.partner_id.property_product_pricelist = eur_pl
+
+        public_user_env = self.env(user=self.website.user_id)
+        so = self._create_so(public_user_env.user.partner_id.id)
+
+        with MockRequest(self.env, website=self.website, sale_order_id=so.id, website_sale_current_pl=so.pricelist_id.id):
+            order = self.website.sale_get_order()
+            pl = order.pricelist_id
+            self.assertNotEqual(pl, eur_pl)
+            order_b = self.website.with_user(test_user).sale_get_order()
+            self.assertEqual(order, order_b)
+            self.assertEqual(order_b.pricelist_id, eur_pl)
+
+    # TEST WEBSITE & MULTI COMPANY
+
+    def test_05_create_so_with_website_and_multi_company(self):
+        ''' This test ensure that the company_id of the website set on the order
+            is the same as the env company or the one set on the order.
+        '''
+        self._setUp_multicompany_env()
+        # No company on the SO
+        so = self._create_so(self.demo_partner.id)
+        self.assertEqual(so.company_id, self.website.company_id)
+
+        # Same company on the SO and the env user company but no website
+        with self.assertRaises(ValueError, msg="Should not be able to create SO with company different than the website company"):
+            self._create_so(self.demo_partner.id, self.company_a.id)
+
+        # Same company on the SO and the website company
+        so = self._create_so(self.demo_partner.id, self.company_b.id)
+        self.assertEqual(so.company_id, self.website.company_id)
+
+        # Different company on the SO and the env user company
+        with self.assertRaises(ValueError, msg="Should not be able to create SO with company different than the website company"):
+            self._create_so(self.demo_partner.id, self.company_c.id)
+
+    def test_06_portal_user_address_and_company(self):
         ''' Same as test_03 but with portal user '''
         self._setUp_multicompany_env()
         so = self._create_so(self.portal_partner.id)
@@ -301,7 +397,88 @@ class TestWebsiteSaleCheckoutAddress(TransactionCaseWithUserDemo, HttpCaseWithUs
             # Name cannot be changed if there are issued invoices
             self.assertNotEqual(self.portal_partner.name, self.default_address_values['name'], "Portal User should not be able to change the name if they have invoices under their name.")
 
-    def test_06_payment_term_when_address_change(self):
+    def test_07_change_fiscal_position(self):
+        """
+            Check that the sale order is updated when you change fiscal position.
+            Change fiscal position by modifying address during checkout process.
+        """
+        self.env.company.country_id = self.env.ref('base.us')
+        partner = self.env['res.partner'].create({'name': 'test'})
+        be_address_POST, nl_address_POST = [
+            {
+                'name': 'Test name', 'email': 'test@email.com', 'street': 'test',
+                'city': 'test', 'zip': '3000', 'country_id': self.env.ref('base.be').id, 'submitted': 1,
+                'partner_id': partner.id,
+                'callback': '/shop/checkout',
+            },
+            {
+                'name': 'Test name', 'email': 'test@email.com', 'street': 'test',
+                'city': 'test', 'zip': '3000', 'country_id': self.env.ref('base.nl').id, 'submitted': 1,
+                'partner_id': partner.id,
+                'callback': '/shop/checkout',
+            },
+        ]
+
+        tax_10_incl, tax_20_excl, tax_15_incl = self.env['account.tax'].create([
+            {'name': 'Tax 10% incl', 'amount': 10, 'price_include': True},
+            {'name': 'Tax 20% excl', 'amount': 20, 'price_include': False},
+            {'name': 'Tax 15% incl', 'amount': 15, 'price_include': True},
+        ])
+        self.env['account.fiscal.position'].create([
+            {
+                'sequence': 1,
+                'name': 'BE',
+                'auto_apply': True,
+                'country_id': self.env.ref('base.be').id,
+                'tax_ids': [Command.create({'tax_src_id': tax_10_incl.id, 'tax_dest_id': tax_20_excl.id})],
+            },
+            {
+                'sequence': 2,
+                'name': 'NL',
+                'auto_apply': True,
+                'country_id': self.env.ref('base.nl').id,
+                'tax_ids': [Command.create({'tax_src_id': tax_10_incl.id, 'tax_dest_id': tax_15_incl.id})],
+            },
+        ])
+
+        product = self.env['product.product'].create({
+            'name': 'Product test',
+            'list_price': 100,
+            'website_published': True,
+            'sale_ok': True,
+            'taxes_id': [tax_10_incl.id]
+        })
+        so = self.env['sale.order'].create({
+            'partner_id': partner.id,
+            'website_id': self.website.id,
+            'order_line': [Command.create({
+                'product_id': product.id,
+                'name': 'Product test',
+            })]
+        })
+
+        self.assertEqual(
+            [so.amount_untaxed, so.amount_tax, so.amount_total],
+            [90.91, 9.09, 100.0]
+        )
+
+        env = api.Environment(self.env.cr, self.website.user_id.id, {})
+        with MockRequest(self.env, website=self.website.with_env(env), sale_order_id=so.id) as req:
+            req.httprequest.method = "POST"
+
+            self.WebsiteSaleController.address(**be_address_POST)
+            self.assertEqual(
+                [so.amount_untaxed, so.amount_tax, so.amount_total],
+                [90.91, 18.18, 109.09] # (100 : (1 + 10%)) * (1 + 20%) = 109.09
+            )
+
+            self.WebsiteSaleController.address(**nl_address_POST)
+            self.assertEqual(
+                [so.amount_untaxed, so.amount_tax, so.amount_total],
+                [90.91, 13.64, 104.55] # (100 : (1 + 10%)) * (1 + 15%) = 104.55
+            )
+
+    def test_08_payment_term_when_address_change(self):
         ''' This test ensures that the payment term set when triggering
             `onchange_partner_id` by changing the address of a website sale
             order is computed by `sale_get_payment_term`.

@@ -41,10 +41,42 @@ class TestPurchaseOrderReport(AccountTestInvoicingCommon):
         f = Form(self.env['account.move'].with_context(default_move_type='in_invoice'))
         f.invoice_date = f.date
         f.partner_id = po.partner_id
-        f.purchase_id = po
+        # <field name="invoice_vendor_bill_id" position="after">
+        #     <field name="purchase_id" invisible="1"/>
+        #     <label for="purchase_vendor_bill_id" string="Auto-Complete" class="oe_edit_only"
+        #             attrs="{'invisible': ['|', ('state','!=','draft'), ('move_type', '!=', 'in_invoice')]}" />
+        #     <field name="purchase_vendor_bill_id" nolabel="1"
+        #             attrs="{'invisible': ['|', ('state','!=','draft'), ('move_type', '!=', 'in_invoice')]}"
+        #             class="oe_edit_only"
+        #             domain="partner_id and [('company_id', '=', company_id), ('partner_id.commercial_partner_id', '=', commercial_partner_id)] or [('company_id', '=', company_id)]"
+        #             placeholder="Select a purchase order or an old bill"
+        #             context="{'show_total_amount': True}"
+        #             options="{'no_create': True, 'no_open': True}"/>
+        # </field>
+        # @api.onchange('purchase_vendor_bill_id', 'purchase_id')
+        # def _onchange_purchase_auto_complete(self):
+        #     ...
+        #     elif self.purchase_vendor_bill_id.purchase_order_id:
+        #         self.purchase_id = self.purchase_vendor_bill_id.purchase_order_id
+        #     self.purchase_vendor_bill_id = False
+        # purchase_vendor_bill_id = fields.Many2one('purchase.bill.union'
+        # class PurchaseBillUnion(models.Model):
+        #     _name = 'purchase.bill.union'
+        #     ...
+        #     def init(self):
+        #         self.env.cr.execute("""
+        #                 ...
+        #                 SELECT
+        #                     -id, name, ...
+        #                     id as purchase_order_id
+        #                 FROM purchase_order
+        #                 ...
+        #             )""")
+        #     ...
+        f.purchase_vendor_bill_id = self.env['purchase.bill.union'].browse(-po.id)
         invoice = f.save()
         invoice.action_post()
-        po.flush()
+        po.flush_model()
 
         res_product1 = self.env['purchase.report'].search([
             ('order_id', '=', po.id),
@@ -80,7 +112,7 @@ class TestPurchaseOrderReport(AccountTestInvoicingCommon):
 
         po.button_confirm()
 
-        po.flush()
+        po.flush_model()
         report = self.env['purchase.report'].read_group(
             [('order_id', '=', po.id)],
             ['order_id', 'delay', 'delay_pass'],
@@ -119,41 +151,6 @@ class TestPurchaseOrderReport(AccountTestInvoicingCommon):
         result_po = self.env['purchase.report'].search([('order_id', '=', po.id)])
         self.assertFalse(result_po, "The report should ignore the notes and sections")
 
-    def test_avg_price_calculation(self):
-        """
-            Check that the average price is calculated based on the quantity ordered in each line
-
-            PO:
-                - 10 unit of product A -> price $50
-                - 1 unit of product A -> price $10
-            Total qty_ordered: 11
-            avergae price: 46.36 = ((10 * 50) + (10 * 1)) / 11
-        """
-        po = self.env['purchase.order'].create({
-            'partner_id': self.partner_a.id,
-            'order_line': [
-                (0, 0, {
-                    'product_id': self.product_a.id,
-                    'product_qty': 10.0,
-                    'price_unit': 50.0,
-                }),
-                (0, 0, {
-                    'product_id': self.product_a.id,
-                    'product_qty': 1.0,
-                    'price_unit': 10.0,
-                }),
-            ],
-        })
-        po.button_confirm()
-        po.flush()
-        report = self.env['purchase.report'].read_group(
-            [('product_id', '=', self.product_a.id)],
-            ['qty_ordered', 'price_average:avg'],
-            ['product_id'],
-        )
-        self.assertEqual(report[0]['qty_ordered'], 11)
-        self.assertEqual(round(report[0]['price_average'], 2), 46.36)
-
     def test_po_report_currency(self):
         """
             Check that the currency of the report is the one of the current company
@@ -181,7 +178,41 @@ class TestPurchaseOrderReport(AccountTestInvoicingCommon):
             ],
         })
         # flush the POs to make sure the report is up to date
-        po.flush()
-        po_2.flush()
+        po.flush_model()
+        po_2.flush_model()
         report = self.env['purchase.report'].search([('product_id', "=", self.product_a.id)])
         self.assertEqual(report.currency_id, self.env.company.currency_id)
+
+    def test_avg_price_calculation(self):
+        """
+            Check that the average price is calculated based on the quantity ordered in each line
+            PO:
+                - 10 unit of product A -> price $50
+                - 1 unit of product A -> price $10
+            Total qty_ordered: 11
+            avergae price: 46.36 = ((10 * 50) + (10 * 1)) / 11
+        """
+        po = self.env['purchase.order'].create({
+            'partner_id': self.partner_a.id,
+            'order_line': [
+                (0, 0, {
+                    'product_id': self.product_a.id,
+                    'product_qty': 10.0,
+                    'price_unit': 50.0,
+                }),
+                (0, 0, {
+                    'product_id': self.product_a.id,
+                    'product_qty': 1.0,
+                    'price_unit': 10.0,
+                }),
+            ],
+        })
+        po.button_confirm()
+        po.flush_model()
+        report = self.env['purchase.report'].read_group(
+            [('product_id', '=', self.product_a.id)],
+            ['qty_ordered', 'price_average:avg'],
+            ['product_id'],
+        )
+        self.assertEqual(report[0]['qty_ordered'], 11)
+        self.assertEqual(round(report[0]['price_average'], 2), 46.36)

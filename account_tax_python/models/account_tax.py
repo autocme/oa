@@ -29,7 +29,7 @@ class AccountTaxPython(models.Model):
             ":param product: product.product recordset singleton or None\n"
             ":param partner: res.partner recordset singleton or None")
 
-    def _compute_amount(self, base_amount, price_unit, quantity=1.0, product=None, partner=None):
+    def _compute_amount(self, base_amount, price_unit, quantity=1.0, product=None, partner=None, fixed_multiplicator=1):
         self.ensure_one()
         if product and product._name == 'product.template':
             product = product.product_variant_id
@@ -41,9 +41,9 @@ class AccountTaxPython(models.Model):
             except Exception as e:
                 raise UserError(_("You entered invalid code %r in %r taxes\n\nError : %s") % (self.python_compute, self.name, e)) from e
             return localdict['result']
-        return super(AccountTaxPython, self)._compute_amount(base_amount, price_unit, quantity, product, partner)
+        return super(AccountTaxPython, self)._compute_amount(base_amount, price_unit, quantity, product, partner, fixed_multiplicator)
 
-    def compute_all(self, price_unit, currency=None, quantity=1.0, product=None, partner=None, is_refund=False, handle_price_include=True, include_caba_tags=False):
+    def compute_all(self, price_unit, currency=None, quantity=1.0, product=None, partner=None, is_refund=False, handle_price_include=True, include_caba_tags=False, fixed_multiplicator=1):
         taxes = self.filtered(lambda r: r.amount_type != 'code')
         company = self.env.company
         if product and product._name == 'product.template':
@@ -57,7 +57,7 @@ class AccountTaxPython(models.Model):
                 raise UserError(_("You entered invalid code %r in %r taxes\n\nError : %s") % (tax.python_applicable, tax.name, e)) from e
             if localdict.get('result', False):
                 taxes += tax
-        return super(AccountTaxPython, taxes).compute_all(price_unit, currency, quantity, product, partner, is_refund=is_refund, handle_price_include=handle_price_include, include_caba_tags=include_caba_tags)
+        return super(AccountTaxPython, taxes).compute_all(price_unit, currency, quantity, product, partner, is_refund=is_refund, handle_price_include=handle_price_include, include_caba_tags=include_caba_tags, fixed_multiplicator=fixed_multiplicator)
 
 
 class AccountTaxTemplatePython(models.Model):

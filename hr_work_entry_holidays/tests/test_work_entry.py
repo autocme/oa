@@ -5,6 +5,7 @@ from datetime import datetime, date
 from dateutil.relativedelta import relativedelta
 import pytz
 
+from odoo import Command
 from odoo.tests.common import tagged
 from odoo.fields import Date, Datetime
 from odoo.addons.hr_work_entry_holidays.tests.common import TestWorkEntryHolidaysBase
@@ -12,23 +13,24 @@ from odoo.addons.hr_work_entry_holidays.tests.common import TestWorkEntryHoliday
 
 @tagged('work_entry')
 class TestWorkeEntryHolidaysWorkEntry(TestWorkEntryHolidaysBase):
-    def setUp(self):
-        super(TestWorkeEntryHolidaysWorkEntry, self).setUp()
-        self.tz = pytz.timezone(self.richard_emp.tz)
-        self.start = datetime(2015, 11, 1, 1, 0, 0)
-        self.end = datetime(2015, 11, 30, 23, 59, 59)
-        self.resource_calendar_id = self.env['resource.calendar'].create({'name': 'Zboub'})
-        contract = self.env['hr.contract'].create({
-            'date_start': self.start.date() - relativedelta(days=5),
+    @classmethod
+    def setUpClass(cls):
+        super(TestWorkeEntryHolidaysWorkEntry, cls).setUpClass()
+        cls.tz = pytz.timezone(cls.richard_emp.tz)
+        cls.start = datetime(2015, 11, 1, 1, 0, 0)
+        cls.end = datetime(2015, 11, 30, 23, 59, 59)
+        cls.resource_calendar_id = cls.env['resource.calendar'].create({'name': 'Zboub'})
+        contract = cls.env['hr.contract'].create({
+            'date_start': cls.start.date() - relativedelta(days=5),
             'name': 'dodo',
-            'resource_calendar_id': self.resource_calendar_id.id,
+            'resource_calendar_id': cls.resource_calendar_id.id,
             'wage': 1000,
-            'employee_id': self.richard_emp.id,
+            'employee_id': cls.richard_emp.id,
             'state': 'open',
-            'date_generated_from': self.end.date() + relativedelta(days=5),
+            'date_generated_from': cls.end.date() + relativedelta(days=5),
         })
-        self.richard_emp.resource_calendar_id = self.resource_calendar_id
-        self.richard_emp.contract_id = contract
+        cls.richard_emp.resource_calendar_id = cls.resource_calendar_id
+        cls.richard_emp.contract_id = contract
 
     def test_validate_non_approved_leave_work_entry(self):
         work_entry1 = self.env['hr.work.entry'].create({
@@ -90,7 +92,7 @@ class TestWorkeEntryHolidaysWorkEntry(TestWorkEntryHolidaysBase):
         })
         leave.action_validate()
 
-        work_entries = self.richard_emp.contract_id._generate_work_entries(self.start, self.end)
+        work_entries = self.richard_emp.contract_id.generate_work_entries(self.start.date(), self.end.date())
         work_entries.action_validate()
         leave_work_entry = work_entries.filtered(lambda we: we.work_entry_type_id in self.work_entry_type_leave)
         sum_hours = sum(leave_work_entry.mapped('duration'))
@@ -180,14 +182,16 @@ class TestWorkeEntryHolidaysWorkEntry(TestWorkEntryHolidaysBase):
             'name': "Sick 1 that doesn't make sense, but it's the prod so YOLO",
             'employee_id': employee.id,
             'holiday_status_id': leave_type.id,
+            'date_from': date(2020, 9, 4),
             'request_date_from': date(2020, 9, 4),
+            'date_to': date(2020, 9, 4),
             'request_date_to': date(2020, 9, 4),
             'number_of_days': 1,
         })
         leave.action_approve()
         leave.action_validate()
 
-        work_entries = contract._generate_work_entries(date(2020, 7, 1), date(2020, 9, 30))
+        work_entries = contract.generate_work_entries(date(2020, 7, 1), date(2020, 9, 30))
 
         self.assertEqual(len(work_entries), 0)
 
@@ -227,3 +231,38 @@ class TestWorkeEntryHolidaysWorkEntry(TestWorkEntryHolidaysBase):
 
         public_holiday_work_entry = work_entries.filtered(lambda we: we.work_entry_type_id == work_entry_type_holiday)
         self.assertEqual(len(public_holiday_work_entry.leave_id), 0, "Public holiday work entry should not have leave_id")
+
+    def test_leave_validation_with_multiple_work_entry_types(self):
+        employee = self.env['hr.employee'].create({'name': 'Test Employee'})
+        self.env['hr.contract'].create({
+            'name': 'Test Contract',
+            'employee_id': employee.id,
+            'date_start': date(2023, 2, 1),
+            'state': 'open',
+            'wage': 1000,
+            'resource_calendar_id': self.calendar_40h.id,
+            'date_generated_from': datetime(2023, 2, 1, 0, 0),
+            'date_generated_to': datetime(2023, 2, 28, 23, 59),
+        })
+        employee.resource_calendar_id.write({
+            'attendance_ids': [
+                Command.clear(),
+                Command.create({'name': 'Monday Morning', 'dayofweek': '0', 'hour_from': 8, 'hour_to': 12,
+                 'day_period': 'morning', 'work_entry_type_id': self.work_entry_type.id}),
+                Command.create({'name': 'Monday Lunch', 'dayofweek': '0', 'hour_from': 12, 'hour_to': 13,
+                 'day_period': 'afternoon', 'work_entry_type_id': self.work_entry_type_unpaid.id}),
+                Command.create({'name': 'Monday Afternoon', 'dayofweek': '0', 'hour_from': 13, 'hour_to': 17,
+                 'day_period': 'afternoon', 'work_entry_type_id': self.work_entry_type.id}),
+            ]
+        })
+        leave = self.env['hr.leave'].create({
+            'name': 'Test Leave Monday',
+            'employee_id': employee.id,
+            'holiday_status_id': self.leave_type.id,
+            'date_from': datetime(2023, 2, 6, 8, 0, 0),
+            'date_to': datetime(2023, 2, 6, 17, 0, 0),
+            'state': 'draft',
+        })
+        leave.action_confirm()
+        leave.action_validate()
+        self.assertEqual(leave.state, 'validate')

@@ -16,6 +16,7 @@ class StockQuant(models.Model):
         help="Date at which the accounting entries will be created"
              " in case of automated inventory valuation."
              " If empty, the inventory date will be used.")
+    cost_method = fields.Selection(related="product_categ_id.property_cost_method")
 
     @api.model
     def _should_exclude_for_valuation(self):
@@ -28,32 +29,21 @@ class StockQuant(models.Model):
 
     @api.depends('company_id', 'location_id', 'owner_id', 'product_id', 'quantity')
     def _compute_value(self):
-        """ For standard and AVCO valuation, compute the current accounting
-        valuation of the quants by multiplying the quantity by
-        the standard price. Instead for FIFO, use the quantity times the
-        average cost (valuation layers are not manage by location so the
-        average cost is the same for all location and the valuation field is
-        a estimation more than a real value).
+        """ (Product.value_svl / Product.quantity_svl) * quant.quantity, i.e. average unit cost * on hand qty
         """
         for quant in self:
             quant.currency_id = quant.company_id.currency_id
-            # If the user didn't enter a location yet while enconding a quant.
-            if not quant.location_id:
-                quant.value = 0
-                return
-
-            if not quant.location_id._should_be_valued() or quant._should_exclude_for_valuation():
+            if not quant.location_id or not quant.product_id or\
+                    not quant.location_id._should_be_valued() or\
+                    quant._should_exclude_for_valuation() or\
+                    float_is_zero(quant.quantity, precision_rounding=quant.product_id.uom_id.rounding):
                 quant.value = 0
                 continue
-            if quant.product_id.cost_method == 'fifo':
-                quantity = quant.product_id.with_company(quant.company_id).quantity_svl
-                if float_is_zero(quantity, precision_rounding=quant.product_id.uom_id.rounding):
-                    quant.value = 0.0
-                    continue
-                average_cost = quant.product_id.with_company(quant.company_id).value_svl / quantity
-                quant.value = quant.quantity * average_cost
-            else:
-                quant.value = quant.quantity * quant.product_id.with_company(quant.company_id).standard_price
+            quantity = quant.product_id.with_company(quant.company_id).quantity_svl
+            if float_is_zero(quantity, precision_rounding=quant.product_id.uom_id.rounding):
+                quant.value = 0.0
+                continue
+            quant.value = quant.quantity * quant.product_id.with_company(quant.company_id).value_svl / quantity
 
     @api.model
     def read_group(self, domain, fields, groupby, offset=0, limit=None, orderby=False, lazy=True):
@@ -78,6 +68,14 @@ class StockQuant(models.Model):
                 inventories.accounting_date = False
             else:
                 super(StockQuant, inventories)._apply_inventory()
+
+    def _get_inventory_move_values(self, qty, location_id, location_dest_id, out=False):
+        res_move = super()._get_inventory_move_values(qty, location_id, location_dest_id, out)
+        if not self.env.context.get('inventory_name'):
+            force_period_date = self.env.context.get('force_period_date', False)
+            if force_period_date:
+                res_move['name'] += _(' [Accounted on %s]', force_period_date)
+        return res_move
 
     @api.model
     def _get_inventory_fields_write(self):

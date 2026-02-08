@@ -91,13 +91,13 @@ class TestPoSProductsWithTax(TestPoSCommon):
             'journal_entries_after_closing': {
                 'session_journal_entry': {
                     'line_ids': [
-                        {'account_id': self.tax_received_account.id, 'partner_id': False, 'debit': 0, 'credit': 24.89, 'reconciled': False},
-                        {'account_id': self.tax_received_account.id, 'partner_id': False, 'debit': 0, 'credit': 51.82, 'reconciled': False},
-                        {'account_id': self.sales_account.id, 'partner_id': False, 'debit': 0, 'credit': 110, 'reconciled': False},
-                        {'account_id': self.sales_account.id, 'partner_id': False, 'debit': 0, 'credit': 272.73, 'reconciled': False},
-                        {'account_id': self.sales_account.id, 'partner_id': False, 'debit': 0, 'credit': 245.45, 'reconciled': False},
-                        {'account_id': self.bank_pm1.receivable_account_id.id, 'partner_id': False, 'debit': 230.25, 'credit': 0, 'reconciled': True},
-                        {'account_id': self.cash_pm1.receivable_account_id.id, 'partner_id': False, 'debit': 474.64, 'credit': 0, 'reconciled': True},
+                        {'account_id': self.tax_received_account.id, 'partner_id': False, 'debit': 0, 'credit': 24.89, 'reconciled': False, 'display_type': 'tax'},
+                        {'account_id': self.tax_received_account.id, 'partner_id': False, 'debit': 0, 'credit': 51.82, 'reconciled': False, 'display_type': 'tax'},
+                        {'account_id': self.sales_account.id, 'partner_id': False, 'debit': 0, 'credit': 110, 'reconciled': False, 'display_type': 'product'},
+                        {'account_id': self.sales_account.id, 'partner_id': False, 'debit': 0, 'credit': 272.73, 'reconciled': False, 'display_type': 'product'},
+                        {'account_id': self.sales_account.id, 'partner_id': False, 'debit': 0, 'credit': 245.45, 'reconciled': False, 'display_type': 'product'},
+                        {'account_id': self.bank_pm1.receivable_account_id.id, 'partner_id': False, 'debit': 230.25, 'credit': 0, 'reconciled': True, 'display_type': 'product'},
+                        {'account_id': self.cash_pm1.receivable_account_id.id, 'partner_id': False, 'debit': 474.64, 'credit': 0, 'reconciled': True, 'display_type': 'product'},
                     ],
                 },
                 'cash_statement': [
@@ -354,10 +354,11 @@ class TestPoSProductsWithTax(TestPoSCommon):
         self.assertEqual(2, len(lines.filtered(lambda l: l.tax_ids)), "Taxes should have been set on 2 lines")
         self.assertEqual(4, len(lines.filtered(lambda l: l.tax_tag_ids)), "Tags should have been set on 4 lines")
         self.assertRecordValues(lines, [
-            {'account_id': self.sale_account.id,           'balance': -10.0, 'tax_ids': tax_21_incl.ids, 'tax_tag_ids': self.tax_tag_invoice_base.ids},
-            {'account_id': self.tax_received_account.id,   'balance': -2.10, 'tax_ids': [],              'tax_tag_ids': self.tax_tag_invoice_tax.ids},
-            {'account_id': self.tax_received_account.id,   'balance':  1.05, 'tax_ids': [],              'tax_tag_ids': self.tax_tag_refund_tax.ids},
-            {'account_id': self.sale_account.id,           'balance':  5.00, 'tax_ids': tax_21_incl.ids, 'tax_tag_ids': self.tax_tag_refund_base.ids},
+            # pylint: disable=bad-whitespace
+            {'account_id': self.sale_account.id,                   'balance': -10.0, 'tax_ids': tax_21_incl.ids, 'tax_tag_ids': self.tax_tag_invoice_base.ids},
+            {'account_id': self.tax_received_account.id,           'balance': -2.10, 'tax_ids': [],              'tax_tag_ids': self.tax_tag_invoice_tax.ids},
+            {'account_id': self.tax_received_account.id,           'balance':  1.05, 'tax_ids': [],              'tax_tag_ids': self.tax_tag_refund_tax.ids},
+            {'account_id': self.sale_account.id,                   'balance':  5.00, 'tax_ids': tax_21_incl.ids, 'tax_tag_ids': self.tax_tag_refund_base.ids},
             {'account_id': self.cash_pm1.receivable_account_id.id, 'balance':  6.05, 'tax_ids': [],              'tax_tag_ids': []},
         ])
 
@@ -399,10 +400,11 @@ class TestPoSProductsWithTax(TestPoSCommon):
         self.assertEqual(2, len(lines.filtered(lambda l: l.tax_ids)), "Taxes should have been set on 2 lines")
         self.assertEqual(4, len(lines.filtered(lambda l: l.tax_tag_ids)), "Tags should have been set on 4 lines")
         self.assertRecordValues(lines, [
-            {'account_id': self.sale_account.id,           'balance': -10.0, 'tax_ids': tax_21_incl.ids, 'tax_tag_ids': self.tax_tag_invoice_base.ids},
-            {'account_id': self.tax_received_account.id,   'balance': -2.10, 'tax_ids': [],              'tax_tag_ids': self.tax_tag_invoice_tax.ids},
-            {'account_id': self.tax_received_account.id,   'balance':  1.05, 'tax_ids': [],              'tax_tag_ids': self.tax_tag_refund_tax.ids},
-            {'account_id': self.sale_account.id,           'balance':  5.00, 'tax_ids': tax_21_incl.ids, 'tax_tag_ids': self.tax_tag_refund_base.ids},
+            # pylint: disable=bad-whitespace
+            {'account_id': self.sale_account.id,                   'balance': -10.0, 'tax_ids': tax_21_incl.ids, 'tax_tag_ids': self.tax_tag_invoice_base.ids},
+            {'account_id': self.tax_received_account.id,           'balance': -2.10, 'tax_ids': [],              'tax_tag_ids': self.tax_tag_invoice_tax.ids},
+            {'account_id': self.tax_received_account.id,           'balance':  1.05, 'tax_ids': [],              'tax_tag_ids': self.tax_tag_refund_tax.ids},
+            {'account_id': self.sale_account.id,                   'balance':  5.00, 'tax_ids': tax_21_incl.ids, 'tax_tag_ids': self.tax_tag_refund_base.ids},
             {'account_id': self.cash_pm1.receivable_account_id.id, 'balance':  6.05, 'tax_ids': [],              'tax_tag_ids': []},
         ])
 
@@ -445,10 +447,11 @@ class TestPoSProductsWithTax(TestPoSCommon):
         self.assertEqual(2, len(lines.filtered(lambda l: l.tax_ids)), "Taxes should have been set on 2 lines")
         self.assertEqual(4, len(lines.filtered(lambda l: l.tax_tag_ids)), "Tags should have been set on 4 lines")
         self.assertRecordValues(lines, [
-            {'account_id': self.sale_account.id,           'balance': - 9.0, 'tax_ids': tax_21_incl.ids, 'tax_tag_ids': self.tax_tag_invoice_base.ids},
-            {'account_id': self.tax_received_account.id,   'balance': -1.89, 'tax_ids': [],              'tax_tag_ids': self.tax_tag_invoice_tax.ids},
-            {'account_id': self.tax_received_account.id,   'balance':  0.95, 'tax_ids': [],              'tax_tag_ids': self.tax_tag_refund_tax.ids},
-            {'account_id': self.sale_account.id,           'balance':   4.5, 'tax_ids': tax_21_incl.ids, 'tax_tag_ids': self.tax_tag_refund_base.ids},
+            # pylint: disable=bad-whitespace
+            {'account_id': self.sale_account.id,                   'balance': - 9.0, 'tax_ids': tax_21_incl.ids, 'tax_tag_ids': self.tax_tag_invoice_base.ids},
+            {'account_id': self.tax_received_account.id,           'balance': -1.89, 'tax_ids': [],              'tax_tag_ids': self.tax_tag_invoice_tax.ids},
+            {'account_id': self.tax_received_account.id,           'balance':  0.95, 'tax_ids': [],              'tax_tag_ids': self.tax_tag_refund_tax.ids},
+            {'account_id': self.sale_account.id,                   'balance':   4.5, 'tax_ids': tax_21_incl.ids, 'tax_tag_ids': self.tax_tag_refund_base.ids},
             {'account_id': self.cash_pm1.receivable_account_id.id, 'balance':  5.44, 'tax_ids': [],              'tax_tag_ids': []},
         ])
 
@@ -491,11 +494,12 @@ class TestPoSProductsWithTax(TestPoSCommon):
         self.assertEqual(2, len(lines.filtered(lambda l: l.tax_ids)), "Taxes should have been set on 2 lines")
         self.assertEqual(4, len(lines.filtered(lambda l: l.tax_tag_ids)), "Tags should have been set on 4 lines")
         self.assertRecordValues(lines, [
-            {'account_id': self.sale_account.id,           'balance': -55.59, 'tax_ids': tax_21_incl.ids, 'tax_tag_ids': self.tax_tag_invoice_base.ids},
+            # pylint: disable=bad-whitespace
+            {'account_id': self.sale_account.id,                   'balance': -55.59, 'tax_ids': tax_21_incl.ids, 'tax_tag_ids': self.tax_tag_invoice_base.ids},
             {'account_id': self.cash_pm1.receivable_account_id.id, 'balance': -19.95, 'tax_ids': [],              'tax_tag_ids': []},
-            {'account_id': self.tax_received_account.id,   'balance': -11.67, 'tax_ids': [],              'tax_tag_ids': self.tax_tag_invoice_tax.ids},
-            {'account_id': self.tax_received_account.id,   'balance':  15.14, 'tax_ids': [],              'tax_tag_ids': self.tax_tag_refund_tax.ids},
-            {'account_id': self.sale_account.id,           'balance':  72.07, 'tax_ids': tax_21_incl.ids, 'tax_tag_ids': self.tax_tag_refund_base.ids},
+            {'account_id': self.tax_received_account.id,           'balance': -11.67, 'tax_ids': [],              'tax_tag_ids': self.tax_tag_invoice_tax.ids},
+            {'account_id': self.tax_received_account.id,           'balance':  15.14, 'tax_ids': [],              'tax_tag_ids': self.tax_tag_refund_tax.ids},
+            {'account_id': self.sale_account.id,                   'balance':  72.07, 'tax_ids': tax_21_incl.ids, 'tax_tag_ids': self.tax_tag_refund_base.ids},
         ])
 
     def test_fixed_tax_positive_qty(self):
@@ -506,12 +510,10 @@ class TestPoSProductsWithTax(TestPoSCommon):
             'amount': 1,
             'invoice_repartition_line_ids': [
                 (0, 0, {
-                    'factor_percent': 100,
                     'repartition_type': 'base',
                     'tag_ids': [(6, 0, self.tax_tag_invoice_base.ids)],
                 }),
                 (0, 0, {
-                    'factor_percent': 100,
                     'repartition_type': 'tax',
                     'account_id': self.tax_received_account.id,
                     'tag_ids': [(6, 0, self.tax_tag_invoice_tax.ids)],

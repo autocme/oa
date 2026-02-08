@@ -83,6 +83,7 @@
                         <group>
                             <group name="provider_details">
                                 <field name="active" invisible="1"/>
+                                <field name="company_id" invisible="1"/>
                                 <field name="prod_environment" invisible="1"/>
                                 <field name="debug_logging" invisible="1"/>
                                 <label for="delivery_type"/>
@@ -102,6 +103,11 @@
                                 </div>
                                 <field name="free_over"/>
                                 <field name="amount" attrs="{'required':[('free_over','!=', False)], 'invisible':[('free_over','=', False)]}"/>
+                                <field name="supports_shipping_insurance" invisible="1"/>
+                                <label for="shipping_insurance" String="Shipping Insurance" attrs="{'invisible': [('supports_shipping_insurance', '=', False)]}"/>
+                                <div attrs="{'invisible': [('supports_shipping_insurance', '=', False)]}">
+                                    <field name="shipping_insurance" class="oe_inline"/>%
+                                </div>
                             </group>
                         </group>
                         <notebook>
@@ -112,12 +118,12 @@
                                     </group>
                                 </group>
                                 <group name="general" attrs="{'invisible':[('delivery_type', '!=', 'base_on_rule')]}">
-                                    <field name="price_rule_ids" nolabel="1"/>
+                                    <field name="price_rule_ids" nolabel="1" colspan="2"/>
                                 </group>
                             </page>
                             <page string="Destination Availability" name="destination">
                                 <group>
-                                    <p>
+                                    <p colspan="2">
                                         Filling this form allows you to filter delivery carriers according to the delivery address of your customer.
                                     </p>
                                 </group>
@@ -125,15 +131,12 @@
                                     <group name="country_details">
                                         <field name="country_ids" widget="many2many_tags" options="{'no_open': True, 'no_create': True}"/>
                                         <field name="state_ids" widget="many2many_tags"/>
-                                    </group>
-                                    <group></group>
-                                    <group name="zip_from">
-                                        <field name="zip_from"/>
-                                    </group>
-                                    <group name="zip_to">
-                                        <field name="zip_to"/>
+                                        <field name="zip_prefix_ids" widget="many2many_tags"/>
                                     </group>
                                 </group>
+                            </page>
+                            <page string="Description" name="description">
+                                <field name="carrier_description" placeholder="Shipping method details to be included at bottom sales orders and their confirmation emails. E.g. Instructions for customers to follow."/>
                             </page>
                         </notebook>
                     </sheet>
@@ -162,8 +165,24 @@
             </field>
         </record>
 
+        <record id="action_delivery_zip_prefix_list" model="ir.actions.act_window">
+            <field name="name">Zip Prefix</field>
+            <field name="type">ir.actions.act_window</field>
+            <field name="res_model">delivery.zip.prefix</field>
+            <field name="view_mode">tree,form</field>
+            <field name="help" type="html">
+              <p class="o_view_nocontent_smiling_face">
+                Manage delivery zip prefixes
+              </p><p>
+                Delivery zip prefixes are assigned to delivery carriers to restrict
+                which zips it is available to.
+              </p>
+            </field>
+        </record>
+
         <menuitem action="action_delivery_carrier_form" id="menu_action_delivery_carrier_form" parent="stock.menu_delivery" sequence="1"/>
         <menuitem action="action_delivery_carrier_form" id="sale_menu_action_delivery_carrier_form" parent="sale.menu_sales_config" sequence="4"/>
+        <menuitem action="action_delivery_zip_prefix_list" id="menu_delivery_zip_prefix" parent="stock.menu_delivery" groups="base.group_no_one" sequence="100"/>
 
         <record id="view_delivery_price_rule_form" model="ir.ui.view">
             <field name="name">delivery.price.rule.form</field>
@@ -217,7 +236,7 @@
                         <label for="carrier_tracking_ref"/>
                         <div name="tracking">
                             <field name="carrier_tracking_ref" class="oe_inline text-break" attrs="{'readonly': [('state', 'in', ('done', 'cancel'))]}"/>
-                            <button type='object' class="fa fa-arrow-right oe_link" name="cancel_shipment" string="Cancel" attrs="{'invisible':['|','|','|',('carrier_tracking_ref','=',False),('delivery_type','in', ['fixed', 'base_on_rule']),('delivery_type','=',False),('state','not in',('done'))]}"/>
+                            <button type='object' class="fa fa-arrow-right oe_link" confirm="Cancelling a delivery may not be undoable. Are you sure you want to continue?" name="cancel_shipment" string="Cancel" attrs="{'invisible':['|','|','|',('carrier_tracking_ref','=',False),('delivery_type','in', ['fixed', 'base_on_rule']),('delivery_type','=',False),('state','not in',('done'))]}"/>
                         </div>
                         <label for="weight" string="Weight"/>
                         <div>
@@ -279,9 +298,9 @@
                 <field name="company_id" position="before">
                     <label for="shipping_weight"/>
                     <div class="o_row" name="Shipping Weight">
-                        <field name="shipping_weight"/>
+                        <field name="shipping_weight" class="oe_inline"/>
                         <span><field name="weight_uom_name"/></span>
-                        <span class="text-muted">(computed: <field name="weight" nolabel="1"/></span><span class="text-muted"><field name="weight_uom_name" nolabel="1"/>)</span>
+                        <span class="text-muted">(computed: <field name="weight" class="oe_inline" nolabel="1"/></span><span class="text-muted"><field name="weight_uom_name" nolabel="1" class="oe_inline"/>)</span>
                     </div>
                 </field>
             </field>

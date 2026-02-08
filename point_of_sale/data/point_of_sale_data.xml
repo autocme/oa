@@ -7,7 +7,7 @@
     <data noupdate="1">
         <!-- After closing the PoS, open the dashboard menu -->
         <record id="action_client_pos_menu" model="ir.actions.client">
-            <field name="name">Open POS Menu</field>
+            <field name="name">Reload POS Menu</field>
             <field name="tag">reload</field>
             <field name="params" eval="{'menu_id': ref('menu_point_root')}"/>
         </record>
@@ -28,7 +28,6 @@
 
         <record model="pos.config" id="pos_config_main" forcecreate="0">
             <field name="name">Shop</field>
-            <field name="barcode_nomenclature_id" ref="barcodes.default_barcode_nomenclature"/>
         </record>
 
         <record id="product_product_consumable" model="product.product">
@@ -76,6 +75,12 @@
         <record model="pos.bill" id="0_20" forcecreate="0">
             <field name="name">0.20</field>
             <field name="value">0.20</field>
+            <field name="pos_config_ids" eval="[(6, False, [ref('point_of_sale.pos_config_main')])]"/>
+        </record>
+
+        <record model="pos.bill" id="0_25" forcecreate="0">
+            <field name="name">0.25</field>
+            <field name="value">0.25</field>
             <field name="pos_config_ids" eval="[(6, False, [ref('point_of_sale.pos_config_main')])]"/>
         </record>
 
@@ -130,12 +135,6 @@
         <record model="pos.bill" id="200_00" forcecreate="0">
             <field name="name">200.00</field>
             <field name="value">200.00</field>
-            <field name="pos_config_ids" eval="[(6, False, [ref('point_of_sale.pos_config_main')])]"/>
-        </record>
-
-        <record model="pos.bill" id="500_00" forcecreate="0">
-            <field name="name">500.00</field>
-            <field name="value">500.00</field>
             <field name="pos_config_ids" eval="[(6, False, [ref('point_of_sale.pos_config_main')])]"/>
         </record>
 

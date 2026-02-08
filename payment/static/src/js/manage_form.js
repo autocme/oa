@@ -53,8 +53,8 @@ odoo.define('payment.manage_form', require => {
             this._rpc({
                 route: this.txContext.assignTokenRoute,
                 params: {
+                    'access_token': this.txContext.accessToken,
                     'token_id': tokenId,
-                    'csrf_token': core.csrf_token,
                 }
             }).then(() => {
                 window.location = this.txContext.landingRoute;
@@ -65,6 +65,53 @@ odoo.define('payment.manage_form', require => {
                     _t("We are not able to save your payment method."),
                     error.message.data.message
                 );
+            });
+        },
+
+        /**
+         * Build the confirmation dialog based on the linked records' information.
+         *
+         * @private
+         * @param {Array} linkedRecordsInfo - The list of information about linked records.
+         * @param confirmCallback - The callback method called when the user clicks on the
+         *                          confirmation button.
+         * @return {object}
+         */
+        _buildConfirmationDialog: function (linkedRecordsInfo, confirmCallback) {
+            const $dialogContentMessage = $(
+                '<span>', {text: _t("Are you sure you want to delete this payment method?")}
+            );
+            if (linkedRecordsInfo.length > 0) { // List the documents linked to the token.
+                $dialogContentMessage.append($('<br>'));
+                $dialogContentMessage.append($(
+                    '<span>', {text: _t("It is currently linked to the following documents:")}
+                ));
+                const $documentInfoList = $('<ul>');
+                linkedRecordsInfo.forEach(documentInfo => {
+                    $documentInfoList.append($('<li>').append($(
+                        '<a>', {
+                            href: documentInfo.url,
+                            target: '_blank',
+                            title: documentInfo.description,
+                            text: documentInfo.name
+                        }
+                    )));
+                });
+                $dialogContentMessage.append($documentInfoList);
+            }
+            return new Dialog(this, {
+                title: _t("Warning!"),
+                size: 'medium',
+                $content: $('<div>').append($dialogContentMessage),
+                buttons: [
+                    {
+                        text: _t("Confirm Deletion"), classes: 'btn-primary', close: true,
+                        click: confirmCallback,
+                    },
+                    {
+                        text: _t("Cancel"), close: true
+                    },
+                ],
             });
         },
 
@@ -107,42 +154,8 @@ odoo.define('payment.manage_form', require => {
                 model: 'payment.token',
                 method: 'get_linked_records_info',
                 args: [tokenId],
-            }).then(result => {
-                const $dialogContentMessage = $(
-                    '<span>', {text: _t("Are you sure you want to delete this payment method?")}
-                );
-                if (result.length > 0) { // There are documents linked to the token, list them
-                    $dialogContentMessage.append($('<br>'));
-                    $dialogContentMessage.append($(
-                        '<span>', {text: _t("It is currently linked to the following documents:")}
-                    ));
-                    const $documentInfoList = $('<ul>');
-                    result.forEach(documentInfo => {
-                        $documentInfoList.append($('<li>').append($(
-                            '<a>', {
-                                href: documentInfo.url,
-                                target: '_blank',
-                                title: documentInfo.description,
-                                text: documentInfo.name
-                            }
-                        )));
-                    });
-                    $dialogContentMessage.append($documentInfoList);
-                }
-                new Dialog(this, {
-                    title: _t("Warning!"),
-                    size: 'medium',
-                    $content: $('<div>').append($dialogContentMessage),
-                    buttons: [
-                        {
-                            text: _t("Confirm Deletion"), classes: 'btn-primary', close: true,
-                            click: execute
-                        },
-                        {
-                            text: _t("Cancel"), close: true
-                        },
-                    ],
-                }).open();
+            }).then(linkedRecordsInfo => {
+                this._buildConfirmationDialog(linkedRecordsInfo, execute).open();
             }).guardedCatch(error => {
                 this._displayError(
                     _t("Server Error"),

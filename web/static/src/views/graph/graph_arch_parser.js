@@ -1,9 +1,8 @@
 /** @odoo-module **/
 
-import { evaluateExpr } from "@web/core/py_js/py";
-import { GROUPABLE_TYPES } from "@web/search/utils/misc";
 import { XMLParser } from "@web/core/utils/xml";
-import { archParseBoolean } from "../helpers/utils";
+import { GROUPABLE_TYPES } from "@web/search/utils/misc";
+import { archParseBoolean } from "@web/views/utils";
 
 const MODES = ["bar", "line", "pie"];
 const ORDERS = ["ASC", "DESC", "asc", "desc", null];
@@ -22,6 +21,9 @@ export class GraphArchParser extends XMLParser {
                     if (node.hasAttribute("stacked")) {
                         archInfo.stacked = archParseBoolean(node.getAttribute("stacked"));
                     }
+                    if (node.hasAttribute("cumulated")) {
+                        archInfo.cumulated = archParseBoolean(node.getAttribute("cumulated"));
+                    }
                     const mode = node.getAttribute("type");
                     if (mode && MODES.includes(mode)) {
                         archInfo.mode = mode;
@@ -37,7 +39,7 @@ export class GraphArchParser extends XMLParser {
                     break;
                 }
                 case "field": {
-                    let fieldName = node.getAttribute("name"); // exists (rng validation)
+                    const fieldName = node.getAttribute("name"); // exists (rng validation)
                     if (fieldName === "id") {
                         break;
                     }
@@ -48,10 +50,8 @@ export class GraphArchParser extends XMLParser {
                         }
                         archInfo.fieldAttrs[fieldName].string = string;
                     }
-                    const isInvisible = Boolean(
-                        evaluateExpr(node.getAttribute("invisible") || "0")
-                    );
-                    if (isInvisible) {
+                    const modifiers = JSON.parse(node.getAttribute("modifiers") || "{}");
+                    if (modifiers.invisible === true) {
                         if (!archInfo.fieldAttrs[fieldName]) {
                             archInfo.fieldAttrs[fieldName] = {};
                         }

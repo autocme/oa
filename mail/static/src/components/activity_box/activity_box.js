@@ -6,23 +6,17 @@ const { Component } = owl;
 
 export class ActivityBox extends Component {
 
-    //--------------------------------------------------------------------------
-    // Public
-    //--------------------------------------------------------------------------
-
     /**
-     * @returns {Chatter}
+     * @returns {ActivityBoxView}
      */
-    get chatter() {
-        return this.messaging.models['mail.chatter'].get(this.props.chatterLocalId);
+    get activityBoxView() {
+        return this.props.record;
     }
 
 }
 
 Object.assign(ActivityBox, {
-    props: {
-        chatterLocalId: String,
-    },
+    props: { record: Object },
     template: 'mail.ActivityBox',
 });
 

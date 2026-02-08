@@ -11,6 +11,11 @@ submission provided by the `payment` module.
 
 - Payment with redirection flow
 
+## Module history
+
+- `16.0`
+  - The module is deprecated and can no longer be installed from the web client. odoo/odoo#99025
+
 ## Testing instructions
 
 **Phone**: `123456`

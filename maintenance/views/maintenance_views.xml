@@ -55,6 +55,8 @@
         <field name="model">maintenance.request</field>
         <field name="arch" type="xml">
             <form string="Maintenance Request">
+                <field name="company_id" invisible="1"/>
+                <field name="category_id" invisible="1"/>
                 <header>
                     <button string="Cancel" name="archive_equipment_request" type="object" attrs="{'invisible': [('archive', '=', True)]}"/>
                     <button string="Reopen Request" name="reset_equipment_request" type="object" attrs="{'invisible': [('archive', '=', False)]}"/>
@@ -62,7 +64,7 @@
                 </header>
                 <sheet>
                     <div attrs="{'invisible': [('archive', '=', False)]}">
-                        <span class="badge badge-warning float-right">Canceled</span>
+                        <span class="badge text-bg-warning float-end">Canceled</span>
                     </div>
                     <div class="oe_right">
                         <field name="kanban_state" class="oe_inline" widget="state_selection"/>
@@ -139,7 +141,7 @@
                         <div t-attf-class="{{!selection_mode ? 'oe_kanban_color_' + kanban_getcolor(record.color.raw_value) : ''}} oe_kanban_card oe_kanban_global_click oe_semantic_html_override">
                             <div class="o_dropdown_kanban dropdown">
 
-                                <a role="button" class="dropdown-toggle o-no-caret btn" data-toggle="dropdown" data-display="static" href="#" aria-label="Dropdown menu" title="Dropdown menu">
+                                <a role="button" class="dropdown-toggle o-no-caret btn" data-bs-toggle="dropdown" data-bs-display="static" href="#" aria-label="Dropdown menu" title="Dropdown menu">
                                     <span class="fa fa-ellipsis-v"/>
                                 </a>
                                 <div class="dropdown-menu" role="menu">
@@ -170,7 +172,7 @@
                                     </div>
                                 </div>
                             </div>
-                            <div class="oe_clear"></div>
+                            <div class="clearfix"></div>
                         </div>
                     </t>
                 </templates>
@@ -336,6 +338,7 @@
         <field name="arch" type="xml">
             <form string="Equipments">
                 <sheet>
+                    <field name="company_id" invisible="1"/>
                     <div class="oe_button_box" name="button_box">
                         <button name="%(hr_equipment_request_action_from_equipment)d"
                             type="action"
@@ -386,7 +389,7 @@
                         <page string="Maintenance" name="maintenance">
                             <group>
                                 <group name="maintenance">
-                                    <field name="next_action_date" class="oe_read_only" string="Next Preventive Maintenance"/>
+                                    <field name="next_action_date" string="Next Preventive Maintenance"/>
                                     <label for="period" string="Preventive Maintenance Frequency"/>
                                     <div class="o_row">
                                         <field name="period"/> days
@@ -438,7 +441,7 @@
                         <div t-attf-class="{{!selection_mode ? 'oe_kanban_color_' + kanban_getcolor(record.color.raw_value) : ''}} oe_kanban_card oe_kanban_global_click">
                             <div class="o_dropdown_kanban dropdown" t-if="!selection_mode">
 
-                                <a role="button" class="dropdown-toggle o-no-caret btn" data-toggle="dropdown" data-display="static" href="#" aria-label="Dropdown menu" title="Dropdown menu">
+                                <a role="button" class="dropdown-toggle o-no-caret btn" data-bs-toggle="dropdown" data-bs-display="static" href="#" aria-label="Dropdown menu" title="Dropdown menu">
                                     <span class="fa fa-ellipsis-v"/>
                                 </a>
                                 <div class="dropdown-menu" role="menu">
@@ -458,11 +461,11 @@
                                 </div>
                                 <div class="o_kanban_record_bottom">
                                     <div class="oe_kanban_bottom_left">
-                                        <div class="badge badge-danger" t-if="!selection_mode and record.maintenance_open_count.raw_value" >
+                                        <div class="badge text-bg-danger" t-if="!selection_mode and record.maintenance_open_count.raw_value" >
                                             <t t-out="record.maintenance_open_count.raw_value"/> Request
                                         </div>
-                                        <div class="badge badge-secondary" t-if="!selection_mode and record.next_action_date.raw_value" >
-                                            <t t-out="moment(record.next_action_date.raw_value).format('MMMM Do')"/>
+                                        <div class="badge text-bg-secondary" t-if="!selection_mode and record.next_action_date.raw_value" >
+                                            <t t-esc="luxon.DateTime.fromISO(record.next_action_date.raw_value).toFormat('d MMMM')"/>
                                         </div>
                                     </div>
                                     <div class="oe_kanban_bottom_right">
@@ -473,7 +476,7 @@
                                     </div>
                                 </div>
                             </div>
-                            <div class="oe_clear"></div>
+                            <div class="clearfix"></div>
                         </div>
                     </t>
                 </templates>
@@ -609,7 +612,7 @@
                     <label for="alias_name" string="Email Alias"/>
                     <div name="alias_def">
                         <field name="alias_id" class="oe_read_only oe_inline" string="Email Alias" required="0"/>
-                        <div class="oe_edit_only oe_inline" name="edit_alias" style="display: inline;">
+                        <div class="oe_edit_only oe_inline" name="edit_alias" style="display: inline;" dir="ltr">
                             <field name="alias_name" class="oe_inline"/>@<field name="alias_domain" class="oe_inline" readonly="1"/>
                         </div>
                     </div>
@@ -666,12 +669,12 @@
                             </div>
                             <div class="row mt4">
                                 <div class="col-6">
-                                    <span class="badge badge-pill">
+                                    <span class="badge rounded-pill">
                                         <strong>Equipments:</strong> <field name="equipment_count"/>
                                     </span>
                                 </div>
-                                <div class="col-6 text-right">
-                                    <span class="badge badge-pill">
+                                <div class="col-6 text-end">
+                                    <span class="badge rounded-pill">
                                         <strong>Maintenance:</strong> <field name="maintenance_count"/>
                                     </span>
                                     <field name="technician_user_id" widget="many2one_avatar_user"/>
@@ -967,7 +970,7 @@
     <menuitem
         id="menu_maintenance_title"
         name="Maintenance"
-        web_icon="maintenance,static/description/icon.png"
+        web_icon="maintenance,static/description/icon.svg"
         sequence="160"/>
 
     <menuitem

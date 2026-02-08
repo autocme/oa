@@ -1,10 +1,13 @@
 /** @odoo-module **/
 
-import contentMenu from 'website.contentMenu';
 import weWidgets from 'wysiwyg.widgets';
 import {_t} from 'web.core';
+import { browser } from "@web/core/browser/browser";
 
 weWidgets.LinkPopoverWidget.include({
+    events: Object.assign({}, weWidgets.LinkPopoverWidget.prototype.events, {
+        'click .o_we_full_url, .o_we_url_link': '_onPreviewLinkClick',
+    }),
     /**
      * @override
      */
@@ -21,6 +24,27 @@ weWidgets.LinkPopoverWidget.include({
 
         return this._super(...arguments);
     },
+
+    //--------------------------------------------------------------------------
+    // Handlers
+    //--------------------------------------------------------------------------
+
+    /**
+     * Opens website page links in backend mode by forcing the '/@/' controller.
+     *
+     * @private
+     * @param {Event} ev
+     */
+    async _onPreviewLinkClick(ev) {
+        if (this.target.href) {
+            const currentUrl = new URL(this.target.href);
+            if (window.location.hostname === currentUrl.hostname && !currentUrl.pathname.startsWith('/@/')) {
+                ev.preventDefault();
+                currentUrl.pathname = `/@${currentUrl.pathname}`;
+                browser.open(currentUrl);
+            }
+        }
+    }
 });
 
 const NavbarLinkPopoverWidget = weWidgets.LinkPopoverWidget.extend({
@@ -43,9 +67,9 @@ const NavbarLinkPopoverWidget = weWidgets.LinkPopoverWidget.extend({
         // remove link has no sense on navbar menu links, instead show edit menu
         if (this.isWebsiteDesigner) {
             const $anchor = $('<a/>', {
-                href: '#', class: 'ml-2 js_edit_menu', title: _t('Edit Menu'),
-                'data-placement': 'top', 'data-toggle': 'tooltip',
-            }).append($('<i/>', {class: 'fa fa-sitemap text-secondary'}));
+                href: '#', class: 'ms-2 js_edit_menu', title: _t('Edit Menu'),
+                'data-bs-placement': 'top', 'data-bs-toggle': 'tooltip',
+            }).append($('<i/>', {class: 'fa fa-sitemap'}));
             $removeLink.replaceWith($anchor);
         } else {
             this.$('.o_we_edit_link').remove();
@@ -68,34 +92,32 @@ const NavbarLinkPopoverWidget = weWidgets.LinkPopoverWidget.extend({
     _onEditLinkClick(ev) {
         var self = this;
         var $menu = this.$target.find('[data-oe-id]');
-        var dialog = new contentMenu.MenuEntryDialog(this, {}, null, {
+        this.trigger_up('menu_dialog', {
             name: $menu.text(),
             url: $menu.parent().attr('href'),
+            save: (name, url) => {
+                let websiteId;
+                this.trigger_up('context_get', {
+                    callback: ctx => websiteId = ctx['website_id'],
+                });
+                const data = {
+                    id: $menu.data('oe-id'),
+                    name,
+                    url,
+                };
+                return this._rpc({
+                    model: 'website.menu',
+                    method: 'save',
+                    args: [websiteId, {'data': [data]}],
+                }).then(function () {
+                    self.options.wysiwyg.odooEditor.observerUnactive();
+                    self.$target.attr('href', url);
+                    $menu.text(name);
+                    self.options.wysiwyg.odooEditor.observerActive();
+                });
+            },
         });
-        dialog.on('save', this, link => {
-            let websiteId;
-            this.trigger_up('context_get', {
-                callback: function (ctx) {
-                    websiteId = ctx['website_id'];
-                },
-            });
-            const data = {
-                id: $menu.data('oe-id'),
-                name: link.content,
-                url: link.url,
-            };
-            return this._rpc({
-                model: 'website.menu',
-                method: 'save',
-                args: [websiteId, {'data': [data]}],
-            }).then(function () {
-                self.options.wysiwyg.odooEditor.observerUnactive();
-                self.$target.attr('href', link.url);
-                $menu.text(link.content);
-                self.options.wysiwyg.odooEditor.observerActive();
-            });
-        });
-        dialog.open();
+        this.popover.hide();
     },
     /**
      * Opens the menu tree editor. On menu editor save, current page changes
@@ -105,19 +127,11 @@ const NavbarLinkPopoverWidget = weWidgets.LinkPopoverWidget.extend({
      * @param {Event} ev
      */
      _onEditMenuClick(ev) {
+        const contentMenu = this.target.closest('[data-content_menu_id]');
+        const rootID = contentMenu ? parseInt(contentMenu.dataset.content_menu_id, 10) : undefined;
         this.trigger_up('action_demand', {
             actionName: 'edit_menu',
-            params: [
-                () => {
-                    const prom = new Promise((resolve, reject) => {
-                        this.trigger_up('request_save', {
-                            onSuccess: resolve,
-                            onFailure: reject,
-                        });
-                    });
-                    return prom;
-                },
-            ],
+            params: [rootID],
         });
     },
 });

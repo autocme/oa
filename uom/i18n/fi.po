@@ -3,24 +3,24 @@
 # 	* uom
 # 
 # Translators:
-# Martin Trigaux, 2021
-# Kari Lindgren <kari.lindgren@emsystems.fi>, 2021
-# Jussi Lehto <jussi@gulfeo.com>, 2021
-# Tuomo Aura <tuomo.aura@web-veistamo.fi>, 2021
-# Atte Isopuro <atte.isopuro@web-veistamo.fi>, 2021
-# Veikko Väätäjä <veikko.vaataja@gmail.com>, 2021
-# Tuomas Lyyra <tuomas.lyyra@legenda.fi>, 2021
-# Jussi Heikkilä <jussi.heikkila@panimo.com>, 2021
-# Mikko Virtanen <mikko.virtanen2013@gmail.com>, 2021
+# Veikko Väätäjä <veikko.vaataja@gmail.com>, 2022
+# Jussi Lehto <jussi@gulfeo.com>, 2022
+# Kari Lindgren <kari.lindgren@emsystems.fi>, 2022
+# Mikko Virtanen <mikko.virtanen2013@gmail.com>, 2022
+# Atte Isopuro <atte.isopuro@web-veistamo.fi>, 2022
+# Jussi Heikkilä <jussi.heikkila@panimo.com>, 2022
+# Tuomo Aura <tuomo.aura@web-veistamo.fi>, 2022
+# Tuomas Lyyra <tuomas.lyyra@legenda.fi>, 2022
+# Martin Trigaux, 2022
 # Jarmo Kortetjärvi <jarmo.kortetjarvi@gmail.com>, 2022
 # Ossi Mantylahti <ossi.mantylahti@obs-solutions.fi>, 2023
 # 
 msgid ""
 msgstr ""
-"Project-Id-Version: Odoo Server saas~14.4\n"
+"Project-Id-Version: Odoo Server 16.0beta\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2021-07-12 07:50+0000\n"
-"PO-Revision-Date: 2021-09-14 12:27+0000\n"
+"POT-Creation-Date: 2022-09-23 08:03+0000\n"
+"PO-Revision-Date: 2022-09-22 05:55+0000\n"
 "Last-Translator: Ossi Mantylahti <ossi.mantylahti@obs-solutions.fi>, 2023\n"
 "Language-Team: Finnish (https://app.transifex.com/odoo/teams/41243/fi/)\n"
 "MIME-Version: 1.0\n"
@@ -85,7 +85,7 @@ msgstr "Suurempi kuin referenssiyksikkö"
 #: model:ir.model.fields,field_description:uom.field_uom_uom__category_id
 #: model_terms:ir.ui.view,arch_db:uom.uom_uom_view_search
 msgid "Category"
-msgstr "Tuoteryhmä(t)"
+msgstr "Kategoria"
 
 #. module: uom
 #: model:ir.model.fields,field_description:uom.field_uom_uom__color
@@ -135,11 +135,6 @@ msgid "Dozens"
 msgstr "Tusina"
 
 #. module: uom
-#: model:ir.model.fields,help:uom.field_uom_category__reference_uom_id
-msgid "Dummy field to keep track of reference uom change"
-msgstr ""
-
-#. module: uom
 #: model_terms:ir.ui.view,arch_db:uom.uom_uom_view_search
 msgid "Group By"
 msgstr "Ryhmittely"
@@ -171,7 +166,7 @@ msgstr ""
 #: model:ir.model.fields,field_description:uom.field_uom_category__id
 #: model:ir.model.fields,field_description:uom.field_uom_uom__id
 msgid "ID"
-msgstr "Tunniste (ID)"
+msgstr "ID"
 
 #. module: uom
 #: model:ir.model.fields,field_description:uom.field_uom_category____last_update
@@ -199,7 +194,7 @@ msgstr "Pituus / Etäisyys"
 #. module: uom
 #: model:res.groups,name:uom.group_uom
 msgid "Manage Multiple Units of Measure"
-msgstr "Hallitse useita (mitta)yksiköitä"
+msgstr "Hallitse useita mittayksiköitä"
 
 #. module: uom
 #: model:ir.model,name:uom.model_uom_uom
@@ -356,7 +351,7 @@ msgstr "Mittayksiköiden ryhmä"
 #. module: uom
 #: model:uom.uom,name:uom.product_uom_unit
 msgid "Units"
-msgstr "Yksiköt"
+msgstr "kpl"
 
 #. module: uom
 #: model:ir.actions.act_window,name:uom.product_uom_form_action
@@ -391,7 +386,14 @@ msgstr ""
 "             Tunnit, päivät."
 
 #. module: uom
-#: code:addons/uom/models/uom_uom.py:0 code:addons/uom/models/uom_uom.py:0
+#: code:addons/uom/models/uom_uom.py:0
+#, python-format
+msgid "UoM category %s must have at least one reference unit of measure."
+msgstr ""
+"Mittayksikkö-kategoriassa %s on oltava vähintään yksi viitemittayksikkö."
+
+#. module: uom
+#: code:addons/uom/models/uom_uom.py:0
 #, python-format
 msgid "UoM category %s should have a reference unit of measure."
 msgstr "Mittayksikkö-kategorialla %s tulisi olla viitemittayksikkö."
@@ -417,12 +419,6 @@ msgstr "Tilavuus"
 #, python-format
 msgid "Warning for %s"
 msgstr "Varoitus %s"
-
-#. module: uom
-#: code:addons/uom/models/uom_uom.py:0
-#, python-format
-msgid "Warning!"
-msgstr "Varoitus!"
 
 #. module: uom
 #: model:uom.category,name:uom.product_uom_categ_kgm
@@ -476,7 +472,7 @@ msgstr "gal (US)"
 #. module: uom
 #: model:uom.uom,name:uom.product_uom_inch
 msgid "in"
-msgstr "sisään"
+msgstr "tuumaa"
 
 #. module: uom
 #: model:uom.uom,name:uom.product_uom_cubic_inch
@@ -496,7 +492,7 @@ msgstr "km"
 #. module: uom
 #: model:uom.uom,name:uom.product_uom_lb
 msgid "lb"
-msgstr "paunaa"
+msgstr "lb"
 
 #. module: uom
 #: model:uom.uom,name:uom.product_uom_mile
@@ -527,3 +523,8 @@ msgstr "oz"
 #: model:uom.uom,name:uom.product_uom_qt
 msgid "qt (US)"
 msgstr "qt (US)"
+
+#. module: uom
+#: model:uom.uom,name:uom.product_uom_yard
+msgid "yd"
+msgstr "jaardia (yd)"

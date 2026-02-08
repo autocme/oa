@@ -9,8 +9,8 @@
         <div id="toolbar" class="oe-toolbar oe-floating">
             <div id="style" class="btn-group dropdown">
                 <button type="button" class="btn dropdown-toggle"
-                    data-toggle="dropdown" title="Text style" tabindex="-1"
-                    data-original-title="Style" aria-expanded="false">
+                    data-bs-toggle="dropdown" title="Text style" tabindex="-1"
+                    data-bs-original-title="Style" aria-expanded="false">
                     <span>Normal</span>
                 </button>
                 <ul class="dropdown-menu">
@@ -57,8 +57,8 @@
             <div id="colorInputButtonGroup" class="btn-group">
                 <div class="colorpicker-group note-fore-color-preview" data-name="color">
                     <div id="oe-text-color" class="btn color-button dropdown-toggle editor-ignore"
-                        data-toggle="dropdown" title="Font Color" tabindex="-1"
-                        data-original-title="Font Color">
+                        data-bs-toggle="dropdown" title="Font Color" tabindex="-1"
+                        data-bs-original-title="Font Color">
                         <i class="fa fa-font color-indicator fore-color"></i>
                     </div>
                     <ul class="dropdown-menu colorpicker-menu">
@@ -67,8 +67,8 @@
                 </div>
                 <div class="colorpicker-group note-back-color-preview" data-name="color">
                     <button id="oe-fore-color" type="button" class="btn dropdown-toggle editor-ignore"
-                        data-toggle="dropdown" title="Background Color" tabindex="-1"
-                        data-original-title="Background Color">
+                        data-bs-toggle="dropdown" title="Background Color" tabindex="-1"
+                        data-bs-original-title="Background Color">
                         <i class="fa fa-paint-brush color-indicator hilite-color"></i>
                     </button>
                     <ul class="dropdown-menu colorpicker-menu">
@@ -79,8 +79,8 @@
 
             <div id="font-size" class="btn-group dropdown">
                 <button type="button" class="btn dropdown-toggle"
-                    data-toggle="dropdown" title="Font size" tabindex="-1"
-                    data-original-title="Font Size" aria-expanded="false">
+                    data-bs-toggle="dropdown" title="Font size" tabindex="-1"
+                    data-bs-original-title="Font Size" aria-expanded="false">
                     <span id="fontSizeCurrentValue"></span>
                 </button>
                 <ul class="dropdown-menu">
@@ -91,6 +91,7 @@
                     <li><a class="dropdown-item" href="#" data-call="setFontSize" data-arg1="11px">11</a></li>
                     <li><a class="dropdown-item" href="#" data-call="setFontSize" data-arg1="12px">12</a></li>
                     <li><a class="dropdown-item" href="#" data-call="setFontSize" data-arg1="14px">14</a></li>
+                    <li><a class="dropdown-item" href="#" data-call="setFontSize" data-arg1="16px">16</a></li>
                     <li><a class="dropdown-item" href="#" data-call="setFontSize" data-arg1="18px">18</a></li>
                     <li><a class="dropdown-item" href="#" data-call="setFontSize" data-arg1="24px">24</a></li>
                     <li><a class="dropdown-item" href="#" data-call="setFontSize" data-arg1="36px">36</a></li>
@@ -101,8 +102,8 @@
 
             <div id="justify" class="btn-group dropdown">
                 <button type="button" class="btn dropdown-toggle"
-                    data-toggle="dropdown" title="Text align" tabindex="-1"
-                    data-original-title="Paragraph" aria-expanded="false">
+                    data-bs-toggle="dropdown" title="Text align" tabindex="-1"
+                    data-bs-original-title="Paragraph" aria-expanded="false">
                     <i id="paragraphDropdownButton" class="fa fa-align-left fa-fw"></i>
                 </button>
                 <div class="dropdown-menu">
@@ -129,8 +130,8 @@
             <div id="table" class="btn-group">
                 <div class="dropdown">
                     <button type="button" class="btn dropdown-toggle"
-                        data-toggle="dropdown" title="Insert table" tabindex="-1"
-                        data-original-title="Table" aria-expanded="false"
+                        data-bs-toggle="dropdown" title="Insert table" tabindex="-1"
+                        data-bs-original-title="Table" aria-expanded="false"
                         id="tableDropdownButton">
                         <i class="fa fa-table fa-fw"></i>
                     </button>
@@ -140,15 +141,15 @@
                 </div>
                 <div class="dropdown">
                     <button type="button" class="btn dropdown-toggle toolbar-edit-table"
-                        data-toggle="dropdown" title="Table tools" tabindex="-1"
-                        data-original-title="Edit table" aria-expanded="false">
+                        data-bs-toggle="dropdown" title="Table tools" tabindex="-1"
+                        data-bs-original-title="Edit table" aria-expanded="false">
                         <i class="fa fa-columns fa-fw"></i>
                     </button>
                     <ul class="dropdown-menu">
-                        <li><a class="dropdown-item" href="#" id="table-add-column-left" data-call="addColumnLeft">Add a column left</a></li>
-                        <li><a class="dropdown-item" href="#" id="table-add-column-right" data-call="addColumnRight">Add a column right</a></li>
-                        <li><a class="dropdown-item" href="#" id="table-add-row-above" data-call="addRowAbove">Add a row above</a></li>
-                        <li><a class="dropdown-item" href="#" id="table-add-row-below" data-call="addRowBelow">Add a row below</a></li>
+                        <li><a class="dropdown-item" href="#" id="table-add-column-left" data-call="addColumn" data-arg1="before">Add a column left</a></li>
+                        <li><a class="dropdown-item" href="#" id="table-add-column-right" data-call="addColumn" data-arg1="after">Add a column right</a></li>
+                        <li><a class="dropdown-item" href="#" id="table-add-row-above" data-call="addRow" data-arg1="before">Add a row above</a></li>
+                        <li><a class="dropdown-item" href="#" id="table-add-row-below" data-call="addRow" data-arg1="after">Add a row below</a></li>
                         <li><a class="dropdown-item" href="#" id="table-remove-column" data-call="removeColumn">Remove current column</a></li>
                         <li><a class="dropdown-item" href="#" id="table-remove-row" data-call="removeRow">Remove current row</a></li>
                         <li><a class="dropdown-item" href="#" id="table-delete-table" data-call="deleteTable">Delete current table</a></li>
@@ -172,8 +173,8 @@
 
             <div id="image-padding" class="btn-group dropdown">
                 <button type="button" class="btn dropdown-toggle"
-                    data-toggle="dropdown" title="Image padding" tabindex="-1"
-                    data-original-title="Image padding" aria-expanded="false">
+                    data-bs-toggle="dropdown" title="Image padding" tabindex="-1"
+                    data-bs-original-title="Image padding" aria-expanded="false">
                     <span class="fa fa-plus-square-o"></span>
                 </button>
                 <ul class="dropdown-menu">
@@ -186,7 +187,7 @@
             </div>
 
             <div id="image-width" class="btn-group">
-                <div title="Resize Auto" class="btn editor-ignore">Auto</div>
+                <div title="Resize Default" class="btn editor-ignore">Default</div>
                 <div id="100%" title="Resize Full" class="btn editor-ignore">100%</div>
                 <div id="50%" title="Resize Half" class="btn editor-ignore">50%</div>
                 <div id="25%" title="Resize Quarter" class="btn editor-ignore">25%</div>
@@ -229,10 +230,10 @@
                     <span class="oe-table-label">Add Column</span>
                     <div class="w-100">
                         <div class="oe-table-selection btn-group w-100">
-                            <button class="btn w-50" data-call="addColumnLeft">
+                            <button class="btn w-50" data-call="addColumn" data-arg1="before">
                                 <i class="small fa fa-fw fa-step-backward"/> Left
                             </button>
-                            <button class="btn w-50" data-call="addColumnRight">
+                            <button class="btn w-50" data-call="addColumn" data-arg1="after">
                                 Right <i class="small fa fa-fw fa-step-forward"/>
                             </button>
                         </div>
@@ -242,10 +243,10 @@
                     <span class="oe-table-label">Add Row</span>
                     <div class="w-100">
                         <div class="oe-table-selection btn-group w-100">
-                            <button class="btn w-50" data-call="addRowAbove">
+                            <button class="btn w-50" data-call="addRow" data-arg1="before">
                                 <i class="small fa fa-fw fa-step-backward fa-rotate-90"/> Above
                             </button>
-                            <button class="btn w-50" data-call="addRowBelow">
+                            <button class="btn w-50" data-call="addRow" data-arg1="after">
                                 Below <i class="small fa fa-fw fa-step-forward fa-rotate-90"/>
                             </button>
                         </div>
@@ -264,12 +265,22 @@
                         </div>
                     </div>
                 </div>
+                 <div class="oe-table-row mt-3">
+                    <span class="oe-table-label"></span>
+                    <div class="w-100">
+                        <div class="oe-table-selection btn-group w-100">
+                            <button class="btn w-50" data-call="resetSize">
+                                <i class="small fa fa-fw fa-table"/> Reset Size
+                            </button>
+                        </div>
+                    </div>
+                </div>
             </div>
         </we-customizeblock-options>
     </t>
 
     <!-- Collaboration reset dialog -->
-    <t t-name="web_editor.collaboration-reset-dialog">
+    <t t-name="web_editor.collaboration-conflict-dialog">
         <div>
             <div style="color: red;">
                 <p>
@@ -296,7 +307,7 @@
             <div class="o_we_overlay_content position-absolute">
                 <div class="o_overlay_background"/>
                 <div class="o_we_overlay_buttons position-absolute d-flex m-1" style="top: 0">
-                    <button class="btn btn-primary mr-1 o_btn_apply">Apply</button>
+                    <button class="btn btn-primary me-1 o_btn_apply">Apply</button>
                     <button class="btn btn-danger o_btn_discard">Discard</button>
                 </div>
             </div>

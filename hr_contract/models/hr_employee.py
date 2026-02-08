@@ -24,7 +24,10 @@ class Employee(models.Model):
 
     def _get_first_contracts(self):
         self.ensure_one()
-        return self.sudo().contract_ids.filtered(lambda c: c.state != 'cancel')
+        contracts = self.sudo().contract_ids.filtered(lambda c: c.state != 'cancel')
+        if self.env.context.get('before_date'):
+            contracts = contracts.filtered(lambda c: c.date_start <= self.env.context['before_date'])
+        return contracts
 
     def _get_first_contract_date(self, no_gap=True):
         self.ensure_one()
@@ -63,10 +66,10 @@ class Employee(models.Model):
 
     def _compute_contracts_count(self):
         # read_group as sudo, since contract count is displayed on form view
-        contract_data = self.env['hr.contract'].sudo().read_group([('employee_id', 'in', self.ids)], ['employee_id'], ['employee_id'])
-        result = dict((data['employee_id'][0], data['employee_id_count']) for data in contract_data)
+        contract_histories = self.env['hr.contract.history'].sudo().search([('employee_id', 'in', self.ids)])
         for employee in self:
-            employee.contracts_count = result.get(employee.id, 0)
+            contract_history = contract_histories.filtered(lambda ch: ch.employee_id == employee)
+            employee.contracts_count = contract_history.contract_count
 
     def _get_contracts(self, date_from, date_to, states=['open'], kanban_state=False):
         """
@@ -110,10 +113,10 @@ class Employee(models.Model):
                                     min(date_to, contract_end),
                                     tz=employee_tz,
                                     domain=domain,
+                                    compute_leaves=True,
                                     resources=self.resource_id)[self.resource_id.id]
             duration_data = duration_data | contract_intervals
         return duration_data
-
 
     def write(self, vals):
         res = super(Employee, self).write(vals)
@@ -122,7 +125,7 @@ class Employee(models.Model):
                 employee.resource_calendar_id.transfer_leaves_to(employee.contract_id.resource_calendar_id, employee.resource_id)
                 employee.resource_calendar_id = employee.contract_id.resource_calendar_id
         return res
-    
+
     @api.ondelete(at_uninstall=False)
     def _unlink_except_open_contract(self):
         if any(contract.state == 'open' for contract in self.contract_ids):

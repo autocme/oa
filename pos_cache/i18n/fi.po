@@ -3,19 +3,18 @@
 # 	* pos_cache
 # 
 # Translators:
-# Martin Trigaux, 2021
-# Kari Lindgren <kari.lindgren@emsystems.fi>, 2021
-# Jarmo Kortetjärvi <jarmo.kortetjarvi@gmail.com>, 2021
-# Tuomo Aura <tuomo.aura@web-veistamo.fi>, 2021
-# Veikko Väätäjä <veikko.vaataja@gmail.com>, 2021
+# Jarmo Kortetjärvi <jarmo.kortetjarvi@gmail.com>, 2022
+# Kari Lindgren <kari.lindgren@emsystems.fi>, 2022
+# Veikko Väätäjä <veikko.vaataja@gmail.com>, 2022
+# Tuomo Aura <tuomo.aura@web-veistamo.fi>, 2022
 # Ossi Mantylahti <ossi.mantylahti@obs-solutions.fi>, 2023
 # 
 msgid ""
 msgstr ""
-"Project-Id-Version: Odoo Server saas~14.4\n"
+"Project-Id-Version: Odoo Server 16.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2021-07-12 07:50+0000\n"
-"PO-Revision-Date: 2021-09-14 12:24+0000\n"
+"POT-Creation-Date: 2024-02-06 13:32+0000\n"
+"PO-Revision-Date: 2022-09-22 05:54+0000\n"
 "Last-Translator: Ossi Mantylahti <ossi.mantylahti@obs-solutions.fi>, 2023\n"
 "Language-Team: Finnish (https://app.transifex.com/odoo/teams/41243/fi/)\n"
 "MIME-Version: 1.0\n"
@@ -23,6 +22,13 @@ msgstr ""
 "Content-Transfer-Encoding: \n"
 "Language: fi\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+#. module: pos_cache
+#. odoo-javascript
+#: code:addons/pos_cache/static/src/js/Chrome.js:0
+#, python-format
+msgid "All products are loaded."
+msgstr "Kaikki tuotteet on ladattu."
 
 #. module: pos_cache
 #: model:ir.model.fields,field_description:pos_cache.field_pos_cache__cache
@@ -58,10 +64,10 @@ msgstr "Näyttönimi"
 #. module: pos_cache
 #: model:ir.model.fields,field_description:pos_cache.field_pos_cache__id
 msgid "ID"
-msgstr "Tunniste (ID)"
+msgstr "ID"
 
 #. module: pos_cache
-#: model_terms:ir.ui.view,arch_db:pos_cache.pos_config_view_form_inherit_pos_cache
+#: model_terms:ir.ui.view,arch_db:pos_cache.view_pos_config_kanban
 msgid "Invalidate cache"
 msgstr "Mitätöi välimuisti"
 
@@ -86,13 +92,6 @@ msgid "Limit Products Per Request"
 msgstr "Rajoita tuotteita per pyyntö"
 
 #. module: pos_cache
-#. openerp-web
-#: code:addons/pos_cache/static/src/js/pos_cache.js:0
-#, python-format
-msgid "Loading"
-msgstr "Ladataan"
-
-#. module: pos_cache
 #: model:ir.model.fields,field_description:pos_cache.field_pos_config__oldest_cache_time
 msgid "Oldest cache time"
 msgstr "Vanhin välimuistiaika"
@@ -100,7 +99,6 @@ msgstr "Vanhin välimuistiaika"
 #. module: pos_cache
 #: model:ir.actions.server,name:pos_cache.refresh_pos_cache_cron_ir_actions_server
 #: model:ir.cron,cron_name:pos_cache.refresh_pos_cache_cron
-#: model:ir.cron,name:pos_cache.refresh_pos_cache_cron
 msgid "PoS: refresh cache"
 msgstr "Kassa: päivitä välimuisti"
 
@@ -113,6 +111,11 @@ msgstr "Kassan välimuisti"
 #: model:ir.model,name:pos_cache.model_pos_config
 msgid "Point of Sale Configuration"
 msgstr "Kassapäätteen asetukset"
+
+#. module: pos_cache
+#: model:ir.model,name:pos_cache.model_pos_session
+msgid "Point of Sale Session"
+msgstr "Kassapäätteen istunto"
 
 #. module: pos_cache
 #: model:ir.model.fields,field_description:pos_cache.field_pos_cache__product_domain

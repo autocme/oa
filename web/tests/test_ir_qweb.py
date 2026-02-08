@@ -15,14 +15,14 @@ class TestIrQweb(TransactionCase):
             "image_128": "iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAF0lEQVR4nGJxKFrEwMDAxAAGgAAAAP//D+IBWx9K7TUAAAAASUVORK5CYII=",
         })
 
-        html = view._render({"is_raw_image": True, "record": partner})
+        html = view._render_template(view.id, {"is_raw_image": True, "record": partner})
         tree = etree.fromstring(html)
         img = tree.find("img")
         self.assertTrue(img.get("src").startswith("data:image/png;base64"))
         self.assertEqual(img.get("class"), "img img-fluid")
         self.assertEqual(img.get("alt"), "test image partner")
 
-        html = view._render({"is_raw_image": False, "record": partner})
+        html = view._render_template(view.id, {"is_raw_image": False, "record": partner})
         tree = etree.fromstring(html)
         img = tree.find("img")
         self.assertTrue(img.get("src").startswith("/web/image"))

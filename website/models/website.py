@@ -1,32 +1,38 @@
-# -*- coding: utf-8 -*-
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
 
 import base64
+import functools
 import hashlib
 import inspect
 import json
 import logging
+import operator
 import re
 import requests
+import threading
 
+from collections import defaultdict
+from datetime import datetime
+from functools import reduce
 from lxml import etree, html
 from psycopg2 import sql
 from werkzeug import urls
 from werkzeug.datastructures import OrderedMultiDict
 from werkzeug.exceptions import NotFound
+from markupsafe import Markup
 
 from odoo import api, fields, models, tools, http, release, registry
-from odoo.addons.http_routing.models.ir_http import slugify, _guess_mimetype, url_for
+from odoo.addons.http_routing.models.ir_http import RequestUID, slugify, url_for
 from odoo.addons.website.models.ir_http import sitemap_qs2dom
-from odoo.addons.website.tools import get_unaccent_sql_wrapper, similarity_score, text_from_html
+from odoo.addons.website.tools import similarity_score, text_from_html, get_base_domain
 from odoo.addons.portal.controllers.portal import pager
 from odoo.addons.iap.tools import iap_tools
-from odoo.exceptions import UserError, AccessError
+from odoo.exceptions import AccessError, MissingError, UserError, ValidationError
 from odoo.http import request
-from odoo.modules.module import get_resource_path
-from odoo.osv.expression import AND, OR, FALSE_DOMAIN
+from odoo.modules.module import get_resource_path, get_manifest
+from odoo.osv.expression import AND, OR, FALSE_DOMAIN, get_unaccent_wrapper
 from odoo.tools.translate import _
-from odoo.tools import escape_psql, pycompat
+from odoo.tools import escape_psql, OrderedSet, pycompat
 
 logger = logging.getLogger(__name__)
 
@@ -42,6 +48,10 @@ DEFAULT_CDN_FILTERS = [
 ]
 
 DEFAULT_ENDPOINT = 'https://website.api.odoo.com'
+
+# TODO: Remove in master.
+SEARCH_TYPE_MODELS = defaultdict(OrderedSet)
+#: DO NOT USE: this breaks multitenancy, extend '_search_get_details' instead
 
 
 class Website(models.Model):
@@ -65,10 +75,11 @@ class Website(models.Model):
     name = fields.Char('Website Name', required=True)
     sequence = fields.Integer(default=10)
     domain = fields.Char('Website Domain', help='E.g. https://www.mydomain.com')
-    country_group_ids = fields.Many2many('res.country.group', 'website_country_group_rel', 'website_id', 'country_group_id',
-                                         string='Country Groups', help='Used when multiple websites have the same domain.')
     company_id = fields.Many2one('res.company', string="Company", default=lambda self: self.env.company, required=True)
-    language_ids = fields.Many2many('res.lang', 'website_lang_rel', 'website_id', 'lang_id', 'Languages', default=_active_languages)
+    language_ids = fields.Many2many(
+        'res.lang', 'website_lang_rel', 'website_id', 'lang_id', string="Languages",
+        default=_active_languages, required=True)
+    language_count = fields.Integer('Number of languages', compute='_compute_language_count')
     default_lang_id = fields.Many2one('res.lang', string="Default Language", default=_default_language, required=True)
     auto_redirect_lang = fields.Boolean('Autoredirect Language', default=True, help="Should users be redirected to their browser's language")
     cookies_bar = fields.Boolean('Cookies Bar', help="Display a customizable cookies bar on your website.")
@@ -108,11 +119,12 @@ class Website(models.Model):
     has_social_default_image = fields.Boolean(compute='_compute_has_social_default_image', store=True)
 
     google_analytics_key = fields.Char('Google Analytics Key')
-    google_management_client_id = fields.Char('Google Client ID')
-    google_management_client_secret = fields.Char('Google Client Secret')
     google_search_console = fields.Char(help='Google key, or Enable to access first reply')
 
     google_maps_api_key = fields.Char('Google Maps API Key')
+
+    plausible_shared_key = fields.Char()
+    plausible_site = fields.Char()
 
     user_id = fields.Many2one('res.users', string='Public User', required=True)
     cdn_activated = fields.Boolean('Content Delivery Network (CDN)')
@@ -120,7 +132,7 @@ class Website(models.Model):
     cdn_filters = fields.Text('CDN Filters', default=lambda s: '\n'.join(DEFAULT_CDN_FILTERS), help="URL matching those filters will be rewritten using the CDN Base URL")
     partner_id = fields.Many2one(related='user_id.partner_id', string='Public Partner', readonly=False)
     menu_id = fields.Many2one('website.menu', compute='_compute_menu', string='Main Menu')
-    homepage_id = fields.Many2one('website.page', string='Homepage')
+    homepage_url = fields.Char(help='E.g. /contactus or /shop')
     custom_code_head = fields.Html('Custom <head> code', sanitize=False)
     custom_code_footer = fields.Html('Custom end of <body> code', sanitize=False)
 
@@ -140,6 +152,10 @@ class Website(models.Model):
         ('b2c', 'Free sign up'),
     ], string='Customer Account', default='b2b')
 
+    _sql_constraints = [
+        ('domain_unique', 'unique(domain)', 'Website Domain should be unique.'),
+    ]
+
     @api.onchange('language_ids')
     def _onchange_language_ids(self):
         language_ids = self.language_ids._origin
@@ -150,6 +166,11 @@ class Website(models.Model):
     def _compute_has_social_default_image(self):
         for website in self:
             website.has_social_default_image = bool(website.social_default_image)
+
+    @api.depends('language_ids')
+    def _compute_language_count(self):
+        for website in self:
+            website.language_count = len(website.language_ids)
 
     def _compute_menu(self):
         for website in self:
@@ -174,29 +195,36 @@ class Website(models.Model):
     def _get_menu_ids(self):
         return self.env['website.menu'].search([('website_id', '=', self.id)]).ids
 
-    # self.env.uid for ir.rule groups on menu
     @tools.ormcache('self.env.uid', 'self.id')
-    def _get_menu_page_ids(self):
-        return self.env['website.menu'].search([('website_id', '=', self.id)]).page_id.ids
+    def is_menu_cache_disabled(self):
+        """
+        Checks if the website menu contains a record like url.
+        :return: True if the menu contains a record like url
+        """
+        return any(self.env['website.menu'].browse(self._get_menu_ids()).filtered(
+            lambda menu: menu.url and re.search(r"[/](([^/=?&]+-)?[0-9]+)([/]|$)", menu.url))
+        )
 
-    @api.model
-    def create(self, vals):
-        self._handle_create_write(vals)
+    @api.model_create_multi
+    def create(self, vals_list):
+        for vals in vals_list:
+            self._handle_create_write(vals)
 
-        if 'user_id' not in vals:
-            company = self.env['res.company'].browse(vals.get('company_id'))
-            vals['user_id'] = company._get_public_user().id if company else self.env.ref('base.public_user').id
+            if 'user_id' not in vals:
+                company = self.env['res.company'].browse(vals.get('company_id'))
+                vals['user_id'] = company._get_public_user().id if company else self.env.ref('base.public_user').id
 
-        res = super(Website, self).create(vals)
-        res.company_id._compute_website_id()
-        res._bootstrap_homepage()
+        websites = super().create(vals_list)
+        websites.company_id._compute_website_id()
+        for website in websites:
+            website._bootstrap_homepage()
 
         if not self.env.user.has_group('website.group_multi_website') and self.search_count([]) > 1:
             all_user_groups = 'base.group_portal,base.group_user,base.group_public'
             groups = self.env['res.groups'].concat(*(self.env.ref(it) for it in all_user_groups.split(',')))
             groups.write({'implied_ids': [(4, self.env.ref('website.group_multi_website').id)]})
 
-        return res
+        return websites
 
     def write(self, values):
         public_user_to_change_websites = self.env['website']
@@ -247,11 +275,12 @@ class Website(models.Model):
     def _handle_create_write(self, vals):
         self._handle_favicon(vals)
         self._handle_domain(vals)
+        self._handle_homepage_url(vals)
 
     @api.model
     def _handle_favicon(self, vals):
-        if 'favicon' in vals:
-            vals['favicon'] = tools.image_process(vals['favicon'], size=(256, 256), crop='center', output_format='ICO')
+        if vals.get('favicon'):
+            vals['favicon'] = base64.b64encode(tools.image_process(base64.b64decode(vals['favicon']), size=(256, 256), crop='center', output_format='ICO'))
 
     @api.model
     def _handle_domain(self, vals):
@@ -259,6 +288,18 @@ class Website(models.Model):
             if not vals['domain'].startswith('http'):
                 vals['domain'] = 'https://%s' % vals['domain']
             vals['domain'] = vals['domain'].rstrip('/')
+
+    @api.model
+    def _handle_homepage_url(self, vals):
+        homepage_url = vals.get('homepage_url')
+        if homepage_url:
+            vals['homepage_url'] = homepage_url.rstrip('/')
+
+    @api.constrains('homepage_url')
+    def _check_homepage_url(self):
+        for website in self.filtered('homepage_url'):
+            if not website.homepage_url.startswith('/'):
+                raise ValidationError(_("The homepage URL should be relative and start with '/'."))
 
     # TODO: rename in master
     @api.ondelete(at_uninstall=False)
@@ -294,6 +335,20 @@ class Website(models.Model):
         configurator_action_todo = self.env.ref('website.website_configurator_todo')
         return configurator_action_todo.action_launch()
 
+    def _is_indexable_url(self, url):
+        """
+        Returns True if the given url has to be indexed by search engines.
+        It is considered that the website must be indexed if the domain name
+        matches the URL. We check if they are equal while ignoring the www. and
+        http(s). This is to index the site even if the user put the www. in the
+        settings while he has a configuration that redirects the www. to the
+        naked domain for example (same thing for http and https).
+
+        :param url: the url to check
+        :return: True if the url has to be indexed, False otherwise
+        """
+        return get_base_domain(url.lower(), True) == get_base_domain(self.domain.lower(), True)
+
     # ----------------------------------------------------------
     # Configurator
     # ----------------------------------------------------------
@@ -309,10 +364,10 @@ class Website(models.Model):
 
     @api.model
     def get_theme_snippet_lists(self, theme_name):
-        default_snippet_lists = http.addons_manifest['theme_default'].get('snippet_lists', {})
-        theme_snippet_lists = http.addons_manifest[theme_name].get('snippet_lists', {})
-        snippet_lists = {**default_snippet_lists, **theme_snippet_lists}
-        return snippet_lists
+        return {
+            **get_manifest('theme_default')['snippet_lists'],
+            **get_manifest(theme_name).get('snippet_lists', {}),
+        }
 
     def configurator_set_menu_links(self, menu_company, module_data):
         menus = self.env['website.menu'].search([('url', 'in', list(module_data.keys())), ('website_id', '=', self.id)])
@@ -328,7 +383,7 @@ class Website(models.Model):
     def configurator_init(self):
         r = dict()
         company = self.get_current_website().company_id
-        configurator_features = self.env['website.configurator.feature'].with_context(lang=self.get_current_website().default_lang_id.code).search([])
+        configurator_features = self.env['website.configurator.feature'].search([])
         r['features'] = [{
             'id': feature.id,
             'name': feature.name,
@@ -342,7 +397,7 @@ class Website(models.Model):
         if company.logo and company.logo != company._get_logo():
             r['logo'] = company.logo.decode('utf-8')
         try:
-            result = self._website_api_rpc('/api/website/1/configurator/industries', {'lang': self.get_current_website().default_lang_id.code})
+            result = self._website_api_rpc('/api/website/1/configurator/industries', {'lang': self.env.context.get('lang')})
             r['industries'] = result['industries']
         except AccessError as e:
             logger.warning(e.args[0])
@@ -350,12 +405,11 @@ class Website(models.Model):
 
     @api.model
     def configurator_recommended_themes(self, industry_id, palette):
-        domain = [('name', '=like', 'theme%'), ('name', 'not in', ['theme_default', 'theme_common']), ('state', '!=', 'uninstallable')]
-        client_themes = request.env['ir.module.module'].search(domain).mapped('name')
-        client_themes_img = dict([
-            (t, http.addons_manifest[t].get('images_preview_theme', {}))
-            for t in client_themes if t in http.addons_manifest
-        ])
+        Module = request.env['ir.module.module']
+        domain = Module.get_themes_domain()
+        domain = AND([[('name', '!=', 'theme_default')], domain])
+        client_themes = Module.search(domain).mapped('name')
+        client_themes_img = {t: get_manifest(t).get('images_preview_theme', {}) for t in client_themes if get_manifest(t)}
         themes_suggested = self._website_api_rpc(
             '/api/website/2/configurator/recommended_themes/%s' % industry_id,
             {'client_themes': client_themes_img}
@@ -433,16 +487,17 @@ class Website(models.Model):
 
         def configure_page(page_code, snippet_list, pages_views, cta_data):
             if page_code == 'homepage':
-                page_view_id = website.homepage_id.view_id
+                page_view_id = self.with_context(website_id=website.id).viewref('website.homepage')
             else:
                 page_view_id = self.env['ir.ui.view'].browse(pages_views[page_code])
             rendered_snippets = []
             nb_snippets = len(snippet_list)
             for i, snippet in enumerate(snippet_list, start=1):
                 try:
-                    view_id = self.env['website'].with_context(website_id=website.id, lang=website.default_lang_id.code).viewref('website.' + snippet)
-                    if view_id:
-                        el = html.fromstring(view_id._render(values=cta_data))
+                    IrQweb = self.env['ir.qweb'].with_context(website_id=website.id, lang=website.default_lang_id.code)
+                    render = IrQweb._render('website.' + snippet, cta_data)
+                    if render:
+                        el = html.fromstring(render)
 
                         # Add the data-snippet attribute to identify the snippet
                         # for compatibility code
@@ -611,7 +666,7 @@ class Website(models.Model):
 
         images = custom_resources.get('images', {})
         set_images(images)
-        return url
+        return {'url': url, 'website_id': website.id}
 
     # ----------------------------------------------------------
     # Page Management
@@ -623,12 +678,12 @@ class Website(models.Model):
             return
 
         # keep strange indentation in python file, to get it correctly in database
-        new_homepage_view = '''<t name="Homepage" t-name="website.homepage%s">
+        new_homepage_view = '''<t name="Homepage" t-name="website.homepage">
     <t t-call="website.layout">
         <t t-set="pageName" t-value="'homepage'"/>
         <div id="wrap" class="oe_structure oe_empty"/>
     </t>
-</t>''' % (self.id)
+</t>'''
         standard_homepage.with_context(website_id=self.id).arch_db = new_homepage_view
 
         homepage_page = Page.search([
@@ -643,13 +698,12 @@ class Website(models.Model):
             })
         # prevent /-1 as homepage URL
         homepage_page.url = '/'
-        self.homepage_id = homepage_page
 
         # Bootstrap default menu hierarchy, create a new minimalist one if no default
         default_menu = self.env.ref('website.main_menu')
         self.copy_menu_hierarchy(default_menu)
         home_menu = self.env['website.menu'].search([('website_id', '=', self.id), ('url', '=', '/')])
-        home_menu.page_id = self.homepage_id
+        home_menu.page_id = homepage_page
 
     def copy_menu_hierarchy(self, top_menu):
         def copy_menu(menu, t_menu):
@@ -730,10 +784,6 @@ class Website(models.Model):
             result['menu_id'] = menu.id
         return result
 
-    @api.model
-    def guess_mimetype(self):
-        return _guess_mimetype()
-
     def get_unique_path(self, page_url):
         """ Given an url, return that url suffixed by counter if it already exists
             :param page_url : the url to be checked for uniqueness
@@ -742,12 +792,29 @@ class Website(models.Model):
         # we only want a unique_path for website specific.
         # we need to be able to have /url for website=False, and /url for website=1
         # in case of duplicate, page manager will allow you to manage this case
-        domain_static = [('website_id', '=', self.get_current_website().id)]  # .website_domain()
+        website_id = self.env.context.get('website_id', False) or self.get_current_website().id
+        domain_static = [('website_id', '=', website_id)]  # .website_domain()
         page_temp = page_url
         while self.env['website.page'].with_context(active_test=False).sudo().search([('url', '=', page_temp)] + domain_static):
             inc += 1
             page_temp = page_url + (inc and "-%s" % inc or "")
         return page_temp
+
+    def _get_plausible_script_url(self):
+        return self.env['ir.config_parameter'].sudo().get_param(
+            'website.plausible_script',
+            'https://plausible.io/js/plausible.js'
+        )
+
+    def _get_plausible_server(self):
+        return self.env['ir.config_parameter'].sudo().get_param(
+            'website.plausible_server',
+            'https://plausible.io'
+        )
+
+    def _get_plausible_share_url(self):
+        embed_url = f'/share/{self.plausible_site}?auth={self.plausible_shared_key}&embed=true&theme=system'
+        return self.plausible_shared_key and urls.url_join(self._get_plausible_server(), embed_url) or ''
 
     def get_unique_key(self, string, template_module=False):
         """ Given a string, return an unique key including module prefix.
@@ -765,13 +832,16 @@ class Website(models.Model):
         key_copy = string
         inc = 0
         domain_static = self.get_current_website().website_domain()
+        website_id = self.env.context.get('website_id', False)
+        if website_id:
+            domain_static = [('website_id', 'in', (False, website_id))]
         while self.env['ir.ui.view'].with_context(active_test=False).sudo().search([('key', '=', key_copy)] + domain_static):
             inc += 1
             key_copy = string + (inc and "-%s" % inc or "")
         return key_copy
 
     @api.model
-    def page_search_dependencies(self, page_id=False):
+    def search_url_dependencies(self, res_model, res_ids):
         """ Search dependencies just for information. It will not catch 100%
             of dependencies and False positive is more than possible
             Each module could add dependences in this dict
@@ -779,109 +849,60 @@ class Website(models.Model):
                 view, and the value is the list of text and link to the resource using given page
         """
         dependencies = {}
-        if not page_id:
-            return dependencies
+        current_website = self.get_current_website()
+        page_model_name = 'Page'
 
-        page = self.env['website.page'].browse(int(page_id))
-        website = self.env['website'].browse(self._context.get('website_id'))
-        url = page.url
+        def _handle_views_and_pages(views):
+            page_views = views.filtered('page_ids')
+            views = views - page_views
+            if page_views:
+                dependencies.setdefault(page_model_name, [])
+                dependencies[page_model_name] += [{
+                    'field_name': 'Content',
+                    'record_name': page.name,
+                    'link': page.url,
+                    'model_name': page_model_name,
+                } for page in page_views.page_ids]
+            return views
 
-        # search for website_page with link
-        website_page_search_dom = [('view_id.arch_db', 'ilike', url)] + website.website_domain()
-        pages = self.env['website.page'].search(website_page_search_dom)
-        page_key = _('Page')
-        if len(pages) > 1:
-            page_key = _('Pages')
-        page_view_ids = []
-        for page in pages:
-            dependencies.setdefault(page_key, [])
-            dependencies[page_key].append({
-                'text': _('Page <b>%s</b> contains a link to this page', page.url),
-                'item': page.name,
-                'link': page.url,
-            })
-            page_view_ids.append(page.view_id.id)
+        # Prepare what's needed to later generate the URL search domain for the
+        # given records
+        search_criteria = []
+        for record in self.env[res_model].browse([int(res_id) for res_id in res_ids]):
+            website = 'website_id' in record and record.website_id or current_website
+            url = 'website_url' in record and record.website_url or record.url
+            search_criteria.append((url, website.website_domain()))
 
-        # search for ir_ui_view (not from a website_page) with link
-        page_search_dom = [('arch_db', 'ilike', url), ('id', 'not in', page_view_ids)] + website.website_domain()
-        views = self.env['ir.ui.view'].search(page_search_dom)
-        view_key = _('Template')
-        if len(views) > 1:
-            view_key = _('Templates')
-        for view in views:
-            dependencies.setdefault(view_key, [])
-            dependencies[view_key].append({
-                'text': _('Template <b>%s (id:%s)</b> contains a link to this page') % (view.key or view.name, view.id),
-                'link': '/web#id=%s&view_type=form&model=ir.ui.view' % view.id,
-                'item': _('%s (id:%s)') % (view.key or view.name, view.id),
-            })
-        # search for menu with link
-        menu_search_dom = [('url', 'ilike', '%s' % url)] + website.website_domain()
+        # Search the URL in every relevant field
+        html_fields_attributes = self._get_html_fields_attributes() + [
+            ('website.menu', 'website_menu', 'url', False),
+        ]
+        for model, _table, column, _translate in html_fields_attributes:
+            Model = self.env[model]
+            if not Model.check_access_rights('read', raise_exception=False):
+                continue
 
-        menus = self.env['website.menu'].search(menu_search_dom)
-        menu_key = _('Menu')
-        if len(menus) > 1:
-            menu_key = _('Menus')
-        for menu in menus:
-            dependencies.setdefault(menu_key, []).append({
-                'text': _('This page is in the menu <b>%s</b>', menu.name),
-                'link': '/web#id=%s&view_type=form&model=website.menu' % menu.id,
-                'item': menu.name,
-            })
+            # Generate the exact domain to search for the URL in this field
+            domains = []
+            for url, website_domain in search_criteria:
+                domains.append(AND([
+                    [(column, 'ilike', url)],
+                    website_domain if hasattr(Model, 'website_id') else [],
+                ]))
 
-        return dependencies
-
-    @api.model
-    def page_search_key_dependencies(self, page_id=False):
-        """ Search dependencies just for information. It will not catch 100%
-            of dependencies and False positive is more than possible
-            Each module could add dependences in this dict
-            :returns a dictionnary where key is the 'categorie' of object related to the given
-                view, and the value is the list of text and link to the resource using given page
-        """
-        dependencies = {}
-        if not page_id:
-            return dependencies
-
-        page = self.env['website.page'].browse(int(page_id))
-        website = self.env['website'].browse(self._context.get('website_id'))
-        key = page.key
-
-        # search for website_page with link
-        website_page_search_dom = [
-            ('view_id.arch_db', 'ilike', key),
-            ('id', '!=', page.id)
-        ] + website.website_domain()
-        pages = self.env['website.page'].search(website_page_search_dom)
-        page_key = _('Page')
-        if len(pages) > 1:
-            page_key = _('Pages')
-        page_view_ids = []
-        for p in pages:
-            dependencies.setdefault(page_key, [])
-            dependencies[page_key].append({
-                'text': _('Page <b>%s</b> is calling this file', p.url),
-                'item': p.name,
-                'link': p.url,
-            })
-            page_view_ids.append(p.view_id.id)
-
-        # search for ir_ui_view (not from a website_page) with link
-        page_search_dom = [
-            ('arch_db', 'ilike', key), ('id', 'not in', page_view_ids),
-            ('id', '!=', page.view_id.id),
-        ] + website.website_domain()
-        views = self.env['ir.ui.view'].search(page_search_dom)
-        view_key = _('Template')
-        if len(views) > 1:
-            view_key = _('Templates')
-        for view in views:
-            dependencies.setdefault(view_key, [])
-            dependencies[view_key].append({
-                'text': _('Template <b>%s (id:%s)</b> is calling this file') % (view.key or view.name, view.id),
-                'item': _('%s (id:%s)') % (view.key or view.name, view.id),
-                'link': '/web#id=%s&view_type=form&model=ir.ui.view' % view.id,
-            })
+            dependency_records = Model.search(OR(domains))
+            if model == 'ir.ui.view':
+                dependency_records = _handle_views_and_pages(dependency_records)
+            if dependency_records:
+                model_name = self.env['ir.model']._display_name_for([model])[0]['display_name']
+                field_name = Model.fields_get()[column]['string']
+                dependencies.setdefault(model_name, [])
+                dependencies[model_name] += [{
+                    'field_name': field_name,
+                    'record_name': rec.display_name,
+                    'link': 'website_url' in rec and rec.website_url or f'/web#id={rec.id}&view_type=form&model={model}',
+                    'model_name': model_name,
+                } for rec in dependency_records]
 
         return dependencies
 
@@ -969,42 +990,31 @@ class Website(models.Model):
         # there is one on request) or return a random one.
 
         # The format of `httprequest.host` is `domain:port`
-        domain_name = request and request.httprequest.host or ''
-
-        country = request.session.geoip.get('country_code') if request and request.session.geoip else False
-        country_id = False
-        if country:
-            country_id = self.env['res.country'].search([('code', '=', country)], limit=1).id
-
-        website_id = self.sudo()._get_current_website_id(domain_name, country_id, fallback=fallback)
+        domain_name = (
+            request and request.httprequest.host
+            or hasattr(threading.current_thread(), 'url') and threading.current_thread().url
+            or ''
+        )
+        website_id = self.sudo()._get_current_website_id(domain_name, fallback=fallback)
         return self.browse(website_id)
 
-    @tools.cache('domain_name', 'country_id', 'fallback')
+    @tools.ormcache('domain_name', 'fallback')
     @api.model
-    def _get_current_website_id(self, domain_name, country_id, fallback=True):
+    def _get_current_website_id(self, domain_name, fallback=True):
         """Get the current website id.
 
-        First find all the websites for which the configured `domain` (after
+        First find the website for which the configured `domain` (after
         ignoring a potential scheme) is equal to the given
-        `domain_name`. If there is only one result, return it immediately.
+        `domain_name`. If a match is found, return it immediately.
 
-        If there are no website found for the given `domain_name`, either
+        If there is no website found for the given `domain_name`, either
         fallback to the first found website (no matter its `domain`) or return
         False depending on the `fallback` parameter.
-
-        If there are multiple websites for the same `domain_name`, we need to
-        filter them out by country. We return the first found website matching
-        the given `country_id`. If no found website matching `domain_name`
-        corresponds to the given `country_id`, the first found website for
-        `domain_name` will be returned (no matter its country).
 
         :param domain_name: the domain for which we want the website.
             In regard to the `url_parse` method, only the `netloc` part should
             be given here, no `scheme`.
         :type domain_name: string
-
-        :param country_id: id of the country for which we want the website
-        :type country_id: int
 
         :param fallback: if True and no website is found for the specificed
             `domain_name`, return the first website (without filtering them)
@@ -1022,19 +1032,17 @@ class Website(models.Model):
         def _filter_domain(website, domain_name, ignore_port=False):
             """Ignore `scheme` from the `domain`, just match the `netloc` which
             is host:port in the version of `url_parse` we use."""
-            # Here we add http:// to the domain if it's not set because
-            # `url_parse` expects it to be set to correctly return the `netloc`.
-            website_domain = urls.url_parse(website._get_http_domain()).netloc
+            website_domain = get_base_domain(website.domain)
             if ignore_port:
                 website_domain = _remove_port(website_domain)
                 domain_name = _remove_port(domain_name)
             return website_domain.lower() == (domain_name or '').lower()
 
-        # Sort on country_group_ids so that we fall back on a generic website:
-        # websites with empty country_group_ids will be first.
-        found_websites = self.search([('domain', 'ilike', _remove_port(domain_name))]).sorted('country_group_ids')
+        found_websites = self.search([('domain', 'ilike', _remove_port(domain_name))])
         # Filter for the exact domain (to filter out potential subdomains) due
         # to the use of ilike.
+        # `domain_name` could be an empty string, in that case multiple website
+        # without a domain will be returned
         websites = found_websites.filtered(lambda w: _filter_domain(w, domain_name))
         # If there is no domain matching for the given port, ignore the port.
         websites = websites or found_websites.filtered(lambda w: _filter_domain(w, domain_name, ignore_port=True))
@@ -1043,11 +1051,8 @@ class Website(models.Model):
             if not fallback:
                 return False
             return self.search([], limit=1).id
-        elif len(websites) == 1:
-            return websites.id
-        else:  # > 1 website with the same domain
-            country_specific_websites = websites.filtered(lambda website: country_id in website.country_group_ids.mapped('country_ids').ids)
-            return country_specific_websites[0].id if country_specific_websites else websites[0].id
+
+        return websites[0].id
 
     def _force(self):
         self._force_website(self.id)
@@ -1055,14 +1060,6 @@ class Website(models.Model):
     def _force_website(self, website_id):
         if request:
             request.session['force_website_id'] = website_id and str(website_id).isdigit() and int(website_id)
-
-    @api.model
-    def is_publisher(self):
-        return self.env['ir.model.access'].check('ir.ui.view', 'write', False)
-
-    @api.model
-    def is_user(self):
-        return self.env['ir.model.access'].check('ir.ui.menu', 'read', False)
 
     @api.model
     def is_public_user(self):
@@ -1074,7 +1071,7 @@ class Website(models.Model):
             In case of website context, return the most specific one.
 
             If no website_id is in the context, it will return the generic view,
-            instead of a random one like `get_view_id`.
+            instead of a random one like `_get_view_id`.
 
             Look also for archived views, no matter the context.
 
@@ -1093,7 +1090,7 @@ class Website(models.Model):
                 order = View._order
             views = View.with_context(active_test=False).search(domain, order=order)
             if views:
-                view = views.filter_duplicate()
+                view = views.filter_duplicate()[:1]
             else:
                 # we handle the raise below
                 view = self.env.ref(view_id, raise_if_not_found=False)
@@ -1110,35 +1107,23 @@ class Website(models.Model):
             raise ValueError('No record found for unique ID %s. It may have been deleted.' % (view_id))
         return view
 
-    @tools.ormcache_context(keys=('website_id',))
-    def _cache_customize_show_views(self):
-        views = self.env['ir.ui.view'].with_context(active_test=False).sudo().search([('customize_show', '=', True)])
-        views = views.filter_duplicate()
-        return {v.key: v.active for v in views}
-
+    @api.model
     @tools.ormcache_context('key', keys=('website_id',))
-    def is_view_active(self, key, raise_if_not_found=False):
+    def is_view_active(self, key):
         """
-            Return True if active, False if not active, None if not found or not a customize_show view
+            Return True if active, False if not active, None if not found
         """
-        views = self._cache_customize_show_views()
-        view = key in views and views[key]
-        if view is None and raise_if_not_found:
-            raise ValueError('No view of type customize_show found for key %s' % key)
-        return view
+        view = self.viewref(key, raise_if_not_found=False)
+        return view.active if view else None
 
     @api.model
     def get_template(self, template):
-        View = self.env['ir.ui.view']
-        if isinstance(template, int):
-            view_id = template
-        else:
-            if '.' not in template:
-                template = 'website.%s' % template
-            view_id = View.get_view_id(template)
-        if not view_id:
+        if isinstance(template, str) and '.' not in template:
+            template = 'website.%s' % template
+        view = self.env['ir.ui.view']._get(template).sudo()
+        if not view:
             raise NotFound
-        return View.sudo().browse(view_id)
+        return view
 
     @api.model
     def pager(self, url, total, page=1, step=30, scope=5, url_args=None):
@@ -1154,23 +1139,22 @@ class Website(models.Model):
         methods = endpoint.routing.get('methods') or ['GET']
 
         converters = list(rule._converters.values())
-        if not ('GET' in methods and
-                endpoint.routing['type'] == 'http' and
-                endpoint.routing['auth'] in ('none', 'public') and
-                endpoint.routing.get('website', False) and
-                all(hasattr(converter, 'generate') for converter in converters)):
+        if not ('GET' in methods
+                and endpoint.routing['type'] == 'http'
+                and endpoint.routing['auth'] in ('none', 'public')
+                and endpoint.routing.get('website', False)
+                and all(hasattr(converter, 'generate') for converter in converters)):
             return False
 
         # dont't list routes without argument having no default value or converter
-        sign = inspect.signature(endpoint.method.original_func)
+        sign = inspect.signature(endpoint.original_endpoint)
         params = list(sign.parameters.values())[1:]  # skip self
         supported_kinds = (inspect.Parameter.POSITIONAL_ONLY,
                            inspect.Parameter.POSITIONAL_OR_KEYWORD)
-        has_no_default = lambda p: p.default is inspect.Parameter.empty
 
         # check that all args have a converter
         return all(p.name in rule._converters for p in params
-                   if p.kind in supported_kinds and has_no_default(p))
+                   if p.kind in supported_kinds and p.default is inspect.Parameter.empty)
 
     def _enumerate_pages(self, query_string=None, force=False):
         """ Available pages in the website/CMS. This is mostly used for links
@@ -1184,17 +1168,19 @@ class Website(models.Model):
                       of the same.
             :rtype: list({name: str, url: str})
         """
-
-        router = http.root.get_db_router(request.db)
+        router = self.env['ir.http'].routing_map()
         url_set = set()
 
         sitemap_endpoint_done = set()
 
         for rule in router.iter_rules():
             if 'sitemap' in rule.endpoint.routing and rule.endpoint.routing['sitemap'] is not True:
-                if rule.endpoint in sitemap_endpoint_done:
+                endpoint_func = rule.endpoint.func
+                if isinstance(endpoint_func, functools.partial): # follow partial in case of redirect
+                    endpoint_func = endpoint_func.func
+                if endpoint_func.__func__ in sitemap_endpoint_done:
                     continue
-                sitemap_endpoint_done.add(rule.endpoint)
+                sitemap_endpoint_done.add(endpoint_func.__func__)
 
                 func = rule.endpoint.routing['sitemap']
                 if func is False:
@@ -1208,7 +1194,7 @@ class Website(models.Model):
 
             if 'sitemap' not in rule.endpoint.routing:
                 logger.warning('No Sitemap value provided for controller %s (%s)' %
-                               (rule.endpoint.method, ','.join(rule.endpoint.routing['routes'])))
+                               (rule.endpoint.original_endpoint, ','.join(rule.endpoint.routing['routes'])))
 
             converters = rule._converters or {}
             if query_string and not converters and (query_string not in rule.build({}, append_unknown=False)[1]):
@@ -1233,7 +1219,7 @@ class Website(models.Model):
                         if query == FALSE_DOMAIN:
                             continue
 
-                    for rec in converter.generate(uid=self.env.uid, dom=query, args=val):
+                    for rec in converter.generate(self.env, args=val, dom=query):
                         newval.append(val.copy())
                         newval[-1].update({name: rec.with_context(lang=self.default_lang_id.code)})
                 values = newval
@@ -1267,9 +1253,32 @@ class Website(models.Model):
             record = {'loc': page['url'], 'id': page['id'], 'name': page['name']}
             if page.view_id and page.view_id.priority != 16:
                 record['priority'] = min(round(page.view_id.priority / 32.0, 1), 1)
-            if page['write_date']:
-                record['lastmod'] = page['write_date'].date()
+            last_updated_date = max(
+                [d for d in (page.write_date, page.view_id.write_date) if isinstance(d, datetime)],
+                default=None,
+            )
+            if last_updated_date:
+                record['lastmod'] = last_updated_date.date()
             yield record
+
+    def get_website_page_ids(self):
+        if not self.env.user.has_group('website.group_website_restricted_editor'):
+            # Note that `website.pages` have `0,0,0,0` ACL rights by default for
+            # everyone except for the website designer which receive `1,0,0,0`.
+            # So the "Website/Site/Content/Pages" menu to reach the page manager
+            # is not shown to the restricted users, as the action linked model
+            # (website.page) can't be access. It's how the Odoo framework works.
+            # Still, we let the restricted editor access this resource for
+            # custos granting them read and/or write access on page.
+            raise AccessError(_("Access Denied"))
+
+        domain = [('url', '!=', False)]
+        if self:
+            domain = AND([domain, self.website_domain()])
+        pages = self.env['website.page'].sudo().search(domain)
+        if self:
+            pages = pages._get_most_specific_pages()
+        return pages.ids
 
     def _get_website_pages(self, domain=None, order='name', limit=None):
         if domain is None:
@@ -1277,9 +1286,7 @@ class Website(models.Model):
         domain += self.get_current_website().website_domain()
         domain = AND([domain, [('url', '!=', False)]])
         pages = self.env['website.page'].sudo().search(domain, order=order, limit=limit)
-        # TODO In 16.0 remove condition on _filter_duplicate_pages.
-        if self.env.context.get('_filter_duplicate_pages'):
-            pages = pages._get_most_specific_pages()
+        pages = pages._get_most_specific_pages()
         return pages
 
     def search_pages(self, needle=None, limit=None):
@@ -1327,66 +1334,68 @@ class Website(models.Model):
             return self.env["ir.actions.actions"]._for_xml_id("website.backend_dashboard")
         return self.env["ir.actions.actions"]._for_xml_id("website.action_website")
 
+    def get_client_action_url(self, url, mode_edit=False):
+        action_params = {
+            "action": "website.website_preview",
+            "path": url,
+        }
+        if mode_edit:
+            action_params["enable_editor"] = 1
+        return "/web#" + urls.url_encode(action_params)
+
+    def get_client_action(self, url, mode_edit=False, website_id=False):
+        action = self.env["ir.actions.actions"]._for_xml_id("website.website_preview")
+        action['context'] = {
+            'params': {
+                'path': url,
+                'enable_editor': mode_edit,
+                'website_id': website_id,
+            }
+        }
+        return action
+
     def button_go_website(self, path='/', mode_edit=False):
         self._force()
         if mode_edit:
             # If the user gets on a translated page (e.g /fr) the editor will
             # never start. Forcing the default language fixes this issue.
             path = url_for(path, self.default_lang_id.url_code)
-            path += '?enable_editor=1'
-        return {
-            'type': 'ir.actions.act_url',
-            'url': path,
-            'target': 'self',
-        }
-
-    def _get_http_domain(self):
-        """Get the domain of the current website, prefixed by http if no
-        scheme is specified.
-
-        Empty string if no domain is specified on the website.
-        """
-        self.ensure_one()
-        if not self.domain:
-            return ''
-        res = urls.url_parse(self.domain)
-        return 'http://' + self.domain if not res.scheme else self.domain
+        return self.get_client_action(path, mode_edit)
 
     def _get_canonical_url_localized(self, lang, canonical_params):
         """Returns the canonical URL for the current request with translatable
         elements appropriately translated in `lang`.
 
-        If `request.endpoint` is not true, returns the current `path` instead.
+        If it is not possible to rebuild a path, use the current one instead.
 
         `url_quote_plus` is applied on the returned path.
         """
         self.ensure_one()
-        if request.endpoint:
-            router = http.root.get_db_router(request.db).bind('')
-            arguments = dict(request.endpoint_arguments)
-            for key, val in list(arguments.items()):
+        try:
+            # Re-match the controller where the request path routes.
+            rule, args = self.env['ir.http']._match(request.httprequest.path)
+            for key, val in list(args.items()):
                 if isinstance(val, models.BaseModel):
+                    if isinstance(val._uid, RequestUID):
+                        args[key] = val = val.with_user(request.uid)
                     if val.env.context.get('lang') != lang.code:
-                        arguments[key] = val.with_context(lang=lang.code)
-            path = router.build(request.endpoint, arguments)
-        else:
+                        args[key] = val = val.with_context(lang=lang.code)
+
+            router = http.root.get_db_router(request.db).bind('')
+            path = router.build(rule.endpoint, args)
+        except (NotFound, AccessError, MissingError):
             # The build method returns a quoted URL so convert in this case for consistency.
             path = urls.url_quote_plus(request.httprequest.path, safe='/')
-        lang_path = ('/' + lang.url_code) if lang != self.default_lang_id else ''
-        canonical_query_string = '?%s' % urls.url_encode(canonical_params) if canonical_params else ''
-
-        if lang_path and path == '/':
-            # We want `/fr_BE` not `/fr_BE/` for correct canonical on homepage
-            localized_path = lang_path
-        else:
-            localized_path = lang_path + path
-
-        return self.get_base_url() + localized_path + canonical_query_string
+        if lang != self.default_lang_id:
+            path = f'/{lang.url_code}{path if path != "/" else ""}'
+        canonical_query_string = f'?{urls.url_encode(canonical_params)}' if canonical_params else ''
+        return self.get_base_url() + path + canonical_query_string
 
     def _get_canonical_url(self, canonical_params):
         """Returns the canonical URL for the current request."""
         self.ensure_one()
-        return self._get_canonical_url_localized(lang=request.lang, canonical_params=canonical_params)
+        lang = getattr(request, 'lang', self.env['ir.http']._get_default_lang())
+        return self._get_canonical_url_localized(lang=lang, canonical_params=canonical_params)
 
     def _is_canonical_url(self, canonical_params):
         """Returns whether the current request URL is canonical."""
@@ -1397,10 +1406,10 @@ class Website(models.Model):
         canonical_params = canonical_params or OrderedMultiDict()
         if params != canonical_params:
             return False
-        # Compare URL at the first rerouting iteration (if available) because
-        # it's the one with the language in the path.
-        # It is important to also test the domain of the current URL.
-        current_url = request.httprequest.url_root[:-1] + (hasattr(request, 'rerouting') and request.rerouting[0] or request.httprequest.path)
+        # Compare URL at the first routing iteration because it's the one with
+        # the language in the path. It is important to also test the domain of
+        # the current URL.
+        current_url = request.httprequest.url_root[:-1] + request.httprequest.environ['REQUEST_URI']
         canonical_url = self._get_canonical_url_localized(lang=request.lang, canonical_params=None)
         # A request path with quotable characters (such as ",") is never
         # canonical because request.httprequest.base_url is always unquoted,
@@ -1415,31 +1424,37 @@ class Website(models.Model):
             'user_id': self.user_id.id,
             'company_id': self.company_id.id,
             'default_lang_id': self.default_lang_id.id,
-            'homepage_id': self.homepage_id.id,
+            'homepage_url': self.homepage_url,
         }
 
     def _get_cached(self, field):
         return self._get_cached_values()[field]
 
-    def _get_html_fields(self):
-        html_fields = [('ir_ui_view', 'arch_db')]
+    def _get_html_fields_attributes_blacklist(self):
+        return (
+            'mail.message', 'mail.activity', 'digest.tip',
+        )
+
+    def _get_html_fields_attributes(self):
+        html_fields = [('ir.ui.view', 'ir_ui_view', 'arch_db', True)]
         cr = self.env.cr
-        cr.execute(r"""
+        cr.execute("""
             SELECT f.model,
-                   f.name
+                   f.name,
+                   f.translate
               FROM ir_model_fields f
               JOIN ir_model m
                 ON m.id = f.model_id
              WHERE f.ttype = 'html'
                AND f.store = true
                AND m.transient = false
-               AND f.model NOT LIKE 'ir.actions%'
-               AND f.model != 'mail.message'
-        """)
-        for model, name in cr.fetchall():
+               AND f.model NOT LIKE 'ir.actions%%'
+               AND f.model NOT IN %s
+        """, ([self._get_html_fields_attributes_blacklist()]))
+        for model, name, translate in cr.fetchall():
             table = self.env[model]._table
             if tools.table_exists(cr, table) and tools.column_exists(cr, table, name):
-                html_fields.append((table, name))
+                html_fields.append((model, table, name, translate))
         return html_fields
 
     def _get_snippets_assets(self):
@@ -1470,14 +1485,13 @@ class Website(models.Model):
         """)
         return self.env.cr.fetchall()
 
-    def _is_snippet_used(self, snippet_module, snippet_id, asset_version, asset_type, html_fields):
+    def _is_snippet_used(self, snippet_module, snippet_id, asset_version, asset_type, html_fields_attributes):
         snippet_occurences = []
         # Check snippet template definition to avoid disabling its related assets.
         # This special case is needed because snippet template definitions do not
         # have a `data-snippet` attribute (which is added during drag&drop).
-        snippet_template = self.env.ref(f'{snippet_module}.{snippet_id}', raise_if_not_found=False)
-        if snippet_template:
-            snippet_template_html = snippet_template._render()
+        snippet_template_html = self.env['ir.qweb']._render(f'{snippet_module}.{snippet_id}', raise_if_not_found=False)
+        if snippet_template_html:
             match = re.search('<([^>]*class="[^>]*)>', snippet_template_html)
             snippet_occurences.append(match.group())
 
@@ -1486,11 +1500,12 @@ class Website(models.Model):
 
         # As well as every snippet dropped in html fields
         self.env.cr.execute(sql.SQL(" UNION ").join(
-            sql.SQL("SELECT regexp_matches({}, {}, 'g') FROM {}").format(
+            sql.SQL("SELECT regexp_matches({}{}, {}, 'g') FROM {}").format(
                 sql.Identifier(column),
+                sql.SQL("->>'en_US'" if translate else ''),
                 sql.Placeholder('snippet_regex'),
                 sql.Identifier(table)
-            ) for table, column in html_fields
+            ) for _model, table, column, translate in html_fields_attributes
         ), {'snippet_regex': f'<([^>]*data-snippet="{snippet_id}"[^>]*)>'})
 
         snippet_occurences = [r[0][0] for r in self.env.cr.fetchall()]
@@ -1508,10 +1523,10 @@ class Website(models.Model):
 
     def _disable_unused_snippets_assets(self):
         snippets_assets = self._get_snippets_assets()
-        html_fields = self._get_html_fields()
+        html_fields_attributes = self._get_html_fields_attributes()
 
-        for snippet_module, snippet_id, asset_version, asset_type, _ in snippets_assets:
-            is_snippet_used = self._is_snippet_used(snippet_module, snippet_id, asset_version, asset_type, html_fields)
+        for snippet_module, snippet_id, asset_version, asset_type, _asset_id in snippets_assets:
+            is_snippet_used = self._is_snippet_used(snippet_module, snippet_id, asset_version, asset_type, html_fields_attributes)
 
             # The regex catches XXX.scss, XXX.js and XXX_variables.scss
             assets_regex = f'{snippet_id}/{asset_version}.+{asset_type}'
@@ -1569,7 +1584,21 @@ class Website(models.Model):
 
         :return: list of search details obtained from the `website.searchable.mixin`'s `_search_get_detail()`
         """
-        result = []
+        if SEARCH_TYPE_MODELS:
+            # TODO: Remove in master.
+            if search_type == 'all':
+                model_names = reduce(operator.ior, SEARCH_TYPE_MODELS.values())
+            else:
+                model_names = SEARCH_TYPE_MODELS[search_type]
+
+            result = list(
+                self.env[model_name]._search_get_detail(self, order, options)
+                for model_name in model_names
+                if model_name in self.env
+            )
+        else:
+            result = []
+
         if search_type in ['pages', 'all']:
             result.append(self.env['website.page']._search_get_detail(self, order, options))
         return result
@@ -1695,6 +1724,7 @@ class Website(models.Model):
         """
         match_pattern = r'[\w./-]{%s,}' % min(4, len(search) - 3)
         similarity_threshold = 0.3
+        lang = self.env.lang or 'en_US'
         for search_detail in search_details:
             model_name, fields = search_detail['model'], search_detail['search_fields']
             model = self.env[model_name]
@@ -1703,7 +1733,7 @@ class Website(models.Model):
             domain = search_detail['base_domain'].copy()
             fields = set(fields).intersection(model._fields)
 
-            unaccent = get_unaccent_sql_wrapper(self.env.cr)
+            unaccent = get_unaccent_wrapper(self.env.cr)
 
             # Specific handling for fields being actually part of another model
             # through the `inherits` mechanism.
@@ -1733,7 +1763,6 @@ class Website(models.Model):
                 for inherits_model_fname in self.env[inherits_model_name]._fields.keys()
                 if inherits_model_fname in fields
             }
-
             similarities = []
             for field in fields:
                 # Field might belong to another model (`inherits` mechanism)
@@ -1744,7 +1773,12 @@ class Website(models.Model):
                         field=unaccent(sql.SQL("{table}.{field}").format(
                             table=sql.Identifier(table),
                             field=sql.Identifier(field)
-                        ))
+                        )) if not model._fields[field].translate else
+                        unaccent(sql.SQL("COALESCE({table}.{field}->>{lang}, {table}.{field}->>'en_US')").format(
+                            table=sql.Identifier(table),
+                            field=sql.Identifier(field),
+                            lang=sql.Literal(lang)
+                        )),
                     )
                 )
 
@@ -1793,66 +1827,6 @@ class Website(models.Model):
             )
             self.env.cr.execute(query, {'search': search})
             ids = {row[0] for row in self.env.cr.fetchall() if row[1] and row[1] >= similarity_threshold}
-            if self.env.lang:
-                # Specific handling for website.page that inherits its arch_db and name fields
-                # TODO make more generic
-                if 'arch_db' in fields:
-                    # Look for partial translations
-                    similarity = sql.SQL("word_similarity({search}, {field})").format(
-                        search=unaccent(sql.Placeholder('search')),
-                        field=unaccent(sql.SQL('t.value'))
-                    )
-                    names = ['%s,%s' % (self.env['ir.ui.view']._name, field) for field in fields]
-                    query = sql.SQL("""
-                        SELECT {table}.id, {similarity} AS _similarity
-                        FROM {table}
-                        LEFT JOIN ir_ui_view v ON {table}.view_id = v.id
-                        LEFT JOIN ir_translation t ON v.id = t.res_id
-                        WHERE t.lang = {lang}
-                        AND t.name = ANY({names})
-                        AND t.type = 'model_terms'
-                        AND t.value IS NOT NULL
-                        ORDER BY _similarity desc
-                        LIMIT 1000
-                    """).format(
-                        table=sql.Identifier(model._table),
-                        similarity=similarity,
-                        lang=sql.Placeholder('lang'),
-                        names=sql.Placeholder('names'),
-                    )
-                else:
-                    similarity = sql.SQL("word_similarity({search}, {field})").format(
-                        search=unaccent(sql.Placeholder('search')),
-                        field=unaccent(sql.SQL('value'))
-                    )
-                    where_clause = """
-                        WHERE lang = {lang}
-                        AND name = ANY({names})
-                        AND type = 'model'
-                        AND value IS NOT NULL
-                    """
-                    if filter_is_published:
-                        # TODO: This should also filter out unpublished records
-                        # if this `is_published` field is not part of the model
-                        # table directly but part of an `inherits` table.
-                        where_clause += f"AND res_id in (SELECT id FROM {model._table} WHERE is_published) "
-                    where_clause = sql.SQL(where_clause).format(
-                        lang=sql.Placeholder('lang'),
-                        names=sql.Placeholder('names'),
-                    )
-                    names = ['%s,%s' % (model._name, field) for field in fields]
-                    query = sql.SQL("""
-                        SELECT res_id, {similarity} AS _similarity
-                        FROM ir_translation
-                        {where_clause}
-                        ORDER BY _similarity desc
-                        LIMIT 1000
-                    """).format(
-                        similarity=similarity,
-                        where_clause=where_clause,
-                    )
-                self.env.cr.execute(query, {'lang': self.env.lang, 'names': names, 'search': search})
-                ids.update(row[0] for row in self.env.cr.fetchall() if row[1] and row[1] >= similarity_threshold)
             domain.append([('id', 'in', list(ids))])
             domain = AND(domain)
             records = model.search_read(domain, fields, limit=limit)
@@ -1885,7 +1859,7 @@ class Website(models.Model):
             for field in fields:
                 fields_domain.append([(field, '=ilike', '%s%%' % first)])
                 fields_domain.append([(field, '=ilike', '%% %s%%' % first)])
-                fields_domain.append([(field, '=ilike', '%%>%s%%' % first)]) # HTML
+                fields_domain.append([(field, '=ilike', '%%>%s%%' % first)])  # HTML
             domain.append(OR(fields_domain))
             domain = AND(domain)
             perf_limit = 1000
@@ -1905,3 +1879,16 @@ class Website(models.Model):
                         for word in re.findall(match_pattern, value):
                             if word[0] == search[0]:
                                 yield word.lower()
+
+    def _allConsentsGranted(self):
+        """
+        Checks if all (cookies) consents have been granted. Note that in the
+        case no cookies bar has been enabled, this considers that full consent
+        has been immediately given. Indeed, in that case, we suppose that the
+        user implemented his own consent behavior through custom code / app.
+        That custom code / app is able to override this function as desired and
+        xpath the `tracking_code_config` script in `website.layout`.
+        :return: True if all consents have been granted, False otherwise
+        """
+        self.ensure_one()
+        return not self.cookies_bar or self.env['ir.http']._is_allowed_cookie('optional')

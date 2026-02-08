@@ -10,7 +10,7 @@ from unittest.mock import patch
 
 from odoo import exceptions, _
 from odoo.tests.common import BaseCase
-from odoo.tools import pycompat
+from odoo.tools import email_normalize, exception_to_unicode, pycompat
 
 _logger = logging.getLogger(__name__)
 
@@ -61,7 +61,8 @@ _MAIL_PROVIDERS = {
     'freemail.hu', 'live.it', 'blackwaretech.com', 'byom.de', 'dispostable.com', 'dayrep.com', 'aim.com', 'prixgen.com', 'gmail.om',
     'asterisk-tech.mn', 'in.com', 'aliceadsl.fr', 'lycos.com', 'topnet.tn', 'teleworm.us', 'kedgebs.com', 'supinfo.com', 'posteo.de',
     'yahoo.com ', 'op.pl', 'gmail.fr', 'grr.la', 'oci.fr', 'aselcis.com', 'optusnet.com.au', 'mailcatch.com', 'rambler.ru', 'protonmail.ch',
-    'prisme.ch', 'bbox.fr', 'orbitalu.com', 'netcourrier.com', 'iinet.net.au', 'cegetel.net', 'proton.me', 'dbmail.com', 'club-internet.fr',
+    'prisme.ch', 'bbox.fr', 'orbitalu.com', 'netcourrier.com', 'iinet.net.au', 'cegetel.net', 'proton.me', 'dbmail.com', 'club-internet.fr', 'outlook.jp',
+    'pm.me',
     # Dummy entries
     'example.com',
 }
@@ -72,6 +73,39 @@ _MAIL_DOMAIN_BLACKLIST = _MAIL_PROVIDERS | {'odoo.com'}
 _STATES_FILTER_COUNTRIES_WHITELIST = set([
     'AR', 'AU', 'BR', 'CA', 'IN', 'MY', 'MX', 'NZ', 'AE', 'US'
 ])
+
+
+#----------------------------------------------------------
+# Tools
+#----------------------------------------------------------
+
+def mail_prepare_for_domain_search(email, min_email_length=0):
+    """ Return an email address to use for a domain-based search. For generic
+    email providers like gmail (see ``_MAIL_DOMAIN_BLACKLIST``) we consider
+    each email as being independant (and return the whole email). Otherwise
+    we return only the right-part of the email (aka "mydomain.com" if email is
+    "Raoul Lachignole" <raoul@mydomain.com>).
+
+    :param integer min_email_length: skip if email has not the sufficient minimal
+      length, indicating a probably fake / wrong value (skip if 0);
+    """
+    if not email:
+        return False
+    email_tocheck = email_normalize(email, strict=False)
+    if not email_tocheck:
+        email_tocheck = email.casefold()
+
+    if email_tocheck and min_email_length and len(email_tocheck) < min_email_length:
+        return False
+
+    parts = email_tocheck.rsplit('@', maxsplit=1)
+    if len(parts) == 1:
+        return email_tocheck
+    email_domain = parts[1]
+    if email_domain not in _MAIL_DOMAIN_BLACKLIST:
+        return '@' + email_domain
+    return email_tocheck
+
 
 #----------------------------------------------------------
 # Helpers for both clients and proxy
@@ -86,6 +120,10 @@ def iap_get_endpoint(env):
 #----------------------------------------------------------
 
 class InsufficientCreditError(Exception):
+    pass
+
+
+class IAPServerError(Exception):
     pass
 
 
@@ -108,20 +146,20 @@ def iap_jsonrpc(url, method='call', params=None, timeout=15):
         response = req.json()
         if 'error' in response:
             name = response['error']['data'].get('name').rpartition('.')[-1]
-            message = response['error']['data'].get('message')
             if name == 'InsufficientCreditError':
-                e_class = InsufficientCreditError
-            elif name == 'AccessError':
-                e_class = exceptions.AccessError
-            elif name == 'UserError':
-                e_class = exceptions.UserError
+                credit_error = InsufficientCreditError(response['error']['data'].get('message'))
+                credit_error.data = response['error']['data']
+                raise credit_error
             else:
-                raise requests.exceptions.ConnectionError()
-            e = e_class(message)
-            e.data = response['error']['data']
-            raise e
+                raise IAPServerError("An error occurred on the IAP server")
         return response.get('result')
-    except (ValueError, requests.exceptions.ConnectionError, requests.exceptions.MissingSchema, requests.exceptions.Timeout, requests.exceptions.HTTPError) as e:
+    except requests.exceptions.Timeout:
+        _logger.warning("iap jsonrpc %s timed out", url)
+        raise exceptions.AccessError(
+            _('The request to the service timed out. Please contact the author of the app. The URL it tried to contact was %s', url)
+        )
+    except (requests.exceptions.RequestException, IAPServerError) as e:
+        _logger.warning("iap jsonrpc %s failed, %s: %s", url, e.__class__.__name__, exception_to_unicode(e))
         raise exceptions.AccessError(
             _('The url that this service requested returned an error. Please contact the author of the app. The url it tried to contact was %s', url)
         )

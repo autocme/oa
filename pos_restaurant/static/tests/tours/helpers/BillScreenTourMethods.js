@@ -4,11 +4,19 @@ odoo.define('pos_restaurant.tour.BillScreenTourMethods', function (require) {
     const { createTourMethods } = require('point_of_sale.tour.utils');
 
     class Do {
-        clickBack() {
+        clickOk() {
             return [
                 {
                     content: `go back`,
-                    trigger: `.receipt-screen .back`,
+                    trigger: `.receipt-screen .button.next`,
+                },
+            ];
+        }
+        clickBillButton() {
+            return [
+                {
+                    content: "click bill button",
+                    trigger: '.control-button:contains("Bill")',
                 },
             ];
         }
@@ -20,6 +28,24 @@ odoo.define('pos_restaurant.tour.BillScreenTourMethods', function (require) {
                 {
                     content: 'Bill screen is shown',
                     trigger: '.receipt-screen h1:contains("Bill Printing")',
+                    run: () => {},
+                },
+            ];
+        }
+        isQRCodeShown() {
+            return [
+                {
+                    content: "QR codes are shown",
+                    trigger: '#posqrcode',
+                    run: () => {},
+                },
+            ];
+        }
+        isQRCodeNotShown() {
+            return [
+                {
+                    content: "QR codes are shown",
+                    trigger: 'body:not(:has(#posqrcode))',
                     run: () => {},
                 },
             ];

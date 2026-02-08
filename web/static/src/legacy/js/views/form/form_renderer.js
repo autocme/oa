@@ -15,11 +15,11 @@ const scrollUtils = require("@web/core/utils/scrolling");
 const symbol = Symbol('form');
 
 var FormRenderer = BasicRenderer.extend({
-    className: "o_form_view",
+    className: "o_legacy_form_view",
     events: _.extend({}, BasicRenderer.prototype.events, {
         'click .o_notification_box .oe_field_translate': '_onTranslate',
-        'click .o_notification_box .close': '_onTranslateNotificationClose',
-        'shown.bs.tab a[data-toggle="tab"]': '_onNotebookTabChanged',
+        'click .o_notification_box .btn-close': '_onTranslateNotificationClose',
+        'shown.bs.tab a[data-bs-toggle="tab"]': '_onNotebookTabChanged',
         'click .o_form_label': '_onFieldLabelClicked',
     }),
     custom_events: _.extend({}, BasicRenderer.prototype.custom_events, {
@@ -31,7 +31,7 @@ var FormRenderer = BasicRenderer.extend({
     INNER_GROUP_COL: 2,
     OUTER_GROUP_COL: 2,
     quickEditExclusion: [
-        '.o_list_view tbody',
+        '.o_legacy_list_view tbody',
         '.oe_button_box',
         '.oe_subtotal_footer',
     ],
@@ -213,7 +213,6 @@ var FormRenderer = BasicRenderer.extend({
      *
      */
     enableButtons: function () {
-        const allButtons = this.$el[0].querySelectorAll('.o_statusbar_buttons button, .oe_button_box button');
         this.manuallyDisabledButtons.forEach((button) => {
             button.removeAttribute("disabled");
         });
@@ -569,7 +568,7 @@ var FormRenderer = BasicRenderer.extend({
                 $result.append(dom.renderButton({
                     attrs: {
                         'class': 'oe_stat_button o_button_more dropdown-toggle',
-                        'data-toggle': 'dropdown',
+                        'data-bs-toggle': 'dropdown',
                     },
                     text: _t("More"),
                 }));
@@ -653,14 +652,19 @@ var FormRenderer = BasicRenderer.extend({
     _renderHeaderButtons: function (node) {
         var self = this;
         var buttons = [];
-        _.each(node.children, function (child) {
+        var children = [...node.children];
+        while(children.length) {
+            var child = children.shift();
             if (child.tag === 'button') {
                 buttons.push(self._renderHeaderButton(child));
             }
             if (child.tag === 'widget') {
                 buttons.push(self._renderTagWidget(child));
             }
-        });
+            if (child.children){
+                children.push(...child.children);
+            }
+        }
         return this._renderStatusbarButtons(buttons);
     },
     /**
@@ -840,11 +844,20 @@ var FormRenderer = BasicRenderer.extend({
         var $button = viewUtils.renderButtonFromNode(node, {
             extraClass: 'oe_stat_button',
         });
+
+        // If there is no type nor name, it will not bind a click listener and will set the button as disabled
+        const buttonDoesStartAnAction = node.attrs.type || node.attrs.name;
+        if (!buttonDoesStartAnAction) {
+            $button[0].setAttribute("disabled", true);
+        }
+
         $button.append(_.map(node.children, this._renderNode.bind(this)));
         if (node.attrs.help) {
             this._addButtonTooltip(node, $button);
         }
-        this._addOnClickAction($button, node);
+        if (buttonDoesStartAnAction) {
+            this._addOnClickAction($button, node);
+        }
         this._handleAttributes($button, node);
         this._registerModifiers(node, this.state, $button);
         return $button;
@@ -867,12 +880,13 @@ var FormRenderer = BasicRenderer.extend({
      */
     _renderTabHeader: function (page, page_id) {
         var $a = $('<a>', {
-            'data-toggle': 'tab',
+            'data-bs-toggle': 'tab',
             disable_anchor: 'true',
             href: '#' + page_id,
             class: 'nav-link',
             role: 'tab',
             text: page.attrs.string,
+            name: page.attrs.name,
         });
         return $('<li>', {class: 'nav-item'}).append($a);
     },
@@ -1296,17 +1310,24 @@ var FormRenderer = BasicRenderer.extend({
             ev.data.originalEvent.preventDefault();
             ev.data.originalEvent.stopPropagation();
         }
-        var index;
-        let target = ev.data.target || ev.target;
-        if (target.__owl__) {
-            target = target.__owl__.parent; // Owl fields are wrapped by the FieldWrapper
-        }
-        if (ev.data.direction === "next") {
-            index = this.allFieldWidgets[this.state.id].indexOf(target);
-            this._activateNextFieldWidget(this.state, index);
-        } else if (ev.data.direction === "previous") {
-            index = this.allFieldWidgets[this.state.id].indexOf(target);
-            this._activatePreviousFieldWidget(this.state, index);
+        if (["next", "previous"].includes(ev.data.direction)) {
+            const fieldWidgets = this.allFieldWidgets[this.state.id];
+            let target = ev.data.target || ev.target;
+            let index;
+            if (target.__owl__) {
+                // the fieldWidget is an owl component, so we need to find the
+                // FieldWrapper that wraps the owl component that triggered the event
+                index = fieldWidgets.findIndex((widget) => {
+                    return widget.componentRef && widget.componentRef.comp === target;
+                });
+            } else {
+                index = fieldWidgets.indexOf(target);
+            }
+            if (ev.data.direction === "next") {
+                this._activateNextFieldWidget(this.state, index);
+            } else if (ev.data.direction === "previous") {
+                this._activatePreviousFieldWidget(this.state, index);
+            }
         }
     },
     /**
@@ -1351,6 +1372,8 @@ var FormRenderer = BasicRenderer.extend({
      * @param {MouseEvent} ev
      */
     _onTranslateNotificationClose: function(ev) {
+        const notificationElement = this.el.querySelector('.o_notification_box');
+        Alert.getOrCreateInstance(notificationElement).close();
         delete this.alertFields[this.state.res_id];
     },
 });

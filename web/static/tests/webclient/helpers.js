@@ -12,6 +12,7 @@ import {
     makeLegacySessionService,
 } from "@web/legacy/utils";
 import { makeLegacyActionManagerService } from "@web/legacy/backend_utils";
+import { generateLegacyLoadViewsResult } from "@web/legacy/legacy_load_views";
 import { viewService } from "@web/views/view_service";
 import { actionService } from "@web/webclient/actions/action_service";
 import { effectService } from "@web/core/effects/effect_service";
@@ -32,21 +33,30 @@ import { registerCleanup } from "../helpers/cleanup";
 import { makeTestEnv } from "../helpers/mock_env";
 import {
     fakeTitleService,
+    fakeCompanyService,
     makeFakeLocalizationService,
     makeFakeRouterService,
+    makeFakeHTTPService,
+    makeFakeUserService,
 } from "../helpers/mock_services";
-import { getFixture, legacyExtraNextTick, nextTick, patchWithCleanup } from "../helpers/utils";
+import {
+    getFixture,
+    legacyExtraNextTick,
+    mount,
+    nextTick,
+    patchWithCleanup,
+} from "../helpers/utils";
 import session from "web.session";
-import { ComponentAdapter } from "web.OwlCompatibility";
 import LegacyMockServer from "web.MockServer";
 import Widget from "web.Widget";
-import { userService } from "@web/core/user_service";
 import { uiService } from "@web/core/ui/ui_service";
 import { ClientActionAdapter, ViewAdapter } from "@web/legacy/action_adapters";
 import { commandService } from "@web/core/commands/command_service";
+import { ConnectionAbortedError } from "@web/core/network/rpc_service";
 import { CustomFavoriteItem } from "@web/search/favorite_menu/custom_favorite_item";
+import { standaloneAdapter } from "web.OwlCompatibility";
 
-const { Component, mount, tags } = owl;
+import { Component, onMounted, xml } from "@odoo/owl";
 
 const actionRegistry = registry.category("actions");
 const serviceRegistry = registry.category("services");
@@ -66,7 +76,7 @@ export function setupWebClientRegistries() {
             options: { sequence: 0 },
         },
     };
-    for (let [key, { value, options }] of Object.entries(favoriveMenuItems)) {
+    for (const [key, { value, options }] of Object.entries(favoriveMenuItems)) {
         if (!favoriteMenuRegistry.contains(key)) {
             favoriteMenuRegistry.add(key, value, options);
         }
@@ -77,6 +87,7 @@ export function setupWebClientRegistries() {
         dialog: () => dialogService,
         effect: () => effectService,
         hotkey: () => hotkeyService,
+        http: () => makeFakeHTTPService(),
         legacy_service_provider: () => legacyServiceProvider,
         localization: () => makeFakeLocalizationService(),
         menu: () => menuService,
@@ -86,10 +97,11 @@ export function setupWebClientRegistries() {
         router: () => makeFakeRouterService(),
         title: () => fakeTitleService,
         ui: () => uiService,
-        user: () => userService,
+        user: () => makeFakeUserService(),
         view: () => viewService,
+        company: () => fakeCompanyService,
     };
-    for (let serviceName in services) {
+    for (const serviceName in services) {
         if (!serviceRegistry.contains(serviceName)) {
             serviceRegistry.add(serviceName, services[serviceName]());
         }
@@ -99,7 +111,7 @@ export function setupWebClientRegistries() {
 /**
  * Remove this as soon as we drop the legacy support
  */
-export function addLegacyMockEnvironment(env, legacyParams = {}) {
+export async function addLegacyMockEnvironment(env, legacyParams = {}) {
     // setup a legacy env
     const dataManager = Object.assign(
         {
@@ -110,16 +122,18 @@ export function addLegacyMockEnvironment(env, legacyParams = {}) {
                 });
             },
             load_views: async (params, options) => {
-                const result = await env.services.rpc(`/web/dataset/call_kw/${params.model}`, {
+                let result = await env.services.rpc(`/web/dataset/call_kw/${params.model}`, {
                     args: [],
                     kwargs: {
                         context: params.context,
                         options: options,
                         views: params.views_descr,
                     },
-                    method: "load_views",
+                    method: "get_views",
                     model: params.model,
                 });
+                const { models, views: _views } = result;
+                result = generateLegacyLoadViewsResult(params.model, _views, models);
                 const views = result.fields_views;
                 for (const [, viewType] of params.views_descr) {
                     const fvg = views[viewType];
@@ -183,6 +197,11 @@ export function addLegacyMockEnvironment(env, legacyParams = {}) {
     const legacyActionManagerService = makeLegacyActionManagerService(legacyEnv);
     serviceRegistry.add("legacy_action_manager", legacyActionManagerService);
     serviceRegistry.add("legacy_notification", makeLegacyNotificationService(legacyEnv));
+    // deploy wowl services into the legacy env.
+    const wowlToLegacyServiceMappers = registry.category("wowlToLegacyServiceMappers").getEntries();
+    for (const [legacyServiceName, wowlToLegacyServiceMapper] of wowlToLegacyServiceMappers) {
+        serviceRegistry.add(legacyServiceName, wowlToLegacyServiceMapper(legacyEnv));
+    }
     // patch DebouncedField delay
     const debouncedField = basicFields.DebouncedField;
     const initialDebouncedVal = debouncedField.prototype.DEBOUNCE;
@@ -190,13 +209,14 @@ export function addLegacyMockEnvironment(env, legacyParams = {}) {
     registerCleanup(() => (debouncedField.prototype.DEBOUNCE = initialDebouncedVal));
 
     if (legacyParams.withLegacyMockServer) {
-        const adapter = new ComponentAdapter(null, { Component: owl.Component });
+        const adapter = standaloneAdapter({ Component });
+        registerCleanup(() => adapter.__owl__.app.destroy());
         adapter.env = legacyEnv;
         const W = Widget.extend({ do_push_state() {} });
         const widget = new W(adapter);
         const legacyMockServer = new LegacyMockServer(legacyParams.models, { widget });
         const originalRPC = env.services.rpc;
-        env.services.rpc = async (...args) => {
+        const rpc = async (...args) => {
             try {
                 return await originalRPC(...args);
             } catch (e) {
@@ -206,6 +226,17 @@ export function addLegacyMockEnvironment(env, legacyParams = {}) {
                     throw e;
                 }
             }
+        };
+        env.services.rpc = function () {
+            let rejectFn;
+            const rpcProm = new Promise((resolve, reject) => {
+                rejectFn = reject;
+                rpc(...arguments)
+                    .then(resolve)
+                    .catch(reject);
+            });
+            rpcProm.abort = () => rejectFn(new ConnectionAbortedError("XmlHttpRequestError abort"));
+            return rpcProm;
         };
     }
 }
@@ -229,15 +260,19 @@ export async function createWebClient(params) {
     // to be destroyed. We thus need to manually destroy them here.
     const controllers = [];
     patchWithCleanup(ClientActionAdapter.prototype, {
-        mounted() {
+        setup() {
             this._super();
-            controllers.push(this.widget);
+            onMounted(() => {
+                controllers.push(this.widget);
+            });
         },
     });
     patchWithCleanup(ViewAdapter.prototype, {
-        mounted() {
+        setup() {
             this._super();
-            controllers.push(this.widget);
+            onMounted(() => {
+                controllers.push(this.widget);
+            });
         },
     });
 
@@ -260,18 +295,19 @@ export async function createWebClient(params) {
         serverData: params.serverData,
         mockRPC,
     });
-    addLegacyMockEnvironment(env, legacyParams);
+    await addLegacyMockEnvironment(env, legacyParams);
 
     const WebClientClass = params.WebClientClass || WebClient;
     const target = params && params.target ? params.target : getFixture();
-    const wc = await mount(WebClientClass, { env, target });
+    const wc = await mount(WebClientClass, target, { env });
+    target.classList.add("o_web_client"); // necessary for the stylesheet
     registerCleanup(() => {
+        target.classList.remove("o_web_client");
         for (const controller of controllers) {
             if (!controller.isDestroyed()) {
                 controller.destroy();
             }
         }
-        wc.destroy();
     });
     // Wait for visual changes caused by a potential loadState
     await nextTick();
@@ -306,7 +342,7 @@ export async function loadState(env, state) {
 export function getActionManagerServerData() {
     // additional basic client action
     class TestClientAction extends Component {}
-    TestClientAction.template = tags.xml`
+    TestClientAction.template = xml`
       <div class="test_client_action">
         ClientAction_<t t-esc="props.action.params?.description"/>
       </div>`;

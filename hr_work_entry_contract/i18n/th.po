@@ -3,18 +3,18 @@
 # 	* hr_work_entry_contract
 # 
 # Translators:
-# Martin Trigaux, 2021
-# Khwunchai Jaengsawang <khwunchai.j@ku.th>, 2021
-# Wichanon Jamwutthipreecha, 2022
-# Wil Odoo, 2024
+# Khwunchai Jaengsawang <khwunchai.j@ku.th>, 2022
+# Wichanon Jamwutthipreecha, 2023
+# Martin Trigaux, 2023
+# Rasareeyar Lappiam, 2023
 # 
 msgid ""
 msgstr ""
-"Project-Id-Version: Odoo Server 15.0\n"
+"Project-Id-Version: Odoo Server 16.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2022-01-24 08:19+0000\n"
-"PO-Revision-Date: 2021-09-14 12:23+0000\n"
-"Last-Translator: Wil Odoo, 2024\n"
+"POT-Creation-Date: 2023-04-14 05:51+0000\n"
+"PO-Revision-Date: 2022-09-22 05:52+0000\n"
+"Last-Translator: Rasareeyar Lappiam, 2023\n"
 "Language-Team: Thai (https://app.transifex.com/odoo/teams/41243/th/)\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
@@ -23,12 +23,34 @@ msgstr ""
 "Plural-Forms: nplurals=1; plural=0;\n"
 
 #. module: hr_work_entry_contract
+#: model:ir.model.fields,help:hr_work_entry_contract.field_hr_contract__work_entry_source
+#: model:ir.model.fields,help:hr_work_entry_contract.field_hr_work_entry__work_entry_source
+msgid ""
+"\n"
+"        Defines the source for work entries generation\n"
+"\n"
+"        Working Schedule: Work entries will be generated from the working hours below.\n"
+"        Attendances: Work entries will be generated from the employee's attendances. (requires Attendance app)\n"
+"        Planning: Work entries will be generated from the employee's planning. (requires Planning app)\n"
+"    "
+msgstr ""
+"\n"
+"        กำหนดแหล่งที่มาสำหรับการสร้างรายการงาน\n"
+"\n"
+"        ตารางการทำงาน: รายการงานจะถูกสร้างขึ้นจากชั่วโมงทำงานด้านล่าง\n"
+"        การเข้างาน: รายการงานจะถูกสร้างขึ้นจากการเข้างานของพนักงาน (ต้องใช้แอปการเข้างาน)\n"
+"        การวางแผน: รายการงานจะถูกสร้างขึ้นจากการวางแผนของพนักงาน (ต้องใช้แอปการวางแผน)\n"
+"    "
+
+#. module: hr_work_entry_contract
+#. odoo-python
 #: code:addons/hr_work_entry_contract/models/hr_work_entry.py:0
 #, python-format
 msgid "%s does not have a contract from %s to %s."
 msgstr "%s ไม่มีสัญญาจาก %s ถึง %s"
 
 #. module: hr_work_entry_contract
+#. odoo-python
 #: code:addons/hr_work_entry_contract/models/hr_work_entry.py:0
 #, python-format
 msgid ""
@@ -40,21 +62,35 @@ msgstr ""
 #. module: hr_work_entry_contract
 #: model_terms:ir.ui.view,arch_db:hr_work_entry_contract.hr_work_entry_regeneration_wizard
 msgid ""
-"<i class=\"fa fa-exclamation-triangle mr-1\" title=\"Warning\"/>You are not "
+"<i class=\"fa fa-exclamation-triangle me-1\" title=\"Warning\"/>You are not "
 "allowed to regenerate validated work entries"
 msgstr ""
-"<i class=\"fa fa-exclamation-triangle mr-1\" "
-"title=\"Warning\"/>คุณไม่ได้รับอนุญาตให้สร้างการเข้างานที่ตรวจสอบแล้วใหม่"
+"<i class=\"fa fa-exclamation-triangle me-1\" "
+"title=\"Warning\"/>คุณไม่ได้รับอนุญาตให้สร้างรายการงานการตรวจสอบความถูกต้องใหม่"
 
 #. module: hr_work_entry_contract
 #: model_terms:ir.ui.view,arch_db:hr_work_entry_contract.hr_work_entry_regeneration_wizard
-msgid "<i class=\"fa fa-info-circle mr-1\" title=\"Hint\"/>"
-msgstr "<i class=\"fa fa-info-circle mr-1\" title=\"ซ่อน\"/>"
+msgid "<i class=\"fa fa-info-circle me-1\" title=\"Hint\"/>"
+msgstr "<i class=\"fa fa-info-circle me-1\" title=\"คำใบ้\"/>"
+
+#. module: hr_work_entry_contract
+#: model_terms:ir.ui.view,arch_db:hr_work_entry_contract.hr_work_entry_regeneration_wizard
+msgid ""
+"<span class=\"text-muted\">Warning: The work entry regeneration will delete "
+"all manual changes on the selected period.</span>"
+msgstr ""
+"<span class=\"text-muted\">คำเตือน: "
+"การสร้างรายการงานใหม่จะลบการเปลี่ยนแปลงด้วยตนเองทั้งหมดในช่วงเวลาที่เลือก</span>"
 
 #. module: hr_work_entry_contract
 #: model:ir.model.fields,help:hr_work_entry_contract.field_hr_work_entry_type__is_leave
 msgid "Allow the work entry type to be linked with time off types."
 msgstr "อนุญาตให้เชื่อมโยงประเภทการเข้างานกับประเภทการหยุดงาน"
+
+#. module: hr_work_entry_contract
+#: model_terms:ir.ui.view,arch_db:hr_work_entry_contract.hr_work_entry_regeneration_wizard
+msgid "Cancel"
+msgstr "ยกเลิก"
 
 #. module: hr_work_entry_contract
 #: model:hr.work.entry.type,name:hr_work_entry_contract.work_entry_type_compensatory
@@ -94,7 +130,6 @@ msgstr "วันที่เร็วที่สุด"
 #. module: hr_work_entry_contract
 #: model:ir.model,name:hr_work_entry_contract.model_hr_employee
 #: model:ir.model.fields,field_description:hr_work_entry_contract.field_hr_work_entry__employee_id
-#: model:ir.model.fields,field_description:hr_work_entry_contract.field_hr_work_entry_regeneration_wizard__employee_id
 msgid "Employee"
 msgstr "พนักงาน"
 
@@ -104,8 +139,13 @@ msgid "Employee Contract"
 msgstr "สัญญาของพนักงาน"
 
 #. module: hr_work_entry_contract
-#. openerp-web
-#: code:addons/hr_work_entry_contract/static/src/js/work_entries_calendar.js:0
+#: model:ir.model.fields,field_description:hr_work_entry_contract.field_hr_work_entry_regeneration_wizard__employee_ids
+msgid "Employees"
+msgstr "พนักงาน"
+
+#. module: hr_work_entry_contract
+#. odoo-javascript
+#: code:addons/hr_work_entry_contract/static/src/views/work_entry_calendar/work_entry_calendar_model.js:0
 #, python-format
 msgid "Everybody's work entries"
 msgstr "กาารเข้างานของทุกคน"
@@ -119,6 +159,12 @@ msgstr "ชั่วโมงพิเศษ"
 #: model:ir.model.fields,field_description:hr_work_entry_contract.field_hr_work_entry_regeneration_wizard__date_from
 msgid "From"
 msgstr "จาก"
+
+#. module: hr_work_entry_contract
+#: model:ir.actions.server,name:hr_work_entry_contract.ir_cron_generate_missing_work_entries_ir_actions_server
+#: model:ir.cron,cron_name:hr_work_entry_contract.ir_cron_generate_missing_work_entries
+msgid "Generate Missing Work Entries"
+msgstr "สร้างรายการงานที่หายไป"
 
 #. module: hr_work_entry_contract
 #: model:ir.model.fields,field_description:hr_work_entry_contract.field_hr_contract__date_generated_from
@@ -156,6 +202,7 @@ msgid "ID"
 msgstr "ไอดี"
 
 #. module: hr_work_entry_contract
+#. odoo-python
 #: code:addons/hr_work_entry_contract/wizard/hr_work_entry_regeneration_wizard.py:0
 #, python-format
 msgid ""
@@ -167,6 +214,11 @@ msgstr ""
 "ในการสร้างการเข้างานขึ้นใหม่ คุณต้องจัดเตรียม Employee_id, date_from และ "
 "date_to ให้กับตัวช่วย นอกจากนั้น ช่วงเวลาที่กำหนดโดย date_from และ date_to "
 "ต้องไม่มีรายการเข้างานที่ผ่านการตรวจสอบความถูกต้อง"
+
+#. module: hr_work_entry_contract
+#: model:ir.model.fields,field_description:hr_work_entry_contract.field_hr_contract__last_generation_date
+msgid "Last Generation Date"
+msgstr "วันที่สร้างครั้งสุดท้าย"
 
 #. module: hr_work_entry_contract
 #: model:ir.model.fields,field_description:hr_work_entry_contract.field_hr_work_entry_regeneration_wizard____last_update
@@ -210,8 +262,9 @@ msgid "Regenerate Employee Work Entries"
 msgstr "สร้างการเข้างานของพนักงานใหม่"
 
 #. module: hr_work_entry_contract
-#. openerp-web
+#. odoo-javascript
 #: code:addons/hr_work_entry_contract/static/src/js/work_entries_controller_mixin.js:0
+#: code:addons/hr_work_entry_contract/static/src/views/work_entry_calendar/work_entry_calendar.xml:0
 #: model_terms:ir.ui.view,arch_db:hr_work_entry_contract.hr_work_entry_regeneration_wizard
 #, python-format
 msgid "Regenerate Work Entries"
@@ -225,16 +278,18 @@ msgstr "เกณฑ์การค้นหาเสร็จสมบูรณ
 #. module: hr_work_entry_contract
 #: model:hr.work.entry.type,name:hr_work_entry_contract.work_entry_type_sick_leave
 msgid "Sick Time Off"
-msgstr "ลาป่วย"
+msgstr "การลาป่วย"
 
 #. module: hr_work_entry_contract
+#. odoo-python
 #: code:addons/hr_work_entry_contract/models/hr_contract.py:0
 #, python-format
 msgid ""
 "Sorry, generating work entries from cancelled contracts is not allowed."
-msgstr "ขออภัย ไม่อนุญาตให้สร้างรายการงานจากสัญญาที่ถูกยกเลิกได้"
+msgstr "ขออภัย ไม่อนุญาตให้สร้างรายการงานจากสัญญาที่ถูกยกเลิก"
 
 #. module: hr_work_entry_contract
+#. odoo-python
 #: code:addons/hr_work_entry_contract/wizard/hr_work_entry_regeneration_wizard.py:0
 #, python-format
 msgid ""
@@ -264,7 +319,7 @@ msgstr "ถึง"
 #. module: hr_work_entry_contract
 #: model:hr.work.entry.type,name:hr_work_entry_contract.work_entry_type_unpaid_leave
 msgid "Unpaid"
-msgstr "ไม่ได้ค่าจ้าง"
+msgstr "ยังไม่ได้ชำระ"
 
 #. module: hr_work_entry_contract
 #: model:ir.model.fields,field_description:hr_work_entry_contract.field_hr_work_entry_regeneration_wizard__valid
@@ -285,3 +340,14 @@ msgstr "การเข้างานภายในช่วงเวลา"
 #: model:ir.actions.act_window,name:hr_work_entry_contract.hr_work_entry_regeneration_wizard_action
 msgid "Work Entry Regeneration"
 msgstr "การสร้างการเข้างานใหม่"
+
+#. module: hr_work_entry_contract
+#: model:ir.model.fields,field_description:hr_work_entry_contract.field_hr_contract__work_entry_source
+#: model:ir.model.fields,field_description:hr_work_entry_contract.field_hr_work_entry__work_entry_source
+msgid "Work Entry Source"
+msgstr "แหล่งที่มาของรายการงาน"
+
+#. module: hr_work_entry_contract
+#: model:ir.model.fields.selection,name:hr_work_entry_contract.selection__hr_contract__work_entry_source__calendar
+msgid "Working Schedule"
+msgstr "ตารางการทำงาน"

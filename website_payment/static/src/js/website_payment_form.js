@@ -1,7 +1,6 @@
 /** @odoo-module **/
 
-import core from 'web.core';
-import {_t} from 'web.core';
+import core, { _t } from 'web.core';
 import checkoutForm from 'payment.checkout_form';
 import { memoize } from "@web/core/utils/functions";
 
@@ -16,7 +15,7 @@ checkoutForm.include({
      */
     start: function () {
         core.bus.on('update_shipping_cost', this, this._updateShippingCost);
-        this._memoizedGetAcquirerFees = memoize(this._getAcquirerFees.bind(this));
+        this._memoizedGetProviderFees = memoize(this._getProviderFees.bind(this));
         return this._super.apply(this, arguments);
     },
 
@@ -29,12 +28,12 @@ checkoutForm.include({
      *
      * @override method from payment.payment_form_mixin
      * @private
-     * @param {string} provider - The provider of the payment option's acquirer
+     * @param {string} code - The code of the payment option's provider
      * @param {number} paymentOptionId - The id of the payment option handling the transaction
      * @param {string} flow - The online payment flow of the transaction
      * @return {Promise}
      */
-    _processPayment: function (provider, paymentOptionId, flow) {
+    _processPayment: function (code, paymentOptionId, flow) {
         if ($('.o_donation_payment_form').length) {
             const errorFields = {};
             if (!this.$('input[name="email"]')[0].checkValidity()) {
@@ -57,7 +56,6 @@ checkoutForm.include({
                     const $field = this.$('input[name="' + id + '"],select[name="' + id + '"]');
                     $field.addClass('is-invalid');
                     $field.popover({content: errorFields[id], trigger: 'hover', container: 'body', placement: 'top'});
-                    $field.data("bs.popover").config.content = errorFields[id];
                 }
                 this._displayError(
                     _t("Validation Error"),
@@ -73,12 +71,12 @@ checkoutForm.include({
      *
      * @override method from payment.payment_form_mixin
      * @private
-     * @param {string} provider - The provider of the selected payment option's acquirer
+     * @param {string} code - The code of the selected payment option's provider
      * @param {number} paymentOptionId - The id of the selected payment option
      * @param {string} flow - The online payment flow of the selected payment option
      * @return {object} The extended transaction route params
      */
-    _prepareTransactionRouteParams: function (provider, paymentOptionId, flow) {
+    _prepareTransactionRouteParams: function (code, paymentOptionId, flow) {
         const transactionRouteParams = this._super(...arguments);
         return $('.o_donation_payment_form').length ? {
             ...transactionRouteParams,
@@ -108,7 +106,7 @@ checkoutForm.include({
         this.txContext.amount = amount;
      },
     /**
-     * Update the fees associated to each acquirer.
+     * Update the fees associated to each provider.
      *
      * Called upon change of any parameter that might impact the fees (marked with
      * .o_wpayment_fee_impact).
@@ -129,17 +127,17 @@ checkoutForm.include({
                 }
             }
         }
-        const acquirerIds = [];
+        const providerIds = [];
         for (const card of this.$('.o_payment_option_card:has(.o_payment_fee)')) {
             const radio = $(card).find('input[name="o_payment_radio"]');
-            if (radio.data("paymentOptionType") === 'acquirer') {
-                acquirerIds.push(radio.data("paymentOptionId"));
+            if (radio.data("paymentOptionType") === 'provider') {
+                providerIds.push(radio.data("paymentOptionId"));
             }
         }
         const countryId = this.$('select[name="country_id"]').val();
-        if (acquirerIds && this.txContext.amount) {
+        if (providerIds && this.txContext.amount) {
             const params = {
-                'acquirer_ids': acquirerIds,
+                "provider_ids": providerIds,
                 'amount': this.txContext.amount !== undefined
                     ? parseFloat(this.txContext.amount) : null,
                 'currency_id': this.txContext.currencyId
@@ -148,14 +146,17 @@ checkoutForm.include({
             }
             const cacheKey = `${params.amount}-${params.currency_id}-${params.country_id}`;
 
-            this._memoizedGetAcquirerFees(cacheKey, params).then(feesPerAcquirer => {
+            this._memoizedGetProviderFees(cacheKey, params).then(feesPerProvider => {
                 for (const card of this.$('.o_payment_option_card:has(.o_payment_fee)')) {
                     const radio = $(card).find('input[name="o_payment_radio"]');
-                    if (radio.data("paymentOptionType") === 'acquirer') {
-                        const acquirerId = radio.data("paymentOptionId");
-                        const chunk = $(card).find('.o_payment_fee .oe_currency_value')[0];
-                        chunk.innerText = (feesPerAcquirer[acquirerId] || 0).toFixed(2);
+                    let providerId;
+                    if (radio.data("paymentOptionType") === 'provider') {
+                        providerId = radio.data("paymentOptionId");
+                    } else { // token
+                        providerId = radio.data("paymentProviderId");
                     }
+                    const chunk = $(card).find('.o_payment_fee .oe_currency_value')[0];
+                    chunk.innerText = (feesPerProvider[providerId] || 0).toFixed(2);
                 }
             }).guardedCatch(error => {
                 error.event.preventDefault();
@@ -169,16 +170,16 @@ checkoutForm.include({
     },
 
     /**
-     * Function to perform the RPC call to get acquirer fees.
+     * Function to perform the RPC call to get provider fees.
      *
      * @private
      * @param cacheKey - Key used for cache storage
      * @param {Object} params - Parameters for the RPC call
      * @returns {Promise}
      */
-    _getAcquirerFees: function(cacheKey, params) {
+    _getProviderFees: function(cacheKey, params) {
         return this._rpc({
-            route: '/donation/get_acquirer_fees',
+            route: "/donation/get_provider_fees",
             params: params,
         });
     },

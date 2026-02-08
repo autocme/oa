@@ -12,7 +12,6 @@
                     <field name="description"/>
                     <field name="is_member"/>
                     <field name="group_ids"/>
-                    <field name="public"/>
                     <templates>
                         <t t-name="kanban-description">
                             <div class="oe_group_description" t-if="record.description.raw_value">
@@ -20,15 +19,15 @@
                             </div>
                         </t>
                         <t t-name="kanban-box">
-                            <div class="oe_module_vignette oe_kanban_global_click">
+                            <div class="oe_module_vignette oe_kanban_global_click d-flex align-items-center">
                                 <img t-att-src="kanban_image('mail.channel', 'avatar_128', record.id.raw_value)" class="oe_module_icon" alt="Channel"/>
                                 <div class="oe_module_desc">
                                     <h4 class="o_kanban_record_title">#<field name="name"/></h4>
                                     <p class="oe_module_name">
                                         <field name="description"/>
                                     </p>
-                                    <button type="object" attrs="{'invisible':['|', ('is_member','=',True), ('group_ids', '!=', [])]}" class="btn btn-primary float-right" name="channel_join">Join</button>
-                                    <button type="object" attrs="{'invisible':['|', ('is_member','=',False), ('group_ids', '!=', [])]}" class="btn btn-secondary float-right" name="action_unfollow">Leave</button>
+                                    <button type="object" attrs="{'invisible':['|', ('is_member','=',True), ('group_ids', '!=', [])]}" class="btn btn-primary float-end" name="channel_join">Join</button>
+                                    <button type="object" attrs="{'invisible':['|', ('is_member','=',False), ('group_ids', '!=', [])]}" class="btn btn-secondary float-end" name="action_unfollow">Leave</button>
                                 </div>
                             </div>
                         </t>
@@ -57,31 +56,20 @@
                             <field name="active" invisible="1"/>
                             <field name="description" placeholder="Topics discussed in this group..."/>
                         </group>
-                        <group name="group_alias" attrs="{'invisible': [('alias_domain', '=', False)]}">
-                            <label for="alias_id" string=" " class="fa fa-envelope-o" style="min-width: 20px;" aria-label="Email" title="Email" role="img"/>
-                            <div name="alias_def">
-                                <field name="alias_id" class="oe_read_only oe_inline"
-                                        string="Email Alias" required="0"/>
-                                <div class="oe_edit_only oe_inline" name="edit_alias" style="display: inline;" >
-                                    <field name="alias_name" class="oe_inline"/>@<field name="alias_domain" class="oe_inline" readonly="1"/>
-                                </div>
-                            </div>
-                            <field name="alias_contact" class="oe_inline" invisible="1"/>
-                        </group>
                         <notebook>
                             <page string="Privacy" name="privacy">
                                 <group class="o_label_nowrap">
-                                    <field name="public" widget="radio" string="Who can follow the group's activities?"/>
                                     <field name="group_public_id"
-                                        attrs="{'invisible': [('public','!=','groups')], 'required': [('public','=','groups')]}"
+                                        attrs="{'invisible': [('channel_type', '!=', 'channel')]}"
                                         />
                                     <field name="group_ids" widget="many2many_tags"
+                                        attrs="{'invisible': [('channel_type', '!=', 'channel')]}"
                                         string="Auto Subscribe Groups"/>
                                 </group>
                             </page>
                             <page string="Members" name="members">
                                 <field name="channel_type" invisible="1"/>
-                                <field name="channel_last_seen_partner_ids" mode="tree" context="{'active_test': False}" attrs="{'readonly': [('channel_type', '=', 'chat')]}">
+                                <field name="channel_member_ids" mode="tree" context="{'active_test': False}" attrs="{'readonly': [('channel_type', '=', 'chat')]}">
                                     <tree string="Members" editable="bottom">
                                         <field name="partner_id" required="1" attrs="{'readonly': [('id', '!=', False)]}"/>
                                         <field name="partner_email" readonly="1"/>
@@ -127,8 +115,7 @@
 
     <record id="action_discuss" model="ir.actions.client">
         <field name="name">Discuss</field>
-        <field name="tag">mail.widgets.discuss</field>
-        <field name="res_model">mail.channel</field>
+        <field name="tag">mail.action_discuss</field>
         <field name="params" eval="&quot;{ 'default_active_id': 'mail.box_inbox' }&quot;"/>
     </record>
 

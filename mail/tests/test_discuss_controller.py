@@ -15,8 +15,8 @@ class TestDiscussController(HttpCaseWithUserDemo):
         super().setUpClass()
         cls.channel = cls.env["mail.channel"].create(
             {
+                "group_public_id": None,
                 "name": "Test channel",
-                "public": "public",
             }
         )
         cls.public_user = cls.env.ref("base.public_user")
@@ -97,7 +97,7 @@ class TestDiscussController(HttpCaseWithUserDemo):
         message_format1 = res2.json()["result"]
         self.assertEqual(
             message_format1["attachment_ids"],
-            self.attachments[0]._attachment_format(),
+            json.loads(json.dumps(self.attachments[0]._attachment_format())),
             "guest should be allowed to add attachment with token when posting message",
         )
         # test message update: token error
@@ -140,9 +140,7 @@ class TestDiscussController(HttpCaseWithUserDemo):
         message_format2 = res4.json()["result"]
         self.assertEqual(
             message_format2["attachments"],
-            json.loads(
-                json.dumps([("insert-and-replace", self.attachments.sorted()._attachment_format(commands=True))])
-            ),
+            json.loads(json.dumps(self.attachments.sorted()._attachment_format())),
             "guest should be allowed to add attachment with token when updating message",
         )
         # test message update: own attachment ok
@@ -163,9 +161,7 @@ class TestDiscussController(HttpCaseWithUserDemo):
         message_format3 = res5.json()["result"]
         self.assertEqual(
             message_format3["attachments"],
-            json.loads(
-                json.dumps([("insert-and-replace", self.attachments.sorted()._attachment_format(commands=True))])
-            ),
+            json.loads(json.dumps(self.attachments.sorted()._attachment_format())),
             "guest should be allowed to add own attachment without token when updating message",
         )
 
@@ -181,7 +177,7 @@ class TestDiscussController(HttpCaseWithUserDemo):
             ]
         )
         demo = self.authenticate("demo", "demo")
-        channel = self.env["mail.channel"].create({"name": "public_channel", "public": "public"})
+        channel = self.env["mail.channel"].create({"group_public_id": None, "name": "public_channel"})
         channel.add_members(
             self.env["res.users"].browse(demo.uid).partner_id.ids
         )  # don't care, we just need a channel where demo is follower

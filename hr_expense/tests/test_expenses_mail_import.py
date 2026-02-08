@@ -25,7 +25,6 @@ class TestExpensesMailImport(TestExpenseCommon):
         }
 
         expense = self.env['hr.expense'].message_new(message_parsed)
-
         self.assertRecordValues(expense, [{
             'product_id': self.product_a.id,
             'total_amount': 800.0,
@@ -93,6 +92,32 @@ class TestExpensesMailImport(TestExpenseCommon):
         self.assertRecordValues(expense, [{
             'product_id': False,
             'total_amount': 800.0,
+            'employee_id': self.expense_employee.id,
+        }])
+
+    def test_import_expense_from_email_product_no_cost(self):
+        """
+            We have to compute a value for the total amount
+            even if the product has no cost.
+        """
+        product_no_cost = self.env['product.product'].create({
+            'name': 'Product No Cost',
+            'standard_price': 0.0,
+            'can_be_expensed': True,
+            'default_code': 'product_no_cost',
+        })
+        message_parsed = {
+            'message_id': "test",
+            'subject': 'product_no_cost my description 100',
+            'email_from': self.expense_user_employee.email,
+            'to': 'catchall@yourcompany.com',
+            'body': "test",
+            'attachments': [],
+        }
+        expense = self.env['hr.expense'].message_new(message_parsed)
+        self.assertRecordValues(expense, [{
+            'product_id': product_no_cost.id,
+            'total_amount': 100.0,
             'employee_id': self.expense_employee.id,
         }])
 

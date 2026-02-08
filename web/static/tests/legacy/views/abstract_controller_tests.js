@@ -1,7 +1,6 @@
 odoo.define("base.abstract_controller_tests", function (require) {
 "use strict";
 
-const { xml } = owl.tags;
 
 var testUtils = require("web.test_utils");
 var createView = testUtils.createView;
@@ -9,6 +8,8 @@ var BasicView = require("web.BasicView");
 var BasicRenderer = require("web.BasicRenderer");
 const AbstractRenderer = require('web.AbstractRendererOwl');
 const RendererWrapper = require('web.RendererWrapper');
+
+const { xml, onMounted, onWillUnmount, onWillDestroy } = require("@odoo/owl");
 
 function getHtmlRenderer(html) {
     return BasicRenderer.extend({
@@ -42,7 +43,7 @@ function getHtmlView(html, viewType) {
     });
 }
 
-QUnit.module("Views", {
+QUnit.module("LegacyViews", {
     beforeEach: function () {
         this.data = {
             test_model: {
@@ -100,9 +101,10 @@ QUnit.module("Views", {
         assert.expect(2);
 
         class Renderer extends AbstractRenderer {
-            __destroy() {
-                assert.step("destroy");
-                super.__destroy();
+            setup() {
+                onWillDestroy(() => {
+                    assert.step("destroy");
+                });
             }
         }
         Renderer.template = xml`<div>Test</div>`;
@@ -141,11 +143,13 @@ QUnit.module("Views", {
         assert.expect(3);
 
         class Renderer extends AbstractRenderer {
-            mounted() {
-                assert.step("mounted");
-            }
-            willUnmount() {
-                assert.step("unmounted");
+            setup() {
+                onMounted(() => {
+                    assert.step("mounted");
+                });
+                onWillUnmount(() => {
+                    assert.step("unmounted");
+                });
             }
         }
         Renderer.template = xml`<div>Test</div>`;

@@ -1,8 +1,7 @@
 /** @odoo-module **/
 
-import { patchWithCleanup, triggerEvent } from "@web/../tests/helpers/utils";
+import { getFixture, patchWithCleanup, triggerEvent } from "@web/../tests/helpers/utils";
 import { browser } from "@web/core/browser/browser";
-import { dialogService } from "@web/core/dialog/dialog_service";
 import { registry } from "@web/core/registry";
 import { ControlPanel } from "@web/search/control_panel/control_panel";
 import { FavoriteMenu } from "@web/search/favorite_menu/favorite_menu";
@@ -20,26 +19,28 @@ import {
     validateSearch,
 } from "./helpers";
 
+import { Component, xml } from "@odoo/owl";
 const serviceRegistry = registry.category("services");
 
 /**
- * @param {Component} comp
+ * @param {HTMLElement} target
  */
-async function toggleDefaultCheckBox(comp) {
-    const checkbox = comp.el.querySelector("input[type='checkbox']");
+async function toggleDefaultCheckBox(target) {
+    const checkbox = target.querySelector("input[type='checkbox']");
     checkbox.checked = !checkbox.checked;
     await triggerEvent(checkbox, null, "change");
 }
 
 /**
- * @param {Component} comp
+ * @param {HTMLElement} target
  */
-async function toggleShareCheckBox(comp) {
-    const checkbox = comp.el.querySelectorAll("input[type='checkbox']")[1];
+async function toggleShareCheckBox(target) {
+    const checkbox = target.querySelectorAll("input[type='checkbox']")[1];
     checkbox.checked = !checkbox.checked;
     await triggerEvent(checkbox, null, "change");
 }
 
+let target;
 let serverData;
 QUnit.module("Search", (hooks) => {
     hooks.beforeEach(async () => {
@@ -62,11 +63,12 @@ QUnit.module("Search", (hooks) => {
         };
         setupControlPanelFavoriteMenuRegistry();
         setupControlPanelServiceRegistry();
-        serviceRegistry.add("dialog", dialogService);
         patchWithCleanup(browser, {
             setTimeout: (fn) => fn(),
             clearTimeout: () => {},
         });
+
+        target = getFixture();
     });
 
     QUnit.module("CustomFavoriteItem");
@@ -74,29 +76,25 @@ QUnit.module("Search", (hooks) => {
     QUnit.test("simple rendering", async function (assert) {
         assert.expect(3);
 
-        const controlPanel = await makeWithSearch({
+        await makeWithSearch({
             serverData,
             resModel: "foo",
             Component: ControlPanel,
             searchMenuTypes: ["favorite"],
             searchViewId: false,
             config: {
-                displayName: "Action Name",
+                getDisplayName: () => "Action Name",
             },
         });
 
-        await toggleFavoriteMenu(controlPanel);
-        await toggleSaveFavorite(controlPanel);
+        await toggleFavoriteMenu(target);
+        await toggleSaveFavorite(target);
         assert.strictEqual(
-            controlPanel.el.querySelector('.o_add_favorite input[type="text"]').value,
+            target.querySelector('.o_add_favorite input[type="text"]').value,
             "Action Name"
         );
-        assert.containsN(
-            controlPanel,
-            '.o_add_favorite .custom-checkbox input[type="checkbox"]',
-            2
-        );
-        const labelEls = controlPanel.el.querySelectorAll(".o_add_favorite .custom-checkbox label");
+        assert.containsN(target, '.o_add_favorite .form-check input[type="checkbox"]', 2);
+        const labelEls = target.querySelectorAll(".o_add_favorite .form-check label");
         assert.deepEqual(
             [...labelEls].map((e) => e.innerText.trim()),
             ["Use by default", "Share with all users"]
@@ -106,7 +104,7 @@ QUnit.module("Search", (hooks) => {
     QUnit.test("favorites use by default and share are exclusive", async function (assert) {
         assert.expect(11);
 
-        const controlPanel = await makeWithSearch({
+        await makeWithSearch({
             serverData,
             resModel: "foo",
             Component: ControlPanel,
@@ -114,21 +112,21 @@ QUnit.module("Search", (hooks) => {
             searchViewId: false,
         });
 
-        await toggleFavoriteMenu(controlPanel);
-        await toggleSaveFavorite(controlPanel);
-        const checkboxes = controlPanel.el.querySelectorAll('input[type="checkbox"]');
+        await toggleFavoriteMenu(target);
+        await toggleSaveFavorite(target);
+        const checkboxes = target.querySelectorAll('input[type="checkbox"]');
 
         assert.strictEqual(checkboxes.length, 2, "2 checkboxes are present");
 
         assert.notOk(checkboxes[0].checked, "Start: None of the checkboxes are checked (1)");
         assert.notOk(checkboxes[1].checked, "Start: None of the checkboxes are checked (2)");
 
-        await toggleDefaultCheckBox(controlPanel);
+        await toggleDefaultCheckBox(target);
 
         assert.ok(checkboxes[0].checked, "The first checkbox is checked");
         assert.notOk(checkboxes[1].checked, "The second checkbox is not checked");
 
-        await toggleShareCheckBox(controlPanel);
+        await toggleShareCheckBox(target);
 
         assert.notOk(
             checkboxes[0].checked,
@@ -139,7 +137,7 @@ QUnit.module("Search", (hooks) => {
             "Clicking on the second checkbox checks it, and unchecks the first (2)"
         );
 
-        await toggleDefaultCheckBox(controlPanel);
+        await toggleDefaultCheckBox(target);
 
         assert.ok(
             checkboxes[0].checked,
@@ -150,7 +148,7 @@ QUnit.module("Search", (hooks) => {
             "Clicking on the first checkbox checks it, and unchecks the second (2)"
         );
 
-        await toggleDefaultCheckBox(controlPanel);
+        await toggleDefaultCheckBox(target);
 
         assert.notOk(checkboxes[0].checked, "End: None of the checkboxes are checked (1)");
         assert.notOk(checkboxes[1].checked, "End: None of the checkboxes are checked (2)");
@@ -159,7 +157,7 @@ QUnit.module("Search", (hooks) => {
     QUnit.test("save filter", async function (assert) {
         assert.expect(4);
 
-        class TestComponent extends owl.Component {
+        class TestComponent extends Component {
             setup() {
                 useSetupAction({
                     getContext: () => {
@@ -169,7 +167,7 @@ QUnit.module("Search", (hooks) => {
             }
         }
         TestComponent.components = { FavoriteMenu };
-        TestComponent.template = owl.tags.xml`<div><FavoriteMenu/></div>`;
+        TestComponent.template = xml`<div><FavoriteMenu/></div>`;
 
         const comp = await makeWithSearch({
             serverData,
@@ -189,10 +187,10 @@ QUnit.module("Search", (hooks) => {
 
         assert.verifySteps([]);
 
-        await toggleFavoriteMenu(comp);
-        await toggleSaveFavorite(comp);
-        await editFavoriteName(comp, "aaa");
-        await saveFavorite(comp);
+        await toggleFavoriteMenu(target);
+        await toggleSaveFavorite(target);
+        await editFavoriteName(target, "aaa");
+        await saveFavorite(target);
 
         assert.verifySteps(["CLEAR-CACHES"]);
     });
@@ -200,7 +198,7 @@ QUnit.module("Search", (hooks) => {
     QUnit.test("dynamic filters are saved dynamic", async function (assert) {
         assert.expect(3);
 
-        const controlPanel = await makeWithSearch({
+        await makeWithSearch({
             serverData,
             mockRPC: (_, args) => {
                 if (args.model === "ir.filters" && args.method === "create_or_replace") {
@@ -224,20 +222,20 @@ QUnit.module("Search", (hooks) => {
             context: { search_default_filter: 1 },
         });
 
-        assert.deepEqual(getFacetTexts(controlPanel), ["Filter"]);
+        assert.deepEqual(getFacetTexts(target), ["Filter"]);
 
-        await toggleFavoriteMenu(controlPanel);
-        await toggleSaveFavorite(controlPanel);
-        await editFavoriteName(controlPanel, "My favorite");
-        await saveFavorite(controlPanel);
+        await toggleFavoriteMenu(target);
+        await toggleSaveFavorite(target);
+        await editFavoriteName(target, "My favorite");
+        await saveFavorite(target);
 
-        assert.deepEqual(getFacetTexts(controlPanel), ["My favorite"]);
+        assert.deepEqual(getFacetTexts(target), ["My favorite"]);
     });
 
     QUnit.test("save filters created via autocompletion works", async function (assert) {
         assert.expect(4);
 
-        const controlPanel = await makeWithSearch({
+        await makeWithSearch({
             serverData,
             mockRPC: (_, args) => {
                 if (args.model === "ir.filters" && args.method === "create_or_replace") {
@@ -257,19 +255,19 @@ QUnit.module("Search", (hooks) => {
                 `,
         });
 
-        assert.deepEqual(getFacetTexts(controlPanel), []);
+        assert.deepEqual(getFacetTexts(target), []);
 
-        await editSearch(controlPanel, "a");
-        await validateSearch(controlPanel);
+        await editSearch(target, "a");
+        await validateSearch(target);
 
-        assert.deepEqual(getFacetTexts(controlPanel), ["Foo\na"]);
+        assert.deepEqual(getFacetTexts(target), ["Foo\na"]);
 
-        await toggleFavoriteMenu(controlPanel);
-        await toggleSaveFavorite(controlPanel);
-        await editFavoriteName(controlPanel, "My favorite");
-        await saveFavorite(controlPanel);
+        await toggleFavoriteMenu(target);
+        await toggleSaveFavorite(target);
+        await editFavoriteName(target, "My favorite");
+        await saveFavorite(target);
 
-        assert.deepEqual(getFacetTexts(controlPanel), ["My favorite"]);
+        assert.deepEqual(getFacetTexts(target), ["My favorite"]);
     });
 
     QUnit.test(
@@ -295,13 +293,13 @@ QUnit.module("Search", (hooks) => {
                 { force: true }
             );
 
-            const controlPanel = await makeWithSearch({
+            await makeWithSearch({
                 serverData,
                 mockRPC: (route, args) => {
                     if (args.model === "ir.filters" && args.method === "create_or_replace") {
                         const irFilter = args.args[0];
                         assert.deepEqual(irFilter, {
-                            action_id: undefined,
+                            action_id: false,
                             context: { group_by: [] },
                             domain: "[]",
                             is_default: false,
@@ -330,20 +328,62 @@ QUnit.module("Search", (hooks) => {
                 ],
             });
 
-            await toggleFavoriteMenu(controlPanel);
-            await toggleSaveFavorite(controlPanel);
+            await toggleFavoriteMenu(target);
+            await toggleSaveFavorite(target);
 
             // first try: should fail
-            await editFavoriteName(controlPanel, "My favorite");
-            await saveFavorite(controlPanel);
+            await editFavoriteName(target, "My favorite");
+            await saveFavorite(target);
 
             // second try: should succeed
-            await editFavoriteName(controlPanel, "My favorite 2");
-            await saveFavorite(controlPanel);
+            await editFavoriteName(target, "My favorite 2");
+            await saveFavorite(target);
 
             // third try: should fail
-            await editFavoriteName(controlPanel, "My favorite 2");
-            await saveFavorite(controlPanel);
+            await editFavoriteName(target, "My favorite 2");
+            await saveFavorite(target);
+        }
+    );
+
+    QUnit.test(
+        "undefined name for filter shows notification and not error",
+        async function (assert) {
+            assert.expect(2);
+
+            serviceRegistry.add(
+                "notification",
+                {
+                    start() {
+                        return {
+                            add(message, options) {
+                                assert.strictEqual(
+                                    message,
+                                    "A name for your favorite filter is required.",
+                                    "The notification should match: A name for your favorite filter is required."
+                                );
+                                assert.deepEqual(options, { type: "danger" });
+                            },
+                        };
+                    },
+                },
+                { force: true }
+            );
+
+            await makeWithSearch({
+                serverData,
+                mockRPC: (_, args) => {
+                    if (args.model === "ir.filters" && args.method === "create_or_replace") {
+                        return 7; // fake serverSideId
+                    }
+                },
+                resModel: "foo",
+                Component: FavoriteMenu,
+                searchViewId: false,
+            });
+
+            await toggleFavoriteMenu(target);
+            await toggleSaveFavorite(target);
+            await saveFavorite(target);
         }
     );
 
@@ -363,7 +403,7 @@ QUnit.module("Search", (hooks) => {
             },
             { force: true }
         );
-        const controlPanel = await makeWithSearch({
+        await makeWithSearch({
             serverData,
             resModel: "foo",
             Component: ControlPanel,
@@ -385,11 +425,11 @@ QUnit.module("Search", (hooks) => {
             ],
         });
 
-        await toggleFavoriteMenu(controlPanel);
-        await toggleSaveFavorite(controlPanel);
-        await editFavoriteName(controlPanel, "My favorite");
+        await toggleFavoriteMenu(target);
+        await toggleSaveFavorite(target);
+        await editFavoriteName(target, "My favorite");
         triggerEvent(
-            controlPanel.el,
+            target,
             `.o_favorite_menu .o_add_favorite .dropdown-menu input[type="text"]`,
             "keydown",
             { key: "Enter" }

@@ -140,14 +140,14 @@ class TestPurchaseLeadTime(PurchaseTestCommon):
         self.assertTrue(purchase.picking_ids, "Picking should be created.")
 
         # Check scheduled date of Internal Type shipment
-        incoming_shipment1 = self.env['stock.picking'].search([('move_lines.product_id', 'in', (self.product_1.id, self.product_2.id)), ('picking_type_id', '=', self.warehouse_1.int_type_id.id), ('location_id', '=', self.warehouse_1.wh_input_stock_loc_id.id), ('location_dest_id', '=', self.warehouse_1.wh_qc_stock_loc_id.id)])
+        incoming_shipment1 = self.env['stock.picking'].search([('move_ids.product_id', 'in', (self.product_1.id, self.product_2.id)), ('picking_type_id', '=', self.warehouse_1.int_type_id.id), ('location_id', '=', self.warehouse_1.wh_input_stock_loc_id.id), ('location_dest_id', '=', self.warehouse_1.wh_qc_stock_loc_id.id)])
         incoming_shipment1_date = order_date + timedelta(days=self.product_1.seller_ids.delay)
         self.assertEqual(incoming_shipment1.scheduled_date, incoming_shipment1_date, 'Schedule date of Internal Type shipment for input stock location should be equal to: schedule date of purchase order + push rule delay.')
         self.assertEqual(incoming_shipment1.date_deadline, incoming_shipment1_date)
         old_deadline1 = incoming_shipment1.date_deadline
 
         incoming_shipment2 = self.env['stock.picking'].search([('picking_type_id', '=', self.warehouse_1.int_type_id.id), ('location_id', '=', self.warehouse_1.wh_qc_stock_loc_id.id), ('location_dest_id', '=', self.warehouse_1.lot_stock_id.id)])
-        incoming_shipment2_date = schedule_date - timedelta(days=incoming_shipment2.move_lines[0].rule_id.delay)
+        incoming_shipment2_date = schedule_date - timedelta(days=incoming_shipment2.move_ids[0].rule_id.delay)
         self.assertEqual(incoming_shipment2.scheduled_date, incoming_shipment2_date, 'Schedule date of Internal Type shipment for quality control stock location should be equal to: schedule date of Internal type shipment for input stock location + push rule delay..')
         self.assertEqual(incoming_shipment2.date_deadline, incoming_shipment2_date)
         old_deadline2 = incoming_shipment2.date_deadline
@@ -166,7 +166,7 @@ class TestPurchaseLeadTime(PurchaseTestCommon):
         product_1 = self.env['product.product'].create({
             'name': 'AAA',
             'route_ids': [(4, self.route_buy)],
-            'seller_ids': [(0, 0, {'name': self.partner_1.id, 'delay': 5})]
+            'seller_ids': [(0, 0, {'partner_id': self.partner_1.id, 'delay': 5})]
         })
 
         # create a move for product_1 from stock to output and reserve to trigger the
@@ -215,7 +215,7 @@ class TestPurchaseLeadTime(PurchaseTestCommon):
             'product_name': 'Vendor Name',
             'product_code': 'Vendor Code',
         })
-        partner = self.t_shirt.seller_ids[:1].name
+        partner = self.t_shirt.seller_ids[:1].partner_id
         t_shirt = self.t_shirt.with_context(
             lang=partner.lang,
             partner_id=partner.id,
@@ -274,7 +274,7 @@ class TestPurchaseLeadTime(PurchaseTestCommon):
         })
         company.write({'po_lead': 0.00})
         self.patcher = patch('odoo.addons.stock.models.stock_orderpoint.fields.Date', wraps=fields.Date)
-        self.mock_date = self.patcher.start()
+        self.mock_date = self.startPatcher(self.patcher)
 
         vendor = self.env['res.partner'].create({
             'name': 'Colruyt'
@@ -285,17 +285,44 @@ class TestPurchaseLeadTime(PurchaseTestCommon):
 
         self.env.company.days_to_purchase = 2.0
 
+        # Test if the orderpoint is created when opening the replenishment view
+        prod = self.env['product.product'].create({
+            'name': 'Carrot',
+            'type': 'product',
+            'seller_ids': [
+                (0, 0, {'partner_id': vendor.id, 'delay': 1.0, 'company_id': company.id})
+            ]
+        })
+
+        warehouse = self.env['stock.warehouse'].search([], limit=1)
+        self.env['stock.move'].create({
+            'name': 'Delivery',
+            'date': datetime.today() + timedelta(days=3),
+            'product_id': prod.id,
+            'product_uom': prod.uom_id.id,
+            'product_uom_qty': 5.0,
+            'location_id': warehouse.lot_stock_id.id,
+            'location_dest_id': self.ref('stock.stock_location_customers'),
+        })._action_confirm()
+        self.env['stock.warehouse.orderpoint'].action_open_orderpoints()
+        replenishment = self.env['stock.warehouse.orderpoint'].search([
+            ('product_id', '=', prod.id),
+        ])
+        self.assertEqual(len(replenishment), 1)
+
+        # Test if purchase orders are created according to the days to purchase
         product = self.env['product.product'].create({
             'name': 'Chicory',
             'type': 'product',
             'seller_ids': [
-                (0, 0, {'name': vendor2.id, 'delay': 15.0, 'company_id': company2.id}),
-                (0, 0, {'name': vendor.id, 'delay': 1.0, 'company_id': company.id})
+                (0, 0, {'partner_id': vendor2.id, 'delay': 15.0, 'company_id': company2.id}),
+                (0, 0, {'partner_id': vendor.id, 'delay': 1.0, 'company_id': company.id})
             ]
         })
         orderpoint_form = Form(self.env['stock.warehouse.orderpoint'])
         orderpoint_form.product_id = product
         orderpoint_form.product_min_qty = 0.0
+        orderpoint_form.visibility_days = 1.0
         orderpoint = orderpoint_form.save()
 
         orderpoint_form = Form(self.env['stock.warehouse.orderpoint'].with_company(company2))
@@ -303,7 +330,6 @@ class TestPurchaseLeadTime(PurchaseTestCommon):
         orderpoint_form.product_min_qty = 0.0
         orderpoint = orderpoint_form.save()
 
-        warehouse = self.env['stock.warehouse'].search([], limit=1)
         delivery_moves = self.env['stock.move']
         for i in range(0, 6):
             delivery_moves |= self.env['stock.move'].create({
@@ -321,19 +347,18 @@ class TestPurchaseLeadTime(PurchaseTestCommon):
         expected_date_order = fields.Date.today() + timedelta(days=2)
         self.assertEqual(fields.Date.to_date(po_line.order_id.date_order), expected_date_order)
         self.assertEqual(len(po_line), 1)
-        self.assertEqual(po_line.product_uom_qty, 20.0)
+        self.assertEqual(po_line.product_uom_qty, 25.0)
         self.assertEqual(len(po_line.order_id), 1)
         orderpoint_form = Form(orderpoint)
         orderpoint_form.save()
 
-        self.mock_date.today.return_value = fields.Date.today() + timedelta(days=1)
+        self.mock_date.today.return_value = fields.Date.today() + timedelta(days=2)
         orderpoint._compute_qty()
         self.env['procurement.group'].run_scheduler()
         po_line02 = self.env['purchase.order.line'].search([('product_id', '=', product.id)])
         self.assertEqual(po_line02, po_line, 'The orderpoint execution should not create a new POL')
         self.assertEqual(fields.Date.to_date(po_line.order_id.date_order), expected_date_order, 'The Order Deadline should not change')
-        self.assertEqual(po_line.product_uom_qty, 25.0, 'The existing POL should be updated with the quantity of the last execution')
-        self.patcher.stop()
+        self.assertEqual(po_line.product_uom_qty, 30.0, 'The existing POL should be updated with the quantity of the last execution')
 
     def test_supplier_lead_time(self):
         """ Basic stock configuration and a supplier with a minimum qty and a lead time """
@@ -342,11 +367,11 @@ class TestPurchaseLeadTime(PurchaseTestCommon):
         orderpoint_form.product_id = self.product_1
         orderpoint_form.product_min_qty = 10
         orderpoint_form.product_max_qty = 50
-        orderpoint = orderpoint_form.save()
+        orderpoint_form.save()
 
         self.env['product.supplierinfo'].search([('product_tmpl_id', '=', self.product_1.product_tmpl_id.id)]).unlink()
         self.env['product.supplierinfo'].create({
-            'name': self.partner_1.id,
+            'partner_id': self.partner_1.id,
             'min_qty': 1,
             'price': 1,
             'delay': 7,

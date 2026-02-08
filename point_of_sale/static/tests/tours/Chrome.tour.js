@@ -62,6 +62,7 @@ odoo.define('point_of_sale.tour.Chrome', function (require) {
     PaymentScreen.do.clickPaymentMethod('Cash');
     PaymentScreen.do.pressNumpad('2 0');
     PaymentScreen.check.remainingIs('0.0');
+    PaymentScreen.check.changeIs('18.0');
     PaymentScreen.check.validateButtonIsHighlighted(true);
     PaymentScreen.do.clickValidate();
     ReceiptScreen.check.totalAmountContains('2.0');
@@ -92,9 +93,8 @@ odoo.define('point_of_sale.tour.Chrome', function (require) {
 
     // Invoice an order
     ProductScreen.exec.addOrderline('Whiteboard Pen', '5', '6');
-    ProductScreen.do.clickCustomerButton();
+    ProductScreen.do.clickPartnerButton();
     ProductScreen.do.clickCustomer('Nicole Ford');
-    ProductScreen.do.clickSetCustomer();
     ProductScreen.do.clickPayButton();
     PaymentScreen.do.clickPaymentMethod('Bank');
     PaymentScreen.do.clickInvoiceButton();

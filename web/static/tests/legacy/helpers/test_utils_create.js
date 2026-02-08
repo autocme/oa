@@ -13,17 +13,18 @@ odoo.define('web.test_utils_create', function (require) {
     const ActionMenus = require('web.ActionMenus');
     const concurrency = require('web.concurrency');
     const ControlPanel = require('web.ControlPanel');
-    const customHooks = require('web.custom_hooks');
+    const { useListener } = require("@web/core/utils/hooks");
     const dom = require('web.dom');
     const makeTestEnvironment = require('web.test_env');
     const ActionModel = require('web.ActionModel');
     const Registry = require('web.Registry');
     const testUtilsMock = require('web.test_utils_mock');
     const Widget = require('web.Widget');
+    const { destroy, getFixture, mount, useChild } = require('@web/../tests/helpers/utils');
+    const { registerCleanup } = require("@web/../tests/helpers/cleanup");
+    const { LegacyComponent } = require("@web/legacy/legacy_component");
 
-    const { Component } = owl;
-    const { useRef, useState } = owl.hooks;
-    const { xml } = owl.tags;
+    const { Component, onMounted, onWillStart, useState, xml } = owl;
 
     /**
      * Similar as createView, but specific for calendar views. Some calendar
@@ -82,28 +83,26 @@ odoo.define('web.test_utils_create', function (require) {
             throw new Error(`Argument "constructor" must be an Owl Component.`);
         }
         const cleanUp = await testUtilsMock.addMockEnvironmentOwl(Component, params);
-        class Parent extends Component {
-            constructor() {
-                super(...arguments);
+        class Parent extends LegacyComponent {
+            setup() {
                 this.Component = constructor;
                 this.state = useState(params.props || {});
-                this.component = useRef('component');
                 for (const eventName in params.intercepts || {}) {
-                    customHooks.useListener(eventName, params.intercepts[eventName]);
+                    useListener(eventName, params.intercepts[eventName]);
                 }
+                useChild();
             }
         }
-        Parent.template = xml`<t t-component="Component" t-props="state" t-ref="component"/>`;
-        const parent = new Parent();
-        await parent.mount(prepareTarget(params.debug), { position: 'first-child' });
-        const child = parent.component.comp;
-        const originalDestroy = child.destroy;
-        child.destroy = function () {
-            child.destroy = originalDestroy;
-            cleanUp();
-            parent.destroy();
-        };
-        return child;
+        Parent.template = xml`<t t-component="Component" t-props="state"/>`;
+
+        const target = getFixture();
+        const env = Component.env;
+        const parent = await mount(Parent, target, { env });
+        registerCleanup(cleanUp);
+        registerCleanup(() => {
+            destroy(parent);
+        });
+        return parent.child;
     }
 
     /**
@@ -123,7 +122,6 @@ odoo.define('web.test_utils_create', function (require) {
      *    available helpers)
      */
     async function createControlPanel(params = {}) {
-        const debug = params.debug || false;
         const env = makeTestEnvironment(params.env || {});
         const props = Object.assign({
             action: {},
@@ -144,13 +142,13 @@ odoo.define('web.test_utils_create', function (require) {
                 new Widget(),
                 serverParams,
             );
-            const { arch, fields } = testUtilsMock.fieldsViewGet(mockServer, {
+            const { arch } = testUtilsMock.getView(mockServer, {
                 arch: globalConfig.arch,
                 fields: globalConfig.fields,
                 model,
                 viewOptions: { context: globalConfig.context },
             });
-            Object.assign(globalConfig, { arch, fields });
+            Object.assign(globalConfig, { arch });
         }
 
         globalConfig.env = env;
@@ -160,46 +158,39 @@ odoo.define('web.test_utils_create', function (require) {
             ControlPanel: { archNodes: controlPanelInfo.children, },
         };
 
-        class Parent extends Component {
-            constructor() {
-                super();
+        class Parent extends LegacyComponent {
+            setup() {
                 this.searchModel = new ActionModel(extensions, globalConfig);
                 this.state = useState(props);
-                this.controlPanel = useRef("controlPanel");
-            }
-            async willStart() {
-                await this.searchModel.load();
-            }
-            mounted() {
-                if (params['get-controller-query-params']) {
-                    this.searchModel.on('get-controller-query-params', this,
-                        params['get-controller-query-params']);
-                }
-                if (params.search) {
-                    this.searchModel.on('search', this, params.search);
-                }
+                useChild();
+                onWillStart(async () => {
+                    await this.searchModel.load();
+                });
+                onMounted(() => {
+                    if (params['get-controller-query-params']) {
+                        this.searchModel.on('get-controller-query-params', this,
+                            params['get-controller-query-params']);
+                    }
+                    if (params.search) {
+                        this.searchModel.on('search', this, params.search);
+                    }
+                });
             }
         }
         Parent.components = { ControlPanel };
-        Parent.env = env;
         Parent.template = xml`
             <ControlPanel
-                t-ref="controlPanel"
                 t-props="state"
                 searchModel="searchModel"
             />`;
 
-        const parent = new Parent();
-        await parent.mount(prepareTarget(debug), { position: 'first-child' });
-
-        const controlPanel = parent.controlPanel.comp;
-        const destroy = controlPanel.destroy;
-        controlPanel.destroy = function () {
-            controlPanel.destroy = destroy;
-            parent.destroy();
-        };
-        controlPanel.getQuery = () => parent.searchModel.get('query');
-
+        const target = getFixture();
+        const parent = await mount(Parent, target, { env });
+        const controlPanel = parent.child;
+        controlPanel.getQuery = () => parent.searchModel.get("query");
+        registerCleanup(() => {
+            destroy(parent);
+        });
         return controlPanel;
     }
 
@@ -292,7 +283,7 @@ odoo.define('web.test_utils_create', function (require) {
 
         // add mock environment: mock server, session, fieldviewget, ...
         const mockServer = await testUtilsMock.addMockEnvironment(widget, params);
-        const viewInfo = testUtilsMock.fieldsViewGet(mockServer, params);
+        const viewInfo = testUtilsMock.getView(mockServer, params);
 
         params.server = mockServer;
 
@@ -306,7 +297,7 @@ odoo.define('web.test_utils_create', function (require) {
         };
         const viewOptions = Object.assign({
             action: Object.assign(defaultAction, params.action),
-            view: viewInfo,
+            view: { ...viewInfo, fields: mockServer.fieldsGet(params.model) },
             modelName: modelName,
             ids: 'res_id' in params ? [params.res_id] : undefined,
             currentId: 'res_id' in params ? params.res_id : undefined,
@@ -332,7 +323,7 @@ odoo.define('web.test_utils_create', function (require) {
             // TODO: probably needs to create an helper just for that
             view = new params.View({ viewInfo, modelName });
         } else {
-            viewOptions.controlPanelFieldsView = Object.assign(testUtilsMock.fieldsViewGet(mockServer, {
+            viewOptions.controlPanelFieldsView = Object.assign(testUtilsMock.getView(mockServer, {
                 arch: params.archs && params.archs[params.model + ',false,search'] || '<search/>',
                 fields: viewInfo.fields,
                 model: params.model,

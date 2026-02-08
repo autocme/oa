@@ -378,7 +378,7 @@ class TestMrpValuationStandard(TestMrpValuationCommon):
         receipt.button_validate()
 
         self.assertEqual(receipt.state, 'done')
-        self.assertRecordValues(receipt.move_lines, [
+        self.assertRecordValues(receipt.move_ids, [
             {'product_id': self.component.id, 'quantity_done': 1, 'state': 'done'},
         ])
         self.assertEqual(self.component.qty_available, 1)

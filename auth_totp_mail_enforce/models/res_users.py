@@ -31,7 +31,7 @@ class Users(models.Model):
         otp_required = False
         if ICP.get_param('auth_totp.policy') == 'all_required':
             otp_required = True
-        elif ICP.get_param('auth_totp.policy') == 'employee_required' and self.has_group('base.group_user'):
+        elif ICP.get_param('auth_totp.policy') == 'employee_required' and self._is_internal():
             otp_required = True
         if otp_required:
             return 'totp_mail'
@@ -88,7 +88,7 @@ class Users(models.Model):
         template = self.env.ref('auth_totp_mail_enforce.mail_template_totp_mail_code').sudo()
         context = {}
         if request:
-            geoip = request.session.geoip
+            geoip = request.geoip
             device = request.httprequest.user_agent.platform
             browser = request.httprequest.user_agent.browser
             context.update({
@@ -107,7 +107,7 @@ class Users(models.Model):
         }
         with self.env.cr.savepoint():
             template.with_context(**context).send_mail(
-                self.id, force_send=True, raise_exception=True, email_values=email_values, notif_layout='mail.mail_notification_light'
+                self.id, force_send=True, raise_exception=True, email_values=email_values, email_layout_xmlid='mail.mail_notification_light'
             )
 
     def _totp_rate_limit(self, limit_type):

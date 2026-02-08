@@ -14,7 +14,6 @@ odoo.define('web.relational_fields', function (require) {
  */
 
 var AbstractField = require('web.AbstractField');
-var basicFields = require('web.basic_fields');
 var concurrency = require('web.concurrency');
 const ControlPanelX2Many = require('web.ControlPanelX2Many');
 var core = require('web.core');
@@ -28,8 +27,8 @@ var KanbanRenderer = require('web.KanbanRenderer');
 var ListRenderer = require('web.ListRenderer');
 const { ComponentWrapper, WidgetAdapterMixin } = require('web.OwlCompatibility');
 const { sprintf, toBoolElse } = require("web.utils");
+const { escape } = require("@web/core/utils/strings");
 
-const { escape } = owl.utils;
 var _t = core._t;
 var _lt = core._lt;
 var qweb = core.qweb;
@@ -240,7 +239,7 @@ var FieldMany2One = AbstractField.extend({
     _addAutocompleteSource: function (method, params) {
         this._autocompleteSources.push({
             method: method,
-            placeholder: (params.placeholder ? _t(params.placeholder) : _t('Loading...')) + '<i class="fa fa-spin fa-circle-o-notch pull-right"></i>' ,
+            placeholder: (params.placeholder ? _t(params.placeholder) : _t('Loading...')) + '<i class="fa fa-spin fa-circle-o-notch float-end"></i>' ,
             validation: params.validation,
             loading: false,
             order: params.order || 999
@@ -1112,7 +1111,6 @@ var FieldX2Many = AbstractField.extend(WidgetAdapterMixin, {
         navigation_move: '_onNavigationMove',
         save_optional_fields: '_onSaveOrLoadOptionalFields',
         load_optional_fields: '_onSaveOrLoadOptionalFields',
-        pager_changed: '_onPagerChanged',
     }),
 
     // We need to trigger the reset on every changes to be aware of the parent changes
@@ -1157,6 +1155,7 @@ var FieldX2Many = AbstractField.extend(WidgetAdapterMixin, {
                     Promise.resolve();
             },
             withAccessKey: false,
+            onPagerChanged: this._onPagerChanged.bind(this),
         };
         var arch = this.view && this.view.arch;
         if (arch) {
@@ -1183,10 +1182,10 @@ var FieldX2Many = AbstractField.extend(WidgetAdapterMixin, {
         const _super = this._super.bind(this);
         if (this.view) {
             this._renderButtons();
-            this._controlPanelWrapper = new ComponentWrapper(this, ControlPanelX2Many, {
-                cp_content: { $buttons: this.$buttons },
-                pager: this.pagingState,
-            });
+            this._controlPanelWrapper = new ComponentWrapper(this,
+                this._getControlPanelComponent(),
+                this._getControlPanelContext(),
+            );
             await this._controlPanelWrapper.mount(this.el, { position: 'first-child' });
         }
         return _super(...arguments);
@@ -1371,7 +1370,7 @@ var FieldX2Many = AbstractField.extend(WidgetAdapterMixin, {
             if (extraInfo.subFieldName) {
                 parts.push(`[name="${extraInfo.subFieldName}"]`);
             }
-    
+
             if (parts.length) {
                 const el = this.el.querySelector(parts.join(' '));
                 if (el) {
@@ -1438,6 +1437,25 @@ var FieldX2Many = AbstractField.extend(WidgetAdapterMixin, {
         if (this.view.arch.tag === 'kanban') {
             return KanbanRenderer;
         }
+    },
+    /**
+     * Provides a way to override the control panel component to be used.
+     *
+     * @private
+     * @returns {Component} The component to use.
+     */
+    _getControlPanelComponent: function () {
+        return ControlPanelX2Many;
+    },
+    /**
+     * @private
+     * @returns {Object} The context that will be passed to the control panel.
+     */
+    _getControlPanelContext: function () {
+        return {
+            cp_content: { $buttons: this.$buttons },
+            pager: this.pagingState,
+        };
     },
     /**
      * @private
@@ -1522,6 +1540,12 @@ var FieldX2Many = AbstractField.extend(WidgetAdapterMixin, {
                 deletable: false,
                 read_only_mode: this.isReadonly,
             };
+            if (('action' in arch.attrs) && ('type' in arch.attrs)) {
+                record_options.openAction = {
+                    action: arch.attrs.action,
+                    type: arch.attrs.type
+                };
+            }
             _.extend(rendererParams, {
                 record_options: record_options,
                 readOnlyMode: this.isReadonly,
@@ -1788,9 +1812,7 @@ var FieldX2Many = AbstractField.extend(WidgetAdapterMixin, {
      * @private
      * @param {OdooEvent} ev
      */
-    _onPagerChanged: function (ev) {
-        ev.stopPropagation();
-        const { currentMinimum, limit } = ev.data;
+    _onPagerChanged: function ({ currentMinimum, limit }) {
         this._updateControlPanel({ currentMinimum, limit });
         this.trigger_up('load', {
             id: this.value.id,
@@ -2026,7 +2048,7 @@ var FieldOne2Many = FieldX2Many.extend({
 
     /**
      * @private
-     * @param {*} data 
+     * @param {*} data
      */
     _addCreateRecordRow(data) {
         const self = this;
@@ -2042,7 +2064,6 @@ var FieldOne2Many = FieldX2Many.extend({
                     operation: 'CREATE',
                     position: this.editable || data.forceEditable,
                     context: data.context,
-                    isDirty: data.isDirty,
                 }, {
                     allowWarning: data.allowWarning
                 }).then(function () {
@@ -2816,7 +2837,8 @@ var FieldMany2ManyTagsAvatar = FieldMany2ManyTags.extend({
 
 // Remove event handlers on this widget to ensure that the kanban 'global
 // click' opens the clicked record
-const { click, ...M2MAvatarMixinEvents } = AbstractField.prototype.events;
+const M2MAvatarMixinEvents = { ...AbstractField.prototype.events };
+delete M2MAvatarMixinEvents.click;
 const M2MAvatarMixin = {
     visibleAvatarCount: 3, // number of visible avatar
     events: M2MAvatarMixinEvents,
@@ -2928,16 +2950,21 @@ var FormFieldMany2ManyTags = FieldMany2ManyTags.extend({
         var tagColor = $(ev.currentTarget).parent().data('color');
         var tag = _.findWhere(this.value.data, { res_id: tagID });
         if (tag && this.colorField in tag.data) { // if there is a color field on the related model
-            this.$color_picker = $(qweb.render('FieldMany2ManyTag.colorpicker', {
-                'widget': this,
-                'tag_id': tagID,
-            }));
+            // Manual initialize dropdown and show (once)
+            if (ev.currentTarget.dataset.bsToggle !== 'dropdown') {
+                this.$color_picker = $(qweb.render('FieldMany2ManyTag.colorpicker', {
+                    'widget': this,
+                    'tag_id': tagID,
+                }));
 
-            $(ev.currentTarget).after(this.$color_picker);
-            this.$color_picker.dropdown();
+                $(ev.currentTarget).after(this.$color_picker);
+                ev.currentTarget.setAttribute('data-bs-toggle', 'dropdown');
+                const dropdownToggle = new Dropdown(ev.currentTarget);
+                dropdownToggle.show();
+            }
             this.$color_picker.attr("tabindex", 1).focus();
             if (!tagColor) {
-                this.$('.custom-checkbox input').prop('checked', true);
+                this.$('.form-check input').prop('checked', true);
             }
         }
     },
@@ -2959,7 +2986,7 @@ var FormFieldMany2ManyTags = FieldMany2ManyTags.extend({
         var changes = {};
 
         if ($target.is('.o_hide_in_kanban')) {
-            var $checkbox = $('.o_hide_in_kanban .custom-checkbox input');
+            var $checkbox = $('.o_hide_in_kanban .form-check input');
             $checkbox.prop('checked', !$checkbox.prop('checked')); // toggle checkbox
             this.prevColors = this.prevColors ? this.prevColors : {};
             if ($checkbox.is(':checked')) {
@@ -3187,6 +3214,46 @@ var FieldStatus = AbstractField.extend({
     isEmpty: function () {
         return false;
     },
+    /**
+     * Set the legacy command for statusbar to CommandPalette.
+     *
+     * @override
+     */
+    on_attach_callback() {
+        if (this.isClickable && this.viewType === 'form') {
+            const provide = () => {
+                return this.status_information.map((value) => ({
+                    name: value['display_name'],
+                    action: () => {
+                        this._setValue(value['id']);
+                    }
+                }));
+            };
+            const statusLabel = sprintf(_t(`Move to %s...`), escape(this.string));
+            const getCommandDefinition = (env) => ({
+                name: statusLabel,
+                options: {
+                    activeElement: env.services.ui.getActiveElementOf(this.el),
+                    category: "smart_action",
+                    hotkey: "alt+shift+x",
+                },
+                action() {
+                    return {
+                        placeholder: statusLabel,
+                        providers: [{ provide }],
+                    }                },
+            });
+            core.bus.trigger("set_legacy_command", "web.FieldStatus.moveToStage", getCommandDefinition);
+        }
+    },
+    /**
+     * Remove the legacy command from CommandPalette.
+     *
+     * @override
+     */
+    on_detach_callback() {
+        core.bus.trigger("remove_legacy_command", "web.FieldStatus.moveToStage");
+    },
 
     //--------------------------------------------------------------------------
     // Private
@@ -3262,7 +3329,7 @@ var FieldStatus = AbstractField.extend({
  */
 var FieldSelection = AbstractField.extend({
     description: _lt("Selection"),
-    template: 'FieldSelection',
+    template: 'web.Legacy.FieldSelection',
     specialData: "_fetchSpecialRelation",
     supportedFieldTypes: ['selection'],
     events: _.extend({}, AbstractField.prototype.events, {
@@ -3418,14 +3485,6 @@ var FieldRadio = FieldSelection.extend({
     //--------------------------------------------------------------------------
     // Public
     //--------------------------------------------------------------------------
-
-    /**
-     * @override
-     * @returns {boolean} always true
-     */
-    isSet: function () {
-        return true;
-    },
 
     /**
      * Returns the currently-checked radio button, or the first one if no radio

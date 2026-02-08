@@ -38,7 +38,7 @@ class TestWebsiteEventPriceList(TestWebsiteEventSaleCommon):
             'name': 'With Discount Included',
         })
         with MockRequest(self.env, sale_order_id=self.so.id, website=self.current_website):
-            self.WebsiteSaleController.pricelist('With Discount Included')
+            self.WebsiteSaleController.pricelist(promo=None)
             self.so._cart_update(line_id=so_line.id, product_id=self.ticket.product_id.id, set_qty=1)
         self.assertEqual(so_line.price_reduce, 100)
 
@@ -54,7 +54,7 @@ class TestWebsiteEventPriceList(TestWebsiteEventSaleCommon):
             'name': 'Without Discount Included',
         })
         with MockRequest(self.env, sale_order_id=self.so.id, website=self.current_website):
-            self.WebsiteSaleController.pricelist('Without Discount Included')
+            self.WebsiteSaleController.pricelist(promo=None)
             self.so._cart_update(line_id=so_line.id, product_id=self.ticket.product_id.id, set_qty=1)
         self.assertEqual(so_line.price_reduce, 900, 'Incorrect amount based on the pricelist and its currency.')
 
@@ -64,6 +64,6 @@ class TestWebsiteEventPriceList(TestWebsiteEventSaleCommon):
             'name': 'With Discount Included',
         })
         with MockRequest(self.env, sale_order_id=self.so.id, website=self.current_website):
-            self.WebsiteSaleController.pricelist('With Discount Included')
+            self.WebsiteSaleController.pricelist(promo=None)
             self.so._cart_update(line_id=so_line.id, product_id=self.ticket.product_id.id, set_qty=1)
         self.assertEqual(so_line.price_reduce, 900, 'Incorrect amount based on the pricelist and its currency.')

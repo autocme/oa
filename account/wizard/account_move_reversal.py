@@ -96,16 +96,18 @@ class AccountMoveReversal(models.TransientModel):
 
     def _prepare_default_reversal(self, move):
         reverse_date = self.date if self.date_mode == 'custom' else move.date
+        mixed_payment_term = move.invoice_payment_term_id.id if move.invoice_payment_term_id and move.company_id.early_pay_discount_computation == 'mixed' else None
         return {
-            'ref': _('Reversal of: %(move_name)s, %(reason)s', move_name=move.name, reason=self.reason) 
+            'ref': _('Reversal of: %(move_name)s, %(reason)s', move_name=move.name, reason=self.reason)
                    if self.reason
                    else _('Reversal of: %s', move.name),
             'date': reverse_date,
+            'invoice_date_due': reverse_date,
             'invoice_date': move.is_invoice(include_receipts=True) and reverse_date or False,
             'journal_id': self.journal_id.id,
-            'invoice_payment_term_id': None,
+            'invoice_payment_term_id': mixed_payment_term,
             'invoice_user_id': move.invoice_user_id.id,
-            'auto_post': True if reverse_date > fields.Date.context_today(self) else False,
+            'auto_post': 'at_date' if reverse_date > fields.Date.context_today(self) else 'no',
         }
 
     def reverse_moves(self):
@@ -136,7 +138,7 @@ class AccountMoveReversal(models.TransientModel):
             [self.env['account.move'], [], False],  # Others.
         ]
         for move, default_vals in zip(moves, default_values_list):
-            is_auto_post = bool(default_vals.get('auto_post'))
+            is_auto_post = default_vals.get('auto_post') != 'no'
             is_cancel_needed = not is_auto_post and self.refund_method in ('cancel', 'modify')
             batch_index = 0 if is_cancel_needed else 1
             batches[batch_index][0] |= move

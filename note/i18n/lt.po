@@ -4,26 +4,27 @@
 # 
 # Translators:
 # Šarūnas Ažna <sarunas.azna@gmail.com>, 2022
-# Audrius Palenskis <audrius.palenskis@gmail.com>, 2022
-# Monika Raciunaite <monika.raciunaite@gmail.com>, 2022
+# UAB "Draugiški sprendimai" <transifex@draugiskisprendimai.lt>, 2022
+# Ramunė ViaLaurea <ramune.vialaurea@gmail.com>, 2022
+# Silvija Butko <silvija.butko@gmail.com>, 2022
 # Rolandas <info@paninfo.lt>, 2022
 # Arunas Vaitekunas <vaitekunas@gmail.com>, 2022
-# UAB "Draugiški sprendimai" <transifex@draugiskisprendimai.lt>, 2022
-# Silvija Butko <silvija.butko@gmail.com>, 2022
 # digitouch UAB <digitouchagencyeur@gmail.com>, 2022
+# Audrius Palenskis <audrius.palenskis@gmail.com>, 2022
 # Martin Trigaux, 2022
 # Linas Versada <linaskrisiukenas@gmail.com>, 2022
 # Jonas Zinkevicius <jozi@odoo.com>, 2022
-# Ramunė ViaLaurea <ramune.vialaurea@gmail.com>, 2022
+# Monika Raciunaite <monika.raciunaite@gmail.com>, 2022
 # Arunas V. <arunas@devoro.com>, 2023
+# Gailius Kazlauskas <gailius@vialaurea.lt>, 2024
 # 
 msgid ""
 msgstr ""
-"Project-Id-Version: Odoo Server saas~14.4\n"
+"Project-Id-Version: Odoo Server 16.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2021-07-12 07:49+0000\n"
-"PO-Revision-Date: 2021-09-14 12:24+0000\n"
-"Last-Translator: Arunas V. <arunas@devoro.com>, 2023\n"
+"POT-Creation-Date: 2024-02-06 13:31+0000\n"
+"PO-Revision-Date: 2022-09-22 05:53+0000\n"
+"Last-Translator: Gailius Kazlauskas <gailius@vialaurea.lt>, 2024\n"
 "Language-Team: Lithuanian (https://app.transifex.com/odoo/teams/41243/lt/)\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
@@ -105,15 +106,15 @@ msgid "Add a new tag"
 msgstr "Pridėti naują žymą"
 
 #. module: note
-#. openerp-web
-#: code:addons/note/static/src/xml/systray.xml:0
+#. odoo-javascript
+#: code:addons/note/static/src/components/activity_menu_view/activity_menu_view.xml:0
 #, python-format
 msgid "Add a note"
 msgstr "Pridėti pastabą"
 
 #. module: note
-#. openerp-web
-#: code:addons/note/static/src/xml/systray.xml:0
+#. odoo-javascript
+#: code:addons/note/static/src/components/activity_menu_view/activity_menu_view.xml:0
 #, python-format
 msgid "Add new note"
 msgstr "Pridėti naują pastabą"
@@ -134,8 +135,8 @@ msgid "By sticky note Category"
 msgstr "Pagal pastabos kategoriją"
 
 #. module: note
-#. openerp-web
-#: code:addons/note/static/src/xml/systray.xml:0
+#. odoo-javascript
+#: code:addons/note/static/src/components/activity_menu_view/activity_menu_view.xml:0
 #, python-format
 msgid "Channel"
 msgstr "Kanalas"
@@ -145,6 +146,11 @@ msgstr "Kanalas"
 #: model:ir.model.fields,field_description:note.field_note_tag__color
 msgid "Color Index"
 msgstr "Spalvos indeksas"
+
+#. module: note
+#: model:ir.model.fields,field_description:note.field_note_note__company_id
+msgid "Company"
+msgstr "Įmonė"
 
 #. module: note
 #: model:ir.ui.menu,name:note.menu_note_configuration
@@ -246,7 +252,6 @@ msgstr "Išimties veiklą žyminti piktograma."
 
 #. module: note
 #: model:ir.model.fields,help:note.field_note_note__message_needaction
-#: model:ir.model.fields,help:note.field_note_note__message_unread
 msgid "If checked, new messages require your attention."
 msgstr "Jeigu pažymėta, naujiems pranešimams reikės jūsų dėmesio."
 
@@ -364,6 +369,7 @@ msgid "Note Tag"
 msgstr "Pastabos žyma"
 
 #. module: note
+#. odoo-python
 #: code:addons/note/models/res_users.py:0
 #: model:ir.actions.act_window,name:note.action_note_note
 #: model:ir.ui.menu,name:note.menu_note_notes
@@ -394,18 +400,13 @@ msgstr "Klaidų kiekis"
 
 #. module: note
 #: model:ir.model.fields,help:note.field_note_note__message_needaction_counter
-msgid "Number of messages which requires an action"
-msgstr "Žinučių, kurioms reikia jūsų veiksmo, skaičius"
+msgid "Number of messages requiring action"
+msgstr "Pranešimų, kuriems reikia imtis veiksmų, skaičius"
 
 #. module: note
 #: model:ir.model.fields,help:note.field_note_note__message_has_error_counter
 msgid "Number of messages with delivery error"
 msgstr "Žinučių su pristatymo klaida skaičius"
-
-#. module: note
-#: model:ir.model.fields,help:note.field_note_note__message_unread_counter
-msgid "Number of unread messages"
-msgstr "Neperskaitytų žinučių skaičius"
 
 #. module: note
 #: model:ir.model.fields,field_description:note.field_note_note__user_id
@@ -414,18 +415,13 @@ msgid "Owner"
 msgstr "Savininkas"
 
 #. module: note
-#: model:ir.model.fields,help:note.field_note_stage__user_id
-msgid "Owner of the note stage"
-msgstr "Pastabos etapo savininkas"
-
-#. module: note
 #: model:ir.model.fields,field_description:note.field_mail_activity__note_id
 msgid "Related Note"
 msgstr "Susijusi pastaba"
 
 #. module: note
-#. openerp-web
-#: code:addons/note/static/src/xml/systray.xml:0
+#. odoo-javascript
+#: code:addons/note/static/src/components/activity_menu_view/activity_menu_view.xml:0
 #, python-format
 msgid "Remember..."
 msgstr "Prisiminti..."
@@ -442,8 +438,8 @@ msgid "Responsible User"
 msgstr "Atsakingas vartotojas"
 
 #. module: note
-#. openerp-web
-#: code:addons/note/static/src/xml/systray.xml:0
+#. odoo-javascript
+#: code:addons/note/static/src/components/activity_menu_view/activity_menu_view.xml:0
 #, python-format
 msgid "SAVE"
 msgstr "IŠSAUGOTI"
@@ -453,14 +449,6 @@ msgstr "IŠSAUGOTI"
 #: model:ir.model.fields,field_description:note.field_note_stage__sequence
 msgid "Sequence"
 msgstr "Seka"
-
-#. module: note
-#. openerp-web
-#: code:addons/note/static/src/xml/systray.xml:0
-#: code:addons/note/static/src/xml/systray.xml:0
-#, python-format
-msgid "Set date and time"
-msgstr "Nustatyti datą ir laiką"
 
 #. module: note
 #: model_terms:ir.ui.view,arch_db:note.view_note_note_filter
@@ -535,8 +523,8 @@ msgid "Tags"
 msgstr "Žymos"
 
 #. module: note
-#. openerp-web
-#: code:addons/note/static/src/js/systray_activity_menu.js:0
+#. odoo-javascript
+#: code:addons/note/static/src/models/activity_menu_view.js:0
 #, python-format
 msgid "Today"
 msgstr "Šiandien"
@@ -557,21 +545,6 @@ msgid "Type of the exception activity on record."
 msgstr "Įrašytos išimties veiklos tipas."
 
 #. module: note
-#: model:ir.model.fields,field_description:note.field_note_note__message_unread
-msgid "Unread Messages"
-msgstr "Neperskaitytos žinutės"
-
-#. module: note
-#: model:ir.model.fields,field_description:note.field_note_note__message_unread_counter
-msgid "Unread Messages Counter"
-msgstr "Neperskaitytų žinučių skaičiavimas"
-
-#. module: note
-#: model:ir.model.fields,help:note.field_note_stage__sequence
-msgid "Used to order the note stages"
-msgstr "Naudojama pastabų etapų rikiavimui"
-
-#. module: note
 #: model:ir.model,name:note.model_res_users
-msgid "Users"
-msgstr "Vartotojai"
+msgid "User"
+msgstr "Vartotojas"

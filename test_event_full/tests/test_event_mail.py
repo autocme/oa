@@ -2,10 +2,10 @@
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
 
 from datetime import datetime, timedelta
+from freezegun import freeze_time
 
 from odoo.addons.mail.tests.common import MockEmail
 from odoo.addons.sms.tests.common import MockSMS
-from odoo.addons.test_event_full.tests.common import TestEventFullCommon
 from odoo.addons.test_event_full.tests.common import TestWEventCommon
 from odoo.exceptions import ValidationError
 from odoo.tools import mute_logger
@@ -89,10 +89,11 @@ class TestTemplateRefModel(TestWEventCommon):
 
 class TestEventSmsMailSchedule(TestWEventCommon, MockEmail, MockSMS):
 
+    @freeze_time('2020-07-06 12:00:00')
     @mute_logger('odoo.addons.base.models.ir_model', 'odoo.models')
     def test_event_mail_before_trigger_sent_count(self):
         """ Emails are sent to both confirmed and unconfirmed attendees.
-        This test checks that the count of sent emails includes the emails sent to unconfirmed ones.
+        This test checks that the count of sent emails includes the emails sent to unconfirmed ones
 
         Time in the test is frozen to simulate the following state:
 
@@ -115,8 +116,8 @@ class TestEventSmsMailSchedule(TestWEventCommon, MockEmail, MockSMS):
             'name': 'TestEventMail',
             # 'user_id': self.env.ref('base.user_admin').id,
             'auto_confirm': False,
-            'date_begin': self.reference_now + timedelta(hours=1),
-            'date_end': self.reference_now + timedelta(hours=2),
+            'date_begin': datetime.now() + timedelta(hours=1),
+            'date_end': datetime.now() + timedelta(hours=2),
             'event_mail_ids': [
                 (0, 0, {  # email 3 hours before event
                     'interval_nbr': 3,

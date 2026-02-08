@@ -20,7 +20,6 @@ var _t = core._t;
  */
 var PortalChatter = publicWidget.Widget.extend({
     template: 'portal.Chatter',
-    xmlDependencies: ['/portal/static/src/xml/portal_chatter.xml'],
     events: {
         'click .o_portal_chatter_pager_btn': '_onClickPager',
         'click .o_portal_chatter_js_is_internal': 'async _onClickUpdateIsInternal',
@@ -30,7 +29,6 @@ var PortalChatter = publicWidget.Widget.extend({
      * @constructor
      */
     init: function (parent, options) {
-        var self = this;
         this.options = {};
         this._super.apply(this, arguments);
 
@@ -103,8 +101,18 @@ var PortalChatter = publicWidget.Widget.extend({
      * @returns {Array}
      */
     preprocessMessages(messages) {
+        const token = this.options['token'];
+        const hash = this.options['hash'];
+        const pid = this.options['pid'];
         _.each(messages, function (m) {
-            m['author_avatar_url'] = _.str.sprintf('/web/image/%s/%s/author_avatar/50x50', 'mail.message', m.id);
+            if (token) {
+                m['author_avatar_url'] = _.str.sprintf('/mail/avatar/mail.message/%s/author_avatar/50x50?access_token=%s', m.id, token);
+            } else if (hash && pid) {
+                m['author_avatar_url'] = _.str.sprintf('/mail/avatar/mail.message/%s/author_avatar/50x50?_hash=%s&pid=%s', m.id, hash, pid);
+            } else {
+                m['author_avatar_url'] = _.str.sprintf('/web/image/mail.message/%s/author_avatar/50x50', m.id);
+
+            }
             m['published_date_str'] = _.str.sprintf(_t('Published on %s'), moment(time.str_to_datetime(m.date)).format('MMMM Do YYYY, h:mm:ss a'));
             m['body'] = Markup(m.body);
         });
@@ -279,7 +287,7 @@ var PortalChatter = publicWidget.Widget.extend({
 
     _onChangeDomain: function () {
         var self = this;
-        this.messageFetch().then(function () {
+        return this.messageFetch().then(function () {
             var p = self._currentPage;
             self.set('pager', self._pager(p));
         });

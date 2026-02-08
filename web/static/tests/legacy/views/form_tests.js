@@ -3,13 +3,17 @@ odoo.define('web.form_tests', function (require) {
 
 const AbstractField = require("web.AbstractField");
 var AbstractStorageService = require('web.AbstractStorageService');
+var basicFields = require('web.basic_fields');
 var BasicModel = require('web.BasicModel');
 var concurrency = require('web.concurrency');
 var core = require('web.core');
 var fieldRegistry = require('web.field_registry');
 const fieldRegistryOwl = require('web.field_registry_owl');
+const { FieldBoolean } = require("web.basic_fields_owl");
 const FormRenderer = require('web.FormRenderer');
 var FormView = require('web.FormView');
+var ListView = require('web.ListView');
+var KanbanView = require('web.KanbanView');
 var mixins = require('web.mixins');
 var pyUtils = require('web.py_utils');
 var RamStorage = require('web.RamStorage');
@@ -18,24 +22,41 @@ var ViewDialogs = require('web.view_dialogs');
 var widgetRegistry = require('web.widget_registry');
 const widgetRegistryOwl = require('web.widgetRegistry');
 var Widget = require('web.Widget');
+const { registry } = require('@web/core/registry');
+const legacyViewRegistry = require('web.view_registry');
+const { registerCleanup } = require("@web/../tests/helpers/cleanup");
 
 var _t = core._t;
 var createView = testUtils.createView;
 
-const { registerCleanup } = require("@web/../tests/helpers/cleanup");
 const { getFixture, legacyExtraNextTick, patchWithCleanup } = require("@web/../tests/helpers/utils");
 const { createWebClient, doAction } = require('@web/../tests/webclient/helpers');
 const { makeTestEnv } = require("@web/../tests/helpers/mock_env");
 const makeTestEnvironment = require("web.test_env");
 const { mapLegacyEnvToWowlEnv } = require("@web/legacy/utils");
-const { registry } = require("@web/core/registry");
 const { scrollerService } = require("@web/core/scroller_service");
+const { LegacyComponent } = require("@web/legacy/legacy_component");
+
+const { onMounted, onWillUnmount, xml } = require("@odoo/owl");
 
 let serverData;
-QUnit.module('Views', {
-    beforeEach: async function () {
+let target;
+QUnit.module('LegacyViews', {
+    beforeEach: function () {
+        // Avoid animation to not have to wait until the tooltip is removed
+        this.initialTooltipDefaultAnimation = Tooltip.Default.animation;
+        Tooltip.Default.animation = false;
+        target = getFixture();
+
         registry.category("services").add("scroller", scrollerService);
-        
+
+        registry.category("views").remove("list"); // remove new list from registry
+        registry.category("views").remove("kanban"); // remove new kanban from registry
+        registry.category("views").remove("form"); // remove new form from registry
+        legacyViewRegistry.add("list", ListView); // add legacy list -> will be wrapped and added to new registry
+        legacyViewRegistry.add("kanban", KanbanView); // add legacy kanban -> will be wrapped and added to new registry
+        legacyViewRegistry.add("form", FormView); // add legacy form -> will be wrapped and added to new registry
+
         this.data = {
             partner: {
                 fields: {
@@ -121,19 +142,6 @@ QUnit.module('Views', {
                     {id: 14, display_name: "silver", color: 5},
                 ]
             },
-            "ir.translation": {
-                fields: {
-                    lang_code: {type: "char"},
-                    value: {type: "char"},
-                    res_id: {type: "integer"}
-                },
-                records: [{
-                    id: 99,
-                    res_id: 12,
-                    value: '',
-                    lang_code: 'en_US'
-                }]
-            },
             user: {
                 fields: {
                     name: {string: "Name", type: "char"},
@@ -172,9 +180,12 @@ QUnit.module('Views', {
             models: this.data,
         };
     },
+    afterEach: async function () {
+        Tooltip.Default.animation = this.initialTooltipDefaultAnimation;
+    },
 }, function () {
 
-    QUnit.module('FormView');
+    QUnit.module('FormView (legacy)');
 
     QUnit.test('simple form rendering', async function (assert) {
         assert.expect(12);
@@ -225,7 +236,7 @@ QUnit.module('Views', {
         assert.containsNone(form, 'label:contains(something_id)');
         assert.containsOnce(form, 'label:contains(f3_description)');
         assert.containsOnce(form, 'div.o_field_one2many table');
-        assert.containsOnce(form, 'tbody td:not(.o_list_record_selector) .custom-checkbox input:checked');
+        assert.containsOnce(form, 'tbody td:not(.o_list_record_selector) .form-check input:checked');
         assert.containsOnce(form, '.o_control_panel .breadcrumb:contains(second record)');
         assert.containsNone(form, 'label.o_form_label_empty:contains(timmy)');
 
@@ -515,10 +526,14 @@ QUnit.module('Views', {
         serverData.models.product.records = [{id: 1, name: 'Tromblon', partner_type_ids: [12,14]}];
         serverData.models.partner.records[0].product_id = 1;
 
+        // This is an old test, written before "get_views" (formerly "load_views") automatically
+        // inlines x2many subviews. As the purpose of this test is to assert that the js fetches
+        // the correct sub view when it is not inline (which can still happen in nested form views),
+        // we bypass the inline mecanism of "get_views" by setting widget="one2many" on the field.
         serverData.views = {
             'product,false,form': '<form>'+
                                         '<field name="name"/>'+
-                                        '<field name="partner_type_ids" context="{\'tree_view_ref\': \'some_other_tree_view\'}"/>' +
+                                        '<field name="partner_type_ids" widget="one2many" context="{\'tree_view_ref\': \'some_other_tree_view\'}"/>' +
                                     '</form>',
 
             'partner_type,false,list': '<tree>'+
@@ -533,7 +548,7 @@ QUnit.module('Views', {
         };
 
         const mockRPC = (route, args) => {
-            if (args.method === 'load_views') {
+            if (args.method === 'get_views') {
                 var context = args.kwargs.context;
                 if (args.model === 'product') {
                     assert.strictEqual(context.tree_view_ref, 'some_tree_view',
@@ -559,7 +574,7 @@ QUnit.module('Views', {
             }
         };
 
-        const webClient = await createWebClient({serverData, mockRPC});
+        const webClient = await createWebClient({ serverData, mockRPC});
         await doAction(webClient, {
             res_id: 1,
             type: 'ir.actions.act_window',
@@ -569,7 +584,7 @@ QUnit.module('Views', {
             'views': [[false, 'form']],
         });
 
-        await testUtils.dom.click(webClient.el.querySelector('.o_field_widget[name="product_id"]'));
+        await testUtils.dom.click(target.querySelector('.o_field_widget[name="product_id"]'));
     });
 
     QUnit.test('invisible fields are properly hidden', async function (assert) {
@@ -1047,7 +1062,7 @@ QUnit.module('Views', {
                             <notebook>
                                 <page string="Non scrollable page">
                                     <div id="anchor1">No scrollbar!</div>
-                                    <a href="#anchor2" class="link2">TO ANCHOR 2</a> 
+                                    <a href="#anchor2" class="link2">TO ANCHOR 2</a>
                                 </page>
                                 <page string="Other scrollable page">
                                     <p style="font-size: large">
@@ -1072,7 +1087,7 @@ QUnit.module('Views', {
                                         at sapien. Vivamus leo. Aliquam euismod libero eu enim. Nulla nec felis sed leo
                                         placerat imperdiet. Aenean suscipit nulla in justo. Suspendisse cursus rutrum
                                         augue.
-                                    </p>   
+                                    </p>
                                 </page>
                             </notebook>
                         </sheet>
@@ -1124,6 +1139,30 @@ QUnit.module('Views', {
             "the first pane is visible"
         );
         assert.ok(isVisible(scrollableParent.querySelector("#anchor1")), "the first anchor is visible");
+        form.destroy();
+    });
+
+    QUnit.test('notebook name transferred to DOM', async function (assert) {
+        assert.expect(1);
+
+        var form = await createView({
+            View: FormView,
+            model: 'partner',
+            data: this.data,
+            arch: '<form string="Partners">' +
+                    '<sheet>' +
+                        '<notebook>' +
+                            '<page name="choucroute" string="Choucroute">' +
+                                '<field name="foo"/>' +
+                            '</page>' +
+                        '</notebook>' +
+                    '</sheet>' +
+                '</form>',
+            res_id: 1,
+        });
+
+        assert.hasClass(form.$(".o_notebook .nav .nav-link[name='choucroute']"), 'active');
+
         form.destroy();
     });
 
@@ -1214,25 +1253,25 @@ QUnit.module('Views', {
         const webClient = await createWebClient({ serverData });
         await doAction(webClient, 1);
 
-        await testUtils.dom.click(webClient.el.querySelector('.o_list_button_add'));
+        await testUtils.dom.click(target.querySelector('.o_list_button_add'));
         await legacyExtraNextTick();
-        assert.containsOnce(webClient, '.o_form_view');
+        assert.containsOnce(target, '.o_legacy_form_view');
 
         // click on second page tab
-        await testUtils.dom.click($(webClient.el).find('.o_notebook .nav-link:eq(1)'));
+        await testUtils.dom.click($(target).find('.o_notebook .nav-link:eq(1)'));
 
         await testUtils.dom.click('.o_control_panel .o_form_button_cancel');
         await legacyExtraNextTick();
-        assert.containsNone(webClient, '.o_form_view');
+        assert.containsNone(target, '.o_legacy_form_view');
 
-        await testUtils.dom.click(webClient.el.querySelector('.o_list_button_add'));
+        await testUtils.dom.click(target.querySelector('.o_list_button_add'));
         await legacyExtraNextTick();
         // check notebook active page is 0th page
-        assert.hasClass($(webClient.el).find('.o_notebook .nav-link:eq(0)'), 'active');
+        assert.hasClass($(target).find('.o_notebook .nav-link:eq(0)'), 'active');
 
     });
 
-    QUnit.test('rendering stat buttons', async function (assert) {
+    QUnit.test('rendering stat buttons with action', async function (assert) {
         assert.expect(3);
 
         var form = await createView({
@@ -1241,7 +1280,39 @@ QUnit.module('Views', {
             data: this.data,
             arch:'<form string="Partners">' +
                     '<sheet>' +
-                        '<div name="button_box">' +
+                        '<div name="button_box" class="oe_button_box">' +
+                            '<button class="oe_stat_button" >' +
+                                '<field name="int_field"/>' +
+                            '</button>' +
+                            '<button class="oe_stat_button" name="some_action" type="action" attrs=\'{"invisible": [["bar", "=", true]]}\'>' +
+                                '<field name="bar"/>' +
+                            '</button>' +
+                        '</div>' +
+                        '<group>' +
+                            '<field name="foo"/>' +
+                        '</group>' +
+                    '</sheet>' +
+                '</form>',
+            res_id: 2,
+        });
+
+        assert.containsN(form, 'button.oe_stat_button', 2);
+        assert.containsOnce(form, 'button.oe_stat_button.o_invisible_modifier');
+        assert.containsOnce(form, 'button.oe_stat_button:disabled');
+
+        form.destroy();
+    });
+
+    QUnit.test('rendering stat buttons without action', async function (assert) {
+        assert.expect(3);
+
+        var form = await createView({
+            View: FormView,
+            model: 'partner',
+            data: this.data,
+            arch:'<form string="Partners">' +
+                    '<sheet>' +
+                        '<div name="button_box" class="oe_button_box">' +
                             '<button class="oe_stat_button">' +
                                 '<field name="int_field"/>' +
                             '</button>' +
@@ -1259,17 +1330,12 @@ QUnit.module('Views', {
 
         assert.containsN(form, 'button.oe_stat_button', 2);
         assert.containsOnce(form, 'button.oe_stat_button.o_invisible_modifier');
+        assert.containsN(form, 'button.oe_stat_button:disabled', 2);
 
-        var count = 0;
-        await testUtils.mock.intercept(form, "execute_action", function () {
-            count++;
-        });
-        await testUtils.dom.click('.oe_stat_button');
-        assert.strictEqual(count, 1, "should have triggered a execute action");
         form.destroy();
     });
 
-    QUnit.test('disabled stat buttons stays disabled', async function (assert) {
+    QUnit.test('readonly stat buttons stays disabled', async function (assert) {
         assert.expect(4);
 
         var form = await createView({
@@ -1279,7 +1345,7 @@ QUnit.module('Views', {
             arch:'<form string="Partners">' +
                     '<sheet>' +
                         '<div name="button_box" class="oe_button_box">' +
-                            '<button class="oe_stat_button" disabled="disabled">' +
+                            '<button class="oe_stat_button">' +
                                 '<field name="int_field"/>' +
                             '</button>' +
                             '<button class="oe_stat_button" type="action" name="some_action">' +
@@ -1294,7 +1360,6 @@ QUnit.module('Views', {
             res_id: 2,
         });
 
-        var count = 0;
         await testUtils.mock.intercept(form, "execute_action", function (event) {
             if (event.data.action_data.name == "action_to_perform") {
                 assert.containsN(form, 'button.oe_stat_button[disabled]', 2, "While performing the action, both buttons should be disabled.");
@@ -1306,7 +1371,7 @@ QUnit.module('Views', {
         assert.containsN(form, 'button.oe_stat_button[disabled]', 1);
         await testUtils.dom.click('button[name=action_to_perform]');
         assert.containsN(form, 'button.oe_stat_button[disabled]', 1, "After performing the action, only one button should be disabled.");
-        
+
         form.destroy();
     });
 
@@ -1330,6 +1395,29 @@ QUnit.module('Views', {
 
         assert.containsOnce(form, 'label.o_form_label:contains(customstring)');
         form.destroy();
+    });
+
+    QUnit.test("label ignores the content of the label when present", async function (assert) {
+        await createView({
+            View: FormView,
+            model: 'partner',
+            data: this.data,
+            arch: `
+                <form>
+                    <sheet>
+                        <group>
+                            <label for="bar">customstring</label>
+                            <div>
+                                <field name="bar"/>
+                            </div>
+                        </group>
+                    </sheet>
+                </form>`,
+            res_id: 2,
+        });
+
+        assert.containsOnce(target, "label.o_form_label");
+        assert.strictEqual(target.querySelector("label.o_form_label").textContent, "Bar");
     });
 
     QUnit.test('input ids for multiple occurrences of fields in form view', async function (assert) {
@@ -1402,10 +1490,10 @@ QUnit.module('Views', {
 
         await testUtils.dom.click(form.$('.o_field_x2many_list_row_add a'));
 
-        assert.containsOnce(document.body, '.modal .o_form_view');
+        assert.containsOnce(document.body, '.modal .o_legacy_form_view');
 
-        const fieldIdAttrs = [...$('.modal .o_form_view .o_field_widget')].map(n => n.getAttribute('id'));
-        const labelForAttrs = [...$('.modal .o_form_view .o_form_label')].map(n => n.getAttribute('for'));
+        const fieldIdAttrs = [...$('.modal .o_legacy_form_view .o_field_widget')].map(n => n.getAttribute('id'));
+        const labelForAttrs = [...$('.modal .o_legacy_form_view .o_form_label')].map(n => n.getAttribute('for'));
 
         assert.strictEqual([...new Set(fieldIdAttrs)].length, 4,
             "should have generated a unique id for each field occurrence");
@@ -1447,10 +1535,10 @@ QUnit.module('Views', {
 
         await testUtils.dom.click(form.$('.o_field_x2many_list_row_add a'));
 
-        assert.containsOnce(document.body, '.modal .o_form_view');
+        assert.containsOnce(document.body, '.modal .o_legacy_form_view');
 
-        const fieldIdAttrs = [...$('.modal .o_form_view .o_field_widget')].map(n => n.getAttribute('id'));
-        const labelForAttrs = [...$('.modal .o_form_view .o_form_label')].map(n => n.getAttribute('for'));
+        const fieldIdAttrs = [...$('.modal .o_legacy_form_view .o_field_widget')].map(n => n.getAttribute('id'));
+        const labelForAttrs = [...$('.modal .o_legacy_form_view .o_form_label')].map(n => n.getAttribute('for'));
 
         assert.strictEqual([...new Set(fieldIdAttrs)].length, 4,
             "should have generated a unique id for each field occurrence");
@@ -1516,27 +1604,27 @@ QUnit.module('Views', {
 
         const $fooLabel1 = form.$('.o_form_label:nth(0)');
         $fooLabel1.tooltip('show', false);
-        $fooLabel1.trigger($.Event('mouseenter'));
+        $fooLabel1[0].dispatchEvent(new Event('mouseover'));
         assert.strictEqual($('.tooltip .oe_tooltip_help').text().trim(), "foo tooltip");
-        $fooLabel1.trigger($.Event('mouseleave'));
+        $fooLabel1[0].dispatchEvent(new Event('mouseout'));
 
         const $fooLabel2 = form.$('.o_form_label:nth(2)');
         $fooLabel2.tooltip('show', false);
-        $fooLabel2.trigger($.Event('mouseenter'));
+        $fooLabel2[0].dispatchEvent(new Event('mouseover'));
         assert.strictEqual($('.tooltip .oe_tooltip_help').text().trim(), "foo tooltip");
-        $fooLabel2.trigger($.Event('mouseleave'));
+        $fooLabel2[0].dispatchEvent(new Event('mouseout'));
 
         const $barLabel1 = form.$('.o_form_label:nth(1)');
         $barLabel1.tooltip('show', false);
-        $barLabel1.trigger($.Event('mouseenter'));
+        $barLabel1[0].dispatchEvent(new Event('mouseover'));
         assert.strictEqual($('.tooltip .oe_tooltip_help').text().trim(), "bar tooltip");
-        $barLabel1.trigger($.Event('mouseleave'));
+        $barLabel1[0].dispatchEvent(new Event('mouseout'));
 
         const $barLabel2 = form.$('.o_form_label:nth(3)');
         $barLabel2.tooltip('show', false);
-        $barLabel2.trigger($.Event('mouseenter'));
+        $barLabel2[0].dispatchEvent(new Event('mouseover'));
         assert.strictEqual($('.tooltip .oe_tooltip_help').text().trim(), "bar tooltip");
-        $barLabel2.trigger($.Event('mouseleave'));
+        $barLabel2[0].dispatchEvent(new Event('mouseout'));
 
         odoo.debug = initialDebugMode;
         form.destroy();
@@ -1830,15 +1918,15 @@ QUnit.module('Views', {
         });
 
         assert.strictEqual(form.mode, 'readonly', 'form view should be in readonly mode');
-        assert.hasClass(form.$('.o_form_view'), 'o_form_readonly');
+        assert.hasClass(form.$('.o_legacy_form_view'), 'o_form_readonly');
         assert.isVisible(form.$buttons.find('.o_form_buttons_view'));
         assert.isNotVisible(form.$buttons.find('.o_form_buttons_edit'));
 
         await testUtils.form.clickEdit(form);
 
         assert.strictEqual(form.mode, 'edit', 'form view should be in edit mode');
-        assert.hasClass(form.$('.o_form_view'), 'o_form_editable');
-        assert.doesNotHaveClass(form.$('.o_form_view'), 'o_form_readonly');
+        assert.hasClass(form.$('.o_legacy_form_view'), 'o_form_editable');
+        assert.doesNotHaveClass(form.$('.o_legacy_form_view'), 'o_form_readonly');
         assert.isNotVisible(form.$buttons.find('.o_form_buttons_view'));
         assert.isVisible(form.$buttons.find('.o_form_buttons_edit'));
         form.destroy();
@@ -2095,6 +2183,36 @@ QUnit.module('Views', {
         assert.hasAttrValue(form.$('button[name="13"]'), 'class', 'btn btn-link');
         assert.hasAttrValue(form.$('button[name="14"]'), 'class', 'btn btn-success');
         assert.hasAttrValue(form.$('button[name="15"]'), 'class', 'btn o_this_is_a_button');
+
+        form.destroy();
+    });
+
+    QUnit.test("nested buttons in form view header", async function (assert) {
+        assert.expect(4);
+
+        var form = await createView({
+            View: FormView,
+            model: 'partner',
+            data: this.data,
+            arch:
+                '<form string="Partners">' +
+                    '<header>' +
+                        '<button name="0"/>' +
+                        '<button name="1"/>' +
+                        '<div>' +
+                            '<button name="2"/>' +
+                            '<button name="3"/>' +
+                        '</div>' +
+                    '</header>' +
+                '</form>',
+            res_id: 2,
+        });
+
+        var buttons = form.$('.o_form_statusbar button');
+        assert.hasAttrValue(buttons[0], 'name', '0');
+        assert.hasAttrValue(buttons[1], 'name', '1');
+        assert.hasAttrValue(buttons[2], 'name', '2');
+        assert.hasAttrValue(buttons[3], 'name', '3');
 
         form.destroy();
     });
@@ -5634,7 +5752,7 @@ QUnit.module('Views', {
         assert.strictEqual($('.modal').length, 0,
             "dialog should be closed");
 
-        var row = form.$('.o_field_one2many .o_list_view .o_data_row');
+        var row = form.$('.o_field_one2many .o_legacy_list_view .o_data_row');
         assert.strictEqual(row.children()[0].textContent, '1 record',
             "the cell should contains the number of record: 1");
 
@@ -5660,7 +5778,7 @@ QUnit.module('Views', {
             res_id: 1,
         });
 
-        assert.hasClass(form.$('.o_form_view'), 'o_form_readonly',
+        assert.hasClass(form.$('.o_legacy_form_view'), 'o_form_readonly',
             'form should be in readonly mode');
         assert.isVisible(form.$('.o_field_widget[name=foo]'));
         assert.isVisible(form.$('label:contains(Foo)'));
@@ -5668,7 +5786,7 @@ QUnit.module('Views', {
         assert.isNotVisible(form.$('label:contains(Bar)'));
 
         await testUtils.form.clickEdit(form);
-        assert.hasClass(form.$('.o_form_view'), 'o_form_editable',
+        assert.hasClass(form.$('.o_legacy_form_view'), 'o_form_editable',
             'form should be in readonly mode');
         assert.isNotVisible(form.$('.o_field_widget[name=foo]'));
         assert.isNotVisible(form.$('label:contains(Foo)'));
@@ -5699,9 +5817,9 @@ QUnit.module('Views', {
             res_id: 1,
         });
 
-        assert.hasClass(form.$('.o_form_view'), 'o_form_readonly',
+        assert.hasClass(form.$('.o_legacy_form_view'), 'o_form_readonly',
             'form should be in readonly mode');
-        assert.isVisible(form.$('.o_field_one2many .o_list_view thead th[data-name="display_name"]'),
+        assert.isVisible(form.$('.o_field_one2many .o_legacy_list_view thead th[data-name="display_name"]'),
             'display_name cell should be visible in readonly mode');
 
         await testUtils.form.clickEdit(form);
@@ -5711,14 +5829,14 @@ QUnit.module('Views', {
         assert.strictEqual(form.el.querySelector('th.oe_read_only').style.width, '0px',
             '"oe_read_only" in edit mode should have a 0px width');
 
-        assert.hasClass(form.$('.o_form_view'), 'o_form_editable',
+        assert.hasClass(form.$('.o_legacy_form_view'), 'o_form_editable',
             'form should be in edit mode');
-        assert.isNotVisible(form.$('.o_field_one2many .o_list_view thead th[data-name="display_name"]'),
+        assert.isNotVisible(form.$('.o_field_one2many .o_legacy_list_view thead th[data-name="display_name"]'),
             'display_name cell should not be visible in edit mode');
 
         await testUtils.dom.click(form.$('.o_field_x2many_list_row_add a'));
         await testUtils.owlCompatibilityExtraNextTick();
-        assert.hasClass(form.$('.o_form_view .o_list_view tbody tr:first input[name="display_name"]'),
+        assert.hasClass(form.$('.o_legacy_form_view .o_legacy_list_view tbody tr:first input[name="display_name"]'),
             'oe_read_only', 'display_name input should have oe_read_only class');
 
         form.destroy();
@@ -5744,20 +5862,20 @@ QUnit.module('Views', {
             res_id: 1,
         });
 
-        assert.hasClass(form.$('.o_form_view'), 'o_form_readonly',
+        assert.hasClass(form.$('.o_legacy_form_view'), 'o_form_readonly',
             'form should be in readonly mode');
-        assert.isNotVisible(form.$('.o_field_one2many .o_list_view thead th[data-name="display_name"]'),
+        assert.isNotVisible(form.$('.o_field_one2many .o_legacy_list_view thead th[data-name="display_name"]'),
             'display_name cell should not be visible in readonly mode');
 
         await testUtils.form.clickEdit(form);
-        assert.hasClass(form.$('.o_form_view'), 'o_form_editable',
+        assert.hasClass(form.$('.o_legacy_form_view'), 'o_form_editable',
             'form should be in edit mode');
-        assert.isVisible(form.$('.o_field_one2many .o_list_view thead th[data-name="display_name"]'),
+        assert.isVisible(form.$('.o_field_one2many .o_legacy_list_view thead th[data-name="display_name"]'),
             'display_name cell should be visible in edit mode');
 
         await testUtils.dom.click(form.$('.o_field_x2many_list_row_add a'));
         await testUtils.owlCompatibilityExtraNextTick();
-        assert.hasClass(form.$('.o_form_view .o_list_view tbody tr:first input[name="display_name"]'),
+        assert.hasClass(form.$('.o_legacy_form_view .o_legacy_list_view tbody tr:first input[name="display_name"]'),
             'oe_edit_only', 'display_name input should have oe_edit_only class');
 
         form.destroy();
@@ -6000,13 +6118,13 @@ QUnit.module('Views', {
         });
 
         assert.containsOnce(form.$('.o_control_panel'), 'button.infooter');
-        assert.containsNone(form.$('.o_form_view'), 'button.infooter');
+        assert.containsNone(form.$('.o_legacy_form_view'), 'button.infooter');
 
         // check that this still works after a reload
         await testUtils.form.reload(form);
 
         assert.containsOnce(form.$('.o_control_panel'), 'button.infooter');
-        assert.containsNone(form.$('.o_form_view'), 'button.infooter');
+        assert.containsNone(form.$('.o_legacy_form_view'), 'button.infooter');
 
         form.destroy();
     });
@@ -6065,7 +6183,7 @@ QUnit.module('Views', {
                     '</sheet>' +
                 '</form>',
         });
-        var $button = form.$('.o_form_view .o_form_sheet .oe_button_box .oe_stat_button span');
+        var $button = form.$('.o_legacy_form_view .o_form_sheet .oe_button_box .oe_stat_button span');
         assert.strictEqual($button.text(), "Inventory Moves",
             "the stat button should contain a span with the string attribute value");
         form.destroy();
@@ -6139,17 +6257,17 @@ QUnit.module('Views', {
                 return this._super.apply(this, arguments);
             },
         });
-        var row = form.$('.o_field_one2many .o_list_view .o_data_row');
+        var row = form.$('.o_field_one2many .o_legacy_list_view .o_data_row');
         assert.strictEqual(row.children()[1].textContent, '1 record',
             "the cell should contains the number of record: 1");
         await testUtils.dom.click(row);
         await testUtils.nextTick(); // wait for quick edit
-        var modal_row = $('.modal-body .o_form_sheet .o_field_one2many .o_list_view .o_data_row');
+        var modal_row = $('.modal-body .o_form_sheet .o_field_one2many .o_legacy_list_view .o_data_row');
         assert.strictEqual(modal_row.children('.o_data_cell').length, 2,
             "the row should contains the 2 fields defined in the form view");
         assert.strictEqual($(modal_row).text(), "gold2",
             "the value of the fields should be fetched and displayed");
-        assert.verifySteps(['read', 'read', 'load_views', 'read', 'read'],
+        assert.verifySteps(['read', 'read', 'get_views', 'read', 'read'],
             "there should be 4 read rpcs");
         form.destroy();
     });
@@ -6305,7 +6423,7 @@ QUnit.module('Views', {
 
         await testUtils.dom.click(form.$('.o_external_button'));
         // Close modal
-        await testUtils.dom.click($('.modal').last().find('button[class="close"]'));
+        await testUtils.dom.click($('.modal').last().find('button[class="btn-close"]'));
         assert.notStrictEqual($(".o_content").scrollTop(), 0,
             "scroll position should not be 0 after closing modal");
         assert.containsNone(document.body, '.modal', 'There should be no modal');
@@ -6446,7 +6564,7 @@ QUnit.module('Views', {
                     return this._super.apply(this, arguments);
                 },
             });
-            var row = form.$('.o_field_one2many .o_list_view .o_data_row');
+            var row = form.$('.o_field_one2many .o_legacy_list_view .o_data_row');
             await testUtils.dom.click(row);
             assert.verifySteps(['read', 'read', 'read'],
                 "there should be 3 read rpcs");
@@ -7178,13 +7296,13 @@ QUnit.module('Views', {
         await testUtils.form.clickEdit(form);
         await testUtils.fields.editInput(form.$('input[name="foo"]'), "test");
         await testUtils.form.clickSave(form);
-        assert.containsOnce(form, '.o_form_view .alert > div .oe_field_translate',
+        assert.containsOnce(form, '.o_legacy_form_view .alert > div .oe_field_translate',
                             "should have single translation alert");
 
         await testUtils.form.clickEdit(form);
         await testUtils.fields.editInput(form.$('input[name="display_name"]'), "test2");
         await testUtils.form.clickSave(form);
-        assert.containsN(form, '.o_form_view .alert > div .oe_field_translate', 2,
+        assert.containsN(form, '.o_legacy_form_view .alert > div .oe_field_translate', 2,
                          "should have two translate fields in translation alert");
 
         form.destroy();
@@ -7220,38 +7338,29 @@ QUnit.module('Views', {
         await testUtils.fields.editInput(form.$('input[name="foo"]'), "test");
         await testUtils.form.clickSave(form);
 
-        assert.containsOnce(form, '.o_form_view .alert > div', "should have a translation alert");
+        assert.containsOnce(form, '.o_legacy_form_view .alert > div', "should have a translation alert");
 
         // click on the pager to switch to the next record
         await testUtils.controlPanel.pagerNext(form);
-        assert.containsNone(form, '.o_form_view .alert > div', "should not have a translation alert");
+        assert.containsNone(form, '.o_legacy_form_view .alert > div', "should not have a translation alert");
 
         // click on the pager to switch back to the previous record
         await testUtils.controlPanel.pagerPrevious(form);
-        assert.containsOnce(form, '.o_form_view .alert > div', "should have a translation alert");
+        assert.containsOnce(form, '.o_legacy_form_view .alert > div', "should have a translation alert");
 
         // remove translation alert by click X and check alert even after form reload
-        await testUtils.dom.click(form.$('.o_form_view .alert > .close'));
-        assert.containsNone(form, '.o_form_view .alert > div', "should not have a translation alert");
+        await testUtils.dom.click(form.$('.o_legacy_form_view .alert > .btn-close'));
+        assert.containsNone(form, '.o_legacy_form_view .alert > div', "should not have a translation alert");
 
         await form.reload();
-        assert.containsNone(form, '.o_form_view .alert > div', "should not have a translation alert after reload");
+        assert.containsNone(form, '.o_legacy_form_view .alert > div', "should not have a translation alert after reload");
 
         form.destroy();
         _t.database.multi_lang = multi_lang;
     });
 
     QUnit.test('translation alerts preserved on reverse breadcrumb', async function (assert) {
-        assert.expect(2);
-
-        serverData.models['ir.translation'] = {
-            fields: {
-                name: { string: "name", type: "char" },
-                source: {string: "Source", type: "char"},
-                value: {string: "Value", type: "char"},
-            },
-            records: [],
-        };
+        assert.expect(1);
 
         serverData.models.partner.fields.foo.translate = true;
 
@@ -7262,12 +7371,6 @@ QUnit.module('Views', {
                     '</sheet>' +
                 '</form>',
             'partner,false,search': '<search></search>',
-            'ir.translation,false,list': '<tree>' +
-                        '<field name="name"/>' +
-                        '<field name="source"/>' +
-                        '<field name="value"/>' +
-                    '</tree>',
-            'ir.translation,false,search': '<search></search>',
         };
 
         serverData.actions = {
@@ -7278,15 +7381,6 @@ QUnit.module('Views', {
                 type: 'ir.actions.act_window',
                 views: [[false, 'form']],
             },
-            2: {
-                id: 2,
-                name: 'Translate',
-                res_model: 'ir.translation',
-                type: 'ir.actions.act_window',
-                views: [[false, 'list']],
-                target: 'current',
-                flags: {'search_view': true, 'action_buttons': true},
-            }
         };
 
         const webClient = await createWebClient({ serverData });
@@ -7294,19 +7388,12 @@ QUnit.module('Views', {
             multi_lang: true,
         });
         await doAction(webClient, 1);
-        $(webClient.el).find('input[name="foo"]').val("test").trigger("input");
+        $(target).find('input[name="foo"]').val("test").trigger("input");
 
-        await testUtils.dom.click(webClient.el.querySelector('.o_form_button_save'));
+        await testUtils.dom.click(target.querySelector('.o_form_button_save'));
         await legacyExtraNextTick();
 
-        assert.containsOnce(webClient, '.o_form_view .alert > div',
-            "should have a translation alert");
-
-        await doAction(webClient, 2);
-
-        await testUtils.dom.click($('.o_control_panel .breadcrumb a:first'));
-        await legacyExtraNextTick();
-        assert.containsOnce(webClient, '.o_form_view .alert > div',
+        assert.containsOnce(target, '.o_legacy_form_view .alert > div',
             "should have a translation alert");
     });
 
@@ -7346,16 +7433,16 @@ QUnit.module('Views', {
                 if (route === '/web/dataset/call_kw/product/get_formview_id') {
                     return Promise.resolve(false);
                 }
-                if (route === "/web/dataset/call_button" && args.method === 'translate_fields') {
-                    assert.deepEqual(args.args, ["product",37,"name"], 'should call "call_button" route');
+                if (route === "/web/dataset/call_kw/product/get_field_translations") {
+                    assert.deepEqual(args.args, [[37],"name"], "should translate the name field of the record");
                     nbTranslateCalls++;
-                    return Promise.resolve({
-                        domain: [],
-                        context: {search_default_name: 'partnes,foo'},
-                    });
+                    return Promise.resolve([
+                        [{lang: "en_US", source: "yop", value: "yop"}, {lang: "fr_BE", source: "yop", value: "valeur français"}],
+                        {translation_type: "char", translation_show_source: false},
+                    ]);
                 }
                 if (route === "/web/dataset/call_kw/res.lang/get_installed") {
-                    return Promise.resolve([["en_US"], ["fr_BE"]]);
+                    return Promise.resolve([["en_US", "English"], ["fr_BE", "French (Belgium)"]]);
                 }
                 return this._super.apply(this, arguments);
             },
@@ -8167,6 +8254,7 @@ QUnit.module('Views', {
         assert.strictEqual($('.tooltip .oe_tooltip_string').length, 1,
             "should have rendered a tooltip");
         $secondButton.trigger($.Event('mouseleave'));
+        $secondButton.tooltip('hide');
 
         odoo.debug = initialDebugMode;
         form.destroy();
@@ -8217,10 +8305,10 @@ QUnit.module('Views', {
         assert.verifySteps([
             "read", // main record
             "get_formview_id", // id of first form view opened in a dialog
-            "load_views", // arch of first form view opened in a dialog
+            "get_views", // arch of first form view opened in a dialog
             "read", // first dialog
             "get_formview_id", // id of second form view opened in a dialog
-            "load_views", // arch of second form view opened in a dialog
+            "get_views", // arch of second form view opened in a dialog
             "read", // second dialog
             "write", // save second dialog
             "read", // reload first dialog
@@ -8251,7 +8339,7 @@ QUnit.module('Views', {
                 context: {hide_bar: true},
             },
         });
-        assert.containsOnce(form, '.o_list_view thead tr th:not(.o_list_record_remove_header)',
+        assert.containsOnce(form, '.o_legacy_list_view thead tr th:not(.o_list_record_remove_header)',
             "there should be only one column");
         form.destroy();
     });
@@ -8279,7 +8367,7 @@ QUnit.module('Views', {
                 context: {hide_bar: true},
             },
         });
-        assert.containsOnce(form, '.o_list_view thead tr th:not(.o_list_record_remove_header)',
+        assert.containsOnce(form, '.o_legacy_list_view thead tr th:not(.o_list_record_remove_header)',
             "there should be only one column");
         form.destroy();
     });
@@ -8315,11 +8403,11 @@ QUnit.module('Views', {
             viewOptions: {mode: 'edit'},
         });
         await testUtils.dom.click(form.$('.o_external_button'));
-        assert.strictEqual($('.modal-body .o_form_view .o_list_view .o_data_cell').text(), "yopblip",
+        assert.strictEqual($('.modal-body .o_legacy_form_view .o_legacy_list_view .o_data_cell').text(), "yopblip",
             "table has some initial order");
 
-        await testUtils.dom.click($('.modal-body .o_form_view .o_list_view th.o_column_sortable'));
-        assert.strictEqual($('.modal-body .o_form_view .o_list_view .o_data_cell').text(), "blipyop",
+        await testUtils.dom.click($('.modal-body .o_legacy_form_view .o_legacy_list_view th.o_column_sortable'));
+        assert.strictEqual($('.modal-body .o_legacy_form_view .o_legacy_list_view .o_data_cell').text(), "blipyop",
             "table is now sorted");
         form.destroy();
     });
@@ -8384,12 +8472,12 @@ QUnit.module('Views', {
     QUnit.test('basic support for widgets (being Owl Components)', async function (assert) {
         assert.expect(1);
 
-        class MyComponent extends owl.Component {
+        class MyComponent extends LegacyComponent {
             get value() {
                 return JSON.stringify(this.props.record.data);
             }
         }
-        MyComponent.template = owl.tags.xml`<div t-esc="value"/>`;
+        MyComponent.template = xml`<div t-esc="value"/>`;
         widgetRegistryOwl.add('test', MyComponent);
 
         const form = await createView({
@@ -8557,6 +8645,7 @@ QUnit.module('Views', {
         assert.strictEqual($('.oe_tooltip_technical>li[data-item="widget"]')[0].lastChild.wholeText.trim(),
             'Many2one (many2one)', "widget description should be correct");
 
+        $field.tooltip('hide');
         odoo.debug = initialDebugMode;
         form.destroy();
     });
@@ -8794,7 +8883,7 @@ QUnit.module('Views', {
             }
         });
 
-        assert.verifySteps(['partner_type:load_views', 'partner:read', 'partner_type:read']);
+        assert.verifySteps(['partner_type:get_views', 'partner:read', 'partner_type:read']);
 
         form.destroy();
     });
@@ -9003,7 +9092,7 @@ QUnit.module('Views', {
         };
         await testUtils.dom.click(form.$('button.p'));
         // edit the new row again and set a many2one value
-        await testUtils.dom.clickLast(form.$('.o_form_view .o_field_one2many .o_data_row .o_data_cell'));
+        await testUtils.dom.clickLast(form.$('.o_legacy_form_view .o_field_one2many .o_data_row .o_data_cell'));
         await testUtils.nextTick();
         await testUtils.fields.many2one.clickOpenDropdown('product_id');
         await testUtils.fields.many2one.clickHighlightedItem('product_id');
@@ -9032,7 +9121,7 @@ QUnit.module('Views', {
 
         widgetRegistry.add('test', MyWidget);
 
-        createView({
+        const viewCreatedPromise = createView({
             View: FormView,
             model: 'partner',
             data: this.data,
@@ -9047,7 +9136,7 @@ QUnit.module('Views', {
         });
 
         def1.resolve();
-        await testUtils.nextTick();
+        await viewCreatedPromise;
     });
 
     QUnit.test('no deadlock when saving with uncommitted changes', async function (assert) {
@@ -9085,7 +9174,7 @@ QUnit.module('Views', {
         await testUtils.nextTick();
 
         assert.containsOnce(form, '.o_form_readonly', "form view should be in readonly");
-        assert.strictEqual(form.$('.o_form_view').text().trim(), 'some foo value',
+        assert.strictEqual(form.$('.o_legacy_form_view').text().trim(), 'some foo value',
             "foo field should have correct value");
         assert.verifySteps(['onchange', 'create', 'read']);
 
@@ -9192,27 +9281,27 @@ QUnit.module('Views', {
         // save (will wait for the onchange to return), and will be delayed as well
         await testUtils.dom.click(form.$buttons.find('.o_form_button_save'));
 
-        assert.hasClass(form.$('.o_form_view'), 'o_form_editable');
+        assert.hasClass(form.$('.o_legacy_form_view'), 'o_form_editable');
         assert.strictEqual(form.$('.o_field_widget[name=display_name]').val(), 'default');
 
         // simulate a click on the breadcrumbs to leave the form view
         form.canBeRemoved();
         await testUtils.nextTick();
 
-        assert.hasClass(form.$('.o_form_view'), 'o_form_editable');
+        assert.hasClass(form.$('.o_legacy_form_view'), 'o_form_editable');
         assert.strictEqual(form.$('.o_field_widget[name=display_name]').val(), 'default');
 
         // unlock the onchange
         onchangeDef.resolve();
         await testUtils.nextTick();
-        assert.hasClass(form.$('.o_form_view'), 'o_form_editable');
+        assert.hasClass(form.$('.o_legacy_form_view'), 'o_form_editable');
         assert.strictEqual(form.$('.o_field_widget[name=display_name]').val(), 'changed');
 
         // unlock the create
         createDef.resolve();
         await testUtils.nextTick();
 
-        assert.hasClass(form.$('.o_form_view'), 'o_form_readonly');
+        assert.hasClass(form.$('.o_legacy_form_view'), 'o_form_readonly');
         assert.strictEqual(form.$('.o_field_widget[name=display_name]').text(), 'changed');
         assert.containsNone(document.body, '.modal',
             "should not display the 'Changes will be discarded' dialog");
@@ -9336,8 +9425,8 @@ QUnit.module('Views', {
         await legacyExtraNextTick();
         await testUtils.dom.click('.o_control_panel .o_form_button_cancel');
         await legacyExtraNextTick();
-        assert.containsNone(webClient, '.o_form_view');
-        assert.containsOnce(webClient, '.o_kanban_view');
+        assert.containsNone(target, '.o_legacy_form_view');
+        assert.containsOnce(target, '.o_legacy_kanban_view');
     });
 
     QUnit.test("one2many create record dialog shouldn't have a 'remove' button", async function (assert) {
@@ -9377,6 +9466,9 @@ QUnit.module('Views', {
     QUnit.test('edit a record in readonly and switch to edit before it is actually saved', async function (assert) {
         assert.expect(3);
 
+        fieldRegistry.add("toggle_button", basicFields.FieldToggleBoolean);
+        registerCleanup(() => delete fieldRegistry.map.toggle_button);
+
         const prom = testUtils.makeTestPromise();
         const form = await createView({
             View: FormView,
@@ -9403,13 +9495,13 @@ QUnit.module('Views', {
         // switch to edit mode
         await testUtils.form.clickEdit(form);
 
-        assert.hasClass(form.$('.o_form_view'), 'o_form_readonly'); // should wait for the RPC to return
+        assert.hasClass(form.$('.o_legacy_form_view'), 'o_form_readonly'); // should wait for the RPC to return
 
         // make write RPC return
         prom.resolve();
         await testUtils.nextTick();
 
-        assert.hasClass(form.$('.o_form_view'), 'o_form_editable');
+        assert.hasClass(form.$('.o_legacy_form_view'), 'o_form_editable');
 
         form.destroy();
     });
@@ -9432,9 +9524,9 @@ QUnit.module('Views', {
                 },
             },
         });
-        await testUtils.dom.click(form.$('.o_form_view button.btn-primary'));
+        await testUtils.dom.click(form.$('.o_legacy_form_view button.btn-primary'));
         assert.verifySteps(['execute_action']);
-        await testUtils.dom.click(form.$('.o_form_view button.mybutton'));
+        await testUtils.dom.click(form.$('.o_legacy_form_view button.mybutton'));
         assert.verifySteps([]);
         form.destroy();
     });
@@ -9832,7 +9924,7 @@ QUnit.module('Views', {
         form.$buttons.find('.o_form_buttons_edit').tooltip('show',false);
         assert.strictEqual($('.tooltip .oe_tooltip_string').length, 1,
             "should have rendered a tooltip");
-            await testUtils.nextTick();
+        form.$buttons.find('.o_form_buttons_edit').tooltip('hide');
         form.destroy();
     });
     QUnit.test('if the focus is on the save button, hitting ENTER should save', async function (assert) {
@@ -10118,17 +10210,17 @@ QUnit.module('Views', {
 
         const $productLabel = form.$('.o_form_label:eq(1)');
         $productLabel.tooltip('show', false);
-        await testUtils.dom.triggerMouseEvent($productLabel, 'mouseenter');
+        await testUtils.dom.triggerMouseEvent($productLabel, 'mouseover');
         assert.strictEqual($('.tooltip .oe_tooltip_help').text().trim(),
             "this is a tooltip\n\nValues set here are company-specific.");
-        await testUtils.dom.triggerMouseEvent($productLabel, 'mouseleave');
+        await testUtils.dom.triggerMouseEvent($productLabel, 'mouseout');
 
         const $fooLabel = form.$('.o_form_label:first');
         $fooLabel.tooltip('show', false);
-        await testUtils.dom.triggerMouseEvent($fooLabel, 'mouseenter');
+        await testUtils.dom.triggerMouseEvent($fooLabel, 'mouseover');
         assert.strictEqual($('.tooltip .oe_tooltip_help').text().trim(),
             "Values set here are company-specific.");
-        await testUtils.dom.triggerMouseEvent($fooLabel, 'mouseleave');
+        await testUtils.dom.triggerMouseEvent($fooLabel, 'mouseout');
 
         form.destroy();
     });
@@ -10157,54 +10249,24 @@ QUnit.module('Views', {
         const $productLabel = form.$('.o_form_label');
 
         $productLabel.tooltip('show', false);
-        await testUtils.dom.triggerMouseEvent($productLabel, 'mouseenter');
+        await testUtils.dom.triggerMouseEvent($productLabel, 'mouseover');
         assert.strictEqual($('.tooltip .oe_tooltip_help').text().trim(), "this is a tooltip");
-        await testUtils.dom.triggerMouseEvent($productLabel, 'mouseleave');
+        await testUtils.dom.triggerMouseEvent($productLabel, 'mouseout');
 
         form.destroy();
-    });
-
-    QUnit.test('reload a form view with a pie chart does not crash', async function (assert) {
-        assert.expect(3);
-
-        const form = await createView({
-            View: FormView,
-            model: 'partner',
-            data: this.data,
-            arch: `<form>
-                      <widget name="pie_chart" title="qux by product" attrs="{'measure': 'qux', 'groupby': 'product_id'}"/>
-                  </form>`,
-            mockRPC(route, args) {
-                if (args.method === "render_public_asset") {
-                    assert.deepEqual(args.args, ["web.assets_backend_legacy_lazy"]);
-                    return Promise.resolve(true);
-                }
-                return this._super(...arguments);
-            }
-        });
-
-        assert.containsOnce(form, '.o_widget');
-
-        await form.reload();
-        await testUtils.nextTick();
-
-        assert.containsOnce(form, '.o_widget');
-
-        form.destroy();
-        delete widgetRegistry.map.test;
     });
 
     QUnit.test('do not call mounted twice on children', async function (assert) {
         assert.expect(3);
 
-        class CustomFieldComponent extends fieldRegistryOwl.get('boolean') {
-            mounted() {
-                super.mounted(...arguments);
-                assert.step('mounted');
-            }
-            willUnmount() {
-                super.willUnmount(...arguments);
-                assert.step('willUnmount');
+        class CustomFieldComponent extends FieldBoolean {
+            setup() {
+                onMounted(() => {
+                    assert.step('mounted');
+                });
+                onWillUnmount(() => {
+                    assert.step('willUnmount');
+                });
             }
         }
         fieldRegistryOwl.add('custom', CustomFieldComponent);
@@ -10262,28 +10324,28 @@ QUnit.module('Views', {
 
         await doAction(webClient, 1);
 
-        await testUtils.dom.click($(webClient.el).find('.o_data_row:first'));
+        await testUtils.dom.click($(target).find('.o_data_row:first'));
         await legacyExtraNextTick();
-        assert.strictEqual($(webClient.el).find('.breadcrumb').text(), 'Partnerfirst record');
+        assert.strictEqual($(target).find('.breadcrumb').text(), 'Partnerfirst record');
 
-        await testUtils.dom.click($(webClient.el).find('.o_form_button_edit'));
-        await testUtils.fields.editInput($(webClient.el).find('.o_field_widget[name="name"]'), 'aaa');
+        await testUtils.dom.click($(target).find('.o_form_button_edit'));
+        await testUtils.fields.editInput($(target).find('.o_field_widget[name="name"]'), 'aaa');
 
-        await testUtils.controlPanel.pagerNext(webClient);
+        await testUtils.controlPanel.pagerNext(target);
         await legacyExtraNextTick();
-        assert.containsOnce(webClient, '.o_form_editable');
-        assert.strictEqual($(webClient.el).find('.breadcrumb').text(), 'Partnersecond record');
-        assert.strictEqual($(webClient.el).find('.o_field_widget[name="name"]').val(), 'name');
+        assert.containsOnce(target, '.o_form_editable');
+        assert.strictEqual($(target).find('.breadcrumb').text(), 'Partnersecond record');
+        assert.strictEqual($(target).find('.o_field_widget[name="name"]').val(), 'name');
 
-        await testUtils.dom.click($(webClient.el).find('.o_form_button_cancel'));
-        assert.strictEqual($(webClient.el).find('.breadcrumb').text(), 'Partnersecond record');
-        assert.strictEqual($(webClient.el).find('.o_field_widget[name="name"]').text(), 'name');
+        await testUtils.dom.click($(target).find('.o_form_button_cancel'));
+        assert.strictEqual($(target).find('.breadcrumb').text(), 'Partnersecond record');
+        assert.strictEqual($(target).find('.o_field_widget[name="name"]').text(), 'name');
 
-        await testUtils.controlPanel.pagerPrevious(webClient);
+        await testUtils.controlPanel.pagerPrevious(target);
         await legacyExtraNextTick();
-        assert.containsOnce(webClient, '.o_form_readonly');
-        assert.strictEqual($(webClient.el).find('.breadcrumb').text(), 'Partnerfirst record');
-        assert.strictEqual($(webClient.el).find('.o_field_widget[name="name"]').text(), 'aaa');
+        assert.containsOnce(target, '.o_form_readonly');
+        assert.strictEqual($(target).find('.breadcrumb').text(), 'Partnerfirst record');
+        assert.strictEqual($(target).find('.o_field_widget[name="name"]').text(), 'aaa');
     });
 
     QUnit.test('Auto save: save when breadcrumb clicked', async function (assert) {
@@ -10326,24 +10388,24 @@ QUnit.module('Views', {
 
         await doAction(webClient, 1);
 
-        await testUtils.dom.click($(webClient.el).find('.o_data_row:first'));
+        await testUtils.dom.click($(target).find('.o_data_row:first'));
         await legacyExtraNextTick();
-        assert.strictEqual($(webClient.el).find('.breadcrumb').text(), 'Partnerfirst record');
+        assert.strictEqual($(target).find('.breadcrumb').text(), 'Partnerfirst record');
 
-        await testUtils.dom.click($(webClient.el).find('.o_form_button_edit'));
-        await testUtils.fields.editInput($(webClient.el).find('.o_field_widget[name="name"]'), 'aaa');
+        await testUtils.dom.click($(target).find('.o_form_button_edit'));
+        await testUtils.fields.editInput($(target).find('.o_field_widget[name="name"]'), 'aaa');
 
-        await testUtils.dom.click($(webClient.el).find('.breadcrumb-item.o_back_button'));
+        await testUtils.dom.click($(target).find('.breadcrumb-item.o_back_button'));
         await legacyExtraNextTick();
 
-        assert.strictEqual($(webClient.el).find('.breadcrumb').text(), 'Partner');
-        assert.strictEqual($(webClient.el).find('.o_field_cell[name="name"]:first').text(), 'aaa');
+        assert.strictEqual($(target).find('.breadcrumb').text(), 'Partner');
+        assert.strictEqual($(target).find('.o_field_cell[name="name"]:first').text(), 'aaa');
 
-        await testUtils.dom.click($(webClient.el).find('.o_data_row:first'));
+        await testUtils.dom.click($(target).find('.o_data_row:first'));
         await legacyExtraNextTick();
-        assert.containsOnce(webClient, '.o_form_readonly');
-        assert.strictEqual($(webClient.el).find('.breadcrumb').text(), 'Partnerfirst record');
-        assert.strictEqual($(webClient.el).find('.o_field_widget[name="name"]').text(), 'aaa');
+        assert.containsOnce(target, '.o_form_readonly');
+        assert.strictEqual($(target).find('.breadcrumb').text(), 'Partnerfirst record');
+        assert.strictEqual($(target).find('.o_field_widget[name="name"]').text(), 'aaa');
     });
 
     QUnit.test('Auto save: save when action changed', async function (assert) {
@@ -10404,24 +10466,24 @@ QUnit.module('Views', {
 
         await doAction(webClient, 1);
 
-        await testUtils.dom.click($(webClient.el).find('.o_data_row:first'));
+        await testUtils.dom.click($(target).find('.o_data_row:first'));
         await legacyExtraNextTick();
-        assert.strictEqual($(webClient.el).find('.breadcrumb').text(), 'Partnerfirst record');
+        assert.strictEqual($(target).find('.breadcrumb').text(), 'Partnerfirst record');
 
-        await testUtils.dom.click($(webClient.el).find('.o_form_button_edit'));
-        await testUtils.fields.editInput($(webClient.el).find('.o_field_widget[name="name"]'), 'aaa');
+        await testUtils.dom.click($(target).find('.o_form_button_edit'));
+        await testUtils.fields.editInput($(target).find('.o_field_widget[name="name"]'), 'aaa');
 
         await doAction(webClient, 2, { clearBreadcrumbs: true });
 
-        assert.strictEqual($(webClient.el).find('.breadcrumb').text(), 'Other action');
+        assert.strictEqual($(target).find('.breadcrumb').text(), 'Other action');
 
         await doAction(webClient, 1, { clearBreadcrumbs: true });
 
-        await testUtils.dom.click($(webClient.el).find('.o_data_row:first'));
+        await testUtils.dom.click($(target).find('.o_data_row:first'));
         await legacyExtraNextTick();
-        assert.containsOnce(webClient, '.o_form_readonly');
-        assert.strictEqual($(webClient.el).find('.breadcrumb').text(), 'Partnerfirst record');
-        assert.strictEqual($(webClient.el).find('.o_field_widget[name="name"]').text(), 'aaa');
+        assert.containsOnce(target, '.o_form_readonly');
+        assert.strictEqual($(target).find('.breadcrumb').text(), 'Partnerfirst record');
+        assert.strictEqual($(target).find('.o_field_widget[name="name"]').text(), 'aaa');
     });
 
     QUnit.test('Auto save: save on closing tab/browser', async function (assert) {
@@ -10561,14 +10623,14 @@ QUnit.module('Views', {
         await doAction(webClient, 1);
 
         // Click on a row to open a record
-        await testUtils.dom.click($(webClient.el).find('.o_data_row:first'));
+        await testUtils.dom.click($(target).find('.o_data_row:first'));
         await legacyExtraNextTick();
-        assert.strictEqual($(webClient.el).find('.breadcrumb').text(), 'Partnerfirst record');
+        assert.strictEqual($(target).find('.breadcrumb').text(), 'Partnerfirst record');
 
         // Return in the list view to detach the form view
-        await testUtils.dom.click($(webClient.el).find('.o_back_button'));
+        await testUtils.dom.click($(target).find('.o_back_button'));
         await legacyExtraNextTick();
-        assert.strictEqual($(webClient.el).find('.breadcrumb').text(), 'Partner');
+        assert.strictEqual($(target).find('.breadcrumb').text(), 'Partner');
 
         // Simulate tab/browser close in the list
         window.dispatchEvent(new Event("beforeunload"));
@@ -10861,11 +10923,11 @@ QUnit.module('Views', {
             res_id: 1,
         });
 
-        assert.containsOnce(form, '.o_form_view.o_form_readonly');
+        assert.containsOnce(form, '.o_legacy_form_view.o_form_readonly');
 
         await testUtils.dom.click(form.$('.o_field_widget[name="display_name"]'));
 
-        assert.containsOnce(form, '.o_form_view.o_form_editable');
+        assert.containsOnce(form, '.o_legacy_form_view.o_form_editable');
         assert.strictEqual(document.activeElement, $('.o_field_widget[name="display_name"]')[0]);
 
         form.destroy();
@@ -10887,12 +10949,12 @@ QUnit.module('Views', {
             res_id: 1,
         });
 
-        assert.containsOnce(form, '.o_form_view.o_form_readonly');
+        assert.containsOnce(form, '.o_legacy_form_view.o_form_readonly');
         assert.containsNone(form, '.o_priority_star[aria-checked="true"]');
 
         await testUtils.dom.click(form.$('.o_field_widget[name="priority"] a:first'));
 
-        assert.containsOnce(form, '.o_form_view.o_form_readonly');
+        assert.containsOnce(form, '.o_legacy_form_view.o_form_readonly');
         assert.containsOnce(form, '.o_priority_star[aria-checked="true"]');
 
         form.destroy();
@@ -10914,11 +10976,11 @@ QUnit.module('Views', {
             res_id: 1,
         });
 
-        assert.containsOnce(form, '.o_form_view.o_form_readonly');
+        assert.containsOnce(form, '.o_legacy_form_view.o_form_readonly');
 
         await testUtils.dom.click(form.$('.o_form_label:first'));
 
-        assert.containsOnce(form, '.o_form_view.o_form_editable');
+        assert.containsOnce(form, '.o_legacy_form_view.o_form_editable');
         assert.strictEqual(document.activeElement, form.$('input.o_field_widget[name="foo"]')[0]);
 
         form.destroy();
@@ -10948,13 +11010,13 @@ QUnit.module('Views', {
             res_id: 1,
         });
 
-        assert.containsOnce(form, '.o_form_view.o_form_readonly');
+        assert.containsOnce(form, '.o_legacy_form_view.o_form_readonly');
         assert.containsN(form, '.o_form_label', 2);
         assert.containsOnce(form, '.o_invisible_modifier .o_form_label');
 
         await testUtils.dom.click(form.$('.o_form_label')[1]);
 
-        assert.containsOnce(form, '.o_form_view.o_form_editable');
+        assert.containsOnce(form, '.o_legacy_form_view.o_form_editable');
         assert.containsN(form, '.o_form_label', 2);
         assert.containsOnce(form, '.o_invisible_modifier .o_form_label');
         assert.containsOnce(form, 'input.o_field_widget[name="foo"]');
@@ -10979,26 +11041,26 @@ QUnit.module('Views', {
             res_id: 1,
         });
 
-        assert.containsOnce(form, '.o_form_view.o_form_readonly');
+        assert.containsOnce(form, '.o_legacy_form_view.o_form_readonly');
         assert.containsOnce(form, '.o_field_boolean input:checked');
         assert.containsNone(form, '.o_field_boolean input:disabled');
 
         await testUtils.dom.click(form.$('.o_field_widget[name="bar"]'));
         await testUtils.nextTick(); // wait for quick edit
 
-        assert.containsOnce(form, '.o_form_view.o_form_editable');
+        assert.containsOnce(form, '.o_legacy_form_view.o_form_editable');
         assert.containsNone(form, '.o_field_boolean input:checked');
 
         await testUtils.form.clickSave(form);
 
-        assert.containsOnce(form, '.o_form_view.o_form_readonly');
+        assert.containsOnce(form, '.o_legacy_form_view.o_form_readonly');
         assert.containsNone(form, '.o_field_boolean input:checked');
         assert.containsNone(form, '.o_field_boolean input:disabled');
 
         await testUtils.dom.click(form.$('.o_field_widget[name="bar"]'));
         await testUtils.nextTick(); // wait for quick edit
 
-        assert.containsOnce(form, '.o_form_view.o_form_editable');
+        assert.containsOnce(form, '.o_legacy_form_view.o_form_editable');
         assert.containsOnce(form, '.o_field_boolean input:checked');
         assert.containsNone(form, '.o_field_boolean input:disabled');
 
@@ -11021,24 +11083,24 @@ QUnit.module('Views', {
             res_id: 1,
         });
 
-        assert.containsOnce(form, '.o_form_view.o_form_readonly');
+        assert.containsOnce(form, '.o_legacy_form_view.o_form_readonly');
         assert.containsOnce(form, '.o_field_boolean input:checked');
 
         await testUtils.dom.click(form.$('.o_td_label .o_form_label'));
         await testUtils.nextTick(); // wait for quick edit
 
-        assert.containsOnce(form, '.o_form_view.o_form_editable');
+        assert.containsOnce(form, '.o_legacy_form_view.o_form_editable');
         assert.containsNone(form, '.o_field_boolean input:checked');
 
         await testUtils.form.clickSave(form);
 
-        assert.containsOnce(form, '.o_form_view.o_form_readonly');
+        assert.containsOnce(form, '.o_legacy_form_view.o_form_readonly');
         assert.containsNone(form, '.o_field_boolean input:checked');
 
         await testUtils.dom.click(form.$('.o_td_label .o_form_label'));
         await testUtils.nextTick(); // wait for quick edit
 
-        assert.containsOnce(form, '.o_form_view.o_form_editable');
+        assert.containsOnce(form, '.o_legacy_form_view.o_form_editable');
         assert.containsOnce(form, '.o_field_boolean input:checked');
 
         form.destroy();
@@ -11064,7 +11126,7 @@ QUnit.module('Views', {
             res_id: 1,
         });
 
-        assert.containsOnce(form, '.o_form_view.o_form_readonly');
+        assert.containsOnce(form, '.o_legacy_form_view.o_form_readonly');
         assert.containsNone(form, '.o_field_x2many_list_row_add',
             'create line should not be displayed');
         assert.containsNone(form, '.o_list_record_remove',
@@ -11072,7 +11134,7 @@ QUnit.module('Views', {
 
         await testUtils.dom.click(form.$('.o_field_cell:first'));
 
-        assert.containsOnce(form, '.o_form_view.o_form_readonly',
+        assert.containsOnce(form, '.o_legacy_form_view.o_form_readonly',
             'should not switch into edit mode');
 
         form.destroy();
@@ -11101,7 +11163,7 @@ QUnit.module('Views', {
             res_id: 1,
         });
 
-        assert.containsOnce(form, '.o_form_view.o_form_readonly');
+        assert.containsOnce(form, '.o_legacy_form_view.o_form_readonly');
         assert.containsNone(document.body, '.modal');
 
         assert.containsNone(form, '.o_field_x2many_list_row_add a', 'no add button should be displayed');
@@ -11109,7 +11171,7 @@ QUnit.module('Views', {
 
         await testUtils.dom.click(form.$('.o_field_cell:first'));
 
-        assert.containsOnce(form, '.o_form_view.o_form_readonly', 'should not switch into edit mode');
+        assert.containsOnce(form, '.o_legacy_form_view.o_form_readonly', 'should not switch into edit mode');
         assert.containsOnce(document.body, '.modal');
         assert.containsOnce(document.body, '.modal span.o_field_widget[name="foo"]');
 
@@ -11136,11 +11198,11 @@ QUnit.module('Views', {
             res_id: 1,
         });
 
-        assert.containsOnce(form, '.o_form_view.o_form_readonly');
+        assert.containsOnce(form, '.o_legacy_form_view.o_form_readonly');
 
         await testUtils.dom.click(form.$('.o_field_cell[name="foo"]'));
 
-        assert.containsOnce(form, '.o_form_view.o_form_editable',
+        assert.containsOnce(form, '.o_legacy_form_view.o_form_editable',
             'should switch into edit mode');
         assert.strictEqual(document.activeElement, form.$('.o_field_cell[name="foo"] input')[0]);
 
@@ -11170,12 +11232,12 @@ QUnit.module('Views', {
             res_id: 1,
         });
 
-        assert.containsOnce(form, '.o_form_view.o_form_readonly');
+        assert.containsOnce(form, '.o_legacy_form_view.o_form_readonly');
         assert.containsNone(document.body, '.modal');
 
         await testUtils.dom.click(form.$('.o_field_cell[name="foo"]'));
 
-        assert.containsOnce(form, '.o_form_view.o_form_editable',
+        assert.containsOnce(form, '.o_legacy_form_view.o_form_editable',
             'should switch into edit mode');
         assert.containsOnce(document.body, '.modal');
         assert.containsOnce(document.body, '.modal input.o_field_widget[name="foo"]');
@@ -11201,14 +11263,14 @@ QUnit.module('Views', {
             res_id: 1,
         });
 
-        assert.containsOnce(form, '.o_form_view.o_form_readonly');
+        assert.containsOnce(form, '.o_legacy_form_view.o_form_readonly');
         assert.containsOnce(form, '.o_field_x2many_list_row_add',
             'create line should be displayed');
 
         await testUtils.dom.click(form.$('.o_field_x2many_list_row_add a'));
         await testUtils.nextTick(); // wait for quick edit
 
-        assert.containsOnce(form, '.o_form_view.o_form_editable',
+        assert.containsOnce(form, '.o_legacy_form_view.o_form_editable',
             'should switch into edit mode');
         assert.strictEqual(document.activeElement, form.$('.o_field_cell[name="foo"] input')[0]);
 
@@ -11236,13 +11298,13 @@ QUnit.module('Views', {
             res_id: 1,
         });
 
-        assert.containsOnce(form, '.o_form_view.o_form_readonly');
+        assert.containsOnce(form, '.o_legacy_form_view.o_form_readonly');
         assert.containsNone(document.body, '.modal');
 
         await testUtils.dom.click(form.$('.o_field_x2many_list_row_add a'));
         await testUtils.nextTick(); // wait for quick edit
 
-        assert.containsOnce(form, '.o_form_view.o_form_editable',
+        assert.containsOnce(form, '.o_legacy_form_view.o_form_editable',
             'should switch into edit mode');
         assert.containsOnce(document.body, '.modal');
         assert.containsOnce(document.body, '.modal input.o_field_widget[name="foo"]');
@@ -11270,7 +11332,7 @@ QUnit.module('Views', {
             res_id: 1,
         });
 
-        assert.containsOnce(form, '.o_form_view.o_form_readonly');
+        assert.containsOnce(form, '.o_legacy_form_view.o_form_readonly');
         assert.containsN(form, '.o_list_record_remove', 2,
             'remove buttons should be displayed');
         assert.strictEqual(form.$('.o_field_cell[name="foo"]').text(), 'yopblip');
@@ -11278,7 +11340,7 @@ QUnit.module('Views', {
         await testUtils.dom.click(form.$('.o_list_record_remove button')[0]);
         await testUtils.nextTick(); // wait for quick edit
 
-        assert.containsOnce(form, '.o_form_view.o_form_editable',
+        assert.containsOnce(form, '.o_legacy_form_view.o_form_editable',
             'should switch into edit mode');
         assert.containsOnce(form, '.o_data_row', 'only one record should remain');
         assert.strictEqual(form.$('.o_field_cell[name="foo"]').text(), 'blip');
@@ -11306,7 +11368,7 @@ QUnit.module('Views', {
             res_id: 1,
         });
 
-        assert.containsOnce(form, '.o_form_view.o_form_readonly');
+        assert.containsOnce(form, '.o_legacy_form_view.o_form_readonly');
         assert.containsN(form, '.o_list_record_remove', 2,
             'remove buttons should be displayed');
         assert.strictEqual(form.$('.o_field_cell[name="foo"]').text(), 'yopblip');
@@ -11314,7 +11376,7 @@ QUnit.module('Views', {
         await testUtils.dom.click(form.$('.o_list_record_remove button')[0]);
         await testUtils.nextTick(); // wait for quick edit
 
-        assert.containsOnce(form, '.o_form_view.o_form_editable',
+        assert.containsOnce(form, '.o_legacy_form_view.o_form_editable',
             'should switch into edit mode');
         assert.containsOnce(form, '.o_data_row', 'only one record should remain');
         assert.strictEqual(form.$('.o_field_cell[name="foo"]').text(), 'blip');
@@ -11336,11 +11398,11 @@ QUnit.module('Views', {
             res_id: 1,
         });
 
-        assert.containsOnce(form, '.o_form_view.o_form_readonly');
+        assert.containsOnce(form, '.o_legacy_form_view.o_form_readonly');
 
         await testUtils.dom.click(form.$('.o_field_widget[name="date"]'));
 
-        assert.containsOnce(form, '.o_form_view.o_form_editable',
+        assert.containsOnce(form, '.o_legacy_form_view.o_form_editable',
             'should switch into edit mode');
         assert.strictEqual(document.activeElement, form.$('.o_field_widget[name="date"] input')[0]);
         assert.containsOnce(document.body, '.bootstrap-datetimepicker-widget');
@@ -11366,11 +11428,11 @@ QUnit.module('Views', {
             },
         });
 
-        assert.containsOnce(form, '.o_form_view.o_form_readonly');
+        assert.containsOnce(form, '.o_legacy_form_view.o_form_readonly');
 
         await testUtils.dom.click(form.$('.o_field_widget[name="trululu"]'));
 
-        assert.containsOnce(form, '.o_form_view.o_form_readonly');
+        assert.containsOnce(form, '.o_legacy_form_view.o_form_readonly');
         assert.verifySteps(['read', 'get_formview_action'])
 
         form.destroy();
@@ -11401,20 +11463,20 @@ QUnit.module('Views', {
             res_id: 1,
         });
 
-        assert.containsOnce(form, '.o_form_view.o_form_readonly');
+        assert.containsOnce(form, '.o_legacy_form_view.o_form_readonly');
         assert.containsOnce(form, '.o_field_x2many_list_row_add',
             'create line should be displayed');
 
         await testUtils.dom.click(form.$('.o_field_x2many_list_row_add a'));
         await testUtils.nextTick(); // wait for quick edit
 
-        assert.containsOnce(form, '.o_form_view.o_form_editable',
+        assert.containsOnce(form, '.o_legacy_form_view.o_form_editable',
             'should switch into edit mode');
         assert.containsOnce(document.body, '.modal',
             'should display a dialog');
 
         assert.containsNone(form, '.o_field_many2many[name="timmy"] .o_data_row');
-        await testUtils.dom.click($('.modal .o_list_view .o_data_row')[0]);
+        await testUtils.dom.click($('.modal .o_legacy_list_view .o_data_row')[0]);
         assert.containsOnce(form, '.o_field_many2many[name="timmy"] .o_data_row');
 
         form.destroy();
@@ -11434,13 +11496,13 @@ QUnit.module('Views', {
             res_id: 1,
         });
 
-        assert.containsOnce(form, '.o_form_view.o_form_readonly');
+        assert.containsOnce(form, '.o_legacy_form_view.o_form_readonly');
         assert.containsNone(form, 'input[type="checkbox"]:checked');
         assert.containsNone(form, 'input[type="checkbox"]:disabled');
 
         await testUtils.dom.click(form.$('.o_field_widget[name="timmy"] label:eq(1)'));
 
-        assert.containsOnce(form, '.o_form_view.o_form_editable');
+        assert.containsOnce(form, '.o_legacy_form_view.o_form_editable');
         assert.containsOnce(form, 'input[type="checkbox"]:checked');
         assert.containsOnce(form, 'input[type="checkbox"]:eq(1):checked');
         assert.containsNone(form, 'input[type="checkbox"]:disabled');
@@ -11463,13 +11525,13 @@ QUnit.module('Views', {
             res_id: 1,
         });
 
-        assert.containsOnce(form, '.o_form_view.o_form_readonly');
+        assert.containsOnce(form, '.o_legacy_form_view.o_form_readonly');
         assert.containsNone(form, 'input[type="checkbox"]:checked');
         assert.containsNone(form, 'input[type="checkbox"]:not(:disabled)');
 
         await testUtils.dom.click(form.$('.o_field_widget[name="timmy"] label:eq(1)'));
 
-        assert.containsOnce(form, '.o_form_view.o_form_readonly');
+        assert.containsOnce(form, '.o_legacy_form_view.o_form_readonly');
         assert.containsNone(form, 'input[type="checkbox"]:not(:disabled)');
         assert.containsNone(form, 'input[type="checkbox"]:checked');
 
@@ -11492,12 +11554,12 @@ QUnit.module('Views', {
             res_id: 1,
         });
 
-        assert.containsOnce(form, '.o_form_view.o_form_readonly');
+        assert.containsOnce(form, '.o_legacy_form_view.o_form_readonly');
         assert.containsNone(form, 'input[type="checkbox"]:checked');
 
         await testUtils.dom.click(form.$('.o_td_label .o_form_label'));
 
-        assert.containsOnce(form, '.o_form_view.o_form_editable');
+        assert.containsOnce(form, '.o_legacy_form_view.o_form_editable');
         assert.containsNone(form, 'input[type="checkbox"]:checked');
 
         form.destroy();
@@ -11517,13 +11579,13 @@ QUnit.module('Views', {
             res_id: 1,
         });
 
-        assert.containsOnce(form, '.o_form_view.o_form_readonly');
+        assert.containsOnce(form, '.o_legacy_form_view.o_form_readonly');
         assert.containsNone(form, 'input[type="radio"]:eq(1):checked');
         assert.containsNone(form, 'input[type="radio"]:disabled');
 
         await testUtils.dom.click(form.$('.o_field_widget[name="trululu"] label:eq(1)'));
 
-        assert.containsOnce(form, '.o_form_view.o_form_editable');
+        assert.containsOnce(form, '.o_legacy_form_view.o_form_editable');
         assert.containsOnce(form, 'input[type="radio"]:eq(1):checked');
         assert.containsNone(form, 'input[type="radio"]:disabled');
 
@@ -11545,13 +11607,13 @@ QUnit.module('Views', {
             res_id: 1,
         });
 
-        assert.containsOnce(form, '.o_form_view.o_form_readonly');
+        assert.containsOnce(form, '.o_legacy_form_view.o_form_readonly');
         assert.containsOnce(form, 'input[type="radio"]:eq(2):checked');
         assert.containsNone(form, 'input[type="radio"]:not(:disabled)');
 
         await testUtils.dom.click(form.$('.o_field_widget[name="trululu"] label:eq(1)'));
 
-        assert.containsOnce(form, '.o_form_view.o_form_readonly');
+        assert.containsOnce(form, '.o_legacy_form_view.o_form_readonly');
         assert.containsOnce(form, 'input[type="radio"]:eq(2):checked');
         assert.containsNone(form, 'input[type="radio"]:not(:disabled)');
 
@@ -11574,12 +11636,12 @@ QUnit.module('Views', {
             res_id: 1,
         });
 
-        assert.containsOnce(form, '.o_form_view.o_form_readonly');
+        assert.containsOnce(form, '.o_legacy_form_view.o_form_readonly');
         assert.containsOnce(form, 'input[type="radio"]:eq(2):checked');
 
         await testUtils.dom.click(form.$('.o_td_label .o_form_label'));
 
-        assert.containsOnce(form, '.o_form_view.o_form_editable');
+        assert.containsOnce(form, '.o_legacy_form_view.o_form_editable');
         assert.containsOnce(form, 'input[type="radio"]:eq(2):checked');
 
         form.destroy();
@@ -11607,14 +11669,14 @@ QUnit.module('Views', {
             },
         });
 
-        assert.containsOnce(form, '.o_form_view.o_form_readonly');
+        assert.containsOnce(form, '.o_legacy_form_view.o_form_readonly');
         assert.containsOnce(form, 'input[type="radio"]:eq(0):checked');
 
         // click on the last value
         await testUtils.dom.click(form.$('.o_radio_item .o_form_label:contains(EF)'));
 
         // should be switched in edit mode
-        assert.containsOnce(form, '.o_form_view.o_form_editable');
+        assert.containsOnce(form, '.o_legacy_form_view.o_form_editable');
         assert.containsOnce(form, 'input[type="radio"]:eq(2):checked');
 
         assert.verifySteps([], "No write RPC done");
@@ -11638,12 +11700,12 @@ QUnit.module('Views', {
             res_id: 1,
         });
 
-        assert.containsOnce(form, '.o_form_view.o_form_readonly');
+        assert.containsOnce(form, '.o_legacy_form_view.o_form_readonly');
         await testUtils.dom.click(form.$('.o_form_label'));
-        assert.containsOnce(form, '.o_form_view.o_form_readonly');
+        assert.containsOnce(form, '.o_legacy_form_view.o_form_readonly');
 
         await testUtils.dom.click(form.$('.o_field_widget'));
-        assert.containsOnce(form, '.o_form_view.o_form_readonly');
+        assert.containsOnce(form, '.o_legacy_form_view.o_form_readonly');
 
         form.destroy();
     });
@@ -11664,12 +11726,12 @@ QUnit.module('Views', {
             res_id: 1,
         });
 
-        assert.containsOnce(form, '.o_form_view.o_form_readonly');
+        assert.containsOnce(form, '.o_legacy_form_view.o_form_readonly');
         assert.containsOnce(form, '.o_clipboard_button');
 
         await testUtils.dom.click(form.$('.o_field_copy'));
 
-        assert.containsOnce(form, '.o_form_view.o_form_editable');
+        assert.containsOnce(form, '.o_legacy_form_view.o_form_editable');
         assert.containsNone(form, '.o_clipboard_button');
 
         form.destroy();
@@ -11691,12 +11753,12 @@ QUnit.module('Views', {
             res_id: 1,
         });
 
-        assert.containsOnce(form, '.o_form_view.o_form_readonly');
+        assert.containsOnce(form, '.o_legacy_form_view.o_form_readonly');
         assert.containsOnce(form, '.o_clipboard_button');
 
         await testUtils.dom.click(form.$('.o_field_copy .o_clipboard_button'));
 
-        assert.containsOnce(form, '.o_form_view.o_form_readonly');
+        assert.containsOnce(form, '.o_legacy_form_view.o_form_readonly');
         assert.containsOnce(form, '.o_clipboard_button');
 
         form.destroy();
@@ -11744,7 +11806,7 @@ QUnit.module('Views', {
             res_id: 1,
         });
 
-        assert.containsOnce(form, '.o_form_view.o_form_readonly');
+        assert.containsOnce(form, '.o_legacy_form_view.o_form_readonly');
 
         // text selected by holding and dragging doesn't start quick edit
         window.getSelection().removeAllRanges();
@@ -11754,7 +11816,7 @@ QUnit.module('Views', {
         await testUtils.dom.click(form.$('.o_field_widget[name="display_name"]'));
         await testUtils.nextTick();
         assert.strictEqual(quickEditCB, undefined, "no quickEdit callback should have been set");
-        assert.containsOnce(form, '.o_form_view.o_form_readonly');
+        assert.containsOnce(form, '.o_legacy_form_view.o_form_readonly');
 
         // double click selecting text doesn't start quick edit
         window.getSelection().removeAllRanges();
@@ -11764,18 +11826,18 @@ QUnit.module('Views', {
         await testUtils.dom.click(form.$('.o_field_widget[name="display_name"]'));
         await testUtils.nextTick();
         assert.strictEqual(quickEditCB, undefined, "no quickEdit callback should have been set");
-        assert.containsOnce(form, '.o_form_view.o_form_readonly');
+        assert.containsOnce(form, '.o_legacy_form_view.o_form_readonly');
 
         // quick edit happens after timeout
         window.getSelection().removeAllRanges();
         await testUtils.dom.click(form.$('.o_field_widget[name="display_name"]'));
         await testUtils.nextTick();
-        assert.containsOnce(form, '.o_form_view.o_form_readonly');
+        assert.containsOnce(form, '.o_legacy_form_view.o_form_readonly');
         assert.ok(quickEditCB, "quickEdit callback should have been set");
         quickEditCB();
         await testUtils.nextTick();
         await legacyExtraNextTick();
-        assert.containsOnce(form, '.o_form_view.o_form_editable');
+        assert.containsOnce(form, '.o_legacy_form_view.o_form_editable');
 
         form.destroy();
     });

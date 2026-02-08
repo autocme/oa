@@ -191,7 +191,9 @@ class CrmTeam(models.Model):
     def _search_member_ids(self, operator, value):
         return [('crm_team_member_ids.user_id', operator, value)]
 
-    @api.depends('company_id')
+    # 'name' should not be in the trigger, but as 'company_id' is possibly not present in the view
+    # because it depends on the multi-company group, we use it as fake trigger to force computation
+    @api.depends('company_id', 'name')
     def _compute_member_company_ids(self):
         """ Available companies for members. Either team company if set, either
         any company if not set on team. """
@@ -289,6 +291,9 @@ class CrmTeam(models.Model):
     def _graph_date_column(self):
         return 'create_date'
 
+    def _graph_get_table(self, GraphModel):
+        return GraphModel._table
+
     def _graph_x_query(self):
         return 'EXTRACT(WEEK FROM %s)' % self._graph_date_column()
 
@@ -321,7 +326,7 @@ class CrmTeam(models.Model):
         # apply rules
         dashboard_graph_model = self._graph_get_model()
         GraphModel = self.env[dashboard_graph_model]
-        graph_table = GraphModel._table
+        graph_table = self._graph_get_table(GraphModel)
         extra_conditions = self._extra_sql_conditions()
         where_query = GraphModel._where_calc([])
         GraphModel._apply_ir_rules(where_query, 'read')

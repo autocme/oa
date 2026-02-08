@@ -2,11 +2,13 @@ odoo.define('web.test_env', async function (require) {
     "use strict";
 
     const Bus = require('web.Bus');
-    const { buildQuery } = require('web.rpc');
     const session = require('web.session');
-    const { registerCleanup } = require("@web/../tests/helpers/cleanup");
+    const { makeTestEnvServices } = require('@web/../tests/legacy/helpers/test_services');
+    const { templates, setLoadXmlDefaultApp } = require("@web/core/assets");
+    const { renderToString } = require('@web/core/utils/render');
+    const { App, Component } = owl;
 
-    let qweb;
+    let app;
 
     /**
      * Creates a test environment with the given environment object.
@@ -18,14 +20,11 @@ odoo.define('web.test_env', async function (require) {
      * @returns {Proxy}
      */
     function makeTestEnvironment(env = {}, providedRPC = null) {
-        if (!qweb) {
-            // avoid parsing templates at every test because it takes a lot of
-            // time and they never change
-            qweb = new owl.QWeb({ templates: session.owlTemplates });
+        if (!app) {
+            app = new App(null, { templates, test: true });
+            renderToString.app = app;
+            setLoadXmlDefaultApp(app);
         }
-        registerCleanup(() => {
-            qweb.subscriptions = {};
-        });
 
         const defaultTranslationParamters = {
             code: "en_US",
@@ -63,26 +62,7 @@ odoo.define('web.test_env', async function (require) {
                 SIZES: { XS: 0, VSM: 1, SM: 2, MD: 3, LG: 4, XL: 5, XXL: 6 },
             }, env.device),
             isDebug: env.isDebug || (() => false),
-            qweb,
-            services: Object.assign({
-                ajax: {
-                    rpc() {
-                      return env.session.rpc(...arguments); // Compatibility Legacy Widgets
-                    },
-                    loadLibs() {}
-                },
-                getCookie() {},
-                httpRequest(/* route, params = {}, readMethod = 'json' */) {
-                    return Promise.resolve('');
-                },
-                rpc(params, options) {
-                    const query = buildQuery(params);
-                    return env.session.rpc(query.route, query.params, options);
-                },
-                notification: { notify() { } },
-                hotkey: { add: () => () => {} }, // fake service
-                ui: { activeElement: document }, // fake service
-            }, env.services),
+            services: makeTestEnvServices(env),
             session: Object.assign({
                 rpc(route, params, options) {
                     if (providedRPC) {
@@ -98,10 +78,10 @@ odoo.define('web.test_env', async function (require) {
     }
 
     /**
-     * Before each test, we want owl.Component.env to be a fresh test environment.
+     * Before each test, we want Component.env to be a fresh test environment.
      */
     QUnit.on('OdooBeforeTestHook', function () {
-        owl.Component.env = makeTestEnvironment();
+        Component.env = makeTestEnvironment();
     });
 
     return makeTestEnvironment;

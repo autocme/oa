@@ -1,13 +1,20 @@
 /** @odoo-module **/
 
 import { uiService } from "@web/core/ui/ui_service";
-import { useAutofocus, useBus, useEffect, useListener, useService, onDestroyed } from "@web/core/utils/hooks";
+import { useAutofocus, useBus, useChildRef, useForwardRefToParent, useListener, useService } from "@web/core/utils/hooks";
 import { registry } from "@web/core/registry";
-import { makeTestEnv } from "../../helpers/mock_env";
-import { click, getFixture, nextTick } from "../../helpers/utils";
-import { registerCleanup } from "../../helpers/cleanup";
+import { makeTestEnv } from "@web/../tests/helpers/mock_env";
+import {
+    click,
+    destroy,
+    getFixture,
+    makeDeferred,
+    mount,
+    nextTick,
+} from "@web/../tests/helpers/utils";
+import { LegacyComponent } from "@web/legacy/legacy_component";
 
-const { Component, mount, tags, useState } = owl;
+import { Component, onMounted, useState, xml } from "@odoo/owl";
 const serviceRegistry = registry.category("services");
 
 QUnit.module("utils", () => {
@@ -17,12 +24,12 @@ QUnit.module("utils", () => {
         QUnit.test("useAutofocus: simple usecase", async function (assert) {
             class MyComponent extends Component {
                 setup() {
-                    useAutofocus();
+                    this.inputRef = useAutofocus();
                 }
             }
-            MyComponent.template = tags.xml`
+            MyComponent.template = xml`
                 <span>
-                    <input type="text" autofocus="" />
+                    <input type="text" t-ref="autofocus" />
                 </span>
             `;
 
@@ -30,55 +37,54 @@ QUnit.module("utils", () => {
 
             const env = await makeTestEnv();
             const target = getFixture();
-            const comp = await mount(MyComponent, { env, target });
+            const comp = await mount(MyComponent, target, { env });
             await nextTick();
 
-            assert.strictEqual(document.activeElement, comp.el.querySelector("input"));
+            assert.strictEqual(document.activeElement, comp.inputRef.el);
 
             comp.render();
             await nextTick();
-            assert.strictEqual(document.activeElement, comp.el.querySelector("input"));
-
-            comp.destroy();
+            assert.strictEqual(document.activeElement, comp.inputRef.el);
         });
 
-        QUnit.test("useAutofocus: simple usecase when input type is number", async function (assert) {
-            class MyComponent extends Component {
-                setup() {
-                    useAutofocus();
+        QUnit.test(
+            "useAutofocus: simple usecase when input type is number",
+            async function (assert) {
+                class MyComponent extends Component {
+                    setup() {
+                        this.inputRef = useAutofocus();
+                    }
                 }
-            }
-            MyComponent.template = tags.xml`
+                MyComponent.template = xml`
                 <span>
-                    <input type="number" autofocus="" />
+                    <input type="number" t-ref="autofocus" />
                 </span>
             `;
 
-            registry.category("services").add("ui", uiService);
+                registry.category("services").add("ui", uiService);
 
-            const env = await makeTestEnv();
-            const target = getFixture();
-            const comp = await mount(MyComponent, { env, target });
+                const env = await makeTestEnv();
+                const target = getFixture();
+                const comp = await mount(MyComponent, target, { env });
 
-            assert.strictEqual(document.activeElement, comp.el.querySelector("input"));
+                assert.strictEqual(document.activeElement, comp.inputRef.el);
 
-            comp.render();
-            await nextTick();
-            assert.strictEqual(document.activeElement, comp.el.querySelector("input"));
-
-            comp.destroy();
-        });
+                comp.render();
+                await nextTick();
+                assert.strictEqual(document.activeElement, comp.inputRef.el);
+            }
+        );
 
         QUnit.test("useAutofocus: conditional autofocus", async function (assert) {
             class MyComponent extends Component {
                 setup() {
-                    this.forceFocus = useAutofocus();
+                    this.inputRef = useAutofocus();
                     this.showInput = true;
                 }
             }
-            MyComponent.template = tags.xml`
+            MyComponent.template = xml`
                 <span>
-                    <input t-if="showInput" type="text" autofocus="" />
+                    <input t-if="showInput" type="text" t-ref="autofocus" />
                 </span>
             `;
 
@@ -86,24 +92,115 @@ QUnit.module("utils", () => {
 
             const env = await makeTestEnv();
             const target = getFixture();
-            const comp = await mount(MyComponent, { env, target });
+            const comp = await mount(MyComponent, target, { env });
             await nextTick();
 
-            assert.strictEqual(document.activeElement, comp.el.querySelector("input"));
+            assert.strictEqual(document.activeElement, comp.inputRef.el);
 
             comp.showInput = false;
-            comp.forceFocus();
             comp.render();
             await nextTick();
-            assert.notStrictEqual(document.activeElement, comp.el.querySelector("input"));
+            assert.notStrictEqual(document.activeElement, comp.inputRef.el);
 
             comp.showInput = true;
-            comp.forceFocus();
             comp.render();
             await nextTick();
-            assert.strictEqual(document.activeElement, comp.el.querySelector("input"));
+            assert.strictEqual(document.activeElement, comp.inputRef.el);
+        });
 
-            comp.destroy();
+        QUnit.test("useAutofocus returns also a ref when isSmall is true", async function (assert) {
+            assert.expect(2);
+            class MyComponent extends Component {
+                setup() {
+                    this.inputRef = useAutofocus();
+                    assert.ok(this.env.isSmall);
+                    onMounted(() => {
+                        assert.ok(this.inputRef.el);
+                    });
+                }
+            }
+            MyComponent.template = xml`
+                <span>
+                    <input type="text" t-ref="autofocus" />
+                </span>
+            `;
+
+            const fakeUIService = {
+                start(env) {
+                    const ui = {};
+                    Object.defineProperty(env, "isSmall", {
+                        get() {
+                            return true;
+                        },
+                    });
+
+                    return ui;
+                },
+            };
+
+            registry.category("services").add("ui", fakeUIService);
+
+            const env = await makeTestEnv();
+            const target = getFixture();
+            await mount(MyComponent, target, { env });
+        });
+
+        QUnit.test("supports different ref names", async (assert) => {
+            class MyComponent extends Component {
+                setup() {
+                    this.secondRef = useAutofocus({ refName: "second" });
+                    this.firstRef = useAutofocus({ refName: "first" });
+
+                    this.state = useState({ showSecond: true });
+                }
+            }
+            MyComponent.template = xml`
+                <span>
+                    <input type="text" t-ref="first" />
+                    <input t-if="state.showSecond" type="text" t-ref="second" />
+                </span>
+            `;
+
+            registry.category("services").add("ui", uiService);
+
+            const env = await makeTestEnv();
+            const target = getFixture();
+            const comp = await mount(MyComponent, target, { env });
+            await nextTick();
+
+            // "first" is focused first since it has the last call to "useAutofocus"
+            assert.strictEqual(document.activeElement, comp.firstRef.el);
+
+            comp.state.showSecond = false;
+            await nextTick();
+            comp.state.showSecond = true;
+            await nextTick();
+
+            assert.strictEqual(document.activeElement, comp.secondRef.el);
+        });
+
+        QUnit.test("can select an entire text", async (assert) => {
+            class MyComponent extends Component {
+                setup() {
+                    this.inputRef = useAutofocus({ selectAll: true });
+                }
+            }
+            MyComponent.template = xml`
+                <span>
+                    <input type="text" value="abcdefghij" t-ref="autofocus" />
+                </span>
+            `;
+
+            registry.category("services").add("ui", uiService);
+
+            const env = await makeTestEnv();
+            const target = getFixture();
+            const comp = await mount(MyComponent, target, { env });
+            await nextTick();
+
+            assert.strictEqual(document.activeElement, comp.inputRef.el);
+            assert.strictEqual(comp.inputRef.el.selectionStart, 0);
+            assert.strictEqual(comp.inputRef.el.selectionEnd, 10);
         });
 
         QUnit.module("useBus");
@@ -117,245 +214,48 @@ QUnit.module("utils", () => {
                     assert.step("callback");
                 }
             }
-            MyComponent.template = tags.xml`<div/>`;
+            MyComponent.template = xml`<div/>`;
 
             const env = await makeTestEnv();
             const target = getFixture();
-            const comp = await mount(MyComponent, { env, target });
+            const comp = await mount(MyComponent, target, { env });
             env.bus.trigger("test-event");
             await nextTick();
             assert.verifySteps(["callback"]);
 
-            comp.unmount();
+            destroy(comp);
             env.bus.trigger("test-event");
             await nextTick();
             assert.verifySteps([]);
-
-            comp.destroy();
         });
-
-        QUnit.module("useEffect");
-
-        QUnit.test(
-            "useEffect: effect runs on mount, is reapplied on patch, and is cleaned up on unmount and before reapplying",
-            async function (assert) {
-                assert.expect(7);
-
-                let cleanupRun = 0;
-                class MyComponent extends Component {
-                    setup() {
-                        this.state = useState({
-                            value: 0,
-                        });
-                        useEffect(() => {
-                            assert.step(`value is ${this.state.value}`);
-                            return () =>
-                                assert.step(
-                                    `cleaning up for value = ${
-                                        this.state.value
-                                    } (cleanup ${cleanupRun++})`
-                                );
-                        });
-                    }
-                }
-                MyComponent.template = tags.xml`<div/>`;
-
-                const env = await makeTestEnv();
-                const target = getFixture();
-                const component = await mount(MyComponent, { env, target });
-
-                assert.step("before state mutation");
-                component.state.value++;
-                // Wait for an owl render
-                await new Promise((resolve) => requestAnimationFrame(resolve));
-                assert.step("after state mutation");
-                await component.unmount();
-
-                assert.verifySteps([
-                    "value is 0",
-                    "before state mutation",
-                    // While one might expect value to be 0 at cleanup, because the value is
-                    // read during cleanup from the state rather than captured by a dependency
-                    // it already has the new value. Having this in business code is a symptom
-                    // of a missing dependency and can lead to bugs.
-                    "cleaning up for value = 1 (cleanup 0)",
-                    "value is 1",
-                    "after state mutation",
-                    "cleaning up for value = 1 (cleanup 1)",
-                ]);
-            }
-        );
-
-        QUnit.test(
-            "useEffect: dependencies prevent effects from rerunning when unchanged",
-            async function (assert) {
-                assert.expect(21);
-
-                class MyComponent extends Component {
-                    setup() {
-                        this.state = useState({
-                            a: 0,
-                            b: 0,
-                        });
-                        useEffect(
-                            (a) => {
-                                assert.step(`Effect a: ${a}`);
-                                return () => assert.step(`cleaning up for a: ${a}`);
-                            },
-                            () => [this.state.a]
-                        );
-                        useEffect(
-                            (b) => {
-                                assert.step(`Effect b: ${b}`);
-                                return () => assert.step(`cleaning up for b: ${b}`);
-                            },
-                            () => [this.state.b]
-                        );
-                        useEffect(
-                            (a, b) => {
-                                assert.step(`Effect ab: {a: ${a}, b: ${b}}`);
-                                return () => assert.step(`cleaning up for ab: {a: ${a}, b: ${b}}`);
-                            },
-                            () => [this.state.a, this.state.b]
-                        );
-                    }
-                }
-                MyComponent.template = tags.xml`<div/>`;
-
-                const env = await makeTestEnv();
-                const target = getFixture();
-                assert.step("before mount");
-                const component = await mount(MyComponent, { env, target });
-                assert.step("after mount");
-
-                assert.step("before state mutation: a");
-                component.state.a++;
-                // Wait for an owl render
-                await new Promise((resolve) => requestAnimationFrame(resolve));
-                assert.step("after state mutation: a");
-
-                assert.step("before state mutation: b");
-                component.state.b++;
-                // Wait for an owl render
-                await new Promise((resolve) => requestAnimationFrame(resolve));
-                assert.step("after state mutation: b");
-                await component.unmount();
-
-                assert.verifySteps([
-                    // All effects run on mount
-                    "before mount",
-                    "Effect a: 0",
-                    "Effect b: 0",
-                    "Effect ab: {a: 0, b: 0}",
-                    "after mount",
-
-                    "before state mutation: a",
-                    // Cleanups run in reverse order
-                    "cleaning up for ab: {a: 0, b: 0}",
-                    // Cleanup for b is not run
-                    "cleaning up for a: 0",
-
-                    "Effect a: 1",
-                    // Effect b is not run
-                    "Effect ab: {a: 1, b: 0}",
-                    "after state mutation: a",
-
-                    "before state mutation: b",
-                    "cleaning up for ab: {a: 1, b: 0}",
-                    "cleaning up for b: 0",
-                    // Cleanup for a is not run
-
-                    // Effect a is not run
-                    "Effect b: 1",
-                    "Effect ab: {a: 1, b: 1}",
-                    "after state mutation: b",
-
-                    // All cleanups run on unmount
-                    "cleaning up for ab: {a: 1, b: 1}",
-                    "cleaning up for b: 1",
-                    "cleaning up for a: 1",
-                ]);
-            }
-        );
-
-        QUnit.test(
-            "useEffect: effect with empty dependency list never reruns",
-            async function (assert) {
-                assert.expect(6);
-
-                class MyComponent extends Component {
-                    setup() {
-                        this.state = useState({
-                            value: 0,
-                        });
-                        useEffect(
-                            () => {
-                                assert.step(`value is ${this.state.value}`);
-                                return () => assert.step(`cleaning up for ${this.state.value}`);
-                            },
-                            () => []
-                        );
-                    }
-                }
-                MyComponent.template = tags.xml`<div t-esc="state.value"/>`;
-
-                const env = await makeTestEnv();
-                const target = getFixture();
-                const component = await mount(MyComponent, { env, target });
-
-                assert.step("before state mutation");
-                component.state.value++;
-                // Wait for an owl render
-                await new Promise((resolve) => requestAnimationFrame(resolve));
-                assert.equal(
-                    component.el.textContent,
-                    1,
-                    "Value was correctly changed inside the component"
-                );
-                assert.step("after state mutation");
-                await component.unmount();
-
-                assert.verifySteps([
-                    "value is 0",
-                    "before state mutation",
-                    // no cleanup or effect caused by mutation
-                    "after state mutation",
-                    // Value being clean
-                    "cleaning up for 1",
-                ]);
-            }
-        );
 
         QUnit.module("useListener");
 
         QUnit.test("useListener: simple usecase", async function (assert) {
-            class MyComponent extends Component {
+            class MyComponent extends LegacyComponent {
                 setup() {
                     useListener("click", () => assert.step("click"));
                 }
             }
-            MyComponent.template = tags.xml`<button>Click Me</button>`;
+            MyComponent.template = xml`<button class="root">Click Me</button>`;
 
             const env = await makeTestEnv();
             const target = getFixture();
-            const comp = await mount(MyComponent, { env, target });
-            registerCleanup(() => {
-                comp.destroy();
-            });
+            await mount(MyComponent, target, { env });
 
-            await click(comp.el);
+            await click(target.querySelector(".root"));
             assert.verifySteps(["click"]);
         });
 
         QUnit.test("useListener: event delegation", async function (assert) {
-            class MyComponent extends Component {
+            class MyComponent extends LegacyComponent {
                 setup() {
                     this.flag = true;
                     useListener("click", "button", () => assert.step("click"));
                 }
             }
-            MyComponent.template = tags.xml`
-                <div>
+            MyComponent.template = xml`
+                <div class="root">
                     <button t-if="flag">Click Here</button>
                     <button t-else="">
                         <span>or Here</span>
@@ -364,31 +264,29 @@ QUnit.module("utils", () => {
 
             const env = await makeTestEnv();
             const target = getFixture();
-            const comp = await mount(MyComponent, { env, target });
-            registerCleanup(() => {
-                comp.destroy();
-            });
+            const comp = await mount(MyComponent, target, { env });
 
-            await click(comp.el);
+            await click(target.querySelector(".root"));
             assert.verifySteps([]);
-            await click(comp.el.querySelector("button"));
+            await click(target.querySelector("button"));
             assert.verifySteps(["click"]);
 
             comp.flag = false;
-            await comp.render();
-            await click(comp.el.querySelector("button span"));
+            comp.render();
+            await nextTick();
+            await click(target.querySelector("button span"));
             assert.verifySteps(["click"]);
         });
 
         QUnit.test("useListener: event delegation with capture option", async function (assert) {
-            class MyComponent extends Component {
+            class MyComponent extends LegacyComponent {
                 setup() {
                     this.flag = false;
                     useListener("click", "button", () => assert.step("click"), { capture: true });
                 }
             }
-            MyComponent.template = tags.xml`
-                <div>
+            MyComponent.template = xml`
+                <div class="root">
                     <button t-if="flag">Click Here</button>
                     <button t-else="">
                         <span>or Here</span>
@@ -397,19 +295,16 @@ QUnit.module("utils", () => {
 
             const env = await makeTestEnv();
             const target = getFixture();
-            const comp = await mount(MyComponent, { env, target });
-            registerCleanup(() => {
-                comp.destroy();
-            });
+            const comp = await mount(MyComponent, target, { env });
 
-            await click(comp.el);
+            await click(target.querySelector(".root"));
             assert.verifySteps([]);
-            await click(comp.el.querySelector("button"));
+            await click(target.querySelector("button"));
             assert.verifySteps(["click"]);
 
             comp.flag = false;
             await comp.render();
-            await click(comp.el.querySelector("button span"));
+            await click(target.querySelector("button span"));
             assert.verifySteps(["click"]);
         });
 
@@ -421,12 +316,12 @@ QUnit.module("utils", () => {
                     useService("toy_service");
                 }
             }
-            MyComponent.template = tags.xml`<div/>`;
+            MyComponent.template = xml`<div/>`;
 
             const env = await makeTestEnv();
             const target = getFixture();
             try {
-                await mount(MyComponent, { env, target });
+                await mount(MyComponent, target, { env });
             } catch (e) {
                 assert.strictEqual(e.message, "Service toy_service is not available");
             }
@@ -438,7 +333,7 @@ QUnit.module("utils", () => {
                     this.toyService = useService("toy_service");
                 }
             }
-            MyComponent.template = tags.xml`<div/>`;
+            MyComponent.template = xml`<div/>`;
 
             serviceRegistry.add("toy_service", {
                 name: "toy_service",
@@ -450,27 +345,146 @@ QUnit.module("utils", () => {
             const env = await makeTestEnv();
             const target = getFixture();
 
-            const comp = await mount(MyComponent, { env, target });
+            const comp = await mount(MyComponent, target, { env });
             assert.strictEqual(comp.toyService, null);
-            comp.unmount();
         });
 
-        QUnit.module("onDestroyed");
-
-        QUnit.test("onDestroyed is called", async (assert) => {
-            assert.expect(3);
+        QUnit.test("useService: async service with protected methods", async function (assert) {
+            let nbCalls = 0;
+            let def = makeDeferred();
             class MyComponent extends Component {
                 setup() {
-                    onDestroyed(() => assert.step("onDestroyed"));
+                    this.objectService = useService("object_service");
+                    this.functionService = useService("function_service");
                 }
             }
-            MyComponent.template = tags.xml`<div/>`;
+            MyComponent.template = xml`<div/>`;
 
+            serviceRegistry.add("object_service", {
+                name: "object_service",
+                async: ["asyncMethod"],
+                start() {
+                    return {
+                        async asyncMethod() {
+                            nbCalls++;
+                            await def;
+                            return this;
+                        },
+                    };
+                },
+            });
+
+            serviceRegistry.add("function_service", {
+                name: "function_service",
+                async: true,
+                start() {
+                    return async function asyncFunc() {
+                        nbCalls++;
+                        await def;
+                        return this;
+                    };
+                },
+            });
+
+            const env = await makeTestEnv();
             const target = getFixture();
-            const component = await owl.mount(MyComponent, {target});
-            assert.verifySteps([]);
-            component.destroy();
-            assert.verifySteps(["onDestroyed"]);
+
+            const comp = await mount(MyComponent, target, { env });
+            // Functions and methods have the correct this
+            def.resolve();
+            assert.deepEqual(await comp.objectService.asyncMethod(), comp.objectService);
+            assert.deepEqual(await comp.objectService.asyncMethod.call("boundThis"), "boundThis");
+            assert.deepEqual(await comp.functionService(), comp);
+            assert.deepEqual(await comp.functionService.call("boundThis"), "boundThis");
+            assert.strictEqual(nbCalls, 4);
+            // Functions that were called before the component is destroyed but resolved after never resolve
+            let nbResolvedProms = 0;
+            def = makeDeferred();
+            comp.objectService.asyncMethod().then(() => nbResolvedProms++);
+            comp.objectService.asyncMethod.call("boundThis").then(() => nbResolvedProms++);
+            comp.functionService().then(() => nbResolvedProms++);
+            comp.functionService.call("boundThis").then(() => nbResolvedProms++);
+            assert.strictEqual(nbCalls, 8);
+            comp.__owl__.app.destroy();
+            def.resolve();
+            await nextTick();
+            assert.strictEqual(
+                nbResolvedProms,
+                0,
+                "The promises returned by the calls should never resolve"
+            );
+            // Calling the functions after the destruction rejects the promise
+            assert.rejects(comp.objectService.asyncMethod(), "Component is destroyed");
+            assert.rejects(
+                comp.objectService.asyncMethod.call("boundThis"),
+                "Component is destroyed"
+            );
+            assert.rejects(comp.functionService(), "Component is destroyed");
+            assert.rejects(comp.functionService.call("boundThis"), "Component is destroyed");
+            assert.strictEqual(nbCalls, 8);
+        });
+
+        QUnit.module("useChildRef / useForwardRefToParent");
+
+        QUnit.test("simple usecase", async function (assert) {
+            let childRef;
+            let parentRef;
+            class Child extends Component {
+                setup() {
+                    childRef = useForwardRefToParent("someRef");
+                }
+            }
+            Child.template = xml`<span t-ref="someRef" class="my_span">Hello</span>`;
+            class Parent extends Component {
+                setup() {
+                    this.someRef = useChildRef();
+                    parentRef = this.someRef;
+                }
+            }
+            Parent.template = xml`<div><Child someRef="someRef"/></div>`;
+            Parent.components = { Child };
+
+            const env = await makeTestEnv();
+            const target = getFixture();
+
+            await mount(Parent, target, { env });
+            assert.strictEqual(childRef.el, target.querySelector(".my_span"));
+            assert.strictEqual(parentRef.el, target.querySelector(".my_span"));
+        });
+
+        QUnit.test("useForwardRefToParent in a conditional child", async function (assert) {
+            class Child extends Component {
+                setup() {
+                    useForwardRefToParent("someRef");
+                }
+            }
+            Child.template = xml`<span t-ref="someRef" class="my_span">Hello</span>`;
+            class Parent extends Component {
+                setup() {
+                    this.someRef = useChildRef();
+                    this.state = useState({ hasChild: true });
+                }
+            }
+            Parent.template = xml`<div><Child t-if="state.hasChild" someRef="someRef"/></div>`;
+            Parent.components = { Child };
+
+            const env = await makeTestEnv();
+            const target = getFixture();
+
+            const parent = await mount(Parent, target, { env });
+            assert.containsOnce(target, ".my_span");
+            assert.strictEqual(parent.someRef.el, target.querySelector(".my_span"));
+
+            parent.state.hasChild = false;
+            await nextTick();
+
+            assert.containsNone(target, ".my_span");
+            assert.strictEqual(parent.someRef.el, null);
+
+            parent.state.hasChild = true;
+            await nextTick();
+            assert.containsOnce(target, ".my_span");
+            assert.strictEqual(parent.someRef.el, target.querySelector(".my_span"));
         });
     });
 });

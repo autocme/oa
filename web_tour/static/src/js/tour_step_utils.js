@@ -61,7 +61,7 @@ return Class.extend({
     goBackBreadcrumbsMobile(description, ...extraTrigger) {
         return extraTrigger.map(element => ({
             mobile: true,
-            trigger: '.breadcrumb-item:not(.d-none):first',
+            trigger: '.breadcrumb-item.o_back_button',
             extra_trigger: element,
             content: description,
             position: 'bottom',
@@ -157,5 +157,46 @@ return Class.extend({
             },
         ].map(this.addDebugHelp(this._getHelpMessage('mobileKanbanSearchMany2X', modalTitle, valueSearched)));
     },
+    /**
+     * Utility steps to save a form and wait for the save to complete
+     *
+     * @param {object} [options]
+     * @param {string} [options.content]
+     * @param {string} [options.extra_trigger] additional save-condition selector
+     */
+    saveForm(options = {}) {
+        return [{
+            content: options.content || "save form",
+            trigger: ".o_form_button_save",
+            extra_trigger: options.extra_trigger,
+            run: "click",
+            auto: true,
+        }, {
+            content: "wait for save completion",
+            trigger: '.o_form_readonly, .o_form_saved',
+            run() {},
+            auto: true,
+        }];
+    },
+    /**
+     * Utility steps to cancel a form creation or edition.
+     *
+     * Supports creation/edition from either a form or a list view (so checks
+     * for both states).
+     */
+    discardForm(options = {}) {
+        return [{
+            content: options.content || "exit the form",
+            trigger: ".o_form_button_cancel",
+            extra_trigger: options.extra_trigger,
+            run: "click",
+            auto: true,
+        }, {
+            content: "wait for cancellation to complete",
+            trigger: ".o_list_view, .o_form_view > div > div > .o_form_readonly, .o_form_view > div > div > .o_form_saved",
+            run() {},
+            auto: true,
+        }];
+    }
 });
 });

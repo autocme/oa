@@ -4,6 +4,7 @@ odoo.define("website.tour_utils", function (require) {
 const {_t} = require("web.core");
 const {Markup} = require('web.utils');
 var tour = require("web_tour.tour");
+const { getCookie } = require('web.utils.cookies');
 
 function addMedia(position = "right") {
     return {
@@ -11,6 +12,30 @@ function addMedia(position = "right") {
         content: Markup(_t("<b>Add</b> the selected image.")),
         position: position,
         run: "click",
+    };
+}
+function assertCssVariable(variableName, variableValue, trigger = 'iframe body') {
+    return {
+        content: `Check CSS variable ${variableName}=${variableValue}`,
+        trigger: trigger,
+        auto: true,
+        run: function () {
+            const styleValue = getComputedStyle(this.$anchor[0]).getPropertyValue(variableName);
+            if ((styleValue && styleValue.trim().replace(/["']/g, '')) !== variableValue.trim().replace(/["']/g, '')) {
+                throw new Error(`Failed precondition: ${variableName}=${styleValue} (should be ${variableValue})`);
+            }
+        },
+    };
+}
+function assertPathName(pathName, trigger) {
+    return {
+        content: `Check if we have been redirected to ${pathName}`,
+        trigger: trigger,
+        run: () => {
+            if (!window.location.pathname.startsWith(pathName)) {
+                console.error(`We should be on ${pathName}.`);
+            }
+        }
     };
 }
 
@@ -45,7 +70,7 @@ function selectColorPalette(position = "left") {
 
 function changeColumnSize(position = "right") {
     return {
-        trigger: `.oe_overlay.ui-draggable.o_we_overlay_sticky.oe_active .o_handle.e`,
+        trigger: `iframe .oe_overlay.ui-draggable.o_we_overlay_sticky.oe_active .o_handle.e`,
         content: Markup(_t("<b>Slide</b> this button to change the column size.")),
         position: position,
     };
@@ -73,9 +98,12 @@ function changeImage(snippet, position = "bottom") {
 
 /**
     wTourUtils.changeOption('HeaderTemplate', '[data-name="header_alignment_opt"]', _t('alignment')),
+    By default, prevents the step from being active if a palette is opened.
+    Set allowPalette to true to select options within a palette.
 */
-function changeOption(optionName, weName = '', optionTooltipLabel = '', position = "bottom") {
-    const option_block = `we-customizeblock-option[class='snippet-option-${optionName}']`
+function changeOption(optionName, weName = '', optionTooltipLabel = '', position = "bottom", allowPalette = false) {
+    const noPalette = allowPalette ? '' : '.o_we_customize_panel:not(:has(.o_we_so_color_palette.o_we_widget_opened))';
+    const option_block = `${noPalette} we-customizeblock-option[class='snippet-option-${optionName}']`;
     return {
         trigger: `${option_block} ${weName}, ${option_block} [title='${weName}']`,
         content: Markup(_.str.sprintf(_t("<b>Click</b> on this option to change the %s of the block."), optionTooltipLabel)),
@@ -84,8 +112,9 @@ function changeOption(optionName, weName = '', optionTooltipLabel = '', position
     };
 }
 
-function selectNested(trigger, optionName, alt_trigger = null, optionTooltipLabel = '', position = "top") {
-    const option_block = `we-customizeblock-option[class='snippet-option-${optionName}']`;
+function selectNested(trigger, optionName, alt_trigger = null, optionTooltipLabel = '', position = "top", allowPalette = false) {
+    const noPalette = allowPalette ? '' : '.o_we_customize_panel:not(:has(.o_we_so_color_palette.o_we_widget_opened))';
+    const option_block = `${noPalette} we-customizeblock-option[class='snippet-option-${optionName}']`;
     return {
         trigger: trigger,
         content: Markup(_.str.sprintf(_t("<b>Select</b> a %s."), optionTooltipLabel)),
@@ -104,7 +133,7 @@ function changePaddingSize(direction) {
         position = "bottom";
     }
     return {
-        trigger: `.oe_overlay.ui-draggable.o_we_overlay_sticky.oe_active .o_handle.${paddingDirection}`,
+        trigger: `iframe .oe_overlay.ui-draggable.o_we_overlay_sticky.oe_active .o_handle.${paddingDirection}`,
         content: Markup(_.str.sprintf(_t("<b>Slide</b> this button to change the %s padding"), direction)),
         consumeEvent: 'mousedown',
         position: position,
@@ -118,10 +147,24 @@ function changePaddingSize(direction) {
  */
 function clickOnEdit(position = "bottom") {
     return {
-        trigger: "a[data-action=edit]",
+        trigger: ".o_menu_systray .o_edit_website_container a",
         content: Markup(_t("<b>Click Edit</b> to start designing your homepage.")),
-        extra_trigger: ".homepage",
+        extra_trigger: "body:not(.editor_has_snippets)",
         position: position,
+        timeout: 30000,
+    };
+}
+
+/**
+ * Simple click on an element in the page.
+ * @param {*} elementName
+ * @param {*} selector
+ */
+function clickOnElement(elementName, selector) {
+    return {
+        content: `Clicking on the ${elementName}`,
+        trigger: selector,
+        run: 'click'
     };
 }
 
@@ -133,11 +176,11 @@ function clickOnEdit(position = "bottom") {
 function clickOnEditAndWaitEditMode(position = "bottom") {
     return [{
         content: _t("<b>Click Edit</b> to start designing your homepage."),
-        trigger: "a[data-action=edit]",
+        trigger: ".o_menu_systray .o_edit_website_container a",
         position: position,
     }, {
         content: "Check that we are in edit mode",
-        trigger: '#oe_snippets.o_loaded',
+        trigger: ".o_website_preview.editor_enable.editor_has_snippets",
         run: () => null, // it's a check
     }];
 }
@@ -148,9 +191,10 @@ function clickOnEditAndWaitEditMode(position = "bottom") {
  * @param {*} position
  */
 function clickOnSnippet(snippet, position = "bottom") {
+    const trigger = snippet.id ? `#wrapwrap .${snippet.id}` : snippet;
     return {
-        trigger: snippet.id ? `#wrapwrap .${snippet.id}` : snippet,
-        extra_trigger: "body.editor_enable #oe_snippets.o_loaded",
+        trigger: `iframe ${trigger}`,
+        extra_trigger: "body.editor_has_snippets",
         content: Markup(_t("<b>Click on a snippet</b> to access its options menu.")),
         position: position,
         run: "click",
@@ -159,7 +203,7 @@ function clickOnSnippet(snippet, position = "bottom") {
 
 function clickOnSave(position = "bottom") {
     return [{
-        trigger: "button[data-action=save]",
+        trigger: "div:not(.o_loading_dummy) > #oe_snippets button[data-action=\"save\"]:not([disabled])",
         // TODO this should not be needed but for now it better simulates what
         // an human does. By the time this was added, it's technically possible
         // to drag and drop a snippet then immediately click on save and have
@@ -167,12 +211,13 @@ function clickOnSave(position = "bottom") {
         // after save though so it's not that big of an issue. The problem will
         // of course be solved (or at least prevented in stable). More details
         // in related commit message.
-        extra_trigger: "#oe_snippets:not(:has(.o_we_already_dragging))",
+        extra_trigger: "body:not(:has(.o_dialog)) #oe_snippets:not(:has(.o_we_already_dragging))",
         in_modal: false,
         content: Markup(_t("Good job! It's time to <b>Save</b> your work.")),
         position: position,
     }, {
-        trigger: 'body:not(.editor_enable)',
+        trigger: 'iframe body:not(.editor_enable)',
+        noPrepend: true,
         auto: true, // Just making sure save is finished in automatic tests
         run: () => null,
     }];
@@ -186,12 +231,12 @@ function clickOnSave(position = "bottom") {
  */
 function clickOnText(snippet, element, position = "bottom") {
     return {
-        trigger: snippet.id ? `#wrapwrap .${snippet.id} ${element}` : snippet,
-        extra_trigger: "body.editor_enable",
+        trigger: snippet.id ? `iframe #wrapwrap .${snippet.id} ${element}` : snippet,
+        extra_trigger: "iframe body.editor_enable",
         content: Markup(_t("<b>Click on a text</b> to start editing it.")),
         position: position,
         run: "text",
-        consumeEvent: "input",
+        consumeEvent: "click",
     };
 }
 
@@ -203,13 +248,12 @@ function clickOnText(snippet, element, position = "bottom") {
 function dragNDrop(snippet, position = "bottom") {
     return {
         trigger: `#oe_snippets .oe_snippet[name="${snippet.name}"] .oe_snippet_thumbnail:not(.o_we_already_dragging)`,
-        extra_trigger: "body.editor_enable.editor_has_snippets",
-        moveTrigger: '.oe_drop_zone',
+        extra_trigger: ".o_website_preview.editor_enable.editor_has_snippets",
         content: Markup(_.str.sprintf(_t("Drag the <b>%s</b> building block and drop it at the bottom of the page."), snippet.name)),
         position: position,
         // Normally no main snippet can be dropped in the default footer but
         // targeting it allows to force "dropping at the end of the page".
-        run: "drag_and_drop #wrapwrap > footer",
+        run: "drag_and_drop iframe #wrapwrap > footer",
     };
 }
 
@@ -225,6 +269,7 @@ function goBackToBlocks(position = "bottom") {
 function goToTheme(position = "bottom") {
     return {
         trigger: '.o_we_customize_theme_btn',
+        extra_trigger: '#oe_snippets.o_loaded',
         content: _t("Go to the Theme tab"),
         position: position,
         run: "click",
@@ -233,7 +278,7 @@ function goToTheme(position = "bottom") {
 
 function selectHeader(position = "bottom") {
     return {
-        trigger: `header#top`,
+        trigger: `iframe header#top`,
         content: Markup(_t(`<b>Click</b> on this header to configure it.`)),
         position: position,
         run: "click",
@@ -242,7 +287,7 @@ function selectHeader(position = "bottom") {
 
 function selectSnippetColumn(snippet, index = 0, position = "bottom") {
      return {
-        trigger: `#wrapwrap .${snippet.id} .row div[class*="col-lg-"]:eq(${index})`,
+        trigger: `iframe #wrapwrap .${snippet.id} .row div[class*="col-lg-"]:eq(${index})`,
         content: Markup(_t("<b>Click</b> on this column to access its options.")),
          position: position,
         run: "click",
@@ -258,32 +303,187 @@ function prepend_trigger(steps, prepend_text='') {
     return steps;
 }
 
-function registerThemeHomepageTour(name, steps) {
-    tour.register(name, {
-        url: "/?enable_editor=1",
-        sequence: 1010,
-        saveAs: "homepage",
-    }, prepend_trigger(
-        steps.concat(clickOnSave()),
-        "html[data-view-xmlid='website.homepage'] "
-    ));
+function getClientActionUrl(path, edition) {
+    let url = `/web#action=website.website_preview`;
+    if (path) {
+        url += `&path=${encodeURIComponent(path)}`;
+    }
+    if (edition) {
+        url += '&enable_editor=1';
+    }
+    return url;
 }
 
-function clickOnExtraMenuItem(stepOptions) {
+function clickOnExtraMenuItem(stepOptions, backend = false) {
     return Object.assign({}, {
         content: "Click on the extra menu dropdown toggle if it is there",
-        trigger: '#top_menu',
+        trigger: `${backend ? "iframe" : ""} #top_menu`,
         run: function () {
             const extraMenuButton = this.$anchor[0].querySelector('.o_extra_menu_items a.nav-link');
-            if (extraMenuButton) {
+            // Don't click on the extra menu button if it's already visible.
+            if (extraMenuButton && !extraMenuButton.classList.contains("show")) {
                 extraMenuButton.click();
             }
         },
     }, stepOptions);
 }
 
+/**
+ * Registers a tour that will go in the website client action.
+ *
+ * @param {string} name The tour's name
+ * @param {object} options The tour options
+ * @param {string} options.url The page to edit
+ * @param {boolean} [options.edition] If the tour starts in edit mode
+ * @param {object[]} steps The steps of the tour
+ */
+function registerWebsitePreviewTour(name, options, steps) {
+    const tourSteps = [...steps];
+    const url = getClientActionUrl(options.url, !!options.edition);
+
+    // Note: for both non edit mode and edit mode, we set a high timeout for the
+    // first step. Indeed loading both the backend and the frontend (in the
+    // iframe) and potentially starting the edit mode can take a long time in
+    // automatic tests. We'll try and decrease the need for this high timeout
+    // of course.
+    if (options.edition) {
+        tourSteps.unshift({
+            content: "Wait for the edit mode to be started",
+            trigger: '.o_website_preview.editor_enable.editor_has_snippets',
+            timeout: 30000,
+            auto: true,
+            run: () => {}, // It's a check
+        });
+    } else {
+        tourSteps[0].timeout = 20000;
+    }
+
+    return tour.register(name, Object.assign({}, options, { url }), tourSteps);
+}
+
+function registerThemeHomepageTour(name, steps) {
+    return registerWebsitePreviewTour(name, {
+        url: '/',
+        edition: true,
+        sequence: 1010,
+        saveAs: "homepage",
+    }, prepend_trigger(
+        steps.concat(clickOnSave()),
+        ".o_website_preview[data-view-xmlid='website.homepage'] "
+    ));
+}
+
+function registerBackendAndFrontendTour(name, options, steps) {
+    if (window.location.pathname === '/web') {
+        const newSteps = [];
+        for (const step of steps) {
+            const newStep = Object.assign({}, step);
+            newStep.trigger = `iframe ${step.trigger}`;
+            if (step.extra_trigger) {
+                newStep.extra_trigger = `iframe ${step.extra_trigger}`;
+            }
+            newSteps.push(newStep);
+        }
+        return registerWebsitePreviewTour(name, options, newSteps);
+    }
+
+    return tour.register(name, {
+        url: options.url,
+    }, steps);
+}
+
+/**
+ * Selects an element inside a we-select, if the we-select is from a m2o widget, searches for it.
+ *
+ * @param widgetName {string} The widget's data-name
+ * @param elementName {string} the element to search
+ * @param searchNeeded {Boolean} if the widget is a m2o widget and a search is needed
+ */
+function selectElementInWeSelectWidget(
+    widgetName,
+    elementName,
+    searchNeeded = false
+) {
+    const we_select = `we-select[data-name=${widgetName}]`;
+    const steps = [
+        {
+            content: `Clicking on the ${widgetName} toggler in vue to select ${elementName}`,
+            trigger: `${we_select} we-toggler`,
+            run: "click",
+        },
+    ];
+    if (searchNeeded) {
+        steps.push({
+            content: `Inputing ${elementName} in m2o widget search`,
+            trigger: `${we_select} div.o_we_m2o_search input`,
+            run: `text ${elementName}`,
+        });
+    }
+    steps.push(clickOnElement(`${elementName} in the ${widgetName} widget`,
+        `we-select[data-name=${widgetName}] we-button:contains(${elementName})`));
+    steps.push({
+        content: "Check we-select is set",
+        trigger: `we-select[data-name=${widgetName}]:contains(${elementName})`,
+        async run() {
+            // TODO: remove this delay when macro.js has been fixed.
+            // This additionnal line fix an underterministic error.
+            // When we-select is used twice a row too fast,
+            // the second we-select may not open.
+            // The first toggle is open, we click on it and almost
+            // at the same time, we click on the second one.
+            // The problem comes from macro.js which does not give
+            // the DOM time to be stable before looking for the trigger.
+            // We add a delay to let the mutations take place and
+            // therefore wait for the DOM to stabilize.
+            await new Promise((resolve) => setTimeout(resolve, 300));
+        }
+    });
+    return steps;
+}
+
+/**
+ * Switches to a different website by clicking on the website switcher.
+ *
+ * @param {number} websiteId - The ID of the website to switch to.
+ * @param {string} websiteName - The name of the website to switch to.
+ * @returns {Array} - The steps required to perform the website switch.
+ */
+function switchWebsite(websiteId, websiteName) {
+    return [{
+        content: `Click on the website switch to switch to website '${websiteName}'`,
+        trigger: '.o_website_switcher_container button',
+    }, {
+        content: `Switch to website '${websiteName}'`,
+        extra_trigger: `iframe html:not([data-website-id="${websiteId}"])`,
+        trigger: `.o_website_switcher_container .dropdown-item[data-website-id=${websiteId}]:contains("${websiteName}")`,
+    }, {
+        content: "Wait for the iframe to be loaded",
+        // The page reload generates assets for the new website, it may take
+        // some time
+        timeout: 20000,
+        trigger: `iframe html[data-website-id="${websiteId}"]`,
+        isCheck: true,
+    }];
+}
+
+/**
+ * Switches to a different website by clicking on the website switcher.
+ * This function can only be used during test tours as it requires
+ * specific cookies to properly function.
+ *
+ * @param {string} websiteName - The name of the website to switch to.
+ * @returns {Array} - The steps required to perform the website switch.
+ */
+function testSwitchWebsite(websiteName) {
+    const websiteIdMapping = JSON.parse(getCookie('websiteIdMapping') || '{}');
+    const websiteId = websiteIdMapping[websiteName];
+    return switchWebsite(websiteId, websiteName)
+}
+
 return {
     addMedia,
+    assertCssVariable,
+    assertPathName,
     changeBackground,
     changeBackgroundColor,
     changeColumnSize,
@@ -293,17 +493,24 @@ return {
     changePaddingSize,
     clickOnEdit,
     clickOnEditAndWaitEditMode,
+    clickOnElement,
+    clickOnExtraMenuItem,
     clickOnSave,
     clickOnSnippet,
     clickOnText,
     dragNDrop,
+    getClientActionUrl,
     goBackToBlocks,
     goToTheme,
+    registerBackendAndFrontendTour,
+    registerThemeHomepageTour,
+    registerWebsitePreviewTour,
     selectColorPalette,
+    selectElementInWeSelectWidget,
     selectHeader,
     selectNested,
     selectSnippetColumn,
-    registerThemeHomepageTour,
-    clickOnExtraMenuItem,
+    switchWebsite,
+    testSwitchWebsite
 };
 });

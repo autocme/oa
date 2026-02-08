@@ -10,12 +10,12 @@ options.registry.SnippetPopup = options.Class.extend({
     start: function () {
         // Note: the link are excluded here so that internal modal buttons do
         // not close the popup as we want to allow edition of those buttons.
-        this.$target.on('click.SnippetPopup', '.js_close_popup:not(a, .btn)', ev => {
+        this.$bsTarget.on('click.SnippetPopup', '.js_close_popup:not(a, .btn)', ev => {
             ev.stopPropagation();
             this.onTargetHide();
             this.trigger_up('snippet_option_visibility_update', {show: false});
         });
-        this.$target.on('shown.bs.modal.SnippetPopup', () => {
+        this.$bsTarget.on('shown.bs.modal.SnippetPopup', () => {
             this.trigger_up('snippet_option_visibility_update', {show: true});
             // TODO duplicated code from the popup public widget, this should
             // be moved to a *video* public widget and be reviewed in master
@@ -24,7 +24,7 @@ options.registry.SnippetPopup = options.Class.extend({
                 iframe.src = media.dataset.oeExpression || media.dataset.src; // TODO still oeExpression to remove someday
             });
         });
-        this.$target.on('hide.bs.modal.SnippetPopup', () => {
+        this.$bsTarget.on('hide.bs.modal.SnippetPopup', () => {
             this.trigger_up('snippet_option_visibility_update', {show: false});
             this._removeIframeSrc();
         });
@@ -42,13 +42,20 @@ options.registry.SnippetPopup = options.Class.extend({
         // The video should not start before the modal opens, remove it from the
         // DOM. It will be added back on modal open to start the video.
         this._removeIframeSrc();
-        this.$target.off('.SnippetPopup');
+        this.$bsTarget.off('.SnippetPopup');
     },
     /**
      * @override
      */
     onBuilt: function () {
         this._assignUniqueID();
+        // Fix in stable to convert the data-focus bootstrap option from version 4.0 to
+        // 5.1 (renamed to data-bs-focus).
+        const popup = this.$target.closest('.s_popup_middle');
+        if (popup && popup.attr('data-focus')) {
+            popup.attr('data-bs-focus', popup.attr('data-focus'));
+            popup[0].removeAttribute('data-focus');
+        }
     },
     /**
      * @override
@@ -60,8 +67,10 @@ options.registry.SnippetPopup = options.Class.extend({
      * @override
      */
     onTargetShow: async function () {
-        this.$target.modal('show');
-        $(document.body).children('.modal-backdrop:last').addClass('d-none');
+        this.options.wysiwyg.odooEditor.observerUnactive();
+        this.$bsTarget.modal('show');
+        $(this.$target[0].ownerDocument.body).children('.modal-backdrop:last').addClass('d-none');
+        this.options.wysiwyg.odooEditor.observerActive();
     },
     /**
      * @override
@@ -69,24 +78,18 @@ options.registry.SnippetPopup = options.Class.extend({
     onTargetHide: async function () {
         return new Promise(resolve => {
             const timeoutID = setTimeout(() => {
-                this.$target.off('hidden.bs.modal.popup_on_target_hide');
+                this.$bsTarget.off('hidden.bs.modal.popup_on_target_hide');
                 resolve();
             }, 500);
-            this.$target.one('hidden.bs.modal.popup_on_target_hide', () => {
+            this.$bsTarget.one('hidden.bs.modal.popup_on_target_hide', () => {
                 clearTimeout(timeoutID);
                 resolve();
             });
             // The following line is in charge of hiding .s_popup at the same
             // time the modal is closed when the page is saved in edit mode.
             this.$target[0].closest('.s_popup').classList.add('d-none');
-            this.$target.modal('hide');
+            this.$bsTarget.modal('hide');
         });
-    },
-    /**
-     * @override
-     */
-    cleanForSave: function () {
-        this.$target.removeClass("s_popup_overflow_page");
     },
 
     //--------------------------------------------------------------------------
@@ -100,8 +103,10 @@ options.registry.SnippetPopup = options.Class.extend({
      * @see this.selectClass for parameters
      */
     moveBlock: function (previewMode, widgetValue, params) {
-        const $container = $(widgetValue === 'moveToFooter' ? 'footer#bottom' : 'main');
-        this.$target.closest('.s_popup').prependTo($container.find('.oe_structure:o_editable').first());
+        const containerEl = this.$target[0].ownerDocument.querySelector(widgetValue === 'moveToFooter' ? 'footer#bottom' : 'main');
+        const whereEl = $(containerEl).find('.oe_structure:o_editable')[0];
+        const popupEl = this.$target[0].closest('.s_popup');
+        whereEl.prepend(popupEl);
     },
     /**
      * @see this.selectClass for parameters

@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
 
-import json
 from collections import defaultdict
 from datetime import datetime, timedelta
 from psycopg2 import IntegrityError
@@ -45,8 +44,8 @@ class DiscussController(http.Controller):
 
     @http.route('/discuss/channel/<int:channel_id>', methods=['GET'], type='http', auth='public')
     def discuss_channel(self, channel_id, **kwargs):
-        channel_partner_sudo = request.env['mail.channel.partner']._get_as_sudo_from_request_or_raise(request=request, channel_id=int(channel_id))
-        return self._response_discuss_public_channel_template(channel_sudo=channel_partner_sudo.channel_id)
+        channel_member_sudo = request.env['mail.channel.member']._get_as_sudo_from_request_or_raise(request=request, channel_id=int(channel_id))
+        return self._response_discuss_public_channel_template(channel_sudo=channel_member_sudo.channel_id)
 
     def _response_discuss_channel_from_token(self, create_token, channel_name=None, default_display_mode=False):
         if not request.env['ir.config_parameter'].sudo().get_param('mail.chat_from_token'):
@@ -55,9 +54,10 @@ class DiscussController(http.Controller):
         if not channel_sudo:
             try:
                 channel_sudo = channel_sudo.create({
+                    'channel_type': 'channel',
                     'default_display_mode': default_display_mode,
+                    'group_public_id': None,
                     'name': channel_name or create_token,
-                    'public': 'public',
                     'uuid': create_token,
                 })
             except IntegrityError as e:
@@ -76,9 +76,9 @@ class DiscussController(http.Controller):
             'isChannelTokenSecret': is_channel_token_secret,
         }
         add_guest_cookie = False
-        channel_partner_sudo = channel_sudo.env['mail.channel.partner']._get_as_sudo_from_request(request=request, channel_id=channel_sudo.id)
-        if channel_partner_sudo:
-            channel_sudo = channel_partner_sudo.channel_id  # ensure guest is in context
+        channel_member_sudo = channel_sudo.env['mail.channel.member']._get_as_sudo_from_request(request=request, channel_id=channel_sudo.id)
+        if channel_member_sudo:
+            channel_sudo = channel_member_sudo.channel_id  # ensure guest is in context
         else:
             if not channel_sudo.env.user._is_public():
                 try:
@@ -94,10 +94,10 @@ class DiscussController(http.Controller):
                     except UserError:
                         raise NotFound()
                 else:
-                    if channel_sudo.public == 'groups':
+                    if channel_sudo.group_public_id:
                         raise NotFound()
                     guest = channel_sudo.env['mail.guest'].create({
-                        'country_id': channel_sudo.env['res.country'].search([('code', '=', request.session.get('geoip', {}).get('country_code'))], limit=1).id,
+                        'country_id': channel_sudo.env['res.country'].search([('code', '=', request.geoip.get('country_code'))], limit=1).id,
                         'lang': get_lang(channel_sudo.env).code,
                         'name': _("Guest"),
                         'timezone': channel_sudo.env['mail.guest']._get_timezone_from_request(request),
@@ -135,40 +135,56 @@ class DiscussController(http.Controller):
 
     @http.route('/mail/channel/<int:channel_id>/partner/<int:partner_id>/avatar_128', methods=['GET'], type='http', auth='public')
     def mail_channel_partner_avatar_128(self, channel_id, partner_id, **kwargs):
-        channel_partner_sudo = request.env['mail.channel.partner']._get_as_sudo_from_request(request=request, channel_id=channel_id)
-        if not channel_partner_sudo or not channel_partner_sudo.env['mail.channel.partner'].search([('channel_id', '=', channel_id), ('partner_id', '=', partner_id)], limit=1):
-            if request.env.user.share:
-                placeholder = channel_partner_sudo.env['res.partner'].browse(partner_id).exists()._avatar_get_placeholder()
-                return channel_partner_sudo.env['ir.http']._placeholder_image_get_response(placeholder)
-            return channel_partner_sudo.sudo(False).env['ir.http']._content_image(model='res.partner', res_id=partner_id, field='avatar_128')
-        return channel_partner_sudo.env['ir.http']._content_image(model='res.partner', res_id=partner_id, field='avatar_128')
+        channel_member_sudo = request.env['mail.channel.member']._get_as_sudo_from_request(request=request, channel_id=channel_id)
+        partner_sudo = channel_member_sudo.env['res.partner'].browse(partner_id).exists()
+        placeholder = partner_sudo._avatar_get_placeholder_path()
+        if channel_member_sudo and channel_member_sudo.env['mail.channel.member'].search([('channel_id', '=', channel_id), ('partner_id', '=', partner_id)], limit=1):
+            return request.env['ir.binary']._get_image_stream_from(partner_sudo, field_name='avatar_128', placeholder=placeholder).get_response()
+        if request.env.user.share:
+            return request.env['ir.binary']._get_placeholder_stream(placeholder).get_response()
+        return request.env['ir.binary']._get_image_stream_from(partner_sudo.sudo(False), field_name='avatar_128', placeholder=placeholder).get_response()
 
     @http.route('/mail/channel/<int:channel_id>/guest/<int:guest_id>/avatar_128', methods=['GET'], type='http', auth='public')
     def mail_channel_guest_avatar_128(self, channel_id, guest_id, **kwargs):
-        channel_partner_sudo = request.env['mail.channel.partner']._get_as_sudo_from_request(request=request, channel_id=channel_id)
-        if not channel_partner_sudo or not channel_partner_sudo.env['mail.channel.partner'].search([('channel_id', '=', channel_id), ('guest_id', '=', guest_id)], limit=1):
-            if request.env.user.share:
-                placeholder = channel_partner_sudo.env['mail.guest'].browse(guest_id).exists()._avatar_get_placeholder()
-                return channel_partner_sudo.env['ir.http']._placeholder_image_get_response(placeholder)
-            return channel_partner_sudo.sudo(False).env['ir.http']._content_image(model='mail.guest', res_id=guest_id, field='avatar_128')
-        return channel_partner_sudo.env['ir.http']._content_image(model='mail.guest', res_id=guest_id, field='avatar_128')
+        channel_member_sudo = request.env['mail.channel.member']._get_as_sudo_from_request(request=request, channel_id=channel_id)
+        guest_sudo = channel_member_sudo.env['mail.guest'].browse(guest_id).exists()
+        placeholder = guest_sudo._avatar_get_placeholder_path()
+        if channel_member_sudo and channel_member_sudo.env['mail.channel.member'].search([('channel_id', '=', channel_id), ('guest_id', '=', guest_id)], limit=1):
+            return request.env['ir.binary']._get_image_stream_from(guest_sudo, field_name='avatar_128', placeholder=placeholder).get_response()
+        if request.env.user.share:
+            return request.env['ir.binary']._get_placeholder_stream(placeholder).get_response()
+        return request.env['ir.binary']._get_image_stream_from(guest_sudo.sudo(False), field_name='avatar_128', placeholder=placeholder).get_response()
 
     @http.route('/mail/channel/<int:channel_id>/attachment/<int:attachment_id>', methods=['GET'], type='http', auth='public')
     def mail_channel_attachment(self, channel_id, attachment_id, download=None, **kwargs):
-        channel_partner_sudo = request.env['mail.channel.partner']._get_as_sudo_from_request_or_raise(request=request, channel_id=int(channel_id))
-        if not channel_partner_sudo.env['ir.attachment'].search([('id', '=', int(attachment_id)), ('res_id', '=', int(channel_id)), ('res_model', '=', 'mail.channel')], limit=1):
+        channel_member_sudo = request.env['mail.channel.member']._get_as_sudo_from_request_or_raise(request=request, channel_id=int(channel_id))
+        attachment_sudo = channel_member_sudo.env['ir.attachment'].search([
+            ('id', '=', int(attachment_id)),
+            ('res_id', '=', int(channel_id)),
+            ('res_model', '=', 'mail.channel')
+        ], limit=1)
+        if not attachment_sudo:
             raise NotFound()
-        return channel_partner_sudo.env['ir.http']._get_content_common(res_id=int(attachment_id), download=download)
+        return request.env['ir.binary']._get_stream_from(attachment_sudo).get_response(as_attachment=download)
 
     @http.route([
         '/mail/channel/<int:channel_id>/image/<int:attachment_id>',
         '/mail/channel/<int:channel_id>/image/<int:attachment_id>/<int:width>x<int:height>',
     ], methods=['GET'], type='http', auth='public')
     def fetch_image(self, channel_id, attachment_id, width=0, height=0, **kwargs):
-        channel_partner_sudo = request.env['mail.channel.partner']._get_as_sudo_from_request_or_raise(request=request, channel_id=int(channel_id))
-        if not channel_partner_sudo.env['ir.attachment'].search([('id', '=', int(attachment_id)), ('res_id', '=', int(channel_id)), ('res_model', '=', 'mail.channel')], limit=1):
+        channel_member_sudo = request.env['mail.channel.member']._get_as_sudo_from_request_or_raise(request=request, channel_id=int(channel_id))
+        attachment_sudo = channel_member_sudo.env['ir.attachment'].search([
+            ('id', '=', int(attachment_id)),
+            ('res_id', '=', int(channel_id)),
+            ('res_model', '=', 'mail.channel'),
+        ], limit=1)
+
+        if not attachment_sudo:
             raise NotFound()
-        return channel_partner_sudo.env['ir.http']._content_image(res_id=int(attachment_id), height=int(height), width=int(width))
+
+        return request.env['ir.binary']._get_image_stream_from(
+            attachment_sudo, width=int(width), height=int(height)
+        ).get_response(as_attachment=kwargs.get('download'))
 
     # --------------------------------------------------------------------------
     # Client Initialization
@@ -186,22 +202,22 @@ class DiscussController(http.Controller):
     @http.route('/mail/load_message_failures', methods=['POST'], type='json', auth='user')
     def mail_load_message_failures(self, **kwargs):
         return request.env.user.partner_id._message_fetch_failed()
- 
+
     # --------------------------------------------------------------------------
     # Mailbox
     # --------------------------------------------------------------------------
 
     @http.route('/mail/inbox/messages', methods=['POST'], type='json', auth='user')
     def discuss_inbox_messages(self, max_id=None, min_id=None, limit=30, **kwargs):
-        return request.env['mail.message']._message_fetch(domain=[('needaction', '=', True)], max_id=max_id, min_id=min_id, limit=limit)
+        return request.env['mail.message']._message_fetch(domain=[('needaction', '=', True)], max_id=max_id, min_id=min_id, limit=limit).message_format()
 
     @http.route('/mail/history/messages', methods=['POST'], type='json', auth='user')
     def discuss_history_messages(self, max_id=None, min_id=None, limit=30, **kwargs):
-        return request.env['mail.message']._message_fetch(domain=[('needaction', '=', False)], max_id=max_id, min_id=min_id, limit=limit)
+        return request.env['mail.message']._message_fetch(domain=[('needaction', '=', False)], max_id=max_id, min_id=min_id, limit=limit).message_format()
 
     @http.route('/mail/starred/messages', methods=['POST'], type='json', auth='user')
     def discuss_starred_messages(self, max_id=None, min_id=None, limit=30, **kwargs):
-        return request.env['mail.message']._message_fetch(domain=[('starred_partner_ids', 'in', [request.env.user.partner_id.id])], max_id=max_id, min_id=min_id, limit=limit)
+        return request.env['mail.message']._message_fetch(domain=[('starred_partner_ids', 'in', [request.env.user.partner_id.id])], max_id=max_id, min_id=min_id, limit=limit).message_format()
 
     # --------------------------------------------------------------------------
     # Thread API (channel/chatter common)
@@ -215,8 +231,8 @@ class DiscussController(http.Controller):
         guest = request.env['mail.guest']._get_guest_from_request(request)
         guest.env['ir.attachment'].browse(post_data.get('attachment_ids', []))._check_attachments_access(post_data.get('attachment_tokens'))
         if thread_model == 'mail.channel':
-            channel_partner_sudo = request.env['mail.channel.partner']._get_as_sudo_from_request_or_raise(request=request, channel_id=int(thread_id))
-            thread = channel_partner_sudo.channel_id
+            channel_member_sudo = request.env['mail.channel.member']._get_as_sudo_from_request_or_raise(request=request, channel_id=int(thread_id))
+            thread = channel_member_sudo.channel_id
         else:
             thread = request.env[thread_model].browse(int(thread_id)).exists()
         return thread.message_post(**{key: value for key, value in post_data.items() if key in self._get_allowed_message_post_params()}).message_format()[0]
@@ -228,18 +244,24 @@ class DiscussController(http.Controller):
         message_sudo = guest.env['mail.message'].browse(message_id).sudo().exists()
         if not message_sudo.is_current_user_or_guest_author and not guest.env.user._is_admin():
             raise NotFound()
-        message_sudo._update_content(body=body, attachment_ids=attachment_ids)
+        if not message_sudo.model or not message_sudo.res_id:
+            raise NotFound()
+        guest.env[message_sudo.model].browse([message_sudo.res_id])._message_update_content(
+            message_sudo,
+            body,
+            attachment_ids=attachment_ids
+        )
         return {
             'id': message_sudo.id,
             'body': message_sudo.body,
-            'attachments': [('insert-and-replace', message_sudo.attachment_ids.sorted()._attachment_format(commands=True))],
+            'attachments': message_sudo.attachment_ids.sorted()._attachment_format(),
         }
 
     @http.route('/mail/attachment/upload', methods=['POST'], type='http', auth='public')
     def mail_attachment_upload(self, ufile, thread_id, thread_model, is_pending=False, **kwargs):
-        channel_partner = request.env['mail.channel.partner']
+        channel_member = request.env['mail.channel.member']
         if thread_model == 'mail.channel':
-            channel_partner = request.env['mail.channel.partner']._get_as_sudo_from_request_or_raise(request=request, channel_id=int(thread_id))
+            channel_member = request.env['mail.channel.member']._get_as_sudo_from_request_or_raise(request=request, channel_id=int(thread_id))
         vals = {
             'name': ufile.filename,
             'raw': ufile.read(),
@@ -253,11 +275,11 @@ class DiscussController(http.Controller):
                 'res_id': 0,
                 'res_model': 'mail.compose.message',
             })
-        if channel_partner.env.user.share:
+        if channel_member.env.user.share:
             # Only generate the access token if absolutely necessary (= not for internal user).
-            vals['access_token'] = channel_partner.env['ir.attachment']._generate_access_token()
+            vals['access_token'] = channel_member.env['ir.attachment']._generate_access_token()
         try:
-            attachment = channel_partner.env['ir.attachment'].create(vals)
+            attachment = channel_member.env['ir.attachment'].create(vals)
             attachment._post_add_create()
             attachmentData = {
                 'filename': ufile.filename,
@@ -270,10 +292,7 @@ class DiscussController(http.Controller):
                 attachmentData['accessToken'] = attachment.access_token
         except AccessError:
             attachmentData = {'error': _("You are not allowed to upload an attachment here.")}
-        return request.make_response(
-            data=json.dumps(attachmentData),
-            headers=[('Content-Type', 'application/json')]
-        )
+        return request.make_json_response(attachmentData)
 
     @http.route('/mail/attachment/delete', methods=['POST'], type='json', auth='public')
     def mail_attachment_delete(self, attachment_id, access_token=None, **kwargs):
@@ -321,10 +340,10 @@ class DiscussController(http.Controller):
         return {
             'id': message_sudo.id,
             'messageReactionGroups': [('insert' if len(reactions) > 0 else 'insert-and-unlink', {
-                'messageId': message_sudo.id,
                 'content': content,
                 'count': len(reactions),
                 'guests': guests,
+                'message': {'id', message_sudo.id},
                 'partners': partners,
             })],
         }
@@ -349,10 +368,10 @@ class DiscussController(http.Controller):
         return {
             'id': message_sudo.id,
             'messageReactionGroups': [('insert' if len(reactions) > 0 else 'insert-and-unlink', {
-                'messageId': message_sudo.id,
                 'content': content,
                 'count': len(reactions),
                 'guests': guests,
+                'message': {'id': message_sudo.id},
                 'partners': partners,
             })],
         }
@@ -372,9 +391,9 @@ class DiscussController(http.Controller):
         # Only guests should take this route.
         if not guest:
             raise NotFound()
-        channel_partner = channel_sudo.env['mail.channel.partner']._get_as_sudo_from_request(request=request, channel_id=channel_id)
+        channel_member = channel_sudo.env['mail.channel.member']._get_as_sudo_from_request(request=request, channel_id=channel_id)
         # Do not add the guest to channel members if they are already member.
-        if not channel_partner:
+        if not channel_member:
             channel_sudo = channel_sudo.with_context(guest=guest)
             try:
                 channel_sudo.add_members(guest_ids=[guest.id])
@@ -383,29 +402,37 @@ class DiscussController(http.Controller):
 
     @http.route('/mail/channel/messages', methods=['POST'], type='json', auth='public')
     def mail_channel_messages(self, channel_id, max_id=None, min_id=None, limit=30, **kwargs):
-        channel_partner_sudo = request.env['mail.channel.partner']._get_as_sudo_from_request_or_raise(request=request, channel_id=int(channel_id))
-        return channel_partner_sudo.env['mail.message']._message_fetch(domain=[
+        channel_member_sudo = request.env['mail.channel.member']._get_as_sudo_from_request_or_raise(request=request, channel_id=int(channel_id))
+        messages = channel_member_sudo.env['mail.message']._message_fetch(domain=[
             ('res_id', '=', channel_id),
             ('model', '=', 'mail.channel'),
             ('message_type', '!=', 'user_notification'),
         ], max_id=max_id, min_id=min_id, limit=limit)
+        if not request.env.user._is_public():
+            messages.set_message_done()
+        return messages.message_format()
 
     @http.route('/mail/channel/set_last_seen_message', methods=['POST'], type='json', auth='public')
     def mail_channel_mark_as_seen(self, channel_id, last_message_id, **kwargs):
-        channel_partner_sudo = request.env['mail.channel.partner']._get_as_sudo_from_request_or_raise(request=request, channel_id=int(channel_id))
-        return channel_partner_sudo.channel_id._channel_seen(int(last_message_id))
+        channel_member_sudo = request.env['mail.channel.member']._get_as_sudo_from_request_or_raise(request=request, channel_id=int(channel_id))
+        return channel_member_sudo.channel_id._channel_seen(int(last_message_id))
+
+    @http.route('/mail/channel/notify_typing', methods=['POST'], type='json', auth='public')
+    def mail_channel_notify_typing(self, channel_id, is_typing, **kwargs):
+        channel_member_sudo = request.env['mail.channel.member']._get_as_sudo_from_request_or_raise(request=request, channel_id=int(channel_id))
+        channel_member_sudo._notify_typing(is_typing)
 
     @http.route('/mail/channel/ping', methods=['POST'], type='json', auth='public')
     def channel_ping(self, channel_id, rtc_session_id=None, check_rtc_session_ids=None):
-        channel_partner_sudo = request.env['mail.channel.partner']._get_as_sudo_from_request_or_raise(request=request, channel_id=int(channel_id))
+        channel_member_sudo = request.env['mail.channel.member']._get_as_sudo_from_request_or_raise(request=request, channel_id=int(channel_id))
         if rtc_session_id:
-            channel_partner_sudo.channel_id.rtc_session_ids.filtered_domain([
+            channel_member_sudo.channel_id.rtc_session_ids.filtered_domain([
                 ('id', '=', int(rtc_session_id)),
-                ('channel_partner_id', '=', channel_partner_sudo.id),
+                ('channel_member_id', '=', channel_member_sudo.id),
             ]).write({})  # update write_date
-        current_rtc_sessions, outdated_rtc_sessions = channel_partner_sudo._rtc_sync_sessions(check_rtc_session_ids=check_rtc_session_ids)
+        current_rtc_sessions, outdated_rtc_sessions = channel_member_sudo._rtc_sync_sessions(check_rtc_session_ids=check_rtc_session_ids)
         return {'rtcSessions': [
-            ('insert', [rtc_session_sudo._mail_rtc_session_format(complete_info=False) for rtc_session_sudo in current_rtc_sessions]),
+            ('insert', [rtc_session_sudo._mail_rtc_session_format() for rtc_session_sudo in current_rtc_sessions]),
             ('insert-and-unlink', [{'id': missing_rtc_session_sudo.id} for missing_rtc_session_sudo in outdated_rtc_sessions]),
         ]}
 
@@ -415,48 +442,19 @@ class DiscussController(http.Controller):
 
     @http.route('/mail/thread/data', methods=['POST'], type='json', auth='user')
     def mail_thread_data(self, thread_model, thread_id, request_list, **kwargs):
-        res = {}
         thread = request.env[thread_model].with_context(active_test=False).search([('id', '=', thread_id)])
-        if 'attachments' in request_list:
-            res['attachments'] = thread.env['ir.attachment'].search([('res_id', '=', thread.id), ('res_model', '=', thread._name)], order='id desc')._attachment_format(commands=True)
-        return res
+        return thread._get_mail_thread_data(request_list)
 
     @http.route('/mail/thread/messages', methods=['POST'], type='json', auth='user')
     def mail_thread_messages(self, thread_model, thread_id, max_id=None, min_id=None, limit=30, **kwargs):
-        return request.env['mail.message']._message_fetch(domain=[
+        messages = request.env['mail.message']._message_fetch(domain=[
             ('res_id', '=', int(thread_id)),
             ('model', '=', thread_model),
             ('message_type', '!=', 'user_notification'),
         ], max_id=max_id, min_id=min_id, limit=limit)
-
-    @http.route('/mail/read_followers', methods=['POST'], type='json', auth='user')
-    def read_followers(self, res_model, res_id):
-        request.env['mail.followers'].check_access_rights("read")
-        request.env[res_model].check_access_rights("read")
-        request.env[res_model].browse(res_id).check_access_rule("read")
-        follower_recs = request.env['mail.followers'].search([('res_model', '=', res_model), ('res_id', '=', res_id)])
-
-        followers = []
-        follower_id = None
-        for follower in follower_recs:
-            if follower.partner_id == request.env.user.partner_id:
-                follower_id = follower.id
-            followers.append({
-                'id': follower.id,
-                'partner_id': follower.partner_id.id,
-                'name': follower.name,
-                'display_name': follower.display_name,
-                'email': follower.email,
-                'is_active': follower.is_active,
-                # When editing the followers, the "pencil" icon that leads to the edition of subtypes
-                # should be always be displayed and not only when "debug" mode is activated.
-                'is_editable': True,
-                'partner': follower.partner_id.mail_partner_format()[follower.partner_id],
-            })
-        return {
-            'followers': followers,
-            'subtypes': self.read_subscription_data(follower_id) if follower_id else None
-        }
+        if not request.env.user._is_public():
+            messages.set_message_done()
+        return messages.message_format()
 
     @http.route('/mail/read_subscription_data', methods=['POST'], type='json', auth='user')
     def read_subscription_data(self, follower_id):
@@ -486,16 +484,6 @@ class DiscussController(http.Controller):
         } for subtype in subtypes]
         return sorted(subtypes_list,
                       key=lambda it: (it['parent_model'] or '', it['res_model'] or '', it['internal'], it['sequence']))
-
-    @http.route('/mail/get_suggested_recipients', methods=['POST'], type='json', auth='user')
-    def message_get_suggested_recipients(self, model, res_ids):
-        records = request.env[model].browse(res_ids)
-        try:
-            records.check_access_rule('read')
-            records.check_access_rights('read')
-        except Exception:
-            return {}
-        return records._message_get_suggested_recipients()
 
     # --------------------------------------------------------------------------
     # RTC API TODO move check logic in routes.
@@ -545,27 +533,26 @@ class DiscussController(http.Controller):
         """ Joins the RTC call of a channel if the user is a member of that channel
             :param int channel_id: id of the channel to join
         """
-        channel_partner_sudo = request.env['mail.channel.partner']._get_as_sudo_from_request_or_raise(request=request, channel_id=int(channel_id))
-        return channel_partner_sudo._rtc_join_call(check_rtc_session_ids=check_rtc_session_ids)
+        channel_member_sudo = request.env['mail.channel.member']._get_as_sudo_from_request_or_raise(request=request, channel_id=int(channel_id))
+        return channel_member_sudo._rtc_join_call(check_rtc_session_ids=check_rtc_session_ids)
 
     @http.route('/mail/rtc/channel/leave_call', methods=['POST'], type="json", auth="public")
     def channel_call_leave(self, channel_id):
         """ Disconnects the current user from a rtc call and clears any invitation sent to that user on this channel
             :param int channel_id: id of the channel from which to disconnect
         """
-        channel_partner_sudo = request.env['mail.channel.partner']._get_as_sudo_from_request_or_raise(request=request, channel_id=int(channel_id))
-        return channel_partner_sudo._rtc_leave_call()
+        channel_member_sudo = request.env['mail.channel.member']._get_as_sudo_from_request_or_raise(request=request, channel_id=int(channel_id))
+        return channel_member_sudo._rtc_leave_call()
 
     @http.route('/mail/rtc/channel/cancel_call_invitation', methods=['POST'], type="json", auth="public")
-    def channel_call_cancel_invitation(self, channel_id, partner_ids=None, guest_ids=None):
-        """ Sends invitations to join the RTC call to all connected members of the thread who are not already invited.
-            :param list partner_ids: list of the partner ids to invite
-            :param list guest_ids: list of the guest ids to invite
+    def channel_call_cancel_invitation(self, channel_id, member_ids=None):
+        """ Sends invitations to join the RTC call to all connected members of the thread who are not already invited,
+            if member_ids is provided, only the specified ids will be invited.
 
-            if either partner_ids or guest_ids is set, only the specified ids will be invited.
+            :param list member_ids: list of member ids to invite
         """
-        channel_partner_sudo = request.env['mail.channel.partner']._get_as_sudo_from_request_or_raise(request=request, channel_id=int(channel_id))
-        return channel_partner_sudo.channel_id._rtc_cancel_invitations(partner_ids=partner_ids, guest_ids=guest_ids)
+        channel_member_sudo = request.env['mail.channel.member']._get_as_sudo_from_request_or_raise(request=request, channel_id=int(channel_id))
+        return channel_member_sudo.channel_id._rtc_cancel_invitations(member_ids=member_ids)
 
     @http.route('/mail/rtc/audio_worklet_processor', methods=['GET'], type='http', auth='public')
     def audio_worklet_processor(self):
@@ -594,3 +581,29 @@ class DiscussController(http.Controller):
         if guest_to_rename_sudo != guest and not request.env.user._is_admin():
             raise NotFound()
         guest_to_rename_sudo._update_name(name)
+
+    # --------------------------------------------------------------------------
+    # Link preview API
+    # --------------------------------------------------------------------------
+
+    @http.route('/mail/link_preview', methods=['POST'], type='json', auth='public')
+    def mail_link_preview(self, message_id):
+        if not request.env['mail.link.preview'].sudo()._is_link_preview_enabled():
+            return
+        guest = request.env['mail.guest']._get_guest_from_request(request)
+        message = guest.env['mail.message'].search([('id', '=', int(message_id))])
+        if not message:
+            return
+        if not message.is_current_user_or_guest_author and not guest.env.user._is_admin():
+            return
+        guest.env['mail.link.preview'].sudo()._create_link_previews(message)
+
+    @http.route('/mail/link_preview/delete', methods=['POST'], type='json', auth='public')
+    def mail_link_preview_delete(self, link_preview_id):
+        guest = request.env['mail.guest']._get_guest_from_request(request)
+        link_preview_sudo = guest.env['mail.link.preview'].sudo().search([('id', '=', int(link_preview_id))])
+        if not link_preview_sudo:
+            return
+        if not link_preview_sudo.message_id.is_current_user_or_guest_author and not guest.env.user._is_admin():
+            return
+        link_preview_sudo._delete_and_notify()

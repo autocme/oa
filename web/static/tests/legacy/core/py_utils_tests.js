@@ -4,7 +4,6 @@ odoo.define('web.py_utils_tests', function(require) {
 var Context = require('web.Context');
 var pyUtils = require('web.py_utils');
 var time = require('web.time');
-var testUtils = require('web.test_utils');
 
 const r = String.raw;
 
@@ -972,7 +971,7 @@ QUnit.module('core', function () {
                     "price_unit": 100,
                     "account_id": 853,
                     "discount": 0,
-                    "account_analytic_id": false,
+                    "analytic_distribution": false,
                     "company_id": false,
                     "note": false,
                     "invoice_line_tax_ids": [[6, false, [1]]],
@@ -1029,7 +1028,7 @@ QUnit.module('core', function () {
                         [0, false, {
                             account_id: 55,
                             amount_currency: 0,
-                            analytic_account_id: false,
+                            analytic_distribution: false,
                             credit: 0,
                             currency_id: false,
                             date_maturity: false,
@@ -1056,7 +1055,7 @@ QUnit.module('core', function () {
             line_id: [[0, false, {
                 account_id: 55,
                 amount_currency: 0,
-                analytic_account_id: false,
+                analytic_distribution: false,
                 credit: 0,
                 currency_id: false,
                 date_maturity: false,

@@ -1,7 +1,8 @@
 /** @odoo-module **/
 
-const { Component, hooks } = owl;
-const { useState } = hooks;
+import { Dropdown } from "@web/core/dropdown/dropdown";
+
+import { Component, useState } from "@odoo/owl";
 
 export class CustomGroupByItem extends Component {
     setup() {
@@ -10,10 +11,7 @@ export class CustomGroupByItem extends Component {
             this.state.fieldName = this.props.fields[0].name;
         }
     }
-
-    onApply() {
-        this.trigger("add-custom-group", { fieldName: this.state.fieldName });
-    }
 }
 
 CustomGroupByItem.template = "web.CustomGroupByItem";
+CustomGroupByItem.components = { Dropdown };

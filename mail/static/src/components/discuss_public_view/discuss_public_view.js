@@ -7,15 +7,15 @@ const { Component } = owl;
 class DiscussPublicView extends Component {
 
     /**
-     * @returns {mail.discuss_public_view}
+     * @returns {DiscussPublicView}
      */
      get discussPublicView() {
-        return this.messaging && this.messaging.models['mail.discuss_public_view'].get(this.props.localId);
+        return this.props.record;
     }
 }
 
 Object.assign(DiscussPublicView, {
-    props: { localId: String },
+    props: { record: Object },
     template: 'mail.DiscussPublicView',
 });
 

@@ -1,24 +1,39 @@
 /** @odoo-module **/
 
-import { _lt } from "@web/core/l10n/translation";
 import { Dialog } from "@web/core/dialog/dialog";
+import { FormViewDialog } from "@web/views/view_dialogs/form_view_dialog";
 import { formatDateTime, parseDateTime } from "@web/core/l10n/dates";
-import { formatMany2one } from "@web/fields/formatters";
+import { formatMany2one } from "@web/views/fields/formatters";
 import { registry } from "@web/core/registry";
+import { useService } from "@web/core/utils/hooks";
 
-const { hooks } = owl;
-const { useState } = hooks;
+import { Component, onWillStart, useState } from "@odoo/owl";
 
 const debugRegistry = registry.category("debug");
 
-class GetMetadataDialog extends Dialog {
+class GetMetadataDialog extends Component {
     setup() {
-        super.setup();
+        this.dialogService = useService("dialog");
+        this.title = this.env._t("View Metadata");
         this.state = useState({});
+        onWillStart(this.onWillStart);
     }
 
-    async willStart() {
+    async onWillStart() {
         await this.getMetadata();
+    }
+
+    async onClickCreateXmlid() {
+        const context = Object.assign({}, this.context, {
+            default_module: "__custom__",
+            default_res_id: this.state.id,
+            default_model: this.props.res_model,
+        });
+        this.dialogService.add(FormViewDialog, {
+            context,
+            onRecordSaved: () => this.getMetadata(),
+            resModel: "ir.model.data",
+        });
     }
 
     async toggleNoupdate() {
@@ -37,18 +52,20 @@ class GetMetadataDialog extends Dialog {
         )[0];
         this.state.id = metadata.id;
         this.state.xmlid = metadata.xmlid;
+        this.state.xmlids = metadata.xmlids;
         this.state.creator = formatMany2one(metadata.create_uid);
         this.state.lastModifiedBy = formatMany2one(metadata.write_uid);
         this.state.noupdate = metadata.noupdate;
-        this.state.create_date = formatDateTime(parseDateTime(metadata.create_date), { timezone: true });
-        this.state.write_date = formatDateTime(parseDateTime(metadata.write_date), { timezone: true });
+        this.state.createDate = formatDateTime(parseDateTime(metadata.create_date));
+        this.state.writeDate = formatDateTime(parseDateTime(metadata.write_date));
     }
 }
-GetMetadataDialog.bodyTemplate = "web.DebugMenu.getMetadataBody";
-GetMetadataDialog.title = _lt("View Metadata");
-class SetDefaultDialog extends Dialog {
+GetMetadataDialog.template = "web.DebugMenu.GetMetadataDialog";
+GetMetadataDialog.components = { Dialog };
+
+class SetDefaultDialog extends Component {
     setup() {
-        super.setup();
+        this.title = this.env._t("Set Defaults");
         this.state = {
             fieldToSet: "",
             condition: "",
@@ -116,9 +133,7 @@ class SetDefaultDialog extends Dialog {
                     fieldInfo.type === "one2many" ||
                     fieldInfo.type === "many2many" ||
                     fieldInfo.type === "binary" ||
-                    fieldsInfo[fieldName].options.isPassword ||
-                    fieldInfo.depends === undefined ||
-                    fieldInfo.depends.length !== 0
+                    fieldsInfo[fieldName].options.isPassword
                 ) {
                     return false;
                 }
@@ -185,15 +200,13 @@ class SetDefaultDialog extends Dialog {
             true,
             this.state.condition || false,
         ]);
-        this.trigger("dialog-closed");
+        this.props.close();
     }
 }
-SetDefaultDialog.bodyTemplate = "web.DebugMenu.setDefaultBody";
-SetDefaultDialog.footerTemplate = "web.DebugMenu.SetDefaultFooter";
-SetDefaultDialog.title = _lt("Set Default");
+SetDefaultDialog.template = "web.DebugMenu.SetDefaultDialog";
+SetDefaultDialog.components = { Dialog };
 
 // Form view items
-
 function setDefaults({ action, component, env }) {
     return {
         type: "item",
@@ -260,7 +273,7 @@ function manageAttachments({ action, component, env }) {
 }
 
 debugRegistry
-    .category("form")
+    .category("form_legacy")
     .add("setDefaults", setDefaults)
     .add("viewMetadata", viewMetadata)
     .add("manageAttachments", manageAttachments);

@@ -27,7 +27,7 @@ class TestSaleDropshippingFlows(TestMrpSubcontractingCommon):
             'name': name,
             'type': 'consu',
             'route_ids': [(6, 0, [self.dropship_route.id])],
-            'seller_ids': [(0, 0, {'name': seller.id})],
+            'seller_ids': [(0, 0, {'partner_id': seller.id})],
         } for name, seller in zip(['Compo01', 'Compo02', 'Compo03', 'Kit'], partners)])
 
         self.env['mrp.bom'].create({
@@ -82,7 +82,7 @@ class TestSaleDropshippingFlows(TestMrpSubcontractingCommon):
             'name': n,
             'type': 'consu',
             'route_ids': [(6, 0, [self.dropship_route.id])],
-            'seller_ids': [(0, 0, {'name': self.supplier.id})],
+            'seller_ids': [(0, 0, {'partner_id': self.supplier.id})],
         } for n in ['Compo', 'Kit']])
 
         self.env['mrp.bom'].create({
@@ -142,7 +142,7 @@ class TestSaleDropshippingFlows(TestMrpSubcontractingCommon):
             'name': n,
             'type': 'consu',
             'route_ids': [(6, 0, [self.dropship_route.id])],
-            'seller_ids': [(0, 0, {'name': self.supplier.id})],
+            'seller_ids': [(0, 0, {'partner_id': self.supplier.id})],
         } for n in ['Compo', 'Kit']])
 
         self.env['mrp.bom'].create({
@@ -166,7 +166,7 @@ class TestSaleDropshippingFlows(TestMrpSubcontractingCommon):
         self.assertEqual(sale_order.order_line.qty_delivered, 0.0, "Delivered components: 0/4")
 
         picking01 = sale_order.picking_ids
-        picking01.move_lines.quantity_done = 2
+        picking01.move_ids.quantity_done = 2
         action = picking01.button_validate()
         wizard = Form(self.env[action['res_model']].with_context(action['context'])).save()
         wizard.process()
@@ -179,19 +179,19 @@ class TestSaleDropshippingFlows(TestMrpSubcontractingCommon):
         res = wizard.create_returns()
         return01 = self.env['stock.picking'].browse(res['res_id'])
 
-        return01.move_lines.quantity_done = 2
+        return01.move_ids.quantity_done = 2
         return01.button_validate()
         self.assertEqual(sale_order.order_line.qty_delivered, 0.0, "Delivered components: 0/4")
 
         picking02 = picking01.backorder_ids
-        picking02.move_lines.quantity_done = 1
+        picking02.move_ids.quantity_done = 1
         action = picking02.button_validate()
         wizard = Form(self.env[action['res_model']].with_context(action['context'])).save()
         wizard.process()
         self.assertEqual(sale_order.order_line.qty_delivered, 0.0, "Delivered components: 1/4")
 
         picking03 = picking02.backorder_ids
-        picking03.move_lines.quantity_done = 1
+        picking03.move_ids.quantity_done = 1
         picking03.button_validate()
         self.assertEqual(sale_order.order_line.qty_delivered, 0.0, "Delivered components: 2/4")
 
@@ -202,7 +202,7 @@ class TestSaleDropshippingFlows(TestMrpSubcontractingCommon):
         res = wizard.create_returns()
         picking04 = self.env['stock.picking'].browse(res['res_id'])
 
-        picking04.move_lines.quantity_done = 1
+        picking04.move_ids.quantity_done = 1
         picking04.button_validate()
         self.assertEqual(sale_order.order_line.qty_delivered, 0.0, "Delivered components: 3/4")
 
@@ -213,7 +213,7 @@ class TestSaleDropshippingFlows(TestMrpSubcontractingCommon):
         res = wizard.create_returns()
         picking04 = self.env['stock.picking'].browse(res['res_id'])
 
-        picking04.move_lines.quantity_done = 1
+        picking04.move_ids.quantity_done = 1
         picking04.button_validate()
         self.assertEqual(sale_order.order_line.qty_delivered, 1, "Delivered components: 4/4")
 
@@ -225,7 +225,7 @@ class TestSaleDropshippingFlows(TestMrpSubcontractingCommon):
             'name': n,
             'type': 'consu',
             'route_ids': [(6, 0, [self.dropship_route.id])],
-            'seller_ids': [(0, 0, {'name': self.supplier.id})],
+            'seller_ids': [(0, 0, {'partner_id': self.supplier.id})],
         } for n in ['Compo', 'Kit']])
 
         self.env['mrp.bom'].create({
@@ -263,7 +263,7 @@ class TestSaleDropshippingFlows(TestMrpSubcontractingCommon):
 
         compo02.write({
             'route_ids': [(6, 0, [self.dropship_route.id])],
-            'seller_ids': [(0, 0, {'name': self.supplier.id})],
+            'seller_ids': [(0, 0, {'partner_id': self.supplier.id})],
         })
 
         self.env['mrp.bom'].create({
@@ -286,7 +286,7 @@ class TestSaleDropshippingFlows(TestMrpSubcontractingCommon):
         sale_order.action_confirm()
         self.env['purchase.order'].search([], order='id desc', limit=1).button_confirm()
 
-        sale_order.picking_ids.move_lines.quantity_done = 1
+        sale_order.picking_ids.move_ids.quantity_done = 1
         sale_order.picking_ids[0].button_validate()
         sale_order.picking_ids[1].button_validate()
 

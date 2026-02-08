@@ -6,6 +6,8 @@ from odoo.tests import new_test_user
 from odoo.tests.common import TransactionCase, tagged
 
 from odoo.exceptions import AccessError, ValidationError
+
+from freezegun import freeze_time
 import time
 
 @tagged('post_install', '-at_install', 'holidays_attendance')
@@ -45,14 +47,7 @@ class TestHolidaysOvertime(TransactionCase):
             'company_id': cls.company.id,
             'requires_allocation': 'yes',
             'employee_requests': 'yes',
-            'overtime_deductible': True,
-        })
-        cls.leave_type_manager_alloc = cls.env['hr.leave.type'].create({
-            'name': 'Overtime Compensation Manager Allocation',
-            'company_id': cls.company.id,
-            'requires_allocation': 'yes',
-            'employee_requests': 'no',
-            'allocation_validation_type': 'set',
+            'allocation_validation_type': 'officer',
             'overtime_deductible': True,
         })
 
@@ -131,8 +126,8 @@ class TestHolidaysOvertime(TransactionCase):
         self.assertEqual(self.employee.total_overtime, 8)
 
         leave.action_draft()
-        self.assertTrue(leave.overtime_id.exists(), "Overtime should be created")
-        self.assertEqual(self.employee.total_overtime, 0)
+        self.assertFalse(leave.overtime_id.exists(), "Overtime should not be created")
+        self.assertEqual(self.employee.total_overtime, 8)
 
         overtime = leave.overtime_id
         leave.unlink()
@@ -196,6 +191,7 @@ class TestHolidaysOvertime(TransactionCase):
                 'company_id': self.company.id,
                 'requires_allocation': 'yes',
                 'employee_requests': 'yes',
+                'allocation_validation_type': 'officer',
                 'overtime_deductible': False,
             })
 
@@ -233,13 +229,49 @@ class TestHolidaysOvertime(TransactionCase):
         alloc.number_of_days = 2
         self.assertEqual(self.employee.total_overtime, 0)
 
+    @freeze_time('2022-1-1')
+    def test_leave_check_cancel(self):
+        self.new_attendance(check_in=datetime(2021, 1, 2, 8), check_out=datetime(2021, 1, 2, 16))
+        self.new_attendance(check_in=datetime(2021, 1, 3, 8), check_out=datetime(2021, 1, 3, 16))
+        self.assertEqual(self.employee.total_overtime, 16)
+
+        leave = self.env['hr.leave'].create({
+            'name': 'no overtime',
+            'employee_id': self.employee.id,
+            'holiday_status_id': self.leave_type_no_alloc.id,
+            'number_of_days': 1,
+            'date_from': datetime(2022, 1, 6),
+            'date_to': datetime(2022, 1, 6),
+        })
+        leave.with_user(self.user_manager).action_validate()
+        self.assertEqual(self.employee.total_overtime, 8)
+
+        self.assertTrue(leave.with_user(self.user).can_cancel)
+        self.env['hr.holidays.cancel.leave'].with_user(self.user).with_context(default_leave_id=leave.id) \
+            .new({'reason': 'Test remove holiday'}) \
+            .action_cancel_leave()
+        self.assertFalse(leave.overtime_id.exists())
+
     def test_public_leave_overtime(self):
-        self.env['resource.calendar.leaves'].create([{
+        leave = self.env['resource.calendar.leaves'].create([{
             'name': 'Public Holiday',
             'date_from': datetime(2022, 5, 5, 6),
             'date_to': datetime(2022, 5, 5, 18),
-            'time_type': 'leave',
         }])
 
-        self.new_attendance(check_in=datetime(2022, 5, 5, 8), check_out=datetime(2022, 5, 5, 16))
-        self.assertEqual(self.employee.total_overtime, 8, 'Should have 8 hours of overtime')
+        leave.company_id.write({
+            'hr_attendance_overtime': True,
+            'overtime_start_date': datetime(2021, 1, 1),
+        })
+        self.assertNotEqual(leave.company_id, self.employee.company_id)
+        self.manager.company_id = leave.company_id.id
+
+        for emp in [self.employee, self.manager]:
+            self.env['hr.attendance'].create({
+                'employee_id': emp.id,
+                'check_in': datetime(2022, 5, 5, 8),
+                'check_out': datetime(2022, 5, 5, 16),
+            })
+
+        self.assertEqual(self.employee.total_overtime, 0, "Should have 0 hours of overtime as the public holiday doesn't impact his company")
+        self.assertEqual(self.manager.total_overtime, 8, "Should have 8 hours of overtime")

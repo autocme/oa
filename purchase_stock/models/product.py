@@ -13,7 +13,7 @@ class ProductTemplate(models.Model):
     def _get_buy_route(self):
         buy_route = self.env.ref('purchase_stock.route_warehouse0_buy', raise_if_not_found=False)
         if buy_route:
-            return self.env['stock.location.route'].search([('id', '=', buy_route.id)]).ids
+            return self.env['stock.route'].search([('id', '=', buy_route.id)]).ids
         return []
 
     route_ids = fields.Many2many(default=lambda self: self._get_buy_route())
@@ -23,7 +23,7 @@ class ProductProduct(models.Model):
     _name = 'product.product'
     _inherit = 'product.product'
 
-    purchase_order_line_ids = fields.One2many('purchase.order.line', 'product_id', help='Technical: used to compute quantities.')
+    purchase_order_line_ids = fields.One2many('purchase.order.line', 'product_id', string="PO Lines") # used to compute quantities
 
     def _get_quantity_in_progress(self, location_ids=False, warehouse_ids=False):
         if not location_ids:
@@ -33,9 +33,9 @@ class ProductProduct(models.Model):
 
         qty_by_product_location, qty_by_product_wh = super()._get_quantity_in_progress(location_ids, warehouse_ids)
         domain = self._get_lines_domain(location_ids, warehouse_ids)
-        groups = self.env['purchase.order.line'].read_group(domain,
+        groups = self.env['purchase.order.line']._read_group(domain,
             ['product_id', 'product_qty', 'order_id', 'product_uom', 'orderpoint_id'],
-            ['order_id', 'product_id', 'product_uom', 'orderpoint_id'], orderby='id', lazy=False)
+            ['order_id', 'product_id', 'product_uom', 'orderpoint_id'], lazy=False)
         for group in groups:
             if group.get('orderpoint_id'):
                 location = self.env['stock.warehouse.orderpoint'].browse(group['orderpoint_id'][:1]).location_id
@@ -88,12 +88,12 @@ class SupplierInfo(models.Model):
             ('state', 'in', ('purchase', 'done')),
             ('order_line.product_id', 'in',
              self.product_tmpl_id.product_variant_ids.ids),
-            ('partner_id', 'in', self.name.ids),
+            ('partner_id', 'in', self.partner_id.ids),
         ], order='date_order desc')
         for supplier in self:
             products = supplier.product_tmpl_id.product_variant_ids
             for purchase in purchases:
-                if purchase.partner_id != supplier.name:
+                if purchase.partner_id != supplier.partner_id:
                     continue
                 if not (products & purchase.order_line.product_id):
                     continue

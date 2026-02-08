@@ -13,6 +13,7 @@ odoo.define("web/static/src/js/control_panel/control_panel_model_extension.js", 
     const FAVORITE_SHARED_GROUP = 2;
     const DISABLE_FAVORITE = "search_disable_custom_filters";
 
+    const { toRaw } = owl;
     /**
      * Control panel model
      *
@@ -63,6 +64,7 @@ odoo.define("web/static/src/js/control_panel/control_panel_model_extension.js", 
      *          > @prop {string} fieldType 'date' or 'datetime', type of the corresponding field
      *      @else
      *          > @prop {string} domain
+     *      @prop {string} [name] 'name' attribute set in arch
      *
      * • type 'groupBy':
      *      @prop {string} fieldName
@@ -77,6 +79,7 @@ odoo.define("web/static/src/js/control_panel/control_panel_model_extension.js", 
      *      @if hasOptions=true
      *          > @prop {string} defaultOptionId option identifier (see INTERVAL_OPTIONS)
      *                           default set to DEFAULT_INTERVAL.
+     *      @prop {string} [name] 'name' attribute set in arch
      *
      * • type 'field':
      *      @prop {string} fieldName
@@ -158,7 +161,7 @@ odoo.define("web/static/src/js/control_panel/control_panel_model_extension.js", 
             this.actionContext = Object.assign({}, this.config.context);
             this.searchMenuTypes = this.config.searchMenuTypes || [];
             this.favoriteFilters = this.config.favoriteFilters || [];
-            this.fields = this.config.fields || {};
+            this.fields = toRaw(this.config.fields || {});
             this.searchDefaults = {};
             for (const key in this.actionContext) {
                 const match = /^search_default_(.*)$/.exec(key);
@@ -428,7 +431,10 @@ odoo.define("web/static/src/js/control_panel/control_panel_model_extension.js", 
             const groups = this._getGroups();
             const userContext = this.env.session.user_context;
             try {
-                return Domain.prototype.stringToArray(this._getDomain(groups), userContext);
+                return Domain.prototype.stringToArray(
+                    this._getDomain(groups),
+                    Object.assign({}, this.actionContext, userContext)
+                );
             } catch (err) {
                 throw new Error(
                     `${this.env._t("Control panel model extension failed to evaluate domain")}:/n${JSON.stringify(err)}`
@@ -898,7 +904,7 @@ odoo.define("web/static/src/js/control_panel/control_panel_model_extension.js", 
                         child.attrs.defaultInterval = context.group_by.split(':')[1];
                         child.tag = 'groupBy';
                     }
-                } catch (e) { }
+                } catch (_e) { }
             }
             if (child.attrs.name in this.searchDefaults) {
                 child.attrs.isDefault = true;
@@ -941,6 +947,9 @@ odoo.define("web/static/src/js/control_panel/control_panel_model_extension.js", 
                     if (filter.isDefault) {
                         filter.defaultRank = -5;
                     }
+                    if (attrs.name) {
+                        filter.name = attrs.name;
+                    }
                     break;
                 case 'groupBy':
                     filter.fieldName = attrs.fieldName;
@@ -951,6 +960,9 @@ odoo.define("web/static/src/js/control_panel/control_panel_model_extension.js", 
                     }
                     if (filter.isDefault) {
                         filter.defaultRank = attrs.defaultRank;
+                    }
+                    if (attrs.name) {
+                        filter.name = attrs.name;
                     }
                     break;
                 case 'field': {

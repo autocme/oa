@@ -3,19 +3,18 @@ odoo.define('pos_restaurant.PrintBillButton', function(require) {
 
     const PosComponent = require('point_of_sale.PosComponent');
     const ProductScreen = require('point_of_sale.ProductScreen');
-    const { useListener } = require('web.custom_hooks');
+    const { useListener } = require("@web/core/utils/hooks");
     const Registries = require('point_of_sale.Registries');
 
     class PrintBillButton extends PosComponent {
-        constructor() {
-            super(...arguments);
+        setup() {
+            super.setup();
             useListener('click', this.onClick);
         }
         async onClick() {
             const order = this.env.pos.get_order();
             if (order.get_orderlines().length > 0) {
                 order.initialize_validation_date();
-                this.trigger('close-popup');
                 await this.showTempScreen('BillScreen');
             } else {
                 await this.showPopup('ErrorPopup', {

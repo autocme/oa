@@ -35,7 +35,7 @@
 
 .s_website_form[data-vcss="001"] {
     .s_website_form_label {
-        @include media-breakpoint-down(xs) {
+        @include media-breakpoint-down(sm) {
             width: auto !important;
         }
     }
@@ -53,14 +53,6 @@
         display: none;
     }
 
-    // The snippet editor uses padding and not margin.
-    // This will include bootstrap margin in the dragable y axes
-    .s_website_form_rows > .form-group {
-        margin-bottom: 0;
-        padding-top: 0.5rem;
-        padding-bottom: 0.5rem;
-    }
-
     .s_website_form_submit, .s_website_form_recaptcha {
         .s_website_form_label {
             float: left;
@@ -73,7 +65,12 @@
         }
     }
 
+    // TODO in master: remove this rule since `form-control-file` is not here
+    // anymore in BS5.
     .form-control-file.is-invalid {
+        // Note: BS5 use form-control on file inputs now, but this is kept as
+        // compatibility for now (also at the time this was done, Odoo 16.0 uses
+        // BS5 but not yet(?) form-control on file inputs).
         padding-left: 3px;
         border-left: 3px solid $form-feedback-invalid-color;
     }

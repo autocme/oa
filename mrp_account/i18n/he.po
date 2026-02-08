@@ -3,22 +3,24 @@
 # 	* mrp_account
 # 
 # Translators:
-# ExcaliberX <excaliberx@gmail.com>, 2021
-# Yihya Hugirat <hugirat@gmail.com>, 2021
-# hed shefer <hed@laylinetech.com>, 2021
-# דודי מלכה <Dudimalka6@gmail.com>, 2021
-# Lilach Gilliam <lilach.gilliam@gmail.com>, 2022
+# Yihya Hugirat <hugirat@gmail.com>, 2022
+# ExcaliberX <excaliberx@gmail.com>, 2022
+# Hed Shefer <hed@laylinetech.com>, 2022
 # Sagi Ahiel, 2022
+# Lilach Gilliam <lilach.gilliam@gmail.com>, 2022
+# NoaFarkash, 2022
+# דודי מלכה <Dudimalka6@gmail.com>, 2022
 # ZVI BLONDER <ZVIBLONDER@gmail.com>, 2023
-# NoaFarkash, 2024
+# yael terner, 2023
+# or balmas, 2025
 # 
 msgid ""
 msgstr ""
-"Project-Id-Version: Odoo Server 15.0\n"
+"Project-Id-Version: Odoo Server 16.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-08-14 15:43+0000\n"
-"PO-Revision-Date: 2021-09-14 12:24+0000\n"
-"Last-Translator: NoaFarkash, 2024\n"
+"POT-Creation-Date: 2025-02-10 08:27+0000\n"
+"PO-Revision-Date: 2022-09-22 05:53+0000\n"
+"Last-Translator: or balmas, 2025\n"
 "Language-Team: Hebrew (https://app.transifex.com/odoo/teams/41243/he/)\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
@@ -27,6 +29,7 @@ msgstr ""
 "Plural-Forms: nplurals=3; plural=(n == 1 && n % 1 == 0) ? 0 : (n == 2 && n % 1 == 0) ? 1: 2;\n"
 
 #. module: mrp_account
+#. odoo-python
 #: code:addons/mrp_account/models/mrp_production.py:0
 #: model:ir.model,name:mrp_account.model_account_analytic_account
 #: model:ir.model.fields,field_description:mrp_account.field_mrp_bom__analytic_account_id
@@ -62,6 +65,7 @@ msgid "Bill of Material"
 msgstr "עץ מוצר"
 
 #. module: mrp_account
+#. odoo-python
 #: code:addons/mrp_account/models/analytic_account.py:0
 #: model:ir.model.fields,field_description:mrp_account.field_account_analytic_account__bom_ids
 #: model_terms:ir.ui.view,arch_db:mrp_account.account_analytic_account_view_form_mrp
@@ -106,20 +110,8 @@ msgstr "עלות שנרשמה"
 
 #. module: mrp_account
 #: model:ir.model.fields,field_description:mrp_account.field_mrp_production__extra_cost
-msgid "Extra Cost"
-msgstr "עלות נוספת"
-
-#. module: mrp_account
-#: model:ir.model.fields,help:mrp_account.field_mrp_production__extra_cost
-msgid "Extra cost per produced unit"
-msgstr "עלות נוספת ליחידה מיוצרת"
-
-#. module: mrp_account
-#: model:ir.model.fields,help:mrp_account.field_mrp_workcenter__costs_hour_account_id
-msgid ""
-"Fill this only if you want automatic analytic accounting entries on "
-"production orders."
-msgstr "מלא את זה רק אם אתה רוצה רשומות חשבונאות אנליטית בהוראות ייצור."
+msgid "Extra Unit Cost"
+msgstr "עלות יחידה נוספת"
 
 #. module: mrp_account
 #: model:ir.model,name:mrp_account.model_account_move_line
@@ -132,6 +124,7 @@ msgid "Manufacturing Order"
 msgstr "הוראת ייצור"
 
 #. module: mrp_account
+#. odoo-python
 #: code:addons/mrp_account/models/analytic_account.py:0
 #: model:ir.model.fields,field_description:mrp_account.field_account_analytic_account__production_ids
 #: model_terms:ir.ui.view,arch_db:mrp_account.account_analytic_account_view_form_mrp
@@ -150,14 +143,21 @@ msgid "Mo Analytic Account Line"
 msgstr "שורת חשבון אנליטי הוראת ייצור"
 
 #. module: mrp_account
-#: model:ir.model,name:mrp_account.model_product_product
+#: model:ir.model.fields,help:mrp_account.field_mrp_workcenter__costs_hour_account_id
+msgid ""
+"Posts analytical accounting entries in real time for both component and "
+"operational costs."
+msgstr ""
+
+#. module: mrp_account
+#: model:ir.model,name:mrp_account.model_product_template
 msgid "Product"
 msgstr "מוצר"
 
 #. module: mrp_account
-#: model:ir.model,name:mrp_account.model_product_template
-msgid "Product Template"
-msgstr "תבנית מוצר "
+#: model:ir.model,name:mrp_account.model_product_product
+msgid "Product Variant"
+msgstr "וריאנט מוצר"
 
 #. module: mrp_account
 #: model:ir.model,name:mrp_account.model_mrp_production
@@ -167,7 +167,7 @@ msgstr "הוראת ייצור"
 #. module: mrp_account
 #: model:ir.model.fields,field_description:mrp_account.field_mrp_production__show_valuation
 msgid "Show Valuation"
-msgstr ""
+msgstr "הצגת הערכת שווי"
 
 #. module: mrp_account
 #: model:ir.model,name:mrp_account.model_stock_move
@@ -178,18 +178,6 @@ msgstr "תנועת מלאי"
 #: model:ir.model,name:mrp_account.model_stock_rule
 msgid "Stock Rule"
 msgstr "כלל מלאי "
-
-#. module: mrp_account
-#: model:ir.model.fields,help:mrp_account.field_mrp_workcenter_productivity__cost_already_recorded
-msgid ""
-"Technical field automatically checked when a ongoing production posts "
-"journal entries for its costs. This way, we can record one production's cost"
-" multiple times and only consider new entries in the work centers time "
-"lines."
-msgstr ""
-"שדה טכני מסומן כשייצור מתמשך רושם פקודות יומן לעלויות שלו. בדרך זו, אנחנו "
-"יכולים לרשום את עלויות הייצור מספר פעמים וגם להתחשב בפקודות יומן של תחנות "
-"העבודה."
 
 #. module: mrp_account
 #: model_terms:ir.ui.view,arch_db:mrp_account.mrp_production_form_view_inherited
@@ -207,6 +195,11 @@ msgid "Work Center"
 msgstr "תחנת עבודה"
 
 #. module: mrp_account
+#: model:ir.model,name:mrp_account.model_mrp_routing_workcenter
+msgid "Work Center Usage"
+msgstr "שימוש בתחנת עבודה"
+
+#. module: mrp_account
 #: model:ir.model,name:mrp_account.model_mrp_workorder
 msgid "Work Order"
 msgstr "הוראת עבודה"
@@ -217,6 +210,7 @@ msgid "Work Order Count"
 msgstr "מס' הזמנת עבודה"
 
 #. module: mrp_account
+#. odoo-python
 #: code:addons/mrp_account/models/analytic_account.py:0
 #, python-format
 msgid "Work Orders"
@@ -233,12 +227,14 @@ msgid "Workcenters"
 msgstr "תחנות עבודה"
 
 #. module: mrp_account
+#. odoo-python
 #: code:addons/mrp_account/models/stock_move.py:0
 #, python-format
 msgid "[Raw] %s"
 msgstr ""
 
 #. module: mrp_account
+#. odoo-python
 #: code:addons/mrp_account/models/mrp_production.py:0
 #: code:addons/mrp_account/models/mrp_workorder.py:0
 #, python-format

@@ -22,7 +22,6 @@ var BasicController = AbstractController.extend(FieldManagerMixin, {
     }),
     custom_events: _.extend({}, AbstractController.prototype.custom_events, FieldManagerMixin.custom_events, {
         discard_changes: '_onDiscardChanges',
-        pager_changed: '_onPagerChanged',
         reload: '_onReload',
         resequence_records: '_onResequenceRecords',
         set_dirty: '_onSetDirty',
@@ -177,11 +176,10 @@ var BasicController = AbstractController.extend(FieldManagerMixin, {
      */
     saveChanges: async function (recordId) {
         // waits for _applyChanges to finish
-        await this.mutex.getUnlockedDef();
+        await Promise.all([this.mutex.getUnlockedDef(), this.savingDef]);
 
         recordId = recordId || this.handle;
         if (this.isDirty(recordId)) {
-            await this.savingDef;
             await this.saveRecord(recordId, {
                 stayInEdit: true,
                 reload: false,
@@ -554,6 +552,7 @@ var BasicController = AbstractController.extend(FieldManagerMixin, {
             currentMinimum: (isGrouped ? state.groupsOffset : state.offset) + 1,
             limit: isGrouped ? state.groupsLimit : state.limit,
             size: isGrouped ? state.groupsCount : state.count,
+            onPagerChanged: this._onPagerChanged.bind(this),
         };
     },
     /**
@@ -804,9 +803,7 @@ var BasicController = AbstractController.extend(FieldManagerMixin, {
      * @private
      * @param {OdooEvent} ev
      */
-    _onPagerChanged: async function (ev) {
-        ev.stopPropagation();
-        const { currentMinimum, limit } = ev.data;
+    _onPagerChanged: async function ({ currentMinimum, limit }) {
         const state = this.model.get(this.handle, { raw: true });
         const reloadParams = state.groupedBy && state.groupedBy.length ? {
                 groupsLimit: limit,
@@ -947,26 +944,15 @@ var BasicController = AbstractController.extend(FieldManagerMixin, {
         }
         var record = this.model.get(ev.data.id, { raw: true });
         var res_id = record.res_id || record.res_ids[0];
-        var result = await this._rpc({
-            route: '/web/dataset/call_button',
-            params: {
-                model: 'ir.translation',
-                method: 'translate_fields',
-                args: [record.model, res_id, ev.data.fieldName],
-                kwargs: { context: record.getContext() },
-            }
-        });
 
         this.translationDialog = new TranslationDialog(this, {
-            domain: result.domain,
-            searchName: result.context.search_default_name,
             fieldName: ev.data.fieldName,
+            resId: res_id,
             userLanguageValue: ev.target.value || '',
+            dataPointModel: record.model,
             dataPointID: record.id,
             isComingFromTranslationAlert: ev.data.isComingFromTranslationAlert,
-            isText: result.context.translation_type === 'text',
-            showSrc: result.context.translation_show_src,
-            node: ev.target && ev.target.__node,
+            context: record.getContext(),
         });
         return this.translationDialog.open();
     },

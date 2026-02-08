@@ -11,6 +11,7 @@ class HRAttendanceReport(models.Model):
 
     department_id = fields.Many2one('hr.department', string="Department", readonly=True)
     employee_id = fields.Many2one('hr.employee', string="Employee", readonly=True)
+    company_id = fields.Many2one('res.company', string="Company", readonly=True)
     check_in = fields.Date("Check In", readonly=True)
     worked_hours = fields.Float("Hours Worked", readonly=True)
     overtime_hours = fields.Float("Extra Hours", readonly=True)
@@ -22,6 +23,7 @@ class HRAttendanceReport(models.Model):
                 hra.id,
                 hr_employee.department_id,
                 hra.employee_id,
+                hr_employee.company_id,
                 hra.check_in,
                 hra.worked_hours,
                 coalesce(ot.duration, 0) as overtime_hours
@@ -45,7 +47,7 @@ class HRAttendanceReport(models.Model):
                     worked_hours
                 FROM
                     hr_attendance
-            ) as hra
+                ) as hra
         """
 
     def _join(self):
@@ -60,6 +62,7 @@ class HRAttendanceReport(models.Model):
 
     def init(self):
         tools.drop_view_if_exists(self.env.cr, self._table)
+
         self.env.cr.execute("""
             CREATE OR REPLACE VIEW %s AS (
                 %s

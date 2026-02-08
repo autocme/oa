@@ -1,18 +1,15 @@
 /** @odoo-module **/
 
-import { ActionContainer } from "./actions/action_container";
-import { NavBar } from "./navbar/navbar";
-import { useBus, useEffect, useService } from "@web/core/utils/hooks";
-import { useTooltip } from "@web/core/tooltip/tooltip_hook";
-import { NotUpdatable } from "../core/utils/components";
-import { MainComponentsContainer } from "../core/main_components_container";
-import { useOwnDebugContext } from "../core/debug/debug_context";
-import { registry } from "@web/core/registry";
+import { useOwnDebugContext } from "@web/core/debug/debug_context";
 import { DebugMenu } from "@web/core/debug/debug_menu";
 import { localization } from "@web/core/l10n/localization";
+import { MainComponentsContainer } from "@web/core/main_components_container";
+import { registry } from "@web/core/registry";
+import { useBus, useService } from "@web/core/utils/hooks";
+import { ActionContainer } from "./actions/action_container";
+import { NavBar } from "./navbar/navbar";
 
-const { Component, hooks } = owl;
-const { useExternalListener } = hooks;
+import { Component, onMounted, useExternalListener, useState } from "@odoo/owl";
 
 export class WebClient extends Component {
     setup() {
@@ -33,27 +30,23 @@ export class WebClient extends Component {
             );
         }
         this.localization = localization;
+        this.state = useState({
+            fullscreen: false,
+        });
         this.title.setParts({ zopenerp: "Odoo" }); // zopenerp is easy to grep
         useBus(this.env.bus, "ROUTE_CHANGE", this.loadRouterState);
-        useBus(this.env.bus, "ACTION_MANAGER:UI-UPDATED", (mode) => {
+        useBus(this.env.bus, "ACTION_MANAGER:UI-UPDATED", ({ detail: mode }) => {
             if (mode !== "new") {
-                this.el.classList.toggle("o_fullscreen", mode === "fullscreen");
+                this.state.fullscreen = mode === "fullscreen";
             }
         });
-        useEffect(
-            () => {
-                this.loadRouterState();
-            },
-            () => []
-        );
+        onMounted(() => {
+            this.loadRouterState();
+            // the chat window and dialog services listen to 'web_client_ready' event in
+            // order to initialize themselves:
+            this.env.bus.trigger("WEB_CLIENT_READY");
+        });
         useExternalListener(window, "click", this.onGlobalClick, { capture: true });
-        useTooltip();
-    }
-
-    mounted() {
-        // the chat window and dialog services listen to 'web_client_ready' event in
-        // order to initialize themselves:
-        this.env.bus.trigger("WEB_CLIENT_READY");
     }
 
     async loadRouterState() {
@@ -107,6 +100,7 @@ export class WebClient extends Component {
         // we do not want any other listener to execute.
         if (
             (ev.ctrlKey || ev.metaKey) &&
+            !ev.target.isContentEditable &&
             ((ev.target instanceof HTMLAnchorElement && ev.target.href) ||
                 (ev.target instanceof HTMLElement && ev.target.closest("a[href]:not([href=''])")))
         ) {
@@ -118,7 +112,6 @@ export class WebClient extends Component {
 WebClient.components = {
     ActionContainer,
     NavBar,
-    NotUpdatable,
     MainComponentsContainer,
 };
 WebClient.template = "web.WebClient";

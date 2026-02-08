@@ -14,32 +14,32 @@ _logger = logging.getLogger(__name__)
 class User(models.Model):
     _inherit = 'res.users'
 
-    google_cal_account_id = fields.Many2one('google.calendar.credentials')
-    google_calendar_rtoken = fields.Char(related='google_cal_account_id.calendar_rtoken', groups="base.group_system")
-    google_calendar_token = fields.Char(related='google_cal_account_id.calendar_token')
-    google_calendar_token_validity = fields.Datetime(related='google_cal_account_id.calendar_token_validity')
-    google_calendar_sync_token = fields.Char(related='google_cal_account_id.calendar_sync_token')
-    google_calendar_cal_id = fields.Char(related='google_cal_account_id.calendar_cal_id')
-    google_synchronization_stopped = fields.Boolean(related='google_cal_account_id.synchronization_stopped', readonly=False)
+    google_calendar_account_id = fields.Many2one('google.calendar.credentials')
+    google_calendar_rtoken = fields.Char(related='google_calendar_account_id.calendar_rtoken', groups="base.group_system")
+    google_calendar_token = fields.Char(related='google_calendar_account_id.calendar_token')
+    google_calendar_token_validity = fields.Datetime(related='google_calendar_account_id.calendar_token_validity')
+    google_calendar_sync_token = fields.Char(related='google_calendar_account_id.calendar_sync_token')
+    google_calendar_cal_id = fields.Char(related='google_calendar_account_id.calendar_cal_id')
+    google_synchronization_stopped = fields.Boolean(related='google_calendar_account_id.synchronization_stopped', readonly=False)
 
     _sql_constraints = [
-        ('google_token_uniq', 'unique (google_cal_account_id)', "The user has already a google account"),
+        ('google_token_uniq', 'unique (google_calendar_account_id)', "The user has already a google account"),
     ]
 
 
     @property
     def SELF_READABLE_FIELDS(self):
-        return super().SELF_READABLE_FIELDS + ['google_synchronization_stopped', 'google_cal_account_id']
+        return super().SELF_READABLE_FIELDS + ['google_synchronization_stopped', 'google_calendar_account_id']
 
     @property
     def SELF_WRITEABLE_FIELDS(self):
-        return super().SELF_WRITEABLE_FIELDS + ['google_synchronization_stopped', 'google_cal_account_id']
+        return super().SELF_WRITEABLE_FIELDS + ['google_synchronization_stopped', 'google_calendar_account_id']
 
     def _get_google_calendar_token(self):
         self.ensure_one()
-        if self.google_cal_account_id.calendar_rtoken and not self.google_cal_account_id._is_google_calendar_valid():
-            self.sudo().google_cal_account_id._refresh_google_calendar_token()
-        return self.google_cal_account_id.calendar_token
+        if self.google_calendar_account_id.calendar_rtoken and not self.google_calendar_account_id._is_google_calendar_valid():
+            self.sudo().google_calendar_account_id._refresh_google_calendar_token()
+        return self.google_calendar_account_id.calendar_token
 
     def _sync_google_calendar(self, calendar_service: GoogleCalendarService):
         self.ensure_one()
@@ -56,18 +56,27 @@ class User(models.Model):
         full_sync = not bool(self.google_calendar_sync_token)
         with google_calendar_token(self) as token:
             try:
-                events, next_sync_token, default_reminders = calendar_service.get_events(self.google_cal_account_id.calendar_sync_token, token=token)
+                events, next_sync_token, default_reminders = calendar_service.get_events(self.google_calendar_account_id.calendar_sync_token, token=token)
             except InvalidSyncToken:
                 events, next_sync_token, default_reminders = calendar_service.get_events(token=token)
                 full_sync = True
-        self.google_cal_account_id.calendar_sync_token = next_sync_token
+        self.google_calendar_account_id.calendar_sync_token = next_sync_token
 
         # Google -> Odoo
         send_updates = not full_sync
         events.clear_type_ambiguity(self.env)
         recurrences = events.filter(lambda e: e.is_recurrence())
-        synced_recurrences = self.env['calendar.recurrence']._sync_google2odoo(recurrences)
-        synced_events = self.env['calendar.event']._sync_google2odoo(events - recurrences, default_reminders=default_reminders)
+
+        # We apply Google updates only if their write date is later than the write date in Odoo.
+        # It's possible that multiple updates affect the same record, maybe not directly.
+        # To handle this, we preserve the write dates in Odoo before applying any updates,
+        # and use these dates instead of the current live dates.
+        odoo_events = self.env['calendar.event'].browse((events - recurrences).odoo_ids(self.env))
+        odoo_recurrences = self.env['calendar.recurrence'].browse(recurrences.odoo_ids(self.env))
+        recurrences_write_dates = {r.id: r.write_date for r in odoo_recurrences}
+        events_write_dates = {e.id: e.write_date for e in odoo_events}
+        synced_recurrences = self.env['calendar.recurrence'].with_context(write_dates=recurrences_write_dates)._sync_google2odoo(recurrences)
+        synced_events = self.env['calendar.event'].with_context(write_dates=events_write_dates)._sync_google2odoo(events - recurrences, default_reminders=default_reminders)
 
         # Odoo -> Google
         recurrences = self.env['calendar.recurrence']._get_records_to_sync(full_sync=full_sync)
@@ -100,8 +109,8 @@ class User(models.Model):
 
     def restart_google_synchronization(self):
         self.ensure_one()
-        if not self.google_cal_account_id:
-            self.google_cal_account_id = self.env['google.calendar.credentials'].sudo().create([{'user_ids': [Command.set(self.ids)]}])
+        if not self.google_calendar_account_id:
+            self.google_calendar_account_id = self.env['google.calendar.credentials'].sudo().create([{'user_ids': [Command.set(self.ids)]}])
         self.google_synchronization_stopped = False
         self.env['calendar.recurrence']._restart_google_sync()
         self.env['calendar.event']._restart_google_sync()

@@ -15,7 +15,6 @@
                         csrf_token: "<t t-out="request.csrf_token(None)"/>",
                         debug: "<t t-out="debug"/>",
                     };
-                    odoo.loadTemplatesPromise = fetch(`/web/webclient/qweb/${odoo.__session_info__.cache_hashes.assets_discuss_public}?bundle=mail.assets_discuss_public`).then(doc => doc.text());
                     {
                         const { user_context,  cache_hashes } = odoo.__session_info__;
                         fetch(`/web/webclient/translations/${cache_hashes.translations}?lang=${user_context.lang}`);
@@ -37,6 +36,11 @@
     <template id="mail.discuss_public_channel_template" name="Discuss Public Channel Template">
         <t t-call="mail.discuss_public_layout">
             <t t-set="head">
+                <style>
+                    body {
+                        direction: <t t-out="env['res.lang']._lang_get(lang or env.user.lang).direction or 'ltr'" />;
+                    }
+                </style>
                 <script>
                     odoo.define('mail.discuss_public_channel_template', function() {
                         return {

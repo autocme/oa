@@ -11,15 +11,20 @@
         "base.menu_theme_store",
         "base.menu_third_party",
         "account.menu_action_account_bank_journal_form",
+        "event_barcode.menu_event_registration_desk", // there's no way to come back from this menu
+        "hr_attendance.menu_hr_attendance_kiosk_no_user_mode", // same here
         "pos_adyen.menu_pos_adyen_account",
         "payment_odoo.menu_adyen_account",
         "payment_odoo.root_adyen_menu",
     ];
 
     const { isEnterprise } = odoo.info;
+    const { onWillStart } = owl;
     let appsMenusOnly = false;
+    const isStudioInstalled = "@web_studio/studio_service" in odoo.__DEBUG__.services;
     let actionCount = 0;
     let viewUpdateCount = 0;
+    let studioCount = 0;
 
     let appIndex;
     let menuIndex;
@@ -38,7 +43,7 @@
         }
         setupDone = true;
         const env = odoo.__WOWL_DEBUG__.root.env;
-        env.bus.on("ACTION_MANAGER:UI-UPDATED", null, () => {
+        env.bus.addEventListener("ACTION_MANAGER:UI-UPDATED", () => {
             actionCount++;
         });
 
@@ -58,9 +63,11 @@
         const { WithSearch } = odoo.__DEBUG__.services["@web/search/with_search/with_search"];
 
         patch(WithSearch.prototype, "PatchedWithSearch", {
-            async willStart() {
-                await this._super(...arguments);
-                viewUpdateCount++;
+            setup() {
+                this._super();
+                onWillStart(() => {
+                    viewUpdateCount++;
+                });
             },
             async render() {
                 await this._super(...arguments);
@@ -155,7 +162,13 @@
     async function ensureHomeMenu() {
         const homeMenu = document.querySelector(".o_home_menu");
         if (!homeMenu) {
-            const menuToggle = document.querySelector("nav.o_main_navbar > a.o_menu_toggle.fa-th");
+            let menuToggle = document.querySelector("nav.o_main_navbar > a.o_menu_toggle");
+            if (!menuToggle) {
+                // In the Barcode application, there is no navbar. So you have to click
+                // on the o_stock_barcode_menu button which is the equivalent of
+                // the o_menu_toggle button in the navbar.
+                menuToggle = document.querySelector(".o_stock_barcode_menu");
+            }
             await triggerClick(menuToggle, "home menu toggle button");
             await waitForCondition(() => document.querySelector(".o_home_menu"));
         }
@@ -191,11 +204,11 @@
         let menu = menus[menuIndex];
         if (menu.classList.contains("dropdown-toggle")) {
             // the current menu is a dropdown toggler -> open it and pick a menu inside the dropdown
-            if (!menu.nextSibling) {
+            if (!menu.nextElementSibling) {
                 // might already be opened if the last menu was blacklisted
                 await triggerClick(menu, "menu toggler");
             }
-            const dropdown = menu.nextSibling;
+            const dropdown = menu.nextElementSibling;
             if (!dropdown) {
                 menuIndex = 0; // empty More menu has no dropdown (FIXME?)
                 return;
@@ -234,6 +247,26 @@
         const app = apps[appIndex];
         appIndex++;
         return app;
+    }
+
+    /**
+     * Test Studio
+     * Click on the Studio systray item to enter Studio, and simply leave it once loaded.
+     */
+    async function testStudio() {
+        if (!isStudioInstalled) {
+            return;
+        }
+        const studioIcon = document.querySelector(".o_web_studio_navbar_item:not(.o_disabled) a i");
+        if (!studioIcon) {
+            return;
+        }
+        // Open the filter menu dropdown
+        await triggerClick(studioIcon, "entering studio");
+        await waitForCondition(() => document.querySelector(".o_in_studio"));
+        await triggerClick(document.querySelector(".o_web_studio_leave"), "leaving studio");
+        await waitForCondition(() => document.querySelector(".o_main_navbar:not(.o_studio_navbar) .o_menu_toggle"));
+        studioCount++;
     }
 
     /**
@@ -318,6 +351,7 @@
             await waitForCondition(() => {
                 return document.querySelector(`.o_switch_view.o_${viewType}.active`) !== null;
             });
+            await testStudio();
             await testFilters();
         }
     }
@@ -344,7 +378,7 @@
             // sometimes, the app is just a modal that needs to be closed
             const $modal = $('.modal[role="dialog"]');
             if ($modal.length > 0) {
-                const closeButton = document.querySelector("header > button.close");
+                const closeButton = document.querySelector("header > button.btn-close");
                 if (closeButton) {
                     closeButton.focus();
                     triggerClick(closeButton, "modal close button");
@@ -356,6 +390,11 @@
             }
             return startActionCount !== actionCount;
         })
+            .then(() => {
+                if (!isModal) {
+                    return testStudio();
+                }
+            })
             .then(() => {
                 if (!isModal) {
                     return testFilters();
@@ -428,18 +467,20 @@
                 }
                 await testApp(app);
             } else {
-                app = await getNextApp();
-                while (app) {
+                while ((app = await getNextApp())) {
                     await testApp(app);
-                    app = await getNextApp();
                 }
             }
-            console.log("Test took", (performance.now() - startTime) / 1000, "seconds");
-            console.log("Successfully tested", testedApps.length, " apps");
-            console.log("Successfully tested", testedMenus.length - testedApps.length, "menus");
+
+            console.log(`Test took ${(performance.now() - startTime) / 1000} seconds`);
+            console.log(`Successfully tested ${testedApps.length} apps`);
+            console.log(`Successfully tested ${testedMenus.length - testedApps.length} menus`);
+            if (isStudioInstalled) {
+                console.log(`Successfully tested ${studioCount} views in Studio`);
+            }
             console.log("test successful");
         } catch (err) {
-            console.log("Test took", (performance.now() - startTime) / 1000, "seconds");
+            console.log(`Test took ${(performance.now() - startTime) / 1000} seconds`);
             console.error(err || "test failed");
         }
         console.log(testedApps);

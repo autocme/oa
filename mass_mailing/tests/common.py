@@ -344,4 +344,4 @@ class MassMailCommon(MailCommon, MassMailCase):
 
         cls.email_reply_to = 'MyCompany SomehowAlias <test.alias@test.mycompany.com>'
 
-        cls.env['base'].flush()
+        cls.env.flush_all()

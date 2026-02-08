@@ -3,17 +3,17 @@
 # 	* hr_fleet
 # 
 # Translators:
-# Martin Trigaux, 2021
+# Martin Trigaux, 2022
 # Diego Sayron, 2023
-# Maitê Dietze, 2023
+# Maitê Dietze, 2025
 # 
 msgid ""
 msgstr ""
-"Project-Id-Version: Odoo Server 15.0\n"
+"Project-Id-Version: Odoo Server 16.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2022-01-24 08:19+0000\n"
-"PO-Revision-Date: 2021-09-14 12:22+0000\n"
-"Last-Translator: Maitê Dietze, 2023\n"
+"POT-Creation-Date: 2025-05-22 18:35+0000\n"
+"PO-Revision-Date: 2022-09-22 05:46+0000\n"
+"Last-Translator: Maitê Dietze, 2025\n"
 "Language-Team: Portuguese (Brazil) (https://app.transifex.com/odoo/teams/41243/pt_BR/)\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
@@ -22,27 +22,22 @@ msgstr ""
 "Plural-Forms: nplurals=3; plural=(n == 0 || n == 1) ? 0 : n != 0 && n % 1000000 == 0 ? 1 : 2;\n"
 
 #. module: hr_fleet
-#: code:addons/hr_fleet/controllers/main.py:0
-#, python-format
-msgid "%(car_name)s (driven from: %(date_start)s to %(date_end)s)"
-msgstr ""
-
-#. module: hr_fleet
 #: model_terms:ir.ui.view,arch_db:hr_fleet.fleet_vehicle_view_form_inherit_hr
-msgid "<span class=\"o_stat_text\">Employee</span>"
-msgstr "<span class=\"o_stat_text\">Funcionário</span>"
+msgid ""
+"<span class=\"o_stat_value\">1</span>\n"
+"                        <span class=\"o_stat_text\">Employee</span>"
+msgstr ""
+"<span class=\"o_stat_value\">1</span>\n"
+"                        <span class=\"o_stat_text\">Funcionário</span>"
 
 #. module: hr_fleet
-#: model_terms:ir.ui.view,arch_db:hr_fleet.view_employee_form
-msgid "Application Settings"
-msgstr "Configurações do aplicativo"
-
-#. module: hr_fleet
+#: model_terms:ir.ui.view,arch_db:hr_fleet.fleet_vehicle_assignation_log_employee_view_list
 #: model_terms:ir.ui.view,arch_db:hr_fleet.fleet_vehicle_assignation_log_view_list
 msgid "Attachments"
 msgstr "Anexos"
 
 #. module: hr_fleet
+#. odoo-python
 #: code:addons/hr_fleet/models/employee.py:0
 #, python-format
 msgid "Cannot remove address from employees with linked cars."
@@ -56,15 +51,14 @@ msgid "Cars"
 msgstr "Carros"
 
 #. module: hr_fleet
-#: model_terms:ir.ui.view,arch_db:hr_fleet.res_users_view_form_preferences
-#: model_terms:ir.ui.view,arch_db:hr_fleet.view_employee_form
-msgid "Claim Car Report"
-msgstr "Pedir Relatório do Carro"
-
-#. module: hr_fleet
 #: model_terms:ir.ui.view,arch_db:hr_fleet.hr_departure_wizard_view_form
 msgid "Company Car"
 msgstr "Carro da empresa"
+
+#. module: hr_fleet
+#: model_terms:ir.ui.view,arch_db:hr_fleet.fleet_vehicle_assignation_log_employee_view_list
+msgid "Current Driver"
+msgstr "Motorista atual"
 
 #. module: hr_fleet
 #: model_terms:ir.ui.view,arch_db:hr_fleet.fleet_vehicle_view_search_inherit_hr
@@ -114,9 +108,15 @@ msgstr "Carta de condução da frota"
 
 #. module: hr_fleet
 #: model:ir.model.fields,field_description:hr_fleet.field_fleet_vehicle__future_driver_employee_id
-#: model_terms:ir.ui.view,arch_db:hr_fleet.fleet_vehicle_view_search_inherit_hr
 msgid "Future Driver (Employee)"
 msgstr "Futuro motorista (funcionário)"
+
+#. module: hr_fleet
+#. odoo-python
+#: code:addons/hr_fleet/models/employee.py:0
+#, python-format
+msgid "History Employee Cars"
+msgstr "Por marcadores de funcionários"
 
 #. module: hr_fleet
 #: model_terms:ir.ui.view,arch_db:hr_fleet.view_employee_filter
@@ -146,6 +146,7 @@ msgid "Public Employee"
 msgstr "Empregado Público"
 
 #. module: hr_fleet
+#. odoo-python
 #: code:addons/hr_fleet/models/fleet_vehicle.py:0
 #, python-format
 msgid "Related Employee"
@@ -157,35 +158,21 @@ msgid "Release Company Car"
 msgstr "Liberar carro da empresa"
 
 #. module: hr_fleet
-#: model:ir.model.fields,help:hr_fleet.field_hr_departure_wizard__release_campany_car
-msgid "Release the company car."
-msgstr ""
-
-#. module: hr_fleet
 #: model:ir.model,name:hr_fleet.model_fleet_vehicle_log_services
 msgid "Services for vehicles"
 msgstr "Serviços para veículos"
 
 #. module: hr_fleet
-#: code:addons/hr_fleet/controllers/main.py:0
+#. odoo-javascript
+#: code:addons/hr_fleet/static/src/views/hr_fleet_kanban/hr_fleet_kanban_controller.xml:0
 #, python-format
-msgid "There is no pdf attached to generate a claim report."
-msgstr ""
-
-#. module: hr_fleet
-#: model_terms:ir.ui.view,arch_db:hr_fleet.res_users_view_form_preferences
-#: model_terms:ir.ui.view,arch_db:hr_fleet.view_employee_form
-msgid ""
-"This report will contain only PDF files. If you want all documents, please "
-"go on vehicle page. Do you want to proceed?"
-msgstr ""
-"Este relatório conterá somente arquivos PDF. Se quiser todos os documentos, "
-"por favor vá até a página de Veículos. Você deseja prosseguir?"
+msgid "Upload"
+msgstr "Enviar"
 
 #. module: hr_fleet
 #: model:ir.model,name:hr_fleet.model_res_users
-msgid "Users"
-msgstr "Usuários"
+msgid "User"
+msgstr "Usuário"
 
 #. module: hr_fleet
 #: model:ir.model,name:hr_fleet.model_fleet_vehicle

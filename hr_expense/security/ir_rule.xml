@@ -12,11 +12,12 @@
         <record id="ir_rule_hr_expense_approver" model="ir.rule">
             <field name="name">Team Approver Expense</field>
             <field name="model_id" ref="model_hr_expense"/>
-            <field name="domain_force">['|', '|', '|',
+            <field name="domain_force">['|', '|', '|', '|',
                 ('employee_id.user_id', '=', user.id),
                 ('employee_id.department_id.manager_id.user_id', '=', user.id),
                 ('employee_id.parent_id.user_id', '=', user.id),
-                ('employee_id.expense_manager_id', '=', user.id)]</field>
+                ('employee_id.expense_manager_id', '=', user.id),
+                ('sheet_id.user_id', '=', user.id)]</field>
             <field name="groups" eval="[(4, ref('hr_expense.group_hr_expense_team_approver'))]"/>
         </record>
         <record id="ir_rule_hr_expense_employee" model="ir.rule">
@@ -46,11 +47,12 @@
         <record id="ir_rule_hr_expense_sheet_approver" model="ir.rule">
             <field name="name">Approver Expense Sheet</field>
             <field name="model_id" ref="model_hr_expense_sheet"/>
-            <field name="domain_force">['|', '|', '|',
+            <field name="domain_force">['|', '|', '|', '|',
                 ('employee_id.user_id', '=', user.id),
                 ('employee_id.department_id.manager_id.user_id', '=', user.id),
                 ('employee_id.parent_id.user_id', '=', user.id),
-                ('employee_id.expense_manager_id', '=', user.id)]</field>
+                ('employee_id.expense_manager_id', '=', user.id),
+                ('user_id', '=', user.id)]</field>
             <field name="groups" eval="[(4, ref('hr_expense.group_hr_expense_team_approver'))]"/>
         </record>
         <record id="ir_rule_hr_expense_sheet_employee" model="ir.rule">

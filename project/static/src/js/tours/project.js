@@ -8,7 +8,7 @@ var tour = require('web_tour.tour');
 tour.register('project_tour', {
     sequence: 110,
     url: "/web",
-    rainbowManMessage: "Congratulations, you are now a master of project management.",
+    rainbowManMessage: _t("Congratulations, you are now a master of project management."),
 }, [tour.stepUtils.showAppsMenuItem(), {
     trigger: '.o_app[data-menu-xmlid="project.menu_main_pm"]',
     content: Markup(_t('Want a better way to <b>manage your projects</b>? <i>It starts here.</i>')),
@@ -26,7 +26,7 @@ tour.register('project_tour', {
     position: 'bottom',
     width: 200,
 }, {
-    trigger: 'input.o_project_name',
+    trigger: '.o_project_name input',
     content: Markup(_t('Choose a <b>name</b> for your project. <i>It can be anything you want: the name of a customer,\
      of a product, of a team, of a construction site, etc.</i>')),
     position: 'right',
@@ -38,26 +38,24 @@ tour.register('project_tour', {
         actions.auto('.modal:visible .btn.btn-primary');
     },
 }, {
-    trigger: ".o_kanban_project_tasks .o_column_quick_create .input-group",
+    trigger: ".o_kanban_project_tasks .o_column_quick_create .input-group .o_input",
     content: Markup(_t("Add columns to organize your tasks into <b>stages</b> <i>e.g. New - In Progress - Done</i>.")),
-    position: 'right',
-    run: function (actions) {
-        actions.text("Test", this.$anchor.find("input"));
-    },
+    position: 'bottom',
+    run: "text Test",
 }, {
     trigger: ".o_kanban_project_tasks .o_column_quick_create .o_kanban_add",
-    auto: true,
+    content: Markup(_t('Let\'s create your first <b>stage</b>.')),
+    position: 'right',
 }, {
-    trigger: ".o_kanban_project_tasks .o_column_quick_create .input-group",
+    trigger: ".o_kanban_project_tasks .o_column_quick_create .input-group .o_input",
     extra_trigger: '.o_kanban_group',
     content: Markup(_t("Add columns to organize your tasks into <b>stages</b> <i>e.g. New - In Progress - Done</i>.")),
-    position: 'right',
-    run: function (actions) {
-        actions.text("Test", this.$anchor.find("input"));
-    },
+    position: 'bottom',
+    run: "text Test",
 }, {
     trigger: ".o_kanban_project_tasks .o_column_quick_create .o_kanban_add",
-    auto: true,
+    content: Markup(_t('Let\'s create your second <b>stage</b>.')),
+    position: 'right',
 }, {
     trigger: '.o-kanban-button-new',
     extra_trigger: '.o_kanban_group:eq(1)',
@@ -65,7 +63,7 @@ tour.register('project_tour', {
     position: 'bottom',
     width: 200,
 }, {
-    trigger: '.o_kanban_quick_create input.o_field_char[name=name]',
+    trigger: '.o_kanban_quick_create div.o_field_char[name=name] input',
     extra_trigger: '.o_kanban_project_tasks',
     content: Markup(_t('Choose a task <b>name</b> <i>(e.g. Website Design, Purchase Goods...)</i>')),
     position: 'right',
@@ -79,7 +77,7 @@ tour.register('project_tour', {
     extra_trigger: '.o_kanban_project_tasks',
     content: Markup(_t("<b>Drag &amp; drop</b> the card to change your task from stage.")),
     position: "bottom",
-    run: "drag_and_drop .o_kanban_group:eq(1) ",
+    run: "drag_and_drop_native .o_kanban_group:eq(1) ",
 }, {
     trigger: ".o_kanban_record:first",
     extra_trigger: '.o_kanban_project_tasks',
@@ -103,19 +101,44 @@ tour.register('project_tour', {
 }, {
     trigger: ".o_ChatterTopbar_buttonScheduleActivity",
     extra_trigger: '.o_form_project_tasks',
-    content: Markup(_t("Use <b>activities</b> to organize your daily work.")),
+    content: Markup(_t("Create <b>activities</b> to set yourself to-dos or to schedule meetings.")),
 }, {
     trigger: ".modal-dialog .btn-primary",
     extra_trigger: '.o_form_project_tasks',
-    content: "Schedule your activity once it is ready.",
+    content: _t("Schedule your activity once it is ready."),
     position: "bottom",
     run: "click",
 }, {
-    trigger: ".breadcrumb-item:not(.active):last",
-    extra_trigger: '.o_form_project_tasks.o_form_readonly',
+    trigger: ".o_field_widget[name='user_ids']",
+    extra_trigger: '.o_form_project_tasks',
+    content: _t("Assign a responsible to your task"),
+    position: "right",
+    run() {
+        document.querySelector('.o_field_widget[name="user_ids"] input').click();
+    }
+}, {
+    trigger: ".ui-autocomplete > li > a:not(:has(i.fa))",
+    auto: true,
+    mobile: false,
+}, {
+    trigger: "div[role='article']",
+    mobile: true,
+    run: "click",
+}, {
+    trigger: ".o_form_button_save",
+    extra_trigger: '.o_form_project_tasks.o_form_dirty',
+    content: Markup(_t("You have unsaved changes - no worries! Odoo will automatically save it as you navigate.<br/> You can discard these changes from here or manually save your task.<br/>Let's save it manually.")),
+    position: "bottom",
+}, {
+    trigger: ".breadcrumb .o_back_button",
+    extra_trigger: '.o_form_project_tasks',
     content: Markup(_t("Let's go back to the <b>kanban view</b> to have an overview of your next tasks.")),
     position: "right",
     run: 'click',
+}, {
+    trigger: '.o_kanban_renderer',
+    // last step to confirm we've come back before considering the tour successful
+    auto: true
 }]);
 
 });

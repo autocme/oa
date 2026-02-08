@@ -1,12 +1,89 @@
 # -*- coding: utf-8 -*-
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
 
-from odoo import _
+from freezegun import freeze_time
+
+from odoo import _, Command, fields
 from odoo.addons.survey.tests import common
 from odoo.tests.common import users
 
 
 class TestSurveyInternals(common.TestSurveyCommon):
+
+    def test_answer_attempts_count(self):
+        """ As 'attempts_number' and 'attempts_count' are computed using raw SQL queries, let us
+        test the results. """
+
+        test_survey = self.env['survey.survey'].create({
+            'title': 'Test Survey',
+            'is_attempts_limited': True,
+            'attempts_limit': 4,
+        })
+
+        all_attempts = self.env['survey.user_input']
+        for _i in range(4):
+            all_attempts |= self._add_answer(test_survey, self.survey_user.partner_id, state='done')
+
+        # read both fields at once to allow computing their values in batch
+        attempts_results = all_attempts.read(['attempts_number', 'attempts_count'])
+        first_attempt = attempts_results[0]
+        second_attempt = attempts_results[1]
+        third_attempt = attempts_results[2]
+        fourth_attempt = attempts_results[3]
+
+        self.assertEqual(first_attempt['attempts_number'], 1)
+        self.assertEqual(first_attempt['attempts_count'], 4)
+
+        self.assertEqual(second_attempt['attempts_number'], 2)
+        self.assertEqual(second_attempt['attempts_count'], 4)
+
+        self.assertEqual(third_attempt['attempts_number'], 3)
+        self.assertEqual(third_attempt['attempts_count'], 4)
+
+        self.assertEqual(fourth_attempt['attempts_number'], 4)
+        self.assertEqual(fourth_attempt['attempts_count'], 4)
+
+    @freeze_time("2020-02-15 18:00")
+    @users('survey_manager')
+    def test_answer_display_name(self):
+        """ The "display_name" field in a survey.user_input.line is a computed field that will
+        display the answer label for any type of question.
+        Let us test the various question types. """
+
+        questions = self._create_one_question_per_type()
+        user_input = self._add_answer(self.survey, self.survey_user.partner_id)
+
+        for question in questions:
+            if question.question_type == 'char_box':
+                question_answer = self._add_answer_line(question, user_input, 'Char box answer')
+                self.assertEqual(question_answer.display_name, 'Char box answer')
+            elif question.question_type == 'text_box':
+                question_answer = self._add_answer_line(question, user_input, 'Text box answer')
+                self.assertEqual(question_answer.display_name, 'Text box answer')
+            elif question.question_type == 'numerical_box':
+                question_answer = self._add_answer_line(question, user_input, 7)
+                self.assertEqual(question_answer.display_name, '7.0')
+            elif question.question_type == 'date':
+                question_answer = self._add_answer_line(question, user_input, fields.Datetime.now())
+                self.assertEqual(question_answer.display_name, '2020-02-15')
+            elif question.question_type == 'datetime':
+                question_answer = self._add_answer_line(question, user_input, fields.Datetime.now())
+                self.assertEqual(question_answer.display_name, '2020-02-15 19:00:00')
+            elif question.question_type == 'simple_choice':
+                question_answer = self._add_answer_line(question, user_input, question.suggested_answer_ids[0].id)
+                self.assertEqual(question_answer.display_name, 'SChoice0')
+            elif question.question_type == 'multiple_choice':
+                question_answer_1 = self._add_answer_line(question, user_input, question.suggested_answer_ids[0].id)
+                self.assertEqual(question_answer_1.display_name, 'MChoice0')
+                question_answer_2 = self._add_answer_line(question, user_input, question.suggested_answer_ids[1].id)
+                self.assertEqual(question_answer_2.display_name, 'MChoice1')
+            elif question.question_type == 'matrix':
+                question_answer_1 = self._add_answer_line(question, user_input,
+                    question.suggested_answer_ids[0].id, **{'answer_value_row': question.matrix_row_ids[0].id})
+                self.assertEqual(question_answer_1.display_name, 'Column0: Row0')
+                question_answer_2 = self._add_answer_line(question, user_input,
+                    question.suggested_answer_ids[0].id, **{'answer_value_row': question.matrix_row_ids[1].id})
+                self.assertEqual(question_answer_2.display_name, 'Column0: Row1')
 
     @users('survey_manager')
     def test_answer_validation_mandatory(self):
@@ -160,6 +237,107 @@ class TestSurveyInternals(common.TestSurveyCommon):
         for question in questions:
             self._assert_skipped_question(question, survey_user)
 
+    @users('survey_manager')
+    def test_copy_conditional_question_settings(self):
+        """ Create a survey with conditional layout, clone it and verify that the cloned survey has the same conditional
+        layout as the original survey.
+        The test also check that the cloned survey doesn't reference the original survey.
+        """
+        def get_question_by_title(survey, title):
+            return survey.question_ids.filtered(lambda q: q.title == title)[0]
+
+        # Create the survey questions (! texts of the questions must be unique as they are used to query them)
+        q_is_vegetarian_text = 'Are you vegetarian ?'
+        q_is_vegetarian = self._add_question(
+            self.page_0, q_is_vegetarian_text, 'multiple_choice', survey_id=self.survey.id,
+            sequence=100, labels=[{'value': 'Yes'}, {'value': 'No'}])
+        q_food_vegetarian_text = 'Choose your green meal'
+        self._add_question(self.page_0, q_food_vegetarian_text, 'multiple_choice',
+                           is_conditional=True, sequence=101,
+                           triggering_question_id=q_is_vegetarian.id,
+                           triggering_answer_id=q_is_vegetarian.suggested_answer_ids[0].id,
+                           survey_id=self.survey.id,
+                           labels=[{'value': 'Vegetarian pizza'}, {'value': 'Vegetarian burger'}])
+        q_food_not_vegetarian_text = 'Choose your meal'
+        self._add_question(self.page_0, q_food_not_vegetarian_text, 'multiple_choice',
+                           is_conditional=True, sequence=102,
+                           triggering_question_id=q_is_vegetarian.id,
+                           triggering_answer_id=q_is_vegetarian.suggested_answer_ids[1].id,
+                           survey_id=self.survey.id,
+                           labels=[{'value': 'Steak with french fries'}, {'value': 'Fish'}])
+
+        # Clone the survey
+        survey_clone = self.survey.copy()
+
+        # Verify the conditional layout and that the cloned survey doesn't reference the original survey
+        q_is_vegetarian_cloned = get_question_by_title(survey_clone, q_is_vegetarian_text)
+        q_food_vegetarian_cloned = get_question_by_title(survey_clone, q_food_vegetarian_text)
+        q_food_not_vegetarian_cloned = get_question_by_title(survey_clone, q_food_not_vegetarian_text)
+
+        self.assertFalse(q_is_vegetarian_cloned.is_conditional)
+
+        # Vegetarian choice
+        self.assertTrue(q_food_vegetarian_cloned)
+        # Correct conditional layout
+        self.assertEqual(q_food_vegetarian_cloned.triggering_question_id.id, q_is_vegetarian_cloned.id)
+        self.assertEqual(q_food_vegetarian_cloned.triggering_answer_id.id,
+                         q_is_vegetarian_cloned.suggested_answer_ids[0].id)
+        # Doesn't reference the original survey
+        self.assertNotEqual(q_food_vegetarian_cloned.triggering_question_id.id, q_is_vegetarian.id)
+        self.assertNotEqual(q_food_vegetarian_cloned.triggering_answer_id.id,
+                            q_is_vegetarian.suggested_answer_ids[0].id)
+
+        # Not vegetarian choice
+        self.assertTrue(q_food_not_vegetarian_cloned.is_conditional)
+        # Correct conditional layout
+        self.assertEqual(q_food_not_vegetarian_cloned.triggering_question_id.id, q_is_vegetarian_cloned.id)
+        self.assertEqual(q_food_not_vegetarian_cloned.triggering_answer_id.id,
+                         q_is_vegetarian_cloned.suggested_answer_ids[1].id)
+        # Doesn't reference the original survey
+        self.assertNotEqual(q_food_not_vegetarian_cloned.triggering_question_id.id, q_is_vegetarian.id)
+        self.assertNotEqual(q_food_not_vegetarian_cloned.triggering_answer_id.id,
+                            q_is_vegetarian.suggested_answer_ids[1].id)
+
+    @users('survey_manager')
+    def test_copy_conditional_question_with_sequence_changed(self):
+        """ Create a survey with two questions, change the sequence of the questions,
+        set the second question as conditional on the first one, and check that the conditional
+        question is still conditional on the first one after copying the survey."""
+
+        def get_question_by_title(survey, title):
+            return survey.question_ids.filtered(lambda q: q.title == title)[0]
+
+        # Create the survey questions
+        q_1 = self._add_question(
+            self.page_0, 'Q1', 'multiple_choice', survey_id=self.survey.id,
+            sequence=200, labels=[{'value': 'Yes'}, {'value': 'No'}])
+        q_2 = self._add_question(
+            self.page_0, 'Q2', 'multiple_choice', survey_id=self.survey.id,
+            sequence=300, labels=[{'value': 'Yes'}, {'value': 'No'}])
+
+        # Change the sequence of the second question to be before the first one
+        q_2.write({'sequence': 100})
+
+        # Set a conditional question on the first question
+        q_1.write({
+            'is_conditional': True,
+            'triggering_question_id': q_2.id,
+            'triggering_answer_id': q_2.suggested_answer_ids[0].id,
+        })
+
+        (q_1 | q_2).invalidate_recordset()
+
+        # Clone the survey
+        cloned_survey = self.survey.copy()
+
+        # Check that the sequence of the questions are the same as the original survey
+        self.assertEqual(get_question_by_title(cloned_survey, 'Q1').sequence, q_1.sequence)
+        self.assertEqual(get_question_by_title(cloned_survey, 'Q2').sequence, q_2.sequence)
+
+        # Check that the conditional question is correctly copied to the right question
+        self.assertEqual(get_question_by_title(cloned_survey, 'Q1').triggering_question_id.title, q_1.triggering_question_id.title)
+        self.assertFalse(get_question_by_title(cloned_survey, 'Q2').triggering_question_id)
+
     def test_get_pages_and_questions_to_show(self):
         """
         Tests the method `_get_pages_and_questions_to_show` - it takes a recordset of
@@ -295,3 +473,38 @@ class TestSurveyInternals(common.TestSurveyCommon):
         returned_questions_and_pages = my_survey._get_pages_and_questions_to_show()
 
         self.assertEqual(question_and_page_ids - invalid_records, returned_questions_and_pages)
+
+    def test_survey_session_leaderboard(self):
+        """Check leaderboard rendering with small (max) scores values."""
+        start_time = fields.datetime(2023, 7, 7, 12, 0, 0)
+        test_survey = self.env['survey.survey'].create({
+            'title': 'Test This Survey',
+            'scoring_type': 'scoring_with_answers',
+            'session_question_start_time': start_time,
+            'session_start_time': start_time,
+            'session_state': 'in_progress',
+            'question_and_page_ids': [
+                Command.create({
+                    'question_type': 'simple_choice',
+                    'suggested_answer_ids': [
+                        Command.create({'value': 'In Asia', 'answer_score': 0.125, 'is_correct': True}),
+                        Command.create({'value': 'In Europe', 'answer_score': 0., 'is_correct': False}),
+                    ],
+                    'title': 'Where is india?',
+                }),
+            ]
+        })
+        question_1 = test_survey.question_and_page_ids[0]
+        answer_correct = question_1.suggested_answer_ids[0]
+        user_input = self.env['survey.user_input'].create({'survey_id': test_survey.id, 'is_session_answer': True})
+        user_input_line = self.env['survey.user_input.line'].create({
+            'user_input_id': user_input.id,
+            'question_id': question_1.id,
+            'answer_type': 'suggestion',
+            'suggested_answer_id': answer_correct.id,
+        })
+        self.assertEqual(user_input_line.answer_score, 0.125)
+        self.env['ir.qweb']._render('survey.user_input_session_leaderboard', {
+            'animate': True,
+            'leaderboard': test_survey._prepare_leaderboard_values()
+        })

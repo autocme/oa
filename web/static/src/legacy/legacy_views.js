@@ -1,8 +1,8 @@
 /** @odoo-module **/
-const { Component, hooks, tags } = owl;
 
 import { useService } from "@web/core/utils/hooks";
 import { useSetupAction } from "../webclient/actions/action_hook";
+import { useLegacyRefs } from "./utils";
 import legacyViewRegistry from "web.view_registry";
 import { ViewAdapter } from "./action_adapters";
 import Widget from "web.Widget";
@@ -12,10 +12,11 @@ import {
     getLocalState,
     searchModelStateToLegacy,
 } from "./backend_utils";
-import { setScrollPosition } from "../core/utils/scrolling";
+import { getBundle, loadBundle } from "@web/core/assets";
 import { registry } from "@web/core/registry";
-import { loadPublicAsset } from "@web/core/assets";
+import { LegacyComponent } from "./legacy_component";
 
+import { xml, onWillStart } from "@odoo/owl";
 const viewRegistry = registry.category("views");
 
 function getJsClassWidget(fieldsInfo) {
@@ -24,19 +25,19 @@ function getJsClassWidget(fieldsInfo) {
     return legacyViewRegistry.get(key);
 }
 
-const legacyViewTemplate = tags.xml`
+const legacyViewTemplate = xml`
     <ViewAdapter Component="Widget" View="View" viewInfo="viewInfo" viewParams="viewParams"
-                 widget="widget" onReverseBreadcrumb="onReverseBreadcrumb" t-ref="controller"
-                 t-on-scrollTo.stop="onScrollTo"/>`;
+                 widget="widget" onReverseBreadcrumb="onReverseBreadcrumb" selectRecord="props.selectRecord" createRecord="props.createRecord"/>`;
 
 // registers a view from the legacy view registry to the wowl one, but wrapped
 // into an Owl Component
 function registerView(name, LegacyView) {
-    class Controller extends Component {
-        constructor() {
-            super(...arguments);
+    if (viewRegistry.contains(name)) {
+        return;
+    }
+    class Controller extends LegacyComponent {
+        setup() {
             this.vm = useService("view");
-            this.controllerRef = hooks.useRef("controller");
             this.Widget = Widget; // fool the ComponentAdapter with a simple Widget
             this.View = LegacyView;
             this.viewInfo = {};
@@ -53,11 +54,13 @@ function registerView(name, LegacyView) {
 
             // always add user context to the action context
             this.user = useService("user");
-            const action = Object.assign({}, this.props.action, {
-                context: Object.assign({}, this.user.context, this.props.action.context),
-            });
+            const action = Object.assign({}, this.props.action);
+            action.context = Object.assign({}, this.user.context, action.context);
 
-            const { actionFlags, breadcrumbs = [] } = this.env.config;
+            const { actionFlags, breadcrumbs, noBreadcrumbs } = this.env.config;
+            if (noBreadcrumbs) {
+                action.context.no_breadcrumbs = true;
+            }
             this.viewParams = Object.assign({}, actionFlags, {
                 action,
                 // legacy views automatically add the last part of the breadcrumbs
@@ -75,6 +78,15 @@ function registerView(name, LegacyView) {
                 },
             });
 
+            //Added domain to viewParams
+            if (this.props.domain && this.props.domain.length) {
+                this.viewParams.domain = this.props.domain;
+            }
+
+            if (this.props.groupBy && this.props.groupBy.length) {
+                this.viewParams.groupBy = this.props.groupBy;
+            }
+
             // To open a new empty form view
             // Legacy demands undefined ids, not False
             if (this.viewParams.currentId === false) {
@@ -86,23 +98,28 @@ function registerView(name, LegacyView) {
             if (this.props.mode) {
                 this.viewParams.mode = this.props.mode;
             }
+            const legacyRefs = useLegacyRefs();
             this.widget = this.props.state && this.props.state.__legacy_widget__;
+            legacyRefs.widget = this.widget;
             this.onReverseBreadcrumb =
                 this.props.state && this.props.state.__on_reverse_breadcrumb__;
             useSetupAction({
-                beforeLeave: () => this.controllerRef.comp.__widget.canBeRemoved(),
-                getGlobalState: () => getGlobalState(this.controllerRef.comp.exportState()),
-                getLocalState: () => getLocalState(this.controllerRef.comp.exportState()),
+                rootRef: {
+                    get el() {
+                        return legacyRefs.widget && legacyRefs.widget.el;
+                    },
+                },
+                beforeLeave: () => legacyRefs.widget.canBeRemoved(),
+                getGlobalState: () => getGlobalState(legacyRefs.component.exportState()),
+                getLocalState: () => getLocalState(legacyRefs.component.exportState()),
             });
-            this.onScrollTo = (ev) => {
-                setScrollPosition(this, { left: ev.detail.left, top: ev.detail.top });
-            };
+            onWillStart(this.onWillStart);
         }
 
-        async willStart() {
+        async onWillStart() {
             const params = {
                 resModel: this.props.resModel,
-                views: this.props.views,
+                views: this.props.views || this.env.config.views,
                 context: this.props.context,
             };
             const options = {
@@ -112,12 +129,13 @@ function registerView(name, LegacyView) {
             };
             const viewDescriptions = await this.vm.loadViews(params, options);
             const result = viewDescriptions.__legacy__;
-            const fieldsInfo = result.fields_views[this.props.type];
+            const fieldsInfo = result.fields_views[this.props.type || this.env.config.viewType];
             const jsClass = getJsClassWidget(fieldsInfo);
             this.View = jsClass || this.View;
             this.viewInfo = Object.assign({}, fieldsInfo, {
                 fields: result.fields,
                 viewFields: fieldsInfo.fields,
+                type: this.props.type || this.env.config.viewType,
             });
             let controlPanelFieldsView;
             if (result.fields_views.search) {
@@ -128,7 +146,8 @@ function registerView(name, LegacyView) {
                 });
             }
             const { viewSwitcherEntries = [] } = this.env.config;
-            const views = this.viewParams.action.views
+            const _views = this.viewParams.action.views || this.env.config.views;
+            const views = _views
                 .filter(([, vtype]) => vtype !== "search")
                 .map(([vid, vtype]) => {
                     const view = viewSwitcherEntries.find((v) => v.type === vtype);
@@ -138,29 +157,35 @@ function registerView(name, LegacyView) {
                         return {
                             viewID: vid,
                             type: vtype,
-                            multiRecord: !this.constructor.multiRecord,
+                            multiRecord: !legacyView.multiRecord,
                         };
                     }
                 });
             this.viewParams.action = Object.assign({}, this.viewParams.action, {
                 controlPanelFieldsView,
-                _views: this.viewParams.action.views,
+                _views,
                 views,
             });
         }
     }
-    Controller.template = legacyViewTemplate;
 
+    Controller.template = legacyViewTemplate;
     Controller.components = { ViewAdapter };
-    Controller.display_name = LegacyView.prototype.display_name;
-    Controller.icon = LegacyView.prototype.icon;
-    Controller.isMobileFriendly = LegacyView.prototype.mobile_friendly;
-    Controller.multiRecord = LegacyView.prototype.multi_record;
-    Controller.type = LegacyView.prototype.viewType;
-    Controller.accessKey = LegacyView.prototype.accesskey;
-    Controller.isLegacy = true;
-    if (!viewRegistry.contains(name)) {
-        viewRegistry.add(name, Controller);
+    Controller.isLegacy = true; // for action dialog
+
+    const legacyView = {
+        type: LegacyView.prototype.viewType,
+        display_name: LegacyView.prototype.display_name,
+        icon: LegacyView.prototype.icon,
+        isMobileFriendly: LegacyView.prototype.mobile_friendly,
+        multiRecord: LegacyView.prototype.multi_record,
+        accessKey: LegacyView.prototype.accesskey,
+        isLegacy: true,
+        Controller,
+    };
+    viewRegistry.add(name, legacyView);
+    if (odoo.debug) {
+        console.log(`Views: using legacy view: ${name}`);
     }
 }
 
@@ -170,14 +195,7 @@ for (const [name, action] of Object.entries(legacyViewRegistry.entries())) {
 }
 legacyViewRegistry.onAdd(registerView);
 
-export async function loadLegacyViews({ orm, rpc }) {
-    if (!orm && rpc) {
-        orm = {
-            call: (...callArgs) => {
-                const [model, method, args = [], kwargs = {}] = callArgs;
-                return rpc({ model, method, args, kwargs });
-            },
-        };
-    }
-    await loadPublicAsset("web.assets_backend_legacy_lazy", orm);
+export async function loadLegacyViews() {
+    const assets = await getBundle("web.assets_backend_legacy_lazy");
+    await loadBundle(assets);
 }

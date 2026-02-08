@@ -2,7 +2,7 @@
 
 export const FACET_ICONS = {
     filter: "fa fa-filter",
-    groupBy: "fa fa-bars",
+    groupBy: "oi oi-group",
     favorite: "fa fa-star",
     comparison: "fa fa-adjust",
 };
@@ -14,5 +14,6 @@ export const GROUPABLE_TYPES = [
     "datetime",
     "integer",
     "many2one",
+    "many2many",
     "selection",
 ];

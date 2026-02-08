@@ -2,12 +2,12 @@
 
 import { DatePicker, DateTimePicker } from "@web/core/datepicker/datepicker";
 import { Domain } from "@web/core/domain";
+import { Dropdown } from "@web/core/dropdown/dropdown";
 import { serializeDate, serializeDateTime } from "@web/core/l10n/dates";
 import { _lt } from "@web/core/l10n/translation";
 import { registry } from "@web/core/registry";
 
-const { Component, hooks } = owl;
-const { useState } = hooks;
+import { Component, useState } from "@odoo/owl";
 
 const { DateTime } = luxon;
 
@@ -15,6 +15,7 @@ const formatters = registry.category("formatters");
 const parsers = registry.category("parsers");
 
 const FIELD_TYPES = {
+    binary: "binary",
     boolean: "boolean",
     char: "char",
     date: "date",
@@ -22,6 +23,7 @@ const FIELD_TYPES = {
     float: "number",
     id: "id",
     integer: "number",
+    json: "json",
     html: "char",
     many2many: "char",
     many2one: "char",
@@ -33,11 +35,23 @@ const FIELD_TYPES = {
 
 // FilterMenu parameters
 const FIELD_OPERATORS = {
+    binary: [
+        { symbol: "!=", description: _lt("is set"), value: false },
+        { symbol: "=", description: _lt("is not set"), value: false },
+    ],
     boolean: [
-        { symbol: "=", description: _lt("is true"), value: true },
-        { symbol: "!=", description: _lt("is false"), value: true },
+        { symbol: "=", description: _lt("is Yes"), value: true },
+        { symbol: "!=", description: _lt("is No"), value: true },
     ],
     char: [
+        { symbol: "ilike", description: _lt("contains") },
+        { symbol: "not ilike", description: _lt("doesn't contain") },
+        { symbol: "=", description: _lt("is equal to") },
+        { symbol: "!=", description: _lt("is not equal to") },
+        { symbol: "!=", description: _lt("is set"), value: false },
+        { symbol: "=", description: _lt("is not set"), value: false },
+    ],
+    json: [
         { symbol: "ilike", description: _lt("contains") },
         { symbol: "not ilike", description: _lt("doesn't contain") },
         { symbol: "=", description: _lt("is equal to") },
@@ -86,31 +100,23 @@ const FIELD_OPERATORS = {
     ],
 };
 
-const parseField = (field, value, opts = {}) => {
+function parseField(field, value) {
     if (FIELD_TYPES[field.type] === "char") {
         return value;
     }
     const type = field.type === "id" ? "integer" : field.type;
-    const options = { field, ...opts };
-    if (["date", "datetime"].includes(type)) {
-        options.timezone = type === "datetime";
-    }
     const parse = parsers.contains(type) ? parsers.get(type) : (v) => v;
-    return parse(value, options);
-};
+    return parse(value);
+}
 
-const formatField = (field, value, opts = {}) => {
+function formatField(field, value) {
     if (FIELD_TYPES[field.type] === "char") {
         return value;
     }
-    const options = { field, ...opts };
     const type = field.type === "id" ? "integer" : field.type;
-    if (["date", "datetime"].includes(type)) {
-        options.timezone = type === "datetime";
-    }
     const format = formatters.contains(type) ? formatters.get(type) : (v) => v;
-    return format(value, options);
-};
+    return format(value, { digits: field.digits });
+}
 
 export class CustomFilterItem extends Component {
     setup() {
@@ -184,7 +190,11 @@ export class CustomFilterItem extends Component {
                 if (genericType === "datetime") {
                     condition.value[0] = condition.value[0].set({ hour: 0, minute: 0, second: 0 });
                     if (operator.symbol === "between") {
-                        condition.value[1] = condition.value[1].set({ hour: 23, minute: 59, second: 59 });
+                        condition.value[1] = condition.value[1].set({
+                            hour: 23,
+                            minute: 59,
+                            second: 59,
+                        });
                     }
                 }
                 break;
@@ -233,7 +243,13 @@ export class CustomFilterItem extends Component {
                 );
             } else {
                 domainValue = [condition.value];
-                descriptionArray.push(`"${condition.value}"`);
+                if (field.type === "selection") {
+                    descriptionArray.push(
+                        `"${field.selection.find((v) => v[0] === condition.value)[1]}"`
+                    );
+                } else {
+                    descriptionArray.push(`"${condition.value}"`);
+                }
             }
             // Operator specifics
             if (operator.symbol === "between") {
@@ -265,10 +281,10 @@ export class CustomFilterItem extends Component {
     /**
      * @param {Object} condition
      * @param {number} valueIndex
-     * @param {OwlEvent} ev
+     * @param {Date} ev
      */
-    onDateChanged(condition, valueIndex, ev) {
-        condition.value[valueIndex] = ev.detail.date;
+    onDateTimeChanged(condition, valueIndex, date) {
+        condition.value[valueIndex] = date;
     }
 
     /**
@@ -314,12 +330,15 @@ export class CustomFilterItem extends Component {
             // Only updates values if it can be correctly parsed and formatted.
             condition.value = parsed;
             condition.displayedValue = formatted;
-        } catch (err) {
+        } catch (_err) {
             // Parsing error: nothing is done
         }
-        ev.target.value = condition.displayedValue;
+        // Only reset the target's value if it is not a selection field.
+        if (field.type !== "selection") {
+            ev.target.value = condition.displayedValue;
+        }
     }
 }
 
-CustomFilterItem.components = { DatePicker, DateTimePicker };
+CustomFilterItem.components = { DatePicker, DateTimePicker, Dropdown };
 CustomFilterItem.template = "web.CustomFilterItem";

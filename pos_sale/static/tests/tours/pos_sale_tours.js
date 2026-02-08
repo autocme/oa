@@ -30,6 +30,25 @@ odoo.define('pos_sale.tour', function (require) {
 
     ProductScreen.do.confirmOpeningPopup();
     ProductScreen.do.clickQuotationButton();
+    // The second item in the list is the first sale.order.
+    ProductScreen.do.selectNthOrder(2);
+    ProductScreen.check.selectedOrderlineHas('product1', 1);
+    ProductScreen.check.totalAmountIs("10.00");
+
+    ProductScreen.do.clickQuotationButton();
+    // The first item in the list is the second sale.order.
+    // Selecting the 2nd sale.order should use a new order,
+    // therefore, the total amount will change.
+    ProductScreen.do.selectNthOrder(1);
+    ProductScreen.check.selectedOrderlineHas('product2', 1);
+    ProductScreen.check.totalAmountIs("11.00");
+
+    Tour.register('PosSettleOrderIncompatiblePartner', { test: true, url: '/pos/ui' }, getSteps());
+
+    startSteps();
+
+    ProductScreen.do.confirmOpeningPopup();
+    ProductScreen.do.clickQuotationButton();
     ProductScreen.do.selectFirstOrder();
     ProductScreen.do.clickOrderline('[A001] Product A', '1');
     ProductScreen.check.selectedOrderlineHas('[A001] Product A', '1.00');
@@ -58,15 +77,6 @@ odoo.define('pos_sale.tour', function (require) {
     ReceiptScreen.check.isShown();
 
     Tour.register('PosSettleOrder3', { test: true, url: '/pos/ui' }, getSteps());
-
-    startSteps();
-
-    ProductScreen.do.confirmOpeningPopup();
-    ProductScreen.do.clickQuotationButton();
-    ProductScreen.do.selectFirstOrder();
-    ProductScreen.check.totalAmountIs(100);
-
-    Tour.register('PosSettleOrderWithPromotions', { test: true, url: '/pos/ui' }, getSteps());
 
     startSteps();
 
@@ -105,6 +115,18 @@ odoo.define('pos_sale.tour', function (require) {
 
     startSteps();
 
+    ProductScreen.do.confirmOpeningPopup();
+    ProductScreen.do.clickQuotationButton();
+    ProductScreen.do.selectFirstOrder();
+    ProductScreen.check.totalAmountIs(28.98); // 3.5 * 8 * 1.15 * 90%
+    ProductScreen.do.clickOrderline("Product A", '0.5');
+    ProductScreen.check.checkOrderlinesNumber(4);
+    ProductScreen.check.selectedOrderlineHas('Product A', '0.5', '4.14');
+
+    Tour.register('PosSettleOrderNotGroupable', { test: true, url: '/pos/ui' }, getSteps());
+
+    startSteps();
+
     ProductScreen.do.clickQuotationButton();
     ProductScreen.do.selectFirstOrder();
     ProductScreen.check.checkCustomerNotes("Customer note 2--Customer note 3");
@@ -130,11 +152,50 @@ odoo.define('pos_sale.tour', function (require) {
     Tour.register('PosOrderDoesNotRemainInList', { test: true, url: '/pos/ui' }, getSteps());
 
     startSteps();
+    
+    ProductScreen.do.confirmOpeningPopup();
+    ProductScreen.do.clickQuotationButton();
+    ProductScreen.do.selectFirstOrder();
+    ProductScreen.check.selectedOrderlineHas('product_a', '1', '100');
+    ProductScreen.do.clickPartnerButton();
+    ProductScreen.do.clickCustomer('partner_a');
+    ProductScreen.check.selectedOrderlineHas('product_a', '1', '100');
 
+    Tour.register('PosSettleCustomPrice', { test: true, url: '/pos/ui' }, getSteps());
+
+    startSteps();
+
+    ProductScreen.do.confirmOpeningPopup();
     ProductScreen.do.clickQuotationButton();
     ProductScreen.do.selectFirstOrder();
     ProductScreen.check.selectedOrderlineHas('Test service product', '1.00', '50.00');
 
     Tour.register('PosSettleDraftOrder', { test: true, url: '/pos/ui' }, getSteps());
 
+    startSteps();
+
+    ProductScreen.do.confirmOpeningPopup();
+    ProductScreen.do.clickQuotationButton();
+    ProductScreen.do.selectFirstOrder();
+    ProductScreen.do.clickPayButton();
+    PaymentScreen.do.clickShipLaterButton()
+    PaymentScreen.do.clickPaymentMethod('Bank');
+    PaymentScreen.check.remainingIs('0.0');
+    PaymentScreen.do.clickValidate();
+    ReceiptScreen.check.isShown();
+
+    Tour.register('PosSettleOrderShipLater', { test: true, url: '/pos/ui' }, getSteps());
+
+    startSteps();
+
+    ProductScreen.do.confirmOpeningPopup();
+    ProductScreen.do.clickQuotationButton();
+    ProductScreen.do.downPaymentFirstOrder();
+    ProductScreen.check.selectedOrderlineHas('Down Payment', '1', '10.00');
+    ProductScreen.do.clickPayButton();
+    PaymentScreen.do.clickPaymentMethod('Cash');
+    PaymentScreen.do.clickValidate();
+    ReceiptScreen.do.clickNextOrder();
+
+    Tour.register('PoSDownPaymentAmount', { test: true, url: '/pos/ui' }, getSteps());
 });

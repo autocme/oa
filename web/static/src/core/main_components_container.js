@@ -1,12 +1,18 @@
 /** @odoo-module */
 import { registry } from "./registry";
-import { NotUpdatable, ErrorHandler } from "./utils/components";
+import { ErrorHandler } from "./utils/components";
+import { useBus } from "@web/core/utils/hooks";
 
-const { Component, tags } = owl;
+import { Component, xml } from "@odoo/owl";
 
 export class MainComponentsContainer extends Component {
     setup() {
-        this.Components = registry.category("main_components").getEntries();
+        const mainComponents = registry.category("main_components");
+        this.Components = mainComponents.getEntries();
+        useBus(mainComponents, "UPDATE", () => {
+            this.Components = mainComponents.getEntries();
+            this.render();
+        });
     }
 
     handleComponentError(error, C) {
@@ -24,15 +30,13 @@ export class MainComponentsContainer extends Component {
     }
 }
 
-MainComponentsContainer.template = tags.xml`
-<div>
+MainComponentsContainer.template = xml`
+<div class="o-main-components-container">
     <t t-foreach="Components" t-as="C" t-key="C[0]">
-        <NotUpdatable>
-            <ErrorHandler onError="error => handleComponentError(error, C)">
-                <t t-component="C[1].Component" t-props="C[1].props"/>
-            </ErrorHandler>
-        </NotUpdatable>
+        <ErrorHandler onError="error => this.handleComponentError(error, C)">
+            <t t-component="C[1].Component" t-props="C[1].props"/>
+        </ErrorHandler>
     </t>
 </div>
 `;
-MainComponentsContainer.components = { NotUpdatable, ErrorHandler };
+MainComponentsContainer.components = { ErrorHandler };

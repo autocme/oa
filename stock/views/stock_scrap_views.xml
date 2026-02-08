@@ -55,6 +55,7 @@
                                 </div>
                             </group>
                             <group>
+                                <field name="company_id" invisible="1"/>
                                 <field name="lot_id" context="{'default_product_id': product_id, 'default_company_id': company_id}" attrs="{'invisible': ['|',('product_id', '=', False),('tracking', '=', 'none')], 'required': [('tracking', '!=', 'none')]}" groups="stock.group_production_lot"/>
                                 <field name="tracking" invisible="1"/>
                                 <field name="package_id" groups="stock.group_tracking_lot"/>
@@ -93,7 +94,7 @@
                                     <strong class="col-6">
                                         <span t-esc="record.name.value"/>
                                     </strong>
-                                    <strong t-if="record.date_done.value" class="col-6 text-right">
+                                    <strong t-if="record.date_done.value" class="col-6 text-end">
                                         <i class="fa fa-clock-o" role="img" aria-label="Date" title="Date"/><span t-esc="record.date_done.value"/>
                                     </strong>
                                     <div class="col-12">
@@ -103,7 +104,7 @@
                                         <span t-esc="record.scrap_qty.value"/>
                                     </div>
                                     <div class="col-6">
-                                        <span class="float-right badge badge-secondary">
+                                        <span class="float-end badge text-bg-secondary">
                                             <field name="state"/>
                                         </span>
                                     </div>
@@ -120,16 +121,17 @@
             <field name="model">stock.scrap</field>
             <field name="arch" type="xml">
                 <tree multi_edit="1" sample="1" decoration-info="state == 'draft'">
+                    <field name="company_id" invisible="1"/>
+                    <field name="product_uom_category_id" invisible="1"/>
                     <field name="name" decoration-bf="1"/>
                     <field name="date_done"/>
                     <field name="product_id" readonly="1"/>
                     <field name="scrap_qty"/>
-                    <field name="product_uom_category_id" invisible="1"/>
                     <field name="product_uom_id" groups="uom.group_uom"/>
                     <field name="location_id" options="{'no_create': True}" groups="stock.group_stock_multi_locations"/>
                     <field name="scrap_location_id" options="{'no_create': True}" groups="stock.group_stock_multi_locations"/>
                     <field name="company_id" readonly="1" groups="base.group_multi_company"/>
-                    <field name="state" widget="badge" decoration-success="state == 'done'" decoration-info="state == 'draft'"/>
+                    <field name="state" widget="badge" decoration-success="state == 'done'" decoration-muted="state == 'draft'"/>
                 </tree>
             </field>
         </record>

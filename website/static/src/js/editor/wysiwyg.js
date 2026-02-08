@@ -2,9 +2,9 @@ odoo.define('website.wysiwyg', function (require) {
 'use strict';
 
 var Wysiwyg = require('web_editor.wysiwyg');
-var snippetsEditor = require('web_editor.snippet.editor');
+var snippetsEditor = require('website.snippet.editor');
+let socialMediaOptions = require('@website/snippets/s_social_media/options')[Symbol.for("default")];
 const { cloneContentEls } = require("website.utils");
-const weWidgets = require('wysiwyg.widgets');
 
 /**
  * Show/hide the dropdowns associated to the given toggles and allows to wait
@@ -19,15 +19,16 @@ const weWidgets = require('wysiwyg.widgets');
  */
 function toggleDropdown($toggles, show) {
     return Promise.all(_.map($toggles, toggle => {
-        var $toggle = $(toggle);
-        var $dropdown = $toggle.parent();
-        var shown = $dropdown.hasClass('show');
+        // We must select the element via the iframe so that the event handlers
+        // declared on the iframe are triggered.
+        const $toggle = toggle.ownerDocument.defaultView.$(toggle);
+        const shown = toggle.classList.contains('show');
         if (shown === show) {
             return;
         }
-        var toShow = !shown;
+        const toShow = !shown;
         return new Promise(resolve => {
-            $dropdown.one(
+            $toggle.parent().one(
                 toShow ? 'shown.bs.dropdown' : 'hidden.bs.dropdown',
                 () => resolve()
             );
@@ -64,19 +65,24 @@ function checkForExcludedClasses(record, excludedClasses) {
  * class non editable: o_not_editable
  *
  */
-Wysiwyg.include({
+const WebsiteWysiwyg = Wysiwyg.extend({
     /**
      * @override
      */
     start: async function () {
         // Bind the _onPageClick handler to click event: to close the dropdown if clicked outside.
         this.__onPageClick = this._onPageClick.bind(this);
-        this.el.addEventListener("click", this.__onPageClick, { capture: true });
+        this.$editable[0].addEventListener("click", this.__onPageClick, { capture: true });
         this.options.toolbarHandler = $('#web_editor-top-edit');
+        // Do not insert a paragraph after each column added by the column commands:
+        this.options.insertParagraphAfterColumns = false;
 
+        const $editableWindow = this.$editable[0].ownerDocument.defaultView;
         // Dropdown menu initialization: handle dropdown openings by hand
-        var $dropdownMenuToggles = this.$('.o_mega_menu_toggle, #top_menu_container .dropdown-toggle:not(.o_extra_menu_items_toggle)');
-        $dropdownMenuToggles.removeAttr('data-toggle').dropdown('dispose');
+        var $dropdownMenuToggles = $editableWindow.$('.o_mega_menu_toggle, #top_menu_container .dropdown-toggle');
+        $dropdownMenuToggles.removeAttr('data-bs-toggle').dropdown('dispose');
+        // Since bootstrap 5.1.3, removing bsToggle is not sufficient anymore.
+        $dropdownMenuToggles.siblings(".dropdown-menu").addClass("o_wysiwyg_submenu");
         $dropdownMenuToggles.on('click.wysiwyg_megamenu', ev => {
             var $toggle = $(ev.currentTarget);
 
@@ -118,24 +124,26 @@ Wysiwyg.include({
                 const filteredRecords = webEditorFilterMutationRecords(records);
 
                 // Dropdown attributes to ignore.
-                const dropdownClasses = ["show", "dropdown-menu-left", "dropdown-menu-right"];
+                const dropdownClasses = ["show", "dropdown-menu-start", "dropdown-menu-end"];
                 const dropdownToggleAttributes = ["aria-expanded"];
-                const dropdownMenuAttributes = ["style"];
+                const dropdownMenuAttributes = ["style", "data-bs-popper"];
                 // Collapse attributes to ignore.
                 const collapseClasses = ["show", "collapse", "collapsing", "collapsed"];
-                const collapseAttributes = ["style", "aria-expanded"];
+                const collapseAttributes = ["style"];
                 const collapseTogglerAttributes = ["aria-expanded"];
                 // Extra menu attributes to ignore.
                 const extraMenuClasses = ["nav-item", "nav-link", "dropdown-item", "active"];
+                const extraMenuToggleAttributes = ["data-bs-auto-close"];
                 // Carousel attributes to ignore.
-                const carouselSlidingClasses = ["carousel-item-left", "carousel-item-right",
+                const carouselSlidingClasses = ["carousel-item-start", "carousel-item-end",
                     "carousel-item-next", "carousel-item-prev", "active"];
+                const carouselIndicatorAttributes = ["aria-current"];
 
                 return filteredRecords.filter(record => {
                     if (record.type === "attributes") {
                         if (record.target.closest("header#top")) {
                             // Do not record when showing/hiding a dropdown.
-                            if (record.target.matches(".dropdown, .dropdown-menu")
+                            if (record.target.matches(".dropdown-toggle, .dropdown-menu")
                                     && record.attributeName === "class") {
                                 if (checkForExcludedClasses(record, dropdownClasses)) {
                                     return false;
@@ -168,6 +176,9 @@ Wysiwyg.include({
                                 if (checkForExcludedClasses(record, extraMenuClasses)) {
                                     return false;
                                 }
+                            } else if (record.target.matches(".o_extra_menu_items > a")
+                                    && extraMenuToggleAttributes.includes(record.attributeName)) {
+                                return false;
                             }
                         }
 
@@ -178,6 +189,9 @@ Wysiwyg.include({
                                 if (checkForExcludedClasses(record, carouselSlidingClasses)) {
                                     return false;
                                 }
+                            } else if (record.target.matches(".carousel-indicators > li")
+                                    && carouselIndicatorAttributes.includes(record.attributeName)) {
+                                return false;
                             }
                         }
                     } else if (record.type === "childList") {
@@ -211,8 +225,17 @@ Wysiwyg.include({
      * @override
      */
     destroy: function () {
+        // We do not need the cache to live longer than the edition.
+        // Keeping it alive could end up in a corrupt state without the user
+        // even noticing. (If the values were changed in another tab or by
+        // someone else, when edit starts again here, without a clear cache at
+        // destroy, options will have wrong social media values).
+        // It would also survive (multi) website switch, not fetching the values
+        // from the accessed website.
+        socialMediaOptions.clearDbSocialValuesCache();
+
         this._restoreMegaMenus();
-        this.el.removeEventListener("click", this.__onPageClick, { capture: true });
+        this.$editable[0].removeEventListener("click", this.__onPageClick, { capture: true });
         this._super.apply(this, arguments);
     },
 
@@ -273,6 +296,37 @@ Wysiwyg.include({
     /**
      * @override
      */
+    _rpc(options) {
+        // Historically, every RPC had their website_id in their context.
+        // Now it's something defined by the wysiwyg_adapter.
+        // So in order to have a full context, we request it from the wysiwyg_adapter.
+        let context;
+        this.trigger_up('context_get', {
+            callback: cxt => context = cxt,
+        });
+        context = Object.assign(context, options.context);
+        options.context = context;
+        return this._super(options);
+    },
+    /**
+     *
+     * @override
+     */
+    _createSnippetsMenuInstance(options = {}) {
+        return new snippetsEditor.SnippetsMenu(this, Object.assign({
+            wysiwyg: this,
+            selectorEditableArea: '.o_editable',
+        }, options));
+    },
+    /**
+     * @override
+     */
+    _insertSnippetMenu() {
+        return this.snippetsMenu.appendTo(this.$el);
+    },
+    /**
+     * @override
+     */
     async _saveElement($el, context, withLang, ...rest) {
         var promises = [];
 
@@ -302,7 +356,7 @@ Wysiwyg.include({
             // menu itself.
             // FIXME normally removing the 'show' class should not be necessary here
             // TODO check that editor classes are removed here as well
-            var classes = _.without($el.attr('class').split(' '), 'dropdown-menu', 'o_mega_menu', 'show');
+            const classes = _.without($el.attr("class").split(" "), "dropdown-menu", "o_mega_menu", "show", "o_wysiwyg_submenu");
             promises.push(this._rpc({
                 model: 'website.menu',
                 method: 'write',
@@ -333,10 +387,22 @@ Wysiwyg.include({
     _restoreMegaMenus: function () {
         var $megaMenuToggles = this.$('.o_mega_menu_toggle');
         $megaMenuToggles.off('.wysiwyg_megamenu')
-            .attr('data-toggle', 'dropdown')
+            .attr('data-bs-toggle', 'dropdown')
             .dropdown({});
         return toggleDropdown($megaMenuToggles, false);
     },
+    /**
+     * @override
+     */
+    _getRecordInfo: function (editable) {
+        const $editable = $(editable);
+        return {
+            resModel: $editable.data('oe-model'),
+            resId: $editable.data('oe-id'),
+            field: $editable.data('oe-field'),
+            type: $editable.data('oe-type'),
+        }
+      },
     /**
      * Toggles the mega menu.
      *
@@ -365,8 +431,12 @@ Wysiwyg.include({
                 itemEl.classList.remove("next", "prev", "left", "right");
                 itemEl.classList.toggle("active", i === 0);
             });
-            carouselEl.querySelectorAll(".carousel-indicators li[data-slide-to]").forEach((indicatorEl, i) => {
+            carouselEl.querySelectorAll(".carousel-indicators li[data-bs-slide-to]").forEach((indicatorEl, i) => {
                 indicatorEl.classList.toggle("active", i === 0);
+                indicatorEl.removeAttribute("aria-current");
+                if (i === 0) {
+                    indicatorEl.setAttribute("aria-current", "true");
+                }
             });
         });
     },
@@ -376,10 +446,10 @@ Wysiwyg.include({
      * @private
      */
     _hideDropdowns() {
-        for (const toggleEl of this.el.querySelectorAll(
-            ".o_mega_menu_toggle, #top_menu_container .dropdown-toggle"
+        for (const toggleEl of this.$editable[0].querySelectorAll(
+            ".o_mega_menu_toggle, #top_menu_container .dropdown-toggle.show"
         )) {
-            $(toggleEl).dropdown("hide");
+            Dropdown.getOrCreateInstance(toggleEl).hide();
         }
     },
 
@@ -395,7 +465,7 @@ Wysiwyg.include({
      * @param {Event} ev
      */
     _onPageClick(ev) {
-        if (ev.target.closest(".dropdown.show")) {
+        if (ev.target.closest(".dropdown-menu.show, .dropdown-toggle.show")) {
             return;
         }
         this._hideDropdowns();
@@ -410,6 +480,62 @@ snippetsEditor.SnippetsMenu.include({
         this._super(...arguments);
         this._notActivableElementsSelector += ', .o_mega_menu_toggle';
     },
+    /**
+     * @override
+     */
+    start() {
+        const _super = this._super(...arguments);
+        if (this.options.enableTranslation) {
+            return _super;
+        }
+        if (this.$body[0].ownerDocument !== this.ownerDocument) {
+            this.$body.on('click.snippets_menu', '*', this._onClick);
+        }
+        return _super;
+    },
+    /**
+    * @override
+    */
+    destroy() {
+        if (this.$body[0].ownerDocument !== this.ownerDocument) {
+            this.$body.off('.snippets_menu');
+        }
+        return this._super(...arguments);
+    },
+
+    //--------------------------------------------------------------------------
+    // Public
+    //--------------------------------------------------------------------------
+
+    /**
+     * @override
+     */
+    async cleanForSave() {
+        const getFromEditable = selector => this.options.editable[0].querySelectorAll(selector);
+        // Clean unstyled translations
+        return this._super(...arguments).then(() => {
+            for (const el of getFromEditable('.o_translation_without_style')) {
+                el.classList.remove('o_translation_without_style');
+                if (el.dataset.oeTranslationSaveSha) {
+                    el.dataset.oeTranslationInitialSha = el.dataset.oeTranslationSaveSha;
+                    delete el.dataset.oeTranslationSaveSha;
+                }
+            }
+            // Adapt translation values for `select` > `options`s and remove all
+            // temporary `.o_translation_select` elements.
+            for (const optionsEl of getFromEditable('.o_translation_select')) {
+                const selectEl = optionsEl.nextElementSibling;
+                const translatedOptions = optionsEl.children;
+                const selectOptions = selectEl.tagName === 'SELECT' ? [...selectEl.options] : [];
+                if (selectOptions.length === translatedOptions.length) {
+                    selectOptions.map((option, i) => {
+                        option.text = translatedOptions[i].textContent;
+                    });
+                }
+                optionsEl.remove();
+            }
+        });
+    },
 
     //--------------------------------------------------------------------------
     // Private
@@ -421,9 +547,12 @@ snippetsEditor.SnippetsMenu.include({
     _insertDropzone: function ($hook) {
         var $hookParent = $hook.parent();
         var $dropzone = this._super(...arguments);
+        $dropzone.attr('data-editor-message-default', $hookParent.attr('data-editor-message-default'));
         $dropzone.attr('data-editor-message', $hookParent.attr('data-editor-message'));
         $dropzone.attr('data-editor-sub-message', $hookParent.attr('data-editor-sub-message'));
         return $dropzone;
     },
 });
+
+return WebsiteWysiwyg;
 });

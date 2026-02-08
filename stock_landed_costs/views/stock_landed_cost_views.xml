@@ -7,6 +7,7 @@
             <field name="model">stock.landed.cost</field>
             <field name="arch" type="xml">
                 <form string="Landed Costs">
+                    <field name="company_id" invisible="1"/>
                     <field name="stock_valuation_layer_ids" invisible="1"/>
                     <header>
                         <button name="button_validate" string="Validate" states="draft" class="oe_highlight" type="object"/>
@@ -32,7 +33,7 @@
                                 <field name="target_model" widget="radio" invisible="1"/>
                                 <field name="picking_ids" widget="many2many_tags" 
                                     options="{'no_create_edit': True}" attrs="{'invisible': [('target_model', '!=', 'picking')]}"
-                                    domain="[('company_id', '=', company_id), ('move_lines.stock_valuation_layer_ids', '!=', False)]"/>
+                                    domain="[('company_id', '=', company_id), ('move_ids.stock_valuation_layer_ids', '!=', False)]"/>
                             </group>
                             <group>
                                 <label for="account_journal_id" string="Journal"/>
@@ -165,14 +166,14 @@
                                         <span t-esc="record.name.value"/>
                                     </strong>
                                     <div class="col-6">
-                                        <span class="float-right badge badge-secondary">
+                                        <span class="float-end badge text-bg-secondary">
                                             <field name="state"/>
                                         </span>
                                     </div>
                                     <div class="col-6">
                                         <i class="fa fa-clock-o" title="Date" role="img" aria-label="Date"/><span t-esc="record.date.value"/>
                                     </div>
-                                    <div class="col-6 text-right">
+                                    <div class="col-6 text-end">
                                         <field name="account_journal_id"/>
                                     </div>
                                 </div>

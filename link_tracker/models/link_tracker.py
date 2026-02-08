@@ -1,14 +1,14 @@
-# -*- coding: utf-8 -*-
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
 
 import random
-import requests
 import string
+
+import requests
 
 from lxml import html
 from werkzeug import urls
 
-from odoo import tools, models, fields, api, _
+from odoo import _, api, fields, models, tools
 from odoo.exceptions import UserError
 from odoo.osv import expression
 
@@ -43,6 +43,10 @@ class LinkTracker(models.Model):
     code = fields.Char(string='Short URL code', compute='_compute_code')
     link_click_ids = fields.One2many('link.tracker.click', 'link_id', string='Clicks')
     count = fields.Integer(string='Number of Clicks', compute='_compute_count', store=True)
+    # UTMs - enforcing the fact that we want to 'set null' when relation is unlinked
+    campaign_id = fields.Many2one(ondelete='set null')
+    medium_id = fields.Many2one(ondelete='set null')
+    source_id = fields.Many2one(ondelete='set null')
 
     @api.depends("url")
     def _compute_absolute_url(self):
@@ -51,12 +55,12 @@ class LinkTracker(models.Model):
             if url.scheme:
                 tracker.absolute_url = tracker.url
             else:
-                tracker.absolute_url = tracker.get_base_url().join(url).to_url()
+                tracker.absolute_url = urls.url_join(tracker.get_base_url(), url)
 
     @api.depends('link_click_ids.link_id')
     def _compute_count(self):
         if self.ids:
-            clicks_data = self.env['link.tracker.click'].read_group(
+            clicks_data = self.env['link.tracker.click']._read_group(
                 [('link_id', 'in', self.ids)],
                 ['link_id'],
                 ['link_id']
@@ -70,7 +74,7 @@ class LinkTracker(models.Model):
     @api.depends('code')
     def _compute_short_url(self):
         for tracker in self:
-            tracker.short_url = urls.url_join(tracker.short_url_host, '%(code)s' % {'code': tracker.code})
+            tracker.short_url = urls.url_join(tracker.short_url_host or '', tracker.code or '')
 
     def _compute_short_url_host(self):
         for tracker in self:
@@ -98,16 +102,15 @@ class LinkTracker(models.Model):
                 tracker.redirected_url = parsed.to_url()
                 continue
 
-            utms = {}
+            query = parsed.decode_query()
             for key, field_name, cook in self.env['utm.mixin'].tracking_fields():
                 field = self._fields[field_name]
                 attr = tracker[field_name]
                 if field.type == 'many2one':
                     attr = attr.name
                 if attr:
-                    utms[key] = attr
-            utms.update(parsed.decode_query())
-            tracker.redirected_url = parsed.replace(query=urls.url_encode(utms)).to_url()
+                    query[key] = attr
+            tracker.redirected_url = parsed.replace(query=urls.url_encode(query)).to_url()
 
     @api.model
     @api.depends('url')
@@ -290,7 +293,7 @@ class LinkTrackerClick(models.Model):
 
     campaign_id = fields.Many2one(
         'utm.campaign', 'UTM Campaign',
-        related="link_id.campaign_id", store=True)
+        related="link_id.campaign_id", store=True, ondelete="set null")
     link_id = fields.Many2one(
         'link.tracker', 'Link',
         index=True, required=True, ondelete='cascade')

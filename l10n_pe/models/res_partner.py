@@ -23,4 +23,4 @@ class ResPartner(models.Model):
     @api.model
     def _formatting_address_fields(self):
         """Returns the list of address fields usable to format addresses."""
-        return super(ResPartner, self)._formatting_address_fields() + ['l10n_pe_district_name']
+        return super()._formatting_address_fields() + ['l10n_pe_district_name']

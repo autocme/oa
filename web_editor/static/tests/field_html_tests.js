@@ -9,13 +9,12 @@ var testUtils = require('web.test_utils');
 var weTestUtils = require('web_editor.test_utils');
 var core = require('web.core');
 var Wysiwyg = require('web_editor.wysiwyg');
-var MediaDialog = require('wysiwyg.widgets.MediaDialog');
+const { MediaDialogWrapper } = require('@web_editor/components/media_dialog/media_dialog');
 var LinkDialog = require('wysiwyg.widgets.LinkDialog');
-var FieldHtml = require('web_editor.field.html');
-var FieldManagerMixin = require('web.FieldManagerMixin');
 
-const { registerCleanup } = require("@web/../tests/helpers/cleanup");
 const { legacyExtraNextTick, patchWithCleanup } = require("@web/../tests/helpers/utils");
+
+const { useEffect } = require("@odoo/owl");
 
 var _t = core._t;
 
@@ -108,29 +107,11 @@ QUnit.module('web_editor', {}, function () {
 <p class="b o_not_editable">
     b
 </p>`,
-                    }],
-                },
-                'mail.compose.message': {
-                    fields: {
-                        display_name: {
-                            string: "Displayed name",
-                            type: "char"
-                        },
-                        body: {
-                            string: "Message Body inline (to send)",
-                            type: "html"
-                        },
-                        attachment_ids: {
-                            string: "Attachments",
-                            type: "many2many",
-                            relation: "ir.attachment",
-                        }
-                    },
-                    records: [{
-                        id: 1,
-                        display_name: "Some Composer",
-                        body: "Hello",
-                        attachment_ids: [],
+                    }, {
+                        id: 8,
+                        display_name: "eighth record",
+                        header: "<p>Hello World</p>",
+                        body: `<p><br></p>`,
                     }],
                 },
                 'mass.mailing': {
@@ -154,19 +135,6 @@ QUnit.module('web_editor', {}, function () {
                         body_html: "<div class='field_body' style='background-color: red;'>yep</div>",
                         body_arch: "<div class='field_body'>yep</div>",
                     }],
-                },
-                "ir.translation": {
-                    fields: {
-                        lang_code: {type: "char"},
-                        value: {type: "char"},
-                        res_id: {type: "integer"}
-                    },
-                    records: [{
-                        id: 99,
-                        res_id: 12,
-                        value: '',
-                        lang_code: 'en_US'
-                    }]
                 },
             });
 
@@ -278,7 +246,7 @@ QUnit.module('web_editor', {}, function () {
         });
 
         QUnit.test('colorpicker', async function (assert) {
-            assert.expect(10);
+            assert.expect(8);
 
             var form = await testUtils.createView({
                 View: FormView,
@@ -316,20 +284,7 @@ QUnit.module('web_editor', {}, function () {
             await new Promise(resolve => setTimeout(resolve, 50));
 
             await openColorpicker('#toolbar .note-back-color-preview');
-            assert.ok($('.note-back-color-preview').hasClass('show'),
-                "should display the color picker");
-
-            // Test that toolbar and colorpicker are hidden after bluring the toolbar.
-            Wysiwyg.setRange(pText, 1, pText, 1);
-            await new Promise(resolve => setTimeout(resolve, 50));
-            assert.ok(document.querySelector('#toolbar').style.visibility === 'hidden', "toolbar should be hidden");
-            assert.containsNone($, ".dropdown-menu.show", "all dropdowns should be closed");
-
-            Wysiwyg.setRange(pText, 1, pText, 10);
-            await new Promise(resolve => setTimeout(resolve, 50));
-
-            await openColorpicker('#toolbar .note-back-color-preview');
-            assert.ok($('.note-back-color-preview').hasClass('show'),
+            assert.ok($('.note-back-color-preview .dropdown-menu').hasClass('show'),
                 "should display the color picker");
 
             await testUtils.dom.click($('#toolbar .note-back-color-preview .o_we_color_btn[style="background-color:#00FFFF;"]'));
@@ -338,7 +293,7 @@ QUnit.module('web_editor', {}, function () {
                 "should close the color picker");
 
             assert.strictEqual($field.find('.note-editable').html(),
-                '<p>t<font style="background-color: rgb(0, 255, 255);">oto toto </font>toto</p><p>tata</p>',
+                '<p>t<font style="background-color: rgba(0, 255, 255, 0.6);">oto toto </font>toto</p><p>tata</p>',
                 "should have rendered the field correctly in edit");
 
             var fontElement = $field.find('.note-editable font')[0];
@@ -358,11 +313,21 @@ QUnit.module('web_editor', {}, function () {
             // text is selected
 
             await openColorpicker('#toolbar .note-back-color-preview');
-            await testUtils.dom.click($('#toolbar .note-back-color-preview .o_we_color_btn.bg-o-color-3'));
+            await testUtils.dom.click($('#toolbar .note-back-color-preview [style="background-color: var(--we-cp-o-color-3);"]'));
 
             assert.strictEqual($field.find('.note-editable').html(),
-                '<p>t<font style="background-color: rgb(0, 255, 255);">oto t</font><font class="bg-o-color-3">oto to</font>to</p><p>tata</p>',
+                '<p>t<font style="background-color: rgba(0, 255, 255, 0.6);">oto t</font><font class="bg-o-color-3">oto to</font>to</p><p>tata</p>',
                 "should have rendered the field correctly in edit");
+
+            // Make sure the reset button works too
+            await openColorpicker('#toolbar .note-back-color-preview');
+            await testUtils.dom.click($('#toolbar .note-back-color-preview .o_colorpicker_reset'));
+
+            // TODO right now the behavior is to force "inherit" as background
+            // but it should remove the useless font element when possible.
+            assert.strictEqual($field.find('.note-editable').html(),
+                '<p>t<font style="background-color: rgba(0, 255, 255, 0.6);">oto t</font>oto toto</p><p>tata</p>',
+                "should have properly reset the background color");
 
             // Select the whole paragraph.
             const paragraph = $('.note-editable p:first-child')[0];
@@ -387,107 +352,52 @@ QUnit.module('web_editor', {}, function () {
             form.destroy();
         });
 
-    QUnit.test('media dialog: upload', async function (assert) {
-            /**
-             * Ensures _onAttachmentChange from FieldHTML is called on file upload
-             * as well as _onFieldChanged when that model is a mail composer
-             */
-            assert.expect(2);
-            const onAttachmentChangeTriggered = testUtils.makeTestPromise();
-            testUtils.mock.patch(FieldHtml, {
-                '_onAttachmentChange': function (ev) {
-                    this._super(ev);
-                    onAttachmentChangeTriggered.resolve(true);
-                }
-            });
+        QUnit.test('Close dropdown on colorpicker hide', async function (assert) {
+            assert.expect(4);
 
-            const onRecordChange = testUtils.makeTestPromise();
-            testUtils.mock.patch(FieldManagerMixin, {
-                '_applyChanges': function (dataPointID, changes, event) {
-                    const res = this._super(dataPointID, changes, event);
-                    onRecordChange.resolve(true);
-                    return res;
-                },
-            })
-
-            const form = await testUtils.createView({
+            var form = await testUtils.createView({
                 View: FormView,
-                model: 'mail.compose.message',
+                model: 'note.note',
                 data: this.data,
                 arch: '<form>' +
                     '<field name="body" widget="html" style="height: 100px"/>' +
-                    '<field name="attachment_ids" widget="many2many_binary"/>' +
                     '</form>',
                 res_id: 1,
-                mockRPC: function (route, args) {
-                    if (args.model === 'ir.attachment') {
-                        if (args.method === "generate_access_token") {
-                            return Promise.resolve();
-                        }
-                    }
-                    if (route.indexOf('/web/image/123/transparent.png') === 0) {
-                        return Promise.resolve();
-                    }
-                    if (route.indexOf('/web_unsplash/fetch_images') === 0) {
-                        return Promise.resolve();
-                    }
-                    if (route.indexOf('/web_editor/media_library_search') === 0) {
-                        return Promise.resolve();
-                    }
-                    if (route.indexOf('/web_editor/attachment/add_data') === 0) {
-                        return Promise.resolve({"id": 5, "name": "test.jpg", "description": false, "mimetype": "image/jpeg", "checksum": "7951a43bbfb08fd742224ada280913d1897b89ab",
-                                                "url": false, "type": "binary", "res_id": 1, "res_model": "note.note", "public": false, "access_token": false,
-                                                "image_src": "/web/image/1-a0e63e61/test.jpg", "image_width": 1, "image_height": 1, "original_id": false
-                                                });
-                        }
-                    return this._super(route, args);
-                },
             });
+
             await testUtils.form.clickEdit(form);
-            const $field = form.$('.oe_form_field[name="body"]');
+            await new Promise(resolve => setTimeout(resolve, 50));
+            var $field = form.$('.oe_form_field[name="body"]');
 
-            //init mock file data
-            const fileB64 = '/9j/4AAQSkZJRgABAQEAYABgAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0aHBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/2wBDAQkJCQwLDBgNDRgyIRwhMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjL/wAARCAABAAEDASIAAhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2JyggkKFhcYGRolJicoKSo0NTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uHi4+Tl5ufo6erx8vP09fb3+Pn6/8QAHwEAAwEBAQEBAQEBAQAAAAAAAAECAwQFBgcICQoL/8QAtREAAgECBAQDBAcFBAQAAQJ3AAECAxEEBSExBhJBUQdhcRMiMoEIFEKRobHBCSMzUvAVYnLRChYkNOEl8RcYGRomJygpKjU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYaHiImKkpOUlZaXmJmaoqOkpaanqKmqsrO0tba3uLm6wsPExcbHyMnK0tPU1dbX2Nna4uPk5ebn6Onq8vP09fb3+Pn6/9oADAMBAAIRAxEAPwD3+iiigD//2Q==';
-            const fileBytes = new Uint8Array(atob(fileB64).split('').map(char => char.charCodeAt(0)));
+            // select the text
+            var pText = $field.find('.note-editable p').first().contents()[0];
+            Wysiwyg.setRange(pText, 1, pText, 10);
+            // text is selected
 
-            // the dialog load some xml assets
-            const defMediaDialog = testUtils.makeTestPromise();
-            testUtils.mock.patch(MediaDialog, {
-                init: function () {
-                    this._super.apply(this, arguments);
-                    this.opened(defMediaDialog.resolve.bind(defMediaDialog));
-                    this.opened(()=>{
-                        const input = this.activeWidget.$fileInput.get(0);
-                        Object.defineProperty(input, 'files', {
-                            value: [new File(fileBytes, "test.jpg", { type: 'image/jpeg' })],
-                        });
-                        this.activeWidget._onFileInputChange();
-                        });
-                },
-            });
+            var range = Wysiwyg.getRange();
 
-            const pText = $field.find('.note-editable p').first().contents()[0];
-            Wysiwyg.setRange(pText, 1, pText, 2);
+            assert.strictEqual(range.sc, pText,
+                "should select the text");
 
-            const wysiwyg = $field.find('.note-editable').data('wysiwyg');
-            wysiwyg.openMediaDialog();
+            async function openColorpicker(selector) {
+                const $colorpicker = $(selector);
+                const openingProm = new Promise(resolve => {
+                    $colorpicker.one('shown.bs.dropdown', () => resolve());
+                });
+                await testUtils.dom.click($colorpicker.find('.dropdown-toggle:first'));
+                return openingProm;
+            }
 
-            // load static xml file (dialog, media dialog, unsplash image widget)
-            await defMediaDialog;
+            await new Promise(resolve => setTimeout(resolve, 50));
 
-            await testUtils.dom.click($('.modal #editor-media-image .o_existing_attachment_cell:first').removeClass('d-none'));
+            await openColorpicker('#toolbar .note-back-color-preview');
+            assert.ok($('.note-back-color-preview .dropdown-menu').hasClass('show'),
+                "should display the color picker");
 
-            assert.ok(await Promise.race([onAttachmentChangeTriggered, new Promise((res, _) => setTimeout(() => res(false), 400))]),
-                      "_onAttachmentChange was not called with the new attachment, necessary for unsused upload cleanup on backend");
-
-            await onRecordChange;
-            // wait to check that dom is properly updated
-            await new Promise((res, _) => setTimeout(() => res(false), 400));
-            assert.ok(form.$('.o_attachment[title="test.jpg"]')[0])
-
-            testUtils.mock.unpatch(MediaDialog);
-            testUtils.mock.unpatch(FieldHtml);
-            testUtils.mock.unpatch(FieldManagerMixin);
+            Wysiwyg.setRange(pText, 1, pText, 1);
+            await new Promise(resolve => setTimeout(resolve, 50));
+            assert.ok(document.querySelector('#toolbar').style.visibility === 'hidden', "toolbar should be hidden");
+            assert.containsNone($, ".dropdown-menu.show", "all dropdowns should be closed");
             form.destroy();
         });
 
@@ -523,33 +433,35 @@ QUnit.module('web_editor', {}, function () {
             await testUtils.form.clickEdit(form);
             var $field = form.$('.oe_form_field[name="body"]');
 
-            // the dialog load some xml assets
-            var defMediaDialog = testUtils.makeTestPromise();
-            testUtils.mock.patch(MediaDialog, {
-                init: function () {
-                    this._super.apply(this, arguments);
-                    this.opened(defMediaDialog.resolve.bind(defMediaDialog));
-                }
-            });
-
             var pText = $field.find('.note-editable p').first().contents()[0];
             Wysiwyg.setRange(pText, 1, pText, 2);
 
             await new Promise((resolve) => setTimeout(resolve));
 
             const wysiwyg = $field.find('.note-editable').data('wysiwyg');
+
+            // Mock the MediaDialogWrapper
+            const defMediaDialog = testUtils.makeTestPromise();
+            patchWithCleanup(MediaDialogWrapper.prototype, {
+                setup() {
+                    useEffect(() => {
+                        this.save();
+                    }, () => []);
+                },
+                save() {
+                    const imageEl = document.createElement('img');
+                    imageEl.src = '/web/image/123/transparent.png';
+                    this.props.save(imageEl);
+                    defMediaDialog.resolve();
+                },
+            });
+
             wysiwyg.openMediaDialog();
-
-            // load static xml file (dialog, media dialog, unsplash image widget)
             await defMediaDialog;
-
-            await testUtils.dom.click($('.modal #editor-media-image .o_existing_attachment_cell:first').removeClass('d-none'));
 
             var $editable = form.$('.oe_form_field[name="body"] .note-editable');
             assert.ok($editable.find('img')[0].dataset.src.includes('/web/image/123/transparent.png'),
                 "should have the image in the dom");
-
-            testUtils.mock.unpatch(MediaDialog);
 
             form.destroy();
         });
@@ -578,26 +490,30 @@ QUnit.module('web_editor', {}, function () {
             await testUtils.form.clickEdit(form);
             var $field = form.$('.oe_form_field[name="body"]');
 
-            // the dialog load some xml assets
-            var defMediaDialog = testUtils.makeTestPromise();
-            testUtils.mock.patch(MediaDialog, {
-                init: function () {
-                    this._super.apply(this, arguments);
-                    this.opened(defMediaDialog.resolve.bind(defMediaDialog));
-                }
-            });
 
             var pText = $field.find('.note-editable p').first().contents()[0];
             Wysiwyg.setRange(pText, 1, pText, 2);
 
             const wysiwyg = $field.find('.note-editable').data('wysiwyg');
-            wysiwyg.openMediaDialog();
 
-            // load static xml file (dialog, media dialog, unsplash image widget)
+            // Mock the MediaDialogWrapper
+            const defMediaDialog = testUtils.makeTestPromise();
+            patchWithCleanup(MediaDialogWrapper.prototype, {
+                setup() {
+                    useEffect(() => {
+                        this.save();
+                    }, () => []);
+                },
+                save() {
+                    const iconEl = document.createElement('span');
+                    iconEl.classList.add('fa', 'fa-glass');
+                    this.props.save(iconEl);
+                    defMediaDialog.resolve();
+                },
+            });
+
+            wysiwyg.openMediaDialog();
             await defMediaDialog;
-            $('.modal .tab-content .tab-pane').removeClass('fade'); // to be sync in test
-            await testUtils.dom.click($('.modal a[aria-controls="editor-media-icon"]'));
-            await testUtils.dom.click($('.modal #editor-media-icon .font-icons-icon.fa-glass'));
 
             var $editable = form.$('.oe_form_field[name="body"] .note-editable');
 
@@ -605,69 +521,6 @@ QUnit.module('web_editor', {}, function () {
                 '<p>t<span class="fa fa-glass"></span>to toto toto</p><p>tata</p>',
                 "should have the image in the dom");
 
-            testUtils.mock.unpatch(MediaDialog);
-
-            form.destroy();
-        });
-
-        QUnit.test('media dialog: undo icon to icon change', async function (assert) {
-            assert.expect(2);
-
-            this.data['note.note'].records[0].body ='<p><span class="fa fa-3x rounded bg-primary m-3 fa-times-circle"></span></p>'
-
-            var form = await testUtils.createView({
-                View: FormView,
-                model: 'note.note',
-                data: this.data,
-                arch: '<form>' +
-                    '<field name="body" widget="html" style="height: 100px"/>' +
-                    '</form>',
-                res_id: 1,
-                mockRPC: function (route, args) {
-                    if (args.model === 'ir.attachment') {
-                        return Promise.resolve([]);
-                    }
-                    if (route.indexOf('/web_unsplash/fetch_images') === 0) {
-                        return Promise.resolve();
-                    }
-                    return this._super(route, args);
-                },
-            });
-            const promise = new Promise((resolve) => _formResolveTestPromise = resolve);
-            await testUtils.form.clickEdit(form);
-            await promise;
-
-            // the dialog load some xml assets
-            var defMediaDialog = testUtils.makeTestPromise();
-            testUtils.mock.patch(MediaDialog, {
-                init: function () {
-                    this._super.apply(this, arguments);
-                    this.opened(defMediaDialog.resolve.bind(defMediaDialog));
-                }
-            });
-
-            var pText = document.querySelector('.note-editable p span');
-            Wysiwyg.setRange(pText, 0, pText, 0);
-            const wysiwyg = $('.note-editable').data('wysiwyg');
-            defMediaDialog = testUtils.makeTestPromise();
-            wysiwyg.openMediaDialog();
-
-            // load static xml file (dialog, media dialog, unsplash image widget)
-            await defMediaDialog;
-            document.querySelector('.modal .tab-content .tab-pane').classList.remove('fade'); // to be sync in test
-            await testUtils.dom.click(document.querySelector('.modal a[aria-controls="editor-media-icon"]'));
-            await testUtils.dom.click(document.querySelector('.modal #editor-media-icon .font-icons-icon.fa-glass'));
-
-            assert.strictEqual(wysiwyg.getValue(),
-                '<p><span class="fa fa-3x rounded bg-primary m-3 fa-glass"></span></p>',
-                "should have the new icon in the dom.");
-
-            await wysiwyg.odooEditor.execCommand('undo');
-            assert.strictEqual(wysiwyg.getValue(),
-                '<p><span class="fa fa-3x rounded bg-primary m-3 fa-times-circle"></span></p>',
-                "should have the first icon in the dom.");
-            
-            testUtils.mock.unpatch(MediaDialog);
             form.destroy();
         });
 
@@ -1013,21 +866,21 @@ QUnit.module('web_editor', {}, function () {
                 res_id: 1,
             });
 
-            assert.containsOnce(form, '.o_form_view.o_form_readonly');
+            assert.containsOnce(form, '.o_legacy_form_view.o_form_readonly');
 
             await testUtils.dom.click(form.$('.oe_form_field[name="body"] a'));
             await testUtils.nextTick();
             assert.strictEqual(quickEditCB, undefined, "no quickEdit callback should have been set");
-            assert.containsOnce(form, '.o_form_view.o_form_readonly');
+            assert.containsOnce(form, '.o_legacy_form_view.o_form_readonly');
 
             await testUtils.dom.click(form.$('.oe_form_field[name="body"] p'));
             await testUtils.nextTick();
-            assert.containsOnce(form, '.o_form_view.o_form_readonly');
+            assert.containsOnce(form, '.o_legacy_form_view.o_form_readonly');
             assert.ok(quickEditCB, "quickEdit callback should have been set");
             quickEditCB();
             await testUtils.nextTick();
             await legacyExtraNextTick();
-            assert.containsOnce(form, '.o_form_view.o_form_editable');
+            assert.containsOnce(form, '.o_legacy_form_view.o_form_editable');
 
             form.destroy();
         });
@@ -1101,6 +954,57 @@ QUnit.module('web_editor', {}, function () {
             form.destroy();
         });
 
+        QUnit.test('Paste video URL', async function (assert) {
+            assert.expect(4);
+            const form = await testUtils.createView({
+                View: FormView,
+                model: 'note.note',
+                data: this.data,
+                arch: '<form>' +
+                    '<field name="body" widget="html" options="{\'allowCommandVideo\': true}" style="height: 100px"/>' +
+                    '</form>',
+                res_id: 8,
+                mockRPC: function (route, args) {
+                    if (route === '/web_editor/video_url/data') {
+                        return Promise.resolve({
+                            platform: "youtube",
+                            embed_url: "//www.youtube.com/embed/qxb74CMR748?rel=0&autoplay=0",
+                        });
+                    }
+                    return this._super.apply(this, arguments);
+                },
+            });
+
+            let promise = new Promise((resolve) => _formResolveTestPromise = resolve);
+            await testUtils.form.clickEdit(form);
+            await promise;
+
+            const editable = document.querySelector('.note-editable');
+            const p = editable.querySelector('p');
+            Wysiwyg.setRange(p, 0);
+
+            // Paste a video URL.
+            const clipboardData = new DataTransfer();
+            clipboardData.setData('text/plain', 'https://www.youtube.com/watch?v=qxb74CMR748');
+            p.dispatchEvent(new ClipboardEvent('paste', { clipboardData, bubbles: true }));
+            assert.strictEqual(p.outerHTML, '<p>https://www.youtube.com/watch?v=qxb74CMR748</p>',
+                "The URL should be inserted as text");
+            assert.isVisible($('.oe-powerbox-wrapper:contains("Embed Youtube Video")'),
+                "The powerbox should be opened");
+
+            // Press Enter to select first option in the powerbox ("Embed Youtube Video").
+            document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }));
+            await testUtils.nextTick();
+            assert.strictEqual(p.outerHTML, '<p></p>', "URL insertion should be reverted");
+            assert.containsOnce(
+                editable,
+                'div.media_iframe_video iframe[data-src="//www.youtube.com/embed/qxb74CMR748?rel=0&autoplay=0"]',
+                "The video should be embedded as an iframe"
+            );
+
+            form.destroy();
+        });
+
         QUnit.test("use the toolbar in a list view", async function (assert) {
             const expectedValue = `<p>t<span style="font-size: 9px;">oto toto </span>toto</p><p>tata</p>`;
             const list = await testUtils.createView({
@@ -1134,7 +1038,6 @@ QUnit.module('web_editor', {}, function () {
             assert.verifySteps(["write"]);
             list.destroy();
         });
-
 
         QUnit.module('cssReadonly');
 
@@ -1190,15 +1093,18 @@ QUnit.module('web_editor', {}, function () {
                     '</form>',
                 res_id: 1,
                 mockRPC: function (route, args) {
-                    if (route === '/web/dataset/call_button' && args.method === 'translate_fields') {
-                        assert.deepEqual(args.args, ['note.note', 1, 'body'], "should call 'call_button' route");
-                        return Promise.resolve({
-                            domain: [],
-                            context: {search_default_name: 'partnes,foo'},
-                        });
+                    if (route === "/web/dataset/call_kw/note.note/get_field_translations") {
+                        assert.deepEqual(args.args, [[1],"body"], "should translate the body field of the record");
+                        return Promise.resolve([
+                            [{lang: "en_US", source: "first paragraph", value: "first paragraph"},
+                                {lang: "en_US", source: "second paragraph", value: "second paragraph"},
+                                {lang: "fr_BE", source: "first paragraph", value: "premier paragraphe"},
+                                {lang: "fr_BE", source: "second paragraph", value: "deuxième paragraphe"}],
+                            {translation_type: "text", translation_show_source: true},
+                        ]);
                     }
                     if (route === "/web/dataset/call_kw/res.lang/get_installed") {
-                        return Promise.resolve([["en_US"], ["fr_BE"]]);
+                        return Promise.resolve([["en_US", "English"], ["fr_BE", "French (Belgium)"]]);
                     }
                     return this._super.apply(this, arguments);
                 },

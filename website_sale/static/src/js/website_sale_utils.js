@@ -6,7 +6,8 @@ const wUtils = require('website.utils');
 const cartHandlerMixin = {
     getRedirectOption() {
         const html = document.documentElement;
-        this.stayOnPageOption = html.dataset.add2cartRedirect !== '0';
+        this.stayOnPageOption = html.dataset.add2cartRedirect === '1';
+        this.forceDialog = html.dataset.add2cartRedirect === '2';
     },
     getCartHandlerOptions(ev) {
         this.isBuyNow = ev.currentTarget.classList.contains('o_we_buy_now');
@@ -33,8 +34,12 @@ const cartHandlerMixin = {
             route: "/shop/cart/update_json",
             params: params,
         }).then(async data => {
+            sessionStorage.setItem('website_sale_cart_quantity', data.cart_quantity);
             if (data.cart_quantity && (data.cart_quantity !== parseInt($(".my_cart_quantity").text()))) {
-                await animateClone($('header .o_wsale_my_cart').first(), this.$itemImgContainer, 25, 40);
+                // No animation if the product's page images are hidden
+                if ($('div[data-image_width]').data('image_width') !== 'none') {
+                    await animateClone($('header .o_wsale_my_cart').first(), this.$itemImgContainer, 25, 40);
+                }
                 updateCartNavBar(data);
             }
         });
@@ -45,12 +50,13 @@ function animateClone($cart, $elem, offsetTop, offsetLeft) {
     if (!$cart.length) {
         return Promise.resolve();
     }
-    $cart.find('.o_animate_blink').addClass('o_red_highlight o_shadow_animation').delay(500).queue(function () {
+    $cart.removeClass('d-none').find('.o_animate_blink').addClass('o_red_highlight o_shadow_animation').delay(500).queue(function () {
         $(this).removeClass("o_shadow_animation").dequeue();
     }).delay(2000).queue(function () {
         $(this).removeClass("o_red_highlight").dequeue();
     });
     return new Promise(function (resolve, reject) {
+        if(!$elem) resolve();
         var $imgtodrag = $elem.find('img').eq(0);
         if ($imgtodrag.length) {
             var $imgclone = $imgtodrag.clone()
@@ -104,7 +110,7 @@ function updateCartNavBar(data) {
         });
 
     $(".js_cart_lines").first().before(data['website_sale.cart_lines']).end().remove();
-    $(".js_cart_summary").first().before(data['website_sale.short_cart_summary']).end().remove();
+    $(".js_cart_summary").replaceWith(data['website_sale.short_cart_summary']);
 }
 
 /**
@@ -122,7 +128,7 @@ function showWarning(message) {
     if (!cart_alert.length) {
         cart_alert = $(
             '<div class="alert alert-danger alert-dismissible" role="alert" id="data_warning">' +
-                '<button type="button" class="close" data-dismiss="alert">&times;</button> ' +
+                '<button type="button" class="btn-close" data-bs-dismiss="alert">&times;</button> ' +
                 '<span></span>' +
             '</div>').prependTo($page);
     }

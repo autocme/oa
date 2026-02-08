@@ -5,8 +5,8 @@ from odoo import models
 class AccountChartTemplate(models.Model):
     _inherit = 'account.chart.template'
 
-    def _load(self, sale_tax_rate, purchase_tax_rate, company):
-        res = super()._load(sale_tax_rate, purchase_tax_rate, company)
+    def _load(self, company):
+        res = super()._load(company)
         if company.chart_template_id == self.env.ref('l10n_sg.sg_chart_template'):
             company.write({
                 'account_sale_tax_id': self.env.ref(f'l10n_sg.{company.id}_sg_sale_tax_sr_9').id,

@@ -18,8 +18,8 @@ from odoo.addons.http_routing.models.ir_http import slug
 from odoo.addons.website.controllers.main import QueryURL
 from odoo.http import request
 from odoo.osv import expression
-
 from odoo.tools.misc import get_lang
+from odoo.tools import lazy
 from odoo.exceptions import UserError
 
 class WebsiteEventController(http.Controller):
@@ -38,7 +38,7 @@ class WebsiteEventController(http.Controller):
         SudoEventType = request.env['event.type'].sudo()
 
         searches.setdefault('search', '')
-        searches.setdefault('date', 'all')
+        searches.setdefault('date', 'upcoming')
         searches.setdefault('tags', '')
         searches.setdefault('type', 'all')
         searches.setdefault('country', 'all')
@@ -60,7 +60,7 @@ class WebsiteEventController(http.Controller):
             'country': searches.get('country'),
         }
         order = 'date_begin'
-        if searches.get('date', 'all') == 'old':
+        if searches.get('date', 'upcoming') == 'old':
             order = 'date_begin desc'
         order = 'is_published desc, ' + order + ', id desc'
         search = searches.get('search')
@@ -76,7 +76,7 @@ class WebsiteEventController(http.Controller):
         no_date_domain = event_details['no_date_domain']
         dates = event_details['dates']
         for date in dates:
-            if date[0] != 'old':
+            if date[0] not in ['all', 'old']:
                 date[3] = Event.search_count(expression.AND(no_date_domain) + domain_search + date[2])
 
         no_country_domain = event_details['no_country_domain']
@@ -106,7 +106,11 @@ class WebsiteEventController(http.Controller):
             step=step,
             scope=5)
 
-        keep = QueryURL('/event', **{key: value for key, value in searches.items() if (key == 'search' or value != 'all')})
+        keep = QueryURL('/event', **{
+            key: value for key, value in searches.items() if (
+                key == 'search' or
+                (value != 'upcoming' if key == 'date' else value != 'all'))
+            })
 
         searches['search'] = fuzzy_search_term or search
 
@@ -145,15 +149,19 @@ class WebsiteEventController(http.Controller):
         if '.' not in page:
             page = 'website_event.%s' % page
 
+        view = request.env["website.event.menu"].sudo().search([
+            ("event_id", "=", event.id), ("view_id.key", "ilike", page)], limit=1).view_id
+
         try:
             # Every event page view should have its own SEO.
+            page = view.key if view else page
             values['seo_object'] = request.website.get_template(page)
             values['main_object'] = event
         except ValueError:
             # page not found
             values['path'] = re.sub(r"^website_event\.", '', page)
             values['from_template'] = 'website_event.default_page'  # .strip('website_event.')
-            page = request.website.is_publisher() and 'website.page_404' or 'http_routing.404'
+            page = request.env.user.has_group('website.group_website_designer') and 'website.page_404' or 'http_routing.404'
 
         return request.render(page, values)
 
@@ -174,13 +182,13 @@ class WebsiteEventController(http.Controller):
 
     def _prepare_event_register_values(self, event, **post):
         """Return the require values to render the template."""
-        urls = event._get_event_resource_urls()
+        urls = lazy(event._get_event_resource_urls)
         return {
             'event': event,
             'main_object': event,
             'range': range,
-            'google_url': urls.get('google_url'),
-            'iCal_url': urls.get('iCal_url'),
+            'google_url': lazy(lambda: urls.get('google_url')),
+            'iCal_url': lazy(lambda: urls.get('iCal_url')),
         }
 
     def _process_tickets_form(self, event, form_details):
@@ -253,6 +261,7 @@ class WebsiteEventController(http.Controller):
         :param form_details: posted data from frontend registration form, like
             {'1-name': 'r', '1-email': 'r@r.com', '1-phone': '', '1-event_ticket_id': '1'}
         """
+        form_details.pop("recaptcha_token_response", None)
         allowed_fields = request.env['event.registration']._get_website_registration_allowed_fields()
         registration_fields = {key: v for key, v in request.env['event.registration']._fields.items() if key in allowed_fields}
         for ticket_id in list(filter(lambda x: x is not None, [form_details[field] if 'event_ticket_id' in field else None for field in form_details.keys()])):
@@ -286,8 +295,6 @@ class WebsiteEventController(http.Controller):
         as much informations as possible, notably to ease future communications.
         Also try to update visitor informations based on registration info. """
         visitor_sudo = request.env['website.visitor']._get_visitor_from_request(force_create=True)
-        visitor_sudo._update_visitor_last_visit()
-        visitor_values = {}
 
         registrations_to_create = []
         for registration_values in registration_data:
@@ -297,35 +304,21 @@ class WebsiteEventController(http.Controller):
             elif not registration_values.get('partner_id'):
                 registration_values['partner_id'] = False if request.env.user._is_public() else request.env.user.partner_id.id
 
-            if visitor_sudo:
-                # registration may give a name to the visitor, yay
-                if registration_values.get('name') and not visitor_sudo.name and not visitor_values.get('name'):
-                    visitor_values['name'] = registration_values['name']
-                # update registration based on visitor
-                registration_values['visitor_id'] = visitor_sudo.id
+            # update registration based on visitor
+            registration_values['visitor_id'] = visitor_sudo.id
 
             registrations_to_create.append(registration_values)
-
-        if visitor_values:
-            visitor_sudo.write(visitor_values)
 
         return request.env['event.registration'].sudo().create(registrations_to_create)
 
     @http.route(['''/event/<model("event.event"):event>/registration/confirm'''], type='http', auth="public", methods=['POST'], website=True)
     def registration_confirm(self, event, **post):
+        if not request.env['ir.http']._verify_request_recaptcha_token('website_event_registration'):
+            raise UserError(_('Suspicious activity detected by Google reCaptcha.'))
         registrations = self._process_attendees_form(event, post)
         attendees_sudo = self._create_attendees_from_registration_post(event, registrations)
-        visitor_sudo = attendees_sudo.visitor_id
 
-        redirect = request.redirect(('/event/%s/registration/success?' % event.id) + werkzeug.urls.url_encode({'registration_ids': ",".join([str(id) for id in attendees_sudo.ids])}))
-
-        # make sure the vistor's uuid is correctly logged in cookies when disabling "Track Visitor" on all the pages of the event
-        # we set visitor_uuid in the cookie to be sure "event_registration_success" can retrieve the visitor
-        if request.httprequest.cookies.get('visitor_uuid', '') != visitor_sudo.access_token:
-            expiration_date = datetime.now() + timedelta(days=365)
-            redirect.set_cookie('visitor_uuid', visitor_sudo.access_token, expires=expiration_date)
-
-        return redirect
+        return request.redirect(('/event/%s/registration/success?' % event.id) + werkzeug.urls.url_encode({'registration_ids': ",".join([str(id) for id in attendees_sudo.ids])}))
 
     @http.route(['/event/<model("event.event"):event>/registration/success'], type='http', auth="public", methods=['GET'], website=True, sitemap=False)
     def event_registration_success(self, event, registration_ids):
@@ -349,65 +342,6 @@ class WebsiteEventController(http.Controller):
             'google_url': urls.get('google_url'),
             'iCal_url': urls.get('iCal_url')
         }
-
-    # ------------------------------------------------------------
-    # EDITOR (NEW EVENT)
-    # ------------------------------------------------------------
-
-    @http.route('/event/add_event', type='json', auth="user", methods=['POST'], website=True)
-    def add_event(self, name, event_start, event_end, address_values, **kwargs):
-        values = self._prepare_event_values(name, event_start, event_end, address_values)
-        event = request.env['event.event'].create(values)
-        return "/event/%s/register?enable_editor=1" % slug(event)
-
-    def _prepare_event_values(self, name, event_start, event_end, address_values=None):
-        """
-        Return the values to create a new event.
-        event_start,event_date are datetimes in the user tz.
-        address_values is used to either choose an existing location or create one as we allow it in the frontend.
-        """
-        date_begin = parse(event_start).astimezone(pytz.utc).replace(tzinfo=None)
-        date_end = parse(event_end).astimezone(pytz.utc).replace(tzinfo=None)
-        address_id = request.env['res.partner']
-        if address_values:
-            (address_pid, address_vals) = int(address_values[0]), address_values[1]
-            address_id = address_pid
-            if address_pid == 0:
-                address_id = request.env['res.partner'].create(address_vals).id
-        return {
-            'name': name,
-            'date_begin': date_begin,
-            'date_end': date_end,
-            'address_id': address_id,
-            'seats_available': 1000,
-            'website_id': request.website.id,
-            'event_ticket_ids': request.env['event.event.ticket'],
-        }
-
-    # ------------------------------------------------------------
-    # TOOLS (JSON)
-    # ------------------------------------------------------------
-
-    @http.route('/event/get_country_event_list', type='json', auth='public', website=True)
-    def get_country_events(self, **post):
-        Event = request.env['event.event']
-        country_code = request.session['geoip'].get('country_code')
-        result = {'events': [], 'country': False}
-        events = None
-        domain = request.website.website_domain()
-        if country_code:
-            country = request.env['res.country'].search([('code', '=', country_code)], limit=1)
-            events = Event.search(domain + ['|', ('address_id', '=', None), ('country_id.code', '=', country_code), ('date_begin', '>=', '%s 00:00:00' % fields.Date.today())], order="date_begin")
-        if not events:
-            events = Event.search(domain + [('date_begin', '>=', '%s 00:00:00' % fields.Date.today())], order="date_begin")
-        for event in events:
-            if country_code and event.country_id.code == country_code:
-                result['country'] = country
-            result['events'].append({
-                "date": self.get_formated_date(event),
-                "event": event,
-                "url": event.website_url})
-        return request.env['ir.ui.view']._render_template("website_event.country_events_list", result)
 
     # ------------------------------------------------------------
     # TOOLS (HELPERS)

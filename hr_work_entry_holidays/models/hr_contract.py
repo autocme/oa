@@ -6,6 +6,7 @@ import pytz
 
 from datetime import date, datetime
 from odoo import api, models
+from odoo.osv.expression import OR
 
 
 class HrContract(models.Model):
@@ -31,10 +32,6 @@ class HrContract(models.Model):
         else:
             return leave.work_entry_type_id
 
-    # YTI TODO: Master remove the method (deprecated)
-    def _get_more_vals_leave(self, leave):
-        return [('leave_id', leave.holiday_id and leave.holiday_id.id)]
-
     def _get_more_vals_leave_interval(self, interval, leaves):
         result = super()._get_more_vals_leave_interval(interval, leaves)
         for leave in leaves:
@@ -48,8 +45,10 @@ class HrContract(models.Model):
         # Overriden in hr_work_entry_contract_holiday to select the
         # global time off first (eg: Public Holiday > Home Working)
         self.ensure_one()
-        if interval[2].work_entry_type_id.code in bypassing_codes:
-            return interval[2].work_entry_type_id
+        if 'work_entry_type_id' in interval[2]:
+            bypassed_we_types = interval[2].work_entry_type_id.filtered(lambda we_type: we_type.code in bypassing_codes)
+            if bypassed_we_types:
+                return bypassed_we_types[:1]
 
         interval_start = interval[0].astimezone(pytz.utc).replace(tzinfo=None)
         interval_stop = interval[1].astimezone(pytz.utc).replace(tzinfo=None)
@@ -74,18 +73,12 @@ class HrContract(models.Model):
             return self._get_leave_work_entry_type_dates(rc_leave, interval_start, interval_stop, self.employee_id)
         return self.env.ref('hr_work_entry_contract.work_entry_type_leave')
 
-    def _get_leave_domain(self, start_dt, end_dt):
-        self.ensure_one()
-        # Complete override, compare over holiday_id.employee_id instead of calendar_id
-        return [
-            ('time_type', '=', 'leave'),
-            '|', ('calendar_id', 'in', [False, self.resource_calendar_id.id]),
-                 ('holiday_id.employee_id', '=', self.employee_id.id), # see https://github.com/odoo/enterprise/pull/15091
-            ('resource_id', 'in', [False, self.employee_id.resource_id.id]),
-            ('date_from', '<=', end_dt),
-            ('date_to', '>=', start_dt),
-            ('company_id', 'in', [False, self.company_id.id]),
-        ]
+    def _get_sub_leave_domain(self):
+        domain = super()._get_sub_leave_domain()
+        return OR([
+            domain,
+            [('holiday_id.employee_id', 'in', self.employee_id.ids)] # see https://github.com/odoo/enterprise/pull/15091
+        ])
 
     def write(self, vals):
         # Special case when setting a contract as running:

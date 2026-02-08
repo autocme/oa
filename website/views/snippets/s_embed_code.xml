@@ -1,12 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
 
-<!-- TODO adapt in master: this is patched in JS to remove the min-height -->
-<!-- class and use padding classes -->
 <template name="Embed Code" id="s_embed_code">
-    <section class="s_embed_code o_half_screen_height text-center">
+    <section class="s_embed_code text-center pt64 pb64">
         <div class="s_embed_code_embedded container o_not_editable">
-            <div class="text-monospace pt8 bg-light">&#10;    Replace this with your own HTML code&#10;</div>
+            <!-- Keep the next line as a one-liner, this is to nicely show the
+            code in the ace editor when the user is replacing it. The `&#10;`
+            acts as line returns. -->
+            <div class="font-monospace pt8 bg-light">&#10;    Click on <b>"Edit"</b> in the right panel to replace this with your own HTML code&#10;</div>
         </div>
     </section>
 </template>
@@ -21,9 +22,9 @@
                         title="Edit embedded code">Edit</we-button>
             </we-row>
             <we-button-group string="Alignment">
-                <we-button class="fa fa-fw fa-align-left" title="Left" data-select-class="text-left"/>
+                <we-button class="fa fa-fw fa-align-left" title="Left" data-select-class="text-start"/>
                 <we-button class="fa fa-fw fa-align-center" title="Center" data-select-class="text-center"/>
-                <we-button class="fa fa-fw fa-align-right" title="Right" data-select-class="text-right"/>
+                <we-button class="fa fa-fw fa-align-right" title="Right" data-select-class="text-end"/>
             </we-button-group>
         </div>
     </xpath>

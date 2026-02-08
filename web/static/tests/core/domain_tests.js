@@ -171,16 +171,37 @@ QUnit.module("domain", {}, () => {
             '[("name", "=", "true")]'
         );
         assert.strictEqual(new Domain().toString(), "[]");
-        assert.strictEqual(new Domain([['name', 'in', [true, false]]]).toString(), '[("name", "in", [True, False])]');
-        assert.strictEqual(new Domain([['name', 'in', [null]]]).toString(), '[("name", "in", [None])]');
-        assert.strictEqual(new Domain([['name', 'in', ["foo", "bar"]]]).toString(), '[("name", "in", ["foo", "bar"])]');
-        assert.strictEqual(new Domain([['name', 'in', [1, 2]]]).toString(), '[("name", "in", [1, 2])]');
-        assert.strictEqual(new Domain(['&', ['name', '=', 'foo'], ['type', '=', 'bar']]).toString(), '["&", ("name", "=", "foo"), ("type", "=", "bar")]');
-        assert.strictEqual(new Domain(['|', ['name', '=', 'foo'], ['type', '=', 'bar']]).toString(), '["|", ("name", "=", "foo"), ("type", "=", "bar")]');
+        assert.strictEqual(
+            new Domain([["name", "in", [true, false]]]).toString(),
+            '[("name", "in", [True, False])]'
+        );
+        assert.strictEqual(
+            new Domain([["name", "in", [null]]]).toString(),
+            '[("name", "in", [None])]'
+        );
+        assert.strictEqual(
+            new Domain([["name", "in", ["foo", "bar"]]]).toString(),
+            '[("name", "in", ["foo", "bar"])]'
+        );
+        assert.strictEqual(
+            new Domain([["name", "in", [1, 2]]]).toString(),
+            '[("name", "in", [1, 2])]'
+        );
+        assert.strictEqual(
+            new Domain(["&", ["name", "=", "foo"], ["type", "=", "bar"]]).toString(),
+            '["&", ("name", "=", "foo"), ("type", "=", "bar")]'
+        );
+        assert.strictEqual(
+            new Domain(["|", ["name", "=", "foo"], ["type", "=", "bar"]]).toString(),
+            '["|", ("name", "=", "foo"), ("type", "=", "bar")]'
+        );
         assert.strictEqual(new Domain().toString(), "[]");
 
         // string domains are only reformatted
-        assert.strictEqual(new Domain('[("name","ilike","foo")]').toString(), '[("name", "ilike", "foo")]');
+        assert.strictEqual(
+            new Domain('[("name","ilike","foo")]').toString(),
+            '[("name", "ilike", "foo")]'
+        );
     });
 
     QUnit.test("implicit &", function (assert) {
@@ -275,10 +296,18 @@ QUnit.module("domain", {}, () => {
         assert.deepEqual(new Domain(domainStr).toList(), [["date", ">=", "2013-03-25"]]);
         domainStr = "[('date', '>=', context_today() - relativedelta(days=30))]";
         const domainList = new Domain(domainStr).toList(); // domain creation using `parseExpr` function since the parameter is a string.
-        assert.deepEqual(domainList[0][2], PyDate.create({ day: 25, month: 3, year: 2013 }), 'The right item in the rule in the domain should be a PyDate object');
+        assert.deepEqual(
+            domainList[0][2],
+            PyDate.create({ day: 25, month: 3, year: 2013 }),
+            "The right item in the rule in the domain should be a PyDate object"
+        );
         assert.deepEqual(JSON.stringify(domainList), '[["date",">=","2013-03-25"]]');
         const domainList2 = new Domain(domainList).toList(); // domain creation using `toAST` function since the parameter is a list.
-        assert.deepEqual(domainList2[0][2], PyDate.create({ day: 25, month: 3, year: 2013 }), 'The right item in the rule in the domain should be a PyDate object');
+        assert.deepEqual(
+            domainList2[0][2],
+            PyDate.create({ day: 25, month: 3, year: 2013 }),
+            "The right item in the rule in the domain should be a PyDate object"
+        );
         assert.deepEqual(JSON.stringify(domainList2), '[["date",">=","2013-03-25"]]');
     });
 
@@ -327,6 +356,36 @@ QUnit.module("domain", {}, () => {
         assert.throws(() => new Domain(["!"]), /invalid domain .* \(missing 1 segment/);
     });
 
+    QUnit.test("follow relations", function (assert) {
+        assert.ok(
+            new Domain([["partner.city", "ilike", "Bru"]]).contains({
+                name: "Lucas",
+                partner: {
+                    city: "Bruxelles",
+                },
+            })
+        );
+        assert.ok(
+            new Domain([["partner.city.name", "ilike", "Bru"]]).contains({
+                name: "Lucas",
+                partner: {
+                    city: {
+                        name: "Bruxelles",
+                    },
+                },
+            })
+        );
+    });
+
+    QUnit.test("Arrays comparison", (assert) => {
+        const domain = new Domain(["&", ["a", "==", []], ["b", "!=", []]]);
+
+        assert.ok(domain.contains({ a: [] }));
+        assert.ok(domain.contains({ a: [], b: [4] }));
+        assert.notOk(domain.contains({ a: [1] }));
+        assert.notOk(domain.contains({ b: [] }));
+    });
+
     // ---------------------------------------------------------------------------
     // Normalization
     // ---------------------------------------------------------------------------
@@ -334,7 +393,7 @@ QUnit.module("domain", {}, () => {
 
     QUnit.test("return simple (normalized) domains", function (assert) {
         const domains = ["[]", `[("a", "=", 1)]`, `["!", ("a", "=", 1)]`];
-        for (let domain of domains) {
+        for (const domain of domains) {
             assert.strictEqual(new Domain(domain).toString(), domain);
         }
     });
@@ -485,5 +544,19 @@ QUnit.module("domain", {}, () => {
             Domain.not(new Domain([["a", "=", 1]])).toString(),
             `["!", ("a", "=", 1)]`
         );
+    });
+
+    QUnit.test("tuple are supported", (assert) => {
+        assert.deepEqual(
+            new Domain(`(("field", "like", "string"), ("field", "like", "strOng"))`).toList(),
+            ["&", ["field", "like", "string"], ["field", "like", "strOng"]]
+        );
+        assert.deepEqual(new Domain(`("!",("field", "like", "string"))`).toList(), [
+            "!",
+            ["field", "like", "string"],
+        ]);
+        assert.throws(() => new Domain(`(("field", "like", "string"))`), /Invalid domain AST/);
+        assert.throws(() => new Domain(`("&", "&", "|")`), /Invalid domain AST/);
+        assert.throws(() => new Domain(`("&", "&", 3)`), /Invalid domain AST/);
     });
 });

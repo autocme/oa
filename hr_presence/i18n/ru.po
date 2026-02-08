@@ -3,22 +3,21 @@
 # 	* hr_presence
 # 
 # Translators:
-# Gennady Marchenko <gennadym@gmail.com>, 2021
-# Martin Trigaux, 2021
-# Ivan Kropotkin <yelizariev@itpp.dev>, 2021
-# ILMIR <karamov@it-projects.info>, 2021
-# Irina Fedulova <istartlin@gmail.com>, 2021
-# Ekaterina <nawsikaya@bk.ru>, 2021
-# Сергей Шебанин <sergey@shebanin.ru>, 2021
-# Wil Odoo, 2024
+# Ekaterina <nawsikaya@bk.ru>, 2022
+# Gennady Marchenko <gennadym@gmail.com>, 2022
+# Irina Fedulova <istartlin@gmail.com>, 2022
+# Martin Trigaux, 2022
+# Сергей Шебанин <sergey@shebanin.ru>, 2022
+# Ivan Kropotkin <yelizariev@itpp.dev>, 2022
+# Wil Odoo, 2025
 # 
 msgid ""
 msgstr ""
-"Project-Id-Version: Odoo Server 15.0\n"
+"Project-Id-Version: Odoo Server 16.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-08-14 15:43+0000\n"
-"PO-Revision-Date: 2021-09-14 12:22+0000\n"
-"Last-Translator: Wil Odoo, 2024\n"
+"POT-Creation-Date: 2025-05-22 18:35+0000\n"
+"PO-Revision-Date: 2022-09-22 05:52+0000\n"
+"Last-Translator: Wil Odoo, 2025\n"
 "Language-Team: Russian (https://app.transifex.com/odoo/teams/41243/ru/)\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
@@ -30,14 +29,22 @@ msgstr ""
 #: model:mail.template,body_html:hr_presence.mail_template_presence
 msgid ""
 "<div>\n"
-"                    Dear <t t-out=\"object.name or ''\">Abigail Peterson</t>,<br/><br/>\n"
-"                    Exception made if there was a mistake of ours, it seems that you are not at your office and there is not request of time off from you.<br/>\n"
-"                    Please, take appropriate measures in order to carry out this work absence.<br/>\n"
+"                    Dear <t t-out=\"object.name or ''\">Abigail Peterson</t>,<br><br>\n"
+"                    Exception made if there was a mistake of ours, it seems that you are not at your office and there is not request of time off from you.<br>\n"
+"                    Please, take appropriate measures in order to carry out this work absence.<br>\n"
 "                    Do not hesitate to contact your manager or the human resource department.\n"
-"                    <br/>Best Regards,<br/><br/>\n"
+"                    <br>Best Regards,<br><br>\n"
 "                </div>\n"
 "            "
 msgstr ""
+"<div>\n"
+"                    Дорогая <t t-out=\"object.name or ''\">Эбигейл Петерсон</t>,<br><br>\n"
+"                    Исключение сделано, если это была наша ошибка, похоже, что вас нет в офисе, и от вас не поступало просьбы об отгуле.<br>\n"
+"                    Пожалуйста, примите соответствующие меры, чтобы оформить это отсутствие на работе.<br>\n"
+"                    Не стесняйтесь обращаться к своему менеджеру или в отдел кадров.\n"
+"                   <br>С наилучшими пожеланиями,<br><br>\n"
+"                </div>\n"
+"            "
 
 #. module: hr_presence
 #: model_terms:ir.ui.view,arch_db:hr_presence.hr_employee_view_presence_search
@@ -62,6 +69,7 @@ msgid "Companies"
 msgstr "Компании"
 
 #. module: hr_presence
+#. odoo-python
 #: code:addons/hr_presence/models/hr_employee.py:0
 #, python-format
 msgid "Compose Email"
@@ -85,20 +93,11 @@ msgid "Email Sent"
 msgstr "Письмо отправлено"
 
 #. module: hr_presence
-#: model:ir.ui.menu,name:hr_presence.menu_hr_presence_view
-msgid "Employee Presence"
-msgstr ""
-
-#. module: hr_presence
+#. odoo-python
 #: code:addons/hr_presence/models/hr_employee.py:0
 #, python-format
 msgid "Employee's Presence to Define"
 msgstr "Присутствие сотрудника для определения"
-
-#. module: hr_presence
-#: model:mail.template,name:hr_presence.mail_template_presence
-msgid "Employee: Absence email"
-msgstr ""
 
 #. module: hr_presence
 #: model:sms.template,name:hr_presence.sms_template_data_hr_presence
@@ -111,6 +110,7 @@ msgid "Employees"
 msgstr "Сотрудники"
 
 #. module: hr_presence
+#. odoo-python
 #: code:addons/hr_presence/models/hr_employee.py:0
 #: model:sms.template,body:hr_presence.sms_template_data_hr_presence
 #, python-format
@@ -126,9 +126,13 @@ msgstr ""
 #. module: hr_presence
 #: model:ir.actions.server,name:hr_presence.ir_cron_presence_control_ir_actions_server
 #: model:ir.cron,cron_name:hr_presence.ir_cron_presence_control
-#: model:ir.cron,name:hr_presence.ir_cron_presence_control
 msgid "HR Presence: cron"
 msgstr "Присутствие HR: cron"
+
+#. module: hr_presence
+#: model:mail.template,name:hr_presence.mail_template_presence
+msgid "HR: Employee Absence email"
+msgstr "HR: электронное письмо об отсутствии сотрудника"
 
 #. module: hr_presence
 #: model:ir.model.fields,field_description:hr_presence.field_res_company__hr_presence_last_compute_date
@@ -157,7 +161,7 @@ msgstr "Ip подключен"
 #. module: hr_presence
 #: model_terms:ir.ui.view,arch_db:hr_presence.hr_employee_view_kanban
 msgid "Log"
-msgstr "Лог"
+msgstr "Добавить"
 
 #. module: hr_presence
 #: model:ir.model.fields,field_description:hr_presence.field_hr_employee__manually_set_present
@@ -167,6 +171,7 @@ msgid "Manually Set Present"
 msgstr "Установить Присутствие в Ручную"
 
 #. module: hr_presence
+#: model:ir.ui.menu,name:hr_presence.menu_hr_presence_view
 #: model_terms:ir.ui.view,arch_db:hr_presence.hr_employee_view_presence_search
 #: model_terms:ir.ui.view,arch_db:hr_presence.hr_employee_view_search
 msgid "Presence"
@@ -182,7 +187,23 @@ msgstr "Присутствует"
 #. module: hr_presence
 #: model_terms:ir.ui.view,arch_db:hr_presence.hr_employee_view_kanban
 msgid "SMS"
-msgstr "СМС"
+msgstr "SMS"
+
+#. module: hr_presence
+#. odoo-python
+#: code:addons/hr_presence/models/hr_employee.py:0
+#, python-format
+msgid "Send SMS Text Message"
+msgstr "Отправить текстовое сообщение SMS"
+
+#. module: hr_presence
+#: model:mail.template,description:hr_presence.mail_template_presence
+msgid ""
+"Sent manually in presence module when an employee wasn't working despite not"
+" being off"
+msgstr ""
+"Отправляли вручную в модуле присутствия, когда сотрудник не работал, "
+"несмотря на то, что не был в отпуске"
 
 #. module: hr_presence
 #: model_terms:ir.ui.view,arch_db:hr_presence.hr_employee_view_kanban
@@ -195,12 +216,14 @@ msgid "Set as present"
 msgstr "Установлено в настоящий момент"
 
 #. module: hr_presence
+#. odoo-python
 #: code:addons/hr_presence/models/hr_employee.py:0
 #, python-format
 msgid "There is no professional email address for this employee."
 msgstr "Рабочего адреса электронной почты для этого сотрудника нет."
 
 #. module: hr_presence
+#. odoo-python
 #: code:addons/hr_presence/models/hr_employee.py:0
 #, python-format
 msgid "There is no professional mobile for this employee."
@@ -209,7 +232,7 @@ msgstr "Для этого сотрудника нет рабочего моби�
 #. module: hr_presence
 #: model_terms:ir.ui.view,arch_db:hr_presence.hr_employee_view_kanban
 msgid "Time Off"
-msgstr "Отпуск"
+msgstr "Отсутствие"
 
 #. module: hr_presence
 #: model:ir.model.fields.selection,name:hr_presence.selection__hr_employee__hr_presence_state_display__to_define
@@ -229,6 +252,7 @@ msgid "Users Log"
 msgstr "Журнал пользователей"
 
 #. module: hr_presence
+#. odoo-python
 #: code:addons/hr_presence/models/hr_employee.py:0
 #: code:addons/hr_presence/models/hr_employee.py:0
 #: code:addons/hr_presence/models/hr_employee.py:0
@@ -236,3 +260,8 @@ msgstr "Журнал пользователей"
 msgid "You don't have the right to do this. Please contact an Administrator."
 msgstr ""
 "Вы не имеете права это делать. Пожалуйста, свяжитесь с администратором."
+
+#. module: hr_presence
+#: model:ir.model,name:hr_presence.model_ir_websocket
+msgid "websocket message handling"
+msgstr "обработка сообщений в сокетах"

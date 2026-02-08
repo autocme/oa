@@ -1,29 +1,27 @@
-odoo.define('hr_holidays/static/tests/helpers/mock_server.js', function (require) {
-'use strict';
+/** @odoo-module **/
 
-require('@mail/../tests/helpers/mock_server'); // ensure mail overrides are applied first
+import '@mail/../tests/helpers/mock_server'; // ensure mail overrides are applied first
 
-const MockServer = require('web.MockServer');
+import { patch } from "@web/core/utils/patch";
+import { MockServer } from "@web/../tests/helpers/mock_server";
 
-MockServer.include({
+patch(MockServer.prototype, 'hr_holidays', {
     /**
-     * Overrides to add visitor information to livechat channels.
+     * Overrides to add out of office to employees.
      *
      * @override
      */
-    _mockMailChannelPartnerInfo(ids, extra_info) {
-        const partnerInfos = this._super(...arguments);
-        const partners = this._getRecords(
+    _mockResPartnerMailPartnerFormat(ids) {
+        const partnerFormats = this._super(...arguments);
+        const partners = this.getRecords(
             'res.partner',
             [['id', 'in', ids]],
             { active_test: false },
         );
         for (const partner of partners) {
             // Not a real field but ease the testing
-            partnerInfos[partner.id].out_of_office_date_end = partner.out_of_office_date_end;
+            partnerFormats.get(partner.id).out_of_office_date_end = partner.out_of_office_date_end;
         }
-        return partnerInfos;
+        return partnerFormats;
     },
-});
-
 });

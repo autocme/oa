@@ -80,23 +80,24 @@ odoo.define('point_of_sale.tour.ProductScreenTourMethods', function (require) {
             return keys.split(' ').map(generateStep);
         }
 
-        clickPayButton() {
-            return [
-                { content: 'click pay button', trigger: '.product-screen .actionpad .button.pay' },
-                {
+        clickPayButton(shouldCheck = true) {
+            const steps = [{ content: 'click pay button', trigger: '.product-screen .actionpad .button.pay' }];
+            if (shouldCheck) {
+                steps.push({
                     content: 'now in payment screen',
                     trigger: '.pos-content .payment-screen',
                     run: () => {},
-                },
-            ];
+                });
+            }
+            return steps;
         }
 
-        clickCustomerButton() {
+        clickPartnerButton() {
             return [
-                { content: 'click customer button', trigger: '.actionpad .button.set-customer' },
+                { content: 'click customer button', trigger: '.actionpad .button.set-partner' },
                 {
-                    content: 'customer screen is shown',
-                    trigger: '.pos-content .clientlist-screen',
+                    content: 'partner screen is shown',
+                    trigger: '.pos-content .partnerlist-screen',
                     run: () => {},
                 },
             ];
@@ -106,21 +107,7 @@ odoo.define('point_of_sale.tour.ProductScreenTourMethods', function (require) {
             return [
                 {
                     content: `select customer '${name}'`,
-                    trigger: `.clientlist-screen .client-line td:contains("${name}")`,
-                },
-                {
-                    content: `client line '${name}' is highlighted`,
-                    trigger: `.clientlist-screen .client-line.highlight td:contains("${name}")`,
-                    run: () => {},
-                },
-            ];
-        }
-
-        clickSetCustomer() {
-            return [
-                {
-                    content: 'click set customer',
-                    trigger: '.clientlist-screen .button.next.highlight',
+                    trigger: `.partnerlist-screen .partner-line td:contains("${name}")`,
                 },
             ];
         }
@@ -231,7 +218,7 @@ odoo.define('point_of_sale.tour.ProductScreenTourMethods', function (require) {
             return [
                 {
                     content: 'product screen is shown',
-                    trigger: '.product-screen:not(:has(.oe_hidden))',
+                    trigger: '.product-screen',
                     run: () => {},
                 },
             ];
@@ -361,6 +348,28 @@ odoo.define('point_of_sale.tour.ProductScreenTourMethods', function (require) {
                 },
             ];
         }
+        checkOrderlinesNumber(number) {
+            return [
+                {
+                    content: `check orderlines number`,
+                    trigger: `.order .orderlines .orderline`,
+                    run: () => {
+                        const orderline_amount = $('.order .orderlines .orderline').length;
+                        if (orderline_amount !== number) {
+                            throw new Error(`Expected ${number} orderlines, got ${orderline_amount}`);
+                        }
+                    },
+                },
+            ];
+        }
+        checkTaxAmount(number) {
+            return [
+                {
+                    content: `check order tax amount`,
+                    trigger: `.subentry:contains("${number}")`,
+                },
+            ];
+        }
     }
 
     class Execute {
@@ -386,7 +395,7 @@ odoo.define('point_of_sale.tour.ProductScreenTourMethods', function (require) {
                 res.push(...this._do.pressNumpad('Qty'));
                 res.push(...this._check.modeIsActive('Qty'));
             }
-            for (let char of quantity.toString()) {
+            for (let char of (quantity.toString() == '1' ? '' : quantity.toString())) {
                 if ('.0123456789'.includes(char)) {
                     res.push(...this._do.pressNumpad(char));
                 } else if ('-'.includes(char)) {

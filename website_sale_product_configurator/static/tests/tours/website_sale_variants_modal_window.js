@@ -2,7 +2,6 @@ odoo.define('website_sale.tour_variants_modal_window', function (require) {
     'use strict';
 
     var tour = require('web_tour.tour');
-    const tourUtils = require('website_sale.tour_utils');
 
     // This tour relies on a data created from the python test.
     tour.register('tour_variants_modal_window', {
@@ -36,7 +35,6 @@ odoo.define('website_sale.tour_variants_modal_window', function (require) {
         },
         {
             content: "Click add to cart",
-            extra_trigger: 'body:has(input[type="hidden"][name="product_id"][value=0])',
             trigger: '#add_to_cart',
         },
         {

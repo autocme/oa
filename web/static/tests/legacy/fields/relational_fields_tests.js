@@ -2,22 +2,27 @@ odoo.define('web.relational_fields_tests', function (require) {
 "use strict";
 
 var AbstractStorageService = require('web.AbstractStorageService');
-var FormController = require('web.FormController');
 var FormView = require('web.FormView');
 const KanbanView = require('web.KanbanView');
 var ListView = require('web.ListView');
 var RamStorage = require('web.RamStorage');
 var relationalFields = require('web.relational_fields');
 var testUtils = require('web.test_utils');
+const core = require('web.core');
+const makeTestEnvironment = require("web.test_env");
+const { makeLegacyCommandService } = require("@web/legacy/utils");
+const { createWebClient, doAction } = require('@web/../tests/webclient/helpers');
+const { getFixture, triggerHotkey, nextTick, click } = require("@web/../tests/helpers/utils");
+const { registry } = require("@web/core/registry");
 
 const { makeLegacyDialogMappingTestEnv } = require('@web/../tests/helpers/legacy_env_utils');
 
 const cpHelpers = require('@web/../tests/search/helpers');
 var createView = testUtils.createView;
 
-QUnit.module('fields', {}, function () {
+QUnit.module('Legacy fields', {}, function () {
 
-QUnit.module('relational_fields', {
+QUnit.module('Legacy relational_fields', {
     beforeEach: function () {
         this.data = {
             partner: {
@@ -334,7 +339,7 @@ QUnit.module('relational_fields', {
         assert.ok($('body').hasClass('modal-open'), 'Modal is said opened');
 
         // Close second modal
-        await testUtils.dom.click($modals.last().find('button[class="close"]'));
+        await testUtils.dom.click($modals.last().find('button[class="btn-close"]'));
         var $modal = $('.modal');
         $focusedModal = $(document.activeElement).closest('.modal');
 
@@ -344,7 +349,7 @@ QUnit.module('relational_fields', {
         assert.ok($('body').hasClass('modal-open'), 'Modal is said opened');
 
         // Close first modal
-        await testUtils.dom.click($modal.find('button[class="close"]'));
+        await testUtils.dom.click($modal.find('button[class="btn-close"]'));
         $modal = $('.modal-dialog.modal-lg');
 
         assert.equal($modal.length, 0, 'There should be no modal');
@@ -420,10 +425,10 @@ QUnit.module('relational_fields', {
         await testUtils.form.clickEdit(form);
         await testUtils.dom.click(form.$('.o_data_cell'));
         // edit the partner_ids field by (un)checking boxes on the widget
-        var $firstCheckbox = $('.modal .custom-control-input').first();
+        var $firstCheckbox = $('.modal .form-check-input').first();
         await testUtils.dom.click($firstCheckbox);
         assert.ok($firstCheckbox.prop('checked'), "the checkbox should be ticked");
-        var $secondCheckbox = $('.modal .custom-control-input').eq(1);
+        var $secondCheckbox = $('.modal .form-check-input').eq(1);
         await testUtils.dom.click($secondCheckbox);
         assert.notOk($secondCheckbox.prop('checked'), "the checkbox should be unticked");
         form.destroy();
@@ -759,7 +764,7 @@ QUnit.module('relational_fields', {
         this.data.partner.records[1].bar = false;
 
         var count = 0;
-        var nb_fields_fetched;
+        var fieldsFetched;
         var form = await createView({
             View: FormView,
             model: 'partner',
@@ -773,7 +778,7 @@ QUnit.module('relational_fields', {
             mockRPC: function (route, args) {
                 if (args.method === 'search_read') {
                     count++;
-                    nb_fields_fetched = args.kwargs.fields.length;
+                    fieldsFetched = args.kwargs.fields;
                 }
                 return this._super.apply(this, arguments);
             },
@@ -782,7 +787,7 @@ QUnit.module('relational_fields', {
         });
 
         assert.strictEqual(count, 1, 'once search_read should have been done to fetch the relational values');
-        assert.strictEqual(nb_fields_fetched, 1, 'search_read should only fetch field id');
+        assert.deepEqual(fieldsFetched, ['display_name'], 'search_read should only fetch field display_name');
         assert.containsN(form, '.o_statusbar_status button:not(.dropdown-toggle)', 2);
         assert.containsN(form, '.o_statusbar_status button:disabled', 2);
         assert.hasClass(form.$('.o_statusbar_status button[data-value="4"]'), 'btn-primary');
@@ -1019,6 +1024,49 @@ QUnit.module('relational_fields', {
         form.destroy();
     });
 
+    // TODO: Once the code base is converted with wowl, replace webclient by formview.
+    QUnit.skip('statusbar edited by the smart action "Move to stage..."', async function (assert) {
+        assert.expect(3);
+
+        const legacyEnv = makeTestEnvironment({ bus: core.bus });
+        const serviceRegistry = registry.category("services");
+        serviceRegistry.add("legacy_command", makeLegacyCommandService(legacyEnv));
+
+        const views = {
+            'partner,false,form': '<form>' +
+                    '<header><field name="trululu" widget="statusbar" options=\'{"clickable": "1"}\'/></header>' +
+                  '</form>',
+            'partner,false,search': '<search></search>',
+        };
+        const serverData = { models: this.data, views}
+        const target = getFixture();
+        const webClient = await createWebClient({ serverData });
+        await doAction(webClient, {
+            res_id: 1,
+            type: 'ir.actions.act_window',
+            target: 'current',
+            res_model: 'partner',
+            'view_mode': 'form',
+            'views': [[false, 'form']],
+        });
+        assert.containsOnce(target, ".o_field_widget")
+
+        triggerHotkey("control+k")
+        await nextTick();
+        const movestage = target.querySelectorAll(".o_command");
+        const idx = [...movestage].map(el => el.textContent).indexOf("Move to Trululu...ALT + SHIFT + X")
+        assert.ok(idx >= 0);
+
+        await click(movestage[idx])
+        await nextTick();
+        assert.deepEqual([...target.querySelectorAll(".o_command")].map(el => el.textContent), [
+            "first record",
+            "second record",
+            "aaa",
+          ])
+        await click(target, "#o_command_2")
+    });
+
     QUnit.test('clickable statusbar with readonly modifier set to false is editable', async function (assert) {
         const form = await createView({
             View: FormView,
@@ -1116,7 +1164,7 @@ QUnit.module('relational_fields', {
             },
         });
 
-        assert.containsNone(form.$('.o_form_view'), 'select');
+        assert.containsNone(form.$('.o_legacy_form_view'), 'select');
         assert.strictEqual(form.$('.o_field_widget[name=product_id]').text(), 'xphone',
             "should have rendered the many2one field correctly");
         assert.strictEqual(form.$('.o_field_widget[name=product_id]').attr('raw-value'), '37',
@@ -1130,7 +1178,7 @@ QUnit.module('relational_fields', {
 
         await testUtils.form.clickEdit(form);
 
-        assert.containsN(form.$('.o_form_view'), 'select', 3);
+        assert.containsN(form.$('.o_legacy_form_view'), 'select', 3);
         assert.containsOnce(form, 'select[name="product_id"] option:contains(xphone)',
             "should have fetched xphone option");
         assert.containsOnce(form, 'select[name="product_id"] option:contains(xpad)',
@@ -1238,7 +1286,7 @@ QUnit.module('relational_fields', {
             },
         });
 
-        await testUtils.fields.editSelect(form.$('.o_form_view select'), 'false');
+        await testUtils.fields.editSelect(form.$('.o_legacy_form_view select'), 'false');
         await testUtils.form.clickSave(form);
 
         form.destroy();
@@ -1486,7 +1534,7 @@ QUnit.module('relational_fields', {
         // checkbox 'Hide in Kanban'
         $input = form.$('.o_field_many2manytags .badge[data-id=13] .dropdown-toggle'); // selects 'red' tag
         await testUtils.dom.click($input);
-        var $checkBox = form.$('.o_field_many2manytags .badge[data-id=13] .custom-checkbox input');
+        var $checkBox = form.$('.o_field_many2manytags .badge[data-id=13] .form-check input');
         assert.strictEqual($checkBox.length, 1, "should have a checkbox in the colorpicker dropdown menu");
         assert.notOk($checkBox.is(':checked'), "should have unticked checkbox in colorpicker dropdown menu");
 
@@ -1494,7 +1542,7 @@ QUnit.module('relational_fields', {
 
         $input = form.$('.o_field_many2manytags .badge[data-id=13] .dropdown-toggle'); // refresh
         await testUtils.dom.click($input);
-        $checkBox = form.$('.o_field_many2manytags .badge[data-id=13] .custom-checkbox input'); // refresh
+        $checkBox = form.$('.o_field_many2manytags .badge[data-id=13] .form-check input'); // refresh
         assert.equal($input.parent().data('color'), "0", "should become transparent when toggling on checkbox");
         assert.ok($checkBox.is(':checked'), "should have a ticked checkbox in colorpicker dropdown menu after mousedown");
 
@@ -1502,7 +1550,7 @@ QUnit.module('relational_fields', {
 
         $input = form.$('.o_field_many2manytags .badge[data-id=13] .dropdown-toggle'); // refresh
         await testUtils.dom.click($input);
-        $checkBox = form.$('.o_field_many2manytags .badge[data-id=13] .custom-checkbox input'); // refresh
+        $checkBox = form.$('.o_field_many2manytags .badge[data-id=13] .form-check input'); // refresh
         assert.equal($input.parent().data('color'), "8", "should revert to old color when toggling off checkbox");
         assert.notOk($checkBox.is(':checked'), "should have an unticked checkbox in colorpicker dropdown menu after 2nd click");
 
@@ -1603,7 +1651,7 @@ QUnit.module('relational_fields', {
                 return this._super.apply(this, arguments);
             }
         });
-        assert.hasClass(form.$('.o_form_view'),'o_form_editable', "form should be in edit mode");
+        assert.hasClass(form.$('.o_legacy_form_view'),'o_form_editable', "form should be in edit mode");
 
         await testUtils.fields.many2one.clickOpenDropdown('timmy');
         assert.strictEqual(form.$('.o_field_many2manytags input').autocomplete('widget').find('li').length, 3,
@@ -1930,20 +1978,20 @@ QUnit.module('relational_fields', {
             res_id: 1,
         });
 
-        assert.strictEqual(form.$('.o_field_one2many[name="turtles"] .o_list_view .o_field_many2manytags[name="partner_ids"]').text().replace(/\s/g, ''),
+        assert.strictEqual(form.$('.o_field_one2many[name="turtles"] .o_legacy_list_view .o_field_many2manytags[name="partner_ids"]').text().replace(/\s/g, ''),
             "secondrecordaaa", "the tags should be correctly rendered");
 
         // open the x2m form view
-        await testUtils.dom.click(form.$('.o_field_one2many[name="turtles"] .o_list_view td.o_data_cell:first'));
+        await testUtils.dom.click(form.$('.o_field_one2many[name="turtles"] .o_legacy_list_view td.o_data_cell:first'));
         await testUtils.nextTick(); // wait for quick edit
-        assert.strictEqual($('.modal .o_form_view .o_field_many2many[name="partner_ids"] .o_list_view .o_data_cell').text(),
+        assert.strictEqual($('.modal .o_legacy_form_view .o_field_many2many[name="partner_ids"] .o_legacy_list_view .o_data_cell').text(),
             "blipMy little Foo Value", "the list view should be correctly rendered with foo");
 
         await testUtils.dom.click($('.modal button.o_form_button_cancel'));
-        assert.strictEqual(form.$('.o_field_one2many[name="turtles"] .o_list_view .o_field_many2manytags[name="partner_ids"]').text().replace(/\s/g, ''),
+        assert.strictEqual(form.$('.o_field_one2many[name="turtles"] .o_legacy_list_view .o_field_many2manytags[name="partner_ids"]').text().replace(/\s/g, ''),
             "secondrecordaaa", "the tags should still be correctly rendered");
 
-        assert.strictEqual(form.$('.o_field_one2many[name="turtles"] .o_list_view .o_field_many2manytags[name="partner_ids"]').text().replace(/\s/g, ''),
+        assert.strictEqual(form.$('.o_field_one2many[name="turtles"] .o_legacy_list_view .o_field_many2manytags[name="partner_ids"]').text().replace(/\s/g, ''),
             "secondrecordaaa", "the tags should still be correctly rendered");
 
         form.destroy();
@@ -2130,7 +2178,7 @@ QUnit.module('relational_fields', {
         assert.strictEqual(list.$('.o_data_row:eq(3) .o_field_many2manytags .o_m2m_avatar_empty').text().trim(), "+9",
             "should have +9 in o_m2m_avatar_empty");
 
-        list.$('.o_data_row:eq(1) .o_field_many2manytags .o_m2m_avatar_empty').trigger($.Event('mouseenter'));
+        list.$('.o_data_row:eq(1) .o_field_many2manytags .o_m2m_avatar_empty')[0].dispatchEvent(new Event('mouseover'));
         await testUtils.nextTick();
         assert.containsOnce(list, '.popover',
             "should open a popover hover on o_m2m_avatar_empty");
@@ -2236,7 +2284,7 @@ QUnit.module('relational_fields', {
         assert.strictEqual(kanban.$('.o_kanban_record:eq(3) .o_field_many2manytags .o_m2m_avatar_empty').text().trim(), "9+",
             "should have 9+ in o_m2m_avatar_empty");
 
-        kanban.$('.o_kanban_record:eq(2) .o_field_many2manytags .o_m2m_avatar_empty').trigger($.Event('mouseenter'));
+        kanban.$('.o_kanban_record:eq(2) .o_field_many2manytags .o_m2m_avatar_empty')[0].dispatchEvent(new Event('mouseover'));
         await testUtils.nextTick();
         assert.containsOnce(kanban, '.popover',
             "should open a popover hover on o_m2m_avatar_empty");
@@ -2321,6 +2369,34 @@ QUnit.module('relational_fields', {
 
         var newRecord = _.last(this.data.partner.records);
         assert.strictEqual(newRecord.product_id, 37, "should have saved record with correct value");
+        form.destroy();
+    });
+
+    QUnit.test('required fieldradio widget on a many2one', async function (assert) {
+        assert.expect(6);
+
+        const form = await createView({
+            View: FormView,
+            model: 'partner',
+            data: this.data,
+            arch: '<form>' +
+                '<field name="product_id" widget="radio" required="1"/>' +
+                '</form>',
+        });
+
+        testUtils.mock.intercept(form, 'call_service', function (event) {
+            if (event.data.service === 'notification' && event.data.method === 'notify') {
+                assert.step('danger');
+                assert.equal(event.data.args[0].type, 'danger');
+                assert.equal(event.data.args[0].title, 'Invalid fields:');
+                assert.equal(event.data.args[0].message, '<ul><li>Product</li></ul>');
+            }
+        });
+
+        assert.containsNone(form, 'input:checked', "none of the input should be checked");
+
+        await testUtils.form.clickSave(form);
+        assert.verifySteps(['danger']);
         form.destroy();
     });
 
@@ -2693,24 +2769,24 @@ QUnit.module('relational_fields', {
             res_id: 1,
         });
 
-        assert.containsN(form, 'div.o_field_widget div.custom-checkbox', 2,
+        assert.containsN(form, 'div.o_field_widget div.form-check', 2,
             "should have fetched and displayed the 2 values of the many2many");
 
-        assert.ok(form.$('div.o_field_widget div.custom-checkbox input').eq(0).prop('checked'),
+        assert.ok(form.$('div.o_field_widget div.form-check input').eq(0).prop('checked'),
             "first checkbox should be checked");
-        assert.notOk(form.$('div.o_field_widget div.custom-checkbox input').eq(1).prop('checked'),
+        assert.notOk(form.$('div.o_field_widget div.form-check input').eq(1).prop('checked'),
             "second checkbox should not be checked");
 
-        assert.notOk(form.$('div.o_field_widget div.custom-checkbox input').prop('disabled'),
+        assert.notOk(form.$('div.o_field_widget div.form-check input').prop('disabled'),
             "the checkboxes should not be disabled");
 
         await testUtils.form.clickEdit(form);
 
-        assert.notOk(form.$('div.o_field_widget div.custom-checkbox input').prop('disabled'),
+        assert.notOk(form.$('div.o_field_widget div.form-check input').prop('disabled'),
             "the checkboxes should not be disabled");
 
         // add a m2m value by clicking on input
-        await testUtils.dom.click(form.$('div.o_field_widget div.custom-checkbox input').eq(1));
+        await testUtils.dom.click(form.$('div.o_field_widget div.form-check input').eq(1));
         await testUtils.form.clickSave(form);
         assert.deepEqual(this.data.partner.records[0].timmy, [12, 14],
             "should have added the second element to the many2many");
@@ -2719,13 +2795,13 @@ QUnit.module('relational_fields', {
 
         // remove a m2m value by clinking on label
         await testUtils.form.clickEdit(form);
-        await testUtils.dom.click(form.$('div.o_field_widget div.custom-checkbox > label').eq(0));
+        await testUtils.dom.click(form.$('div.o_field_widget div.form-check > label').eq(0));
         await testUtils.form.clickSave(form);
         assert.deepEqual(this.data.partner.records[0].timmy, [14],
             "should have removed the first element to the many2many");
-        assert.notOk(form.$('div.o_field_widget div.custom-checkbox input').eq(0).prop('checked'),
+        assert.notOk(form.$('div.o_field_widget div.form-check input').eq(0).prop('checked'),
             "first checkbox should be checked");
-        assert.ok(form.$('div.o_field_widget div.custom-checkbox input').eq(1).prop('checked'),
+        assert.ok(form.$('div.o_field_widget div.form-check input').eq(1).prop('checked'),
             "second checkbox should not be checked");
 
         form.destroy();
@@ -2749,27 +2825,27 @@ QUnit.module('relational_fields', {
             res_id: 1,
         });
 
-        assert.containsN(form, 'div.o_field_widget div.custom-checkbox', 2,
+        assert.containsN(form, 'div.o_field_widget div.form-check', 2,
             "should have fetched and displayed the 2 values of the many2many");
 
-        assert.ok(form.$('div.o_field_widget div.custom-checkbox input').eq(0).prop('checked'),
+        assert.ok(form.$('div.o_field_widget div.form-check input').eq(0).prop('checked'),
             "first checkbox should be checked");
-        assert.notOk(form.$('div.o_field_widget div.custom-checkbox input').eq(1).prop('checked'),
+        assert.notOk(form.$('div.o_field_widget div.form-check input').eq(1).prop('checked'),
             "second checkbox should not be checked");
 
-        assert.ok(form.$('div.o_field_widget div.custom-checkbox input').prop('disabled'),
+        assert.ok(form.$('div.o_field_widget div.form-check input').prop('disabled'),
             "the checkboxes should be disabled");
 
         await testUtils.form.clickEdit(form);
 
-        assert.ok(form.$('div.o_field_widget div.custom-checkbox input').prop('disabled'),
+        assert.ok(form.$('div.o_field_widget div.form-check input').prop('disabled'),
             "the checkboxes should be disabled");
 
-        await testUtils.dom.click(form.$('div.o_field_widget div.custom-checkbox > label').eq(1));
+        await testUtils.dom.click(form.$('div.o_field_widget div.form-check > label').eq(1));
 
-        assert.ok(form.$('div.o_field_widget div.custom-checkbox input').eq(0).prop('checked'),
+        assert.ok(form.$('div.o_field_widget div.form-check input').eq(0).prop('checked'),
             "first checkbox should be checked");
-        assert.notOk(form.$('div.o_field_widget div.custom-checkbox input').eq(1).prop('checked'),
+        assert.notOk(form.$('div.o_field_widget div.form-check input').eq(1).prop('checked'),
             "second checkbox should not be checked");
 
         form.destroy();
@@ -2790,12 +2866,12 @@ QUnit.module('relational_fields', {
             viewOptions: {mode: 'edit'},
         });
 
-        await testUtils.dom.click(form.$('div.o_field_widget div.custom-checkbox input').eq(0));
-        await testUtils.dom.click(form.$('div.o_field_widget div.custom-checkbox input').eq(1));
+        await testUtils.dom.click(form.$('div.o_field_widget div.form-check input').eq(0));
+        await testUtils.dom.click(form.$('div.o_field_widget div.form-check input').eq(1));
         await testUtils.form.clickSave(form);
-        assert.notOk(form.$('div.o_field_widget div.custom-checkbox input').eq(0).prop('checked'),
+        assert.notOk(form.$('div.o_field_widget div.form-check input').eq(0).prop('checked'),
             "first checkbox should not be checked");
-        assert.notOk(form.$('div.o_field_widget div.custom-checkbox input').eq(1).prop('checked'),
+        assert.notOk(form.$('div.o_field_widget div.form-check input').eq(1).prop('checked'),
             "second checkbox should not be checked");
 
         form.destroy();
@@ -2819,12 +2895,12 @@ QUnit.module('relational_fields', {
         });
 
         assert.strictEqual(form.$('.o_field_widget[name=int_field]').val(), '10');
-        assert.containsN(form, '.o_field_widget[name=timmy] .custom-checkbox', 2);
+        assert.containsN(form, '.o_field_widget[name=timmy] .form-check', 2);
         assert.strictEqual(form.$('.o_field_widget[name=timmy] .o_form_label').text(), 'goldsilver');
 
         await testUtils.fields.editInput(form.$('.o_field_widget[name=int_field]'), 13);
 
-        assert.containsOnce(form, '.o_field_widget[name=timmy] .custom-checkbox');
+        assert.containsOnce(form, '.o_field_widget[name=timmy] .form-check');
         assert.strictEqual(form.$('.o_field_widget[name=timmy] .o_form_label').text(), 'silver');
 
         form.destroy();
@@ -3811,7 +3887,7 @@ QUnit.module('relational_fields', {
         // bar is false so there should be 1 column
         assert.containsOnce(form, 'th:not(.o_list_record_remove_header)',
             "should be only 1 column ('foo') in the one2many");
-        assert.containsOnce(form, '.o_list_view .o_data_row', "should contain one row");
+        assert.containsOnce(form, '.o_legacy_list_view .o_data_row', "should contain one row");
 
         await testUtils.form.clickEdit(form);
 
@@ -3952,7 +4028,7 @@ QUnit.module('relational_fields', {
 
         // check after form reload advanced column hidden or shown are still preserved
         await form.reload();
-        assert.containsN(form.$('.o_field_one2many .o_list_view'), 'th', 3,
+        assert.containsN(form.$('.o_field_one2many .o_legacy_list_view'), 'th', 3,
             "should still have 3 th in the one2many after reloading whole form view");
 
         form.destroy();
@@ -4191,14 +4267,14 @@ QUnit.module('relational_fields', {
 
         await testUtils.fields.editInput(form.$('.o_field_many2one input'), 'ABC');
         // click create and edit
-        await testUtils.dom.click($('.ui-autocomplete .ui-menu-item a:contains(Create and)').trigger('mouseenter'));
+        testUtils.dom.click($('.ui-autocomplete .ui-menu-item a:contains(Create and)').trigger('mouseenter'));
 
         // hit escape immediately
         var escapeKey = $.ui.keyCode.ESCAPE;
         $(document.activeElement).trigger(
             $.Event('keydown', {which: escapeKey, keyCode: escapeKey}));
 
-        assert.ok('did not crash');
+        assert.containsNone(document.body, ".modal");
         relationalFields.FieldMany2One.prototype.AUTOCOMPLETE_DELAY = M2O_DELAY;
         form.destroy();
     });

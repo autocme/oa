@@ -11,13 +11,13 @@ import werkzeug.wrappers
 from datetime import datetime
 
 from odoo import http, tools, _
+from odoo.exceptions import AccessError
 from odoo.addons.http_routing.models.ir_http import slug
 from odoo.addons.website.models.ir_http import sitemap_qs2dom
 from odoo.addons.website_profile.controllers.main import WebsiteProfile
 
 from odoo.exceptions import UserError
 from odoo.http import request
-from odoo.osv import expression
 
 
 _logger = logging.getLogger(__name__)
@@ -37,7 +37,19 @@ class WebsiteForum(WebsiteProfile):
         if kwargs.get('forum'):
             values['forum'] = kwargs.get('forum')
         elif kwargs.get('forum_id'):
-            values['forum'] = request.env['forum.forum'].browse(kwargs.pop('forum_id'))
+            values['forum'] = request.env['forum.forum'].browse(int(kwargs.pop('forum_id')))
+        return values
+
+    def _prepare_mark_as_offensive_values(self, post, **kwargs):
+        offensive_reasons = request.env['forum.post.reason'].search([('reason_type', '=', 'offensive')])
+
+        values = self._prepare_user_values(**kwargs)
+        values.update({
+            'question': post,
+            'forum': post.forum_id,
+            'reasons': offensive_reasons,
+            'offensive': True,
+        })
         return values
 
     # Forum
@@ -53,29 +65,6 @@ class WebsiteForum(WebsiteProfile):
         return request.render("website_forum.forum_all", {
             'forums': forums
         })
-
-    @http.route('/forum/new', type='json', auth="user", methods=['POST'], website=True)
-    def forum_create(self, forum_name="New Forum", forum_mode="questions", forum_privacy="public", forum_privacy_group=False, add_menu=False):
-        forum = {
-            'name': forum_name,
-            'mode': forum_mode,
-            'privacy': forum_privacy,
-            'website_id': request.website.id,
-        }
-        if forum_privacy == 'private' and forum_privacy_group:
-            forum['authorized_group_id'] = forum_privacy_group
-        forum_id = request.env['forum.forum'].create(forum)
-        if add_menu:
-            group = [int(forum_privacy_group)] if forum_privacy == 'private' else [request.env.ref('base.group_portal').id, request.env.ref('base.group_user').id]
-            menu_id = request.env['website.menu'].create({
-                'name': forum_name,
-                'url': "/forum/%s" % slug(forum_id),
-                'parent_id': request.website.menu_id.id,
-                'website_id': request.website.id,
-                'group_ids': [(6, 0, group)]
-            })
-            forum_id.menu_id = menu_id
-        return "/forum/%s" % slug(forum_id)
 
     def sitemap_forum(env, rule, qs):
         Forum = env['forum.forum']
@@ -137,14 +126,14 @@ class WebsiteForum(WebsiteProfile):
             url_args['filters'] = filters
         if my:
             url_args['my'] = my
-        pager = request.website.pager(url=url, total=question_count, page=page,
+        pager = tools.lazy(lambda: request.website.pager(url=url, total=question_count, page=page,
                                       step=self._post_per_page, scope=5,
-                                      url_args=url_args)
+                                      url_args=url_args))
 
         values = self._prepare_user_values(forum=forum, searches=post, header={'ask_hide': not forum.active})
         values.update({
             'main_object': tag or forum,
-            'edit_in_backend': not tag,
+            'edit_in_backend': True,
             'question_ids': question_ids,
             'question_count': question_count,
             'search_count': question_count,
@@ -169,15 +158,9 @@ class WebsiteForum(WebsiteProfile):
         return request.render("website_forum.faq_karma", values)
 
     @http.route('/forum/get_tags', type='http', auth="public", methods=['GET'], website=True, sitemap=False)
-    def tag_read(self, query='', limit=25, **post):
-        # TODO: In master always check the forum_id domain part and add forum_id
-        #       as required method param, not in **post
-        forum_id = post.get('forum_id')
-        domain = [('name', '=ilike', (query or '') + "%")]
-        if forum_id:
-            domain = expression.AND([domain, [('forum_id', '=', int(forum_id))]])
+    def tag_read(self, forum_id, query='', limit=25, **post):
         data = request.env['forum.tag'].search_read(
-            domain=domain,
+            domain=[('forum_id', '=', int(forum_id)), ('name', '=ilike', (query or '') + "%")],
             fields=['id', 'name'],
             limit=int(limit),
         )
@@ -253,6 +236,7 @@ class WebsiteForum(WebsiteProfile):
         values = self._prepare_user_values(forum=forum, searches=post)
         values.update({
             'main_object': question,
+            'edit_in_backend': True,
             'question': question,
             'can_bump': (question.forum_id.allow_bump and not question.child_count and (datetime.today() - question.write_date).days > 9),
             'header': {'question_data': True},
@@ -260,7 +244,7 @@ class WebsiteForum(WebsiteProfile):
             'reversed': reversed,
         })
         if (request.httprequest.referrer or "").startswith(request.httprequest.url_root):
-            values['back_button_url'] = request.httprequest.referrer
+            values['has_back_button_url'] = True
 
         # increment view counter
         question.sudo()._set_viewed()
@@ -529,17 +513,18 @@ class WebsiteForum(WebsiteProfile):
             return {'error': 'anonymous_user'}
         return post.flag()[0]
 
-    @http.route('/forum/<model("forum.forum"):forum>/post/<model("forum.post"):post>/ask_for_mark_as_offensive', type='http', auth="user", methods=['GET'], website=True)
-    def post_ask_for_mark_as_offensive(self, forum, post, **kwargs):
-        offensive_reasons = request.env['forum.post.reason'].search([('reason_type', '=', 'offensive')])
+    @http.route('/forum/<model("forum.post"):post>/ask_for_mark_as_offensive', type='json', auth="user", website=True)
+    def post_json_ask_for_mark_as_offensive(self, post, **kwargs):
+        if not post.can_moderate:
+            raise AccessError(_('%d karma required to mark a post as offensive.', post.forum_id.karma_moderate))
+        values = self._prepare_mark_as_offensive_values(post, **kwargs)
+        return request.env['ir.ui.view']._render_template('website_forum.mark_as_offensive', values)
 
-        values = self._prepare_user_values(forum=forum)
-        values.update({
-            'question': post,
-            'forum': forum,
-            'reasons': offensive_reasons,
-            'offensive': True,
-        })
+    @http.route('/forum/<model("forum.forum"):forum>/post/<model("forum.post"):post>/ask_for_mark_as_offensive', type='http', auth="user", methods=['GET'], website=True)
+    def post_http_ask_for_mark_as_offensive(self, forum, post, **kwargs):
+        if not post.can_moderate:
+            raise AccessError(_('%d karma required to mark a post as offensive.', forum.karma_moderate))
+        values = self._prepare_mark_as_offensive_values(post, **kwargs)
         return request.render("website_forum.close_post", values)
 
     @http.route('/forum/<model("forum.forum"):forum>/post/<model("forum.post"):post>/mark_as_offensive', type='http', auth="user", methods=["POST"], website=True)

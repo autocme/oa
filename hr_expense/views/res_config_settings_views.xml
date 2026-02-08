@@ -23,9 +23,9 @@
                                         Create expenses from incoming emails
                                     </div>
                                     <div class="content-group" attrs="{'invisible': ['|', ('use_mailgateway', '=',  False), ('alias_domain', 'in', ['localhost', '', False])]}">
-                                        <div class="mt16">
+                                        <div class="mt16" dir="ltr">
                                             <label for="expense_alias_prefix" string="Alias" class="o_light_label"/>
-                                            <field name="expense_alias_prefix" class="oe_inline"/>
+                                            <field name="expense_alias_prefix" class="oe_inline ps-2"/>
                                             <span>@</span>
                                             <field name="alias_domain" class="oe_inline" readonly="1" force_save="1"/>
                                         </div>
@@ -59,6 +59,35 @@
                                         Digitalize your receipts with OCR and Artificial Intelligence
                                     </div>
                                 </div>   
+                            </div>
+                        </div>
+                        <h2>Default Journals</h2>
+                        <div class="row mt16 o_settings_container">
+                            <div class="col-12 col-lg-6 o_setting_box">
+                                <div class="o_setting_left_pane"></div>
+                                <div class="o_setting_right_pane">
+                                    <span class="o_form_label">Employee Expense Journal</span>
+                                    <span class="fa fa-lg fa-building-o" title="Values set here are company-specific." role="img" aria-label="Values set here are company-specific." groups="base.group_multi_company"/>
+                                    <div class="text-muted">
+                                        Default accounting journal for expenses paid by employees.
+                                    </div>
+                                    <div class="row mt8">
+                                        <field name="expense_journal_id"/>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-12 col-lg-6 o_setting_box">
+                                <div class="o_setting_left_pane"></div>
+                                <div class="o_setting_right_pane">
+                                    <span class="o_form_label">Company Expense Journal</span>
+                                    <span class="fa fa-lg fa-building-o" title="Values set here are company-specific." role="img" aria-label="Values set here are company-specific." groups="base.group_multi_company"/>
+                                    <div class="text-muted">
+                                        Default accounting journal for expenses paid by the company.
+                                    </div>
+                                    <div class="row mt8">
+                                        <field name="company_expense_journal_id"/>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>

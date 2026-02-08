@@ -1,25 +1,27 @@
-# -*- coding: utf-8 -*-
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
+import contextlib
 import io
 import json
 import logging
 import re
 import time
 import requests
+import werkzeug.exceptions
 import werkzeug.urls
-import werkzeug.wrappers
 from PIL import Image, ImageFont, ImageDraw
 from lxml import etree
 from base64 import b64decode, b64encode
 from math import floor
 
-from odoo.http import request
+from odoo.http import request, Response
 from odoo import http, tools, _, SUPERUSER_ID
 from odoo.addons.http_routing.models.ir_http import slug, unslug
-from odoo.exceptions import UserError, ValidationError
+from odoo.addons.web_editor.tools import get_video_url_data
+from odoo.exceptions import UserError, MissingError, ValidationError
 from odoo.modules.module import get_resource_path
+from odoo.tools import file_open
 from odoo.tools.mimetypes import guess_mimetype
-from odoo.tools.image import image_data_uri, base64_to_image
+from odoo.tools.image import image_data_uri, binary_to_image
 from odoo.addons.base.models.assetsbundle import AssetsBundle
 
 from ..models.ir_attachment import SUPPORTED_IMAGE_EXTENSIONS, SUPPORTED_IMAGE_MIMETYPES
@@ -27,7 +29,7 @@ from ..models.ir_attachment import SUPPORTED_IMAGE_EXTENSIONS, SUPPORTED_IMAGE_M
 logger = logging.getLogger(__name__)
 DEFAULT_LIBRARY_ENDPOINT = 'https://media-api.odoo.com'
 
-diverging_history_regex = 'data-last-history-steps="([0-9,]*?)"'
+diverging_history_regex = 'data-last-history-steps="([0-9,]+)"'
 
 def ensure_no_history_divergence(record, html_field_name, incoming_history_ids):
     server_history_matches = re.search(diverging_history_regex, record[html_field_name] or '')
@@ -38,9 +40,14 @@ def ensure_no_history_divergence(record, html_field_name, incoming_history_ids):
             logger.warning('The document was already saved from someone with a different history for model %r, field %r with id %r.', record._name, html_field_name, record.id)
             raise ValidationError(_('The document was already saved from someone with a different history for model %r, field %r with id %r.', record._name, html_field_name, record.id))
 
+# This method must be called in a context that has write access to the record as
+# it will write to the bus.
 def handle_history_divergence(record, html_field_name, vals):
     # Do not handle history divergence if the field is not in the values.
     if html_field_name not in vals:
+        return
+    # Do not handle history divergence if in module installation mode.
+    if record.env.context.get('install_module'):
         return
     incoming_html = vals[html_field_name]
     incoming_history_matches = re.search(diverging_history_regex, incoming_html or '')
@@ -48,16 +55,57 @@ def handle_history_divergence(record, html_field_name, vals):
     # comes from the odoo editor or the collaboration was not activated. In
     # project, it could come from the collaboration pad. In that case, we do not
     # handle history divergences.
+    if request:
+        channel = (request.db, 'editor_collaboration', record._name, html_field_name, record.id)
     if incoming_history_matches is None:
+        if request:
+            bus_data = {
+                'model_name': record._name,
+                'field_name': html_field_name,
+                'res_id': record.id,
+                'notificationName': 'html_field_write',
+                'notificationPayload': {'last_step_id': None},
+            }
+            request.env['bus.bus']._sendone(channel, 'editor_collaboration', bus_data)
         return
     incoming_history_ids = incoming_history_matches[1].split(',')
-    incoming_last_history_id = incoming_history_ids[-1]
+    last_step_id = incoming_history_ids[-1]
+
+    bus_data = {
+        'model_name': record._name,
+        'field_name': html_field_name,
+        'res_id': record.id,
+        'notificationName': 'html_field_write',
+        'notificationPayload': {'last_step_id': last_step_id},
+    }
+    if request:
+        request.env['bus.bus']._sendone(channel, 'editor_collaboration', bus_data)
 
     if record[html_field_name]:
         ensure_no_history_divergence(record, html_field_name, incoming_history_ids)
 
     # Save only the latest id.
-    vals[html_field_name] = incoming_html[0:incoming_history_matches.start(1)] + incoming_last_history_id + incoming_html[incoming_history_matches.end(1):]
+    vals[html_field_name] = incoming_html[0:incoming_history_matches.start(1)] + last_step_id + incoming_html[incoming_history_matches.end(1):]
+
+def get_existing_attachment(IrAttachment, vals):
+    """
+    Check if an attachment already exists for the same vals. Return it if
+    so, None otherwise.
+    """
+    fields = dict(vals)
+    # Falsy res_id defaults to 0 on attachment creation.
+    fields['res_id'] = fields.get('res_id') or 0
+    raw, datas = fields.pop('raw', None), fields.pop('datas', None)
+    domain = [(field, '=', value) for field, value in fields.items()]
+    if fields.get('type') == 'url':
+        if 'url' not in fields:
+            return None
+        domain.append(('checksum', '=', False))
+    else:
+        if not (raw or datas):
+            return None
+        domain.append(('checksum', '=', IrAttachment._compute_checksum(raw or b64decode(datas))))
+    return IrAttachment.search(domain, limit=1) or None
 
 class Web_Editor(http.Controller):
     #------------------------------------------------------
@@ -75,7 +123,7 @@ class Web_Editor(http.Controller):
         '/web_editor/font_to_img/<icon>/<color>/<bg>/<int:width>x<int:height>',
         '/web_editor/font_to_img/<icon>/<color>/<bg>/<int:width>x<int:height>/<int:alpha>',
         ], type='http', auth="none")
-    def export_icon_to_png(self, icon, color='#000', bg=None, size=100, alpha=255, font='/web/static/lib/fontawesome/fonts/fontawesome-webfont.ttf', width=None, height=None):
+    def export_icon_to_png(self, icon, color='#000', bg=None, size=100, alpha=255, font='/web/static/src/libs/fontawesome/fonts/fontawesome-webfont.ttf', width=None, height=None):
         """ This method converts an unicode character to an image (using Font
             Awesome font by default) and is used only for mass mailing because
             custom fonts are not supported in mail.
@@ -108,8 +156,9 @@ class Web_Editor(http.Controller):
         width = max(1, min(width, 512))
         height = max(1, min(height, 512))
         # Initialize font
-        with tools.file_open(font.lstrip('/'), 'rb') as f:
-            font_obj = ImageFont.truetype(f, size)
+        if font.startswith('/'):
+            font = font[1:]
+        font_obj = ImageFont.truetype(file_open(font, 'rb'), height)
 
         # if received character is not a number, keep old behaviour (icon is character)
         icon = chr(int(icon)) if icon.isdigit() else icon
@@ -161,7 +210,7 @@ class Web_Editor(http.Controller):
         # output image
         output = io.BytesIO()
         outimage.save(output, format="PNG")
-        response = werkzeug.wrappers.Response()
+        response = Response()
         response.mimetype = 'image/png'
         response.data = output.getvalue()
         response.headers['Cache-Control'] = 'public, max-age=604800'
@@ -179,11 +228,11 @@ class Web_Editor(http.Controller):
     @http.route('/web_editor/checklist', type='json', auth='user')
     def update_checklist(self, res_model, res_id, filename, checklistId, checked, **kwargs):
         record = request.env[res_model].browse(res_id)
-        value = filename in record._fields and record[filename]
+        value = filename in record._fields and record.read([filename])[0][filename]
         htmlelem = etree.fromstring("<div>%s</div>" % value, etree.HTMLParser())
         checked = bool(checked)
 
-        li = htmlelem.find(".//li[@id='checklist-id-" + str(checklistId) + "']")
+        li = htmlelem.find(".//li[@id='checkId-%s']" % checklistId)
 
         if li is None:
             return value
@@ -203,24 +252,74 @@ class Web_Editor(http.Controller):
 
         return value
 
+    #------------------------------------------------------
+    # Update a stars rating in the editor on check/uncheck
+    #------------------------------------------------------
+    @http.route('/web_editor/stars', type='json', auth='user')
+    def update_stars(self, res_model, res_id, filename, starsId, rating):
+        record = request.env[res_model].browse(res_id)
+        value = filename in record._fields and record.read([filename])[0][filename]
+        htmlelem = etree.fromstring("<div>%s</div>" % value, etree.HTMLParser())
+
+        stars_widget = htmlelem.find(".//span[@id='checkId-%s']" % starsId)
+
+        if stars_widget is None:
+            return value
+
+        # Check the `rating` first stars and uncheck the others if any.
+        stars = []
+        for star in stars_widget.getchildren():
+            if 'fa-star' in star.get('class', ''):
+                stars.append(star)
+        star_index = 0
+        for star in stars:
+            classname = star.get('class', '')
+            if star_index < rating and (not 'fa-star' in classname or 'fa-star-o' in classname):
+                classname = re.sub(r"\s?fa-star-o\s?", '', classname)
+                classname = '%s fa-star' % classname
+                star.set('class', classname)
+            elif star_index >= rating and not 'fa-star-o' in classname:
+                classname = re.sub(r"\s?fa-star\s?", '', classname)
+                classname = '%s fa-star-o' % classname
+                star.set('class', classname)
+            star_index += 1
+
+        value = etree.tostring(htmlelem[0][0], encoding='utf-8', method='html')[5:-6]
+        record.write({filename: value})
+
+        return value
+
+    @http.route('/web_editor/video_url/data', type='json', auth='user', website=True)
+    def video_url_data(self, video_url, autoplay=False, loop=False,
+                       hide_controls=False, hide_fullscreen=False, hide_yt_logo=False,
+                       hide_dm_logo=False, hide_dm_share=False):
+        # TODO: In Master, remove the parameter "hide_yt_logo" (the parameter is
+        # no longer supported in the YouTube API.)
+        if not request.env.user._is_internal():
+            raise werkzeug.exceptions.Forbidden()
+        return get_video_url_data(
+            video_url, autoplay=autoplay, loop=loop,
+            hide_controls=hide_controls, hide_fullscreen=hide_fullscreen,
+            hide_dm_logo=hide_dm_logo, hide_dm_share=hide_dm_share
+        )
+
     @http.route('/web_editor/attachment/add_data', type='json', auth='user', methods=['POST'], website=True)
-    def add_data(self, name, data, is_image, quality=0, width=0, height=0, res_id=False, res_model='ir.ui.view', generate_access_token=False, **kwargs):
+    def add_data(self, name, data, is_image, quality=0, width=0, height=0, res_id=False, res_model='ir.ui.view', **kwargs):
+        data = b64decode(data)
         if is_image:
             format_error_msg = _("Uploaded image's format is not supported. Try with: %s", ', '.join(SUPPORTED_IMAGE_EXTENSIONS))
             try:
-                data = tools.image_process(data, size=(width, height), quality=quality, verify_resolution=True)
-                mimetype = guess_mimetype(b64decode(data))
+                mimetype = guess_mimetype(data)
                 if mimetype not in SUPPORTED_IMAGE_MIMETYPES:
                     return {'error': format_error_msg}
-            except UserError:
-                # considered as an image by the browser file input, but not
-                # recognized as such by PIL, eg .webp
-                return {'error': format_error_msg}
-            except ValueError as e:
+                data = tools.image_process(data, size=(width, height), quality=quality, verify_resolution=True)
+            except (ValueError, UserError) as e:
+                # When UserError thrown, browser considers file input an
+                # image but not recognized as such by PIL, eg .webp
                 return {'error': e.args[0]}
 
         self._clean_context()
-        attachment = self._attachment_create(name=name, data=data, res_id=res_id, res_model=res_model, generate_access_token=generate_access_token)
+        attachment = self._attachment_create(name=name, data=data, res_id=res_id, res_model=res_model)
         return attachment._get_media_info()
 
     @http.route('/web_editor/attachment/add_url', type='json', auth='user', methods=['POST'], website=True)
@@ -267,15 +366,17 @@ class Web_Editor(http.Controller):
         it can be used as a base to modify it again (crop/optimization/filters).
         """
         attachment = None
-        id_match = re.search('^/web/image/([^/?]+)', src)
-        if id_match:
-            url_segment = id_match.group(1)
-            number_match = re.match(r'^(\d+)', url_segment)
-            if '.' in url_segment: # xml-id
-                attachment = request.env['ir.http']._xmlid_to_obj(request.env, url_segment)
-            elif number_match: # numeric id
-                attachment = request.env['ir.attachment'].browse(int(number_match.group(1)))
-        else:
+        if src.startswith('/web/image'):
+            with contextlib.suppress(werkzeug.exceptions.NotFound, MissingError):
+                _, args = request.env['ir.http']._match(src)
+                record = request.env['ir.binary']._find_record(
+                    xmlid=args.get('xmlid'),
+                    res_model=args.get('model', 'ir.attachment'),
+                    res_id=args.get('id'),
+                )
+                if record._name == 'ir.attachment':
+                    attachment = record
+        if not attachment:
             # Find attachment by url. There can be multiple matches because of default
             # snippet images referencing the same image in /static/, so we limit to 1
             attachment = request.env['ir.attachment'].search([
@@ -292,8 +393,10 @@ class Web_Editor(http.Controller):
             'original': (attachment.original_id or attachment).read(['id', 'image_src', 'mimetype'])[0],
         }
 
-    def _attachment_create(self, name='', data=False, url=False, res_id=False, res_model='ir.ui.view', generate_access_token=False):
+    def _attachment_create(self, name='', data=False, url=False, res_id=False, res_model='ir.ui.view'):
         """Create and return a new attachment."""
+        IrAttachment = request.env['ir.attachment']
+
         if name.lower().endswith('.bmp'):
             # Avoid mismatch between content type and mimetype, see commit msg
             name = name[:-4]
@@ -314,7 +417,9 @@ class Web_Editor(http.Controller):
         }
 
         if data:
-            attachment_data['datas'] = data
+            attachment_data['raw'] = data
+            if url:
+                attachment_data['url'] = url
         elif url:
             attachment_data.update({
                 'type': 'url',
@@ -323,9 +428,22 @@ class Web_Editor(http.Controller):
         else:
             raise UserError(_("You need to specify either data or url to create an attachment."))
 
-        attachment = request.env['ir.attachment'].create(attachment_data)
-        if generate_access_token:
-            attachment.generate_access_token()
+        # Despite the user having no right to create an attachment, he can still
+        # create an image attachment through some flows
+        if (
+            not request.env.is_admin()
+            and IrAttachment._can_bypass_rights_on_media_dialog(**attachment_data)
+        ):
+            attachment = IrAttachment.sudo().create(attachment_data)
+            # When portal users upload an attachment with the wysiwyg widget,
+            # the access token is needed to use the image in the editor. If
+            # the attachment is not public, the user won't be able to generate
+            # the token, so we need to generate it using sudo
+            if not attachment_data['public']:
+                attachment.sudo().generate_access_token()
+        else:
+            attachment = get_existing_attachment(IrAttachment, attachment_data) \
+                or IrAttachment.create(attachment_data)
 
         return attachment
 
@@ -333,7 +451,7 @@ class Web_Editor(http.Controller):
         # avoid allowed_company_ids which may erroneously restrict based on website
         context = dict(request.context)
         context.pop('allowed_company_ids', None)
-        request.context = context
+        request.update_env(context=context)
 
     @http.route("/web_editor/get_assets_editor_resources", type="json", auth="user", website=True)
     def get_assets_editor_resources(self, key, get_views=True, get_scss=True, get_js=True, bundles=False, bundles_restriction=[], only_user_custom_files=True):
@@ -416,7 +534,7 @@ class Web_Editor(http.Controller):
                         continue
 
                     # Check if the file is customized and get bundle/path info
-                    file_data = AssetsUtils.get_asset_info(url)
+                    file_data = AssetsUtils._get_data_from_url(url)
                     if not file_data:
                         continue
 
@@ -463,14 +581,14 @@ class Web_Editor(http.Controller):
         urls = []
         for bundle_data in files_data_by_bundle:
             urls += bundle_data[1]
-        custom_attachments = AssetsUtils.get_all_custom_attachments(urls)
+        custom_attachments = AssetsUtils._get_custom_attachment(urls, op='in')
 
         for bundle_data in files_data_by_bundle:
             for i in range(0, len(bundle_data[1])):
                 url = bundle_data[1][i]
                 url_info = url_infos[url]
 
-                content = AssetsUtils.get_asset_content(url, url_info, custom_attachments)
+                content = AssetsUtils._get_content_from_url(url, url_info, custom_attachments)
 
                 bundle_data[1][i] = {
                     'url': "/%s/%s" % (url_info["module"], url_info["resource_path"]),
@@ -479,56 +597,6 @@ class Web_Editor(http.Controller):
                 }
 
         return files_data_by_bundle
-
-    @http.route("/web_editor/save_asset", type="json", auth="user", website=True)
-    def save_asset(self, url, bundle, content, file_type):
-        """
-        Save a given modification of a scss/js file.
-
-        Params:
-            url (str):
-                the original url of the scss/js file which has to be modified
-
-            bundle (str):
-                the name of the bundle in which the scss/js file addition can
-                be found
-
-            content (str): the new content of the scss/js file
-
-            file_type (str): 'scss' or 'js'
-        """
-        request.env['web_editor.assets'].save_asset(url, bundle, content, file_type)
-
-    @http.route("/web_editor/reset_asset", type="json", auth="user", website=True)
-    def reset_asset(self, url, bundle):
-        """
-        The reset_asset route is in charge of reverting all the changes that
-        were done to a scss/js file.
-
-        Params:
-            url (str):
-                the original URL of the scss/js file to reset
-
-            bundle (str):
-                the name of the bundle in which the scss/js file addition can
-                be found
-        """
-        request.env['web_editor.assets'].reset_asset(url, bundle)
-
-    @http.route("/web_editor/public_render_template", type="json", auth="public", website=True)
-    def public_render_template(self, args):
-        # args[0]: xml id of the template to render
-        # args[1]: optional dict of rendering values, only trusted keys are supported
-        len_args = len(args)
-        assert len_args >= 1 and len_args <= 2, 'Need a xmlID and potential rendering values to render a template'
-
-        trusted_value_keys = ('debug',)
-
-        xmlid = args[0]
-        values = len_args > 1 and args[1] or {}
-
-        View = request.env['ir.ui.view']
-        return View.render_public_asset(xmlid, {k: values[k] for k in values if k in trusted_value_keys})
 
     @http.route('/web_editor/modify_image/<model("ir.attachment"):attachment>', type="json", auth="user", website=True)
     def modify_image(self, attachment, res_model=None, res_id=None, name=None, data=None, original_id=None, mimetype=None):
@@ -549,7 +617,11 @@ class Web_Editor(http.Controller):
             fields['res_id'] = res_id
         if name:
             fields['name'] = name
-        attachment = attachment.copy(fields)
+        existing_attachment = get_existing_attachment(request.env['ir.attachment'], fields)
+        if existing_attachment and not existing_attachment.url:
+            attachment = existing_attachment
+        else:
+            attachment = attachment.copy(fields)
         if attachment.url:
             # Don't keep url if modifying static attachment because static images
             # are only served from disk and don't fallback to attachments.
@@ -597,7 +669,7 @@ class Web_Editor(http.Controller):
         }
         bundle_css = None
         regex_hex = r'#[0-9A-F]{6,8}'
-        regex_rgba = r'rgba?\(\d{1,3}, ?\d{1,3}, ?\d{1,3}(?:, ?[0-9.]{1,4})?\)'
+        regex_rgba = r'rgba?\(\d{1,3},\d{1,3},\d{1,3}(?:,[0-9.]{1,4})?\)'
         for key, value in options.items():
             colorMatch = re.match('^c([1-5])$', key)
             if colorMatch:
@@ -650,7 +722,7 @@ class Web_Editor(http.Controller):
                 ], limit=1)
                 if not attachment:
                     raise werkzeug.exceptions.NotFound()
-            svg = b64decode(attachment.datas).decode('utf-8')
+            svg = attachment.raw.decode('utf-8')
         else:
             svg = self._get_shape_svg(module, 'shapes', filename)
 
@@ -671,18 +743,30 @@ class Web_Editor(http.Controller):
     @http.route(['/web_editor/image_shape/<string:img_key>/<module>/<path:filename>'], type='http', auth="public", website=True)
     def image_shape(self, module, filename, img_key, **kwargs):
         svg = self._get_shape_svg(module, 'image_shapes', filename)
-        _, _, image_base64 = request.env['ir.http'].binary_content(
-            xmlid=img_key, model='ir.attachment', field='datas', default_mimetype='image/png')
-        if not image_base64:
-            image_base64 = b64encode(request.env['ir.http']._placeholder())
-        image = base64_to_image(image_base64)
-        width, height = tuple(str(size) for size in image.size)
+
+        record = request.env['ir.binary']._find_record(img_key)
+        stream = request.env['ir.binary']._get_image_stream_from(record)
+        if stream.type == 'url':
+            return stream.get_response()
+
+        image = stream.read()
+        img = binary_to_image(image)
+        width, height = tuple(str(size) for size in img.size)
         root = etree.fromstring(svg)
+
+        if root.attrib.get("data-forced-size"):
+            # Adjusts the SVG height to ensure the image fits properly within
+            # the SVG (e.g. for "devices" shapes).
+            svgHeight = float(root.attrib.get("height"))
+            svgWidth = float(root.attrib.get("width"))
+            svgAspectRatio = svgWidth / svgHeight
+            height = str(float(width) / svgAspectRatio)
+
         root.attrib.update({'width': width, 'height': height})
         # Update default color palette on shape SVG.
         svg, _ = self._update_svg_colors(kwargs, etree.tostring(root, pretty_print=True).decode('utf-8'))
         # Add image in base64 inside the shape.
-        uri = image_data_uri(image_base64)
+        uri = image_data_uri(b64encode(image))
         svg = svg.replace('<image xlink:href="', '<image xlink:href="%s' % uri)
 
         return request.make_response(svg, [
@@ -730,17 +814,21 @@ class Web_Editor(http.Controller):
         for id, url in response.json().items():
             req = requests.get(url)
             name = '_'.join([media[id]['query'], url.split('/')[-1]])
-            # Need to bypass security check to write image with mimetype image/svg+xml
-            # ok because svgs come from whitelisted origin
-            context = {'binary_field_real_user': request.env['res.users'].sudo().browse([SUPERUSER_ID])}
-            attachment = request.env['ir.attachment'].sudo().with_context(context).create({
+            IrAttachment = request.env['ir.attachment']
+            attachment_data = {
                 'name': name,
                 'mimetype': req.headers['content-type'],
                 'datas': b64encode(req.content),
                 'public': True,
                 'res_model': 'ir.ui.view',
                 'res_id': 0,
-            })
+            }
+            attachment = get_existing_attachment(IrAttachment, attachment_data)
+            # Need to bypass security check to write image with mimetype image/svg+xml
+            # ok because svgs come from whitelisted origin
+            if not attachment:
+                context = {'binary_field_real_user': request.env['res.users'].sudo().browse([SUPERUSER_ID])}
+                attachment = IrAttachment.sudo().with_context(context).create(attachment_data)
             if media[id]['is_dynamic_svg']:
                 colorParams = werkzeug.urls.url_encode(media[id]['dynamic_colors'])
                 attachment['url'] = '/web_editor/shape/illustration/%s?%s' % (slug(attachment), colorParams)
@@ -766,6 +854,10 @@ class Web_Editor(http.Controller):
         channel = (request.db, 'editor_collaboration', model_name, field_name, int(res_id))
         bus_data.update({'model_name': model_name, 'field_name': field_name, 'res_id': res_id})
         request.env['bus.bus']._sendone(channel, 'editor_collaboration', bus_data)
+
+    @http.route('/web_editor/tests', type='http', auth="user")
+    def test_suite(self, mod=None, **kwargs):
+        return request.render('web_editor.tests')
 
     @http.route("/web_editor/ensure_common_history", type="json", auth="user")
     def ensure_common_history(self, model_name, field_name, res_id, history_ids):

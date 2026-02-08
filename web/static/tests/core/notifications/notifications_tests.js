@@ -4,9 +4,9 @@ import { browser } from "@web/core/browser/browser";
 import { notificationService } from "@web/core/notifications/notification_service";
 import { registry } from "@web/core/registry";
 import { makeTestEnv } from "../../helpers/mock_env";
-import { click, getFixture, nextTick, patchWithCleanup } from "../../helpers/utils";
+import { click, getFixture, mount, nextTick, patchWithCleanup } from "../../helpers/utils";
 
-const { mount } = owl;
+import { markup } from "@odoo/owl";
 
 let target;
 const serviceRegistry = registry.category("services");
@@ -25,7 +25,7 @@ QUnit.test("can display a basic notification", async (assert) => {
         .category("main_components")
         .get("NotificationContainer");
     const notifService = env.services.notification;
-    await mount(NotificationContainer, { env, target, props });
+    await mount(NotificationContainer, target, { env, props });
 
     notifService.add("I'm a basic notification");
     await nextTick();
@@ -35,7 +35,20 @@ QUnit.test("can display a basic notification", async (assert) => {
         notif.querySelector(".o_notification_content").textContent,
         "I'm a basic notification"
     );
-    assert.hasClass(notif, "bg-warning");
+    assert.hasClass(notif, "border-warning");
+});
+
+QUnit.test("can display a notification with a className", async (assert) => {
+    const env = await makeTestEnv({ serviceRegistry });
+    const { Component: NotificationContainer, props } = registry
+        .category("main_components")
+        .get("NotificationContainer");
+    const notifService = env.services.notification;
+    await mount(NotificationContainer, target, { env, props });
+
+    notifService.add("I'm a basic notification", { className: "abc" });
+    await nextTick();
+    assert.containsOnce(target, ".o_notification.abc");
 });
 
 QUnit.test("title and message are escaped by default", async (assert) => {
@@ -44,7 +57,7 @@ QUnit.test("title and message are escaped by default", async (assert) => {
         .category("main_components")
         .get("NotificationContainer");
     const notifService = env.services.notification;
-    await mount(NotificationContainer, { env, target, props });
+    await mount(NotificationContainer, target, { env, props });
 
     notifService.add("<i>Some message</i>", { title: "<b>Some title</b>" });
     await nextTick();
@@ -60,22 +73,21 @@ QUnit.test("title and message are escaped by default", async (assert) => {
     );
 });
 
-QUnit.test("notification with messageIsHtml option", async (assert) => {
+QUnit.test("can display a notification with markup content", async (assert) => {
     const env = await makeTestEnv({ serviceRegistry });
     const { Component: NotificationContainer, props } = registry
         .category("main_components")
         .get("NotificationContainer");
     const notifService = env.services.notification;
-    await mount(NotificationContainer, { env, target, props });
+    await mount(NotificationContainer, target, { env, props });
 
-    notifService.add("<i>Some message</i>", { messageIsHtml: true });
+    notifService.add(markup("<b>I'm a <i>markup</i> notification</b>"));
     await nextTick();
     assert.containsOnce(target, ".o_notification");
     const notif = target.querySelector(".o_notification");
-    assert.strictEqual(notif.querySelector(".o_notification_content").textContent, "Some message");
     assert.strictEqual(
         notif.querySelector(".o_notification_content").innerHTML,
-        "<i>Some message</i>"
+        "<b>I'm a <i>markup</i> notification</b>"
     );
 });
 
@@ -85,7 +97,7 @@ QUnit.test("can display a notification of type danger", async (assert) => {
         .category("main_components")
         .get("NotificationContainer");
     const notifService = env.services.notification;
-    await mount(NotificationContainer, { env, target, props });
+    await mount(NotificationContainer, target, { env, props });
 
     notifService.add("I'm a danger notification", { type: "danger" });
     await nextTick();
@@ -95,7 +107,7 @@ QUnit.test("can display a notification of type danger", async (assert) => {
         notif.querySelector(".o_notification_content").textContent,
         "I'm a danger notification"
     );
-    assert.hasClass(notif, "bg-danger");
+    assert.hasClass(notif, "border-danger");
 });
 
 QUnit.test("can display a danger notification with a title", async (assert) => {
@@ -104,7 +116,7 @@ QUnit.test("can display a danger notification with a title", async (assert) => {
         .category("main_components")
         .get("NotificationContainer");
     const notifService = env.services.notification;
-    await mount(NotificationContainer, { env, target, props });
+    await mount(NotificationContainer, target, { env, props });
 
     notifService.add("I'm a danger notification", { title: "Some title", type: "danger" });
     await nextTick();
@@ -115,7 +127,7 @@ QUnit.test("can display a danger notification with a title", async (assert) => {
         notif.querySelector(".o_notification_content").textContent,
         "I'm a danger notification"
     );
-    assert.hasClass(notif, "bg-danger");
+    assert.hasClass(notif, "border-danger");
 });
 
 QUnit.test("can display a notification with a button", async (assert) => {
@@ -124,7 +136,7 @@ QUnit.test("can display a notification with a button", async (assert) => {
         .category("main_components")
         .get("NotificationContainer");
     const notifService = env.services.notification;
-    await mount(NotificationContainer, { env, target, props });
+    await mount(NotificationContainer, target, { env, props });
 
     notifService.add("I'm a notification with button", {
         buttons: [
@@ -156,7 +168,7 @@ QUnit.test("can display a notification with a callback when closed", async (asse
         .category("main_components")
         .get("NotificationContainer");
     const notifService = env.services.notification;
-    await mount(NotificationContainer, { env, target, props });
+    await mount(NotificationContainer, target, { env, props });
 
     notifService.add("I'm a sticky notification", {
         sticky: true,
@@ -187,7 +199,7 @@ QUnit.test("notifications aren't sticky by default", async (assert) => {
         .category("main_components")
         .get("NotificationContainer");
     const notifService = env.services.notification;
-    await mount(NotificationContainer, { env, target, props });
+    await mount(NotificationContainer, target, { env, props });
 
     notifService.add("I'm a notification");
     await nextTick();
@@ -208,7 +220,7 @@ QUnit.test("can display a sticky notification", async (assert) => {
         .category("main_components")
         .get("NotificationContainer");
     const notifService = env.services.notification;
-    await mount(NotificationContainer, { env, target, props });
+    await mount(NotificationContainer, target, { env, props });
 
     notifService.add("I'm a sticky notification", { sticky: true });
     await nextTick();
@@ -221,7 +233,7 @@ QUnit.test("can close sticky notification", async (assert) => {
         .category("main_components")
         .get("NotificationContainer");
     const notifService = env.services.notification;
-    await mount(NotificationContainer, { env, target, props });
+    await mount(NotificationContainer, target, { env, props });
 
     const closeNotif = notifService.add("I'm a sticky notification", { sticky: true });
     await nextTick();
@@ -256,9 +268,9 @@ QUnit.skip("can close sticky notification with wait", async (assert) => {
         .category("main_components")
         .get("NotificationContainer");
     const notifService = env.services.notification;
-    await mount(NotificationContainer, { env, target, props });
+    await mount(NotificationContainer, target, { env, props });
 
-    let id = notifService.create("I'm a sticky notification", { sticky: true });
+    const id = notifService.create("I'm a sticky notification", { sticky: true });
     await nextTick();
     assert.containsOnce(target, ".o_notification");
 
@@ -286,7 +298,7 @@ QUnit.test("can close a non-sticky notification", async (assert) => {
         .category("main_components")
         .get("NotificationContainer");
     const notifService = env.services.notification;
-    await mount(NotificationContainer, { env, target, props });
+    await mount(NotificationContainer, target, { env, props });
 
     const closeNotif = notifService.add("I'm a sticky notification");
     await nextTick();
@@ -316,7 +328,7 @@ QUnit.test("close a non-sticky notification while another one remains", async (a
         .category("main_components")
         .get("NotificationContainer");
     const notifService = env.services.notification;
-    await mount(NotificationContainer, { env, target, props });
+    await mount(NotificationContainer, target, { env, props });
 
     const closeNotif1 = notifService.add("I'm a non-sticky notification");
     const closeNotif2 = notifService.add("I'm a sticky notification", { sticky: true });
@@ -345,7 +357,7 @@ QUnit.test("notification coming when NotificationManager not mounted yet", async
         .category("main_components")
         .get("NotificationContainer");
     const notifService = env.services.notification;
-    mount(NotificationContainer, { env, target, props });
+    mount(NotificationContainer, target, { env, props });
 
     notifService.add("I'm a non-sticky notification");
     await nextTick();

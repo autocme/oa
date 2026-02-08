@@ -37,8 +37,8 @@ class Invite(models.TransientModel):
         result['message'] = etree.tostring(message)
         return result
 
-    res_model = fields.Char('Related Document Model', required=True, index=True, help='Model of the followed resource')
-    res_id = fields.Integer('Related Document ID', index=True, help='Id of the followed resource')
+    res_model = fields.Char('Related Document Model', required=True, help='Model of the followed resource')
+    res_id = fields.Integer('Related Document ID', help='Id of the followed resource')
     partner_ids = fields.Many2many('res.partner', string='Recipients', help="List of partners that will be added as follower of the current document.",
                                    domain=[('type', '!=', 'private')])
     message = fields.Html('Message')
@@ -59,31 +59,35 @@ class Invite(models.TransientModel):
             model_name = self.env['ir.model']._get(wizard.res_model).display_name
             # send an email if option checked and if a message exists (do not send void emails)
             if wizard.send_mail and wizard.message and not wizard.message == '<br>':  # when deleting the message, cleditor keeps a <br>
-                message = self.env['mail.message'].create({
-                    'subject': _('Invitation to follow %(document_model)s: %(document_name)s', document_model=model_name, document_name=document.display_name),
-                    'body': wizard.message,
-                    'record_name': document.display_name,
-                    'email_from': email_from,
-                    'reply_to': email_from,
-                    'model': wizard.res_model,
-                    'res_id': wizard.res_id,
-                    'reply_to_force_new': True,
-                    'add_sign': True,
-                })
-                partners_data = []
-                recipient_data = self.env['mail.followers']._get_recipient_data(document, 'comment', False, pids=new_partners.ids)
-                for pid, active, pshare, notif, groups in recipient_data:
-                    pdata = {'id': pid, 'share': pshare, 'active': active, 'notif': 'email', 'groups': groups or []}
-                    if not pshare and notif:  # has an user and is not shared, is therefore user
-                        partners_data.append(dict(pdata, type='user'))
-                    elif pshare and notif:  # has an user and is shared, is therefore portal
-                        partners_data.append(dict(pdata, type='portal'))
-                    else:  # has no user, is therefore customer
-                        partners_data.append(dict(pdata, type='customer'))
+                message = self.env['mail.message'].create(
+                    self._prepare_message_values(document, model_name, email_from)
+                )
+                email_partners_data = []
+                recipients_data = self.env['mail.followers']._get_recipient_data(document, 'comment', False, pids=new_partners.ids)[document.id]
+                for _pid, pdata in recipients_data.items():
+                    pdata['notif'] = 'email'
+                    email_partners_data.append(pdata)
 
-                document._notify_record_by_email(message, partners_data, send_after_commit=False)
+                document._notify_thread_by_email(
+                    message, email_partners_data,
+                    send_after_commit=False
+                )
                 # in case of failure, the web client must know the message was
                 # deleted to discard the related failure notification
                 self.env['bus.bus']._sendone(self.env.user.partner_id, 'mail.message/delete', {'message_ids': message.ids})
                 message.unlink()
         return {'type': 'ir.actions.act_window_close'}
+
+    def _prepare_message_values(self, document, model_name, email_from):
+        return {
+            'subject': _('Invitation to follow %(document_model)s: %(document_name)s', document_model=model_name,
+                         document_name=document.display_name),
+            'body': self.message,
+            'record_name': document.display_name,
+            'email_from': email_from,
+            'reply_to': email_from,
+            'model': self.res_model,
+            'res_id': self.res_id,
+            'reply_to_force_new': True,
+            'email_add_signature': True,
+        }

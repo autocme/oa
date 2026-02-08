@@ -11,15 +11,15 @@ odoo.define('mass_mailing.mass_mailing_code_view_tour', function (require) {
     }, {
         trigger: 'button.o_list_button_add',
     }, {
-        trigger: 'input[name="subject"]',
+        trigger: 'input#subject',
         content: ('Pick the <b>email subject</b>.'),
         position: 'bottom',
-        run: 'text Test',
+        run: 'text Test'
     }, {
-        trigger: 'div[name="contact_list_ids"] .o_input_dropdown > input[type="text"]',
+        trigger: 'div[name="contact_list_ids"] .o_input_dropdown input[type="text"]',
         content: 'Click on the dropdown to open it and then start typing to search.',
     }, {
-        trigger: 'li.ui-menu-item',
+        trigger: 'div[name="contact_list_ids"] .ui-state-active',
         content: 'Select item from dropdown',
         run: 'click',
     }, {
@@ -50,6 +50,7 @@ odoo.define('mass_mailing.mass_mailing_code_view_tour', function (require) {
     }, {
         trigger: '[name="body_arch"] iframe #email_designer_default_body [name="Title"] .ui-draggable-handle',
         content: 'Drag the "Title" snippet from the design panel and drop it in the editor',
+        extra_trigger: '[name="body_arch"] iframe body.editor_enable',
         run: function (actions) {
             actions.drag_and_drop('[name="body_arch"] iframe .o_editable', this.$anchor);
         }
@@ -61,5 +62,6 @@ odoo.define('mass_mailing.mass_mailing_code_view_tour', function (require) {
         trigger: 'button.o_form_button_save',
         content: 'Click on the "Save" button to save the changes.',
         run: 'click',
-    }]);
+    },
+    ...tour.stepUtils.saveForm(),]);
 });

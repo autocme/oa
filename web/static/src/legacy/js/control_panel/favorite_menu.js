@@ -1,12 +1,15 @@
 odoo.define('web.FavoriteMenu', function (require) {
     "use strict";
 
+    const { Dropdown } = require("@web/core/dropdown/dropdown");
+    const { SearchDropdownItem } = require("@web/search/search_dropdown_item/search_dropdown_item");
     const Dialog = require('web.OwlDialog');
     const { FACET_ICONS } = require("web.searchUtils");
     const Registry = require('web.Registry');
     const { useModel } = require('web.Model');
-    const { SearchDropdownItem } = require("@web/search/search_dropdown_item/search_dropdown_item");
-    const { Component, useState } = owl;
+    const { LegacyComponent } = require("@web/legacy/legacy_component");
+
+    const { useState } = owl;
 
     /**
      * 'Favorites' menu
@@ -17,9 +20,8 @@ odoo.define('web.FavoriteMenu', function (require) {
      * Only the favorite generator (@see CustomFavoriteItem) is registered in
      * the `web` module.
      */
-    class FavoriteMenu extends Component {
-        constructor() {
-            super(...arguments);
+    class FavoriteMenu extends LegacyComponent {
+        setup() {
             this.icon = FACET_ICONS.favorite;
             this.model = useModel('searchModel');
             this.state = useState({ deletedFavorite: false });
@@ -65,11 +67,10 @@ odoo.define('web.FavoriteMenu', function (require) {
 
         /**
          * @private
-         * @param {OwlEvent} ev
+         * @param {number} itemId
          */
-        onFavoriteSelected(ev) {
-            ev.stopPropagation();
-            this.model.dispatch('toggleFilter', ev.detail.payload.itemId);
+        onFavoriteSelected(itemId) {
+            this.model.dispatch('toggleFilter', itemId);
         }
 
         /**
@@ -82,7 +83,7 @@ odoo.define('web.FavoriteMenu', function (require) {
     }
 
     FavoriteMenu.registry = new Registry();
-    FavoriteMenu.components = { Dialog, DropdownItem: SearchDropdownItem };
+    FavoriteMenu.components = { Dialog, Dropdown, DropdownItem: SearchDropdownItem };
     FavoriteMenu.template = 'web.Legacy.FavoriteMenu';
 
     return FavoriteMenu;

@@ -3,19 +3,16 @@
 # 	* website_event_questions
 # 
 # Translators:
-# Yoshi Tashiro (Quartile) <tashiro@roomsfor.hk>, 2022
 # Martin Trigaux, 2022
-# Noma Yuki, 2022
-# 江口和志 <sandwhale1010@gmail.com>, 2022
 # Ryoko Tsuda <ryoko@quartile.co>, 2023
 # Junko Augias, 2024
 # 
 msgid ""
 msgstr ""
-"Project-Id-Version: Odoo Server 15.0\n"
+"Project-Id-Version: Odoo Server 16.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-08-14 15:43+0000\n"
-"PO-Revision-Date: 2021-09-14 12:28+0000\n"
+"POT-Creation-Date: 2024-02-06 13:32+0000\n"
+"PO-Revision-Date: 2022-09-22 05:56+0000\n"
 "Last-Translator: Junko Augias, 2024\n"
 "Language-Team: Japanese (https://app.transifex.com/odoo/teams/41243/ja/)\n"
 "MIME-Version: 1.0\n"
@@ -57,8 +54,8 @@ msgstr "回答"
 
 #. module: website_event_questions
 #: model:ir.model.fields,field_description:website_event_questions.field_event_question__once_per_order
-msgid "Ask only once per order"
-msgstr ""
+msgid "Ask once per order"
+msgstr "オーダごとに１回のみ質問"
 
 #. module: website_event_questions
 #: model:ir.model.fields,field_description:website_event_questions.field_event_registration__registration_answer_ids
@@ -191,6 +188,11 @@ msgid "Last Updated on"
 msgstr "最終更新日"
 
 #. module: website_event_questions
+#: model:ir.model.fields,field_description:website_event_questions.field_event_question__is_mandatory_answer
+msgid "Mandatory Answer"
+msgstr "必須回答"
+
+#. module: website_event_questions
 #: model:event.question,title:website_event_questions.event_0_question_0
 msgid "Meal Type"
 msgstr "食事タイプ"
@@ -235,6 +237,7 @@ msgid "Question Type"
 msgstr "質問の種類"
 
 #. module: website_event_questions
+#. odoo-python
 #: code:addons/website_event_questions/models/event_question.py:0
 #, python-format
 msgid "Question cannot be linked to both an Event and an Event Type."
@@ -263,6 +266,11 @@ msgstr "研究"
 #: model:event.question.answer,name:website_event_questions.event_7_question_0_answer_1
 msgid "Sales"
 msgstr "販売"
+
+#. module: website_event_questions
+#: model_terms:ir.ui.view,arch_db:website_event_questions.event_registration_view_tree
+msgid "Selected Answers"
+msgstr "選択された回答"
 
 #. module: website_event_questions
 #: model_terms:ir.ui.view,arch_db:website_event_questions.event_registration_answer_view_tree
@@ -332,8 +340,31 @@ msgid "Yes"
 msgstr "はい"
 
 #. module: website_event_questions
+#. odoo-python
 #: code:addons/website_event_questions/models/event_question.py:0
 #, python-format
 msgid ""
 "You cannot change the question type of a question that already has answers!"
 msgstr "すでに回答がある質問のタイプを変更することはできません！"
+
+#. module: website_event_questions
+#. odoo-python
+#: code:addons/website_event_questions/models/event_question.py:0
+#, python-format
+msgid ""
+"You cannot delete a question that has already been answered by attendees."
+msgstr "すでに参加者が回答した質問を削除することはできません。"
+
+#. module: website_event_questions
+#. odoo-python
+#: code:addons/website_event_questions/models/event_question.py:0
+#, python-format
+msgid ""
+"You cannot delete an answer that has already been selected by attendees."
+msgstr "すでに参加者が選択した質問を削除することはできません。"
+
+#. module: website_event_questions
+#: model_terms:ir.ui.view,arch_db:website_event_questions.event_event_view_form
+#: model_terms:ir.ui.view,arch_db:website_event_questions.event_question_view_form
+msgid "e.g. \"Do you have any diet restrictions?\""
+msgstr "例. \"食事制限はありますか？\""

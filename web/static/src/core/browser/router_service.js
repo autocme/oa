@@ -23,7 +23,7 @@ function cast(value) {
 function parseString(str) {
     const parts = str.split("&");
     const result = {};
-    for (let part of parts) {
+    for (const part of parts) {
         const [key, value] = part.split("=");
         const decoded = decodeURIComponent(value || "");
         result[key] = cast(decoded);
@@ -141,6 +141,13 @@ function makeRouter(env) {
         const loc = new URL(ev.newURL);
         current = getRoute(loc);
         bus.trigger("ROUTE_CHANGE");
+    });
+    browser.addEventListener("pageshow", (ev) => {
+        // To avoid rendering inconsistencies, we need to reload when loading from a `bfcache'.
+        if (ev.persisted) {
+            browser.clearTimeout(pushTimeout);
+            bus.trigger("ROUTE_CHANGE");
+        }
     });
 
     /**

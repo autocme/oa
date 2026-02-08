@@ -48,6 +48,5 @@ class PosAdyenController(http.Controller):
                     _logger.warning('Received an invalid Adyen event notification: \n%s', pprint.pformat(data))
                     return
                 payment_method.adyen_latest_response = json.dumps(data)
-            _logger.info('notification writed from adyen\n%s', data)
         else:
             _logger.error('received a message for a terminal not registered in Odoo: %s', terminal_identifier)

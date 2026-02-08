@@ -38,6 +38,9 @@ tour.register('event_booth_sale_pricelists_different_currencies', {
     {
         content: 'Submit your informations',
         trigger: 'button[type="submit"]',
+    }, {
+        content: 'Checkout your order',
+        trigger: 'a[role="button"] span:contains("Process Checkout")',
     },
     ...getPriceListChecksSteps({
         pricelistName: "EUR With Discount Included",
@@ -51,7 +54,7 @@ tour.register('event_booth_sale_pricelists_different_currencies', {
         eventName: "Test Event Booths",
         price: "90.00",
         priceSelected: "90",
-        priceCart: "99.0",
+        priceCart: "99.00",
         priceBeforeDiscount: "100.00",
     }),
     ...getPriceListChecksSteps({

@@ -67,16 +67,13 @@ class AccountMove(models.Model):
             if move.move_type == 'out_refund' and not move.reversed_entry_id.l10n_ke_cu_invoice_number:
                 move_errors.append(_("This credit note must reference the previous invoice, and this previous invoice must have already been submitted."))
 
-            for line in move.invoice_line_ids.filtered(lambda l: not l.display_type):
-                if not line.tax_ids or len(line.tax_ids) > 1:
-                    move_errors.append(_("On line %s, you must select one and only one tax.", line.name))
+            for line in self.invoice_line_ids.filtered(lambda l: l.display_type == 'product'):
+                vat_taxes = line.tax_ids.filtered(lambda tax: tax.amount in (16, 8, 0))
+                if not vat_taxes or len(vat_taxes) > 1:
+                    move_errors.append(_("On line %s, you must select one and only one VAT tax.", line.name))
                 else:
-                    if line.tax_ids.amount == 0 and not (line.product_id and line.product_id.l10n_ke_hsn_code and line.product_id.l10n_ke_hsn_name):
+                    if vat_taxes[0].amount == 0 and not (line.product_id and line.product_id.l10n_ke_hsn_code and line.product_id.l10n_ke_hsn_name):
                         move_errors.append(_("On line %s, a product with a HS Code and HS Name must be selected, since the tax is 0%% or exempt.", line.name))
-
-            for tax in move.invoice_line_ids.tax_ids:
-                if tax.amount not in (16, 8, 0):
-                    move_errors.append(_("Tax '%s' is used, but only taxes of 16%%, 8%%, 0%% or Exempt can be sent. Please reconfigure or change the tax.", tax.name))
 
             if move_errors:
                 errors.append((move.name, move_errors))
@@ -138,8 +135,7 @@ class AccountMove(models.Model):
             other_line_taxes = other_line.tax_ids.flatten_taxes_hierarchy()
             return set(discount_taxes.ids) == set(other_line_taxes.ids)
 
-        lines = self.invoice_line_ids.filtered(lambda l: not l.display_type and l.quantity and l.price_total)
-
+        lines = self.invoice_line_ids.filtered(lambda l: l.display_type == 'product' and l.quantity and l.price_total)
         # The device expects all monetary values in Kenyan Shillings
         if self.currency_id == self.company_id.currency_id:
             currency_rate = 1
@@ -169,20 +165,28 @@ class AccountMove(models.Model):
 
         vat_class = {16.0: 'A', 8.0: 'B'}
         msgs = []
-        for line in self.invoice_line_ids.filtered(lambda l: not l.display_type and l.quantity and l.price_total > 0 and not discount_dict.get(l.id) >= 100):
+        tax_details = self._prepare_invoice_aggregated_taxes()
+        for line in self.invoice_line_ids.filtered(lambda l: l.display_type == 'product' and l.quantity and l.price_total > 0 and not discount_dict.get(l.id) >= 100):
             # Here we use the original discount of the line, since it the distributed discount has not been applied in the price_total
-            price = round(line.price_total / abs(line.quantity) * 100 / (100 - line.discount), 2) * currency_rate
+            price_total = 0
+            percentage = 0
+            for tax in tax_details['tax_details_per_record'][line]['tax_details']:
+                if tax['tax'].amount in (16, 8, 0): # This should only occur once
+                    line_tax_details = tax_details['tax_details_per_record'][line]['tax_details'][tax]
+                    price_total = abs(line_tax_details['base_amount_currency']) + abs(line_tax_details['tax_amount_currency'])
+                    percentage = tax['tax'].amount
+
+            price = round(price_total / abs(line.quantity) * 100 / (100 - line.discount), line.currency_id.decimal_places) * currency_rate
             price = ('%.5f' % price).rstrip('0').rstrip('.')
-            percentage = line.tax_ids[0].amount
 
             # Letter to classify tax, 0% taxes are handled conditionally, as the tax can be zero-rated or exempt
             letter = ''
             if percentage in vat_class:
                 letter = vat_class[percentage]
             else:
-                report_line_ids = line.tax_ids.invoice_repartition_line_ids.filtered(lambda l: l.repartition_type == 'base').tag_ids.tax_report_line_ids.ids
+                report_line_ids = line.tax_ids.invoice_repartition_line_ids.tag_ids._get_related_tax_report_expressions().report_line_id.ids
                 try:
-                    exempt_report_line = self.env.ref('l10n_ke.tax_report_line_exempt_sales_base')
+                    exempt_report_line = self.env.ref('l10n_ke.tax_report_line_exempt_sales')
                 except ValueError:
                     raise UserError(_("Tax exempt report line cannot be found, please update the l10n_ke module."))
                 letter = 'E' if exempt_report_line.id in report_line_ids else 'C'

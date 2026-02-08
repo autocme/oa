@@ -5,7 +5,7 @@ import base64
 import logging
 
 from collections import defaultdict
-from odoo import api, fields, models, _
+from odoo import api, Command, fields, models, _
 from odoo.addons.base.models.res_partner import _tz_get
 from odoo.exceptions import UserError
 
@@ -34,14 +34,13 @@ class Attendee(models.Model):
     recurrence_id = fields.Many2one('calendar.recurrence', related='event_id.recurrence_id')
     # attendee
     partner_id = fields.Many2one('res.partner', 'Attendee', required=True, readonly=True)
-    email = fields.Char('Email', related='partner_id.email', help="Email of Invited Person")
-    phone = fields.Char('Phone', related='partner_id.phone', help="Phone number of Invited Person")
+    email = fields.Char('Email', related='partner_id.email')
+    phone = fields.Char('Phone', related='partner_id.phone')
     common_name = fields.Char('Common name', compute='_compute_common_name', store=True)
     access_token = fields.Char('Invitation Token', default=_default_access_token)
     mail_tz = fields.Selection(_tz_get, compute='_compute_mail_tz', help='Timezone used for displaying time in the mail template')
     # state
-    state = fields.Selection(STATE_SELECTION, string='Status', readonly=True, default='needsAction',
-                             help="Status of the attendee's participation")
+    state = fields.Selection(STATE_SELECTION, string='Status', readonly=True, default='needsAction')
     availability = fields.Selection(
         [('free', 'Available'), ('busy', 'Busy')], 'Available/Busy', readonly=True)
 
@@ -67,7 +66,15 @@ class Attendee(models.Model):
                 values['email'] = email[0] if email else ''
                 values['common_name'] = values.get("common_name")
         attendees = super().create(vals_list)
+        attendees.event_id.check_access_rights('write')
+        attendees.event_id.check_access_rule('write')
         attendees._subscribe_partner()
+        return attendees
+
+    def write(self, vals):
+        attendees = super().write(vals)
+        self.event_id.check_access_rights('write')
+        self.event_id.check_access_rule('write')
         return attendees
 
     def unlink(self):
@@ -114,9 +121,9 @@ class Attendee(models.Model):
                 event_id = attendee.event_id.id
                 ics_file = ics_files.get(event_id)
 
-                attachment_values = []
+                attachment_values = [Command.set(mail_template.attachment_ids.ids)]
                 if ics_file:
-                    attachment_values = [
+                    attachment_values += [
                         (0, 0, {'name': 'invitation.ics',
                                 'mimetype': 'text/calendar',
                                 'res_id': event_id,
@@ -132,7 +139,7 @@ class Attendee(models.Model):
                     'subject',
                     attendee.ids,
                     compute_lang=True)[attendee.id]
-                attendee.event_id.with_context(no_document=True).message_notify(
+                attendee.event_id.with_context(no_document=True).sudo().message_notify(
                     email_from=attendee.event_id.user_id.email_formatted or self.env.user.email_formatted,
                     author_id=attendee.event_id.user_id.partner_id.id or self.env.user.partner_id.id,
                     body=body,
@@ -141,7 +148,6 @@ class Attendee(models.Model):
                     email_layout_xmlid='mail.mail_notification_light',
                     attachment_ids=attachment_values,
                     force_send=force_send,
-                    message_type='auto_comment',
                 )
 
     def _should_notify_attendee(self):
@@ -161,14 +167,18 @@ class Attendee(models.Model):
         """ Marks event invitation as Accepted. """
         for attendee in self:
             attendee.event_id.message_post(
-                body=_("%s has accepted invitation") % (attendee.common_name),
-                subtype_xmlid="calendar.subtype_invitation")
+                author_id=attendee.partner_id.id,
+                body=_("%s has accepted the invitation") % (attendee.common_name),
+                subtype_xmlid="calendar.subtype_invitation",
+            )
         return self.write({'state': 'accepted'})
 
     def do_decline(self):
         """ Marks event invitation as Declined. """
         for attendee in self:
             attendee.event_id.message_post(
-                body=_("%s has declined invitation") % (attendee.common_name),
-                subtype_xmlid="calendar.subtype_invitation")
+                author_id=attendee.partner_id.id,
+                body=_("%s has declined the invitation") % (attendee.common_name),
+                subtype_xmlid="calendar.subtype_invitation",
+            )
         return self.write({'state': 'declined'})

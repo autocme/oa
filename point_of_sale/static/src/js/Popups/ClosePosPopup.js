@@ -1,27 +1,26 @@
 odoo.define('point_of_sale.ClosePosPopup', function(require) {
     'use strict';
 
-    const { useState, useRef } = owl.hooks;
     const AbstractAwaitablePopup = require('point_of_sale.AbstractAwaitablePopup');
     const Registries = require('point_of_sale.Registries');
     const { identifyError } = require('point_of_sale.utils');
     const { ConnectionLostError, ConnectionAbortedError} = require('@web/core/network/rpc_service')
+    const { useState, useRef } = owl;
     const { useValidateCashInput } = require('point_of_sale.custom_hooks');
     const { parse } = require('web.field_utils');
 
-    /**
-     * This popup needs to be self-dependent because it needs to be called from different place.
-     */
     class ClosePosPopup extends AbstractAwaitablePopup {
-        constructor() {
-            super(...arguments);
+        setup() {
+            super.setup();
             this.manualInputCashCount = false;
-            this.moneyDetailsRef = useRef('moneyDetails');
+            this.cashControl = this.env.pos.config.cash_control;
             this.closingCashInputRef = useRef('closingCashInput');
             this.closeSessionClicked = false;
             this.moneyDetails = null;
             Object.assign(this, this.props.info);
-            this.state = useState({});
+            this.state = useState({
+                displayMoneyDetailsPopup: false,
+            });
             Object.assign(this.state, this.props.info.state);
             useValidateCashInput("closingCashInput");
             if (this.otherPaymentMethods && this.otherPaymentMethods.length > 0) {
@@ -32,38 +31,51 @@ odoo.define('point_of_sale.ClosePosPopup', function(require) {
                 })
             }
         }
-        /**
-         * @deprecated Don't remove. There might be overrides.
-         */
-        async willStart() {
-
-        }
-        /*
-         * Since this popup need to be self dependent, in case of an error, the popup need to be closed on its own.
-         */
-        mounted() {
-            if (this.error) {
-                this.cancel();
-                if (identifyError(this.error) instanceof ConnectionLostError) {
-                    this.showPopup('ErrorPopup', {
-                        title: this.env._t('Network Error'),
-                        body: this.env._t('Please check your internet connection and try again.'),
-                    });
-                } else {
-                    throw this.error;
+        //@override
+        async confirm() {
+            if (!this.cashControl || !this.hasDifference()) {
+                this.closeSession();
+            } else if (this.hasUserAuthority()) {
+                const { confirmed } = await this.showPopup('ConfirmPopup', {
+                    title: this.env._t('Payments Difference'),
+                    body: this.env._t('Do you want to accept payments difference and post a profit/loss journal entry?'),
+                });
+                if (confirmed) {
+                    this.closeSession();
                 }
+            } else {
+                await this.showPopup('ConfirmPopup', {
+                    title: this.env._t('Payments Difference'),
+                    body: _.str.sprintf(
+                        this.env._t('The maximum difference allowed is %s.\n' +
+                                    'Please contact your manager to accept the closing difference.'),
+                        this.env.pos.format_currency(this.amountAuthorizedDiff)
+                    ),
+                    confirmText: this.env._t('OK'),
+                })
+            }
+        }
+        //@override
+        async cancel() {
+            if (this.canCancel()) {
+                super.cancel();
             }
         }
         openDetailsPopup() {
-            if (this.moneyDetailsRef.comp.isClosed()){
-                this.moneyDetailsRef.comp.openPopup();
-                this.state.payments[this.defaultCashDetails.id].counted = 0;
-                this.state.payments[this.defaultCashDetails.id].difference = -this.defaultCashDetails.amount;
-                this.state.notes = '';
-                if (this.manualInputCashCount) {
-                    this.moneyDetailsRef.comp.reset();
-                }
-            }
+            this.state.payments[this.defaultCashDetails.id].counted = 0;
+            this.state.payments[this.defaultCashDetails.id].difference = -this.defaultCashDetails.amount;
+            this.state.notes = "";
+            this.state.displayMoneyDetailsPopup = true;
+        }
+        closeDetailsPopup() {
+            this.state.displayMoneyDetailsPopup = false;
+        }
+        async downloadSalesReport() {
+            await this.env.legacyActionManager.do_action('point_of_sale.sale_details_report', {
+                additional_context: {
+                    active_ids: [this.env.pos.pos_session.id],
+                },
+            });
         }
         handleInputChange(paymentId, event) {
             if (event.target.classList.contains('invalid-cash-input')) return;
@@ -78,10 +90,8 @@ odoo.define('point_of_sale.ClosePosPopup', function(require) {
             this.state.payments[paymentId].counted = parse.float(event.target.value);
             this.state.payments[paymentId].difference =
                 this.env.pos.round_decimals_currency(this.state.payments[paymentId].counted - expectedAmount);
-            this.state.acceptClosing = false;
         }
-        updateCountedCash(event) {
-            const { total, moneyDetailsNotes, moneyDetails } = event.detail;
+        updateCountedCash({ total, moneyDetailsNotes, moneyDetails }) {
             this.closingCashInputRef.el.value = this.env.pos.format_currency_no_symbol(total);
             this.state.payments[this.defaultCashDetails.id].counted = total;
             this.state.payments[this.defaultCashDetails.id].difference =
@@ -91,7 +101,7 @@ odoo.define('point_of_sale.ClosePosPopup', function(require) {
             }
             this.manualInputCashCount = false;
             this.moneyDetails = moneyDetails;
-            this.state.acceptClosing = false;
+            this.closeDetailsPopup();
         }
         hasDifference() {
             return Object.entries(this.state.payments).find(pm => pm[1].difference != 0);
@@ -100,22 +110,14 @@ odoo.define('point_of_sale.ClosePosPopup', function(require) {
             const absDifferences = Object.entries(this.state.payments).map(pm => Math.abs(pm[1].difference));
             return this.isManager || this.amountAuthorizedDiff == null || Math.max(...absDifferences) <= this.amountAuthorizedDiff;
         }
-        canCloseSession() {
-            return !this.cashControl || !this.hasDifference() || this.state.acceptClosing;
-        }
         canCancel() {
             return true;
-        }
-        cancelPopup() {
-            if (this.canCancel()) {
-                this.cancel();
-            }
         }
         closePos() {
             this.trigger('close-pos');
         }
         async closeSession() {
-            if (this.canCloseSession() && !this.closeSessionClicked) {
+            if (!this.closeSessionClicked) {
                 this.closeSessionClicked = true;
                 let response;
                 // If there are orders in the db left unsynced, we try to sync.

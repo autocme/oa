@@ -67,10 +67,6 @@ class AccountDebitNote(models.TransientModel):
         for move in self.move_ids.with_context(include_business_fields=True): #copy sale/purchase links
             default_values = self._prepare_default_values(move)
             new_move = move.copy(default=default_values)
-            move_msg = _(
-                "This debit note was created from:") + " <a href=# data-oe-model=account.move data-oe-id=%d>%s</a>" % (
-                       move.id, move.name)
-            new_move.message_post(body=move_msg)
             new_moves |= new_move
 
         action = {

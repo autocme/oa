@@ -19,14 +19,11 @@ class TestAngloSaxonCommon(AccountTestInvoicingCommon):
         cls.partner = cls.env['res.partner'].create({'name': 'Partner 1'})
         cls.category = cls.env.ref('product.product_category_all')
         cls.category = cls.category.copy({'name': 'New category', 'property_valuation': 'real_time'})
-        account_type_rcv = cls.env.ref('account.data_account_type_receivable')
-        account_type_inc = cls.env.ref('account.data_account_type_revenue')
-        account_type_exp = cls.env.ref('account.data_account_type_expenses')
-        cls.account = cls.env['account.account'].create({'name': 'Receivable', 'code': 'RCV00', 'user_type_id': account_type_rcv.id, 'reconcile': True})
-        account_expense = cls.env['account.account'].create({'name': 'Expense', 'code': 'EXP00', 'user_type_id': account_type_exp.id, 'reconcile': True})
-        account_income = cls.env['account.account'].create({'name': 'Income', 'code': 'INC00', 'user_type_id': account_type_inc.id, 'reconcile': True})
-        account_output = cls.env['account.account'].create({'name': 'Output', 'code': 'OUT00', 'user_type_id': account_type_exp.id, 'reconcile': True})
-        account_valuation = cls.env['account.account'].create({'name': 'Valuation', 'code': 'STV00', 'user_type_id': account_type_exp.id, 'reconcile': True})
+        cls.account = cls.env['account.account'].create({'name': 'Receivable', 'code': 'RCV00', 'account_type': 'asset_receivable', 'reconcile': True})
+        account_expense = cls.env['account.account'].create({'name': 'Expense', 'code': 'EXP00', 'account_type': 'expense', 'reconcile': True})
+        account_income = cls.env['account.account'].create({'name': 'Income', 'code': 'INC00', 'account_type': 'income', 'reconcile': True})
+        account_output = cls.env['account.account'].create({'name': 'Output', 'code': 'OUT00', 'account_type': 'expense', 'reconcile': True})
+        account_valuation = cls.env['account.account'].create({'name': 'Valuation', 'code': 'STV00', 'account_type': 'expense', 'reconcile': True})
         cls.partner.property_account_receivable_id = cls.account
         cls.category.property_account_income_categ_id = account_income
         cls.category.property_account_expense_categ_id = account_expense
@@ -36,7 +33,6 @@ class TestAngloSaxonCommon(AccountTestInvoicingCommon):
         cls.category.property_stock_journal = cls.env['account.journal'].create({'name': 'Stock journal', 'type': 'sale', 'code': 'STK00'})
         cls.pos_config = cls.env['pos.config'].create({
             'name': 'New POS config',
-            'barcode_nomenclature_id': cls.env.ref('barcodes.default_barcode_nomenclature').id,
         })
         cls.product = cls.env['product.product'].create({
             'name': 'New product',
@@ -61,14 +57,13 @@ class TestAngloSaxonCommon(AccountTestInvoicingCommon):
         })
         cls.pos_config.write({'payment_method_ids': [(6, 0, cls.cash_payment_method.ids)]})
 
-
 @tagged('post_install', '-at_install')
 class TestAngloSaxonFlow(TestAngloSaxonCommon):
 
     def test_create_account_move_line(self):
         # This test will check that the correct journal entries are created when a product in real time valuation
         # is sold in a company using anglo-saxon
-        self.pos_config.open_session_cb(check_coa=False)
+        self.pos_config.open_ui()
         current_session = self.pos_config.current_session_id
         self.cash_journal.loss_account_id = self.account
         current_session.set_cashbox_pos(0, None)
@@ -111,7 +106,6 @@ class TestAngloSaxonFlow(TestAngloSaxonCommon):
 
         # I close the current session to generate the journal entries
         current_session_id = self.pos_config.current_session_id
-        current_session_id._check_pos_session_balance()
         current_session_id.post_closing_cash_details(450.0)
         current_session_id.close_session_from_ui()
         self.assertEqual(current_session_id.state, 'closed', 'Check that session is closed')
@@ -150,8 +144,8 @@ class TestAngloSaxonFlow(TestAngloSaxonCommon):
         self.assertEqual(self.product.value_svl, 30, "Value should be (5*5 + 5*1) = 30")
         self.assertEqual(self.product.quantity_svl, 10)
 
-        self.pos_config.module_account = True
-        self.pos_config.open_session_cb(check_coa=False)
+
+        self.pos_config.open_ui()
         pos_session = self.pos_config.current_session_id
         pos_session.set_cashbox_pos(0, None)
 
@@ -229,8 +223,7 @@ class TestAngloSaxonFlow(TestAngloSaxonCommon):
     def test_cogs_with_ship_later_no_invoicing(self):
         # This test will check that the correct journal entries are created when a product in real time valuation
         # is sold using the ship later option and no invoice is created in a company using anglo-saxon
-
-        self.pos_config.open_session_cb(check_coa=False)
+        self.pos_config.open_ui()
         current_session = self.pos_config.current_session_id
         self.cash_journal.loss_account_id = self.account
         current_session.set_cashbox_pos(0, None)
@@ -274,7 +267,6 @@ class TestAngloSaxonFlow(TestAngloSaxonCommon):
 
         # I close the current session to generate the journal entries
         current_session_id = self.pos_config.current_session_id
-        current_session_id._check_pos_session_balance()
         current_session_id.post_closing_cash_details(450.0)
         current_session_id.close_session_from_ui()
         self.assertEqual(current_session_id.state, 'closed', 'Check that session is closed')
@@ -312,7 +304,7 @@ class TestAngloSaxonFlow(TestAngloSaxonCommon):
         self.company.point_of_sale_update_stock_quantities = 'closing'
 
         # Setup a running session, with a paid pos order that is not invoiced
-        self.pos_config.open_session_cb(check_coa=False)
+        self.pos_config.open_ui()
         current_session = self.pos_config.current_session_id
         self.pos_order_pos0 = self.PosOrder.create({
             'company_id': self.company.id,
@@ -352,10 +344,16 @@ class TestAngloSaxonFlow(TestAngloSaxonCommon):
         """This test make sure that the line containing 'Discoun from' is correctly added to the invoice"""
 
         # Setup a running session, with a paid pos order that is not invoiced
-        self.pos_config.open_session_cb(check_coa=False)
+        self.pos_config.open_ui()
         pricelist = self.env['product.pricelist'].create({
             'name': 'Test Pricelist',
             'discount_policy': 'without_discount',
+            'item_ids': [(0, 0, {
+                'compute_price': 'percentage',
+                'percent_price': 5,
+                'min_quantity': 0,
+                'applied_on': '3_global',
+            })]
         })
         self.product.lst_price = 100
         self.pos_order_pos0 = self.PosOrder.create({
@@ -365,14 +363,15 @@ class TestAngloSaxonFlow(TestAngloSaxonCommon):
             'pricelist_id': pricelist.id,
             'lines': [(0, 0, {
                 'product_id': self.product.id,
-                'price_unit': 100,
+                'price_unit': 95,
                 'qty': 1.0,
-                'price_subtotal': 95,
-                'price_subtotal_incl': 95,
+                'tax_ids': [(6, 0, self.product.taxes_id.ids)],
+                'price_subtotal': 90.25,
+                'price_subtotal_incl': 103.79,
                 'discount': 5,
             })],
-            'amount_total': 95,
-            'amount_tax': 0,
+            'amount_total': 103.79,
+            'amount_tax': 13.51,
             'amount_paid': 0,
             'amount_return': 0,
             'to_invoice': True,
@@ -388,3 +387,8 @@ class TestAngloSaxonFlow(TestAngloSaxonCommon):
         res = self.pos_order_pos0.action_pos_order_invoice()
         invoice = self.env['account.move'].browse(res['res_id'])
         self.assertTrue('Price discount from 100.00 -> 95.00' in invoice.invoice_line_ids.filtered(lambda l: l.display_type == "line_note").display_name)
+        product_line = invoice.invoice_line_ids.filtered(lambda l: l.display_type == "product")
+        self.assertEqual(product_line.price_unit, 95)  # Only fiscal position applies
+        self.assertEqual(product_line.discount, 5)  # Disount is reflected
+        self.assertEqual(product_line.price_subtotal, 90.25)  # Discount applies on price_unit
+        self.assertEqual(product_line.price_total, 103.79)  # Taxes applied with price_total

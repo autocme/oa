@@ -9,6 +9,7 @@ odoo.define('web.KanbanController', function (require) {
 
 var BasicController = require('web.BasicController');
 var Context = require('web.Context');
+var config = require('web.config');
 var core = require('web.core');
 var Dialog = require('web.Dialog');
 var Domain = require('web.Domain');
@@ -50,6 +51,14 @@ var KanbanController = BasicController.extend({
         this.hasButtons = params.hasButtons;
         this.quickCreateEnabled = params.quickCreateEnabled;
     },
+    /**
+     * @override
+     */
+    async start() {
+        await this._super(...arguments);
+        const { groupedBy } = this.model.get(this.handle);
+        this.el.classList.toggle("o_action_delegate_scroll", config.device.isMobile && groupedBy.length);
+    },
 
     //--------------------------------------------------------------------------
     // Public
@@ -71,6 +80,14 @@ var KanbanController = BasicController.extend({
         if ($node) {
             this.$buttons.appendTo($node);
         }
+    },
+    /**
+     * @override
+     */
+    async update() {
+        await this._super(...arguments);
+        const { groupedBy } = this.model.get(this.handle);
+        this.el.classList.toggle("o_action_delegate_scroll", config.device.isMobile && groupedBy.length);
     },
     /**
      * In grouped mode, set 'Create' button as btn-secondary if there is no column
@@ -184,7 +201,7 @@ var KanbanController = BasicController.extend({
             }
             try {
                 var visible = new Domain(domain).compute(data.evalContext);
-            } catch (e) {
+            } catch (_e) {
                 return;
             }
             if (!visible) {
@@ -213,7 +230,6 @@ var KanbanController = BasicController.extend({
      * @returns {Promise}
      */
     _resequenceRecords: function (column_id, ids) {
-        var self = this;
         return this.model.resequence(this.modelName, ids, column_id);
     },
     /**
@@ -223,7 +239,7 @@ var KanbanController = BasicController.extend({
         const state = this.model.get(this.handle, {raw: true});
         if (!state.count || state.isSample) {
             const classesList = [
-                'o_kanban_view',
+                'o_legacy_kanban_view',
                 'o_kanban_group',
                 'o_kanban_header',
                 'o_column_quick_create',
@@ -440,7 +456,7 @@ var KanbanController = BasicController.extend({
                 var context = columnState.getContext();
                 var state = self.model.get(self.handle, {raw: true});
                 var groupByField = viewUtils.getGroupByField(state.groupedBy[0]);
-                context['default_' + groupByField] = viewUtils.getGroupValue(columnState, groupByField);
+                context['default_' + groupByField] = viewUtils.getGroupValue(columnState, state.groupedBy[0]);
                 new view_dialogs.FormViewDialog(self, {
                     res_model: state.model,
                     context: _.extend({default_name: values.name || values.display_name}, context),
@@ -465,7 +481,6 @@ var KanbanController = BasicController.extend({
      * @param {OdooEvent} ev
      */
     _onResequenceColumn: function (ev) {
-        var self = this;
         this._resequenceColumns(ev.data.ids);
     },
     /**

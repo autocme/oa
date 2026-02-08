@@ -32,7 +32,7 @@ class ResourceCalendarLeaves(models.Model):
                     }
                 }
         """
-        leaves_read_group = self.env['resource.calendar.leaves'].read_group(
+        leaves_read_group = self.env['resource.calendar.leaves']._read_group(
             [('id', 'in', self.ids)],
             ['calendar_id', 'ids:array_agg(id)', 'resource_ids:array_agg(resource_id)', 'min_date_from:min(date_from)', 'max_date_to:max(date_to)'],
             ['calendar_id'],
@@ -79,8 +79,8 @@ class ResourceCalendarLeaves(models.Model):
             If the employee has already a time off in the same day then no timesheet should be created.
         """
         work_hours_data = self._work_time_per_day()
-        employees_groups = self.env['hr.employee'].read_group(
-            [('resource_calendar_id', 'in', self.calendar_id.ids)],
+        employees_groups = self.env['hr.employee']._read_group(
+            [('resource_calendar_id', 'in', self.calendar_id.ids), ('company_id', 'in', self.env.companies.ids)],
             ['resource_calendar_id', 'ids:array_agg(id)'],
             ['resource_calendar_id'])
         mapped_employee = {
@@ -99,11 +99,11 @@ class ResourceCalendarLeaves(models.Model):
                 elif d > max_date:
                     max_date = d
 
-        holidays_read_group = self.env['hr.leave'].read_group([
+        holidays_read_group = self.env['hr.leave']._read_group([
             ('employee_id', 'in', list(employee_ids_set)),
             ('date_from', '<=', max_date),
             ('date_to', '>=', min_date),
-            ('state', 'not in', ('cancel', 'refuse')),
+            ('state', '=', 'validate'),
         ], ['date_from_list:array_agg(date_from)', 'date_to_list:array_agg(date_to)', 'employee_id'], ['employee_id'])
         holidays_by_employee = {
             line['employee_id'][0]: [
@@ -146,7 +146,7 @@ class ResourceCalendarLeaves(models.Model):
     def _generate_public_time_off_timesheets(self, employees):
         timesheet_vals_list = []
         work_hours_data = self._work_time_per_day()
-        timesheet_read_group = self.env['account.analytic.line'].read_group(
+        timesheet_read_group = self.env['account.analytic.line']._read_group(
             [('global_leave_id', 'in', self.ids), ('employee_id', 'in', employees.ids)],
             ['date:array_agg'],
             ['employee_id']

@@ -1,10 +1,11 @@
 odoo.define('point_of_sale.AbstractReceiptScreen', function (require) {
     'use strict';
 
-    const { useRef } = owl.hooks;
     const { nextFrame } = require('point_of_sale.utils');
     const PosComponent = require('point_of_sale.PosComponent');
     const Registries = require('point_of_sale.Registries');
+
+    const { useRef } = owl;
 
     /**
      * This relies on the assumption that there is a reference to
@@ -13,13 +14,13 @@ odoo.define('point_of_sale.AbstractReceiptScreen', function (require) {
      * this abstract component.
      */
     class AbstractReceiptScreen extends PosComponent {
-        constructor() {
-            super(...arguments);
+        setup() {
+            super.setup();
             this.orderReceipt = useRef('order-receipt');
         }
         async _printReceipt() {
-            if (this.env.pos.proxy.printer) {
-                const printResult = await this.env.pos.proxy.printer.print_receipt(this.orderReceipt.el.outerHTML);
+            if (this.env.proxy.printer) {
+                const printResult = await this.env.proxy.printer.print_receipt(this.orderReceipt.el.innerHTML);
                 if (printResult.successful) {
                     return true;
                 } else {
@@ -47,7 +48,7 @@ odoo.define('point_of_sale.AbstractReceiptScreen', function (require) {
             try {
                 window.print();
                 return true;
-            } catch (err) {
+            } catch (_err) {
                 await this.showPopup('ErrorPopup', {
                     title: this.env._t('Printing is not supported on some browsers'),
                     body: this.env._t(

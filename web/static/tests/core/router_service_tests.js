@@ -6,9 +6,11 @@ import { makeTestEnv } from "../helpers/mock_env";
 import { makeFakeRouterService } from "../helpers/mock_services";
 import { nextTick, patchWithCleanup } from "../helpers/utils";
 
+import { EventBus } from "@odoo/owl";
+
 async function createRouter(params = {}) {
     const env = params.env || {};
-    env.bus = env.bus || new owl.core.EventBus();
+    env.bus = env.bus || new EventBus();
     if (params.onPushState) {
         const originalPushState = browser.history.pushState;
         const onPushState = params.onPushState;
@@ -96,7 +98,7 @@ QUnit.test("routeToUrl encodes URI compatible strings", (assert) => {
     assert.strictEqual(routeToUrl(route), "/asf?a=11&g=summer%20wine");
 
     route.hash = { b: "2", c: "", e: "kloug,gloubi" };
-    assert.strictEqual(routeToUrl(route), "/asf?a=11&g=summer%20wine#b=2&c&e=kloug%2Cgloubi");
+    assert.strictEqual(routeToUrl(route), "/asf?a=11&g=summer%20wine#b=2&c=&e=kloug%2Cgloubi");
 });
 
 QUnit.test("can redirect an URL", async (assert) => {

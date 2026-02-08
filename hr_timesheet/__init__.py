@@ -4,7 +4,6 @@
 from . import controllers
 from . import models
 from . import report
-from . import wizard
 
 from odoo import api, fields, SUPERUSER_ID, _
 
@@ -35,14 +34,14 @@ def create_internal_project(cr, registry):
 
 def _uninstall_hook(cr, registry):
     env = api.Environment(cr, SUPERUSER_ID, {})
-    xml_ids = [
-        'project.open_view_project_all',
-        'project.open_view_project_all_group_stage'
-    ]
-    for xml_id in xml_ids:
-        act_window = env.ref(xml_id, raise_if_not_found=False)
+
+    def update_action_window(xmlid):
+        act_window = env.ref(xmlid, raise_if_not_found=False)
         if act_window and act_window.domain and 'is_internal_project' in act_window.domain:
             act_window.domain = []
+
+    update_action_window('project.open_view_project_all')
+    update_action_window('project.open_view_project_all_group_stage')
 
     # archive the internal projects
     project_ids = env['res.company'].search([('internal_project_id', '!=', False)]).mapped('internal_project_id')

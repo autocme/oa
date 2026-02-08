@@ -1,13 +1,7 @@
-# -*- coding: utf-8 -*-
-# Part of Odoo. See LICENSE file for full copyright and licensing details.
-
 from ast import literal_eval
 
-from odoo.addons.mail.tests.common import mail_new_test_user
 from odoo.addons.mail_group.tests.common import TestMailListCommon
-from odoo.exceptions import ValidationError, AccessError
 from odoo.tests.common import HttpCase, tagged, users
-from odoo.tools import mute_logger, append_content_to_html
 
 
 @tagged("mail_group", "mail_mail", "post_install", "-at_install")
@@ -35,7 +29,7 @@ class TestMailGroupMailing(TestMailListCommon, HttpCase):
         for member in expected_recipients:
             mail = self._find_mail_mail_wemail(member.email, "outgoing")
             unsubscribe_url = literal_eval(mail.headers).get("List-Unsubscribe").strip('<>')
-            response = self.opener.post(unsubscribe_url)
+            _response = self.opener.post(unsubscribe_url)
 
         self.assertEqual(test_group.member_ids, self.test_group_member_4_emp,
                          "Mail Group: people should have been unsubscribed")

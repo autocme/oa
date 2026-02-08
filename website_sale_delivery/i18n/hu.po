@@ -3,21 +3,22 @@
 # 	* website_sale_delivery
 # 
 # Translators:
-# Martin Trigaux, 2021
-# krnkris, 2021
-# Tamás Németh <ntomasz81@gmail.com>, 2021
-# gezza <geza.nagy@oregional.hu>, 2021
-# Ákos Nagy <akos.nagy@oregional.hu>, 2021
-# Istvan <leki69@gmail.com>, 2021
-# A . <tiboreu@protonmail.com>, 2021
+# Istvan <leki69@gmail.com>, 2022
+# Ákos Nagy <akos.nagy@oregional.hu>, 2022
+# Krisztián Juhász <juhasz.krisztian@josafar.hu>, 2022
+# A . <tibor@inventati.org>, 2022
+# krnkris, 2022
+# Martin Trigaux, 2022
+# gezza <geza.nagy@oregional.hu>, 2022
+# Tamás Németh <ntomasz81@gmail.com>, 2022
 # 5768b353f27900ae76ad88cc42dfd5b8_3bb349f, 2023
 # 
 msgid ""
 msgstr ""
-"Project-Id-Version: Odoo Server 15.0\n"
+"Project-Id-Version: Odoo Server 16.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-08-14 15:43+0000\n"
-"PO-Revision-Date: 2021-09-14 12:29+0000\n"
+"POT-Creation-Date: 2025-06-13 18:37+0000\n"
+"PO-Revision-Date: 2022-09-22 05:57+0000\n"
 "Last-Translator: 5768b353f27900ae76ad88cc42dfd5b8_3bb349f, 2023\n"
 "Language-Team: Hungarian (https://app.transifex.com/odoo/teams/41243/hu/)\n"
 "MIME-Version: 1.0\n"
@@ -43,6 +44,14 @@ msgstr ""
 "számlára/jóváírásra."
 
 #. module: website_sale_delivery
+#. odoo-python
+#: code:addons/website_sale_delivery/controllers/main.py:0
+#: code:addons/website_sale_delivery/controllers/main.py:0
+#, python-format
+msgid "Anonymous express checkout partner for order %s"
+msgstr ""
+
+#. module: website_sale_delivery
 #: model:ir.model.fields,field_description:website_sale_delivery.field_delivery_carrier__can_publish
 msgid "Can Publish"
 msgstr "Publikálhat"
@@ -56,11 +65,6 @@ msgstr "Válassz szállítási módot"
 #: model:ir.model,name:website_sale_delivery.model_res_country
 msgid "Country"
 msgstr "Ország"
-
-#. module: website_sale_delivery
-#: model_terms:ir.ui.view,arch_db:website_sale_delivery.res_config_settings_view_form
-msgid "DHL Shipping Methods"
-msgstr "DHL szállítási mód"
 
 #. module: website_sale_delivery
 #: model:ir.model.fields,field_description:website_sale_delivery.field_sale_order__amount_delivery
@@ -80,11 +84,6 @@ msgstr "Szállítás:"
 
 #. module: website_sale_delivery
 #: model_terms:ir.ui.view,arch_db:website_sale_delivery.view_delivery_carrier_form_website_delivery
-msgid "Description"
-msgstr "Leírás"
-
-#. module: website_sale_delivery
-#: model_terms:ir.ui.view,arch_db:website_sale_delivery.view_delivery_carrier_form_website_delivery
 msgid "Description displayed on the eCommerce and on online quotations."
 msgstr "Leírás az eÉrtékesítésen és az Online árajánlaton megjelenítve."
 
@@ -99,12 +98,7 @@ msgid "Easypost Shipping Methods"
 msgstr ""
 
 #. module: website_sale_delivery
-#: model_terms:ir.ui.view,arch_db:website_sale_delivery.res_config_settings_view_form
-msgid "FedEx Shipping Methods"
-msgstr ""
-
-#. module: website_sale_delivery
-#. openerp-web
+#. odoo-javascript
 #: code:addons/website_sale_delivery/static/src/js/website_sale_delivery.js:0
 #, python-format
 msgid "Free"
@@ -116,6 +110,7 @@ msgid "Is Published"
 msgstr "Közzétett"
 
 #. module: website_sale_delivery
+#. odoo-python
 #: code:addons/website_sale_delivery/controllers/main.py:0
 #, python-format
 msgid ""
@@ -126,6 +121,7 @@ msgstr ""
 "frissítse az oldalt, és próbálja újra."
 
 #. module: website_sale_delivery
+#. odoo-python
 #: code:addons/website_sale_delivery/controllers/main.py:0
 #, python-format
 msgid ""
@@ -136,6 +132,7 @@ msgstr ""
 "szállítási módot már nem tudja megváltoztatni"
 
 #. module: website_sale_delivery
+#. odoo-python
 #: code:addons/website_sale_delivery/controllers/main.py:0
 #, python-format
 msgid ""
@@ -146,6 +143,7 @@ msgstr ""
 "szállítási címre. Kérem lépjen velünk kapcsolatba további információért."
 
 #. module: website_sale_delivery
+#. odoo-python
 #: code:addons/website_sale_delivery/controllers/main.py:0
 #, python-format
 msgid "No shipping method is selected."
@@ -164,7 +162,12 @@ msgstr "Közzététel korlátozása erre a weboldalra."
 #. module: website_sale_delivery
 #: model:ir.model,name:website_sale_delivery.model_sale_order
 msgid "Sales Order"
-msgstr "Értékesítési rendelés"
+msgstr "Vevői rendelések"
+
+#. module: website_sale_delivery
+#: model:ir.model,name:website_sale_delivery.model_sale_order_line
+msgid "Sales Order Line"
+msgstr "Értékesítési megrendelés sor"
 
 #. module: website_sale_delivery
 #: model_terms:ir.ui.view,arch_db:website_sale_delivery.payment_delivery_methods
@@ -179,6 +182,7 @@ msgid "Shipping Methods"
 msgstr "Szállítási módok"
 
 #. module: website_sale_delivery
+#. odoo-python
 #: code:addons/website_sale_delivery/controllers/main.py:0
 #, python-format
 msgid "Sorry, we are unable to ship your order"
@@ -194,11 +198,6 @@ msgstr "Összeg adó nélkül."
 msgid "The full URL to access the document through the website."
 msgstr ""
 "A teljes elérési út/URL a dokumentum weboldalon keresztüli eléréséhez."
-
-#. module: website_sale_delivery
-#: model_terms:ir.ui.view,arch_db:website_sale_delivery.res_config_settings_view_form
-msgid "USPS Shipping Methods"
-msgstr ""
 
 #. module: website_sale_delivery
 #: model:ir.model.fields,field_description:website_sale_delivery.field_delivery_carrier__website_published

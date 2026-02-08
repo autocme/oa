@@ -1,33 +1,23 @@
 /** @odoo-module **/
 
+import { usePosition } from "@web/core/position_hook";
+import { useRefToModel } from '@mail/component_hooks/use_ref_to_model';
 import { registerMessagingComponent } from '@mail/utils/messaging_component';
-import { isEventHandled } from '@mail/utils/utils';
 
-const { Component } = owl;
-const { useRef, useState } = owl.hooks;
+const { Component, useRef } = owl;
 
 export class FollowerListMenu extends Component {
+
     /**
      * @override
      */
-    constructor(...args) {
-        super(...args);
-        this.state = useState({
-            /**
-             * Determine whether the dropdown is open or not.
-             */
-            isDropdownOpen: false,
+    setup() {
+        super.setup();
+        useRefToModel({ fieldName: 'dropdownRef', refName: 'dropdown' });
+        this.togglerRef = useRef("toggler");
+        usePosition(() => this.togglerRef.el, {
+            position: "bottom-end",
         });
-        this._dropdownRef = useRef('dropdown');
-        this._onClickCaptureGlobal = this._onClickCaptureGlobal.bind(this);
-    }
-
-    mounted() {
-        document.addEventListener('click', this._onClickCaptureGlobal, true);
-    }
-
-    willUnmount() {
-        document.removeEventListener('click', this._onClickCaptureGlobal, true);
     }
 
     //--------------------------------------------------------------------------
@@ -35,92 +25,16 @@ export class FollowerListMenu extends Component {
     //--------------------------------------------------------------------------
 
     /**
-     * @return {mail.thread}
+     * @return {FollowerListMenuView}
      */
-    get thread() {
-        return this.messaging && this.messaging.models['mail.thread'].get(this.props.threadLocalId);
+    get followerListMenuView() {
+        return this.props.record;
     }
 
-    //--------------------------------------------------------------------------
-    // Private
-    //--------------------------------------------------------------------------
-
-    /**
-     * @private
-     */
-    _hide() {
-        this.state.isDropdownOpen = false;
-    }
-
-    /**
-     * @private
-     * @param {KeyboardEvent} ev
-     */
-    _onKeydown(ev) {
-        ev.stopPropagation();
-        switch (ev.key) {
-            case 'Escape':
-                ev.preventDefault();
-                this._hide();
-                break;
-        }
-    }
-
-    //--------------------------------------------------------------------------
-    // Handlers
-    //--------------------------------------------------------------------------
-
-    /**
-     * @private
-     * @param {MouseEvent} ev
-     */
-    _onClickAddFollowers(ev) {
-        ev.preventDefault();
-        this._hide();
-        this.thread.promptAddPartnerFollower();
-    }
-
-    /**
-     * Close the dropdown when clicking outside of it.
-     *
-     * @private
-     * @param {MouseEvent} ev
-     */
-    _onClickCaptureGlobal(ev) {
-        // since dropdown is conditionally shown based on state, dropdownRef can be null
-        if (this._dropdownRef.el && !this._dropdownRef.el.contains(ev.target)) {
-            this._hide();
-        }
-    }
-
-    /**
-     * @private
-     * @param {MouseEvent} ev
-     */
-    _onClickFollowersButton(ev) {
-        this.state.isDropdownOpen = !this.state.isDropdownOpen;
-    }
-
-    /**
-     * @private
-     * @param {MouseEvent} ev
-     */
-    _onClickFollower(ev) {
-        if (isEventHandled(ev, 'Follower.clickRemove')) {
-            return;
-        }
-        this._hide();
-    }
 }
 
 Object.assign(FollowerListMenu, {
-    defaultProps: {
-        isDisabled: false,
-    },
-    props: {
-        isDisabled: Boolean,
-        threadLocalId: String,
-    },
+    props: { record: Object },
     template: 'mail.FollowerListMenu',
 });
 

@@ -3,7 +3,7 @@
 
 {
     "name" : "Mongolia - Accounting",
-    "version" : "1.0",
+    "version" : "1.1",
     'category': 'Accounting/Localizations/Account Charts',
     "author" : "BumanIT LLC, Odoo S.A.",
     "description": """
@@ -26,6 +26,7 @@ Financial requirement contributor: Baskhuu Lodoikhuu. BumanIT LLC
         'data/account_fiscal_position_template_data.xml',
         'data/account.chart.template.csv',
         'data/account_chart_template_configuration_data.xml',
+        'data/l10n_mn_chart_template_data.xml',
     ],
     'demo': [
         'demo/demo_company.xml',

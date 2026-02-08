@@ -24,6 +24,7 @@ class TestAccountMoveDateAlgorithm(AccountTestInvoicingCommon):
                 Command.create({
                     'product_id': self.product_a.id,
                     'price_unit': 1200.0,
+                    'tax_ids': [],
                     **line_kwargs,
                 })
                 for line_kwargs in kwargs.get('invoice_line_ids', [{}])
@@ -152,9 +153,9 @@ class TestAccountMoveDateAlgorithm(AccountTestInvoicingCommon):
         self._set_lock_date('2017-01-31')
 
         res = (invoice + refund).line_ids\
-            .filtered(lambda x: x.account_id.internal_type == 'receivable')\
+            .filtered(lambda x: x.account_id.account_type == 'asset_receivable')\
             .reconcile()
-        exchange_move = res['full_reconcile'].exchange_move_id
+        exchange_move = res['partials'].exchange_move_id
 
         self.assertRecordValues(exchange_move, [{
             'date': fields.Date.from_string('2017-02-01'),
@@ -168,9 +169,9 @@ class TestAccountMoveDateAlgorithm(AccountTestInvoicingCommon):
         (invoice + refund).action_post()
 
         res = (invoice + refund).line_ids\
-            .filtered(lambda x: x.account_id.internal_type == 'receivable')\
+            .filtered(lambda x: x.account_id.account_type == 'asset_receivable')\
             .reconcile()
-        exchange_move = res['full_reconcile'].exchange_move_id
+        exchange_move = res['partials'].exchange_move_id
 
         self._set_lock_date('2017-01-31')
         (invoice + refund).line_ids.remove_move_reconcile()
@@ -187,7 +188,7 @@ class TestAccountMoveDateAlgorithm(AccountTestInvoicingCommon):
         tax_waiting_account = self.env['account.account'].create({
             'name': 'TAX_WAIT',
             'code': 'TWAIT',
-            'user_type_id': self.env.ref('account.data_account_type_current_liabilities').id,
+            'account_type': 'liability_current',
             'reconcile': True,
         })
         tax = self.env['account.tax'].create({
@@ -210,7 +211,7 @@ class TestAccountMoveDateAlgorithm(AccountTestInvoicingCommon):
 
         with freezegun.freeze_time('2017-01-12'):
             (invoice + payment.move_id).line_ids\
-                .filtered(lambda x: x.account_id.internal_type == 'receivable')\
+                .filtered(lambda x: x.account_id.account_type == 'asset_receivable')\
                 .reconcile()
 
         caba_move = self.env['account.move'].search([('tax_cash_basis_origin_move_id', '=', invoice.id)])
@@ -244,7 +245,7 @@ class TestAccountMoveDateAlgorithm(AccountTestInvoicingCommon):
         tax_waiting_account = self.env['account.account'].create({
             'name': 'TAX_WAIT',
             'code': 'TWAIT',
-            'user_type_id': self.env.ref('account.data_account_type_current_liabilities').id,
+            'account_type': 'liability_current',
             'reconcile': True,
         })
         tax = self.env['account.tax'].create({
@@ -274,7 +275,7 @@ class TestAccountMoveDateAlgorithm(AccountTestInvoicingCommon):
                 (invoice + payment.move_id).action_post()
 
                 (invoice + payment.move_id).line_ids\
-                    .filtered(lambda x: x.account_id.internal_type == 'receivable')\
+                    .filtered(lambda x: x.account_id.account_type == 'asset_receivable')\
                     .reconcile()
 
                 caba_move = self.env['account.move'].search([('tax_cash_basis_origin_move_id', '=', invoice.id)])

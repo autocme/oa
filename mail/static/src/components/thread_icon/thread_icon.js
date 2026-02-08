@@ -6,23 +6,17 @@ const { Component } = owl;
 
 export class ThreadIcon extends Component {
 
-    //--------------------------------------------------------------------------
-    // Public
-    //--------------------------------------------------------------------------
-
     /**
-     * @returns {mail.thread}
+     * @returns {Thread}
      */
     get thread() {
-        return this.messaging && this.messaging.models['mail.thread'].get(this.props.threadLocalId);
+        return this.props.thread;
     }
 
 }
 
 Object.assign(ThreadIcon, {
-    props: {
-        threadLocalId: String,
-    },
+    props: { thread: Object },
     template: 'mail.ThreadIcon',
 });
 

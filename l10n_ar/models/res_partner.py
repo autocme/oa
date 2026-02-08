@@ -24,7 +24,7 @@ class ResPartner(models.Model):
         [('multilateral', 'Multilateral'), ('local', 'Local'), ('exempt', 'Exempt')],
         'Gross Income Type', help='Type of gross income: exempt, local, multilateral')
     l10n_ar_afip_responsibility_type_id = fields.Many2one(
-        'l10n_ar.afip.responsibility.type', string='AFIP Responsibility Type', index=True, help='Defined by AFIP to'
+        'l10n_ar.afip.responsibility.type', string='AFIP Responsibility Type', index='btree_not_null', help='Defined by AFIP to'
         ' identify the type of responsibilities that a person or a legal entity could have and that impacts in the'
         ' type of operations and requirements they need.')
     l10n_ar_special_purchase_document_type_ids = fields.Many2many(
@@ -64,7 +64,7 @@ class ResPartner(models.Model):
         # NOTE by the moment we include the CUIT (VAT AR) validation also here because we extend the messages
         # errors to be more friendly to the user. In a future when Odoo improve the base_vat message errors
         # we can change this method and use the base_vat.check_vat_ar method.s
-        l10n_ar_partners = self.filtered(lambda x: x.l10n_latam_identification_type_id.l10n_ar_afip_code)
+        l10n_ar_partners = self.filtered(lambda p: p.l10n_latam_identification_type_id.l10n_ar_afip_code or p.country_code == 'AR')
         l10n_ar_partners.l10n_ar_identification_validation()
         return super(ResPartner, self - l10n_ar_partners).check_vat()
 

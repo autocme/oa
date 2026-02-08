@@ -1,9 +1,11 @@
 /** @odoo-module */
 
-import { useEffect, useService } from "@web/core/utils/hooks";
+import { useService } from "@web/core/utils/hooks";
 import { browser } from "../browser/browser";
 import { localization } from "@web/core/l10n/localization";
 import { scrollTo } from "../utils/scrolling";
+
+import { useComponent, useEffect, useRef } from "@odoo/owl";
 
 /**
  * @typedef {{
@@ -17,9 +19,6 @@ import { scrollTo } from "../utils/scrolling";
  *  openSubDropdown: (immediate?:boolean)=>void,
  * }} MenuElement
  */
-
-const { hooks } = owl;
-const { useComponent, useRef } = hooks;
 
 const ACTIVE_MENU_ELEMENT_CLASS = "focus";
 const MENU_ELEMENTS_SELECTORS = [":scope > .dropdown-item", ":scope > .dropdown"];
@@ -36,14 +35,14 @@ export function useDropdownNavigation() {
 
     // As this navigation hook relies on clicking ".dropdown-toggle" elements,
     // it is incompatible with a toggler="parent" strategy for subdropdowns.
-    if (comp.hasParentDropdown && comp.props.toggler === "parent") {
+    if (comp.parentDropdown && comp.props.toggler === "parent") {
         throw new Error("A nested Dropdown must use its standard toggler");
     }
 
     // Needed to avoid unwanted mouseclick behavior on a subdropdown toggler.
     const originalOnTogglerClick = comp.onTogglerClick.bind(comp);
     comp.onTogglerClick = (ev) => {
-        if (comp.hasParentDropdown && !ev.__fromDropdownNavigation) {
+        if (comp.parentDropdown && !ev.__fromDropdownNavigation) {
             return;
         }
         originalOnTogglerClick();
@@ -52,7 +51,7 @@ export function useDropdownNavigation() {
     // Needed to avoid unwanted mouseenter behavior on a subdropdown toggler.
     const originalOnTogglerMouseEnter = comp.onTogglerMouseEnter.bind(comp);
     comp.onTogglerMouseEnter = () => {
-        if (comp.hasParentDropdown) {
+        if (comp.parentDropdown) {
             return;
         }
         originalOnTogglerMouseEnter();
@@ -193,7 +192,7 @@ export function useDropdownNavigation() {
     useEffect(
         (open) => {
             // If we just opened and we are a subdropdown, make active our first menu element.
-            if (open && comp.hasParentDropdown) {
+            if (open && comp.parentDropdown) {
                 setActiveMenuElement("FIRST");
             }
         },
@@ -205,13 +204,13 @@ export function useDropdownNavigation() {
     const closeAndRefocus = () => {
         const toFocus =
             comp.props.toggler === "parent"
-                ? comp.el.parentElement
-                : comp.el.querySelector(":scope > .dropdown-toggle");
+                ? comp.rootRef.el.parentElement
+                : comp.rootRef.el.querySelector(":scope > .dropdown-toggle");
         comp.close().then(() => {
             toFocus.focus();
         });
     };
-    const closeSubDropdown = comp.hasParentDropdown ? closeAndRefocus : () => {};
+    const closeSubDropdown = comp.parentDropdown ? closeAndRefocus : () => {};
     const openSubDropdown = () => {
         const menuElement = getActiveMenuElement();
         // Active menu element is a sub dropdown

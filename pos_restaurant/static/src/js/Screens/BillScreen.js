@@ -20,6 +20,9 @@ odoo.define('pos_restaurant.BillScreen', function (require) {
                 const currentOrder = this.currentOrder;
                 await super.printReceipt();
                 currentOrder._printed = false;
+                if (this.env.pos.config.iface_print_skip_screen && !this.env.isMobile) {
+                    this.confirm();
+                }
             }
         }
         BillScreen.template = 'BillScreen';

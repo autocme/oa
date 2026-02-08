@@ -7,6 +7,7 @@ from odoo.tests import Form, tagged, users
 from odoo.tools import mute_logger
 
 
+@tagged('mail_composer')
 class TestMailComposer(MailCommon):
 
     @classmethod
@@ -230,9 +231,11 @@ class TestMailComposerRendering(TestMailComposer):
 
         values = mail_compose_message.get_mail_values(self.partner_employee.ids)
 
-        self.assertIn(self.body_html,
+        self.assertIn(
+            self.body_html,
             values[self.partner_employee.id]['body_html'],
-            'We must preserve (mso) comments in email html')
+            'We must preserve (mso) comments in email html'
+        )
 
     @mute_logger('odoo.addons.mail.models.mail_mail')
     @users('employee')
@@ -253,6 +256,8 @@ class TestMailComposerRendering(TestMailComposer):
 
         values = composer.get_mail_values(self.partner_employee.ids)
 
-        self.assertIn(self.body_html,
+        self.assertIn(
+            self.body_html,
             values[self.partner_employee.id]['body_html'],
-            'We must preserve (mso) comments in email html')
+            'We must preserve (mso) comments in email html'
+        )

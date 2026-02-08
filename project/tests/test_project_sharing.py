@@ -41,6 +41,8 @@ class TestProjectSharingCommon(TestProjectCommon):
             'partner_id': cls.user_portal.partner_id.id,
             'type_ids': project_sharing_stages_vals_list,
         })
+        cls.project_portal.message_subscribe(partner_ids=[cls.partner_portal.id])
+
         cls.project_no_collabo = cls.env['project.project'].with_context({'mail_create_nolog': True}).create({
             'name': 'No Collabo',
             'privacy_visibility': 'followers',
@@ -123,7 +125,8 @@ class TestProjectSharing(TestProjectSharingCommon):
             3) Give the 'edit' access mode to a portal user in a project and try to create task with this user.
             3.1) Try to change the project of the new task with this user.
         """
-        Task = self.env['project.task'].with_context({'tracking_disable': True, 'default_project_id': self.project_portal.id})
+        self.project_portal.allow_subtasks = True
+        Task = self.env['project.task'].with_context({'tracking_disable': True, 'default_project_id': self.project_portal.id, 'default_user_ids': [(4, self.user_portal.id)]})
         # 1) Give the 'read' access mode to a portal user in a project and try to create task with this user.
         with self.assertRaises(AccessError, msg="Should not accept the portal user create a task in the project when he has not the edit access right."):
             with self.get_project_sharing_form_view(Task, self.user_portal) as form:
@@ -156,6 +159,16 @@ class TestProjectSharing(TestProjectSharingCommon):
                 task = form.save()
 
         Task = Task.with_user(self.user_portal)
+
+        # Allow to set as parent a task he has access to
+        task = Task.create({'name': 'foo', 'parent_id': self.task_portal.id})
+        self.assertEqual(task.parent_id, self.task_portal)
+        # Disallow to set as parent a task he doesn't have access to
+        with self.assertRaises(AccessError, msg="Should not accept the portal user to set a parent task he doesn't have access to."):
+            Task.create({'name': 'foo', 'parent_id': self.task_no_collabo.id})
+        with self.assertRaises(AccessError, msg="Should not accept the portal user to set a parent task he doesn't have access to."):
+            task = Task.with_context(default_parent_id=self.task_no_collabo.id).create({'name': 'foo'})
+
         # Create/Update a forbidden task through child_ids
         with self.assertRaisesRegex(AccessError, "You cannot write on description"):
             Task.create({'name': 'foo', 'child_ids': [Command.create({'name': 'Foo', 'description': 'Foo'})]})
@@ -219,6 +232,10 @@ class TestProjectSharing(TestProjectSharingCommon):
             3.2) Create a sub-task
             3.3) Create a second sub-task
         """
+        # 0) Allow to create subtasks in the project tasks
+        # Required for `child_ids` to be visible in the view
+        # {'invisible': [('allow_subtasks', '=', False)]}
+        self.project_cows.allow_subtasks = True
         # 1) Give the 'read' access mode to a portal user in a project and try to create task with this user.
         with self.assertRaises(AccessError, msg="Should not accept the portal user create a task in the project when he has not the edit access right."):
             with self.get_project_sharing_form_view(self.task_cow.with_context({'tracking_disable': True, 'default_project_id': self.project_cows.id}), self.user_portal) as form:
@@ -273,6 +290,13 @@ class TestProjectSharing(TestProjectSharingCommon):
                 subtask_form.name = 'Test Subtask'
         self.assertEqual(len(task.child_ids), 2, 'Check 2 subtasks has correctly been created by the user portal.')
 
+        # Allow to set as parent a task he has access to
+        task.write({'parent_id': self.task_portal.id})
+        self.assertEqual(task.parent_id, self.task_portal)
+        # Disallow to set as parent a task he doesn't have access to
+        with self.assertRaises(AccessError, msg="Should not accept the portal user to set a parent task he doesn't have access to."):
+            task.write({'parent_id': self.task_no_collabo.id})
+
         # Create/Update a forbidden task through child_ids
         with self.assertRaisesRegex(AccessError, "You cannot write on description"):
             task.write({'child_ids': [Command.create({'name': 'Foo', 'description': 'Foo'})]})
@@ -284,7 +308,7 @@ class TestProjectSharing(TestProjectSharingCommon):
             task.write({'child_ids': [Command.unlink(self.task_no_collabo.id)]})
         with self.assertRaisesRegex(AccessError, "not allowed to modify 'Task'"):
             task.write({'child_ids': [Command.link(self.task_no_collabo.id)]})
-        with self.assertRaisesRegex(AccessError, "cannot write"):
+        with self.assertRaisesRegex(AccessError, "not allowed to modify 'Task'"):
             task.write({'child_ids': [Command.set([self.task_no_collabo.id])]})
 
         # Create/update a tag through tag_ids
@@ -405,3 +429,30 @@ class TestProjectSharing(TestProjectSharingCommon):
             [],
         )
         self.assertFalse(task_read_group[0]['__count'], 'No result should found with the read_group since the domain is falsy.')
+
+    def test_milestone_read_access_right(self):
+        """ This test ensures that a portal user has read access on the milestone of the project that was shared with him """
+
+        project_milestone = self.env['project.milestone'].create({
+            'name': 'Test Project Milestone',
+            'project_id': self.project_portal.id,
+        })
+        with self.assertRaises(AccessError, msg="Should not accept the portal user to access to a milestone if he's not a collaborator of its project."):
+            project_milestone.with_user(self.user_portal).read(['name'])
+
+        self.project_portal.write({
+            'collaborator_ids': [Command.create({
+                'partner_id': self.user_portal.partner_id.id,
+            })],
+        })
+        # Reading the milestone should no longer trigger an access error.
+        project_milestone.with_user(self.user_portal).read(['name'])
+        with self.assertRaises(AccessError, msg="Should not accept the portal user to update a milestone."):
+            project_milestone.with_user(self.user_portal).write(['name'])
+        with self.assertRaises(AccessError, msg="Should not accept the portal user to delete a milestone."):
+            project_milestone.with_user(self.user_portal).unlink()
+        with self.assertRaises(AccessError, msg="Should not accept the portal user to create a milestone."):
+            self.env['project.milestone'].with_user(self.user_portal).create({
+                'name': 'Test Project new Milestone',
+                'project_id': self.project_portal.id,
+            })

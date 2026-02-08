@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
 
-from odoo import api, fields, models
+from odoo import _, api, fields, models
 from odoo.exceptions import ValidationError
 
 from calendar import monthrange
@@ -118,36 +118,36 @@ class ProjectTaskRecurrence(models.Model):
     def _check_recurrence_days(self):
         for project in self.filtered(lambda p: p.repeat_unit == 'week'):
             if not any([project.mon, project.tue, project.wed, project.thu, project.fri, project.sat, project.sun]):
-                raise ValidationError('You should select a least one day')
+                raise ValidationError(_('You should select a least one day'))
 
     @api.constrains('repeat_interval')
     def _check_repeat_interval(self):
         if self.filtered(lambda t: t.repeat_interval <= 0):
-            raise ValidationError('The interval should be greater than 0')
+            raise ValidationError(_('The interval should be greater than 0'))
 
     @api.constrains('repeat_number', 'repeat_type')
     def _check_repeat_number(self):
         if self.filtered(lambda t: t.repeat_type == 'after' and t.repeat_number <= 0):
-            raise ValidationError('Should repeat at least once')
+            raise ValidationError(_('Should repeat at least once'))
 
     @api.constrains('repeat_type', 'repeat_until')
     def _check_repeat_until_date(self):
         today = fields.Date.today()
         if self.filtered(lambda t: t.repeat_type == 'until' and t.repeat_until < today):
-            raise ValidationError('The end date should be in the future')
+            raise ValidationError(_('The end date should be in the future'))
 
     @api.constrains('repeat_unit', 'repeat_on_month', 'repeat_day', 'repeat_type', 'repeat_until')
     def _check_repeat_until_month(self):
         if self.filtered(lambda r: r.repeat_type == 'until' and r.repeat_unit == 'month' and r.repeat_until and r.repeat_on_month == 'date'
            and int(r.repeat_day) > r.repeat_until.day and monthrange(r.repeat_until.year, r.repeat_until.month)[1] != r.repeat_until.day):
-            raise ValidationError('The end date should be after the day of the month or the last day of the month')
+            raise ValidationError(_('The end date should be after the day of the month or the last day of the month'))
 
     @api.model
     def _get_recurring_fields(self):
         return ['message_partner_ids', 'company_id', 'description', 'displayed_image_id', 'email_cc',
                 'parent_id', 'partner_email', 'partner_id', 'partner_phone', 'planned_hours',
                 'project_id', 'display_project_id', 'project_privacy_visibility', 'sequence', 'tag_ids', 'recurrence_id',
-                'name', 'recurring_task', 'analytic_account_id']
+                'name', 'recurring_task', 'analytic_account_id', 'user_ids']
 
     def _get_weekdays(self, n=1):
         self.ensure_one()
@@ -211,7 +211,6 @@ class ProjectTaskRecurrence(models.Model):
             field: value[0] if isinstance(value, tuple) else value for field, value in task_values.items()
         }
         create_values['stage_id'] = task.project_id.type_ids[0].id if task.project_id.type_ids else task.stage_id.id
-        create_values['user_ids'] = False
         return create_values
 
     def _create_subtasks(self, task, new_task, depth=3):
@@ -243,7 +242,7 @@ class ProjectTaskRecurrence(models.Model):
                 self._create_subtasks(child, new_child, depth=depth - 1)
             else:
                 children.append(child_values)
-        children_tasks = self.env['project.task'].sudo().create(children)
+        self.env['project.task'].sudo().create(children)
 
     def _create_next_task(self):
         for recurrence in self:
@@ -278,13 +277,14 @@ class ProjectTaskRecurrence(models.Model):
             recurrence.recurrence_left -= 1
         recurring_today._set_next_recurrence_date()
 
-    @api.model
-    def create(self, vals):
-        if vals.get('repeat_number'):
-            vals['recurrence_left'] = vals.get('repeat_number')
-        res = super(ProjectTaskRecurrence, self).create(vals)
-        res._set_next_recurrence_date()
-        return res
+    @api.model_create_multi
+    def create(self, vals_list):
+        for vals in vals_list:
+            if vals.get('repeat_number'):
+                vals['recurrence_left'] = vals.get('repeat_number')
+        recurrences = super().create(vals_list)
+        recurrences._set_next_recurrence_date()
+        return recurrences
 
     def write(self, vals):
         if vals.get('repeat_number'):

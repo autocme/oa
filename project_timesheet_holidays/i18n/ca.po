@@ -3,19 +3,23 @@
 # 	* project_timesheet_holidays
 # 
 # Translators:
-# Martin Trigaux, 2021
-# Quim - eccit <quim@eccit.com>, 2021
-# Manel Fernandez Ramirez <manelfera@outlook.com>, 2021
-# Josep Anton Belchi, 2021
+# Jonatan Gk, 2022
+# Quim - eccit <quim@eccit.com>, 2022
+# Manel Fernandez Ramirez <manelfera@outlook.com>, 2022
 # marcescu, 2022
+# Martin Trigaux, 2022
+# Ivan Espinola, 2022
+# jabiri7, 2022
+# jabelchi, 2022
+# Óscar Fonseca <tecnico@extreme-micro.com>, 2023
 # 
 msgid ""
 msgstr ""
-"Project-Id-Version: Odoo Server 15.0\n"
+"Project-Id-Version: Odoo Server 16.0+e\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-08-14 15:43+0000\n"
-"PO-Revision-Date: 2021-09-14 12:25+0000\n"
-"Last-Translator: marcescu, 2022\n"
+"POT-Creation-Date: 2022-12-15 12:51+0000\n"
+"PO-Revision-Date: 2022-09-22 05:54+0000\n"
+"Last-Translator: Óscar Fonseca <tecnico@extreme-micro.com>, 2023\n"
 "Language-Team: Catalan (https://app.transifex.com/odoo/teams/41243/ca/)\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
@@ -35,6 +39,7 @@ msgid "Analytic Lines"
 msgstr "Línies analítiques"
 
 #. module: project_timesheet_holidays
+#. odoo-python
 #: code:addons/project_timesheet_holidays/models/hr_holidays.py:0
 #, python-format
 msgid ""
@@ -55,13 +60,6 @@ msgstr "Empreses"
 #: model:ir.model,name:project_timesheet_holidays.model_res_config_settings
 msgid "Config Settings"
 msgstr "Ajustos de configuració"
-
-#. module: project_timesheet_holidays
-#: model:ir.model.fields,help:project_timesheet_holidays.field_res_config_settings__internal_project_id
-msgid "Default project value for timesheet generated from time off type."
-msgstr ""
-"Valor predeterminat del projecte per al full de temps generat des del tipus "
-"de temps desactivat."
 
 #. module: project_timesheet_holidays
 #: model:ir.model,name:project_timesheet_holidays.model_hr_employee
@@ -88,8 +86,9 @@ msgstr ""
 "el Projecte Vacation de l'empresa."
 
 #. module: project_timesheet_holidays
-#: code:addons/project_timesheet_holidays/__init__.py:0
-#: code:addons/project_timesheet_holidays/__init__.py:0
+#. odoo-python
+#: code:addons/project_timesheet_holidays/models/res_company.py:0
+#: code:addons/project_timesheet_holidays/models/res_company.py:0
 #, python-format
 msgid "Internal"
 msgstr "Intern"
@@ -100,9 +99,26 @@ msgid "Internal Project"
 msgstr "Projecte Intern"
 
 #. module: project_timesheet_holidays
+#: model:ir.model.fields,field_description:project_timesheet_holidays.field_project_task__is_timeoff_task
+msgid "Is Time off Task"
+msgstr "La tasca Temps excedit"
+
+#. module: project_timesheet_holidays
 #: model:ir.model.fields,field_description:project_timesheet_holidays.field_account_analytic_line__holiday_id
 msgid "Leave Request"
 msgstr "Petició d'absència"
+
+#. module: project_timesheet_holidays
+#: model:ir.model.fields,field_description:project_timesheet_holidays.field_project_task__leave_types_count
+msgid "Leave Types Count"
+msgstr "Comptador de tipus de dies lliures"
+
+#. module: project_timesheet_holidays
+#. odoo-python
+#: code:addons/project_timesheet_holidays/models/project_task.py:0
+#, python-format
+msgid "Operation not supported"
+msgstr "Operació no implementada"
 
 #. module: project_timesheet_holidays
 #: model:ir.model.fields,field_description:project_timesheet_holidays.field_hr_leave_type__timesheet_project_id
@@ -116,22 +132,37 @@ msgid "Resource Time Off Detail"
 msgstr "Detall del temps lliure dels recursos"
 
 #. module: project_timesheet_holidays
+#: model:ir.model,name:project_timesheet_holidays.model_project_task
+#: model:ir.model.fields,field_description:project_timesheet_holidays.field_account_analytic_line__task_id
 #: model:ir.model.fields,field_description:project_timesheet_holidays.field_hr_leave_type__timesheet_task_id
 #: model_terms:ir.ui.view,arch_db:project_timesheet_holidays.res_config_settings_view_form
 msgid "Task"
 msgstr "Tasca"
 
 #. module: project_timesheet_holidays
-#: model:ir.model.fields,help:project_timesheet_holidays.field_hr_leave_type__timesheet_project_id
+#: model:ir.model.fields,help:project_timesheet_holidays.field_res_config_settings__internal_project_id
 msgid ""
-"The project will contain the timesheet generated when a time off is "
-"validated."
+"The default project used when automatically generating timesheets via time "
+"off requests. You can specify another project on each time off type "
+"individually."
 msgstr ""
-"El projecte contindrà el full d'hores generat quan es validi un temps "
-"desactivat."
+"El projecte predeterminat utilitzat quan es generen automàticament fulls "
+"d'hores mitjançant sol·licituds de desactivació. Podeu especificar un altre "
+"projecte cada vegada que es desconnecti escriviu individualment."
 
 #. module: project_timesheet_holidays
-#: code:addons/project_timesheet_holidays/__init__.py:0
+#: model:ir.model.fields,help:project_timesheet_holidays.field_res_config_settings__leave_timesheet_task_id
+msgid ""
+"The default task used when automatically generating timesheets via time off "
+"requests. You can specify another task on each time off type individually."
+msgstr ""
+"La tasca predeterminada utilitzada quan es generen automàticament fulls "
+"d'hores mitjançant sol·licituds de desconnexió temporal. Podeu especificar "
+"una altra tasca en cada vegada que es desconnecti per separat."
+
+#. module: project_timesheet_holidays
+#. odoo-python
+#: code:addons/project_timesheet_holidays/models/res_company.py:0
 #: code:addons/project_timesheet_holidays/models/res_company.py:0
 #: model:ir.model,name:project_timesheet_holidays.model_hr_leave
 #, python-format
@@ -139,6 +170,7 @@ msgid "Time Off"
 msgstr "Absències"
 
 #. module: project_timesheet_holidays
+#. odoo-python
 #: code:addons/project_timesheet_holidays/models/hr_holidays.py:0
 #: code:addons/project_timesheet_holidays/models/resource_calendar_leaves.py:0
 #, python-format
@@ -158,15 +190,41 @@ msgstr "Tipus de temps desactivat"
 
 #. module: project_timesheet_holidays
 #: model_terms:ir.ui.view,arch_db:project_timesheet_holidays.hr_holiday_status_view_form_inherit
-msgid "Timesheets"
-msgstr "Fulls d'hores"
+msgid "Timesheet"
+msgstr "Full d'hores"
 
 #. module: project_timesheet_holidays
+#. odoo-python
 #: code:addons/project_timesheet_holidays/models/account_analytic.py:0
 #, python-format
 msgid ""
-"You cannot delete timesheets linked to time off. Please, cancel the time off"
-" instead."
+"You cannot create timesheets for a task that is linked to a time off type. "
+"Please use the Time Off application to request new time off instead."
 msgstr ""
-"No podeu suprimir fulls d'hora enllaçats a temps desactivat. Si us plau, "
-"cancel·li el temps lliure."
+"No podeu crear fulls d'hores per a una tasca que està enllaçada a un tipus "
+"de temps d'espera. Utilitzeu l'aplicació Time Off per sol·licitar temps nou "
+"de baixa."
+
+#. module: project_timesheet_holidays
+#. odoo-python
+#: code:addons/project_timesheet_holidays/models/account_analytic.py:0
+#, python-format
+msgid ""
+"You cannot delete timesheets that are linked to time off requests. Please "
+"cancel your time off request from the Time Off application instead."
+msgstr ""
+"No podeu suprimir fulls d'hores que estan enllaçats a sol·licituds de temps "
+"lliure. Cancel·leu la vostra sol·licitud de suspensió temporal de "
+"l'aplicació Time Off."
+
+#. module: project_timesheet_holidays
+#. odoo-python
+#: code:addons/project_timesheet_holidays/models/account_analytic.py:0
+#, python-format
+msgid ""
+"You cannot modify timesheets that are linked to time off requests. Please "
+"use the Time Off application to modify your time off requests instead."
+msgstr ""
+"No podeu modificar els fulls d'hores que estan enllaçats a sol·licituds de "
+"temps lliure. Utilitzeu l'aplicació Time Off per a modificar les vostres "
+"sol·licituds de temps d'espera."

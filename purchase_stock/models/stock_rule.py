@@ -4,11 +4,11 @@
 from collections import defaultdict
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
-from itertools import groupby
 from odoo.tools import float_compare
 
 from odoo import api, fields, models, SUPERUSER_ID, _
 from odoo.addons.stock.models.stock_rule import ProcurementException
+from odoo.tools import groupby
 
 
 class StockRule(models.Model):
@@ -75,7 +75,7 @@ class StockRule(models.Model):
                 msg = _('There is no matching vendor price to generate the purchase order for product %s (no vendor defined, minimum quantity not reached, dates not valid, ...). Go on the product form and complete the list of vendors.') % (procurement.product_id.display_name)
                 errors.append((procurement, msg))
 
-            partner = supplier.name
+            partner = supplier.partner_id
             # we put `supplier_info` in values for extensibility purposes
             procurement.values['supplier'] = supplier
             procurement.values['propagate_cancel'] = rule.propagate_cancel
@@ -122,9 +122,9 @@ class StockRule(models.Model):
             procurements = self._merge_procurements(procurements_to_merge)
 
             po_lines_by_product = {}
-            grouped_po_lines = groupby(po.order_line.filtered(lambda l: not l.display_type and l.product_uom == l.product_id.uom_po_id).sorted(lambda l: l.product_id.id), key=lambda l: l.product_id.id)
+            grouped_po_lines = groupby(po.order_line.filtered(lambda l: not l.display_type and l.product_uom == l.product_id.uom_po_id), key=lambda l: l.product_id.id)
             for product, po_lines in grouped_po_lines:
-                po_lines_by_product[product] = self.env['purchase.order.line'].concat(*list(po_lines))
+                po_lines_by_product[product] = self.env['purchase.order.line'].concat(*po_lines)
             po_line_values = []
             for procurement in procurements:
                 po_lines = po_lines_by_product.get(procurement.product_id.id, self.env['purchase.order.line'])
@@ -142,26 +142,23 @@ class StockRule(models.Model):
                         # If procurement contains negative quantity, don't create a new line that would contain negative qty
                         continue
                     # If it does not exist a PO line for current procurement.
-                    # Check if we need to advance the order date for the new line
-                    order_date_planned = procurement.values['date_planned'] - relativedelta(days=procurement.values['supplier'].delay)
-                    if fields.Date.to_date(order_date_planned) < fields.Date.to_date(po.date_order):
-                        if fields.Date.to_date(order_date_planned) > fields.Date.today():
-                            po.date_order = order_date_planned
-                        else:
-                            procurement.values['date_planned'] = po.date_order + relativedelta(days=procurement.values['supplier'].delay)
                     # Generate the create values for it and add it to a list in
                     # order to create it in batch.
-                    partner = procurement.values['supplier'].name
+                    partner = procurement.values['supplier'].partner_id
                     po_line_values.append(self.env['purchase.order.line']._prepare_purchase_order_line_from_procurement(
                         procurement.product_id, procurement.product_qty,
                         procurement.product_uom, procurement.company_id,
                         procurement.values, po))
+                    # Check if we need to advance the order date for the new line
+                    order_date_planned = procurement.values['date_planned'] - relativedelta(
+                        days=procurement.values['supplier'].delay)
+                    if fields.Date.to_date(order_date_planned) < fields.Date.to_date(po.date_order):
+                        po.date_order = order_date_planned
             self.env['purchase.order.line'].sudo().create(po_line_values)
 
     def _get_lead_days(self, product, **values):
-        """Add the company security lead time, days to purchase and the supplier
-        delay to the cumulative delay and cumulative description. The days to
-        purchase and company lead time are always displayed for onboarding
+        """Add the company security lead time and the supplier delay to the cumulative delay
+        and cumulative description. The company lead time is always displayed for onboarding
         purpose in order to indicate that those options are available.
         """
         delay, delay_description = super()._get_lead_days(product, **values)
@@ -177,10 +174,10 @@ class StockRule(models.Model):
         security_delay = buy_rule.picking_type_id.company_id.po_lead
         if not bypass_delay_description:
             delay_description.append((_('Purchase Security Lead Time'), _('+ %d day(s)', security_delay)))
-        days_to_purchase = buy_rule.company_id.days_to_purchase
+        days_to_order = values.get('days_to_order', buy_rule.company_id.days_to_purchase)
         if not bypass_delay_description:
-            delay_description.append((_('Days to Purchase'), _('+ %d day(s)', days_to_purchase)))
-        return delay + supplier_delay + security_delay + days_to_purchase, delay_description
+            delay_description.append((_('Days to Purchase'), _('+ %d day(s)', days_to_order)))
+        return delay + supplier_delay + security_delay + days_to_order, delay_description
 
     @api.model
     def _get_procurements_to_merge_groupby(self, procurement):
@@ -194,12 +191,6 @@ class StockRule(models.Model):
             (procurement.values.get('orderpoint_id') and not procurement.values.get('move_dest_ids')) and procurement.values['orderpoint_id']
 
     @api.model
-    def _get_procurements_to_merge_sorted(self, procurement):
-        return procurement.product_id.id, procurement.product_uom.id, procurement.values['propagate_cancel'],\
-            procurement.values.get('product_description_variants'),\
-            (procurement.values.get('orderpoint_id') and not procurement.values.get('move_dest_ids')) and procurement.values['orderpoint_id']
-
-    @api.model
     def _get_procurements_to_merge(self, procurements):
         """ Get a list of procurements values and create groups of procurements
         that would use the same purchase order line.
@@ -207,11 +198,7 @@ class StockRule(models.Model):
         sorted).
         return list: procurements requests grouped by their product_id.
         """
-        procurements_to_merge = []
-
-        for k, procurements in groupby(sorted(procurements, key=self._get_procurements_to_merge_sorted), key=self._get_procurements_to_merge_groupby):
-            procurements_to_merge.append(list(procurements))
-        return procurements_to_merge
+        return [pro_g for __, pro_g in groupby(procurements, key=self._get_procurements_to_merge_groupby)]
 
     @api.model
     def _merge_procurements(self, procurements_to_merge):
@@ -250,15 +237,15 @@ class StockRule(models.Model):
         return merged_procurements
 
     def _update_purchase_order_line(self, product_id, product_qty, product_uom, company_id, values, line):
-        partner = values['supplier'].name
-        procurement_uom_po_qty = product_uom._compute_quantity(product_qty, product_id.uom_po_id)
+        partner = values['supplier'].partner_id
+        procurement_uom_po_qty = product_uom._compute_quantity(product_qty, product_id.uom_po_id, rounding_method='HALF-UP')
         seller = product_id.with_company(company_id)._select_seller(
             partner_id=partner,
             quantity=line.product_qty + procurement_uom_po_qty,
             date=line.order_id.date_order and line.order_id.date_order.date(),
             uom_id=product_id.uom_po_id)
 
-        price_unit = self.env['account.tax']._fix_tax_included_price_company(seller.price, line.product_id.supplier_taxes_id, line.taxes_id, company_id) if seller else 0.0
+        price_unit = self.env['account.tax']._fix_tax_included_price_company(seller.price, line.product_id.supplier_taxes_id, line.sudo().taxes_id, company_id) if seller else 0.0
         if price_unit and seller and line.order_id.currency_id and seller.currency_id != line.order_id.currency_id:
             price_unit = seller.currency_id._convert(
                 price_unit, line.order_id.currency_id, line.order_id.company_id, fields.Date.today())
@@ -286,9 +273,9 @@ class StockRule(models.Model):
         # the common procurements values. The common values are taken from an
         # arbitrary procurement. In this case the first.
         values = values[0]
-        partner = values['supplier'].name
+        partner = values['supplier'].partner_id
 
-        fpos = self.env['account.fiscal.position'].with_company(company_id).get_fiscal_position(partner.id)
+        fpos = self.env['account.fiscal.position'].with_company(company_id)._get_fiscal_position(partner)
 
         gpo = self.group_propagation_option
         group = (gpo == 'fixed' and self.group_id.id) or \

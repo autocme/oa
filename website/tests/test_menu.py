@@ -2,6 +2,9 @@
 
 import json
 
+from hashlib import sha256
+from lxml import html
+
 from odoo.tests import common
 
 
@@ -69,6 +72,7 @@ class TestMenu(common.TransactionCase):
         self.assertEqual(total_menus + 4, Menu.search_count([]), "New website's bootstraping should have duplicate default menu tree (Top/Home/Contactus/Sub Default Menu)")
 
     def test_04_specific_menu_translation(self):
+        IrModuleModule = self.env['ir.module.module']
         if self.env['website'].search_count([]) == 1:
             self.env['website'].create({
                 'name': 'My Website 2',
@@ -76,7 +80,6 @@ class TestMenu(common.TransactionCase):
                 'sequence': 20,
             })
 
-        Translation = self.env['ir.translation']
         Menu = self.env['website.menu']
         existing_menus = Menu.search([])
 
@@ -92,9 +95,6 @@ class TestMenu(common.TransactionCase):
         # create fr_FR translation for template menu
         self.env.ref('base.lang_fr').active = True
         template_menu.with_context(lang='fr_FR').name = 'Menu en français'
-        Translation.search([
-            ('name', '=', 'website.menu,name'), ('res_id', '=', template_menu.id),
-        ]).module = 'website'
         self.assertEqual(specific1.name, 'Menu in english',
                          'Translating template menu does not translate specific menu')
 
@@ -102,16 +102,16 @@ class TestMenu(common.TransactionCase):
         specific1.name = 'Menu in french'
 
         # loading translation add missing specific translation
-        Translation._load_module_terms(['website'], ['fr_FR'])
-        Menu.invalidate_cache(['name'])
+        IrModuleModule._load_module_terms(['website'], ['fr_FR'])
+        Menu.invalidate_model(['name'])
         self.assertEqual(specific1.name, 'Menu in french',
                          'Load translation without overwriting keep existing translation')
         self.assertEqual(specific2.name, 'Menu en français',
                          'Load translation add missing translation from template menu')
 
         # loading translation with overwrite sync all translations from menu template
-        Translation._load_module_terms(['website'], ['fr_FR'], overwrite=True)
-        Menu.invalidate_cache(['name'])
+        IrModuleModule._load_module_terms(['website'], ['fr_FR'], overwrite=True)
+        Menu.invalidate_model(['name'])
         self.assertEqual(specific1.name, 'Menu en français',
                          'Load translation with overwriting update existing menu from template')
 
@@ -195,3 +195,46 @@ class TestMenuHttp(common.HttpCase):
         self.assertFalse(self.menu.page_id, "M2o should have been unset as this is an anchor URL.")
         self.assertEqual(self.menu.url, self.page_url + '#anchor', "Page URL should have been properly prefixed with the referer url")
         self.assertEqual(self.page.url, self.page_url, "Page URL should not have changed")
+
+    def test_03_mega_menu_translate(self):
+        # Setup
+        fr = self.env['res.lang']._activate_lang('fr_FR')
+        Menu = self.env['website.menu']
+        website = self.env['website'].browse(1)
+        website.language_ids += fr
+        menu = Menu.create({
+            'name': 'Test Mega Menu Content Translation Edit Mode',
+            'mega_menu_content': '<p>something</p>',
+            'parent_id': website.menu_id.id,
+            'website_id': website.id,
+        })
+        self.env['ir.module.module']._load_module_terms(['website'], [fr.code])
+
+        # Load cache
+        self.url_open('/%s' % fr.url_code)
+        self.url_open('/%s?edit_translations=1' % fr.url_code)
+
+        # Translate
+        root = html.fromstring(menu.mega_menu_content)
+        to_translate = root.text_content()
+        sha = sha256(to_translate.encode()).hexdigest()
+        menu.update_field_translations_sha('mega_menu_content', {fr.code: {sha: 'french_mega_menu_content'}})
+        self.assertIn("french_mega_menu_content",
+                      menu.with_context(lang=fr.code, website_id=website.id).mega_menu_content)
+
+        # Checks
+        page = self.url_open('/%s' % fr.url_code)
+        self.assertIn(b"french_mega_menu_content", page.content)
+        page = self.url_open('/%s?edit_translations=1' % fr.url_code)
+        self.assertIn(b"french_mega_menu_content", page.content)
+
+    def test_menu_empty_url(self):
+        website = self.env['website'].browse(1)
+        menu = self.env['website.menu'].create({
+            'name': 'Test Empty URL menu',
+            'parent_id': website.menu_id.id,
+            'website_id': website.id,
+        })
+        self.assertFalse(menu.url, "Menu URL should be empty")
+        # this should not crash
+        website.is_menu_cache_disabled()

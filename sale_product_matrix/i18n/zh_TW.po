@@ -3,15 +3,16 @@
 # 	* sale_product_matrix
 # 
 # Translators:
-# 敬雲 林 <chingyun@yuanchih-consult.com>, 2021
+# Martin Trigaux, 2022
+# Tony Ng, 2025
 # 
 msgid ""
 msgstr ""
-"Project-Id-Version: Odoo Server saas~14.4\n"
+"Project-Id-Version: Odoo Server 16.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2021-07-12 07:50+0000\n"
-"PO-Revision-Date: 2021-09-14 12:26+0000\n"
-"Last-Translator: 敬雲 林 <chingyun@yuanchih-consult.com>, 2021\n"
+"POT-Creation-Date: 2024-02-06 13:32+0000\n"
+"PO-Revision-Date: 2022-09-22 05:55+0000\n"
+"Last-Translator: Tony Ng, 2025\n"
 "Language-Team: Chinese (Taiwan) (https://app.transifex.com/odoo/teams/41243/zh_TW/)\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
@@ -22,18 +23,41 @@ msgstr ""
 #. module: sale_product_matrix
 #: model:ir.model.fields,field_description:sale_product_matrix.field_product_product__product_add_mode
 #: model:ir.model.fields,field_description:sale_product_matrix.field_product_template__product_add_mode
+#: model:ir.model.fields,field_description:sale_product_matrix.field_sale_order_line__product_add_mode
 msgid "Add product mode"
-msgstr "添加產品模式"
+msgstr "加入產品模式"
+
+#. module: sale_product_matrix
+#. odoo-javascript
+#: code:addons/sale_product_matrix/static/src/js/sale_product_field.js:0
+#, python-format
+msgid "Choose Product Variants"
+msgstr "選擇產品變體"
+
+#. module: sale_product_matrix
+#. odoo-javascript
+#: code:addons/sale_product_matrix/static/src/js/sale_product_field.js:0
+#, python-format
+msgid "Close"
+msgstr "關閉"
 
 #. module: sale_product_matrix
 #: model:ir.model.fields,help:sale_product_matrix.field_product_product__product_add_mode
 #: model:ir.model.fields,help:sale_product_matrix.field_product_template__product_add_mode
+#: model:ir.model.fields,help:sale_product_matrix.field_sale_order_line__product_add_mode
 msgid ""
-"Configurator: choose attribute values to add the matching         product variant to the order.\n"
+"Configurator: choose attribute values to add the matching product variant to the order.\n"
 "Grid: add several variants at once from the grid of attribute values"
 msgstr ""
-"配置器：選擇屬性值以將匹配的產品變體添加到訂單中。\n"
-"矩陣：從屬性值矩陣中一次添加多個變體"
+"配置器：選擇屬性值，將相符的產品款式加至訂單。\n"
+"網格：從屬性值網格中一次過加入多個款式。"
+
+#. module: sale_product_matrix
+#. odoo-javascript
+#: code:addons/sale_product_matrix/static/src/js/sale_product_field.js:0
+#, python-format
+msgid "Confirm"
+msgstr "確認"
 
 #. module: sale_product_matrix
 #: model:ir.model.fields,field_description:sale_product_matrix.field_sale_order__grid_product_tmpl_id
@@ -44,13 +68,6 @@ msgstr "產品變體矩陣模板"
 #: model:ir.model.fields,field_description:sale_product_matrix.field_sale_order__grid_update
 msgid "Grid Update"
 msgstr "矩陣更新"
-
-#. module: sale_product_matrix
-#: model:ir.model.fields,help:sale_product_matrix.field_sale_order__report_grids
-msgid ""
-"If set, the matrix of the products configurable by matrix will be shown on "
-"the report of the order."
-msgstr "如果設置，則訂單報表上將顯示按矩陣配置的產品矩陣。"
 
 #. module: sale_product_matrix
 #: model:ir.model.fields,field_description:sale_product_matrix.field_sale_order__grid
@@ -68,14 +85,14 @@ msgid "Print Variant Grids"
 msgstr "列印變體矩陣"
 
 #. module: sale_product_matrix
+#: model:ir.model,name:sale_product_matrix.model_product_template
+msgid "Product"
+msgstr "商品"
+
+#. module: sale_product_matrix
 #: model:ir.model.fields.selection,name:sale_product_matrix.selection__product_template__product_add_mode__configurator
 msgid "Product Configurator"
 msgstr "產品配置器"
-
-#. module: sale_product_matrix
-#: model:ir.model,name:sale_product_matrix.model_product_template
-msgid "Product Template"
-msgstr "產品模板"
 
 #. module: sale_product_matrix
 #: model:ir.model,name:sale_product_matrix.model_sale_order
@@ -83,32 +100,28 @@ msgid "Sales Order"
 msgstr "銷售訂單"
 
 #. module: sale_product_matrix
+#: model:ir.model,name:sale_product_matrix.model_sale_order_line
+msgid "Sales Order Line"
+msgstr "銷售訂單明細"
+
+#. module: sale_product_matrix
 #: model_terms:ir.ui.view,arch_db:sale_product_matrix.product_template_grid_view_form
 msgid "Sales Variant Selection"
 msgstr "銷售變體選擇"
 
 #. module: sale_product_matrix
-#: model:ir.model.fields,help:sale_product_matrix.field_sale_order__grid_product_tmpl_id
-msgid "Technical field for product_matrix functionalities."
-msgstr "產品矩陣功能的技術欄位。"
-
-#. module: sale_product_matrix
 #: model:ir.model.fields,help:sale_product_matrix.field_sale_order__grid
 msgid ""
 "Technical local storage of grid. \n"
-"If grid_update, will be loaded on the SO. \n"
+"If grid_update, will be loaded on the SO.\n"
 "If not, represents the matrix to open."
 msgstr ""
-"矩陣的技術本機存放區。\n"
-"如果grid_update，則將載入到 SO 上。\n"
+"網格的本地儲存技術設定。\n"
+"若為 grid_update，會載入至銷售訂單。\n"
 "如果沒有，則表示要打開的矩陣。"
 
 #. module: sale_product_matrix
-#: model:ir.model.fields,help:sale_product_matrix.field_sale_order__grid_update
-msgid "Whether the grid field contains a new matrix to apply or not."
-msgstr "矩陣欄位是否包含要應用的新矩陣。"
-
-#. module: sale_product_matrix
+#. odoo-python
 #: code:addons/sale_product_matrix/models/sale_order.py:0
 #, python-format
 msgid ""

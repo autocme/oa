@@ -3,10 +3,10 @@
 
 from collections import defaultdict
 
-from odoo import models, fields, api, _, _lt
+from odoo import models, fields, api, _
 from odoo.tools.float_utils import float_compare
 from odoo.exceptions import UserError, ValidationError, RedirectWarning
-
+from odoo.addons.rating.models.rating_data import OPERATOR_MAPPING
 
 PROJECT_TASK_READABLE_FIELDS = {
     'allow_subtasks',
@@ -29,7 +29,7 @@ class Project(models.Model):
 
     allow_timesheets = fields.Boolean(
         "Timesheets", compute='_compute_allow_timesheets', store=True, readonly=False,
-        default=True, help="Enable timesheeting on the project.")
+        default=True)
     analytic_account_id = fields.Many2one(
         # note: replaces ['|', ('company_id', '=', False), ('company_id', '=', company_id)]
         domain="""[
@@ -39,7 +39,7 @@ class Project(models.Model):
     )
 
     timesheet_ids = fields.One2many('account.analytic.line', 'project_id', 'Associated Timesheets')
-    timesheet_count = fields.Boolean(compute="_compute_timesheet_count")
+    timesheet_count = fields.Integer(compute="_compute_timesheet_count", groups='hr_timesheet.group_hr_timesheet_user')
     timesheet_encode_uom_id = fields.Many2one('uom.uom', related='company_id.timesheet_encode_uom_id')
     total_timesheet_time = fields.Integer(
         compute='_compute_total_timesheet_time', groups='hr_timesheet.group_hr_timesheet_user',
@@ -47,8 +47,8 @@ class Project(models.Model):
     encode_uom_in_days = fields.Boolean(compute='_compute_encode_uom_in_days')
     is_internal_project = fields.Boolean(compute='_compute_is_internal_project', search='_search_is_internal_project')
     remaining_hours = fields.Float(compute='_compute_remaining_hours', string='Remaining Invoiced Time', compute_sudo=True)
-    has_planned_hours_tasks = fields.Boolean(compute='_compute_remaining_hours', compute_sudo=True,
-        help="True if any of the project's task has a set planned hours")
+    is_project_overtime = fields.Boolean('Project in Overtime', compute='_compute_remaining_hours', search='_search_is_project_overtime', compute_sudo=True)
+    allocated_hours = fields.Float(string='Allocated Hours')
 
     def _compute_encode_uom_in_days(self):
         self.encode_uom_in_days = self.env.company.timesheet_encode_uom_id == self.env.ref('uom.product_uom_day')
@@ -66,9 +66,9 @@ class Project(models.Model):
     @api.model
     def _search_is_internal_project(self, operator, value):
         if not isinstance(value, bool):
-            raise ValueError('Invalid value: %s' % (value))
+            raise ValueError(_('Invalid value: %s', value))
         if operator not in ['=', '!=']:
-            raise ValueError('Invalid operator: %s' % (operator))
+            raise ValueError(_('Invalid operator: %s', operator))
 
         query = """
             SELECT C.internal_project_id
@@ -81,23 +81,56 @@ class Project(models.Model):
             operator_new = 'not inselect'
         return [('id', operator_new, (query, ()))]
 
-    @api.depends('allow_timesheets', 'task_ids.planned_hours', 'timesheet_ids')
+    @api.model
+    def _get_view_cache_key(self, view_id=None, view_type='form', **options):
+        """The override of _get_view changing the time field labels according to the company timesheet encoding UOM
+        makes the view cache dependent on the company timesheet encoding uom"""
+        key = super()._get_view_cache_key(view_id, view_type, **options)
+        return key + (self.env.company.timesheet_encode_uom_id,)
+
+    @api.model
+    def _get_view(self, view_id=None, view_type='form', **options):
+        arch, view = super()._get_view(view_id, view_type, **options)
+        if view_type in ['tree', 'form'] and self.env.company.timesheet_encode_uom_id == self.env.ref('uom.product_uom_day'):
+            arch = self.env['account.analytic.line']._apply_time_label(arch, related_model=self._name)
+        return arch, view
+
+    @api.depends('allow_timesheets', 'timesheet_ids')
     def _compute_remaining_hours(self):
-        timesheet_read_group = self.env['account.analytic.line'].read_group(
-            domain=[('project_id', 'in', self.filtered('allow_timesheets').ids), ('task_id', '!=', False),
-                    '|', ('task_id.stage_id.fold', '=', False), ('task_id.stage_id', '=', False)],
-            fields=['effective_hours:sum(unit_amount)'], groupby='project_id')
-        task_read_group = self.env['project.task'].read_group(
-            domain=[('planned_hours', '!=', 0.0), ('project_id', 'in', self.filtered('allow_timesheets').ids),
-                    ('parent_id', '=', False), '|', ('stage_id.fold', '=', False), ('stage_id', '=', False)],
-            fields=['planned_hours:sum', ], groupby='project_id')
-        effective_hours_per_project_id = {res['project_id'][0]: res['effective_hours'] for res in timesheet_read_group}
-        planned_hours_per_project_id = {res['project_id'][0]: res['planned_hours'] for res in task_read_group}
+        timesheets_read_group = self.env['account.analytic.line']._read_group(
+            [('project_id', 'in', self.ids)],
+            ['project_id', 'unit_amount'],
+            ['project_id'],
+            lazy=False)
+        timesheet_time_dict = {res['project_id'][0]: res['unit_amount'] for res in timesheets_read_group}
         for project in self:
-            planned_hours = planned_hours_per_project_id.get(project.id, 0.0)
-            effective_hours = effective_hours_per_project_id.get(project.id, 0.0)
-            project.remaining_hours = planned_hours - effective_hours if planned_hours else 0.0
-            project.has_planned_hours_tasks = project.id in planned_hours_per_project_id
+            project.remaining_hours = project.allocated_hours - timesheet_time_dict.get(project.id, 0)
+            project.is_project_overtime = project.remaining_hours < 0
+
+    @api.model
+    def _search_is_project_overtime(self, operator, value):
+        if not isinstance(value, bool):
+            raise ValueError(_('Invalid value: %s') % value)
+        if operator not in ['=', '!=']:
+            raise ValueError(_('Invalid operator: %s') % operator)
+
+        query = """
+            SELECT Project.id
+              FROM project_project AS Project
+              JOIN project_task AS Task
+                ON Project.id = Task.project_id
+             WHERE Project.allocated_hours > 0
+               AND Project.allow_timesheets = TRUE
+               AND Task.parent_id IS NULL
+               AND Task.is_closed IS FALSE
+          GROUP BY Project.id
+            HAVING Project.allocated_hours - SUM(Task.effective_hours) < 0
+        """
+        if (operator == '=' and value is True) or (operator == '!=' and value is False):
+            operator_new = 'inselect'
+        else:
+            operator_new = 'not inselect'
+        return [('id', operator_new, (query, ()))]
 
     @api.constrains('allow_timesheets', 'analytic_account_id')
     def _check_allow_timesheet(self):
@@ -126,24 +159,22 @@ class Project(models.Model):
             # Timesheets may be stored in a different unit of measure, so first
             # we convert all of them to the reference unit
             # if the timesheet has no product_uom_id then we take the one of the project
-            total_time = sum([
-                unit_amount * uoms_dict.get(product_uom_id, project.timesheet_encode_uom_id).factor_inv
-                for product_uom_id, unit_amount in timesheet_time_dict[project.id]
-            ], 0.0)
+            total_time = 0.0
+            for product_uom_id, unit_amount in timesheet_time_dict[project.id]:
+                factor = uoms_dict.get(product_uom_id, project.timesheet_encode_uom_id).factor_inv
+                total_time += unit_amount * (1.0 if project.encode_uom_in_days else factor)
             # Now convert to the proper unit of measure set in the settings
             total_time *= project.timesheet_encode_uom_id.factor
             project.total_timesheet_time = int(round(total_time))
 
     @api.depends('timesheet_ids')
     def _compute_timesheet_count(self):
-        timesheet_project_map = {}
-        if self.env['account.analytic.line'].check_access_rights('read', raise_exception=False):
-            timesheet_read_group = self.env['account.analytic.line'].read_group(
-                [('project_id', 'in', self.ids)],
-                ['project_id'],
-                ['project_id']
-            )
-            timesheet_project_map = {project_info['project_id'][0]: project_info['project_id_count'] for project_info in timesheet_read_group}
+        timesheet_read_group = self.env['account.analytic.line']._read_group(
+            [('project_id', 'in', self.ids)],
+            ['project_id'],
+            ['project_id']
+        )
+        timesheet_project_map = {project_info['project_id'][0]: project_info['project_id_count'] for project_info in timesheet_read_group}
         for project in self:
             project.timesheet_count = timesheet_project_map.get(project.id, 0)
 
@@ -153,13 +184,13 @@ class Project(models.Model):
             Note: create it before calling super() to avoid raising the ValidationError from _check_allow_timesheet
         """
         defaults = self.default_get(['allow_timesheets', 'analytic_account_id'])
-        for values in vals_list:
-            allow_timesheets = values.get('allow_timesheets', defaults.get('allow_timesheets'))
-            analytic_account_id = values.get('analytic_account_id', defaults.get('analytic_account_id'))
+        for vals in vals_list:
+            allow_timesheets = vals.get('allow_timesheets', defaults.get('allow_timesheets'))
+            analytic_account_id = vals.get('analytic_account_id', defaults.get('analytic_account_id'))
             if allow_timesheets and not analytic_account_id:
-                analytic_account = self._create_analytic_account_from_values(values)
-                values['analytic_account_id'] = analytic_account.id
-        return super(Project, self).create(vals_list)
+                analytic_account = self._create_analytic_account_from_values(vals)
+                vals['analytic_account_id'] = analytic_account.id
+        return super().create(vals_list)
 
     def write(self, values):
         # create the AA for project still allowing timesheet
@@ -168,6 +199,16 @@ class Project(models.Model):
                 if not project.analytic_account_id:
                     project._create_analytic_account()
         return super(Project, self).write(values)
+
+    def name_get(self):
+        res = super().name_get()
+        if len(self.env.context.get('allowed_company_ids', [])) <= 1:
+            return res
+        name_mapping = dict(res)
+        for project in self:
+            if project.is_internal_project:
+                name_mapping[project.id] = f'{name_mapping[project.id]} - {project.company_id.name}'
+        return list(name_mapping.items())
 
     @api.model
     def _init_data_analytic_account(self):
@@ -191,47 +232,15 @@ class Project(models.Model):
                 warning_msg, self.env.ref('hr_timesheet.timesheet_action_project').id,
                 _('See timesheet entries'), {'active_ids': projects_with_timesheets.ids})
 
-    def action_show_timesheets_by_employee_invoice_type(self):
-        action = self.env["ir.actions.actions"]._for_xml_id("hr_timesheet.timesheet_action_all")
-        #Let's put the chart view first
-        new_views = []
-        for view in action['views']:
-            new_views.insert(0, view) if view[1] == 'graph' else new_views.append(view)
-        action.update({
-            'display_name': _("Timesheets"),
-            'domain': [('project_id', '=', self.id)],
-            'context': {
-                'default_project_id': self.id,
-                'search_default_groupby_employee': True,
-                'search_default_groupby_timesheet_invoice_type': True
-            },
-            'views': new_views
-        })
-
-        return action
-
     def _convert_project_uom_to_timesheet_encode_uom(self, time):
         uom_from = self.company_id.project_time_mode_id
         uom_to = self.env.company.timesheet_encode_uom_id
         return round(uom_from._compute_quantity(time, uom_to, raise_if_failure=False), 2)
 
-    # ----------------------------
-    #  Project Updates
-    # ----------------------------
-
-    def _get_stat_buttons(self):
-        buttons = super(Project, self)._get_stat_buttons()
-        if self.user_has_groups('hr_timesheet.group_hr_timesheet_user'):
-            buttons.append({
-                'icon': 'clock-o',
-                'text': _lt('Recorded'),
-                'number': '%s %s' % (self.total_timesheet_time, self.env.company.timesheet_encode_uom_id.name),
-                'action_type': 'object',
-                'action': 'action_show_timesheets_by_employee_invoice_type',
-                'show': self.allow_timesheets,
-                'sequence': 4,
-            })
-        return buttons
+    def action_project_timesheets(self):
+        action = self.env['ir.actions.act_window']._for_xml_id('hr_timesheet.act_hr_timesheet_line_by_project')
+        action['display_name'] = _("%(name)s's Timesheets", name=self.name)
+        return action
 
 
 class Task(models.Model):
@@ -244,10 +253,11 @@ class Task(models.Model):
         compute='_compute_allow_timesheets', compute_sudo=True,
         search='_search_allow_timesheets', readonly=True,
         help="Timesheets can be logged on this task.")
-    remaining_hours = fields.Float("Remaining Hours", compute='_compute_remaining_hours', store=True, readonly=True, help="Total remaining time, can be re-estimated periodically by the assignee of the task.")
-    effective_hours = fields.Float("Hours Spent", compute='_compute_effective_hours', compute_sudo=True, store=True, help="Time spent on this task, excluding its sub-tasks.")
-    total_hours_spent = fields.Float("Total Hours", compute='_compute_total_hours_spent', store=True, help="Time spent on this task, including its sub-tasks.")
-    progress = fields.Float("Progress", compute='_compute_progress_hours', store=True, group_operator="avg", help="Display progress of current task.")
+    remaining_hours = fields.Float("Remaining Hours", compute='_compute_remaining_hours', store=True, readonly=True, help="Number of allocated hours minus the number of hours spent.")
+    remaining_hours_percentage = fields.Float(compute='_compute_remaining_hours_percentage', search='_search_remaining_hours_percentage')
+    effective_hours = fields.Float("Hours Spent", compute='_compute_effective_hours', compute_sudo=True, store=True)
+    total_hours_spent = fields.Float("Total Hours", compute='_compute_total_hours_spent', store=True, help="Time spent on this task and its sub-tasks (and their own sub-tasks).")
+    progress = fields.Float("Progress", compute='_compute_progress_hours', store=True, group_operator="avg")
     overtime = fields.Float(compute='_compute_progress_hours', store=True)
     subtask_effective_hours = fields.Float("Sub-tasks Hours Spent", compute='_compute_subtask_effective_hours', recursive=True, store=True, help="Time spent on the sub-tasks (and their own sub-tasks) of this task.")
     timesheet_ids = fields.One2many('account.analytic.line', 'task_id', 'Timesheets')
@@ -305,6 +315,26 @@ class Task(models.Model):
                 task.progress = 0.0
                 task.overtime = 0
 
+    @api.depends('planned_hours', 'remaining_hours')
+    def _compute_remaining_hours_percentage(self):
+        for task in self:
+            if task.planned_hours > 0.0:
+                task.remaining_hours_percentage = task.remaining_hours / task.planned_hours
+            else:
+                task.remaining_hours_percentage = 0.0
+
+    def _search_remaining_hours_percentage(self, operator, value):
+        if operator not in OPERATOR_MAPPING:
+            raise NotImplementedError(_('This operator %s is not supported in this search method.', operator))
+        query = f"""
+            SELECT id
+              FROM {self._table}
+             WHERE remaining_hours > 0
+               AND planned_hours > 0
+               AND remaining_hours / planned_hours {operator} %s
+            """
+        return [('id', 'inselect', (query, (value,)))]
+
     @api.depends('effective_hours', 'subtask_effective_hours', 'planned_hours')
     def _compute_remaining_hours(self):
         for task in self:
@@ -322,17 +352,21 @@ class Task(models.Model):
 
     def action_view_subtask_timesheet(self):
         self.ensure_one()
-        tasks = self.with_context(active_test=False)._get_all_subtasks()
-        return {
-            'type': 'ir.actions.act_window',
-            'name': _('Timesheets'),
-            'res_model': 'account.analytic.line',
-            'view_mode': 'list,form',
-            'context': {
-                'default_project_id': self.project_id.id
-            },
-            'domain': [('project_id', '!=', False), ('task_id', 'in', tasks.ids)],
-        }
+        task_ids = self.with_context(active_test=False)._get_subtask_ids_per_task_id().get(self.id, [])
+        action = self.env["ir.actions.actions"]._for_xml_id("hr_timesheet.timesheet_action_all")
+        graph_view_id = self.env.ref("hr_timesheet.view_hr_timesheet_line_graph_by_employee").id
+        new_views = []
+        for view in action['views']:
+            if view[1] == 'graph':
+                view = (graph_view_id, 'graph')
+            new_views.insert(0, view) if view[1] == 'tree' else new_views.append(view)
+        action.update({
+            'display_name': _('Timesheets'),
+            'context': {'default_project_id': self.project_id.id, 'grid_range': 'week'},
+            'domain': [('project_id', '!=', False), ('task_id', 'in', task_ids)],
+            'views': new_views,
+        })
+        return action
 
     def _get_timesheet(self):
         # Is override in sale_timesheet
@@ -372,16 +406,23 @@ class Task(models.Model):
         return super().name_get()
 
     @api.model
-    def _fields_view_get(self, view_id=None, view_type='form', toolbar=False, submenu=False):
+    def _get_view_cache_key(self, view_id=None, view_type='form', **options):
+        """The override of _get_view changing the time field labels according to the company timesheet encoding UOM
+        makes the view cache dependent on the company timesheet encoding uom"""
+        key = super()._get_view_cache_key(view_id, view_type, **options)
+        return key + (self.env.company.timesheet_encode_uom_id,)
+
+    @api.model
+    def _get_view(self, view_id=None, view_type='form', **options):
         """ Set the correct label for `unit_amount`, depending on company UoM """
-        result = super(Task, self)._fields_view_get(view_id=view_id, view_type=view_type, toolbar=toolbar, submenu=submenu)
+        arch, view = super()._get_view(view_id, view_type, **options)
         # Use of sudo as the portal user doesn't have access to uom
-        result['arch'] = self.env['account.analytic.line'].sudo()._apply_timesheet_label(result['arch'])
+        arch = self.env['account.analytic.line'].sudo()._apply_timesheet_label(arch)
 
         if view_type in ['tree', 'pivot', 'graph', 'form'] and self.env.company.timesheet_encode_uom_id == self.env.ref('uom.product_uom_day'):
-            result['arch'] = self.env['account.analytic.line']._apply_time_label(result['arch'], related_model=self._name)
+            arch = self.env['account.analytic.line']._apply_time_label(arch, related_model=self._name)
 
-        return result
+        return arch, view
 
     @api.ondelete(at_uninstall=False)
     def _unlink_except_contains_entries(self):
@@ -391,7 +432,7 @@ class Task(models.Model):
         In this case, a warning message is displayed through a RedirectWarning
         and allows the user to see timesheets entries to unlink.
         """
-        timesheet_data = self.env['account.analytic.line'].sudo().read_group(
+        timesheet_data = self.env['account.analytic.line'].sudo()._read_group(
             [('task_id', 'in', self.ids)],
             ['task_id'],
             ['task_id'],

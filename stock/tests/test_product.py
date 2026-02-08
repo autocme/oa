@@ -10,51 +10,47 @@ from odoo.tests.common import Form
 
 
 class TestVirtualAvailable(TestStockCommon):
-    def setUp(self):
-        super(TestVirtualAvailable, self).setUp()
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
 
         # Make `product3` a storable product for this test. Indeed, creating quants
         # and playing with owners is not possible for consumables.
-        self.product_3.type = 'product'
-        self.env['stock.picking.type'].browse(self.ref('stock.picking_type_out')).reservation_method = 'manual'
+        cls.product_3.type = 'product'
+        cls.env['stock.picking.type'].browse(cls.env.ref('stock.picking_type_out').id).reservation_method = 'manual'
 
-        self.env['stock.quant'].create({
-            'product_id': self.product_3.id,
-            'location_id': self.env.ref('stock.stock_location_stock').id,
+        cls.env['stock.quant'].create({
+            'product_id': cls.product_3.id,
+            'location_id': cls.env.ref('stock.stock_location_stock').id,
             'quantity': 30.0})
 
-        self.env['stock.quant'].create({
-            'product_id': self.product_3.id,
-            'location_id': self.env.ref('stock.stock_location_stock').id,
+        cls.env['stock.quant'].create({
+            'product_id': cls.product_3.id,
+            'location_id': cls.env.ref('stock.stock_location_stock').id,
             'quantity': 10.0,
-            'owner_id': self.user_stock_user.partner_id.id})
+            'owner_id': cls.user_stock_user.partner_id.id})
 
-        self.picking_out = self.env['stock.picking'].create({
-            'picking_type_id': self.ref('stock.picking_type_out'),
-            'location_id': self.env.ref('stock.stock_location_stock').id,
-            'location_dest_id': self.env.ref('stock.stock_location_customers').id})
-        self.env['stock.move'].create({
+        cls.picking_out = cls.env['stock.picking'].create({'picking_type_id': cls.env.ref('stock.picking_type_out').id})
+        cls.env['stock.move'].create({
             'name': 'a move',
-            'product_id': self.product_3.id,
+            'product_id': cls.product_3.id,
             'product_uom_qty': 3.0,
-            'product_uom': self.product_3.uom_id.id,
-            'picking_id': self.picking_out.id,
-            'location_id': self.env.ref('stock.stock_location_stock').id,
-            'location_dest_id': self.env.ref('stock.stock_location_customers').id})
+            'product_uom': cls.product_3.uom_id.id,
+            'picking_id': cls.picking_out.id,
+            'location_id': cls.env.ref('stock.stock_location_stock').id,
+            'location_dest_id': cls.env.ref('stock.stock_location_customers').id})
 
-        self.picking_out_2 = self.env['stock.picking'].create({
-            'picking_type_id': self.ref('stock.picking_type_out'),
-            'location_id': self.env.ref('stock.stock_location_stock').id,
-            'location_dest_id': self.env.ref('stock.stock_location_customers').id})
-        self.env['stock.move'].create({
-            'restrict_partner_id': self.user_stock_user.partner_id.id,
+        cls.picking_out_2 = cls.env['stock.picking'].create({
+            'picking_type_id': cls.env.ref('stock.picking_type_out').id})
+        cls.env['stock.move'].create({
+            'restrict_partner_id': cls.user_stock_user.partner_id.id,
             'name': 'another move',
-            'product_id': self.product_3.id,
+            'product_id': cls.product_3.id,
             'product_uom_qty': 5.0,
-            'product_uom': self.product_3.uom_id.id,
-            'picking_id': self.picking_out_2.id,
-            'location_id': self.env.ref('stock.stock_location_stock').id,
-            'location_dest_id': self.env.ref('stock.stock_location_customers').id})
+            'product_uom': cls.product_3.uom_id.id,
+            'picking_id': cls.picking_out_2.id,
+            'location_id': cls.env.ref('stock.stock_location_stock').id,
+            'location_dest_id': cls.env.ref('stock.stock_location_customers').id})
 
     def test_without_owner(self):
         self.assertAlmostEqual(40.0, self.product_3.virtual_available)
@@ -228,14 +224,13 @@ class TestVirtualAvailable(TestStockCommon):
         calling `name_search` with a negative operator will exclude T from the
         result.
         """
-        # To be able to test dynamic variant "variants" feature must be set up
-        self.env.user.write({'groups_id': [(4, self.env.ref('product.group_product_variant').id)]})
+        self.env.ref('base.group_user').write({'implied_ids': [(4, self.env.ref('product.group_product_variant').id)]})
         template = self.env['product.template'].create({
             'name': 'Super Product',
         })
         product01 = template.product_variant_id
 
-        self.env['stock.production.lot'].create({
+        self.env['stock.lot'].create({
             'name': 'lot1',
             'product_id': product01.id,
             'company_id': self.env.company.id,
@@ -331,15 +326,16 @@ class TestVirtualAvailable(TestStockCommon):
             'tracking': 'serial',
         })
         product_form = Form(product)
-        product_form.type = 'service'
+        product_form.detailed_type = 'service'
         product = product_form.save()
         self.assertEqual(product.tracking, 'none')
 
-        product.type = 'product'
+        product.detailed_type = 'product'
         product.tracking = 'serial'
         self.assertEqual(product.tracking, 'serial')
+        # change the type from "product.product" form
         product_form = Form(product.product_variant_id)
-        product_form.type = 'service'
+        product_form.detailed_type = 'service'
         product = product_form.save()
         self.assertEqual(product.tracking, 'none')
 

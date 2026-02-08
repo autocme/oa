@@ -10,6 +10,7 @@ from odoo import models, fields, api, exceptions, _
 from odoo.tools import format_datetime
 from odoo.osv.expression import AND, OR
 from odoo.tools.float_utils import float_is_zero
+from odoo.exceptions import AccessError
 
 
 class HrAttendance(models.Model):
@@ -162,7 +163,7 @@ class HrAttendance(models.Model):
             stop = pytz.utc.localize(max(attendance_dates, key=itemgetter(0))[0] + timedelta(hours=24))
 
             # Retrieve expected attendance intervals
-            expected_attendances = emp._get_expected_attendances(start, stop, domain=self._get_overtime_leave_domain())
+            expected_attendances = emp._get_expected_attendances(start, stop, domain=AND([self._get_overtime_leave_domain(), [('company_id', 'in', [False, emp.company_id.id])]]))
 
             # working_times = {date: [(start, stop)]}
             working_times = defaultdict(lambda: [])
@@ -276,6 +277,10 @@ class HrAttendance(models.Model):
         return res
 
     def write(self, vals):
+        if vals.get('employee_id') and \
+            vals['employee_id'] not in self.env.user.employee_ids.ids and \
+            not self.env.user.has_group('hr_attendance.group_hr_attendance_user'):
+            raise AccessError(_("Do not have access, user cannot edit the attendances that are not his own."))
         attendances_dates = self._get_attendances_dates()
         result = super(HrAttendance, self).write(vals)
         if any(field in vals for field in ['employee_id', 'check_in', 'check_out']):

@@ -1,7 +1,6 @@
 odoo.define('website.utils', function (require) {
 'use strict';
 
-var ajax = require('web.ajax');
 var core = require('web.core');
 
 const { qweb, _t } = core;
@@ -10,12 +9,13 @@ const { qweb, _t } = core;
  * Allows to load anchors from a page.
  *
  * @param {string} url
+ * @param {Node} body the editable for which to recover anchors
  * @returns {Deferred<string[]>}
  */
-function loadAnchors(url) {
+function loadAnchors(url, body) {
     return new Promise(function (resolve, reject) {
         if (url === window.location.pathname || url[0] === '#') {
-            resolve(document.body.outerHTML);
+            resolve(body ? body : document.body.outerHTML);
         } else if (url.length && !url.startsWith("http")) {
             $.get(window.location.origin + url).then(resolve, reject);
         } else { // avoid useless query
@@ -67,7 +67,7 @@ function autocompleteWithPages(self, $input, options) {
             });
         },
         _renderSeparator: function (ul, item) {
-            return $("<li class='ui-autocomplete-category font-weight-bold text-capitalize p-2'>")
+            return $("<li class='ui-autocomplete-category fw-bold text-capitalize p-2'>")
                    .append(`<div>${item.separator}</div>`)
                    .appendTo(ul);
         },
@@ -81,7 +81,7 @@ function autocompleteWithPages(self, $input, options) {
     $input.urlcomplete({
         source: function (request, response) {
             if (request.term[0] === '#') {
-                loadAnchors(request.term).then(function (anchors) {
+                loadAnchors(request.term, options && options.body).then(function (anchors) {
                     response(anchors);
                 });
             } else if (request.term.startsWith('http') || request.term.length === 0) {
@@ -175,10 +175,8 @@ function prompt(options, _qweb) {
             text: options
         };
     }
-    var xmlDef;
     if (_.isUndefined(_qweb)) {
         _qweb = 'website.prompt';
-        xmlDef = ajax.loadXML('/website/static/src/xml/website.xml', core.qweb);
     }
     options = _.extend({
         window_title: '',
@@ -195,50 +193,48 @@ function prompt(options, _qweb) {
     options.field_name = options.field_name || options[type];
 
     var def = new Promise(function (resolve, reject) {
-        Promise.resolve(xmlDef).then(function () {
-            var dialog = $(qweb.render(_qweb, options)).appendTo('body');
-            options.$dialog = dialog;
-            var field = dialog.find(options.field_type).first();
-            field.val(options['default']); // dict notation for IE<9
-            field.fillWith = function (data) {
-                if (field.is('select')) {
-                    var select = field[0];
-                    data.forEach(function (item) {
-                        select.options[select.options.length] = new window.Option(item[1], item[0]);
-                    });
-                } else {
-                    field.val(data);
-                }
-            };
-            var init = options.init(field, dialog);
-            Promise.resolve(init).then(function (fill) {
-                if (fill) {
-                    field.fillWith(fill);
-                }
-                dialog.modal('show');
-                field.focus();
-                dialog.on('click', '.btn-primary', function () {
-                    var backdrop = $('.modal-backdrop');
-                    resolve({ val: field.val(), field: field, dialog: dialog });
-                    dialog.modal('hide').remove();
-                        backdrop.remove();
+        var dialog = $(qweb.render(_qweb, options)).appendTo('body');
+        options.$dialog = dialog;
+        var field = dialog.find(options.field_type).first();
+        field.val(options['default']); // dict notation for IE<9
+        field.fillWith = function (data) {
+            if (field.is('select')) {
+                var select = field[0];
+                data.forEach(function (item) {
+                    select.options[select.options.length] = new window.Option(item[1], item[0]);
                 });
-            });
-            dialog.on('hidden.bs.modal', function () {
-                    var backdrop = $('.modal-backdrop');
-                reject();
-                dialog.remove();
+            } else {
+                field.val(data);
+            }
+        };
+        var init = options.init(field, dialog);
+        Promise.resolve(init).then(function (fill) {
+            if (fill) {
+                field.fillWith(fill);
+            }
+            dialog.modal('show');
+            field.focus();
+            dialog.on('click', '.btn-primary', function () {
+                var backdrop = $('.modal-backdrop');
+                resolve({ val: field.val(), field: field, dialog: dialog });
+                dialog.modal('hide').remove();
                     backdrop.remove();
             });
-            if (field.is('input[type="text"], select')) {
-                field.keypress(function (e) {
-                    if (e.which === 13) {
-                        e.preventDefault();
-                        dialog.find('.btn-primary').trigger('click');
-                    }
-                });
-            }
         });
+        dialog.on('hidden.bs.modal', function () {
+                var backdrop = $('.modal-backdrop');
+            reject();
+            dialog.remove();
+                backdrop.remove();
+        });
+        if (field.is('input[type="text"], select')) {
+            field.keypress(function (e) {
+                if (e.which === 13) {
+                    e.preventDefault();
+                    dialog.find('.btn-primary').trigger('click');
+                }
+            });
+        }
     });
 
     return def;
@@ -254,6 +250,28 @@ function websiteDomain(self) {
     return ['|', ['website_id', '=', false], ['website_id', '=', websiteID]];
 }
 
+/**
+ * Checks if the 2 given URLs are the same, to prevent redirecting uselessly
+ * from one to another.
+ * It will consider naked URL and `www` URL as the same URL.
+ * It will consider `https` URL `http` URL as the same URL.
+ *
+ * @param {string} url1
+ * @param {string} url2
+ * @returns {Boolean}
+ */
+function isHTTPSorNakedDomainRedirection(url1, url2) {
+    try {
+        url1 = new URL(url1).host;
+        url2 = new URL(url2).host;
+    } catch {
+        // Incorrect URL, `false` URL..
+        return false;
+    }
+    return url1 === url2 ||
+           url1.replace(/^www\./, '') === url2.replace(/^www\./, '');
+}
+
 function sendRequest(route, params) {
     function _addInput(form, name, value) {
         let param = document.createElement('input');
@@ -266,6 +284,10 @@ function sendRequest(route, params) {
     let form = document.createElement('form');
     form.setAttribute('action', route);
     form.setAttribute('method', params.method || 'POST');
+    const isInIframe = window.frameElement && window.frameElement.classList.contains('o_iframe');
+    if (isInIframe) {
+        form.setAttribute('target', '_top');
+    }
 
     if (core.csrf_token) {
         _addInput(form, 'csrf_token', core.csrf_token);
@@ -363,6 +385,24 @@ async function svgToPNG(src) {
 }
 
 /**
+ * Bootstraps an "empty" Google Maps iframe.
+ *
+ * @returns {HTMLIframeElement}
+ */
+function generateGMapIframe() {
+    const iframeEl = document.createElement('iframe');
+    iframeEl.classList.add('s_map_embedded', 'o_not_editable');
+    iframeEl.setAttribute('width', '100%');
+    iframeEl.setAttribute('height', '100%');
+    iframeEl.setAttribute('frameborder', '0');
+    iframeEl.setAttribute('scrolling', 'no');
+    iframeEl.setAttribute('marginheight', '0');
+    iframeEl.setAttribute('marginwidth', '0');
+    iframeEl.setAttribute('src', 'about:blank');
+    return iframeEl;
+}
+
+/**
  * Generates a Google Maps URL based on the given parameter.
  *
  * @param {DOMStringMap} dataset
@@ -370,19 +410,20 @@ async function svgToPNG(src) {
  */
 function generateGMapLink(dataset) {
     return 'https://maps.google.com/maps?q=' + encodeURIComponent(dataset.mapAddress)
-            + '&t=' + encodeURIComponent(dataset.mapType)
-            + '&z=' + encodeURIComponent(dataset.mapZoom)
-            + '&ie=UTF8&iwloc=&output=embed';
+        + '&t=' + encodeURIComponent(dataset.mapType)
+        + '&z=' + encodeURIComponent(dataset.mapZoom)
+        + '&ie=UTF8&iwloc=&output=embed';
 }
 
 /**
  * Returns the parsed data coming from the data-for element for the given form.
  *
  * @param {string} formId
+ * @param {HTMLElement} parentEl
  * @returns {Object|undefined} the parsed data
  */
-function getParsedDataFor(formId) {
-    const dataForEl = document.querySelector(`[data-for='${formId}']`);
+function getParsedDataFor(formId, parentEl) {
+    const dataForEl = parentEl.querySelector(`[data-for='${formId}']`);
     if (!dataForEl) {
         return;
     }
@@ -428,7 +469,9 @@ return {
     prompt: prompt,
     sendRequest: sendRequest,
     websiteDomain: websiteDomain,
+    isHTTPSorNakedDomainRedirection: isHTTPSorNakedDomainRedirection,
     svgToPNG: svgToPNG,
+    generateGMapIframe: generateGMapIframe,
     generateGMapLink: generateGMapLink,
     getParsedDataFor: getParsedDataFor,
     cloneContentEls: cloneContentEls,

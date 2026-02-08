@@ -24,6 +24,27 @@ var QWeb = core.qweb;
 var KANBAN_RECORD_COLORS = require('web.basic_fields').FieldColorPicker.prototype.RECORD_COLORS;
 var NB_KANBAN_RECORD_COLORS = KANBAN_RECORD_COLORS.length;
 
+const { Component } = require("@odoo/owl");
+
+const { DateTime } = luxon;
+// As the name suggests, this is a hack that allows archs that work in the new
+// WOWL kanban views to be instanciated with legacy code. This is one of some
+// hacks to make this work, until the legacy code base is deleted.
+// It only exposes `fromISO` and `local` of DateTime, to limit the damage and complexity.
+const hackishLuxon = {
+    DateTime: {
+        fromISO(text, opt) {
+            // In legacy text should be a Date (native JS) object (see @_transformRecord)
+            const res = DateTime.fromJSDate(text, "UTC");
+            if (!res.isValid) {
+                throw new Error("Invalid Hackish luxon instance in legacy KanbanRecord")
+            }
+            return res;
+        },
+        local: DateTime.local,
+    }
+};
+
 var KanbanRecord = Widget.extend(WidgetAdapterMixin, {
     events: {
         'click .oe_kanban_action': '_onKanbanActionClicked',
@@ -98,10 +119,10 @@ var KanbanRecord = Widget.extend(WidgetAdapterMixin, {
      * @param {string} htmlContent
      * @returns {boolean} true if no content found or if containing only formatting tags
      */
-    isHtmlEmpty: function (htmlContent) {
-        let div = document.createElement('div');
-        div.innerHTML = htmlContent || "";
-        return div.innerText.trim() === "";
+    isHtmlEmpty: function (htmlContent = "") {
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(htmlContent, "text/html");
+        return doc.body.innerText.trim() === "";
     },
     /**
      * Re-renders the record with a new state
@@ -230,6 +251,14 @@ var KanbanRecord = Widget.extend(WidgetAdapterMixin, {
      * @private
      */
     _openRecord: function () {
+        if (this.options.openAction) {
+            const {action, type} = this.options.openAction;
+            this.trigger_up("button_clicked", {
+                record: this.state,
+                attrs: { type, name: action }
+            });
+            return;
+        }
         var editMode = this.$el.hasClass('oe_kanban_global_click_edit');
         this.trigger_up('open_record', {
             id: this.db_id,
@@ -364,7 +393,7 @@ var KanbanRecord = Widget.extend(WidgetAdapterMixin, {
 
             const name = $field.attr('name');
             const Widget = widgetRegistryOwl.get(name) || widgetRegistry.get(name);
-            const legacy = !(Widget.prototype instanceof owl.Component);
+            const legacy = !(Widget.prototype instanceof Component);
             let widget;
             if (legacy) {
                 widget = new Widget(self, self.state, options);
@@ -397,11 +426,22 @@ var KanbanRecord = Widget.extend(WidgetAdapterMixin, {
         // from the DOM at the next line
         _.invoke(this.subWidgets, 'on_detach_callback');
         this._replaceElement(this.qweb.render('kanban-box', this.qweb_context));
+        if (this.el) {
+            const dropdownToggle = this.el.querySelector('.o_dropdown_kanban .dropdown-toggle');
+            if (dropdownToggle) {
+                delete dropdownToggle.dataset['bsDisplay'];
+                dropdownToggle.dataset['bsOffset'] = '0,-2';
+            }
+            const dropdownMenu = this.el.querySelector('.o_dropdown_kanban .dropdown-menu');
+            if (dropdownMenu) {
+                dropdownMenu.classList.add('dropdown-menu-end');
+            }
+        }
         this.$el.addClass('o_kanban_record').attr("tabindex", 0);
         this.$el.attr('role', 'article');
         this.$el.data('record', this);
         // forcefully add class oe_kanban_global_click to have clickable record always to select it
-        if (this.selectionMode) {
+        if (this.selectionMode || ('openAction' in this.options)) {
             this.$el.addClass('oe_kanban_global_click');
         }
         if (this.$el.hasClass('oe_kanban_global_click') ||
@@ -538,7 +578,7 @@ var KanbanRecord = Widget.extend(WidgetAdapterMixin, {
     _setFieldDisplay: function ($el, fieldName) {
         // attribute display
         if (this.fieldsInfo[fieldName].display === 'right') {
-            $el.addClass('float-right');
+            $el.addClass('float-end');
         } else if (this.fieldsInfo[fieldName].display === 'full') {
             $el.addClass('o_text_block');
         }
@@ -572,6 +612,7 @@ var KanbanRecord = Widget.extend(WidgetAdapterMixin, {
             record: this.record,
             user_context: this.getSession().user_context,
             widget: this,
+            luxon: hackishLuxon,
         };
     },
     /**
@@ -599,7 +640,7 @@ var KanbanRecord = Widget.extend(WidgetAdapterMixin, {
         if (!$colorpicker.length) {
             return;
         }
-        $colorpicker.html(QWeb.render('KanbanColorPicker', { colors: KANBAN_RECORD_COLORS}));
+        $colorpicker.html(QWeb.render('web.Legacy.KanbanColorPicker', { colors: KANBAN_RECORD_COLORS}));
         $colorpicker.on('click', 'a', this._onColorChanged.bind(this));
     },
     /**

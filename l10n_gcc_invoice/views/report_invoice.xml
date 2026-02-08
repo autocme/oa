@@ -80,14 +80,14 @@
 
                 <div id="informations" class="pb-3">
                     <div class="row" t-if="o.invoice_date" name="invoice_date">
-                        <div class="col-2">
+                        <div class="col-2 offset-6">
                             <strong style="white-space:nowrap">Invoice Date:
                             </strong>
                         </div>
                         <div class="col-2">
                             <span t-field="o.invoice_date"/>
                         </div>
-                        <div class="col-2 text-right">
+                        <div class="col-2 text-end">
                             <strong style="white-space:nowrap">:
                                 تاريخ الفاتورة
                             </strong>
@@ -96,35 +96,35 @@
                     <div class="row"
                          t-if="o.invoice_date_due and o.move_type == 'out_invoice' and o.state == 'posted'"
                          name="due_date">
-                        <div class="col-2">
+                        <div class="col-2 offset-6">
                             <strong style="white-space:nowrap">Due Date:
                             </strong>
                         </div>
                         <div class="col-2">
                             <span t-field="o.invoice_date_due"/>
                         </div>
-                        <div class="col-2 text-right">
+                        <div class="col-2 text-end">
                             <strong style="white-space:nowrap">:
                                 تاريخ الاستحقاق
                             </strong>
                         </div>
                     </div>
                     <div class="row" t-if="o.invoice_origin" name="origin">
-                        <div class="col-2">
+                        <div class="col-2 offset-6">
                             <strong style="white-space:nowrap">Source:
                             </strong>
                         </div>
                         <div class="col-2">
                             <span t-field="o.invoice_origin"/>
                         </div>
-                        <div class="col-2 text-right">
+                        <div class="col-2 text-end">
                             <strong style="white-space:nowrap">:
                                 المصدر
                             </strong>
                         </div>
                     </div>
                     <div class="row" t-if="o.partner_id.ref" name="customer_code">
-                        <div class="col-2">
+                        <div class="col-2 offset-6">
                             <strong style="white-space:nowrap">:
                                 Customer Code
                             </strong>
@@ -132,7 +132,7 @@
                         <div class="col-2">
                             <span t-field="o.partner_id.ref"/>
                         </div>
-                        <div class="col-2 text-right">
+                        <div class="col-2 text-end">
                             <strong style="white-space:nowrap">:
                                 كود العميل
                             </strong>
@@ -146,7 +146,7 @@
                         <div class="col-8">
                             <span t-field="o.ref"/>
                         </div>
-                        <div class="col-2 text-right">
+                        <div class="col-2 text-end">
                             <strong style="white-space:nowrap">:
                                 رقم الإشارة
                             </strong>
@@ -159,45 +159,46 @@
                     <thead>
                         <tr>
                             <t t-set="colspan" t-value="6"/>
-                            <th name="th_description" class="text-left">
+                            <th name="th_total" class="text-end">
                                 <span>
-                                    الوصف
+                                    السعر الاجمالي
                                 </span>
                                 <br/>
                                 <span>
-                                    Description
+                                    Total Price
                                 </span>
                             </th>
-                            <th name="th_source" class="d-none text-left" t-if="0">
+                            <th name="th_tax_amount"
+                                class="text-end">
                                 <span>
-                                    المستند المصدر
+                                    قيمة الضريبة
                                 </span>
                                 <br/>
                                 <span>
-                                    Source Document
+                                    VAT Amount
                                 </span>
                             </th>
-                            <th name="th_quantity" class="text-right">
+                            <th name="th_subtotal" class="text-end">
                                 <span>
-                                    الكمية
+                                    مبلغ
                                 </span>
                                 <br/>
                                 <span>
-                                    Quantity
+                                    Amount
                                 </span>
                             </th>
-                            <th name="th_priceunit"
-                                class="text-right">
+                            <th name="th_taxes"
+                                class="text-end">
                                 <span>
-                                    سعر الوحدة
+                                    الضرائب
                                 </span>
                                 <br/>
                                 <span>
-                                    Unit price
+                                    Taxes
                                 </span>
                             </th>
                             <th name="th_price_unit" t-if="display_discount"
-                                class="text-right">
+                                class="text-end">
                                 <span>
                                     خصم %
                                 </span>
@@ -207,42 +208,41 @@
                                 </span>
                                 <t t-set="colspan" t-value="colspan+1"/>
                             </th>
-                            <th name="th_taxes"
-                                class="text-right">
+                            <th name="th_priceunit"
+                                class="text-end">
                                 <span>
-                                    الضرائب
+                                    سعر الوحدة
                                 </span>
                                 <br/>
                                 <span>
-                                    Taxes
+                                    Unit price
                                 </span>
                             </th>
-                            <th name="th_subtotal" class="text-right">
+                            <th name="th_quantity" class="text-end">
                                 <span>
-                                    مبلغ
+                                    الكمية
                                 </span>
                                 <br/>
                                 <span>
-                                    Amount
+                                    Quantity
                                 </span>
                             </th>
-                            <th name="th_tax_amount"
-                                class="text-right">
+                            <th name="th_source" class="d-none text-start" t-if="0">
                                 <span>
-                                    قيمة الضريبة
+                                    المستند المصدر
                                 </span>
                                 <br/>
                                 <span>
-                                    VAT Amount
+                                    Source Document
                                 </span>
                             </th>
-                            <th name="th_total" class="text-right">
+                            <th name="th_description" class="text-end">
                                 <span>
-                                    السعر الاجمالي
+                                    الوصف
                                 </span>
                                 <br/>
                                 <span>
-                                    Total Price
+                                    Description
                                 </span>
                             </th>
                         </tr>
@@ -259,56 +259,44 @@
                             <t t-set="current_subtotal" t-value="current_subtotal + line.price_total"
                                groups="account.group_show_line_subtotals_tax_included"/>
 
-                            <tr t-att-class="'bg-200 font-weight-bold o_line_section' if line.display_type == 'line_section' else 'font-italic o_line_note' if line.display_type == 'line_note' else ''">
-                                <t t-if="not line.display_type" name="account_invoice_line_accountable">
-                                    <td name="account_invoice_line_name">
-                                        <t t-if="line.product_id">
-                                            <t t-set="arabic_name" t-value="line.with_context(lang='ar_001').product_id.display_name"/>
-                                            <t t-set="english_name" t-value="line.with_context(lang='en_US').product_id.display_name"/>
+                            <tr t-att-class="'bg-200 fw-bold o_line_section' if line.display_type == 'line_section' else 'fst-italic o_line_note' if line.display_type == 'line_note' else ''">
+                                <t t-if="line.display_type not in ('line_note', 'line_section')" name="account_invoice_line_accountable">
+                                    <td class="text-end o_price_total">
+                                        <span class="text-nowrap" t-field="line.price_total"/>
+                                    </td>
+                                    <td class="text-end">
+                                        <span class="text-nowrap" t-field="line.l10n_gcc_invoice_tax_amount"/>
+                                    </td>
+                                    <td class="text-end o_price_total">
+                                        <span class="text-nowrap" t-field="line.price_subtotal"/>
+                                    </td>
 
-                                            <span t-field="line.product_id.display_name"
-                                                t-options="{'widget': 'text'}"/>
-
-                                            <t t-if="arabic_name != english_name">
-                                                <br/>
-                                                <span t-field="line.with_context(lang='ar_001').product_id.name"
-                                                    style="text:right"
-                                                    t-options="{'widget': 'text'}"/>
-                                            </t>
-
-                                            <t t-if="line.name != english_name and line.name != arabic_name">
-                                                <br/>
-                                                <span t-field="line.name" t-options="{'widget': 'text'}"/>
-                                            </t>
-                                        </t>
-                                        <t t-else="">
-                                            <span t-field="line.name" t-options="{'widget': 'text'}"/>
-                                        </t>
-                                    </td>
-                                    <td class="text-right">
-                                        <span t-field="line.quantity"/>
-                                        <span t-field="line.product_uom_id" groups="uom.group_uom"/>
-                                    </td>
-                                    <td class="text-right">
-                                        <span class="text-nowrap" t-field="line.price_unit"/>
-                                    </td>
-                                    <td t-if="display_discount"
-                                        class="text-right">
-                                        <span class="text-nowrap" t-field="line.discount"/>
-                                    </td>
-                                    <td class="text-right">
+                                    <td class="text-end">
                                         <span t-out="', '.join(map(lambda x: (x.description or x.name), line.tax_ids))"
                                               id="line_tax_ids"/>
                                     </td>
-                                    <td class="text-right o_price_total">
-                                        <span class="text-nowrap" t-field="line.price_subtotal"/>
+                                    <td t-if="display_discount"
+                                        class="text-end">
+                                        <span class="text-nowrap" t-field="line.discount"/>
                                     </td>
-                                    <td class="text-right">
-                                        <span class="text-nowrap" t-field="line.l10n_gcc_invoice_tax_amount"/>
+                                    <td class="text-end">
+                                        <span class="text-nowrap" t-field="line.price_unit"/>
                                     </td>
-                                    <td class="text-right o_price_total">
-                                        <span class="text-nowrap" t-field="line.price_total"/>
+                                    <td class="text-end">
+                                        <span t-field="line.quantity"/>
+                                        <span t-field="line.product_uom_id" groups="uom.group_uom"/>
                                     </td>
+                                    <td name="account_invoice_line_name" class="text-end">
+                                        <t t-if="line.product_id">
+                                            <t t-set="english_name" t-value="line.with_context(lang='en_US').product_id.display_name"/>
+                                            <t t-set="arabic_name" t-value="line.with_context(lang='ar_001').product_id.display_name"/>
+
+                                            <span t-out="arabic_name + '\n'" t-if="arabic_name not in line.name" t-options="{'widget': 'text'}"/>
+                                            <span t-out="english_name + '\n'" t-if="(english_name != arabic_name) and (english_name not in line.name)" t-options="{'widget': 'text'}"/>
+                                        </t>
+                                        <span t-out="line.name" t-options="{'widget': 'text'}"/>
+                                    </td>
+
                                 </t>
                                 <t t-if="line.display_type == 'line_section'">
                                     <td colspan="99">
@@ -325,7 +313,7 @@
                             </tr>
 
                             <t t-if="current_section and (line_last or lines[line_index+1].display_type == 'line_section')">
-                                <tr class="is-subtotal text-right">
+                                <tr class="is-subtotal text-end">
                                     <td colspan="99">
                                         <strong class="mr16" style="display: inline-block">Subtotal/الإجمالي الفرعي</strong>
                                         <span
@@ -344,38 +332,61 @@
                         <div class="col-6">
                             <table class="table table-sm" style="page-break-inside: avoid;">
                                 <tr class="border-black o_subtotal">
-                                    <td>
+                                    <td class="text-end">
+                                        <span t-field="o.amount_untaxed"/>
+                                    </td>
+                                    <td class="text-end">
                                         <strong>
                                             Subtotal
                                             /
                                             الإجمالي الفرعي
                                         </strong>
                                     </td>
-                                    <td class="text-right">
-                                        <span t-field="o.amount_untaxed"/>
-                                    </td>
                                 </tr>
-                                <t t-set="tax_totals" t-value="json.loads(o.tax_totals_json)"/>
+                                <t t-set="tax_totals" t-value="o.tax_totals"/>
                                 <t t-foreach="tax_totals['subtotals']" t-as="subtotal">
                                     <t t-set="subtotal_to_show" t-value="subtotal['name']"/>
-                                    <t t-call="account.tax_groups_totals"/>
+                                    <!-- copy-pasted template "account.tax_groups_totals" with reversed columns order -->
+                                    <t t-foreach="tax_totals['groups_by_subtotal'][subtotal_to_show]" t-as="amount_by_group">
+                                        <tr>
+                                            <td class="text-end o_price_total">
+                                                <span class="text-nowrap" t-esc="amount_by_group['formatted_tax_group_amount']"/>
+                                            </td>
+                                            <td class="text-end">
+                                                <strong>
+                                                    <span t-esc="amount_by_group['tax_group_name']"/>
+                                                    <t t-if="tax_totals['display_tax_base']">
+                                                        <span class="text-nowrap"> on
+                                                            <t t-esc="amount_by_group['formatted_tax_group_base_amount']"/>
+                                                        </span>
+                                                    </t>
+                                                    <!-- Arabic translation of tax group -->
+                                                    <t t-set="arabic_tax_group_name" t-value="o_sec.tax_totals['groups_by_subtotal'][o_sec.tax_totals['subtotals'][subtotal_index]['name']][amount_by_group_index]['tax_group_name']"/>
+                                                    <span t-if="arabic_tax_group_name != amount_by_group['tax_group_name']" class="text-nowrap">/
+                                                        <t t-esc="arabic_tax_group_name"/>
+                                                    </span>
+                                                </strong>
+                                            </td>
+                                        </tr>
+                                    </t>
+
                                 </t>
                                 <tr class="border-black o_total">
-                                    <td>
+                                    <td class="text-end">
+                                        <span class="text-nowrap" t-field="o.amount_total"/>
+                                    </td>
+                                    <td class="text-end">
                                         <strong>
                                             Total
                                             /
                                             المجموع
                                         </strong>
                                     </td>
-                                    <td class="text-right">
-                                        <span class="text-nowrap" t-field="o.amount_total"/>
-                                    </td>
                                 </tr>
 
                                 <t t-if="print_with_payments">
                                     <t t-if="o.payment_state != 'invoicing_legacy'">
-                                        <t t-set="payments_vals" t-value="o.sudo()._get_reconciled_info_JSON_values()"/>
+                                        <t t-set="payments_vals" t-value="o.sudo().invoice_payments_widget and o.sudo().invoice_payments_widget['content'] or []"/>
                                         <t t-foreach="payments_vals" t-as="payment_vals">
                                             <tr class="border-black o_total">
                                                 <td>
@@ -383,12 +394,12 @@
                                                         <div class="col-7 oe_form_field oe_payment_label">
                                                             Paid on/دفعت في:
                                                         </div>
-                                                        <div class="col-5 pl-0 oe_form_field oe_payment_label">
+                                                        <div class="col-5 ps-0 oe_form_field oe_payment_label">
                                                             <t t-out="payment_vals['date']"/>
                                                         </div>
                                                     </i>
                                                 </td>
-                                                <td class="text-right">
+                                                <td class="text-end">
                                                     <span t-out="payment_vals['amount']"
                                                           t-options='{"widget": "monetary", "display_currency": o.currency_id}'/>
                                                 </td>
@@ -403,7 +414,7 @@
                                                         المبلغ المستحق
                                                     </strong>
                                                 </td>
-                                                <td class="text-right">
+                                                <td class="text-end">
                                                     <span t-field="o.amount_residual"/>
                                                 </td>
                                             </tr>
@@ -415,20 +426,18 @@
                     </div>
                 </div>
 
-                <p t-if="o.move_type in ('out_invoice', 'in_refund') and o.payment_reference" name="payment_communication">
+                <p t-if="o.move_type in ('out_invoice', 'in_refund') and o.payment_reference" name="payment_communication" class="pt-1">
                     <div class="row">
-                        <div class="col-6 text-left">
-                            Payment Reference :
+                        <div class="col-2 text-nowrap">
+                            Payment Reference:
+                        </div>
+                        <div class="col-2 text-center">
                             <b>
                                 <span t-field="o.payment_reference"/>
                             </b>
                         </div>
-                        <div class="col-6 text-right">
-                            <p>
-                                <b>
-                                    <span t-field="o.payment_reference"/> :
-                                </b>رقم إشارة الدفعة
-                            </p>
+                        <div class="col-2 text-end">
+                            :رقم إشارة الدفعة
                         </div>
                     </div>
                 </p>
@@ -436,54 +445,107 @@
 
                 <p t-if="o.invoice_payment_term_id" name="payment_term">
                     <div class="row">
-                        <div class="col-6 text-left">
-                            <span t-field="o.invoice_payment_term_id.note"/>
+                        <div class="col-3 text-start">
+                            <span t-out="o.invoice_payment_term_id.note"/>
                         </div>
-                        <div class="col-6 text-right">
-                            <span dir="rtl" t-field="o_sec.invoice_payment_term_id.note"/>
+                        <div class="col-3 text-end">
+                            <span t-if="o.invoice_payment_term_id.note != o_sec.invoice_payment_term_id.note" dir="rtl" t-out="o_sec.invoice_payment_term_id.note"/>
                         </div>
-
                     </div>
+                    <t t-if="o.invoice_payment_term_id.display_on_invoice and o.payment_term_details">
+                        <div t-if="o.show_payment_term_details" id="total_payment_term_details_table" class="row">
+                            <t t-set="pt_size" t-value="'col-9 offset-3' if o.show_discount_details else 'col-6 offset-6'"/>
+                            <t t-set="pt_size_html" t-value="'col-sm-9 col-md-8 offset-sm-3 offset-md-4' if o.show_discount_details else 'col-sm-6 col-md-6 offset-sm-6 offset-md-6'"/>
+                            <div t-attf-class="#{pt_size if report_type != 'html' else pt_size_html} mt-2 mb-2">
+                                <table class="table table-sm" style="page-break-inside: avoid;">
+                                    <th class="border-black text-start">
+                                        <span>
+                                            تاريخ الاستحقاق
+                                        </span>
+                                        <br/>
+                                        <span>
+                                            Due Date
+                                        </span>
+                                    </th>
+                                    <th class="border-black text-end">
+                                        <span>
+                                            المبلغ المستحق
+                                        </span>
+                                        <br/>
+                                        <span>
+                                            Amount Due
+                                        </span>
+                                    </th>
+                                    <th t-if="o.show_discount_details" class="border-black text-end">
+                                        <span>
+                                            الخصم
+                                        </span>
+                                        <br/>
+                                        <span>
+                                            Discount
+                                        </span>
+                                    </th>
+                                    <t t-foreach="o.payment_term_details" t-as="term">
+                                        <tr>
+                                            <td t-esc="term.get('date')" class="text-start"/>
+                                            <td t-options="{'widget': 'monetary', 'display_currency': o.currency_id}" t-esc="term.get('amount')" class="text-end"/>
+                                            <td t-if="term.get('discount_date')" class="text-end">
+                                                <span dir="rtl" style="white-space: normal;">
+                                                    <span t-options="{'widget': 'monetary', 'display_currency': o.currency_id}"
+                                                          t-esc="term.get('discount_amount_currency')"/> إذا تم الدفع قبل
+                                                    <span t-esc="term.get('discount_date')"/>
+                                                </span>
+                                                <br/>
+                                                <span t-options="{'widget': 'monetary', 'display_currency': o.currency_id}"
+                                                      t-esc="term.get('discount_amount_currency')"/> if paid before
+                                                <span t-esc="term.get('discount_date')"/>
+                                            </td>
+                                        </tr>
+                                    </t>
+                                </table>
+                            </div>
+                        </div>
+                    </t>
                 </p>
                 <p t-if="o.narration" name="comment">
                     <div class="row">
-                        <div class="col-6 text-left">
-                            <span t-field="o.narration"/>
+                        <div class="col-6 text-start">
+                            <span t-out="o.narration"/>
                         </div>
-                        <div class="col-6 text-right">
-                            <span dir="rtl" t-field="o_sec.narration"/>
+                        <div class="col-6 text-end">
+                            <span t-if="o.narration != o_sec.narration" dir="rtl" t-out="o_sec.narration"/>
                         </div>
                     </div>
                 </p>
                 <p t-if="o.fiscal_position_id.note" name="note">
                     <div class="row">
-                        <div class="col-6 text-left">
-                            <span t-field="o.fiscal_position_id.note"/>
+                        <div class="col-6 text-start">
+                            <span t-out="o.fiscal_position_id.note"/>
                         </div>
-                        <div class="col-6 text-right">
-                            <span dir="rtl" t-field="o_sec.fiscal_position_id.note"/>
+                        <div class="col-6 text-end">
+                            <span t-if="o.fiscal_position_id.note != o_sec.fiscal_position_id.note" dir="rtl" t-out="o_sec.fiscal_position_id.note"/>
                         </div>
                     </div>
                 </p>
                 <p t-if="o.invoice_incoterm_id" name="incoterm">
                     <div class="row">
-                        <div class="col-6 text-left">
+                        <div class="col-6 text-start">
                             <strong>Incoterm:
                             </strong>
                             <span
-                                    t-field="o.invoice_incoterm_id.code"/>
+                                    t-out="o.invoice_incoterm_id.code"/>
                             -
                             <span
-                                    t-field="o.invoice_incoterm_id.name"/>
+                                    t-out="o.invoice_incoterm_id.name"/>
                         </div>
-                        <div class="col-6 text-right">
+                        <div class="col-6 text-end">
                             <strong>شرط تجاري:
                             </strong>
                             <span
-                                    t-field="o_sec.invoice_incoterm_id.code"/>
+                                    t-out="o_sec.invoice_incoterm_id.code"/>
                             -
                             <span
-                                    t-field="o_sec.invoice_incoterm_id.name"/>
+                                    t-out="o_sec.invoice_incoterm_id.name"/>
                         </div>
                     </div>
                 </p>

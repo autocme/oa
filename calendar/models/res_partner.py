@@ -23,8 +23,7 @@ class Partner(models.Model):
 
     def _compute_meeting(self):
         if self.ids:
-            all_partners = self.with_context(active_test=False).search_read([('id', 'child_of', self.ids)], ["parent_id"])
-            all_partners_parents = {p["id"]: p['parent_id'][0] for p in all_partners if p.get('parent_id')}
+            all_partners = self.with_context(active_test=False).search([('id', 'child_of', self.ids)])
 
             event_id = self.env['calendar.event']._search([])  # ir.rules will be applied
             subquery_string, subquery_params = event_id.select()
@@ -46,11 +45,11 @@ class Partner(models.Model):
 
             # Add the events linked to the children of the partner
             for meeting_pid in set(meetings):
-                partner_id = meeting_pid
-                while partner_id in all_partners_parents:
-                    partner_id = all_partners_parents[partner_id]
-                    if partner_id in self.ids:
-                        meetings[partner_id] = meetings.get(partner_id, set()) | meetings[meeting_pid]
+                partner = self.browse(meeting_pid)
+                while partner:
+                    partner = partner.parent_id
+                    if partner in self:
+                        meetings[partner.id] = meetings.get(partner.id, set()) | meetings[meeting_pid]
             return {p_id: list(meetings.get(p_id, set())) for p_id in self.ids}
         return {}
 
@@ -62,21 +61,20 @@ class Partner(models.Model):
         """
         attendees_details = []
         meetings = self.env['calendar.event'].browse(meeting_ids)
-        meetings_attendees = meetings.mapped('attendee_ids')
-        for partner in self:
-            partner_info = partner.name_get()[0]
-            for attendee in meetings_attendees.filtered(lambda att: att.partner_id == partner):
-                attendee_is_organizer = self.env.user == attendee.event_id.user_id and attendee.partner_id == self.env.user.partner_id
-                attendees_details.append({
-                    'id': partner_info[0],
-                    'name': partner_info[1],
-                    'status': attendee.state,
-                    'event_id': attendee.event_id.id,
-                    'attendee_id': attendee.id,
-                    'is_alone': attendee.event_id.is_organizer_alone and attendee_is_organizer,
-                    # attendees data is sorted according to this key in JS.
-                    'is_organizer': 1 if attendee.partner_id == attendee.event_id.user_id.partner_id else 0,
-                })
+        for attendee in meetings.attendee_ids:
+            if attendee.partner_id not in self:
+                continue
+            attendee_is_organizer = self.env.user == attendee.event_id.user_id and attendee.partner_id == self.env.user.partner_id
+            attendees_details.append({
+                'id': attendee.partner_id.id,
+                'name': attendee.partner_id.display_name,
+                'status': attendee.state,
+                'event_id': attendee.event_id.id,
+                'attendee_id': attendee.id,
+                'is_alone': attendee.event_id.is_organizer_alone and attendee_is_organizer,
+                # attendees data is sorted according to this key in JS.
+                'is_organizer': 1 if attendee.partner_id == attendee.event_id.user_id.partner_id else 0,
+            })
         return attendees_details
 
     @api.model

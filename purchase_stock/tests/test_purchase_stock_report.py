@@ -220,7 +220,7 @@ class TestPurchaseStockReports(TestReportsCommon):
         po.button_confirm()
 
         receipt = po.picking_ids
-        receipt_move = receipt.move_lines
+        receipt_move = receipt.move_ids
         receipt_move.move_line_ids.unlink()
         receipt_move.move_line_ids = [(0, 0, {
             'location_id': receipt_move.location_id.id,
@@ -269,7 +269,7 @@ class TestPurchaseStockReports(TestReportsCommon):
         po.button_confirm()
 
         receipt = po.picking_ids
-        receipt_move = receipt.move_lines
+        receipt_move = receipt.move_ids
         receipt_move.move_line_ids.unlink()
         receipt_move.move_line_ids = [(0, 0, {
             'location_id': receipt_move.location_id.id,
@@ -314,7 +314,7 @@ class TestPurchaseStockReports(TestReportsCommon):
         po.button_confirm()
 
         receipt01 = po.picking_ids
-        receipt01_move = receipt01.move_lines
+        receipt01_move = receipt01.move_ids
         receipt01_move.quantity_done = 6
         action = receipt01.button_validate()
         Form(self.env[action['res_model']].with_context(action['context'])).save().process()
@@ -329,9 +329,10 @@ class TestPurchaseStockReports(TestReportsCommon):
         self.assertEqual(data['on_time_rate'], 60)
 
         receipt02 = receipt01.backorder_ids
-        receipt02.move_lines.quantity_done = 4
+        receipt02.move_ids.quantity_done = 4
         receipt02.button_validate()
 
+        (receipt01 | receipt02).move_ids.invalidate_recordset()
         data = self.env['vendor.delay.report'].read_group(
             [('partner_id', '=', self.partner.id)],
             ['product_id', 'on_time_rate', 'qty_on_time', 'qty_total'],
@@ -356,7 +357,7 @@ class TestPurchaseStockReports(TestReportsCommon):
         po.button_confirm()
 
         receipt01 = po.picking_ids
-        receipt01_move = receipt01.move_lines
+        receipt01_move = receipt01.move_ids
         receipt01_move.quantity_done = 6
         action = receipt01.button_validate()
         Form(self.env[action['res_model']].with_context(action['context'])).save().process_cancel_backorder()

@@ -5,17 +5,23 @@ from odoo.tests.common import TransactionCase
 from odoo.tests import Form
 
 
-class TestAnalyticAccount(TransactionCase):
-
+class TestMrpAnalyticAccount(TransactionCase):
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
         cls.env.user.write({'groups_id': [(4, cls.env.ref('analytic.group_analytic_accounting').id),]})
 
-        cls.analytic_account = cls.env['account.analytic.account'].create({'name': 'test_analytic_account'})
+        cls.analytic_plan = cls.env['account.analytic.plan'].create({
+            'name': 'Plan',
+            'company_id': False,
+        })
+        cls.analytic_account = cls.env['account.analytic.account'].create({
+            'name': 'test_analytic_account',
+            'plan_id': cls.analytic_plan.id,
+        })
         cls.workcenter = cls.env['mrp.workcenter'].create({
             'name': 'Workcenter',
-            'capacity': 1,
+            'default_capacity': 1,
             'time_efficiency': 100,
             'costs_hour': 10,
         })
@@ -41,6 +47,8 @@ class TestAnalyticAccount(TransactionCase):
                 (0, 0, {'name': 'work work', 'workcenter_id': cls.workcenter.id, 'time_cycle': 15, 'sequence': 1}),
             ]})
 
+
+class TestAnalyticAccount(TestMrpAnalyticAccount):
     def test_mo_analytic(self):
         """Test the amount on analytic line will change when consumed qty of the
         component changed.
@@ -107,6 +115,8 @@ class TestAnalyticAccount(TransactionCase):
         """Test when workcenter and MO are using the same analytic account, no
         duplicated lines will be post.
         """
+        # Required for `workorder_ids` to be visible in the view
+        self.env.user.groups_id += self.env.ref('mrp.group_mrp_routings')
         # set wc analytic account to be the same of the one on the bom
         self.workcenter.costs_hour_account_id = self.analytic_account
 
@@ -121,6 +131,7 @@ class TestAnalyticAccount(TransactionCase):
         self.assertEqual(len(mo.workorder_ids.wc_analytic_account_line_id), 0)
 
         # change duration to 60
+        mo_form = Form(mo)
         with mo_form.workorder_ids.edit(0) as line_edit:
             line_edit.duration = 60.0
         mo_form.save()
@@ -146,8 +157,11 @@ class TestAnalyticAccount(TransactionCase):
         """Test when workcenter and MO are using the same analytic account, no
         duplicated lines will be post.
         """
+        # Required for `workorder_ids` to be visible in the view
+        self.env.user.groups_id += self.env.ref('mrp.group_mrp_routings')
         # set wc analytic account to be different from the one on the bom
-        wc_analytic_account = self.env['account.analytic.account'].create({'name': 'wc_analytic_account'})
+        analytic_plan = self.env['account.analytic.plan'].create({'name': 'Plan Test', 'company_id': False})
+        wc_analytic_account = self.env['account.analytic.account'].create({'name': 'wc_analytic_account', 'plan_id': analytic_plan.id})
         self.workcenter.costs_hour_account_id = wc_analytic_account
 
         # create a mo
@@ -161,6 +175,7 @@ class TestAnalyticAccount(TransactionCase):
         self.assertEqual(len(mo.workorder_ids.wc_analytic_account_line_id), 0)
 
         # change duration to 60
+        mo_form = Form(mo)
         with mo_form.workorder_ids.edit(0) as line_edit:
             line_edit.duration = 60.0
         mo_form.save()
@@ -192,6 +207,8 @@ class TestAnalyticAccount(TransactionCase):
         """ Check if the MO account analytic lines are correctly updated
             after the change of the MO account analytic.
         """
+        # Required for `workorder_ids` to be visible in the view
+        self.env.user.groups_id += self.env.ref('mrp.group_mrp_routings')
         # create a mo
         mo_form = Form(self.env['mrp.production'])
         mo_form.product_id = self.product
@@ -205,6 +222,7 @@ class TestAnalyticAccount(TransactionCase):
         self.assertEqual(len(mo.workorder_ids.mo_analytic_account_line_id), 0)
 
         # Change duration to 60
+        mo_form = Form(mo)
         with mo_form.workorder_ids.edit(0) as line_edit:
             line_edit.duration = 60.0
         mo_form.save()
@@ -217,7 +235,8 @@ class TestAnalyticAccount(TransactionCase):
         self.assertEqual(len(mo.move_raw_ids.analytic_account_line_id), 1)
 
         # Create a new analytic account
-        new_analytic_account = self.env['account.analytic.account'].create({'name': 'test_analytic_account_2'})
+        analytic_plan = self.env['account.analytic.plan'].create({'name': 'Plan Test', 'company_id': False})
+        new_analytic_account = self.env['account.analytic.account'].create({'name': 'test_analytic_account_2', 'plan_id': analytic_plan.id})
         # Change the MO analytic account
         mo.analytic_account_id = new_analytic_account
         self.assertEqual(mo.move_raw_ids.analytic_account_line_id.account_id.id, new_analytic_account.id)
@@ -237,13 +256,14 @@ class TestAnalyticAccount(TransactionCase):
         self.assertEqual(len(mo.move_raw_ids.analytic_account_line_id), 1)
         self.assertEqual(len(mo.workorder_ids.mo_analytic_account_line_id), 1)
 
-    def test_add_wo_analytic_no_company(self):
-        """Test the addition of work orders to a MO linked to
+    def test_add_remove_wo_analytic_no_company(self):
+        """Test the addition and removal of work orders to a MO linked to
         an analytic account that has no company associated
         """
         # Create an analytic account and remove the company
         analytic_account_no_company = self.env['account.analytic.account'].create({
             'name': 'test_analytic_account_no_company',
+            'plan_id': self.analytic_plan.id,
         })
         analytic_account_no_company.company_id = False
 
@@ -255,14 +275,19 @@ class TestAnalyticAccount(TransactionCase):
         })
 
         mo_no_c_form = Form(mo_no_company)
-        self.env['mrp.workorder'].create({
+        wo = self.env['mrp.workorder'].create({
             'name': 'Work_order',
             'workcenter_id': self.workcenter.id,
             'product_uom_id': self.bom.product_uom_id.id,
             'production_id': mo_no_c_form.id,
+            'duration': 60,
         })
         mo_no_c_form.save()
         self.assertTrue(mo_no_company.workorder_ids)
+        self.assertEqual(wo.production_id.analytic_account_id, analytic_account_no_company)
+        self.assertEqual(len(analytic_account_no_company.line_ids), 1)
+        mo_no_company.workorder_ids.unlink()
+        self.assertEqual(len(analytic_account_no_company.line_ids), 0)
 
     def test_update_components_qty_to_0(self):
         """ Test that the analytic lines are deleted when the quantity of the component is set to 0.
@@ -291,6 +316,7 @@ class TestAnalyticAccount(TransactionCase):
         })
         analytic_account = self.env['account.analytic.account'].create({
             'name': "Test Account",
+            'plan_id': self.analytic_plan.id,
         })
         mo_form = Form(self.env['mrp.production'])
         mo_form.product_id = product

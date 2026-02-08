@@ -43,10 +43,10 @@ class TestUi(odoo.tests.HttpCase):
             'mimetype': 'image/png',
         })
 
-        self.start_tour("/", 'blog', login='admin')
+        self.start_tour(self.env['website'].get_client_action_url('/'), 'blog', login='admin')
 
-    def test_00_blog_post_tags(self):
-        self.start_tour("/blog", 'blog_tags', login='admin')
+    def test_blog_post_tags(self):
+        self.start_tour(self.env['website'].get_client_action_url('/blog'), 'blog_tags', login='admin')
 
     def test_autocomplete_with_date(self):
         self.env.ref('website_blog.opt_blog_sidebar_show').active = True

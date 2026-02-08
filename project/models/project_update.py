@@ -15,6 +15,8 @@ STATUS_COLOR = {
     'off_track': 23,  # red / danger
     'on_hold': 4,  # light blue
     False: 0,  # default grey -- for studio
+    # Only used in project.task
+    'to_define': 0,
 }
 
 class ProjectUpdate(models.Model):
@@ -34,7 +36,9 @@ class ProjectUpdate(models.Model):
             if 'description' in fields and not result.get('description'):
                 result['description'] = self._build_description(project)
             if 'status' in fields and not result.get('status'):
-                result['status'] = project.last_update_status
+                # `to_define` is not an option for self.status, here we actually want to default to `on_track`
+                # the goal of `to_define` is for a project to start without an actual status.
+                result['status'] = project.last_update_status if project.last_update_status != 'to_define' else 'on_track'
         return result
 
     name = fields.Char("Title", required=True, tracking=True)
@@ -71,11 +75,12 @@ class ProjectUpdate(models.Model):
     # ---------------------------------
     # ORM Override
     # ---------------------------------
-    @api.model
-    def create(self, vals):
-        update = super().create(vals)
-        update.project_id.sudo().last_update_id = update
-        return update
+    @api.model_create_multi
+    def create(self, vals_list):
+        updates = super().create(vals_list)
+        for update in updates:
+            update.project_id.sudo().last_update_id = update
+        return updates
 
     def unlink(self):
         projects = self.project_id
@@ -89,8 +94,7 @@ class ProjectUpdate(models.Model):
     # ---------------------------------
     @api.model
     def _build_description(self, project):
-        template = self.env.ref('project.project_update_default_description')
-        return template._render(self._get_template_values(project), engine='ir.qweb')
+        return self.env['ir.qweb']._render('project.project_update_default_description', self._get_template_values(project))
 
     @api.model
     def _get_template_values(self, project):
@@ -106,6 +110,14 @@ class ProjectUpdate(models.Model):
     @api.model
     def _get_milestone_values(self, project):
         Milestone = self.env['project.milestone']
+        if not project.allow_milestones:
+            return {
+                'show_section': False,
+                'list': [],
+                'updated': [],
+                'last_update_date': None,
+                'created': []
+            }
         list_milestones = Milestone.search(
             [('project_id', '=', project.id),
              '|', ('deadline', '<', fields.Date.context_today(self) + relativedelta(years=1)), ('deadline', '=', False)])._get_data_list()

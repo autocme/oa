@@ -1,37 +1,32 @@
 /** @odoo-module **/
 
-import tour from 'web_tour.tour';
+import wTourUtils from 'website.tour_utils';
 
 /**
  * The purpose of this tour is to check the link on image flow.
  */
- 
+
 const selectImageSteps = [{
     content: "select block",
-    trigger: "#wrapwrap .s_text_image",
+    trigger: "iframe #wrapwrap .s_text_image",
 }, {
     content: "check link popover disappeared",
-    trigger: "body:not(:has(.o_edit_menu_popover))",
+    trigger: "iframe body:not(:has(.o_edit_menu_popover))",
     run: () => {}, // check
 }, {
     content: "select image",
-    trigger: "#wrapwrap .s_text_image img",
+    trigger: "iframe #wrapwrap .s_text_image img",
 }];
 
-tour.register('test_image_link', {
+wTourUtils.registerWebsitePreviewTour('test_image_link', {
+    test: true,
     url: '/',
-    test: true
+    edition: true,
 }, [
-    {
-        content: "enter edit mode",
-        trigger: "a[data-action=edit]"
-    }, {
-        content: "drop Text-Image snippet",
-        trigger: "#oe_snippets .oe_snippet[name='Text - Image'] .oe_snippet_thumbnail:not(.o_we_already_dragging)",
-        extra_trigger: "body.editor_enable.editor_has_snippets",
-        moveTrigger: ".oe_drop_zone",
-        run: "drag_and_drop #wrap",
-    },
+    wTourUtils.dragNDrop({
+        id: 's_text_image',
+        name: 'Text - Image',
+    }),
     ...selectImageSteps,
     {
         content: "enable link",
@@ -44,7 +39,7 @@ tour.register('test_image_link', {
     ...selectImageSteps,
     {
         content: "check popover content has site URL",
-        trigger: ".o_edit_menu_popover a.o_we_url_link[href='http://odoo.com/']:contains(http://odoo.com/)",
+        trigger: "iframe .o_edit_menu_popover a.o_we_url_link[href='http://odoo.com/']:contains(http://odoo.com/)",
         run: () => {}, // check
     }, {
         content: "remove URL",
@@ -54,7 +49,7 @@ tour.register('test_image_link', {
     ...selectImageSteps,
     {
         content: "check popover content has no URL",
-        trigger: ".o_edit_menu_popover a.o_we_url_link:not([href]):contains(No URL specified)",
+        trigger: "iframe .o_edit_menu_popover a.o_we_url_link:not([href]):contains(No URL specified)",
         run: () => {}, // check
     }, {
         content: "enter email URL",
@@ -64,7 +59,7 @@ tour.register('test_image_link', {
     ...selectImageSteps,
     {
         content: "check popover content has mail URL",
-        trigger: ".o_edit_menu_popover:has(.fa-envelope-o) a.o_we_url_link[href='mailto:test@test.com']:contains(mailto:test@test.com)",
+        trigger: "iframe .o_edit_menu_popover:has(.fa-envelope-o) a.o_we_url_link[href='mailto:test@test.com']:contains(mailto:test@test.com)",
         run: () => {}, // check
     }, {
         content: "enter phone URL",
@@ -74,7 +69,7 @@ tour.register('test_image_link', {
     ...selectImageSteps,
     {
         content: "check popover content has phone URL",
-        trigger: ".o_edit_menu_popover:has(.fa-phone) a.o_we_url_link[href='tel:555-2368']:contains(tel:555-2368)",
+        trigger: "iframe .o_edit_menu_popover:has(.fa-phone) a.o_we_url_link[href='tel:555-2368']:contains(tel:555-2368)",
         run: () => {}, // check
     }, {
         content: "remove URL",
@@ -84,7 +79,7 @@ tour.register('test_image_link', {
     ...selectImageSteps,
     {
         content: "check popover content has no URL",
-        trigger: ".o_edit_menu_popover a.o_we_url_link:not([href]):contains(No URL specified)",
+        trigger: "iframe .o_edit_menu_popover a.o_we_url_link:not([href]):contains(No URL specified)",
         run: () => {}, // check
     },
 ]);

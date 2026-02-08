@@ -13,7 +13,6 @@ from odoo.tests.common import tagged
 from odoo.tools import mute_logger
 
 
-@tagged('lead_assign')
 class TestLeadAssignCommon(TestLeadConvertCommon):
 
     @classmethod
@@ -29,7 +28,9 @@ class TestLeadAssignCommon(TestLeadConvertCommon):
 
         # don't mess with existing leads, unlink those assigned to users used here to make tests
         # repeatable (archive is not sufficient because of lost leads)
-        cls.env['crm.lead'].with_context(active_test=False).search(['|', ('team_id', '=', False), ('user_id', 'in', cls.sales_teams.member_ids.ids)]).unlink()
+
+        with mute_logger('odoo.models.unlink'):
+            cls.env['crm.lead'].with_context(active_test=False).search(['|', ('team_id', '=', False), ('user_id', 'in', cls.sales_teams.member_ids.ids)]).unlink()
         cls.bundle_size = 50
         cls.env['ir.config_parameter'].set_param('crm.assignment.commit.bundle', '%s' % cls.bundle_size)
         cls.env['ir.config_parameter'].set_param('crm.assignment.delay', '0')
@@ -118,7 +119,7 @@ class TestLeadAssign(TestLeadAssignCommon):
             suffix='Initial',
         )
         # commit probability and related fields
-        leads.flush()
+        leads.flush_recordset()
         self.assertInitialData()
 
         # archived members should not be taken into account
@@ -131,7 +132,7 @@ class TestLeadAssign(TestLeadAssignCommon):
         for idx, lead in enumerate(leads):
             lead.probability = idx * 10
         # commit probability and related fields
-        leads.flush()
+        leads.flush_recordset()
         self.assertEqual(leads[0].probability, 0)
 
         # create exiting leads for user_sales_salesman (sales_team_1_m3, sales_team_convert_m1)
@@ -144,17 +145,17 @@ class TestLeadAssign(TestLeadAssignCommon):
         existing_leads[0].active = False  # lost
         existing_leads[1].probability = 100  # not won
         existing_leads[2].probability = 0  # not lost
-        existing_leads.flush()
+        existing_leads.flush_recordset()
 
-        self.members.invalidate_cache(fnames=['lead_month_count'])
+        self.members.invalidate_model(['lead_month_count'])
         self.assertEqual(self.sales_team_1_m3.lead_month_count, 14)
         self.assertEqual(self.sales_team_convert_m1.lead_month_count, 0)
 
         # re-assign existing leads, check monthly count is updated
         existing_leads[-2:]._handle_salesmen_assignment(user_ids=self.user_sales_manager.ids)
         # commit probability and related fields
-        leads.flush()
-        self.members.invalidate_cache(fnames=['lead_month_count'])
+        leads.flush_recordset()
+        self.members.invalidate_model(['lead_month_count'])
         self.assertEqual(self.sales_team_1_m3.lead_month_count, 12)
 
         # sales_team_1_m2 is opt-out (new field in 14.3) -> even with max, no lead assigned
@@ -182,7 +183,7 @@ class TestLeadAssign(TestLeadAssignCommon):
         )
 
         # salespersons assign
-        self.members.invalidate_cache(fnames=['lead_month_count'])
+        self.members.invalidate_model(['lead_month_count'])
         self.assertEqual(self.sales_team_1_m1.lead_month_count, 0)  # archived do not get leads
         self.assertEqual(self.sales_team_1_m2.lead_month_count, 0)  # opt-out through assignment_max = 0
         self.assertEqual(self.sales_team_1_m3.lead_month_count, 14)  # 15 max on 4 days (2) + existing 12
@@ -191,7 +192,7 @@ class TestLeadAssign(TestLeadAssignCommon):
             self.env['crm.team'].browse(self.sales_team_1.ids)._action_assign_leads(work_days=4)
 
         # salespersons assign
-        self.members.invalidate_cache(fnames=['lead_month_count'])
+        self.members.invalidate_model(['lead_month_count'])
         self.assertEqual(self.sales_team_1_m1.lead_month_count, 0)  # archived do not get leads
         self.assertEqual(self.sales_team_1_m2.lead_month_count, 0)  # opt-out through assignment_max = 0
         self.assertEqual(self.sales_team_1_m3.lead_month_count, 16)  # 15 max on 4 days (2) + existing 14 and not capped anymore
@@ -210,7 +211,7 @@ class TestLeadAssign(TestLeadAssignCommon):
             count=200
         )
         # commit probability and related fields
-        leads.flush()
+        leads.flush_recordset()
         self.assertInitialData()
 
         # assign probability to leads (bypass auto probability as purpose is not to test pls)
@@ -220,7 +221,7 @@ class TestLeadAssign(TestLeadAssignCommon):
             for lead in sliced_leads:
                 lead.probability = (idx + 1) * 10 * ((int(lead.priority) + 1) / 2)
         # commit probability and related fields
-        leads.flush()
+        leads.flush_recordset()
 
         with self.with_user('user_sales_manager'):
             self.env['crm.team'].browse(self.sales_teams.ids)._action_assign_leads(work_days=2)
@@ -237,7 +238,7 @@ class TestLeadAssign(TestLeadAssignCommon):
         self.assertEqual(len(leads_st1) + len(leads_stc), len(leads))  # Make sure all lead are assigned
 
         # salespersons assign
-        self.members.invalidate_cache(fnames=['lead_month_count'])
+        self.members.invalidate_model(['lead_month_count'])
         self.assertMemberAssign(self.sales_team_1_m1, 11)  # 45 max on 2 days (3) + compensation (8.4)
         self.assertMemberAssign(self.sales_team_1_m2, 4)  # 15 max on 2 days (1) + compensation (2.8)
         self.assertMemberAssign(self.sales_team_1_m3, 4)  # 15 max on 2 days (1) + compensation (2.8)
@@ -267,7 +268,7 @@ class TestLeadAssign(TestLeadAssignCommon):
             count=150
         )
         # commit probability and related fields
-        leads.flush()
+        leads.flush_recordset()
         self.assertInitialData()
 
         # assign probability to leads (bypass auto probability as purpose is not to test pls)
@@ -277,7 +278,7 @@ class TestLeadAssign(TestLeadAssignCommon):
             for lead in sliced_leads:
                 lead.probability = (idx + 1) * 10 * ((int(lead.priority) + 1) / 2)
         # commit probability and related fields
-        leads.flush()
+        leads.flush_recordset()
 
         with self.with_user('user_sales_manager'):
             self.env['crm.team'].browse(self.sales_teams.ids)._action_assign_leads(work_days=2)
@@ -294,7 +295,7 @@ class TestLeadAssign(TestLeadAssignCommon):
         self.assertEqual(len(leads_st1) + len(leads_stc), len(leads))  # Make sure all lead are assigned
 
         # salespersons assign
-        self.members.invalidate_cache(fnames=['lead_month_count'])
+        self.members.invalidate_model(['lead_month_count'])
         self.assertMemberAssign(self.sales_team_1_m1, 11)  # 45 max on 2 days (3) + compensation (8.4)
         self.assertMemberAssign(self.sales_team_1_m2, 4)  # 15 max on 2 days (1) + compensation (2.8)
         self.assertMemberAssign(self.sales_team_1_m3, 4)  # 15 max on 2 days (1) + compensation (2.8)
@@ -318,7 +319,7 @@ class TestLeadAssign(TestLeadAssignCommon):
             count=_lead_count,
             email_dup_count=_email_dup_count)
         # commit probability and related fields
-        leads.flush()
+        leads.flush_recordset()
         self.assertInitialData()
 
         # assign for one month, aka a lot
@@ -363,7 +364,7 @@ class TestLeadAssign(TestLeadAssignCommon):
             for lead in sliced_leads:
                 lead.probability = (idx + 1) * 10 * ((int(lead.priority) + 1) / 2)
         # commit probability and related fields
-        leads.flush()
+        leads.flush_recordset()
 
         with self.with_user('user_sales_manager'):
             self.env['crm.team'].browse(sales_teams.ids)._action_assign_leads(work_days=30)
@@ -386,7 +387,7 @@ class TestLeadAssign(TestLeadAssignCommon):
         self.assertGreaterEqual(len(leads_st3), 135)  # 135 * 600 / 300 * 0.5 (because random)
 
         # salespersons assign
-        self.members.invalidate_cache(fnames=['lead_month_count'])
+        self.members.invalidate_model(['lead_month_count'])
         self.assertMemberAssign(self.sales_team_1_m1, 45)  # 45 max on one month
         self.assertMemberAssign(self.sales_team_1_m2, 15)  # 15 max on one month
         self.assertMemberAssign(self.sales_team_1_m3, 15)  # 15 max on one month
@@ -430,9 +431,9 @@ class TestLeadAssign(TestLeadAssignCommon):
             probabilities=[10],
             count=30)
         self.assertEqual(existing_leads.team_id, self.sales_team_1, "Team should have lower sequence")
-        existing_leads.flush()
+        existing_leads.flush_recordset()
 
-        self.sales_team_1_m1.invalidate_cache(fnames=['lead_month_count'])
+        self.sales_team_1_m1.invalidate_model(['lead_month_count'])
         self.assertEqual(self.sales_team_1_m1.lead_month_count, 30)
 
         # quota computation with existing leads
@@ -477,7 +478,7 @@ class TestLeadAssign(TestLeadAssignCommon):
         leads[5].update({'team_id': self.sales_team_convert.id, 'user_id': self.user_sales_manager.id})  # assigned lead should not be re-assigned
 
         # commit probability and related fields
-        leads.flush()
+        leads.flush_recordset()
 
         with self.with_user('user_sales_manager'):
             self.env['crm.team'].browse(self.sales_team_1.ids)._action_assign_leads(work_days=4)

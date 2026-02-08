@@ -25,14 +25,11 @@ class ResConfigSettings(models.TransientModel):
     module_mail_plugin = fields.Boolean(
         string='Allow integration with the mail plugins'
     )
-    module_google_drive = fields.Boolean("Attach Google documents to any record")
-    module_google_spreadsheet = fields.Boolean("Google Spreadsheet")
     module_auth_oauth = fields.Boolean("Use external authentication providers (OAuth)")
     module_auth_ldap = fields.Boolean("LDAP Authentication")
     # TODO: remove in master
     module_base_gengo = fields.Boolean("Translate Your Website with Gengo")
     module_account_inter_company_rules = fields.Boolean("Manage Inter Company")
-    module_pad = fields.Boolean("Collaborative Pads")
     module_voip = fields.Boolean("Asterisk (VoIP)")
     module_web_unsplash = fields.Boolean("Unsplash Image Library")
     module_partner_autocomplete = fields.Boolean("Partner Autocomplete")
@@ -42,7 +39,7 @@ class ResConfigSettings(models.TransientModel):
     group_multi_currency = fields.Boolean(string='Multi-Currencies',
             implied_group='base.group_multi_currency',
             help="Allows to work in a multi currency environment")
-    external_report_layout_id = fields.Many2one(related="company_id.external_report_layout_id", readonly=False)
+    external_report_layout_id = fields.Many2one(related="company_id.external_report_layout_id")
     show_effect = fields.Boolean(string="Show Effect", config_parameter='base_setup.show_effect')
     company_count = fields.Integer('Number of Companies', compute="_compute_company_count")
     active_user_count = fields.Integer('Number of Active Users', compute="_compute_active_user_count")

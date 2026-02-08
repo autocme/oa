@@ -9,13 +9,8 @@ class TestCIIFR(TestUBLCommon):
     @classmethod
     def setUpClass(cls,
                    chart_template_ref="l10n_fr.l10n_fr_pcg_chart_template",
-                   edi_format_ref="account_edi_facturx.edi_facturx_1_0_05",
+                   edi_format_ref="account_edi_ubl_cii.edi_facturx_1_0_05",
                    ):
-        """
-            this test will fail if account_edi_facturx is not installed. In order not to duplicate the
-            account.edi.format already installed, we use the existing ones (comprising
-            account_edi_facturx.facturx_1_0_05).
-        """
         super().setUpClass(chart_template_ref=chart_template_ref, edi_format_ref=edi_format_ref)
 
         cls.partner_1 = cls.env['res.partner'].create({
@@ -82,6 +77,13 @@ class TestCIIFR(TestUBLCommon):
             'type_tax_use': 'purchase',
         })
 
+        cls.tax_0_purchase = cls.env['account.tax'].create({
+            'name': 'tax_0',
+            'amount_type': 'percent',
+            'amount': 0,
+            'type_tax_use': 'purchase',
+        })
+
         cls.tax_5 = cls.env['account.tax'].create({
             'name': 'tax_5',
             'amount_type': 'percent',
@@ -123,7 +125,7 @@ class TestCIIFR(TestUBLCommon):
             'move_type': 'out_invoice',
             'journal_id': self.journal.id,
             'partner_id': self.partner_1.id,
-            'partner_bank_id': acc_bank,
+            'partner_bank_id': acc_bank.id,
             'invoice_date': '2017-01-01',
             'date': '2017-01-01',
             'currency_id': self.currency_data['currency'].id,
@@ -170,7 +172,7 @@ class TestCIIFR(TestUBLCommon):
                 },
             ],
         )
-        xml_etree, xml_filename = self._assert_invoice_attachment(
+        attachment = self._assert_invoice_attachment(
             invoice,
             xpaths='''
                 <xpath expr="./*[local-name()='ExchangedDocument']/*[local-name()='ID']" position="replace">
@@ -185,8 +187,8 @@ class TestCIIFR(TestUBLCommon):
             ''',
             expected_file='from_odoo/facturx_out_invoice.xml',
         )
-        self.assertEqual(xml_filename, "factur-x.xml")
-        self._assert_imported_invoice_from_etree(invoice, xml_etree, xml_filename)
+        self.assertEqual(attachment.name, "factur-x.xml")
+        self._assert_imported_invoice_from_etree(invoice, attachment)
 
     def test_export_import_refund(self):
         refund = self._generate_move(
@@ -218,7 +220,7 @@ class TestCIIFR(TestUBLCommon):
                 },
             ],
         )
-        xml_etree, xml_filename = self._assert_invoice_attachment(
+        attachment = self._assert_invoice_attachment(
             refund,
             xpaths='''
                 <xpath expr="./*[local-name()='ExchangedDocument']/*[local-name()='ID']" position="replace">
@@ -230,8 +232,8 @@ class TestCIIFR(TestUBLCommon):
             ''',
             expected_file='from_odoo/facturx_out_refund.xml'
         )
-        self.assertEqual(xml_filename, "factur-x.xml")
-        self._assert_imported_invoice_from_etree(refund, xml_etree, xml_filename)
+        self.assertEqual(attachment.name, "factur-x.xml")
+        self._assert_imported_invoice_from_etree(refund, attachment)
 
     def test_export_tax_included(self):
         """
@@ -367,6 +369,27 @@ class TestCIIFR(TestUBLCommon):
         new_invoice = self._import_invoice_attachment(invoice, 'facturx_1_0_05', self.company_data['default_journal_purchase'])
         self.assertEqual(self.partner_1, new_invoice.partner_id)
 
+    def test_import_journal_facturx(self):
+        """
+        If the context contains the info about the current default journal, we should use it
+        instead of infering the journal from the move type.
+        """
+        journal2 = self.company_data['default_journal_sale'].copy()
+        journal2.default_account_id = self.company_data['default_account_revenue'].id
+        invoice = self._generate_move(
+            seller=self.partner_1,
+            buyer=self.partner_2,
+            move_type='out_invoice',
+            invoice_line_ids=[{'product_id': self.product_a.id}],
+        )
+        edi_attachment = invoice._get_edi_attachment(self.env.ref('account_edi_ubl_cii.edi_facturx_1_0_05')).id
+
+        new_invoice = self.env['account.journal'].with_context(default_move_type='out_invoice')._create_document_from_attachment(edi_attachment)
+        self.assertEqual(new_invoice.journal_id, self.company_data['default_journal_sale'])
+
+        new_invoice = self.env['account.journal'].with_context(default_journal_id=journal2.id)._create_document_from_attachment(edi_attachment)
+        self.assertEqual(new_invoice.journal_id, journal2)
+
     def test_import_and_create_partner_facturx(self):
         """ Tests whether the partner is created at import if no match is found when decoding the EDI attachment
         """
@@ -422,6 +445,10 @@ class TestCIIFR(TestUBLCommon):
             # tax excluded. At import, the tax included amounts are thus converted into tax excluded ones.
             # Yet, the line subtotals and total will be the same (if an equivalent tax exist with price_include = False)
             list_line_price_unit=[95.24, 100, 190.48, 200],
+            # rounding error since for line 3: we round several times...
+            # when exporting the invoice, we compute the price tax excluded = 200/1.05 ~= 190.48
+            # then, when computing the discount amount: 190.48 * 0.1 ~= 19.05 => price net amount = 171.43
+            # Thus, at import: price_unit = 190.48, and discount = 100 * (1 - 171.43 / 190.48) = 10.001049979
             list_line_discount=[0, 0, 10, 10],
             # Again, all taxes in the imported invoice are price_include = False
             list_line_taxes=[self.tax_5_purchase]*4,

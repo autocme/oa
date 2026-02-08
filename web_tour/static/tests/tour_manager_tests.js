@@ -7,12 +7,6 @@ odoo.define('web_tour.tour_manager_tests', async function (require) {
     const testUtils = require('web.test_utils');
     const createView = testUtils.createView;
 
-    const ajax = require('web.ajax');
-    const { qweb } = require('web.core');
-
-    // Pre-load the Tip widget template
-    await ajax.loadXML('/web_tour/static/src/xml/tip.xml', qweb);
-
     /**
      * Create a widget and a TourManager instance with a list of given Tour objects.
      * @see `TourManager.register()` for more details on the Tours registry system.
@@ -79,8 +73,7 @@ odoo.define('web_tour.tour_manager_tests', async function (require) {
             function onShowEffect(params) {
                 assert.deepEqual(params, {
                     fadeout: "medium",
-                    message: "<strong><b>Good job!</b> You went through all steps of this tour.</strong>",
-                    messageIsHtml: true,
+                    message: owl.markup("<strong><b>Good job!</b> You went through all steps of this tour.</strong>"),
                     type: "rainbow_man"
                 });
             }

@@ -3,23 +3,23 @@
 # 	* website_sale_delivery
 # 
 # Translators:
-# Martin Trigaux, 2021
-# Carles Antoli <carlesantoli@hotmail.com>, 2021
-# RGB Consulting <odoo@rgbconsulting.com>, 2021
-# Quim - eccit <quim@eccit.com>, 2021
-# Manel Fernandez Ramirez <manelfera@outlook.com>, 2021
-# M Palau <mpalau@tda.ad>, 2021
+# Quim - coopdevs <quim.rebull@coopdevs.org>, 2022
+# Manel Fernandez Ramirez <manelfera@outlook.com>, 2022
 # Harcogourmet, 2022
+# Martin Trigaux, 2022
 # marcescu, 2022
+# Carles Antoli <carlesantoli@hotmail.com>, 2022
+# M Palau <mpalau@tda.ad>, 2022
 # Ivan Espinola, 2022
+# Óscar Fonseca <tecnico@pyming.com>, 2024
 # 
 msgid ""
 msgstr ""
-"Project-Id-Version: Odoo Server 15.0\n"
+"Project-Id-Version: Odoo Server 16.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-08-14 15:43+0000\n"
-"PO-Revision-Date: 2021-09-14 12:29+0000\n"
-"Last-Translator: Ivan Espinola, 2022\n"
+"POT-Creation-Date: 2025-06-13 18:37+0000\n"
+"PO-Revision-Date: 2022-09-22 05:57+0000\n"
+"Last-Translator: Óscar Fonseca <tecnico@pyming.com>, 2024\n"
 "Language-Team: Catalan (https://app.transifex.com/odoo/teams/41243/ca/)\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
@@ -40,8 +40,16 @@ msgid ""
 "Customer Invoice/Credit Note"
 msgstr ""
 "Una descripció del producte que es vol comunicar als seus clients. Aquesta "
-"descripció serà copiada a cada comanda de venda, albarà de sortida i factura"
+"descripció serà copiada a cada comanda de venda, comanda d'entrega i factura"
 " de client."
+
+#. module: website_sale_delivery
+#. odoo-python
+#: code:addons/website_sale_delivery/controllers/main.py:0
+#: code:addons/website_sale_delivery/controllers/main.py:0
+#, python-format
+msgid "Anonymous express checkout partner for order %s"
+msgstr "Soci de pagament exprés anònim per a la comanda %s"
 
 #. module: website_sale_delivery
 #: model:ir.model.fields,field_description:website_sale_delivery.field_delivery_carrier__can_publish
@@ -57,11 +65,6 @@ msgstr "Trieu un mètode d’entrega"
 #: model:ir.model,name:website_sale_delivery.model_res_country
 msgid "Country"
 msgstr "País"
-
-#. module: website_sale_delivery
-#: model_terms:ir.ui.view,arch_db:website_sale_delivery.res_config_settings_view_form
-msgid "DHL Shipping Methods"
-msgstr "Mètodes d'enviament DHL"
 
 #. module: website_sale_delivery
 #: model:ir.model.fields,field_description:website_sale_delivery.field_sale_order__amount_delivery
@@ -80,11 +83,6 @@ msgstr "Lliurament:"
 
 #. module: website_sale_delivery
 #: model_terms:ir.ui.view,arch_db:website_sale_delivery.view_delivery_carrier_form_website_delivery
-msgid "Description"
-msgstr "Descripció"
-
-#. module: website_sale_delivery
-#: model_terms:ir.ui.view,arch_db:website_sale_delivery.view_delivery_carrier_form_website_delivery
 msgid "Description displayed on the eCommerce and on online quotations."
 msgstr "Descripció mostrada en el eCommerce i en els pressupostos en línia."
 
@@ -99,16 +97,11 @@ msgid "Easypost Shipping Methods"
 msgstr "Mètodes d'enviament Easypost"
 
 #. module: website_sale_delivery
-#: model_terms:ir.ui.view,arch_db:website_sale_delivery.res_config_settings_view_form
-msgid "FedEx Shipping Methods"
-msgstr "Mètodes d'enviament FedEX"
-
-#. module: website_sale_delivery
-#. openerp-web
+#. odoo-javascript
 #: code:addons/website_sale_delivery/static/src/js/website_sale_delivery.js:0
 #, python-format
 msgid "Free"
-msgstr "Lliure"
+msgstr "Gratuït"
 
 #. module: website_sale_delivery
 #: model:ir.model.fields,field_description:website_sale_delivery.field_delivery_carrier__is_published
@@ -116,6 +109,7 @@ msgid "Is Published"
 msgstr "Està publicat"
 
 #. module: website_sale_delivery
+#. odoo-python
 #: code:addons/website_sale_delivery/controllers/main.py:0
 #, python-format
 msgid ""
@@ -126,6 +120,7 @@ msgstr ""
 "Actualitzeu la pàgina i torneu-ho a provar."
 
 #. module: website_sale_delivery
+#. odoo-python
 #: code:addons/website_sale_delivery/controllers/main.py:0
 #, python-format
 msgid ""
@@ -136,6 +131,7 @@ msgstr ""
 "canviar el mètode d'entrega"
 
 #. module: website_sale_delivery
+#. odoo-python
 #: code:addons/website_sale_delivery/controllers/main.py:0
 #, python-format
 msgid ""
@@ -143,14 +139,15 @@ msgid ""
 " Please contact us for more information."
 msgstr ""
 "No hi ha cap mètode de lliurament disponible per a la seva comanda actual i "
-"l'adreça de lliurament. Si us plau, poseu-vos en contacte amb nosaltres per "
-"a més informació."
+"adreça de lliurament. Si us plau, poseu-vos en contacte amb nosaltres per a "
+"més informació."
 
 #. module: website_sale_delivery
+#. odoo-python
 #: code:addons/website_sale_delivery/controllers/main.py:0
 #, python-format
 msgid "No shipping method is selected."
-msgstr ""
+msgstr "Cap mètode de lliurament seleccionat"
 
 #. module: website_sale_delivery
 #: model_terms:ir.ui.view,arch_db:website_sale_delivery.view_delivery_carrier_search_inherit_website_sale_delivery
@@ -168,6 +165,11 @@ msgid "Sales Order"
 msgstr "Comanda de venda"
 
 #. module: website_sale_delivery
+#: model:ir.model,name:website_sale_delivery.model_sale_order_line
+msgid "Sales Order Line"
+msgstr "Línia comanda de venda"
+
+#. module: website_sale_delivery
 #: model_terms:ir.ui.view,arch_db:website_sale_delivery.payment_delivery_methods
 msgid "Select to compute delivery rate"
 msgstr "Seleccioneu per calcular la taxa d'entrega"
@@ -180,6 +182,7 @@ msgid "Shipping Methods"
 msgstr "Mètodes d'enviament"
 
 #. module: website_sale_delivery
+#. odoo-python
 #: code:addons/website_sale_delivery/controllers/main.py:0
 #, python-format
 msgid "Sorry, we are unable to ship your order"
@@ -193,12 +196,7 @@ msgstr "L'import sense impostos."
 #. module: website_sale_delivery
 #: model:ir.model.fields,help:website_sale_delivery.field_delivery_carrier__website_url
 msgid "The full URL to access the document through the website."
-msgstr "URL completa per accedir al document a través del lloc web."
-
-#. module: website_sale_delivery
-#: model_terms:ir.ui.view,arch_db:website_sale_delivery.res_config_settings_view_form
-msgid "USPS Shipping Methods"
-msgstr "Mètodes d'enviament USPS"
+msgstr "L'URL completa per accedir al document a través del lloc web."
 
 #. module: website_sale_delivery
 #: model:ir.model.fields,field_description:website_sale_delivery.field_delivery_carrier__website_published
@@ -213,7 +211,7 @@ msgstr "Lloc web"
 #. module: website_sale_delivery
 #: model:ir.model.fields,field_description:website_sale_delivery.field_delivery_carrier__website_url
 msgid "Website URL"
-msgstr "URL del lloc web"
+msgstr "L'URL del lloc web"
 
 #. module: website_sale_delivery
 #: model_terms:ir.ui.view,arch_db:website_sale_delivery.res_config_settings_view_form

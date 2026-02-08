@@ -33,6 +33,7 @@
             <field name="model">mrp.workcenter</field>
             <field name="arch" type="xml">
                 <tree string="Work Center" multi_edit="1">
+                    <field name="company_id" invisible="1"/>
                     <field name="sequence" widget="handle"/>
                     <field name="name" optional="show"/>
                     <field name="code" optional="show"/>
@@ -40,7 +41,7 @@
                     <field name="alternative_workcenter_ids" widget="many2many_tags" optional="show"/>
                     <field name="productive_time" optional="hide"/>
                     <field name="costs_hour" optional="show"/>
-                    <field name="capacity" optional="show"/>
+                    <field name="default_capacity" optional="show"/>
                     <field name="time_efficiency" optional="show"/>
                     <field name="oee_target" optional="show"/>
                     <field name="time_start" optional="hide"/>
@@ -195,7 +196,7 @@
                                                         To Launch
                                                     </a>
                                                 </div>
-                                                <div class="col-4 text-right">
+                                                <div class="col-4 text-end">
                                                     <field name="workorder_ready_count"/>
                                                 </div>
                                             </div>
@@ -205,7 +206,7 @@
                                                         In Progress
                                                     </a>
                                                 </div>
-                                                <div class="col-4 text-right">
+                                                <div class="col-4 text-end">
                                                     <field name="workorder_progress_count"/>
                                                 </div>
                                             </div>
@@ -215,7 +216,7 @@
                                                         Late
                                                     </a>
                                                 </div>
-                                                <div class="col-4 text-right">
+                                                <div class="col-4 text-end">
                                                     <field name="workorder_late_count"/>
                                                 </div>
                                             </div>
@@ -225,7 +226,7 @@
                                                         OEE
                                                     </a>
                                                 </div>
-                                                <div class="col-6 text-right">
+                                                <div class="col-6 text-end">
                                                     <span t-att-class="record.oee_target.raw_value and (record.oee.raw_value &lt; record.oee_target.raw_value) and 'text-danger' or (record.oee.raw_value &gt; record.oee_target.raw_value) and 'text-success' or 'text-warning'">
                                                         <strong>
                                                             <field name="oee" widget="integer"/>%
@@ -237,15 +238,15 @@
                                     </div>
                                     <div class="row">
                                         <div class="col-12 o_kanban_primary_left" style="position:absolute; bottom:10px;" name="wc_stages">
-                                            <a name="%(act_mrp_block_workcenter)d" type="action" class="o_status float-right"
+                                            <a name="%(act_mrp_block_workcenter)d" type="action" class="o_status float-end"
                                                 title="No workorder currently in progress. Click to mark work center as blocked."
                                                 aria-label="No workorder currently in progress. Click to mark work center as blocked."
                                                 attrs="{'invisible': [('working_state','in',('blocked','done'))]}"/>
-                                            <a name="unblock" type="object" class=" o_status o_status_red float-right"
+                                            <a name="unblock" type="object" class=" o_status o_status_red float-end"
                                                 title="Workcenter blocked, click to unblock."
                                                 aria-label="Workcenter blocked, click to unblock."
                                                 attrs="{'invisible': [('working_state','in',('normal','done'))]}"/>
-                                            <a name="%(act_mrp_block_workcenter)d" type="action" class="o_status o_status_green float-right"
+                                            <a name="%(act_mrp_block_workcenter)d" type="action" class="o_status o_status_green float-end"
                                                 title="Work orders in progress. Click to block work center."
                                                 aria-label="Work orders in progress. Click to block work center."
                                                 attrs="{'invisible': [('working_state','in',('normal','blocked'))]}"/>
@@ -283,7 +284,7 @@
                                         <div role="menuitem" aria-haspopup="true" class="col-8">
                                             <ul role="menu" class="oe_kanban_colorpicker" data-field="color"/>
                                         </div>
-                                        <div role="menuitem" class="text-right">
+                                        <div role="menuitem" class="col-4">
                                             <a type="edit">Settings</a>
                                         </div>
                                     </div>
@@ -342,12 +343,12 @@
                         <group>
                             <group>
                                 <field name="active" invisible="1"/>
+                                <field name="company_id" invisible="1"/>
                                 <field name="name" string="Work Center Name" required="True"/>
                                 <field name="tag_ids" widget="many2many_tags" options="{'color_field': 'color'}"/>
                                 <field
                                     name="alternative_workcenter_ids"
                                     widget="many2many_tags"
-                                    context="{'default_company_id': company_id}"
                                 />
                             </group>
                             <group>
@@ -364,15 +365,17 @@
                                         <div class="o_row">
                                             <field name="time_efficiency"/> %
                                         </div>
-                                        <field name="capacity"/>
-
+                                        <field name="default_capacity"/>
                                         <label for="oee_target"/>
                                         <div class="o_row">
                                             <field name="oee_target"/> %
                                         </div>
                                     </group>
                                     <group string="Costing Information" name="costing">
-                                        <field name="costs_hour"/>
+                                        <label for="costs_hour"/>
+                                        <div id="costs_hour">
+                                            <field name="costs_hour" widget="monetary" class="oe_inline"/> per workcenter
+                                        </div>
                                     </group>
                                     <group>
                                         <label for="time_start"/>
@@ -387,6 +390,17 @@
                                 </group>
                                 <separator string="Description"/>
                                 <field name="note" nolabel="1" placeholder="Description of the work center..."/>
+                            </page>
+                            <page string="Specific Capacities" name="capacity">
+                                <field name="capacity_ids" context="{'default_workcenter_id': id}">
+                                    <tree editable="bottom">
+                                        <field name="product_id"/>
+                                        <field name="product_uom_id" groups="uom.group_uom"/>
+                                        <field name="capacity"/>
+                                        <field name="time_start" optional="hide"/>
+                                        <field name="time_stop" optional="hide"/>
+                                    </tree>
+                                </field>
                             </page>
                         </notebook>
                     </sheet>
@@ -498,7 +512,7 @@
                             </div>
                             <div>
                                 <strong>Is a Blocking Reason? </strong>
-                                <span class="float-right" title="Is a Blocking Reason?">
+                                <span class="float-end" title="Is a Blocking Reason?">
                                     <field name="manual" widget="boolean"/>
                                 </span>
                             </div>

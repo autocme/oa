@@ -21,19 +21,34 @@
             <form string="Time Off Type">
                 <sheet>
                     <div class="oe_button_box" name="button_box">
-                        <button class="oe_stat_button" type="object" name="action_see_days_allocated" icon="fa-calendar" attrs="{'invisible': ['|', ('requires_allocation', '=', 'no'), ('id', '=', False)]}">
+                        <button class="oe_stat_button"
+                                type="object"
+                                name="action_see_days_allocated"
+                                icon="fa-calendar"
+                                attrs="{'invisible': ['|', ('requires_allocation', '=', 'no'), ('id', '=', False)]}"
+                                help="Count of allocations for this time off type (approved or waiting for approbation) with a validity period starting this year.">
                             <div class="o_stat_info">
-                                <field name="group_days_allocation"/>
+                                <field name="allocation_count"/>
                                 <span class="o_stat_text">Allocations</span>
                             </div>
                         </button>
-                        <button class="oe_stat_button" type="object" name="action_see_group_leaves" icon="fa-calendar" attrs="{'invisible': [('id', '=', False)]}">
+                        <button class="oe_stat_button"
+                                type="object"
+                                name="action_see_group_leaves"
+                                icon="fa-calendar"
+                                attrs="{'invisible': [('id', '=', False)]}"
+                                help="Count of time off requests for this time off type (approved or waiting for approbation) with a start date in the current year.">
                             <div class="o_stat_info">
                                 <field name="group_days_leave"/>
                                 <span class="o_stat_text">Time Off</span>
                             </div>
                         </button>
-                        <button class="oe_stat_button" type="object" name="action_see_accrual_plans" icon="fa-calendar" attrs="{'invisible': ['|', ('id', '=', False), ('accrual_count', '=', 0)]}">
+                        <button class="oe_stat_button"
+                                type="object"
+                                name="action_see_accrual_plans"
+                                icon="fa-calendar"
+                                attrs="{'invisible': ['|', ('id', '=', False), ('accrual_count', '=', 0)]}"
+                                help="Count of plans linked to this time off type.">
                             <div class="o_stat_info">
                                 <field name="accrual_count"/>
                                 <span class="o_stat_text">Accruals</span>
@@ -45,37 +60,30 @@
                         <h1><field name="name"/></h1>
                     </div>
                     <group>
-                        <group name="leave_validation" id="time_off_requests">
-                            <h2>Time Off Requests</h2>
+                        <group name="leave_validation" id="time_off_requests" string="Time Off Requests">
                             <field name="active" invisible="1"/>
                             <field name="leave_validation_type" string="Approval" widget="radio"/>
                             <field name="responsible_id"
                                 attrs="{
                                 'invisible': [('leave_validation_type', 'in', ['no_validation', 'manager']), '|', ('requires_allocation', '=', 'no'), ('allocation_validation_type', '!=', 'officer')],
                                 'required': ['|',('leave_validation_type', 'in', ['both', 'hr']), ('requires_allocation', '=', 'yes'), ('allocation_validation_type', '=', 'officer')]}"/>
-                            <field name="request_unit" widget="radio-inline"/>
-                            <field name="support_document" string="Allow To Join Supporting Document" />
+                            <field name="request_unit"/>
+                            <field name="support_document" string="Allow To Attach Supporting Document" />
                             <field name="time_type" required="1"/>
                             <field name="company_id" groups="base.group_multi_company"/>
                         </group>
-                        <group name="allocation_validation" id="allocation_requests">
-                        <h2>Allocation Requests</h2>
+                        <group name="allocation_validation" id="allocation_requests" string="Allocation Requests">
                             <field name="requires_allocation" widget="radio" options="{'horizontal':true}"/>
                             <field name="employee_requests" widget="radio" attrs="{'invisible': [('requires_allocation', '=', 'no')]}"/>
-                            <field name="allocation_validation_type" string="Approval" widget="radio" attrs="{'invisible': [('requires_allocation', '=', 'no')]}"/>
-                        </group>
-                    </group>
-                    <group>
-                        <group id="payroll">
+                            <field name="allocation_validation_type" string="Approval" widget="radio" attrs="{'invisible': ['|', ('requires_allocation', '=', 'no'), ('employee_requests', '=', 'no')]}"/>
                         </group>
                     </group>
                     <group name="visual" id="visual" >
-                        <group colspan="4">
-                            <h2>Display Option</h2>
+                        <group colspan="2" string="Display Option">
                         </group>
-                        <group colspan="4">
+                        <group colspan="2">
                             <field name="color" widget="color_picker" />
-                            <field class="d-flex flex-wrap" name="icon_id" widget="radio_image" options="{'horizontal': true}"/>
+                            <field class="o_time_off_icon_types d-flex flex-wrap" name="icon_id" widget="hr_holidays_radio_image" options="{'horizontal': true}"/>
                         </group>
                     </group>
                 </sheet>
@@ -96,7 +104,7 @@
                             </div>
                             <div>
                                 <span>Max Time Off: <field name="max_leaves"/></span>
-                                <span class="float-right">Time Off Taken: <field name="leaves_taken"/></span>
+                                <span class="float-end">Time Off Taken: <field name="leaves_taken"/></span>
                             </div>
                         </div>
                     </t>

@@ -20,18 +20,18 @@ tour.register("editable_root_as_custom_snippet", {
     ...wTourUtils.clickOnSave(),
     {
         content: "Go to homepage",
-        trigger: 'a[href="/"].nav-link',
+        trigger: 'iframe a[href="/"].nav-link',
     },
     {
         content: "Wait to land on homepage",
-        trigger: 'a[href="/"].nav-link.active',
+        trigger: 'iframe a[href="/"].nav-link.active',
         run: () => null,
     },
     ...wTourUtils.clickOnEditAndWaitEditMode(),
     wTourUtils.dragNDrop({id: 's_title', name: 'Custom Title'}),
     {
         content: "Check that the custom snippet does not have branding",
-        trigger: '#wrap .s_title.custom:not([data-oe-model]):not([data-oe-id]):not([data-oe-field]):not([data-oe-xpath])',
+        trigger: 'iframe #wrap .s_title.custom:not([data-oe-model]):not([data-oe-id]):not([data-oe-field]):not([data-oe-xpath])',
         run: () => null,
     },
 ]);

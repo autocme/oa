@@ -1,20 +1,18 @@
 /** @odoo-module alias=website.root */
 
-import ajax from 'web.ajax';
+import { loadJS } from "@web/core/assets";
 import { _t } from 'web.core';
 import KeyboardNavigationMixin from 'web.KeyboardNavigationMixin';
 import {Markup} from 'web.utils';
 import session from 'web.session';
 import publicRootData from 'web.public.root';
 import "web.zoomodoo";
-import { FullscreenIndication } from '@website/js/widgets/fullscreen_indication';
 
 export const WebsiteRoot = publicRootData.PublicRoot.extend(KeyboardNavigationMixin, {
     // TODO remove KeyboardNavigationMixin in master
     events: _.extend({}, KeyboardNavigationMixin.events, publicRootData.PublicRoot.prototype.events || {}, {
         'click .js_change_lang': '_onLangChangeClick',
         'click .js_publish_management .js_publish_btn': '_onPublishBtnClick',
-        'click .js_multi_website_switch': '_onWebsiteSwitch',
         'shown.bs.modal': '_onModalShown',
     }),
     custom_events: _.extend({}, publicRootData.PublicRoot.prototype.custom_events || {}, {
@@ -52,31 +50,8 @@ export const WebsiteRoot = publicRootData.PublicRoot.extend(KeyboardNavigationMi
     /**
      * @override
      */
-    willStart: async function () {
-        this.fullscreenIndication = new FullscreenIndication(this);
-        return Promise.all([
-            this._super(...arguments),
-            this.fullscreenIndication.appendTo(document.body),
-        ]);
-    },
-    /**
-     * @override
-     */
     start: function () {
         KeyboardNavigationMixin.start.call(this);
-        // Compatibility lang change ?
-        if (!this.$('.js_change_lang').length) {
-            var $links = this.$('.js_language_selector a:not([data-oe-id])');
-            var m = $(_.min($links, function (l) {
-                return $(l).attr('href').length;
-            })).attr('href');
-            $links.each(function () {
-                var $link = $(this);
-                var t = $link.attr('href');
-                var l = (t === m) ? "default" : t.split('/')[1];
-                $link.data('lang', l).addClass('js_change_lang');
-            });
-        }
 
         // Enable magnify on zommable img
         this.$('.zoomable img[data-zoom]').zoomOdoo();
@@ -179,49 +154,10 @@ export const WebsiteRoot = publicRootData.PublicRoot.extend(KeyboardNavigationMi
                     this._gmapAPILoading = false;
                     return;
                 }
-                await ajax.loadJS(`https://maps.googleapis.com/maps/api/js?v=3.exp&libraries=places&callback=odoo_gmap_api_post_load&key=${encodeURIComponent(key)}`);
+                await loadJS(`https://maps.googleapis.com/maps/api/js?v=3.exp&libraries=places&callback=odoo_gmap_api_post_load&key=${encodeURIComponent(key)}`);
             });
         }
         return this._gmapAPILoading;
-    },
-    /**
-     * Toggles the fullscreen mode.
-     *
-     * @private
-     * @param {boolean} state toggle fullscreen on/off (true/false)
-     */
-    _toggleFullscreen(state) {
-        this.isFullscreen = state;
-        if (this.isFullscreen) {
-            this.fullscreenIndication.show();
-        } else {
-            this.fullscreenIndication.hide();
-        }
-        document.body.classList.add('o_fullscreen_transition');
-        document.body.classList.toggle('o_fullscreen', this.isFullscreen);
-        document.body.style.overflowX = 'hidden';
-        let resizing = true;
-        window.requestAnimationFrame(function resizeFunction() {
-            window.dispatchEvent(new Event('resize'));
-            if (resizing) {
-                window.requestAnimationFrame(resizeFunction);
-            }
-        });
-        let stopResizing;
-        const onTransitionEnd = ev => {
-            if (ev.target === document.body && ev.propertyName === 'padding-top') {
-                stopResizing();
-            }
-        };
-        stopResizing = () => {
-            resizing = false;
-            document.body.style.overflowX = '';
-            document.body.removeEventListener('transitionend', onTransitionEnd);
-            document.body.classList.remove('o_fullscreen_transition');
-        };
-        document.body.addEventListener('transitionend', onTransitionEnd);
-        // Safeguard in case the transitionend event doesn't trigger for whatever reason.
-        window.setTimeout(() => stopResizing(), 500);
     },
 
     //--------------------------------------------------------------------------
@@ -242,7 +178,11 @@ export const WebsiteRoot = publicRootData.PublicRoot.extend(KeyboardNavigationMi
      */
     _onLangChangeClick: function (ev) {
         ev.preventDefault();
-
+        // In edit mode, the client action redirects the iframe to the correct
+        // location with the chosen language.
+        if (document.body.classList.contains('editor_enable')) {
+            return;
+        }
         var $target = $(ev.currentTarget);
         // retrieve the hash before the redirect
         var redirect = {
@@ -291,7 +231,7 @@ export const WebsiteRoot = publicRootData.PublicRoot.extend(KeyboardNavigationMi
      */
     _unslugHtmlDataObject: function (dataAttr) {
         var repr = $('html').data(dataAttr);
-        var match = repr && repr.match(/(.+)\((\d+),(.*)\)/);
+        var match = repr && repr.match(/(.+)\((-?\d+),(.*)\)/);
         if (!match) {
             return null;
         }
@@ -310,7 +250,6 @@ export const WebsiteRoot = publicRootData.PublicRoot.extend(KeyboardNavigationMi
             return;
         }
 
-        var self = this;
         var $data = $(ev.currentTarget).parents(".js_publish_management:first");
         this._rpc({
             route: $data.data('controller') || '/website/publish',
@@ -324,20 +263,6 @@ export const WebsiteRoot = publicRootData.PublicRoot.extend(KeyboardNavigationMi
             $data.find('input').prop("checked", result);
             $data.parents("[data-publish]").attr("data-publish", +result ? 'on' : 'off');
         });
-    },
-    /**
-     * @private
-     * @param {Event} ev
-     */
-    _onWebsiteSwitch: function (ev) {
-        var websiteId = ev.currentTarget.getAttribute('website-id');
-        var websiteDomain = ev.currentTarget.getAttribute('domain');
-        let url = `/website/force/${encodeURIComponent(websiteId)}`;
-        if (websiteDomain && window.location.hostname !== websiteDomain) {
-            url = websiteDomain + url;
-        }
-        const path = window.location.pathname + window.location.search + window.location.hash;
-        window.location.href = $.param.querystring(url, {'path': path});
     },
     /**
      * @private
@@ -358,7 +283,6 @@ export const WebsiteRoot = publicRootData.PublicRoot.extend(KeyboardNavigationMi
         if (ev.keyCode !== $.ui.keyCode.ESCAPE || !document.body.contains(ev.target) || ev.target.closest('.modal')) {
             return KeyboardNavigationMixin._onKeyDown.apply(this, arguments);
         }
-        this._toggleFullscreen(!this.isFullscreen);
     },
 });
 

@@ -17,8 +17,6 @@ class AccountJournal(models.Model):
         'res.partner', 'AFIP POS Address', help='This is the address used for invoice reports of this POS',
         domain="['|', ('id', '=', company_partner), '&', ('id', 'child_of', company_partner), ('type', '!=', 'contact')]"
     )
-    l10n_ar_share_sequences = fields.Boolean(
-        'Unified Book', help='Use same sequence for documents with the same letter')
 
     def _get_l10n_ar_afip_pos_types_selection(self):
         """ Return the list of values of the selection field. """
@@ -41,25 +39,29 @@ class AccountJournal(models.Model):
         letters_data = {
             'issued': {
                 '1': ['A', 'B', 'E', 'M'],
-                '3': [],
                 '4': ['C'],
                 '5': [],
                 '6': ['C', 'E'],
+                '7': ['B', 'C', 'I'],
+                '8': ['I'],
                 '9': ['I'],
                 '10': [],
                 '13': ['C', 'E'],
-                '99': []
+                '15': [],
+                '16': [],
             },
             'received': {
                 '1': ['A', 'B', 'C', 'E', 'M', 'I'],
-                '3': ['B', 'C', 'I'],
                 '4': ['B', 'C', 'I'],
                 '5': ['B', 'C', 'I'],
-                '6': ['A', 'B', 'C', 'I'],
-                '9': ['E'],
-                '10': ['E'],
-                '13': ['A', 'B', 'C', 'I'],
-                '99': ['B', 'C', 'I']
+                '6': ['A', 'B', 'C', 'M', 'I'],
+                '7': ['B', 'C', 'I'],
+                '8': ['E', 'B', 'C'],
+                '9': ['E', 'B', 'C'],
+                '10': ['E', 'B', 'C'],
+                '13': ['A', 'B', 'C', 'M', 'I'],
+                '15': ['B', 'C', 'I'],
+                '16': ['A', 'C', 'M'],
             },
         }
         if not self.company_id.l10n_ar_afip_responsibility_type_id:
@@ -89,12 +91,15 @@ class AccountJournal(models.Model):
         receipt_m_code = ['54']
         receipt_codes = ['4', '9', '15']
         expo_codes = ['19', '20', '21']
+        zeta_codes = ['80', '83']
         if afip_pos_system == 'II_IM':
             # pre-printed invoice
             return usual_codes + receipt_codes + expo_codes + invoice_m_code + receipt_m_code
-        elif afip_pos_system in ['RAW_MAW', 'RLI_RLM']:
+        elif afip_pos_system == 'RAW_MAW':
             # electronic/online invoice
             return usual_codes + receipt_codes + invoice_m_code + receipt_m_code + mipyme_codes
+        elif afip_pos_system == 'RLI_RLM':
+            return usual_codes + receipt_codes + invoice_m_code + receipt_m_code + mipyme_codes + zeta_codes
         elif afip_pos_system in ['CPERCEL', 'CPEWS']:
             # invoice with detail
             return usual_codes + invoice_m_code
@@ -104,8 +109,7 @@ class AccountJournal(models.Model):
         elif afip_pos_system in ['FEERCEL', 'FEEWS', 'FEERCELP']:
             return expo_codes
 
-    @api.constrains('type', 'l10n_ar_afip_pos_system', 'l10n_ar_afip_pos_number', 'l10n_ar_share_sequences',
-                    'l10n_latam_use_documents')
+    @api.constrains('type', 'l10n_ar_afip_pos_system', 'l10n_ar_afip_pos_number', 'l10n_latam_use_documents')
     def _check_afip_configurations(self):
         """ Do not let the user update the journal if it already contains confirmed invoices """
         journals = self.filtered(lambda x: x.company_id.account_fiscal_country_id.code == "AR" and x.type in ['sale', 'purchase'])
@@ -126,11 +130,6 @@ class AccountJournal(models.Model):
 
         if to_review.filtered(lambda x: x.l10n_ar_afip_pos_number > 99999):
             raise ValidationError(_('Please define a valid AFIP POS number (5 digits max)'))
-
-    @api.onchange('l10n_ar_afip_pos_system')
-    def _onchange_l10n_ar_afip_pos_system(self):
-        """ On 'Pre-printed Invoice' the usual is to share sequences. On other types, do not share """
-        self.l10n_ar_share_sequences = bool(self.l10n_ar_afip_pos_system == 'II_IM')
 
     @api.onchange('l10n_ar_afip_pos_number', 'type')
     def _onchange_set_short_name(self):

@@ -1,15 +1,14 @@
 /** @odoo-module **/
 
+import { Dropdown } from "@web/core/dropdown/dropdown";
+import { SearchDropdownItem } from "@web/search/search_dropdown_item/search_dropdown_item";
 import { ConfirmationDialog } from "@web/core/confirmation_dialog/confirmation_dialog";
 import { FACET_ICONS } from "../utils/misc";
 import { registry } from "@web/core/registry";
-import { useBus } from "@web/core/utils/hooks";
-import { useService } from "@web/core/utils/hooks";
-import { SearchDropdownItem } from "@web/search/search_dropdown_item/search_dropdown_item";
+import { useBus, useService } from "@web/core/utils/hooks";
 
+import { Component } from "@odoo/owl";
 const favoriteMenuRegistry = registry.category("favoriteMenu");
-
-const { Component } = owl;
 
 export class FavoriteMenu extends Component {
     setup() {
@@ -40,10 +39,9 @@ export class FavoriteMenu extends Component {
     }
 
     /**
-     * @param {CustomEvent} ev
+     * @param {number} itemId
      */
-    onFavoriteSelected(ev) {
-        const { itemId } = ev.detail.payload;
+    onFavoriteSelected(itemId) {
         this.env.searchModel.toggleSearchItem(itemId);
     }
 
@@ -65,5 +63,5 @@ export class FavoriteMenu extends Component {
         this.dialogService.add(ConfirmationDialog, dialogProps);
     }
 }
-FavoriteMenu.components = { DropdownItem: SearchDropdownItem };
 FavoriteMenu.template = "web.FavoriteMenu";
+FavoriteMenu.components = { Dropdown, DropdownItem: SearchDropdownItem };

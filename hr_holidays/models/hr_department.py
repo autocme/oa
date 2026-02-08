@@ -27,15 +27,15 @@ class Department(models.Model):
         today_start = fields.Datetime.to_string(today_date)  # get the midnight of the current utc day
         today_end = fields.Datetime.to_string(today_date + relativedelta(hours=23, minutes=59, seconds=59))
 
-        leave_data = Requests.read_group(
+        leave_data = Requests._read_group(
             [('department_id', 'in', self.ids),
              ('state', '=', 'confirm')],
             ['department_id'], ['department_id'])
-        allocation_data = Allocations.read_group(
+        allocation_data = Allocations._read_group(
             [('department_id', 'in', self.ids),
              ('state', '=', 'confirm')],
             ['department_id'], ['department_id'])
-        absence_data = Requests.read_group(
+        absence_data = Requests._read_group(
             [('department_id', 'in', self.ids), ('state', 'not in', ['cancel', 'refuse']),
              ('date_from', '<=', today_end), ('date_to', '>=', today_start)],
             ['department_id'], ['department_id'])
@@ -49,21 +49,28 @@ class Department(models.Model):
             department.allocation_to_approve_count = res_allocation.get(department.id, 0)
             department.absence_of_today = res_absence.get(department.id, 0)
 
+    def _get_action_context(self):
+        return {
+            'search_default_approve': 1,
+            'search_default_active_employee': 2,
+            'search_default_department_id': self.id,
+            'default_department_id': self.id,
+            'searchpanel_default_department_id': self.id,
+        }
+
     def action_open_leave_department(self):
         action = self.env["ir.actions.actions"]._for_xml_id("hr_holidays.hr_leave_action_action_approve_department")
         action['context'] = {
-            'searchpanel_default_department_id': self.id,
-            'default_department_id': self.id,
-            **ast.literal_eval(action['context'])
+            **self._get_action_context(),
+            'search_default_active_time_off': 3,
+            'hide_employee_name': 1,
+            'holiday_status_name_get': False
         }
         return action
 
     def action_open_allocation_department(self):
         action = self.env["ir.actions.actions"]._for_xml_id("hr_holidays.hr_leave_allocation_action_approve_department")
-        action['context'] = {
-            'searchpanel_default_department_id': self.id,
-            'default_department_id': self.id,
-            **ast.literal_eval(action['context'])
-        }
+        action['context'] = self._get_action_context()
+        action['context']['search_default_second_approval'] = 3
         action['domain'] = expression.AND([ast.literal_eval(action['domain']), [('state', '=', 'confirm')]])
         return action

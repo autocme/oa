@@ -6,44 +6,18 @@ const { Component } = owl;
 
 export class MobileMessagingNavbar extends Component {
 
-    //--------------------------------------------------------------------------
-    // Handlers
-    //--------------------------------------------------------------------------
-
     /**
-     * @private
-     * @param {MouseEvent} ev
+     * @returns {MobileMessagingNavbarView}
      */
-    _onClick(ev) {
-        this.trigger('o-select-mobile-messaging-navbar-tab', {
-            tabId: ev.currentTarget.dataset.tabId,
-        });
+    get mobileMessagingNavbarView() {
+        return this.props.record;
     }
 
 }
 
 Object.assign(MobileMessagingNavbar, {
-    defaultProps: {
-        tabs: [],
-    },
-    props: {
-        activeTabId: String,
-        tabs: {
-            type: Array,
-            element: {
-                type: Object,
-                shape: {
-                    icon: {
-                        type: String,
-                        optional: true,
-                    },
-                    id: String,
-                    label: String,
-                },
-            },
-        },
-    },
+    props: { record: Object },
     template: 'mail.MobileMessagingNavbar',
 });
 
-registerMessagingComponent(MobileMessagingNavbar, { propsCompareDepth: { tabs: 2 } });
+registerMessagingComponent(MobileMessagingNavbar);

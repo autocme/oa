@@ -3,18 +3,18 @@
 # 	* website_sale_delivery
 # 
 # Translators:
-# Martin Trigaux, 2021
-# Erwin van der Ploeg <erwin@odooexperts.nl>, 2022
+# Martin Trigaux, 2022
 # Jolien De Paepe, 2023
 # Wil Odoo, 2024
+# Manon Rondou, 2025
 # 
 msgid ""
 msgstr ""
-"Project-Id-Version: Odoo Server 15.0\n"
+"Project-Id-Version: Odoo Server 16.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-08-14 15:43+0000\n"
-"PO-Revision-Date: 2021-09-14 12:29+0000\n"
-"Last-Translator: Wil Odoo, 2024\n"
+"POT-Creation-Date: 2025-06-13 18:37+0000\n"
+"PO-Revision-Date: 2022-09-22 05:57+0000\n"
+"Last-Translator: Manon Rondou, 2025\n"
 "Language-Team: Dutch (https://app.transifex.com/odoo/teams/41243/nl/)\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
@@ -39,6 +39,14 @@ msgstr ""
 "factuur/creditfactuur"
 
 #. module: website_sale_delivery
+#. odoo-python
+#: code:addons/website_sale_delivery/controllers/main.py:0
+#: code:addons/website_sale_delivery/controllers/main.py:0
+#, python-format
+msgid "Anonymous express checkout partner for order %s"
+msgstr "Anonieme snel afrekenpartner voor order %s"
+
+#. module: website_sale_delivery
 #: model:ir.model.fields,field_description:website_sale_delivery.field_delivery_carrier__can_publish
 msgid "Can Publish"
 msgstr "Kan publiceren"
@@ -52,11 +60,6 @@ msgstr "Kies een verzendwijze"
 #: model:ir.model,name:website_sale_delivery.model_res_country
 msgid "Country"
 msgstr "Land"
-
-#. module: website_sale_delivery
-#: model_terms:ir.ui.view,arch_db:website_sale_delivery.res_config_settings_view_form
-msgid "DHL Shipping Methods"
-msgstr "DHL verzendwijzes"
 
 #. module: website_sale_delivery
 #: model:ir.model.fields,field_description:website_sale_delivery.field_sale_order__amount_delivery
@@ -75,11 +78,6 @@ msgstr "Levering:"
 
 #. module: website_sale_delivery
 #: model_terms:ir.ui.view,arch_db:website_sale_delivery.view_delivery_carrier_form_website_delivery
-msgid "Description"
-msgstr "Omschrijving"
-
-#. module: website_sale_delivery
-#: model_terms:ir.ui.view,arch_db:website_sale_delivery.view_delivery_carrier_form_website_delivery
 msgid "Description displayed on the eCommerce and on online quotations."
 msgstr "Omschrijving gebruikt voor E-commerce en op online offertes."
 
@@ -91,15 +89,10 @@ msgstr "Omschrijving voor online offertes"
 #. module: website_sale_delivery
 #: model_terms:ir.ui.view,arch_db:website_sale_delivery.res_config_settings_view_form
 msgid "Easypost Shipping Methods"
-msgstr "Easypost verzendwijzes"
+msgstr "Easypost verzendmethoden"
 
 #. module: website_sale_delivery
-#: model_terms:ir.ui.view,arch_db:website_sale_delivery.res_config_settings_view_form
-msgid "FedEx Shipping Methods"
-msgstr "FedEx verzendwijzes"
-
-#. module: website_sale_delivery
-#. openerp-web
+#. odoo-javascript
 #: code:addons/website_sale_delivery/static/src/js/website_sale_delivery.js:0
 #, python-format
 msgid "Free"
@@ -111,6 +104,7 @@ msgid "Is Published"
 msgstr "Is gepubliceerd"
 
 #. module: website_sale_delivery
+#. odoo-python
 #: code:addons/website_sale_delivery/controllers/main.py:0
 #, python-format
 msgid ""
@@ -121,6 +115,7 @@ msgstr ""
 "pagina en probeer het opnieuw."
 
 #. module: website_sale_delivery
+#. odoo-python
 #: code:addons/website_sale_delivery/controllers/main.py:0
 #, python-format
 msgid ""
@@ -131,6 +126,7 @@ msgstr ""
 " de bezorgmethode niet meer wijzigen"
 
 #. module: website_sale_delivery
+#. odoo-python
 #: code:addons/website_sale_delivery/controllers/main.py:0
 #, python-format
 msgid ""
@@ -138,9 +134,10 @@ msgid ""
 " Please contact us for more information."
 msgstr ""
 "Er is geen verzendwijze beschikbaar voor deze order en dit afleveradres. "
-"Neem alstublieft contact met ons op."
+"Neem contact met ons op voor meer informatie."
 
 #. module: website_sale_delivery
+#. odoo-python
 #: code:addons/website_sale_delivery/controllers/main.py:0
 #, python-format
 msgid "No shipping method is selected."
@@ -162,6 +159,11 @@ msgid "Sales Order"
 msgstr "Verkooporder"
 
 #. module: website_sale_delivery
+#: model:ir.model,name:website_sale_delivery.model_sale_order_line
+msgid "Sales Order Line"
+msgstr "Verkooporderregel"
+
+#. module: website_sale_delivery
 #: model_terms:ir.ui.view,arch_db:website_sale_delivery.payment_delivery_methods
 msgid "Select to compute delivery rate"
 msgstr "Selecteer om leveringskosten te berekenen"
@@ -171,9 +173,10 @@ msgstr "Selecteer om leveringskosten te berekenen"
 #: model:ir.ui.menu,name:website_sale_delivery.menu_ecommerce_delivery
 #: model_terms:ir.ui.view,arch_db:website_sale_delivery.res_config_settings_view_form
 msgid "Shipping Methods"
-msgstr "Verzendwijzes"
+msgstr "Verzendmethoden"
 
 #. module: website_sale_delivery
+#. odoo-python
 #: code:addons/website_sale_delivery/controllers/main.py:0
 #, python-format
 msgid "Sorry, we are unable to ship your order"
@@ -189,11 +192,6 @@ msgstr "Het bedrag excl. BTW."
 msgid "The full URL to access the document through the website."
 msgstr ""
 "De volledige URL om toegang tot het document te krijgen via de website."
-
-#. module: website_sale_delivery
-#: model_terms:ir.ui.view,arch_db:website_sale_delivery.res_config_settings_view_form
-msgid "USPS Shipping Methods"
-msgstr "USPS verzendwijzes"
 
 #. module: website_sale_delivery
 #: model:ir.model.fields,field_description:website_sale_delivery.field_delivery_carrier__website_published
@@ -213,4 +211,4 @@ msgstr "Website URL"
 #. module: website_sale_delivery
 #: model_terms:ir.ui.view,arch_db:website_sale_delivery.res_config_settings_view_form
 msgid "bpost Shipping Methods"
-msgstr "bpost verzendwijzes"
+msgstr "bpost verzendmethoden"

@@ -2,10 +2,10 @@
 
 import { _lt } from "@web/core/l10n/translation";
 import { registry } from "@web/core/registry";
-import { computeAppsAndMenuItems } from "@web/webclient/menus/menu_helpers";
 import { fuzzyLookup } from "@web/core/utils/search";
+import { computeAppsAndMenuItems } from "@web/webclient/menus/menu_helpers";
 
-const { Component } = owl;
+import { Component } from "@odoo/owl";
 
 class AppIconCommand extends Component {}
 AppIconCommand.template = "web.AppIconCommand";
@@ -14,8 +14,12 @@ const commandCategoryRegistry = registry.category("command_categories");
 commandCategoryRegistry.add("apps", { namespace: "/" }, { sequence: 10 });
 commandCategoryRegistry.add("menu_items", { namespace: "/" }, { sequence: 20 });
 
-const commandEmptyMessageRegistry = registry.category("command_empty_list");
-commandEmptyMessageRegistry.add("/", _lt("No menu found"));
+const commandSetupRegistry = registry.category("command_setup");
+commandSetupRegistry.add("/", {
+    emptyMessage: _lt("No menu found"),
+    name: _lt("menus"),
+    placeholder: _lt("Search for a menu..."),
+});
 
 const commandProviderRegistry = registry.category("command_provider");
 commandProviderRegistry.add("menu", {
@@ -36,6 +40,7 @@ commandProviderRegistry.add("menu", {
                     },
                     category: "menu_items",
                     name: menu.parents + " / " + menu.label,
+                    href: menu.href || `#menu_id=${menu.id}&amp;action_id=${menu.actionID}`,
                 });
             });
         }
@@ -43,8 +48,10 @@ commandProviderRegistry.add("menu", {
         apps.forEach((menu) => {
             const props = {};
             if (menu.webIconData) {
-                const prefix = "data:image/png;base64,";
-                props.webIconData = menu.webIconData.startsWith(prefix)
+                const prefix = menu.webIconData.startsWith("P")
+                    ? "data:image/svg+xml;base64,"
+                    : "data:image/png;base64,";
+                props.webIconData = menu.webIconData.startsWith("data:image")
                     ? menu.webIconData
                     : prefix + menu.webIconData.replace(/\s/g, "");
             } else {
@@ -57,6 +64,7 @@ commandProviderRegistry.add("menu", {
                 },
                 category: "apps",
                 name: menu.label,
+                href: menu.href || `#menu_id=${menu.id}&amp;action_id=${menu.actionID}`,
                 props,
             });
         });

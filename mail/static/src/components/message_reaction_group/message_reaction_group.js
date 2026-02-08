@@ -1,20 +1,19 @@
 /** @odoo-module **/
 
-const { Component } = owl;
 import { registerMessagingComponent } from '@mail/utils/messaging_component';
+
+const { Component } = owl;
 
 export class MessageReactionGroup extends Component {
 
     get messageReactionGroup() {
-        return this.messaging.models['mail.message_reaction_group'].get(this.props.messageReactionGroupLocalId);
+        return this.props.record;
     }
 
 }
 
 Object.assign(MessageReactionGroup, {
-    props: {
-        messageReactionGroupLocalId: String,
-    },
+    props: { record: Object },
     template: 'mail.MessageReactionGroup',
 });
 

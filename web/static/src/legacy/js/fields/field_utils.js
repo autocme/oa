@@ -415,6 +415,20 @@ function formatSelection(value, field, options) {
     }
     return value;
 }
+/**
+ * Returns a string representing json.
+ *
+ * @param {json|false} value
+ * @param {Object} [field]
+ * @param {Object} [options] additional options
+ * @returns {string}
+ */
+function formatJson(value, field, options) {
+    if (!value) {
+        return '';
+    }
+    return JSON.stringify(value);
+}
 
 ////////////////////////////////////////////////////////////////////////////////
 // Parse
@@ -635,14 +649,14 @@ function parseMonetary(value, field, options) {
     if (!value.includes(currency.symbol)) {
         throw new Error(_.str.sprintf(core._t("'%s' is not a correct monetary field"), value));
     }
-    if (currency.position === 'after') {
-        return parseFloat(value
-            .replace(`${ NBSP }${ currency.symbol }`, '')
-            .replace(`&nbsp;${ currency.symbol }`, ''));
-    } else {
+    if (currency.position === 'before') {
         return parseFloat(value
             .replace(`${ currency.symbol }${ NBSP }`, '')
             .replace(`${ currency.symbol }&nbsp;`, ''));
+    } else {
+        return parseFloat(value
+            .replace(`${ NBSP }${ currency.symbol }`, '')
+            .replace(`&nbsp;${ currency.symbol }`, ''));
     }
 }
 
@@ -752,6 +766,7 @@ return {
         reference: formatMany2one,
         selection: formatSelection,
         text: formatChar,
+        json: formatJson,
     },
     parse: {
         binary: _.identity,
@@ -773,6 +788,7 @@ return {
         reference: parseMany2one,
         selection: _.identity, // todo
         text: _.identity, // todo
+        json: _.identity, // todo
     },
 };
 

@@ -6,6 +6,7 @@ from odoo.tests.common import TransactionCase
 
 
 class TestRobustness(TransactionCase):
+
     @classmethod
     def setUpClass(cls):
         super(TestRobustness, cls).setUpClass()
@@ -168,13 +169,13 @@ class TestRobustness(TransactionCase):
             'tracking': 'lot',
         })
 
-        lot1 = self.env['stock.production.lot'].create({
+        lot1 = self.env['stock.lot'].create({
             'name': 'lot1',
             'product_id': product1.id,
             'company_id': self.env.company.id,
 
         })
-        lot2 = self.env['stock.production.lot'].create({
+        lot2 = self.env['stock.lot'].create({
             'name': 'lot2',
             'product_id': product2.id,
             'company_id': self.env.company.id,
@@ -230,7 +231,7 @@ class TestRobustness(TransactionCase):
             'categ_id': self.env.ref('product.product_category_all').id,
             'tracking': 'lot',
         })
-        lotA = self.env['stock.production.lot'].create({
+        lotA = self.env['stock.lot'].create({
             'name': 'lotA',
             'product_id': productA.id,
             'company_id': self.env.company.id,
@@ -261,8 +262,7 @@ class TestRobustness(TransactionCase):
         self.assertEqual(moveA.quantity_done, 5)
 
     def test_unreserve_error(self):
-        self.env['stock.quant']._update_available_quantity(
-            self.product1, self.stock_location, 5)
+        self.env['stock.quant']._update_available_quantity(self.product1, self.stock_location, 5)
 
         move = self.env['stock.move'].create({
             'name': 'test_lot_id_product_id_mix_move_1',
@@ -276,8 +276,7 @@ class TestRobustness(TransactionCase):
         move._action_assign()
         quant = self.env['stock.quant']._gather(
             self.product1, self.stock_location, strict=True)
-        self.env.cr.execute("UPDATE stock_quant set reserved_quantity=0 WHERE id=%s", (quant.id,))
-        quant.invalidate_cache()
+        quant.sudo().write({"reserved_quantity": 0})
         server_action = self.env.ref(
             'stock.stock_quant_stock_move_line_desynchronization', raise_if_not_found=False)
         if server_action:

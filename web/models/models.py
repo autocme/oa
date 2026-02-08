@@ -45,7 +45,7 @@ class Base(models.AbstractModel):
     _inherit = 'base'
 
     @api.model
-    def web_search_read(self, domain=None, fields=None, offset=0, limit=None, order=None):
+    def web_search_read(self, domain=None, fields=None, offset=0, limit=None, order=None, count_limit=None):
         """
         Performs a search_read and a search_count.
 
@@ -65,10 +65,14 @@ class Base(models.AbstractModel):
                 'length': 0,
                 'records': []
             }
-        if limit and (len(records) == limit or self.env.context.get('force_search_count')):
-            length = self.search_count(domain)
+        current_length = len(records) + offset
+        limit_reached = len(records) == limit
+        force_search_count = self._context.get('force_search_count')
+        count_limit_reached = count_limit and count_limit <= current_length
+        if limit and ((limit_reached and not count_limit_reached) or force_search_count):
+            length = self.search_count(domain, limit=count_limit)
         else:
-            length = len(records) + offset
+            length = current_length
         return {
             'length': length,
             'records': records
@@ -226,34 +230,26 @@ class Base(models.AbstractModel):
     def qweb_render_view(self, view_id, domain):
         assert view_id
         return self.env['ir.qweb']._render(
-            view_id, {
-            **self.env['ir.ui.view']._prepare_qcontext(),
-            **self._qweb_prepare_qcontext(view_id, domain),
-        })
-
-    def _qweb_prepare_qcontext(self, view_id, domain):
-        """
-        Base qcontext for rendering qweb views bound to this model
-        """
-        return {
-            'model': self,
-            'domain': domain,
-            # not necessarily necessary as env is already part of the
-            # non-minimal qcontext
-            'context': self.env.context,
-            'records': lazy(self.search, domain),
-        }
+            view_id,
+            {
+                'model': self,
+                'domain': domain,
+                # not necessarily necessary as env is already part of the
+                # non-minimal qcontext
+                'context': self.env.context,
+                'records': lazy(self.search, domain),
+            })
 
     @api.model
-    def fields_view_get(self, view_id=None, view_type='form', toolbar=False, submenu=False):
-        r = super().fields_view_get(view_id, view_type, toolbar, submenu)
+    def _get_view(self, view_id=None, view_type='form', **options):
+        arch, view = super()._get_view(view_id, view_type, **options)
         # avoid leaking the raw (un-rendered) template, also avoids bloating
         # the response payload for no reason. Only send the root node,
         # to send attributes such as `js_class`.
-        if r['type'] == 'qweb':
-            root = etree.fromstring(r['arch'])
-            r['arch'] = etree.tostring(etree.Element('qweb', root.attrib))
-        return r
+        if view_type == 'qweb':
+            root = arch
+            arch = etree.Element('qweb', root.attrib)
+        return arch, view
 
     @api.model
     def _search_panel_field_image(self, field_name, **kwargs):
@@ -803,15 +799,12 @@ class ResCompany(models.Model):
         return res
 
     def _get_asset_style_b64(self):
-        template_style = self.env.ref('web.styles_company_report', raise_if_not_found=False)
-        if not template_style:
-            return b''
         # One bundle for everyone, so this method
         # necessarily updates the style for every company at once
         company_ids = self.sudo().search([])
-        company_styles = template_style._render({
-            'company_ids': company_ids,
-        })
+        company_styles = self.env['ir.qweb']._render('web.styles_company_report', {
+                'company_ids': company_ids,
+            }, raise_if_not_found=False)
         return base64.b64encode(company_styles.encode())
 
     def _update_asset_style(self):

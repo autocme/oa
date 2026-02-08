@@ -16,7 +16,7 @@ class AccountMove(models.Model):
     l10n_in_distance = fields.Integer("Distance", tracking=True)
     l10n_in_mode = fields.Selection([
         ("0", "Managed by Transporter"),
-        ("1", "By Road"),
+        ("1", "Road"),
         ("2", "Rail"),
         ("3", "Air"),
         ("4", "Ship")],
@@ -26,7 +26,7 @@ class AccountMove(models.Model):
     l10n_in_vehicle_no = fields.Char("Vehicle Number", copy=False, tracking=True)
     l10n_in_vehicle_type = fields.Selection([
         ("R", "Regular"),
-        ("O", "ODC")],
+        ("O", "Over Dimensional Cargo")],
         string="Vehicle Type", copy=False, tracking=True)
 
     # Document number and date required in case of transportation mode is Rail, Air or Ship.
@@ -75,8 +75,8 @@ class AccountMove(models.Model):
         self.ensure_one()
         l10n_in_edi = self.edi_document_ids.filtered(lambda i: i.edi_format_id.code == "in_ewaybill_1_03"
             and i.state in ("sent", "to_cancel"))
-        if l10n_in_edi and l10n_in_edi.attachment_id:
-            return json.loads(l10n_in_edi.attachment_id.raw.decode("utf-8"))
+        if l10n_in_edi and l10n_in_edi.sudo().attachment_id:
+            return json.loads(l10n_in_edi.sudo().attachment_id.raw.decode("utf-8"))
         else:
             return {}
 
@@ -109,7 +109,7 @@ class AccountMove(models.Model):
             if existing_edi_document:
                 if existing_edi_document.state in ('sent', 'to_cancel'):
                     raise UserError(_("E-waybill is already created") % '\n'.join(errors))
-                existing_edi_document.write({
+                existing_edi_document.sudo().write({
                     'state': 'to_send',
                     'attachment_id': False,
                 })

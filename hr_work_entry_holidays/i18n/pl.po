@@ -3,18 +3,19 @@
 # 	* hr_work_entry_holidays
 # 
 # Translators:
-# Martin Trigaux, 2021
-# Judyta Kaźmierczak <judyta.kazmierczak@openglobe.pl>, 2021
-# Maja Stawicka <mjstwck@wp.pl>, 2021
+# Martin Trigaux, 2022
+# Maja Stawicka <mjstwck@wp.pl>, 2022
+# Judyta Kaźmierczak <judyta.kazmierczak@openglobe.pl>, 2022
 # Karol Rybak <karolrybak85@gmail.com>, 2022
+# Cezary Drożak, 2022
 # Tadeusz Karpiński <tadeuszkarpinski@gmail.com>, 2023
 # 
 msgid ""
 msgstr ""
-"Project-Id-Version: Odoo Server saas~14.5\n"
+"Project-Id-Version: Odoo Server 15.5alpha1\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2021-09-14 10:28+0000\n"
-"PO-Revision-Date: 2021-09-14 12:23+0000\n"
+"POT-Creation-Date: 2022-09-20 09:01+0000\n"
+"PO-Revision-Date: 2022-09-22 05:52+0000\n"
 "Last-Translator: Tadeusz Karpiński <tadeuszkarpinski@gmail.com>, 2023\n"
 "Language-Team: Polish (https://app.transifex.com/odoo/teams/41243/pl/)\n"
 "MIME-Version: 1.0\n"
@@ -58,13 +59,6 @@ msgid "Employee Contract"
 msgstr "Umowa pracownika"
 
 #. module: hr_work_entry_holidays
-#: model:ir.model.fields,help:hr_work_entry_holidays.field_hr_work_entry_type__leave_type_ids
-msgid ""
-"Every new time off type in this list will be reported as select work entry "
-"in payslip."
-msgstr ""
-
-#. module: hr_work_entry_holidays
 #: model:ir.model,name:hr_work_entry_holidays.model_hr_work_entry
 msgid "HR Work Entry"
 msgstr "Wpis pracy HR"
@@ -72,7 +66,7 @@ msgstr "Wpis pracy HR"
 #. module: hr_work_entry_holidays
 #: model:ir.model,name:hr_work_entry_holidays.model_hr_work_entry_type
 msgid "HR Work Entry Type"
-msgstr "Typ zapisu pracy"
+msgstr "Typ zapisu pracy HR"
 
 #. module: hr_work_entry_holidays
 #: model_terms:ir.ui.view,arch_db:hr_work_entry_holidays.work_entry_type_leave_form_inherit
@@ -94,8 +88,8 @@ msgid ""
 msgstr ""
 "Status jest ustawiony na 'Do przesłania', gdy tworzony jest wniosek o wolne.\n"
 "Status 'Do zatwierdzenia', gdy wniosek o wolne jest potwierdzany przez użytkownika.\n"
-"Status 'Odrzucony', gdy wniosek o wolne jest odrzucony przez kierownika.\n"
-"Status 'Zatwierdzony', gdy wniosek o wolne jest zatwierdzony przez kierownika."
+"Status 'Odrzucony', gdy wniosek o wolne jest odrzucony przez managera.\n"
+"Status 'Zatwierdzony', gdy wniosek o wolne jest zatwierdzony przez managera."
 
 #. module: hr_work_entry_holidays
 #: code:addons/hr_work_entry_holidays/models/hr_leave.py:0
@@ -117,9 +111,14 @@ msgstr "Dni wolne"
 #: model:ir.model,name:hr_work_entry_holidays.model_hr_leave_type
 #: model:ir.model.fields,field_description:hr_work_entry_holidays.field_hr_work_entry_type__leave_type_ids
 msgid "Time Off Type"
-msgstr "Przyczyna nieobecności"
+msgstr "Typ dni wolnych"
 
 #. module: hr_work_entry_holidays
 #: model:ir.model.fields,field_description:hr_work_entry_holidays.field_hr_leave_type__work_entry_type_id
 msgid "Work Entry Type"
 msgstr "Typ zapisu pracy"
+
+#. module: hr_work_entry_holidays
+#: model:ir.model.fields,help:hr_work_entry_holidays.field_hr_work_entry_type__leave_type_ids
+msgid "Work entry used in the payslip."
+msgstr "Zapis pracy używany w pasku wypłaty."

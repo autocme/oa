@@ -7,10 +7,11 @@ from dateutil.relativedelta import relativedelta
 import json
 import werkzeug.urls
 
-from pytz import utc
+from pytz import utc, timezone
 
 from odoo import api, fields, models, _
 from odoo.addons.http_routing.models.ir_http import slug
+from odoo.exceptions import ValidationError
 from odoo.osv import expression
 from odoo.tools.misc import get_lang, format_date
 
@@ -44,7 +45,7 @@ class Event(models.Model):
     website_published = fields.Boolean(tracking=True)
     website_menu = fields.Boolean(
         string='Website Menu',
-        compute='_compute_website_menu', readonly=False, store=True,
+        compute='_compute_website_menu', precompute=True, readonly=False, store=True,
         help="Allows to display and manage event-specific menus on website.")
     menu_id = fields.Many2one('website.menu', 'Event Menu', copy=False)
     menu_register_cta = fields.Boolean(
@@ -81,8 +82,7 @@ class Event(models.Model):
         'Is Ongoing', compute='_compute_time_data', search='_search_is_ongoing',
         help="Whether event has begun")
     is_done = fields.Boolean(
-        'Is Done', compute='_compute_time_data',
-        help="Whether event is finished")
+        'Is Done', compute='_compute_time_data')
     start_today = fields.Boolean(
         'Start Today', compute='_compute_time_data',
         help="Whether event is going to start today if still not ongoing")
@@ -190,6 +190,16 @@ class Event(models.Model):
         for event in self:
             if event.id:  # avoid to perform a slug on a not yet saved record in case of an onchange.
                 event.website_url = '/event/%s' % slug(event)
+
+    # -------------------------------------------------------------------------
+    # CONSTRAINT METHODS
+    # -------------------------------------------------------------------------
+
+    @api.constrains('website_id')
+    def _check_website_id(self):
+        for event in self:
+            if event.website_id and event.website_id.company_id != event.company_id:
+                raise ValidationError(_("The website must be from the same company as the event."))
 
     # ------------------------------------------------------------
     # CRUD
@@ -366,8 +376,9 @@ class Event(models.Model):
             page_result = self.env['website'].sudo().new_page(
                 name=name + ' ' + self.name, template=xml_id,
                 add_menu=False, ispage=False)
-            url = "/event/" + slug(self) + "/page" + page_result['url']  # url contains starting "/"
             view_id = page_result['view_id']
+            view = self.env["ir.ui.view"].browse(view_id)
+            url = "/event/" + slug(self) + "/page/" + view.key.split(".")[-1]
 
         website_menu = self.env['website.menu'].sudo().create({
             'name': name,
@@ -407,16 +418,17 @@ class Event(models.Model):
         return super(Event, self)._track_subtype(init_values)
 
     def _get_event_resource_urls(self):
-        url_date_start = self.date_begin.strftime('%Y%m%dT%H%M%SZ')
-        url_date_stop = self.date_end.strftime('%Y%m%dT%H%M%SZ')
+        url_date_start = self.date_begin.astimezone(timezone(self.date_tz)).strftime('%Y%m%dT%H%M%S')
+        url_date_stop = self.date_end.astimezone(timezone(self.date_tz)).strftime('%Y%m%dT%H%M%S')
         params = {
             'action': 'TEMPLATE',
             'text': self.name,
             'dates': url_date_start + '/' + url_date_stop,
+            'ctz': self.date_tz,
             'details': self.name,
         }
         if self.address_id:
-            params.update(location=self.sudo().address_id.contact_address.replace('\n', ' '))
+            params.update(location=self.address_inline)
         encoded_params = werkzeug.urls.url_encode(params)
         google_url = GOOGLE_CALENDAR_URL + encoded_params
         iCal_url = '/event/%d/ics?%s' % (self.id, encoded_params)
@@ -457,7 +469,7 @@ class Event(models.Model):
                 0]
 
         return [
-            ['all', _('Upcoming Events'), [("date_end", ">", sd(today))], 0],
+            ['upcoming', _('Upcoming Events'), [("date_end", ">", sd(today))], 0],
             ['today', _('Today'), [
                 ("date_end", ">", sd(today)),
                 ("date_begin", "<", sdn(today))],
@@ -466,6 +478,7 @@ class Event(models.Model):
             ['old', _('Past Events'), [
                 ("date_end", "<", sd(today))],
                 0],
+            ['all', _('All Events'), [], 0]
         ]
 
     @api.model
@@ -514,7 +527,7 @@ class Event(models.Model):
             if date == date_details[0]:
                 domain.append(date_details[2])
                 no_country_domain.append(date_details[2])
-                if date_details[0] != 'all':
+                if date_details[0] != 'upcoming':
                     current_date = date_details[1]
 
         search_fields = ['name']

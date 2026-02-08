@@ -51,10 +51,7 @@ class StockQuant(TransactionCase):
             'type': 'product',
             'tracking': 'serial',
         })
-        cls.stock_location = cls.env['stock.location'].create({
-            'name': 'stock_location',
-            'usage': 'internal',
-        })
+        cls.stock_location = cls.env.ref('stock.stock_location_stock')
         cls.stock_subloc3 = cls.env['stock.location'].create({
             'name': 'subloc3',
             'usage': 'internal',
@@ -150,7 +147,7 @@ class StockQuant(TransactionCase):
     def test_get_available_quantity_7(self):
         """ Quantity availability with only one tracked quant in a location.
         """
-        lot1 = self.env['stock.production.lot'].create({
+        lot1 = self.env['stock.lot'].create({
             'name': 'lot1',
             'product_id': self.product_lot.id,
             'company_id': self.env.company.id,
@@ -210,7 +207,9 @@ class StockQuant(TransactionCase):
         """
         quant = self.env['stock.quant'].search([('location_id', '=', self.stock_location.id)], limit=1)
         if not quant:
-            self.skipTest('Cannot test concurrent transactions without demo data.')
+            with closing(self.registry.cursor()) as cr:
+                self.env['stock.quant']._update_available_quantity(self.product, self.stock_location, quantity=1.0)
+                quant = self.env['stock.quant'].search([('location_id', '=', self.stock_location.id)], limit=1)
         product = quant.product_id
         available_quantity = self.env['stock.quant']._get_available_quantity(product, self.stock_location, allow_negative=True)
         # opens a new cursor and SELECT FOR UPDATE the quant, to simulate another concurrent reserved
@@ -299,7 +298,9 @@ class StockQuant(TransactionCase):
         """
         quant = self.env['stock.quant'].search([('location_id', '=', self.stock_location.id)], limit=1)
         if not quant:
-            self.skipTest('Cannot test concurrent transactions without demo data.')
+            with closing(self.registry.cursor()) as cr:
+                self.env['stock.quant']._update_available_quantity(self.product, self.stock_location, quantity=1.0)
+                quant = self.env['stock.quant'].search([('location_id', '=', self.stock_location.id)], limit=1)
         product = quant.product_id
         available_quantity = self.env['stock.quant']._get_available_quantity(product, self.stock_location, allow_negative=True)
 
@@ -459,7 +460,7 @@ class StockQuant(TransactionCase):
         self.assertEqual(self.env['stock.quant']._get_available_quantity(self.product, pack_location), 2.0)
 
     def test_mix_tracked_untracked_1(self):
-        lot1 = self.env['stock.production.lot'].create({
+        lot1 = self.env['stock.lot'].create({
             'name': 'lot1',
             'product_id': self.product_serial.id,
             'company_id': self.env.company.id,
@@ -519,7 +520,7 @@ class StockQuant(TransactionCase):
             'location_id': self.stock_location.id,
             'quantity': 1.0,
         })
-        quant.with_user(self.stock_user).with_context(inventory_mode=True).write({'quantity': 3.0})
+        quant.with_user(self.stock_user).with_context(inventory_mode=True).write({'inventory_quantity': 3.0})
         with self.assertRaises(AccessError):
             quant.with_user(self.stock_user).unlink()
 
@@ -544,7 +545,7 @@ class StockQuant(TransactionCase):
         """ Check that an incoming date is correctly set when updating the quantity of a tracked
         quant.
         """
-        lot1 = self.env['stock.production.lot'].create({
+        lot1 = self.env['stock.lot'].create({
             'name': 'lot1',
             'product_id': self.product_serial.id,
             'company_id': self.env.company.id,
@@ -557,12 +558,12 @@ class StockQuant(TransactionCase):
         """ Check that the FIFO strategies correctly applies when you have multiple lot received
         at different times for a tracked product.
         """
-        lot1 = self.env['stock.production.lot'].create({
+        lot1 = self.env['stock.lot'].create({
             'name': 'lot1',
             'product_id': self.product_serial.id,
             'company_id': self.env.company.id,
         })
-        lot2 = self.env['stock.production.lot'].create({
+        lot2 = self.env['stock.lot'].create({
             'name': 'lot2',
             'product_id': self.product_serial.id,
             'company_id': self.env.company.id,
@@ -583,12 +584,12 @@ class StockQuant(TransactionCase):
         """
         lifo_strategy = self.env['product.removal'].search([('method', '=', 'lifo')])
         self.stock_location.removal_strategy_id = lifo_strategy
-        lot1 = self.env['stock.production.lot'].create({
+        lot1 = self.env['stock.lot'].create({
             'name': 'lot1',
             'product_id': self.product_serial.id,
             'company_id': self.env.company.id,
         })
-        lot2 = self.env['stock.production.lot'].create({
+        lot2 = self.env['stock.lot'].create({
             'name': 'lot2',
             'product_id': self.product_serial.id,
             'company_id': self.env.company.id,
@@ -607,7 +608,7 @@ class StockQuant(TransactionCase):
         """ Receive the same lot at different times, once they're in the same location, the quants
         are merged and only the earliest incoming date is kept.
         """
-        lot1 = self.env['stock.production.lot'].create({
+        lot1 = self.env['stock.lot'].create({
             'name': 'lot1',
             'product_id': self.product_lot.id,
             'company_id': self.env.company.id,
@@ -644,12 +645,12 @@ class StockQuant(TransactionCase):
         """
         closest_strategy = self.env['product.removal'].search([('method', '=', 'closest')])
         self.stock_location.removal_strategy_id = closest_strategy
-        lot1 = self.env['stock.production.lot'].create({
+        lot1 = self.env['stock.lot'].create({
             'name': 'lot1',
             'product_id': self.product_serial.id,
             'company_id': self.env.company.id,
         })
-        lot2 = self.env['stock.production.lot'].create({
+        lot2 = self.env['stock.lot'].create({
             'name': 'lot2',
             'product_id': self.product_serial.id,
             'company_id': self.env.company.id,
@@ -767,7 +768,7 @@ class StockQuant(TransactionCase):
             'picking_type_id': picking_type_in.id,
             'location_id': supplier_location.id,
             'location_dest_id': stock_location.id,
-            'move_lines': [(0, 0, {
+            'move_ids': [(0, 0, {
                 'name': 'In 10 x %s' % self.product.name,
                 'product_id': self.product.id,
                 'location_id': supplier_location.id,
@@ -781,7 +782,7 @@ class StockQuant(TransactionCase):
         package = self.env['stock.quant.package'].create({
             'name': 'Super Package',
         })
-        picking.move_lines.move_line_ids.write({
+        picking.move_ids.move_line_ids.write({
             'qty_done': 10,
             'result_package_id': package.id,
         })
@@ -794,7 +795,7 @@ class StockQuant(TransactionCase):
         # The quants merging is processed thanks to a SQL query (see StockQuant._merge_quants).
         # At that point, the ORM is not aware of the new value. So we need to invalidate the
         # cache to ensure that the value will be the newest
-        quant.invalidate_cache(fnames=['quantity'], ids=quant.ids)
+        quant.invalidate_recordset(['quantity'])
         self.assertEqual(quant.quantity, 11)
 
     def test_clean_quant_after_package_move(self):
@@ -841,7 +842,7 @@ class StockQuant(TransactionCase):
             'picking_type_id': picking_type_in.id,
             'location_id': supplier_location.id,
             'location_dest_id': stock_location.id,
-            'move_lines': [(0, 0, {
+            'move_ids': [(0, 0, {
                 'name': self.product_serial.name,
                 'product_id': self.product_serial.id,
                 'location_id': supplier_location.id,
@@ -865,7 +866,7 @@ class StockQuant(TransactionCase):
         stock_return_picking_action = wizard.create_returns()
 
         return_pick = self.env['stock.picking'].browse(stock_return_picking_action['res_id'])
-        return_pick.move_lines.move_line_ids.qty_done = 1.0
+        return_pick.move_ids.move_line_ids.qty_done = 1.0
         return_pick.action_put_in_pack()
         return_pick._action_done()
 
@@ -876,7 +877,7 @@ class StockQuant(TransactionCase):
             'picking_type_id': picking_type_in.id,
             'location_id': supplier_location.id,
             'location_dest_id': stock_location.id,
-            'move_lines': [(0, 0, {
+            'move_ids': [(0, 0, {
                 'name': self.product_serial.name,
                 'product_id': self.product_serial.id,
                 'location_id': supplier_location.id,
@@ -895,3 +896,97 @@ class StockQuant(TransactionCase):
         quant = self.env['stock.quant'].search([('product_id', '=', self.product_serial.id), ('location_id', '=', stock_location.id)])
         self.assertEqual(len(quant), 1)
         self.assertEqual(quant.lot_id.name, 'Michel')
+
+    def test_update_quant_with_forbidden_field(self):
+        """
+        Test that updating a quant with a forbidden field raise an error.
+        """
+        product = self.env['product.product'].create({
+            'name': 'Product',
+            'type': 'product',
+            'tracking': 'serial',
+        })
+        sn1 = self.env['stock.lot'].create({
+            'name': 'SN1',
+            'product_id': product.id,
+        })
+        self.env['stock.quant']._update_available_quantity(product, self.stock_subloc2, 1.0, lot_id=sn1)
+        self.assertEqual(len(product.stock_quant_ids), 1)
+        self.env['stock.quant']._update_available_quantity(product, self.stock_subloc3, 1.0, lot_id=sn1)
+        self.assertEqual(len(product.stock_quant_ids), 2)
+        quant_2 = product.stock_quant_ids[1]
+        self.assertEqual(quant_2.with_context(inventory_mode=True).sn_duplicated, True)
+        with self.assertRaises(UserError):
+            quant_2.with_context(inventory_mode=True).write({'location_id': self.stock_subloc2})
+
+    def test_update_quant_with_forbidden_field_02(self):
+        """
+        Test that updating the package from the quant raise an error
+        but if the package is unpacked, the quant can be updated.
+        """
+        package = self.env['stock.quant.package'].create({
+            'name': 'Package',
+        })
+        self.env['stock.quant']._update_available_quantity(self.product, self.stock_location, 1.0, package_id=package)
+        quant = self.product.stock_quant_ids
+        self.assertEqual(len(self.product.stock_quant_ids), 1)
+        with self.assertRaises(UserError):
+            quant.with_context(inventory_mode=True).write({'package_id': False})
+        package.with_context(inventory_mode=True).unpack()
+        self.assertFalse(quant.package_id)
+        self.assertTrue(True)
+
+    def test_unpack_and_quants_history(self):
+        """
+        Test that after unpacking the quant history is preserved
+        """
+        product = self.env['product.product'].create({
+            'name': 'Product',
+            'type': 'product',
+            'tracking': 'lot',
+        })
+        lot_a = self.env['stock.lot'].create({
+            'name': 'A',
+            'product_id': product.id,
+            'product_qty': 5,
+        })
+        package = self.env['stock.quant.package'].create({
+            'name': 'Super Package',
+        })
+        stock_location = self.stock_location
+        dst_location = self.stock_subloc2
+        picking_type = self.env.ref('stock.picking_type_internal')
+
+        self.env['stock.quant']._update_available_quantity(product, stock_location, 5.0, lot_id=lot_a, package_id=package)
+
+        picking = self.env['stock.picking'].create({
+            'picking_type_id': picking_type.id,
+            'location_id': dst_location.id,
+            'location_dest_id': stock_location.id,
+            'move_ids': [(0, 0, {
+                'name': 'In 5 x %s' % product.name,
+                'product_id': product.id,
+                'location_id': stock_location.id,
+                'location_dest_id': dst_location.id,
+                'product_uom_qty': 5,
+                'product_uom': product.uom_id.id,
+            })],
+        })
+        picking.action_confirm()
+
+        picking.move_ids.move_line_ids.write({
+            'qty_done': 5,
+            'lot_id': lot_a.id,
+            'package_id': package.id,
+            'result_package_id': package.id,
+        })
+        picking.button_validate()
+        package.unpack()
+
+        quant = self.env['stock.quant'].search([
+            ('product_id', '=', product.id),
+            ('location_id', '=', dst_location.id),
+        ])
+        action = quant.action_view_stock_moves()
+        history = self.env['stock.move.line'].search(action['domain'])
+        self.assertTrue(history)

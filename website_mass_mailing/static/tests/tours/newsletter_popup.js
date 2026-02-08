@@ -1,13 +1,13 @@
 odoo.define("website_mass_mailing.tour.newsletter_popup_edition", function (require) {
 "use strict";
 
-const tour = require('web_tour.tour');
 const wTourUtils = require('website.tour_utils');
 const newsletterPopupUseTour = require('website_mass_mailing.tour.newsletter_popup_use');
 
-tour.register('newsletter_popup_edition', {
+wTourUtils.registerWebsitePreviewTour("newsletter_popup_edition", {
     test: true,
-    url: '/?enable_editor=1',
+    url: "/",
+    edition: true,
 }, [
     wTourUtils.dragNDrop({
         id: 's_newsletter_subscribe_popup',
@@ -15,15 +15,15 @@ tour.register('newsletter_popup_edition', {
     }),
     {
         content: "Check the modal is opened for edition",
-        trigger: '.o_newsletter_popup .modal:visible',
+        trigger: 'iframe .o_newsletter_popup .modal:visible',
         in_modal: false,
         run: () => null,
     },
     ...wTourUtils.clickOnSave(),
     {
         content: "Check the modal has been saved, closed",
-        trigger: 'body:has(.o_newsletter_popup)',
-        extra_trigger: 'body:not(.editor_enable)',
+        trigger: 'iframe body:has(.o_newsletter_popup)',
+        extra_trigger: 'iframe body:not(.editor_enable)',
         run: newsletterPopupUseTour.ensurePopupNotVisible,
     }
 ]);
@@ -35,7 +35,7 @@ odoo.define("website_mass_mailing.tour.newsletter_popup_use", function (require)
 const tour = require('web_tour.tour');
 
 function ensurePopupNotVisible() {
-    const $modal = $('.o_newsletter_popup .modal');
+    const $modal = this.$anchor.find('.o_newsletter_popup .modal');
     if ($modal.length !== 1) {
         // Avoid the tour to succeed if the modal can't be found while
         // it should. Indeed, if the selector ever becomes wrong and the

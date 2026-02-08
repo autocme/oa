@@ -2,24 +2,26 @@ odoo.define('web.field_many_to_one_tests', function (require) {
 "use strict";
 
 var BasicModel = require('web.BasicModel');
-var FormController = require('web.FormController');
 var FormView = require('web.FormView');
 var ListView = require('web.ListView');
 var relationalFields = require('web.relational_fields');
 var StandaloneFieldManagerMixin = require('web.StandaloneFieldManagerMixin');
 var testUtils = require('web.test_utils');
 var Widget = require('web.Widget');
+const legacyViewRegistry = require("web.view_registry");
+const { registry } = require("@web/core/registry");
 
-const { legacyExtraNextTick, triggerScroll } = require("@web/../tests/helpers/utils");
+const { triggerScroll } = require("@web/../tests/helpers/utils");
+const { legacyExtraNextTick } = require("@web/../tests/helpers/utils");
 const { createWebClient, doAction } = require('@web/../tests/webclient/helpers');
 const { browser } = require('@web/core/browser/browser');
-const { patchWithCleanup } = require('@web/../tests/helpers/utils');
+const { patchWithCleanup, getFixture } = require('@web/../tests/helpers/utils');
 const cpHelpers = require('@web/../tests/search/helpers');
 var createView = testUtils.createView;
 
-QUnit.module('fields', {}, function () {
+QUnit.module('Legacy fields', {}, function () {
 
-    QUnit.module('relational_fields', {
+    QUnit.module('Legacy relational_fields', {
         beforeEach: function () {
             this.data = {
                 partner: {
@@ -158,7 +160,7 @@ QUnit.module('fields', {}, function () {
             };
         },
     }, function () {
-        QUnit.module('FieldMany2One');
+        QUnit.module('Legacy FieldMany2One');
 
         QUnit.test('many2ones in form views', async function (assert) {
             assert.expect(5);
@@ -631,7 +633,7 @@ QUnit.module('fields', {}, function () {
 
             // save the modal and make sure an onchange is triggered
             await testUtils.dom.click($('.modal .modal-footer .btn-primary').first());
-            assert.verifySteps(['read', 'get_formview_id', 'load_views', 'read', 'write', 'read', 'onchange']);
+            assert.verifySteps(['read', 'get_formview_id', 'get_views', 'read', 'write', 'read', 'onchange']);
 
             // save the main record, and check that no extra rpcs are done (record
             // is not dirty, only a related record was modified)
@@ -880,8 +882,8 @@ QUnit.module('fields', {}, function () {
             await testUtils.fields.many2one.clickOpenDropdown('trululu');
             // click on 'Search More' (mouseenter required by ui-autocomplete)
             await testUtils.fields.many2one.clickItem('trululu', 'Search');
-            assert.ok($('.modal .o_list_view').length, "should have opened a list view in a modal");
-            assert.ok(!$('.modal .o_list_view .o_list_record_selector').length,
+            assert.ok($('.modal .o_legacy_list_view').length, "should have opened a list view in a modal");
+            assert.ok(!$('.modal .o_legacy_list_view .o_list_record_selector').length,
                 "there should be no record selector in the list view");
             assert.ok(!$('.modal .modal-footer .o_select_button').length,
                 "there should be no 'Select' button in the footer");
@@ -903,6 +905,60 @@ QUnit.module('fields', {}, function () {
             assert.strictEqual(form.$('a.o_form_uri').text(), 'Partner 20',
                 "should display correct value after save");
 
+            form.destroy();
+        });
+
+        QUnit.test('empty many2one should not be considered modified on onchange if still empty', async function (assert) {
+            assert.expect(6);
+
+            this.data.partner.onchanges = {
+                foo: function () { },
+            };
+
+            assert.strictEqual(
+                this.data.partner.records[2].trululu, undefined,
+                "no value must be provided for trululu to make sure the test works as expected");
+
+            var form = await createView({
+                View: FormView,
+                model: 'partner',
+                data: this.data,
+                arch: '<form string="Partners">' +
+                    '<sheet>' +
+                    '<group>' +
+                    '<field name="trululu"/>' +
+                    '<field name="foo"/>' +  // onchange will be triggered on this field
+                    '</group>' +
+                    '</sheet>' +
+                    '</form>',
+                res_id: 4,  // trululu m2o must be empty
+                viewOptions: {mode: 'edit'},
+                mockRPC: function (route, args) {
+                    if (args.method === 'onchange') {
+                        assert.step('onchange');
+                        return Promise.resolve({
+                            value: {
+                                trululu: false,
+                            },
+                        });
+                    }
+                    else if (args.method === 'write') {
+                        assert.step('write');
+                        // non modified trululu should not be sent
+                        // as write value
+                        assert.deepEqual(args.args[1], {'foo': "3"});
+                    }
+                    return this._super.apply(this, arguments);
+                },
+            });
+
+            // trigger the onchange
+            await testUtils.fields.editInput($('input[name="foo"]'), '3');
+            assert.verifySteps(['onchange']);
+
+            // save
+            await testUtils.form.clickSave(form);
+            assert.verifySteps(['write']);
             form.destroy();
         });
 
@@ -955,14 +1011,14 @@ QUnit.module('fields', {}, function () {
             });
 
             await testUtils.fields.many2one.createAndEdit('product_id', "ABC");
-            assert.containsOnce(document.body, '.modal .o_form_view');
+            assert.containsOnce(document.body, '.modal .o_legacy_form_view');
 
             // quick create 'new value'
             await testUtils.fields.many2one.searchAndClickItem('name', {search: 'new value'});
             assert.strictEqual($('.modal .o_field_many2one input').val(), 'new value');
 
             await testUtils.dom.click($('.modal .modal-footer .btn-primary')); // save in modal
-            assert.containsNone(document.body, '.modal .o_form_view');
+            assert.containsNone(document.body, '.modal .o_legacy_form_view');
             assert.strictEqual(form.$('.o_field_many2one input').val(), 'new value');
 
             form.destroy();
@@ -1441,7 +1497,7 @@ QUnit.module('fields', {}, function () {
             await testUtils.dom.click(form.$(".o_data_row"));
             await testUtils.fields.many2one.searchAndClickItem("trululu", { search: "", item: "Search More" });
 
-            assert.containsOnce(document.body, ".modal .o_list_view");
+            assert.containsOnce(document.body, ".modal .o_legacy_list_view");
             assert.containsN(document.body, ".modal .o_data_row", 8);
 
             form.destroy();
@@ -2428,7 +2484,7 @@ QUnit.module('fields', {}, function () {
                 search: 'abcd',
                 item: 'Create "abcd"',
             });
-            assert.containsOnce(document.body, '.modal .o_form_view');
+            assert.containsOnce(document.body, '.modal .o_legacy_form_view');
             assert.strictEqual($('.o_field_widget[name=name]').val(), 'abcd');
 
             await testUtils.fields.editInput($('.modal .o_field_widget[name=name]'), 'xyz');
@@ -2466,7 +2522,7 @@ QUnit.module('fields', {}, function () {
                 search: 'abcd',
                 item: 'Create "abcd"',
             });
-            assert.containsOnce(document.body, '.modal .o_form_view');
+            assert.containsOnce(document.body, '.modal .o_legacy_form_view');
             assert.strictEqual($('.o_field_widget[name=name]').val(), 'abcd');
 
             await testUtils.fields.editInput($('.modal .o_field_widget[name=name]'), 'xyz');
@@ -2543,7 +2599,7 @@ QUnit.module('fields', {}, function () {
             assert.strictEqual($('.modal').length, 1, "there should be one opened modal");
 
             await testUtils.dom.click($('.modal .modal-footer .btn-primary:contains(Create)'));
-            assert.strictEqual($('.modal .o_form_view').length, 1,
+            assert.strictEqual($('.modal .o_legacy_form_view').length, 1,
                 'a new modal should be opened and contain a form view');
 
             await testUtils.dom.click($('.modal .o_form_button_cancel'));
@@ -2634,7 +2690,7 @@ QUnit.module('fields', {}, function () {
                 "there should be an external button displayed");
 
             await testUtils.dom.click(form.$('.o_field_many2one .o_external_button'));
-            assert.strictEqual($('.modal .o_form_view.o_form_readonly').length, 1,
+            assert.strictEqual($('.modal .o_legacy_form_view.o_form_readonly').length, 1,
                 "there should be a readonly form view opened");
 
             await testUtils.dom.click($('.modal .o_form_button_cancel'));
@@ -3123,7 +3179,7 @@ QUnit.module('fields', {}, function () {
             assert.verifySteps([
                 'onchange',
                 'name_search', // to display results in the dropdown
-                'load_views', // list view in dialog
+                'get_views', // list view in dialog
                 '/web/dataset/search_read', // to display results in the dialog
             ]);
 
@@ -3166,7 +3222,7 @@ QUnit.module('fields', {}, function () {
                 search: 'test',
             });
 
-            assert.containsOnce(document.body, '.modal .o_list_view');
+            assert.containsOnce(document.body, '.modal .o_legacy_list_view');
             assert.containsOnce(document.body, '.modal .o_cp_searchview .o_facet_values',
                 "should have a special facet for the pre-selected ids");
 
@@ -3179,7 +3235,7 @@ QUnit.module('fields', {}, function () {
                 'name_search', // empty search, triggered when the user clicks in the input
                 'name_search', // to display results in the dropdown
                 'name_search', // to get preselected ids matching the search
-                'load_views', // list view in dialog
+                'get_views', // list view in dialog
                 '/web/dataset/search_read', // to display results in the dialog
                 '/web/dataset/search_read', // after removal of dynamic filter
             ]);
@@ -3345,7 +3401,7 @@ QUnit.module('fields', {}, function () {
             assert.verifySteps([
                 'onchange',
                 'name_search', // to display results in the dropdown
-                'load_views', // list view in dialog
+                'get_views', // list view in dialog
                 '/web/dataset/search_read', // to display results in the dialog
                 '/web/dataset/resequence', // resequencing lines
                 'read',
@@ -3414,12 +3470,12 @@ QUnit.module('fields', {}, function () {
             assert.strictEqual(form.$('.o_data_row .o_list_number').text(), '124',
                 "should have correct order initially");
 
-            await testUtils.dom.click(form.$('.o_list_view thead th:nth(1)'));
+            await testUtils.dom.click(form.$('.o_legacy_list_view thead th:nth(1)'));
 
             assert.strictEqual(form.$('.o_data_row .o_list_number').text(), '412',
                 "should have correct order (ASC)");
 
-            await testUtils.dom.click(form.$('.o_list_view thead th:nth(1)'));
+            await testUtils.dom.click(form.$('.o_legacy_list_view thead th:nth(1)'));
 
             assert.strictEqual(form.$('.o_data_row .o_list_number').text(), '214',
                 "should have correct order (DESC)");
@@ -3663,7 +3719,7 @@ QUnit.module('fields', {}, function () {
             // bar is false so there should be 1 column
             assert.containsOnce(form, 'th:not(.o_list_record_remove_header)',
                 "should be only 1 column ('foo') in the one2many");
-            assert.containsOnce(form, '.o_list_view .o_data_row', "should contain one row");
+            assert.containsOnce(form, '.o_legacy_list_view .o_data_row', "should contain one row");
 
             await testUtils.form.clickEdit(form);
 
@@ -3730,6 +3786,9 @@ QUnit.module('fields', {}, function () {
         QUnit.test('many2one links form view call', async function (assert) {
             assert.expect(5);
 
+            registry.category("views").remove("form"); // remove new form from registry
+            legacyViewRegistry.add("form", FormView); // add legacy form -> will be wrapped and added to new registry
+
             let serverData = {};
             serverData.models = this.data;
             serverData.models['turtle'].records[1].product_id = 37;
@@ -3771,24 +3830,25 @@ QUnit.module('fields', {}, function () {
                      }
                 }
             });
+
+            const target = getFixture();
+
             await doAction(webClient, 1);
 
-            assert.containsOnce(webClient, 'a.o_form_uri',
+            assert.containsOnce(target, 'a.o_form_uri',
                 "should display 1 m2o link in form");
 
-            assert.containsN(webClient, '.breadcrumb-item', 1,
+            assert.containsN(target, '.breadcrumb-item', 1,
                 "Should only contain one breadcrumb at the start");
 
-            await testUtils.dom.click($(webClient.el).find('a.o_form_uri'));
+            await testUtils.dom.click($(target).find('a.o_form_uri'));
 
             await legacyExtraNextTick();
 
             assert.verifySteps(['get_formview_action'])
 
-            assert.containsN(webClient, '.breadcrumb-item', 2,
+            assert.containsN(target, '.breadcrumb-item', 2,
                 "Should contain 2 breadcrumbs after the clicking on the link");
-
-            webClient.destroy();
         });
 
         QUnit.module('Many2OneAvatar');
@@ -3804,13 +3864,13 @@ QUnit.module('fields', {}, function () {
                 res_id: 1,
             });
 
-            assert.hasClass(form.$('.o_form_view'), 'o_form_readonly');
+            assert.hasClass(form.$('.o_legacy_form_view'), 'o_form_readonly');
             assert.strictEqual(form.$('.o_field_widget[name=user_id]').text().trim(), 'Aline');
             assert.containsOnce(form, '.o_m2o_avatar > img[data-src="/web/image/user/17/avatar_128"]');
 
             await testUtils.form.clickEdit(form);
 
-            assert.hasClass(form.$('.o_form_view'), 'o_form_editable');
+            assert.hasClass(form.$('.o_legacy_form_view'), 'o_form_editable');
             assert.containsOnce(form, '.o_input_dropdown');
             assert.strictEqual(form.$('.o_input_dropdown input').val(), 'Aline');
             assert.containsOnce(form, '.o_external_button');
@@ -3821,7 +3881,7 @@ QUnit.module('fields', {}, function () {
             assert.containsOnce(form, '.o_m2o_avatar > img[data-src="/web/image/user/19/avatar_128"]');
             await testUtils.form.clickSave(form);
 
-            assert.hasClass(form.$('.o_form_view'), 'o_form_readonly');
+            assert.hasClass(form.$('.o_legacy_form_view'), 'o_form_readonly');
             assert.strictEqual(form.$('.o_field_widget[name=user_id]').text().trim(), 'Christine');
             assert.containsOnce(form, '.o_m2o_avatar > img[data-src="/web/image/user/19/avatar_128"]');
 
@@ -3832,7 +3892,7 @@ QUnit.module('fields', {}, function () {
             assert.containsOnce(form, '.o_m2o_avatar > .o_m2o_avatar_empty');
             await testUtils.form.clickSave(form);
 
-            assert.hasClass(form.$('.o_form_view'), 'o_form_readonly');
+            assert.hasClass(form.$('.o_legacy_form_view'), 'o_form_readonly');
             assert.containsNone(form, '.o_m2o_avatar > img');
             assert.containsNone(form, '.o_m2o_avatar > .o_m2o_avatar_empty');
 
@@ -3864,7 +3924,7 @@ QUnit.module('fields', {}, function () {
                     </form>`,
             });
 
-            assert.hasClass(form.$('.o_form_view'), 'o_form_editable');
+            assert.hasClass(form.$('.o_legacy_form_view'), 'o_form_editable');
             assert.strictEqual(form.$('.o_field_widget[name=user_id]').text().trim(), 'Aline');
             assert.containsOnce(form, '.o_m2o_avatar > img[data-src="/web/image/user/17/avatar_128"]');
 

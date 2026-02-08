@@ -3,13 +3,99 @@
 
 from unittest.mock import patch
 from unittest.mock import DEFAULT
-from werkzeug.urls import url_parse, url_decode
 
 from odoo import exceptions
 from odoo.addons.test_mail.models.test_mail_models import MailTestSimple
 from odoo.addons.test_mail.tests.common import TestMailCommon, TestRecipients
-from odoo.tests.common import tagged, HttpCase, users
+from odoo.tests.common import tagged, users
 from odoo.tools import mute_logger
+
+
+@tagged('mail_thread')
+class TestAPI(TestMailCommon, TestRecipients):
+
+    @classmethod
+    def setUpClass(cls):
+        super(TestAPI, cls).setUpClass()
+        cls.ticket_record = cls.env['mail.test.ticket'].with_context(cls._test_context).create({
+            'email_from': '"Paulette Vachette" <paulette@test.example.com>',
+            'name': 'Test',
+            'user_id': cls.user_employee.id,
+        })
+
+    @mute_logger('openerp.addons.mail.models.mail_mail')
+    @users('employee')
+    def test_message_update_content(self):
+        """ Test updating message content. """
+        ticket_record = self.ticket_record.with_env(self.env)
+        attachments = self.env['ir.attachment'].create(
+            self._generate_attachments_data(2, 'mail.compose.message', 0)
+        )
+
+        # post a note
+        message = ticket_record.message_post(
+            attachment_ids=attachments.ids,
+            body="<p>Initial Body</p>",
+            message_type="comment",
+            partner_ids=self.partner_1.ids,
+        )
+        self.assertEqual(message.attachment_ids, attachments)
+        self.assertEqual(set(message.mapped('attachment_ids.res_id')), set(ticket_record.ids))
+        self.assertEqual(set(message.mapped('attachment_ids.res_model')), set([ticket_record._name]))
+        self.assertEqual(message.body, "<p>Initial Body</p>")
+        self.assertEqual(message.subtype_id, self.env.ref('mail.mt_note'))
+
+        # update the content with new attachments
+        new_attachments = self.env['ir.attachment'].create(
+            self._generate_attachments_data(2, 'mail.compose.message', 0)
+        )
+        ticket_record._message_update_content(
+            message, "<p>New Body</p>",
+            attachment_ids=new_attachments.ids
+        )
+        self.assertEqual(message.attachment_ids, attachments + new_attachments)
+        self.assertEqual(set(message.mapped('attachment_ids.res_id')), set(ticket_record.ids))
+        self.assertEqual(set(message.mapped('attachment_ids.res_model')), set([ticket_record._name]))
+        self.assertEqual(message.body, "<p>New Body</p>")
+
+        # void attachments
+        ticket_record._message_update_content(
+            message, "<p>Another Body, void attachments</p>",
+            attachment_ids=[]
+        )
+        self.assertFalse(message.attachment_ids)
+        self.assertFalse((attachments + new_attachments).exists())
+        self.assertEqual(message.body, "<p>Another Body, void attachments</p>")
+
+    @mute_logger('openerp.addons.mail.models.mail_mail')
+    @users('employee')
+    def test_message_update_content_check(self):
+        """ Test cases where updating content should be prevented """
+        ticket_record = self.ticket_record.with_env(self.env)
+
+        # cannot edit user comments (subtype)
+        message = ticket_record.message_post(
+            body="<p>Initial Body</p>",
+            message_type="comment",
+            subtype_id=self.env.ref('mail.mt_comment').id,
+        )
+        with self.assertRaises(exceptions.UserError):
+            ticket_record._message_update_content(
+                message, "<p>New Body</p>"
+            )
+
+        message.sudo().write({'subtype_id': self.env.ref('mail.mt_note')})
+        ticket_record._message_update_content(
+            message, "<p>New Body</p>"
+        )
+
+        # cannot edit notifications
+        for message_type in ['notification', 'user_notification', 'email']:
+            message.sudo().write({'message_type': message_type})
+            with self.assertRaises(exceptions.UserError):
+                ticket_record._message_update_content(
+                    message, "<p>New Body</p>"
+                )
 
 
 @tagged('mail_thread')
@@ -112,6 +198,7 @@ class TestChatterTweaks(TestMailCommon, TestRecipients):
         self.assertTrue(record.name)
 
 
+@tagged('mail_thread')
 class TestDiscuss(TestMailCommon, TestRecipients):
 
     @classmethod
@@ -125,7 +212,7 @@ class TestDiscuss(TestMailCommon, TestRecipients):
     @mute_logger('openerp.addons.mail.models.mail_mail')
     def test_mark_all_as_read(self):
         def _employee_crash(*args, **kwargs):
-            """ If employee is test employee, consider he has no access on document """
+            """ If employee is test employee, consider they have no access on document """
             recordset = args[0]
             if recordset.env.uid == self.user_employee.id and not recordset.env.su:
                 if kwargs.get('raise_exception', True):
@@ -213,9 +300,9 @@ class TestDiscuss(TestMailCommon, TestRecipients):
         record = self.env['mail.test.cc'].create({'email_cc': 'cc1@example.com, cc2@example.com, cc3 <cc3@example.com>'})
         suggestions = record._message_get_suggested_recipients()[record.id]
         self.assertEqual(sorted(suggestions), [
-            (False, '"cc3" <cc3@example.com>', 'CC Email'),
-            (False, 'cc1@example.com', 'CC Email'),
-            (False, 'cc2@example.com', 'CC Email'),
+            (False, '"cc3" <cc3@example.com>', None, 'CC Email'),
+            (False, 'cc1@example.com', None, 'CC Email'),
+            (False, 'cc2@example.com', None, 'CC Email'),
         ], 'cc should be in suggestions')
 
     def test_inbox_message_fetch_needaction(self):
@@ -236,7 +323,7 @@ class TestDiscuss(TestMailCommon, TestRecipients):
         message1.with_user(user1).set_message_done()
         messages = self.env['mail.message'].with_user(user1)._message_fetch(domain=[['needaction', '=', True]])
         self.assertEqual(len(messages), 1)
-        self.assertEqual(messages[0].get('id'), message2.id)
+        self.assertEqual(messages[0].id, message2.id)
         messages = self.env['mail.message'].with_user(user2)._message_fetch(domain=[['needaction', '=', True]])
         self.assertEqual(len(messages), 2)
 
@@ -248,7 +335,12 @@ class TestDiscuss(TestMailCommon, TestRecipients):
             partner_ids=[self.user_employee.partner_id.id]
         )
         self.assertFalse(message.has_error)
-        with self.mock_mail_gateway(sim_error='connect_smtp_notfound'):
+
+        with self.mock_mail_gateway():
+            def _connect(*args, **kwargs):
+                raise Exception("Some exception")
+            self.connect_mocked.side_effect = _connect
+
             self.user_admin.notification_type = 'email'
             message2 = self.test_record.with_user(self.user_employee).message_post(
                 body='Test', message_type='comment', subtype_xmlid='mail.mt_comment',
@@ -266,12 +358,14 @@ class TestDiscuss(TestMailCommon, TestRecipients):
     @users("employee")
     def test_unlink_notification_message(self):
         channel = self.env['mail.channel'].create({'name': 'testChannel'})
-        channel.message_notify(
+        notification_msg = channel.with_user(self.user_admin).message_notify(
             body='test',
             message_type='user_notification',
             partner_ids=[self.partner_2.id],
-            author_id=2
         )
+
+        with self.assertRaises(exceptions.AccessError):
+            notification_msg.with_env(self.env)._message_format(['id', 'body', 'date', 'author_id', 'email_from'])
 
         channel_message = self.env['mail.message'].sudo().search([('model', '=', 'mail.channel'), ('res_id', 'in', channel.ids)])
         self.assertEqual(len(channel_message), 1, "Test message should have been posted")
@@ -281,119 +375,35 @@ class TestDiscuss(TestMailCommon, TestRecipients):
         self.assertEqual(len(remaining_message), 0, "Test message should have been deleted")
 
 
-@tagged('-at_install', 'post_install', 'multi_company')
-class TestMultiCompany(TestMailCommon, HttpCase):
+@tagged('mail_thread')
+class TestNoThread(TestMailCommon, TestRecipients):
+    """ Specific tests for cross models thread features """
 
-    @classmethod
-    def setUpClass(cls):
-        super().setUpClass()
-        cls._activate_multi_company()
-
-    def test_redirect_to_records(self):
-        """ Test redirection and cids computation when involving multi company
-        rules. """
-        self.company_A = self.env['res.company'].create({
-            'name': 'Company A',
-            'user_ids': [(4, self.ref('base.user_admin'))],
+    @users('employee')
+    def test_message_notify(self):
+        test_record = self.env['mail.test.nothread'].create({
+            'customer_id': self.partner_1.id,
+            'name': 'Not A Thread',
         })
-
-        self.company_B = self.env['res.company'].create({
-            'name': 'Company B',
-        })
-
-        self.multi_company_record = self.env['mail.test.multi.company'].create({
-            'name': 'Multi Company Record',
-            'company_id': self.company_A.id,
-        })
-
-        # Test Case 0
-        # Not logged, redirect to web/login
-        response = self.url_open('/mail/view?model=%s&res_id=%s' % (
-            self.multi_company_record._name,
-            self.multi_company_record.id), timeout=15)
-
-        path = url_parse(response.url).path
-        self.assertEqual(path, '/web/login')
-
-        decoded_fragment = url_decode(url_parse(response.url).fragment)
-        self.assertTrue("cids" in decoded_fragment)
-        self.assertEqual(decoded_fragment['cids'], str(self.multi_company_record.company_id.id))
-
-        self.authenticate('admin', 'admin')
-
-        # Test Case 1
-        # Logged into company 1, try accessing record in company A
-        # _redirect_to_record should add company A in allowed_company_ids
-        response = self.url_open('/mail/view?model=%s&res_id=%s' % (
-            self.multi_company_record._name,
-            self.multi_company_record.id), timeout=15)
-
-        self.assertEqual(response.status_code, 200)
-
-        fragment = url_parse(response.url).fragment
-        cids = url_decode(fragment)['cids']
-
-        self.assertEqual(cids, '1,%s' % (self.company_A.id))
-
-        # Test Case 2
-        # Logged into company 1, try accessing record in company B
-        # _redirect_to_record should redirect to messaging as the user
-        # doesn't have any access for this company
-        self.multi_company_record.company_id = self.company_B
-
-        response = self.url_open('/mail/view?model=%s&res_id=%s' % (
-            self.multi_company_record._name,
-            self.multi_company_record.id), timeout=15)
-
-        self.assertEqual(response.status_code, 200)
-
-        fragment = url_parse(response.url).fragment
-        action = url_decode(fragment)['action']
-
-        self.assertEqual(action, 'mail.action_discuss')
-
-    def test_redirect_to_records_nothread(self):
-        """ Test no thread models and redirection """
-        nothreads = self.env['mail.test.nothread'].create([
-            {
-                'company_id': company.id,
-                'name': f'Test with {company.name}',
-            }
-            for company in (self.company_admin, self.company_2, self.env['res.company'])
-        ])
-
-        # when being logged, cids should be based on current user's company unless
-        # there is an access issue (not tested here, see 'test_redirect_to_records')
-        self.authenticate(self.user_admin.login, self.user_admin.login)
-        for test_record in nothreads:
-            for user_company in self.company_admin, self.company_2:
-                with self.subTest(record_name=test_record.name, user_company=user_company):
-                    self.user_admin.write({'company_id': user_company.id})
-                    response = self.url_open(
-                        f'/mail/view?model={test_record._name}&res_id={test_record.id}',
-                        timeout=15
-                    )
-                    self.assertEqual(response.status_code, 200)
-
-                    decoded_fragment = url_decode(url_parse(response.url).fragment)
-                    self.assertTrue("cids" in decoded_fragment)
-                    self.assertEqual(decoded_fragment['cids'], str(user_company.id))
-
-        # when being not logged, cids should be added based on
-        # '_get_mail_redirect_suggested_company'
-        self.authenticate(None, None)
-        for test_record in nothreads:
-            with self.subTest(record_name=test_record.name, user_company=user_company):
-                self.user_admin.write({'company_id': user_company.id})
-                response = self.url_open(
-                    f'/mail/view?model={test_record._name}&res_id={test_record.id}',
-                    timeout=15
-                )
-                self.assertEqual(response.status_code, 200)
-
-                decoded_fragment = url_decode(url_parse(response.url).fragment)
-                if test_record.company_id:
-                    self.assertIn('cids', decoded_fragment)
-                    self.assertEqual(decoded_fragment['cids'], str(test_record.company_id.id))
-                else:
-                    self.assertNotIn('cids', decoded_fragment)
+        with self.assertPostNotifications([{
+                'content': 'Hello Paulo',
+                'email_values': {
+                    'reply_to': self.company_admin.catchall_formatted,
+                },
+                'message_type': 'user_notification',
+                'notif': [{
+                    'check_send': True,
+                    'is_read': True,
+                    'partner': self.partner_2,
+                    'status': 'sent',
+                    'type': 'email',
+                }],
+                'subtype': 'mail.mt_note',
+            }]):
+            _message = self.env['mail.thread'].message_notify(
+                body='<p>Hello Paulo</p>',
+                model=test_record._name,
+                res_id=test_record.id,
+                subject='Test Notify',
+                partner_ids=self.partner_2.ids
+            )

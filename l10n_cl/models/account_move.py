@@ -2,7 +2,8 @@
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
 from odoo.exceptions import ValidationError
 from odoo import models, fields, api, _
-from odoo.osv import expression
+from odoo.tools.misc import formatLang
+from odoo.tools.float_utils import float_repr, float_round
 
 SII_VAT = '60805000-0'
 
@@ -41,7 +42,7 @@ class AccountMove(models.Model):
         elif self.partner_id.l10n_cl_sii_taxpayer_type == '1' and self.partner_id_vat == '60805000-0':
             domain += [('code', 'not in', ['39', '70', '71'])]
         elif self.partner_id.l10n_cl_sii_taxpayer_type == '2':
-            domain += [('code', 'in', ['70', '71', '56', '61'])]
+            domain += [('code', '=', '71')]
         elif self.partner_id.l10n_cl_sii_taxpayer_type == '3':
             domain += [('code', 'in', ['35', '38', '39', '41', '56', '61'])]
         elif self.partner_id.country_id.code != 'CL' or self.partner_id.l10n_cl_sii_taxpayer_type == '4':
@@ -71,8 +72,7 @@ class AccountMove(models.Model):
                     if not ((tax_payer_type == '4' and latam_document_type_code in ['110', '111', '112']) or (
                             tax_payer_type == '3' and latam_document_type_code in ['39', '41', '61', '56'])):
                         raise ValidationError(_(
-                            'Document types for foreign customers must be export type (codes 110, 111 or 112) or you '
-                            'should define the customer as an end consumer and use receipts (codes 39 or 41)'))
+                            'Document types for foreign customers must be export type (codes 110, 111 or 112) or you should define the customer as an end consumer and use receipts (codes 39 or 41)'))
             if rec.journal_id.type == 'purchase' and rec.journal_id.l10n_latam_use_documents:
                 if vat != SII_VAT and latam_document_type_code == '914':
                     raise ValidationError(_('The DIN document is intended to be used only with RUT 60805000-0'
@@ -135,24 +135,41 @@ class AccountMove(models.Model):
             return 'l10n_cl.report_invoice_document'
         return super()._get_name_invoice_report()
 
+    def _format_lang_totals(self, value, currency):
+        return formatLang(self.env, value, currency_obj=currency)
+
     def _l10n_cl_get_invoice_totals_for_report(self):
         self.ensure_one()
-        tax_ids_filter = tax_line_id_filter = None
         include_sii = self._l10n_cl_include_sii()
 
-        if include_sii:
-            tax_ids_filter = (lambda aml, tax: bool(tax.l10n_cl_sii_code != 14))
-            tax_line_id_filter = (lambda aml, tax: bool(tax.l10n_cl_sii_code != 14))
+        base_lines = self.line_ids.filtered(lambda x: x.display_type == 'product')
+        tax_lines = self.line_ids.filtered(lambda x: x.display_type == 'tax')
 
-        tax_lines_data = self._prepare_tax_lines_data_for_totals_from_invoice(
-            tax_ids_filter=tax_ids_filter, tax_line_id_filter=tax_line_id_filter)
+        base_line_vals_list = [x._convert_to_tax_base_line_dict() for x in base_lines]
+        if include_sii:
+            for vals in base_line_vals_list:
+                vals['taxes'] = vals['taxes'].flatten_taxes_hierarchy().filtered(lambda tax: tax.l10n_cl_sii_code != 14)
+
+        tax_line_vals_list = [x._convert_to_tax_line_dict() for x in tax_lines]
+        if include_sii:
+            tax_line_vals_list = [x for x in tax_line_vals_list if x['tax_repartition_line'].tax_id.l10n_cl_sii_code != 14]
+
+        tax_totals = self.env['account.tax']._prepare_tax_totals(
+            base_line_vals_list,
+            self.currency_id,
+            tax_lines=tax_line_vals_list,
+        )
 
         if include_sii:
-            amount_untaxed = self.currency_id.round(
-                self.amount_total - sum([x['tax_amount'] for x in tax_lines_data if 'tax_amount' in x]))
-        else:
-            amount_untaxed = self.amount_untaxed
-        return self._get_tax_totals(self.partner_id, tax_lines_data, self.amount_total, amount_untaxed, self.currency_id)
+            tax_totals['amount_total'] = self.amount_total
+            tax_totals['amount_untaxed'] = self.currency_id.round(
+                tax_totals['amount_total'] - sum([x['tax_amount'] for x in tax_line_vals_list if 'tax_amount' in x]))
+            tax_totals['formatted_amount_total'] = formatLang(self.env, tax_totals['amount_total'], currency_obj=self.currency_id)
+            tax_totals['formatted_amount_untaxed'] = formatLang(self.env, tax_totals['amount_untaxed'], currency_obj=self.currency_id)
+            if tax_totals['subtotals']:
+                tax_totals['subtotals'][0]['formatted_amount'] = tax_totals['formatted_amount_untaxed']
+
+        return tax_totals
 
     def _l10n_cl_include_sii(self):
         self.ensure_one()
@@ -162,3 +179,102 @@ class AccountMove(models.Model):
         if self.journal_id.company_id.country_id.code == 'CL':
             return self.journal_id.type == 'purchase' and not self.l10n_latam_document_type_id._is_doc_type_vendor()
         return super()._is_manual_document_number()
+
+    def _l10n_cl_get_amounts(self):
+        """
+        This method is used to calculate the amount and taxes required in the Chilean localization electronic documents.
+        """
+        self.ensure_one()
+        global_discounts = self.invoice_line_ids.filtered(lambda x: x.price_subtotal < 0)
+        export = self.l10n_latam_document_type_id._is_doc_type_export()
+        main_currency = self.company_id.currency_id if not export else self.currency_id
+        key_main_currency = 'amount_currency' if export else 'balance'
+        sign_main_currency = -1 if self.move_type == 'out_invoice' else 1
+        currency_round_main_currency = self.currency_id if export else self.company_id.currency_id
+        currency_round_other_currency = self.company_id.currency_id if export else self.currency_id
+        total_amount_main_currency = currency_round_main_currency.round(self.amount_total) if export \
+            else (currency_round_main_currency.round(abs(self.amount_total_signed)))
+        other_currency = self.currency_id != self.company_id.currency_id
+        values = {
+            'main_currency': main_currency,
+            'vat_amount': 0,
+            'subtotal_amount_taxable': 0,
+            'subtotal_amount_exempt': 0, 'total_amount': total_amount_main_currency,
+            'main_currency_round': currency_round_main_currency.decimal_places,
+            'main_currency_name': self._l10n_cl_normalize_currency_name(
+                currency_round_main_currency.name) if export else False
+        }
+        vat_percent = 0
+
+        if other_currency:
+            key_other_currency = 'balance' if export else 'amount_currency'
+            values['second_currency'] = {
+                'subtotal_amount_taxable': 0,
+                'subtotal_amount_exempt': 0,
+                'vat_amount': 0,
+                'total_amount': currency_round_other_currency.round(abs(self.amount_total_signed)) \
+                    if export else currency_round_other_currency.round(self.amount_total),
+                'round_currency': currency_round_other_currency.decimal_places,
+                'name': self._l10n_cl_normalize_currency_name(currency_round_other_currency.name),
+                'rate': round(abs(self.amount_total_signed) / self.amount_total, 4),
+            }
+        for line in self.line_ids:
+            if line.tax_line_id and line.tax_line_id.l10n_cl_sii_code == 14:
+                values['vat_amount'] += line[key_main_currency] * sign_main_currency
+                if other_currency:
+                    values['second_currency']['vat_amount'] += line[key_other_currency] * sign_main_currency # amount_currency behaves as balance
+                vat_percent = line.tax_line_id.amount if line.tax_line_id.amount > vat_percent else vat_percent
+            if line.display_type == 'product':
+                if line.tax_ids.filtered(lambda x: x.l10n_cl_sii_code == 14):
+                    values['subtotal_amount_taxable'] += line[key_main_currency] * sign_main_currency
+                    if other_currency:
+                        values['second_currency']['subtotal_amount_taxable'] += line[key_other_currency] * sign_main_currency
+                elif not line.tax_ids:
+                    values['subtotal_amount_exempt'] += line[key_main_currency] * sign_main_currency
+                    if other_currency:
+                        values['second_currency']['subtotal_amount_exempt'] += line[key_other_currency] * sign_main_currency
+        values['global_discounts'] = []
+        for gd in global_discounts:
+            main_value = currency_round_main_currency.round(abs(gd.price_subtotal)) if \
+                (not other_currency and not export) or (other_currency and export) else \
+                currency_round_main_currency.round(abs(gd.balance))
+            second_value = currency_round_other_currency.round(abs(gd.balance)) if other_currency and export else \
+                currency_round_other_currency.round(abs(gd.price_subtotal))
+            values['global_discounts'].append(
+                {
+                    'name': gd.name,
+                    'global_discount_main_value': main_value,
+                    'global_discount_second_value': second_value if second_value != main_value else False,
+                    'tax_ids': gd.tax_ids,
+                }
+            )
+        values['vat_percent'] = '%.2f' % vat_percent if vat_percent > 0 else False
+        return values
+
+    def _l10n_cl_get_withholdings(self):
+        """
+        This method calculates the section of withholding taxes, or 'other' taxes for the Chilean electronic invoices.
+        These taxes are not VAT taxes in general; they are special taxes (for example, alcohol or sugar-added beverages,
+        withholdings for meat processing, fuel, etc.
+        The taxes codes used are included here:
+        [15, 17, 18, 19, 24, 25, 26, 27, 271]
+        http://www.sii.cl/declaraciones_juradas/ddjj_3327_3328/cod_otros_imp_retenc.pdf
+        The need of the tax is not just the amount, but the code of the tax, the percentage amount and the amount
+        :return:
+        """
+        self.ensure_one()
+
+        tax = [{'tax_code': line.tax_line_id.l10n_cl_sii_code,
+                'tax_name': line.tax_line_id.name,
+                'tax_base': abs(sum(self.invoice_line_ids.filtered(
+                    lambda x: line.tax_line_id.l10n_cl_sii_code in x.tax_ids.mapped('l10n_cl_sii_code')).mapped(
+                    'balance'))),
+                'tax_percent': abs(line.tax_line_id.amount),
+                'tax_amount_currency': self.currency_id.round(abs(line.amount_currency)),
+                'tax_amount': self.currency_id.round(abs(line.balance))} for line in self.line_ids.filtered(
+            lambda x: x.tax_group_id.id in [
+                self.env.ref('l10n_cl.tax_group_ila').id, self.env.ref('l10n_cl.tax_group_retenciones').id])]
+        return tax
+
+    def _float_repr_float_round(self, value, decimal_places):
+        return float_repr(float_round(value, decimal_places), decimal_places)

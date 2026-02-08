@@ -1,6 +1,8 @@
 /** @odoo-module **/
 
+import { deepCopy } from "@web/core/utils/objects";
 import { registry } from "@web/core/registry";
+import { generateLegacyLoadViewsResult } from "@web/legacy/legacy_load_views";
 
 /**
  * @typedef {Object} IrFilter
@@ -18,11 +20,8 @@ import { registry } from "@web/core/registry";
 /**
  * @typedef {Object} ViewDescription
  * @property {string} arch
- * @property {Object} fields
- * @property {string} model
- * @property {string} [name] is returned by the server ("default" or real name)
- * @property {string} type
- * @property {number} [viewId]
+ * @property {number|false} id
+ * @property {number|null} [custom_view_id]
  * @property {Object} [actionMenus] // for views other than search
  * @property {IrFilter[]} [irFilters] // for search view
  */
@@ -41,13 +40,18 @@ import { registry } from "@web/core/registry";
  * @property {boolean} loadIrFilters
  */
 
+/**
+ * @typedef {Object} LoadFieldsOptions
+ * @property {string[] | false} [fieldNames]
+ * @property {string[]} [attributes]
+ */
+
 export const viewService = {
-    name: "view",
     dependencies: ["orm"],
     start(env, { orm }) {
         let cache = {};
 
-        env.bus.on("CLEAR-CACHES", null, () => {
+        env.bus.addEventListener("CLEAR-CACHES", () => {
             cache = {};
             const processedArchs = registry.category("__processed_archs__");
             processedArchs.content = {};
@@ -55,51 +59,78 @@ export const viewService = {
         });
 
         /**
+         * Loads fields information
+         *
+         * @param {string} resModel
+         * @param {LoadFieldsOptions} [options]
+         * @returns {Promise<object>}
+         */
+        async function loadFields(resModel, options = {}) {
+            const key = JSON.stringify([
+                "fields",
+                resModel,
+                options.fieldNames,
+                options.attributes,
+            ]);
+            if (!cache[key]) {
+                cache[key] = orm
+                    .call(resModel, "fields_get", [options.fieldNames, options.attributes])
+                    .catch((error) => {
+                        delete cache[key];
+                        return Promise.reject(error);
+                    });
+            }
+            return cache[key];
+        }
+
+        /**
          * Loads various information concerning views: fields_view for each view,
          * fields of the corresponding model, and optionally the filters.
          *
          * @param {LoadViewsParams} params
-         * @param {LoadViewsOptions} options
+         * @param {LoadViewsOptions} [options={}]
          * @returns {Promise<ViewDescriptions>}
          */
-        async function loadViews(params, options) {
-            const key = JSON.stringify([params.resModel, params.views, params.context, options]);
+        async function loadViews(params, options = {}) {
+            const loadViewsOptions = {
+                action_id: options.actionId || false,
+                load_filters: options.loadIrFilters || false,
+                toolbar: options.loadActionMenus || false,
+            };
+            if (env.isSmall) {
+                loadViewsOptions.mobile = true;
+            }
+            const { context, resModel, views } = params;
+            const filteredContext = Object.fromEntries(
+                Object.entries(context || {}).filter((k, v) => !String(k).startsWith("default_"))
+            );
+            const key = JSON.stringify([resModel, views, filteredContext, loadViewsOptions]);
             if (!cache[key]) {
                 cache[key] = orm
-                    .call(params.resModel, "load_views", [], {
-                        views: params.views,
-                        options: {
-                            action_id: options.actionId || false,
-                            load_filters: options.loadIrFilters || false,
-                            toolbar: options.loadActionMenus || false,
-                        },
-                        context: params.context,
-                    })
+                    .call(resModel, "get_views", [], { context, views, options: loadViewsOptions })
                     .then((result) => {
+                        const { models, views } = result;
+                        const modelsCopy = deepCopy(models); // for legacy views
                         const viewDescriptions = {
-                            __legacy__: result,
-                        }; // for legacy purpose, keys in result are left in viewDescriptions
-                        for (const [, viewType] of params.views) {
-                            const viewDescription = JSON.parse(
-                                JSON.stringify(result.fields_views[viewType])
-                            );
-                            viewDescription.viewId = viewDescription.view_id;
-                            delete viewDescription.view_id;
-                            if (viewDescription.toolbar) {
-                                viewDescription.actionMenus = viewDescription.toolbar;
-                                delete viewDescription.toolbar;
+                            __legacy__: generateLegacyLoadViewsResult(resModel, views, modelsCopy),
+                            fields: models[resModel],
+                            relatedModels: models,
+                            views: {},
+                        };
+                        for (const [resModel, fields] of Object.entries(modelsCopy)) {
+                            const key = JSON.stringify(["fields", resModel, undefined, undefined]);
+                            cache[key] = Promise.resolve(fields);
+                        }
+                        for (const viewType in views) {
+                            const { arch, toolbar, id, filters, custom_view_id } = views[viewType];
+                            const viewDescription = { arch, id, custom_view_id };
+                            if (toolbar) {
+                                viewDescription.actionMenus = toolbar;
                             }
-                            viewDescription.fields = Object.assign(
-                                {},
-                                result.fields,
-                                viewDescription.fields
-                            ); // before a deep freeze was done.
-                            delete viewDescription.base_model; // unused
-                            delete viewDescription.field_parent; // unused
-                            if (viewType === "search" && options.loadIrFilters) {
-                                viewDescription.irFilters = result.filters;
+                            if (filters) {
+                                viewDescription.irFilters = filters;
                             }
-                            viewDescriptions[viewType] = viewDescription;
+                            viewDescriptions.views[viewType] = viewDescription;
                         }
                         return viewDescriptions;
                     })
@@ -110,7 +141,7 @@ export const viewService = {
             }
             return cache[key];
         }
-        return { loadViews };
+        return { loadViews, loadFields };
     },
 };
 

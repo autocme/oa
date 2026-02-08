@@ -3,23 +3,26 @@
 # 	* hr_skills
 # 
 # Translators:
-# Gennady Marchenko <gennadym@gmail.com>, 2021
-# Martin Trigaux, 2021
-# Ivan Kropotkin <yelizariev@itpp.dev>, 2021
-# ILMIR <karamov@it-projects.info>, 2021
-# Irina Fedulova <istartlin@gmail.com>, 2021
-# Ekaterina <nawsikaya@bk.ru>, 2021
+# Ivan Kropotkin <yelizariev@itpp.dev>, 2022
+# Irina Fedulova <istartlin@gmail.com>, 2022
+# ILMIR <karamov@it-projects.info>, 2022
 # Evgeniia Kotova, 2022
+# Иван Дроздов <hiraetari@gmail.com>, 2022
+# Ekaterina <nawsikaya@bk.ru>, 2022
+# Gennady Marchenko <gennadym@gmail.com>, 2022
+# Martin Trigaux, 2022
 # Сергей Шебанин <sergey@shebanin.ru>, 2022
 # Alena Vlasova, 2022
+# valmasone, 2023
+# Wil Odoo, 2024
 # 
 msgid ""
 msgstr ""
-"Project-Id-Version: Odoo Server saas~14.4\n"
+"Project-Id-Version: Odoo Server 16.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2021-07-12 07:49+0000\n"
-"PO-Revision-Date: 2021-09-14 12:23+0000\n"
-"Last-Translator: Alena Vlasova, 2022\n"
+"POT-Creation-Date: 2024-02-06 13:31+0000\n"
+"PO-Revision-Date: 2022-09-22 05:52+0000\n"
+"Last-Translator: Wil Odoo, 2024\n"
 "Language-Team: Russian (https://app.transifex.com/odoo/teams/41243/ru/)\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
@@ -28,14 +31,15 @@ msgstr ""
 "Plural-Forms: nplurals=4; plural=(n%10==1 && n%100!=11 ? 0 : n%10>=2 && n%10<=4 && (n%100<12 || n%100>14) ? 1 : n%10==0 || (n%10>=5 && n%10<=9) || (n%100>=11 && n%100<=14)? 2 : 3);\n"
 
 #. module: hr_skills
-#. openerp-web
+#. odoo-javascript
+#: code:addons/hr_skills/static/src/fields/skills_one2many.xml:0
 #: code:addons/hr_skills/static/src/xml/resume_templates.xml:0
 #, python-format
 msgid "ADD"
 msgstr "ДОБАВИТЬ"
 
 #. module: hr_skills
-#. openerp-web
+#. odoo-javascript
 #: code:addons/hr_skills/static/src/xml/resume_templates.xml:0
 #, python-format
 msgid "CREATE A NEW ENTRY"
@@ -47,7 +51,20 @@ msgid "Classic"
 msgstr "Классический"
 
 #. module: hr_skills
+#: model:ir.model.fields,field_description:hr_skills.field_hr_employee_skill_report__company_id
+msgid "Company"
+msgstr "Компания"
+
+#. module: hr_skills
+#. odoo-javascript
+#: code:addons/hr_skills/static/src/fields/skills_one2many.xml:0
+#, python-format
+msgid "Create a new entry"
+msgstr "Создать новую запись"
+
+#. module: hr_skills
 #: model:ir.model.fields,field_description:hr_skills.field_hr_employee_skill__create_uid
+#: model:ir.model.fields,field_description:hr_skills.field_hr_employee_skill_log__create_uid
 #: model:ir.model.fields,field_description:hr_skills.field_hr_resume_line__create_uid
 #: model:ir.model.fields,field_description:hr_skills.field_hr_resume_line_type__create_uid
 #: model:ir.model.fields,field_description:hr_skills.field_hr_skill__create_uid
@@ -58,6 +75,7 @@ msgstr "Создал"
 
 #. module: hr_skills
 #: model:ir.model.fields,field_description:hr_skills.field_hr_employee_skill__create_date
+#: model:ir.model.fields,field_description:hr_skills.field_hr_employee_skill_log__create_date
 #: model:ir.model.fields,field_description:hr_skills.field_hr_resume_line__create_date
 #: model:ir.model.fields,field_description:hr_skills.field_hr_resume_line_type__create_date
 #: model:ir.model.fields,field_description:hr_skills.field_hr_skill__create_date
@@ -67,11 +85,17 @@ msgid "Created on"
 msgstr "Дата создания"
 
 #. module: hr_skills
-#. openerp-web
-#: code:addons/hr_skills/static/src/js/resume_widget.js:0
+#. odoo-javascript
+#: code:addons/hr_skills/static/src/fields/resume_one2many.xml:0
 #, python-format
 msgid "Current"
 msgstr "Текущий"
+
+#. module: hr_skills
+#: model:ir.model.fields,field_description:hr_skills.field_hr_employee_skill_log__date
+#: model_terms:ir.ui.view,arch_db:hr_skills.hr_employee_skill_log_view_search
+msgid "Date"
+msgstr "Дата"
 
 #. module: hr_skills
 #: model:ir.model.fields,field_description:hr_skills.field_hr_resume_line__date_end
@@ -84,6 +108,18 @@ msgid "Date Start"
 msgstr "Дата начала"
 
 #. module: hr_skills
+#: model:ir.model.fields,field_description:hr_skills.field_hr_skill_level__default_level
+msgid "Default Level"
+msgstr "Уровень по умолчанию"
+
+#. module: hr_skills
+#: model:ir.model.fields,field_description:hr_skills.field_hr_employee_skill_log__department_id
+#: model:ir.model.fields,field_description:hr_skills.field_hr_employee_skill_report__department_id
+#: model_terms:ir.ui.view,arch_db:hr_skills.hr_employee_skill_report_view_search
+msgid "Department"
+msgstr "Подразделение"
+
+#. module: hr_skills
 #: model:ir.model.fields,field_description:hr_skills.field_hr_resume_line__description
 #: model_terms:ir.ui.view,arch_db:hr_skills.resume_line_view_form
 msgid "Description"
@@ -91,6 +127,7 @@ msgstr "Описание"
 
 #. module: hr_skills
 #: model:ir.model.fields,field_description:hr_skills.field_hr_employee_skill__display_name
+#: model:ir.model.fields,field_description:hr_skills.field_hr_employee_skill_log__display_name
 #: model:ir.model.fields,field_description:hr_skills.field_hr_resume_line__display_name
 #: model:ir.model.fields,field_description:hr_skills.field_hr_resume_line_type__display_name
 #: model:ir.model.fields,field_description:hr_skills.field_hr_skill__display_name
@@ -107,12 +144,53 @@ msgstr "Способ отображения"
 #. module: hr_skills
 #: model:ir.model,name:hr_skills.model_hr_employee
 #: model:ir.model.fields,field_description:hr_skills.field_hr_employee_skill__employee_id
+#: model:ir.model.fields,field_description:hr_skills.field_hr_employee_skill_log__employee_id
+#: model:ir.model.fields,field_description:hr_skills.field_hr_employee_skill_report__employee_id
 #: model:ir.model.fields,field_description:hr_skills.field_hr_resume_line__employee_id
+#: model_terms:ir.ui.view,arch_db:hr_skills.hr_employee_skill_log_view_search
+#: model_terms:ir.ui.view,arch_db:hr_skills.hr_employee_skill_report_view_search
 msgid "Employee"
 msgstr "Сотрудник"
 
 #. module: hr_skills
+#: model:ir.model.fields,field_description:hr_skills.field_hr_employee_skill_report__display_name
+msgid "Employee Name"
+msgstr "Имя сотрудника"
+
+#. module: hr_skills
+#: model:ir.actions.act_window,name:hr_skills.hr_employee_skill_report_action
+msgid "Employee Skills"
+msgstr "Навыки сотрудников"
+
+#. module: hr_skills
+#: model:ir.model,name:hr_skills.model_hr_employee_skill_report
+msgid "Employee Skills Report"
+msgstr "Отчет о квалификации сотрудников"
+
+#. module: hr_skills
+#: model_terms:ir.ui.view,arch_db:hr_skills.hr_employee_skill_report_view_search
+msgid "Employees with Skills"
+msgstr "Сотрудники с навыками"
+
+#. module: hr_skills
+#: model_terms:ir.ui.view,arch_db:hr_skills.hr_employee_skill_report_view_search
+msgid "Employees without Skills"
+msgstr "Сотрудники без навыков"
+
+#. module: hr_skills
+#: model_terms:ir.ui.view,arch_db:hr_skills.hr_employee_skill_log_view_search
+msgid "Group By"
+msgstr "Группировка"
+
+#. module: hr_skills
+#: model_terms:ir.ui.view,arch_db:hr_skills.hr_skill_view_search
+msgid "Group By..."
+msgstr "Группировать по…"
+
+#. module: hr_skills
 #: model:ir.model.fields,field_description:hr_skills.field_hr_employee_skill__id
+#: model:ir.model.fields,field_description:hr_skills.field_hr_employee_skill_log__id
+#: model:ir.model.fields,field_description:hr_skills.field_hr_employee_skill_report__id
 #: model:ir.model.fields,field_description:hr_skills.field_hr_resume_line__id
 #: model:ir.model.fields,field_description:hr_skills.field_hr_resume_line_type__id
 #: model:ir.model.fields,field_description:hr_skills.field_hr_skill__id
@@ -122,7 +200,17 @@ msgid "ID"
 msgstr "Идентификатор"
 
 #. module: hr_skills
+#: model:ir.model.fields,help:hr_skills.field_hr_skill_level__default_level
+msgid ""
+"If checked, this level will be the default one selected when choosing this "
+"skill."
+msgstr ""
+"Если флажок установлен, этот уровень будет выбран по умолчанию при выборе "
+"данного навыка."
+
+#. module: hr_skills
 #: model:ir.model.fields,field_description:hr_skills.field_hr_employee_skill____last_update
+#: model:ir.model.fields,field_description:hr_skills.field_hr_employee_skill_log____last_update
 #: model:ir.model.fields,field_description:hr_skills.field_hr_resume_line____last_update
 #: model:ir.model.fields,field_description:hr_skills.field_hr_resume_line_type____last_update
 #: model:ir.model.fields,field_description:hr_skills.field_hr_skill____last_update
@@ -133,6 +221,7 @@ msgstr "Последнее изменение"
 
 #. module: hr_skills
 #: model:ir.model.fields,field_description:hr_skills.field_hr_employee_skill__write_uid
+#: model:ir.model.fields,field_description:hr_skills.field_hr_employee_skill_log__write_uid
 #: model:ir.model.fields,field_description:hr_skills.field_hr_resume_line__write_uid
 #: model:ir.model.fields,field_description:hr_skills.field_hr_resume_line_type__write_uid
 #: model:ir.model.fields,field_description:hr_skills.field_hr_skill__write_uid
@@ -143,6 +232,7 @@ msgstr "Последний раз обновил"
 
 #. module: hr_skills
 #: model:ir.model.fields,field_description:hr_skills.field_hr_employee_skill__write_date
+#: model:ir.model.fields,field_description:hr_skills.field_hr_employee_skill_log__write_date
 #: model:ir.model.fields,field_description:hr_skills.field_hr_resume_line__write_date
 #: model:ir.model.fields,field_description:hr_skills.field_hr_resume_line_type__write_date
 #: model:ir.model.fields,field_description:hr_skills.field_hr_skill__write_date
@@ -152,10 +242,20 @@ msgid "Last Updated on"
 msgstr "Последнее обновление"
 
 #. module: hr_skills
+#: model:ir.model.fields,field_description:hr_skills.field_hr_employee_skill_report__level_progress
+msgid "Level Progress"
+msgstr "Прогресс уровня"
+
+#. module: hr_skills
 #: model:ir.model.fields,field_description:hr_skills.field_hr_skill_type__skill_level_ids
 #: model_terms:ir.ui.view,arch_db:hr_skills.hr_employee_skill_type_view_form
 msgid "Levels"
 msgstr "Уровни"
+
+#. module: hr_skills
+#: model:ir.ui.menu,name:hr_skills.hr_resume_line_type_menu
+msgid "Line Types"
+msgstr "Типы линий"
 
 #. module: hr_skills
 #: model:ir.model.fields,field_description:hr_skills.field_hr_resume_line__name
@@ -164,17 +264,25 @@ msgstr "Уровни"
 #: model:ir.model.fields,field_description:hr_skills.field_hr_skill_level__name
 #: model:ir.model.fields,field_description:hr_skills.field_hr_skill_type__name
 msgid "Name"
-msgstr "Название"
+msgstr "Имя"
 
 #. module: hr_skills
-#. openerp-web
-#: code:addons/hr_skills/static/src/js/resume_widget.js:0
+#. odoo-python
+#: code:addons/hr_skills/models/hr_skill_level.py:0
+#, python-format
+msgid "Only one default level is allowed per skill type."
+msgstr ""
+
+#. module: hr_skills
+#. odoo-javascript
+#: code:addons/hr_skills/static/src/views/skills_list_renderer.js:0
 #, python-format
 msgid "Other"
 msgstr "Другое"
 
 #. module: hr_skills
 #: model:ir.model.fields,field_description:hr_skills.field_hr_employee_skill__level_progress
+#: model:ir.model.fields,field_description:hr_skills.field_hr_employee_skill_log__level_progress
 #: model:ir.model.fields,field_description:hr_skills.field_hr_skill_level__level_progress
 msgid "Progress"
 msgstr "Прогресс"
@@ -186,9 +294,15 @@ msgstr "Прогресс (%)"
 
 #. module: hr_skills
 #: model:ir.model.fields,help:hr_skills.field_hr_employee_skill__level_progress
+#: model:ir.model.fields,help:hr_skills.field_hr_employee_skill_log__level_progress
 #: model:ir.model.fields,help:hr_skills.field_hr_skill_level__level_progress
 msgid "Progress from zero knowledge (0%) to fully mastered (100%)."
 msgstr "Прогресс от нулевых знаний (0%) до полного освоения (100%)."
+
+#. module: hr_skills
+#: model:ir.model.constraint,message:hr_skills.constraint_hr_skill_level_check_level_progress
+msgid "Progress should be a number between 0 and 100."
+msgstr "Прогресс должен быть числом от 0 до 100."
 
 #. module: hr_skills
 #: model:ir.model,name:hr_skills.model_hr_employee_public
@@ -203,47 +317,72 @@ msgstr "Государственный служащий"
 #: model_terms:ir.ui.view,arch_db:hr_skills.hr_employee_view_search
 #: model_terms:ir.ui.view,arch_db:hr_skills.res_users_view_form
 #: model_terms:ir.ui.view,arch_db:hr_skills.resume_line_view_form
-msgid "Resumé"
+msgid "Resume"
 msgstr "Резюме"
 
 #. module: hr_skills
 #: model:ir.actions.act_window,name:hr_skills.hr_resume_type_action
-msgid "Resumé Line Types"
-msgstr "Разделы резюме"
-
-#. module: hr_skills
-#. openerp-web
-#: code:addons/hr_skills/static/src/xml/resume_templates.xml:0
-#, python-format
-msgid "Resumé empty"
-msgstr "В резюме ничего нет"
+msgid "Resume Line Types"
+msgstr "Типы строк резюме"
 
 #. module: hr_skills
 #: model:ir.model,name:hr_skills.model_hr_resume_line
-msgid "Resumé line of an employee"
-msgstr "Запись в резюме сотрудника"
+msgid "Resume line of an employee"
+msgstr "Строка резюме сотрудника"
 
 #. module: hr_skills
 #: model:ir.model.fields,field_description:hr_skills.field_hr_employee__resume_line_ids
 #: model:ir.model.fields,field_description:hr_skills.field_hr_employee_public__resume_line_ids
 #: model:ir.model.fields,field_description:hr_skills.field_res_users__resume_line_ids
-msgid "Resumé lines"
-msgstr "Записи резюме"
+msgid "Resume lines"
+msgstr "Строки резюме"
+
+#. module: hr_skills
+#: model_terms:ir.ui.view,arch_db:hr_skills.hr_employee_skill_log_view_search
+msgid "Search Logs"
+msgstr "Найти"
+
+#. module: hr_skills
+#: model_terms:ir.ui.view,arch_db:hr_skills.hr_skill_view_search
+msgid "Search Skill"
+msgstr "Искать навык"
 
 #. module: hr_skills
 #: model:ir.model.fields,field_description:hr_skills.field_hr_resume_line_type__sequence
+#: model:ir.model.fields,field_description:hr_skills.field_hr_skill__sequence
 msgid "Sequence"
 msgstr "Нумерация"
 
 #. module: hr_skills
+#: model_terms:ir.ui.view,arch_db:hr_skills.employee_skill_level_view_tree
+msgid "Set Default"
+msgstr "Установить по умолчанию"
+
+#. module: hr_skills
 #: model:ir.model,name:hr_skills.model_hr_skill
+#: model:ir.model.fields,field_description:hr_skills.field_hr_employee__skill_ids
 #: model:ir.model.fields,field_description:hr_skills.field_hr_employee_skill__skill_id
+#: model:ir.model.fields,field_description:hr_skills.field_hr_employee_skill_log__skill_id
+#: model:ir.model.fields,field_description:hr_skills.field_hr_employee_skill_report__skill_id
+#: model_terms:ir.ui.view,arch_db:hr_skills.hr_employee_skill_log_view_search
+#: model_terms:ir.ui.view,arch_db:hr_skills.hr_employee_skill_report_view_search
+#: model_terms:ir.ui.view,arch_db:hr_skills.hr_skill_view_search
 msgid "Skill"
 msgstr "Навык"
 
 #. module: hr_skills
+#: model:ir.actions.act_window,name:hr_skills.action_hr_employee_skill_log_department
+#: model:ir.actions.act_window,name:hr_skills.action_hr_employee_skill_log_employee
+#: model:ir.actions.server,name:hr_skills.action_open_skills_log_department
+#: model:ir.actions.server,name:hr_skills.action_open_skills_log_employee
+msgid "Skill History Report"
+msgstr "Отчет об истории навыков"
+
+#. module: hr_skills
 #: model:ir.model,name:hr_skills.model_hr_skill_level
 #: model:ir.model.fields,field_description:hr_skills.field_hr_employee_skill__skill_level_id
+#: model:ir.model.fields,field_description:hr_skills.field_hr_employee_skill_log__skill_level_id
+#: model:ir.model.fields,field_description:hr_skills.field_hr_employee_skill_report__skill_level
 #: model_terms:ir.ui.view,arch_db:hr_skills.employee_skill_level_view_form
 msgid "Skill Level"
 msgstr "Уровень навыка"
@@ -257,14 +396,20 @@ msgstr "Уровни навыков"
 #. module: hr_skills
 #: model:ir.model,name:hr_skills.model_hr_skill_type
 #: model:ir.model.fields,field_description:hr_skills.field_hr_employee_skill__skill_type_id
+#: model:ir.model.fields,field_description:hr_skills.field_hr_employee_skill_log__skill_type_id
+#: model:ir.model.fields,field_description:hr_skills.field_hr_employee_skill_report__skill_type_id
 #: model:ir.model.fields,field_description:hr_skills.field_hr_skill__skill_type_id
 #: model:ir.model.fields,field_description:hr_skills.field_hr_skill_level__skill_type_id
+#: model_terms:ir.ui.view,arch_db:hr_skills.hr_employee_skill_log_view_search
+#: model_terms:ir.ui.view,arch_db:hr_skills.hr_employee_skill_report_view_search
 #: model_terms:ir.ui.view,arch_db:hr_skills.hr_employee_skill_type_view_form
+#: model_terms:ir.ui.view,arch_db:hr_skills.hr_skill_view_search
 msgid "Skill Type"
 msgstr "Тип навыка"
 
 #. module: hr_skills
 #: model:ir.actions.act_window,name:hr_skills.hr_skill_type_action
+#: model:ir.ui.menu,name:hr_skills.hr_skill_type_menu
 #: model_terms:ir.ui.view,arch_db:hr_skills.hr_skill_type_view_tree
 msgid "Skill Types"
 msgstr "Типы навыков"
@@ -279,24 +424,36 @@ msgstr "Уровень навыка сотрудника"
 #: model:ir.model.fields,field_description:hr_skills.field_hr_employee_public__employee_skill_ids
 #: model:ir.model.fields,field_description:hr_skills.field_hr_skill_type__skill_ids
 #: model:ir.model.fields,field_description:hr_skills.field_res_users__employee_skill_ids
-#: model:ir.ui.menu,name:hr_skills.hr_skill_type_menu
+#: model:ir.ui.menu,name:hr_skills.hr_employee_skill_report_menu
 #: model_terms:ir.ui.view,arch_db:hr_skills.employee_skill_view_form
 #: model_terms:ir.ui.view,arch_db:hr_skills.hr_employee_public_view_form_inherit
 #: model_terms:ir.ui.view,arch_db:hr_skills.hr_employee_skill_type_view_form
 #: model_terms:ir.ui.view,arch_db:hr_skills.hr_employee_view_form
+#: model_terms:ir.ui.view,arch_db:hr_skills.hr_employee_view_search
 #: model_terms:ir.ui.view,arch_db:hr_skills.hr_skill_view_form
 #: model_terms:ir.ui.view,arch_db:hr_skills.res_users_view_form
 msgid "Skills"
 msgstr "Навыки"
 
 #. module: hr_skills
-#: code:addons/hr_skills/models/hr_skills.py:0
+#: model:ir.model,name:hr_skills.model_hr_employee_skill_log
+#: model_terms:ir.ui.view,arch_db:hr_skills.hr_department_view_kanban
+#: model_terms:ir.ui.view,arch_db:hr_skills.hr_employee_skill_log_view_graph_department
+#: model_terms:ir.ui.view,arch_db:hr_skills.hr_employee_skill_log_view_graph_employee
+#: model_terms:ir.ui.view,arch_db:hr_skills.hr_employee_skill_log_view_tree
+msgid "Skills History"
+msgstr "История навыков"
+
+#. module: hr_skills
+#. odoo-python
+#: code:addons/hr_skills/models/hr_employee_skill.py:0
 #, python-format
 msgid "The skill %(name)s and skill type %(type)s doesn't match"
 msgstr "Навык%(name)sи тип навыка%(type)sне совпадают"
 
 #. module: hr_skills
-#: code:addons/hr_skills/models/hr_skills.py:0
+#. odoo-python
+#: code:addons/hr_skills/models/hr_employee_skill.py:0
 #, python-format
 msgid "The skill level %(level)s is not valid for skill type: %(type)s"
 msgstr "Уровень навыка %(level)s не соответствует типу навыка: %(type)s"
@@ -309,12 +466,18 @@ msgstr "Начальная дата должна быть раньше коне�
 #. module: hr_skills
 #: model_terms:ir.ui.view,arch_db:hr_skills.resume_line_view_form
 msgid "Title"
-msgstr "Обращение"
+msgstr "Заголовок"
 
 #. module: hr_skills
 #: model:ir.model.constraint,message:hr_skills.constraint_hr_employee_skill__unique_skill
 msgid "Two levels for the same skill is not allowed"
 msgstr "Два значения для одного навыка не допускаются"
+
+#. module: hr_skills
+#: model:ir.model.constraint,message:hr_skills.constraint_hr_employee_skill_log__unique_skill_log
+msgid "Two levels for the same skill on the same day is not allowed"
+msgstr ""
+"Два уровня для одного и того же навыка в один и тот же день не допускаются"
 
 #. module: hr_skills
 #: model:ir.model.fields,field_description:hr_skills.field_hr_resume_line__line_type_id
@@ -323,18 +486,13 @@ msgstr "Раздел"
 
 #. module: hr_skills
 #: model:ir.model,name:hr_skills.model_hr_resume_line_type
-msgid "Type of a resumé line"
-msgstr "Раздел резюме"
-
-#. module: hr_skills
-#: model:ir.ui.menu,name:hr_skills.hr_resume_line_type_menu
-msgid "Types"
-msgstr "Разделы резюме"
+msgid "Type of a resume line"
+msgstr "Тип строки резюме"
 
 #. module: hr_skills
 #: model:ir.model,name:hr_skills.model_res_users
-msgid "Users"
-msgstr "Пользователи"
+msgid "User"
+msgstr "Пользователь"
 
 #. module: hr_skills
 #: model_terms:ir.ui.view,arch_db:hr_skills.hr_employee_skill_type_view_form

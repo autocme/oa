@@ -9,7 +9,7 @@ This is the base module to manage the accounting chart for Taiwan in Odoo.
     """,
     "depends": [
         "account",
-        "base_address_city",
+        "base_address_extended",
         "l10n_multilang",
     ],
     "data": [

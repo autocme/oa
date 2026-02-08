@@ -3,18 +3,15 @@ odoo.define('website.snippet.editor', function (require) {
 
 const {qweb, _t, _lt} = require('web.core');
 const Dialog = require('web.Dialog');
-const publicWidget = require('web.public.widget');
 const weSnippetEditor = require('web_editor.snippet.editor');
 const wSnippetOptions = require('website.editor.snippets.options');
-const OdooEditorLib = require('@web_editor/../lib/odoo-editor/src/utils/utils');
+const OdooEditorLib = require('@web_editor/js/editor/odoo-editor/src/utils/utils');
 const getDeepRange = OdooEditorLib.getDeepRange;
 const getTraversedNodes = OdooEditorLib.getTraversedNodes;
 
 const FontFamilyPickerUserValueWidget = wSnippetOptions.FontFamilyPickerUserValueWidget;
 
-weSnippetEditor.SnippetsMenu.include({
-    xmlDependencies: (weSnippetEditor.SnippetsMenu.prototype.xmlDependencies || [])
-        .concat(['/website/static/src/xml/website.editor.xml']),
+const wSnippetMenu = weSnippetEditor.SnippetsMenu.extend({
     events: _.extend({}, weSnippetEditor.SnippetsMenu.prototype.events, {
         'click .o_we_customize_theme_btn': '_onThemeTabClick',
         'click .o_we_animate_text': '_onAnimateTextClick',
@@ -23,6 +20,7 @@ weSnippetEditor.SnippetsMenu.include({
     custom_events: Object.assign({}, weSnippetEditor.SnippetsMenu.prototype.custom_events, {
         'gmap_api_request': '_onGMapAPIRequest',
         'gmap_api_key_request': '_onGMapAPIKeyRequest',
+        'reload_bundles': '_onReloadBundles',
     }),
     tabs: _.extend({}, weSnippetEditor.SnippetsMenu.prototype.tabs, {
         THEME: 'theme',
@@ -38,20 +36,49 @@ weSnippetEditor.SnippetsMenu.include({
      */
     async start() {
         await this._super(...arguments);
-        this.$currentAnimatedText = $();
 
         this.__onSelectionChange = ev => {
             this._toggleAnimatedTextButton();
         };
-        this.ownerDocument.addEventListener('selectionchange', this.__onSelectionChange);
+        this.$body[0].ownerDocument.addEventListener('selectionchange', this.__onSelectionChange);
+
+        // editor_has_snippets is, amongst other things, in charge of hiding the
+        // backend navbar with a CSS animation. But we also need to make it
+        // display: none when the animation finishes for efficiency but also so
+        // that the tour tooltips pointing at the navbar disappear. This could
+        // rely on listening to the transitionend event but it seems more future
+        // proof to just add a delay after which the navbar is hidden.
+        this._hideBackendNavbarTimeout = setTimeout(() => {
+            this.el.ownerDocument.body.classList.add('editor_has_snippets_hide_backend_navbar');
+        }, 500);
     },
     /**
      * @override
      */
     destroy() {
         this._super(...arguments);
-        this.ownerDocument.removeEventListener('selectionchange', this.__onSelectionChange);
-        document.body.classList.remove('o_animated_text_highlighted');
+        this.$body[0].ownerDocument.removeEventListener('selectionchange', this.__onSelectionChange);
+        this.$body[0].classList.remove('o_animated_text_highlighted');
+        clearTimeout(this._hideBackendNavbarTimeout);
+        this.el.ownerDocument.body.classList.remove('editor_has_snippets_hide_backend_navbar');
+    },
+
+    //--------------------------------------------------------------------------
+    // Public
+    //--------------------------------------------------------------------------
+
+    /**
+     * @todo adapt in master. This override will disable the link popover on
+     * "s_share" items in stable versions. It should be replaced simply by
+     * adding the "o_no_link_popover" class in XML.
+     *
+     * @override
+     */
+    async callPostSnippetDrop($target) {
+        if ($target[0].classList.contains('s_share')) {
+            $target[0].classList.add('o_no_link_popover');
+        }
+        return this._super(...arguments);
     },
 
     //--------------------------------------------------------------------------
@@ -68,17 +95,51 @@ weSnippetEditor.SnippetsMenu.include({
         });
         FontFamilyPickerUserValueWidget.prototype.fontVariables = fontVariables;
 
-        const ret = this._super(...arguments);
+        return this._super(...arguments);
+    },
+    /**
+     * @override
+     */
+    _patchForComputeSnippetTemplates($html) {
+        this._super(...arguments);
 
-        // TODO adapt in master. This patches the embed code snippet
-        // in stable versions.
-        const $sbody = this.$snippets.find('[data-snippet="s_embed_code"]');
-        if ($sbody.length) {
-            $sbody[0].classList.remove('o_half_screen_height');
-            $sbody[0].classList.add('pt64', 'pb64');
+        // TODO adapt in master: as a stable fix we decided to introduce a new
+        // option for image in grid mode to change the default "cover" display
+        // into "contain" should the user prefer it. Note: to be sure, this
+        // targets all images but is only displayed if the image acts as a grid
+        // image (parent column has the right class).
+        $html.find('[data-js="WebsiteAnimate"]').eq(0).before($(_.str.sprintf(`
+            <div data-js="GridImage" data-selector="img">
+                <we-select string="%s">
+                    <we-button data-change-grid-image-mode="cover">%s</we-button>
+                    <we-button data-change-grid-image-mode="contain">%s</we-button>
+                </we-select>
+            </div>
+        `, _t("Position"), _t("Cover"), _t("Contain"))));
+        // TODO remove me in master
+        $html.find('[data-attribute-name="interval"]')[0].dataset.attributeName = "bsInterval";
+        // TODO adapt in 17.0: changing the `data-apply-to` attribute of the
+        // grid padding option so it is not applied on inner rows.
+        const $gridPaddingOptions = $html.find('[data-css-property="--grid-item-padding-y"], [data-css-property="--grid-item-padding-x"]');
+        $gridPaddingOptions.attr("data-apply-to", ".row.o_grid_mode");
+
+        // TODO remove in master and adapt XML.
+        const contentAdditionEl = $html.find("#so_content_addition")[0];
+        if (contentAdditionEl) {
+            // Necessary to be able to drop "inner blocks" next to an image link.
+            contentAdditionEl.dataset.dropNear += ", .row > div:not(.o_grid_item_image) > a";
+            // TODO remove in master
+            // The class is added again here even though it has already been
+            // added by the "searchbar_input_snippet_options" template. We are
+            // doing it again because it was mistakenly translated into Dutch.
+            contentAdditionEl.dataset.selector += ", .s_searchbar_input";
+            contentAdditionEl.dataset.dropNear += ", .s_searchbar_input";
         }
-
-        return ret;
+        // TODO remove in master
+        const snippetSaveOptionEl = $html.find("[data-js='SnippetSave']")[0];
+        if (snippetSaveOptionEl) {
+            snippetSaveOptionEl.dataset.selector += ", .s_searchbar_input";
+        }
     },
     /**
      * Depending of the demand, reconfigure they gmap key or configure it
@@ -176,7 +237,7 @@ weSnippetEditor.SnippetsMenu.include({
                 message: !isValid &&
                     _t("Invalid API Key. The following error was returned by Google:") + " " + (await response.text()),
             };
-        } catch (err) {
+        } catch (_err) {
             return {
                 isValid: false,
                 message: _t("Check your connection and try again"),
@@ -195,6 +256,7 @@ weSnippetEditor.SnippetsMenu.include({
                 finalOptions.offsetElements.$top = $header;
             }
         }
+        finalOptions.jQueryDraggableOptions.iframeFix = true;
         return finalOptions;
     },
     /**
@@ -242,12 +304,24 @@ weSnippetEditor.SnippetsMenu.include({
         }
         this.$('#o_we_editor_toolbar_container > we-title > span').after($(`
             <div class="btn fa fa-fw fa-2x o_we_highlight_animated_text d-none
-                ${$('body').hasClass('o_animated_text_highlighted') ? 'fa-eye text-success' : 'fa-eye-slash'}"
+                ${this.$body.hasClass('o_animated_text_highlighted') ? 'fa-eye text-success' : 'fa-eye-slash'}"
                 title="${_t('Highlight Animated Text')}"
                 aria-label="Highlight Animated Text"/>
         `));
         this._toggleAnimatedTextButton();
         this._toggleHighlightAnimatedTextButton();
+    },
+    /**
+    * @override
+    */
+    _checkEditorToolbarVisibility: function (e) {
+        this._super(...arguments);
+        // Close the option's dropdowns manually on outside click if any open.
+        if (this._$toolbarContainer && this._$toolbarContainer.length) {
+            this._$toolbarContainer[0].querySelectorAll(".dropdown-toggle.show").forEach(toggleEl => {
+                Dropdown.getOrCreateInstance(toggleEl).hide();
+            });
+        }
     },
     /**
      * Activates the button to animate text if the selection is in an
@@ -256,12 +330,12 @@ weSnippetEditor.SnippetsMenu.include({
      * @private
      */
     _toggleAnimatedTextButton() {
-        if (!this._isValidSelection(window.getSelection())) {
+        const sel = this.options.wysiwyg.odooEditor.document.getSelection();
+        if (!this._isValidSelection(sel)) {
             return;
         }
         const animatedText = this._getAnimatedTextElement();
         this.$('.o_we_animate_text').toggleClass('active', !!animatedText);
-        this.$currentAnimatedText = animatedText ? $(animatedText) : $();
     },
     /**
      * Displays the button that allows to highlight the animated text if there
@@ -339,7 +413,7 @@ weSnippetEditor.SnippetsMenu.include({
                     el = newEl;
                 }
                 this.bottomFakeOptionEl = el;
-                this.el.appendChild(this.topFakeOptionEl);
+                this.$body[0].appendChild(this.topFakeOptionEl);
             }
 
             // Need all of this in that order so that:
@@ -369,17 +443,52 @@ weSnippetEditor.SnippetsMenu.include({
         }
     },
     /**
+     * @override
+     */
+    _onOptionsTabClick(ev) {
+        if (!ev.currentTarget.classList.contains('active')) {
+            this._activateSnippet(false);
+            this._mutex.exec(async () => {
+                const switchableViews = await new Promise((resolve, reject) => {
+                    this.trigger_up('get_switchable_related_views', {
+                        onSuccess: resolve,
+                        onFailure: reject,
+                    });
+                });
+                if (switchableViews.length) {
+                    // These do not need to be awaited as we're in teh context
+                    // of the mutex.
+                    this._activateSnippet(this.$body.find('#wrapwrap > main'));
+                    return;
+                }
+                let $pageOptionsTarget = $();
+                let i = 0;
+                const pageOptions = this.templateOptions.filter(template => template.data.pageOptions);
+                while (!$pageOptionsTarget.length && i < pageOptions.length) {
+                    $pageOptionsTarget = pageOptions[i].selector.all();
+                    i++;
+                }
+                if ($pageOptionsTarget.length) {
+                    this._activateSnippet($pageOptionsTarget);
+                } else {
+                    this._activateEmptyOptionsTab();
+                }
+            });
+        }
+    },
+    /**
      * @private
      */
     _onAnimateTextClick(ev) {
-        const sel = window.getSelection();
+        const sel = this.options.wysiwyg.odooEditor.document.getSelection();
         if (!this._isValidSelection(sel)) {
             return;
         }
         const editable = this.options.wysiwyg.$editable[0];
         const range = getDeepRange(editable, { splitText: true, select: true, correctTripleClick: true });
-        if (this.$currentAnimatedText.length) {
-            this.$currentAnimatedText.contents().unwrap();
+        const animatedText = this._getAnimatedTextElement();
+        if (animatedText) {
+            $(animatedText).contents().unwrap();
             this.options.wysiwyg.odooEditor.historyResetLatestComputedSelection();
             this._toggleHighlightAnimatedTextButton();
             ev.target.classList.remove('active');
@@ -394,7 +503,7 @@ weSnippetEditor.SnippetsMenu.include({
             try {
                 range.surroundContents(animatedTextEl);
                 $snippet = $(animatedTextEl);
-            } catch (e) {
+            } catch (_e) {
                 // This try catch is needed because 'surroundContents' may
                 // fail when the range has partially selected a non-Text node.
                 if (range.commonAncestorContainer.textContent === range.toString()) {
@@ -423,8 +532,47 @@ weSnippetEditor.SnippetsMenu.include({
      * @private
      */
     _onHighlightAnimatedTextClick(ev) {
-        $('body').toggleClass('o_animated_text_highlighted');
+        this.$body.toggleClass('o_animated_text_highlighted');
         $(ev.target).toggleClass('fa-eye fa-eye-slash').toggleClass('text-success');
+    },
+    /**
+     * On reload bundles, when it's from the theme tab, destroy any
+     * snippetEditor as they might hold outdated style values. (e.g. color palettes).
+     * We do not destroy the Theme tab editors as they should have the correct
+     * values with their compute widget states.
+     * NOTE: This is a bit janky, _computeWidgetState should modify the
+     * option's widget to reflect the style accordingly. But since
+     * color_palette widget is independent of the UserValueWidget, it's hard to
+     * modify its style using the options events.
+     *
+     * @private
+     */
+    _onReloadBundles(ev) {
+        const excludeSelector = this.optionsTabStructure.map(element => element[0]).join(', ');
+        for (const editor of this.snippetEditors) {
+            if (!editor.$target[0].matches(excludeSelector)) {
+                if (this._currentTab === this.tabs.THEME) {
+                    this._mutex.exec(() => {
+                        editor.destroy();
+                    });
+                } else {
+                    this._mutex.exec(async () => {
+                        // TODO In master: add a rerender parameter to
+                        // updateOptionsUI.
+                        Object.values(editor.styles).map(opt => {
+                            opt.rerender = true;
+                        });
+                        await editor.updateOptionsUI();
+                        Object.values(editor.styles).map(opt => {
+                            if (opt.rerender) {
+                                // 'rerender' was irrelevant for option.
+                                delete opt.rerender;
+                            }
+                        });
+                    });
+                }
+            }
+        }
     },
 });
 
@@ -444,67 +592,31 @@ weSnippetEditor.SnippetEditor.include({
         }
         return this._super(...arguments);
     },
-});
-
-// Edit mode customizations of public widgets.
-
-publicWidget.registry.hoverableDropdown.include({
-
-    //--------------------------------------------------------------------------
-    // Private
-    //--------------------------------------------------------------------------
-    
     /**
-     * Hides all opened dropdowns.
+     * Changes some behaviors before the drag and drop.
      *
-     * TODO: Remove in master.
      * @private
-     */
-    _hideDropdowns() {
-        for (const toggleEl of this.el.querySelectorAll('.dropdown.show .dropdown-toggle')) {
-            $(toggleEl).dropdown('hide');
-        }
-    },
-
-    //--------------------------------------------------------------------------
-    // Handlers
-    //--------------------------------------------------------------------------
-
-    /**
-     * Called when the page is clicked anywhere.
-     * Closes the shown dropdown if the click is outside of it.
-     *
-     * TODO: Remove in master.
-     * @private
-     * @param {Event} ev
-     */
-    _onPageClick(ev) {
-        if (ev.target.closest('.dropdown.show')) {
-            return;
-        }
-        this._hideDropdowns();
-    },
-    /**
      * @override
+     * @returns {Function} a function that restores what was changed when the
+     *  drag and drop is over.
      */
-    _onMouseEnter(ev) {
-        if (this.editableMode) {
-            // Do not handle hover if another dropdown is opened.
-            if (this.el.querySelector('.dropdown.show')) {
-                return;
-            }
+    _prepareDrag() {
+        const restore = this._super(...arguments);
+        // Remove the footer scroll effect if it has one (because the footer
+        // dropzone flickers otherwise when it is in grid mode).
+        const wrapwrapEl = this.$body[0].ownerDocument.defaultView.document.body.querySelector('#wrapwrap');
+        const hasFooterScrollEffect = wrapwrapEl && wrapwrapEl.classList.contains('o_footer_effect_enable');
+        if (hasFooterScrollEffect) {
+            wrapwrapEl.classList.remove('o_footer_effect_enable');
+            return () => {
+                wrapwrapEl.classList.add('o_footer_effect_enable');
+                restore();
+            };
         }
-        this._super(...arguments);
-    },
-    /**
-     * @override
-     */
-    _onMouseLeave(ev) {
-        if (this.editableMode) {
-            // Cancel handling from view mode.
-            return;
-        }
-        this._super(...arguments);
+        return restore;
     },
 });
+return {
+    SnippetsMenu: wSnippetMenu,
+};
 });

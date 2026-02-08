@@ -43,7 +43,7 @@ class TestChartTemplate(TransactionCase):
                 {
                     'name': 'property_income_account',
                     'code': '222221',
-                    'user_type_id': cls.env.ref('account.data_account_type_revenue').id,
+                    'account_type': 'income',
                     'chart_template_id': cls.chart_template.id,
                 }
         }, {
@@ -52,7 +52,7 @@ class TestChartTemplate(TransactionCase):
                 {
                     'name': 'property_expense_account',
                     'code': '222222',
-                    'user_type_id': cls.env.ref('account.data_account_type_expenses').id,
+                    'account_type': 'expense',
                     'chart_template_id': cls.chart_template.id,
                 }
         }])
@@ -107,7 +107,7 @@ class TestChartTemplate(TransactionCase):
             account_vals = {
                 'name': account_data['name'],
                 'code': account_data['code'],
-                'user_type_id': cls.env.ref('account.data_account_type_current_liabilities').id,
+                'account_type': 'liability_current',
             }
             # We have to instantiate both the template and the record since we suppose accounts are already created.
             account_template = cls.env['account.account.template'].create(account_vals)
@@ -377,6 +377,17 @@ class TestChartTemplate(TransactionCase):
             ('model', '=', 'account.tax'),
         ])
         self.assertEqual(len(tax_test_model_data), 1, "Taxes should have been created even if the chart_template is installed through fiscal position system.")
+
+    def test_update_taxes_chart_template_country_check(self):
+        """ We can't update taxes that don't match the chart_template's country. """
+        self.company.chart_template_id.country_id = self.env.ref('base.lu')
+        # Generic chart_template is now (16.0+) in US so we also need to set fiscal country elsewhere for this test to fail as expected
+        self.company.account_fiscal_country_id = self.env.ref('base.lu')
+        # We provoke one recreation and one update
+        self.tax_template_1.amount += 1
+        self.tax_template_2.invoice_repartition_line_ids.tag_ids.name = 'tag_name_2_modified'
+        with self.assertRaises(ValidationError):
+            update_taxes_from_templates(self.env.cr, self.chart_template_xmlid)
 
     def test_update_taxes_fiscal_country_check(self):
         """ If there is no country set on chart_template, the taxes can only be updated if

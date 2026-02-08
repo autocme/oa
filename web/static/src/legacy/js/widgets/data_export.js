@@ -87,7 +87,7 @@ var DataExport = Dialog.extend({
                 cursor: 'grabbing',
                 handle: '.o_short_field',
                 forcePlaceholderSize: true,
-                placeholder: 'o-field-placeholder',
+                placeholder: 'o-field-placeholder bg-light border border-primary',
                 update: self.proxy('_resetTemplateField'),
             });
         });
@@ -105,7 +105,7 @@ var DataExport = Dialog.extend({
                     $label.html(_.str.sprintf("%s — %s", format.label, format.error));
                 }
 
-                $fmts.append($("<div class='radio form-check form-check-inline pl-4'></div>").append($radio, $label));
+                $fmts.append($("<div class='radio form-check-inline ps-4'></div>").append($radio, $label));
             });
 
             self.$exportFormatInputs = $fmts.find('input');
@@ -144,7 +144,7 @@ var DataExport = Dialog.extend({
                 $('<li>', {'class': 'o_export_field', 'data-field_id': fieldID}).append(
                     $('<span>', {'class': "fa fa-sort o_short_field mx-1"}),
                     label.trim(),
-                    $('<span>', {'class': 'fa fa-trash m-1 pull-right o_remove_field', 'title': _t("Remove field")})
+                    $('<span>', {'class': 'o_remove_field cursor-pointer fa fa-trash m-1 float-end ', 'title': _t("Remove field")})
                 )
             );
         }
@@ -256,7 +256,7 @@ var DataExport = Dialog.extend({
                 .after(QWeb.render('Export.TreeItems', {fields: records, debug: config.isDebug()}));
         } else {
             this.$('.o_left_field_panel').empty().append(
-                $('<div/>').addClass('o_field_tree_structure')
+                $('<div/>').addClass('o_field_tree_structure my-2')
                            .append(QWeb.render('Export.TreeItems', {fields: records, debug: config.isDebug()}))
             );
         }
@@ -265,7 +265,7 @@ var DataExport = Dialog.extend({
         this.$records = this.$('.o_export_tree_item');
         this.$records.each(function (i, el) {
             var $el = $(el);
-            $el.find('.o_tree_column').first().toggleClass('o_required', !!self.records[$el.data('id')].required);
+            $el.find('.o_tree_column').first().toggleClass('o_required fw-bolder', !!self.records[$el.data('id')].required);
         });
     },
     /**
@@ -397,10 +397,14 @@ var DataExport = Dialog.extend({
             self._onShowData(records);
             self.$('.o_fields_list').empty();
 
+            const forceDefaultExportFields = records.filter(r => r.default_export).map(r => r.id);
+
             _.chain(self.$fieldsList.find('.o_export_field'))
             .map(function (field) { return $(field).data('field_id'); })
+            .union(forceDefaultExportFields)
             .union(self.defaultExportFields)
             .intersection(compatibleFields)
+            .uniq()
             .each(function (field) {
                 var record = _.find(records, function (rec) {
                     return rec.id === field;

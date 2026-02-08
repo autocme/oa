@@ -37,7 +37,7 @@ const _DialogLinkWidget = Link.extend({
         var data = this._getData();
         if (data === null) {
             var $url = this.$('input[name="url"]');
-            $url.closest('.form-group').addClass('o_has_error').find('.form-control, .custom-select').addClass('is-invalid');
+            $url.closest('.o_url_input').addClass('o_has_error').find('.form-control, .form-select').addClass('is-invalid');
             $url.focus();
             return Promise.reject();
         }
@@ -90,7 +90,7 @@ const _DialogLinkWidget = Link.extend({
      * @override
      */
     _getIsNewWindowFormRow() {
-        return this.$('input[name="is_new_window"]').closest('.form-group');
+        return this.$('input[name="is_new_window"]').closest('.row');
     },
     /**
      * @override
@@ -132,7 +132,7 @@ const _DialogLinkWidget = Link.extend({
             const Url = URL || window.URL || window.webkitURL;
             const urlObj = url.startsWith('/') ? new Url(url, window.location.origin) : new Url(url);
             return (urlObj.origin !== window.location.origin);
-        } catch (ignored) {
+        } catch (_ignored) {
             return true;
         }
     },
@@ -181,7 +181,7 @@ const _DialogLinkWidget = Link.extend({
      */
     _onURLInput: function () {
         this._super(...arguments);
-        this.$('#o_link_dialog_url_input').closest('.form-group').removeClass('o_has_error').find('.form-control, .custom-select').removeClass('is-invalid');
+        this.$('#o_link_dialog_url_input').closest('.o_url_input').removeClass('o_has_error').find('.form-control, .form-select').removeClass('is-invalid');
         this._adaptPreview();
     },
 });
@@ -192,7 +192,7 @@ const _DialogLinkWidget = Link.extend({
 const LinkDialog = Dialog.extend({
     init: function (parent, ...args) {
         this._super(...arguments);
-        this.linkWidget = new _DialogLinkWidget(this, ...args);
+        this.linkWidget = this.getLinkWidget(...args);
     },
     start: async function () {
         const res = await this._super(...arguments);
@@ -203,6 +203,16 @@ const LinkDialog = Dialog.extend({
     //--------------------------------------------------------------------------
     // Public
     //--------------------------------------------------------------------------
+
+    /**
+     * Returns an instance of the widget that will be attached to the body of the
+     * link dialog. One may overwrite this function and return an instance of
+     * another widget to change the default logic.
+     * @param {...any} args
+     */
+    getLinkWidget: function (...args) {
+        return new _DialogLinkWidget(this, ...args);
+    },
 
     /**
      * @override

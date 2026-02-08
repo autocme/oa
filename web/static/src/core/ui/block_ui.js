@@ -2,7 +2,7 @@
 
 import { browser } from "@web/core/browser/browser";
 
-const { Component, tags, useState } = owl;
+import { Component, useState, xml } from "@odoo/owl";
 
 export class BlockUI extends Component {
     setup() {
@@ -42,8 +42,8 @@ export class BlockUI extends Component {
             line2: "",
         });
 
-        this.props.bus.on("BLOCK", this, this.block);
-        this.props.bus.on("UNBLOCK", this, this.unblock);
+        this.props.bus.addEventListener("BLOCK", this.block.bind(this));
+        this.props.bus.addEventListener("UNBLOCK", this.unblock.bind(this));
     }
 
     replaceMessage(index) {
@@ -70,15 +70,15 @@ export class BlockUI extends Component {
     }
 }
 
-BlockUI.template = tags.xml`
-    <div t-att-class="state.blockUI ? 'o_blockUI' : ''">
+BlockUI.template = xml`
+    <div t-att-class="state.blockUI ? 'o_blockUI fixed-top d-flex justify-content-center align-items-center flex-column vh-100 bg-black-50' : ''">
       <t t-if="state.blockUI">
-        <div class="o_spinner">
-            <img src="/web/static/img/spin.png" alt="Loading..."/>
+        <div class="o_spinner mb-4">
+            <img src="/web/static/img/spin.svg" alt="Loading..."/>
         </div>
-        <div class="o_message">
-            <t t-raw="state.line1"/> <br/>
-            <t t-raw="state.line2"/>
+        <div class="o_message text-center px-4">
+            <t t-esc="state.line1"/> <br/>
+            <t t-esc="state.line2"/>
         </div>
       </t>
     </div>`;

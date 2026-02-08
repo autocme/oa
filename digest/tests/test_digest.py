@@ -85,8 +85,8 @@ class TestDigest(mail_test.MailCommon):
         counter = itertools.count()
 
         now = fields.Datetime.now()
-        for count, (low, high) in [(3, (0 * 24,  1 * 24)),
-                                   (5, (1 * 24,  7 * 24)),
+        for count, (low, high) in [(3, (0 * 24, 1 * 24)),
+                                   (5, (1 * 24, 7 * 24)),
                                    (7, (7 * 24, 27 * 24)),
                                   ]:
             for _ in range(count):
@@ -101,7 +101,7 @@ class TestDigest(mail_test.MailCommon):
                     # range limit and dropping out of the digest's selection thing
                     create_date=create_date,
                 )
-        messages.flush()
+        cls.env.flush_all()
 
     @classmethod
     def _setup_logs_for_users(cls, res_users, log_dt):
@@ -131,7 +131,7 @@ class TestDigest(mail_test.MailCommon):
 
         # digest creates its mails in auto_delete mode so we need to capture
         # the formatted body during the sending process
-        digest.flush()
+        digest.flush_recordset()
         with self.mock_mail_gateway():
             digest.action_send()
 
@@ -162,7 +162,7 @@ class TestDigest(mail_test.MailCommon):
         )
 
         # unsubscribe
-        digest_user.action_unsubcribe()
+        digest_user.action_unsubscribe()
         self.assertFalse(digest_user.is_subscribed)
 
     @users('admin')
@@ -203,7 +203,7 @@ class TestDigest(mail_test.MailCommon):
 
         # no logs for employee but for admin -> should tone down periodicity of
         # first digest, not the second one (admin being subscribed)
-        digests.flush()
+        digests.flush_recordset()
         current_dt = self.reference_datetime + relativedelta(days=1)
         with self.mock_datetime_and_now(current_dt), \
              self.mock_mail_gateway():

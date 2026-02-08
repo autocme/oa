@@ -42,6 +42,9 @@ class WebsiteForm(http.Controller):
             # what has been done inside the try clause.
             with request.env.cr.savepoint():
                 if request.env['ir.http']._verify_request_recaptcha_token('website_form'):
+                    # request.params was modified, update kwargs to reflect the changes
+                    kwargs = dict(request.params)
+                    kwargs.pop('model_name')
                     return self._handle_website_form(model_name, **kwargs)
             error = _("Suspicious activity detected by Google reCaptcha.")
         except (ValidationError, UserError) as e:
@@ -58,11 +61,11 @@ class WebsiteForm(http.Controller):
             })
 
         try:
-            data = self.extract_data(model_record, request.params)
+            data = self.extract_data(model_record, kwargs)
         # If we encounter an issue while extracting data
         except ValidationError as e:
             # I couldn't find a cleaner way to pass data to an exception
-            return json.dumps({'error_fields' : e.args[0]})
+            return json.dumps({'error_fields': e.args[0]})
 
         try:
             id_record = self.insert_record(request, model_record, data['record'], data['custom'], data.get('meta'))
@@ -122,7 +125,7 @@ class WebsiteForm(http.Controller):
         return [int(i) for i in field_input.split(',')]
 
     def many2many(self, field_label, field_input, *args):
-        return [(args[0] if args else (6,0)) + (self.one2many(field_label, field_input),)]
+        return [(args[0] if args else (6, 0)) + (self.one2many(field_label, field_input),)]
 
     _input_filters = {
         'char': identity,
@@ -132,7 +135,7 @@ class WebsiteForm(http.Controller):
         'datetime': identity,
         'many2one': integer,
         'one2many': one2many,
-        'many2many':many2many,
+        'many2many': many2many,
         'selection': identity,
         'boolean': boolean,
         'integer': integer,
@@ -140,7 +143,6 @@ class WebsiteForm(http.Controller):
         'binary': binary,
         'monetary': floating,
     }
-
 
     # Extract all data sent by the form and sort its on several properties
     def extract_data(self, model, values):
@@ -177,7 +179,7 @@ class WebsiteForm(http.Controller):
                 # If it's not, we'll use attachments instead
                 if field_name in authorized_fields and authorized_fields[field_name]['type'] == 'binary':
                     data['record'][field_name] = base64.b64encode(field_value.read())
-                    field_value.stream.seek(0) # do not consume value forever
+                    field_value.stream.seek(0)  # do not consume value forever
                     if authorized_fields[field_name]['manual'] and field_name + "_filename" in dest_model:
                         data['record'][field_name + "_filename"] = field_value.filename
                 else:
@@ -211,10 +213,10 @@ class WebsiteForm(http.Controller):
         if request.env['ir.config_parameter'].sudo().get_param('website_form_enable_metadata'):
             environ = request.httprequest.headers.environ
             data['meta'] += "%s : %s\n%s : %s\n%s : %s\n%s : %s\n" % (
-                "IP"                , environ.get("REMOTE_ADDR"),
-                "USER_AGENT"        , environ.get("HTTP_USER_AGENT"),
-                "ACCEPT_LANGUAGE"   , environ.get("HTTP_ACCEPT_LANGUAGE"),
-                "REFERER"           , environ.get("HTTP_REFERER")
+                "IP", environ.get("REMOTE_ADDR"),
+                "USER_AGENT", environ.get("HTTP_USER_AGENT"),
+                "ACCEPT_LANGUAGE", environ.get("HTTP_ACCEPT_LANGUAGE"),
+                "REFERER", environ.get("HTTP_REFERER")
             )
 
         # This function can be defined on any model to provide
@@ -226,7 +228,7 @@ class WebsiteForm(http.Controller):
         if hasattr(dest_model, "website_form_input_filter"):
             data['record'] = dest_model.website_form_input_filter(request, data['record'])
 
-        missing_required_fields = [label for label, field in authorized_fields.items() if field['required'] and not label in data['record']]
+        missing_required_fields = [label for label, field in authorized_fields.items() if field['required'] and label not in data['record']]
         if any(error_fields):
             raise ValidationError(error_fields + missing_required_fields)
 
@@ -248,8 +250,8 @@ class WebsiteForm(http.Controller):
             default_field = model.website_form_default_field_id
             default_field_data = values.get(default_field.name, '')
             custom_content = (default_field_data + "\n\n" if default_field_data else '') \
-                           + (_custom_label + custom + "\n\n" if custom else '') \
-                           + (self._meta_label + "\n________\n\n" + meta if meta else '')
+                + (_custom_label + custom + "\n\n" if custom else '') \
+                + (self._meta_label + "\n________\n\n" + meta if meta else '')
 
             # If there is a default field configured for this model, use it.
             # If there isn't, put the custom data in a message instead
@@ -264,7 +266,7 @@ class WebsiteForm(http.Controller):
                     'message_type': 'comment',
                     'res_id': record.id,
                 }
-                mail_id = request.env['mail.message'].with_user(SUPERUSER_ID).create(values)
+                request.env['mail.message'].with_user(SUPERUSER_ID).create(values)
 
         return record.id
 
@@ -304,7 +306,7 @@ class WebsiteForm(http.Controller):
                     'attachment_ids': [(6, 0, orphan_attachment_ids)],
                     'subtype_id': request.env['ir.model.data']._xmlid_to_res_id('mail.mt_comment'),
                 }
-                mail_id = request.env['mail.message'].with_user(SUPERUSER_ID).create(values)
+                request.env['mail.message'].with_user(SUPERUSER_ID).create(values)
         else:
             # If the model is mail.mail then we have no other choice but to
             # attach the custom binary field files on the attachment_ids field.

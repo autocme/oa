@@ -1,9 +1,9 @@
 /** @odoo-module alias=web.searchPanel **/
 
     import { Model, useModel } from "web.Model";
+    import { LegacyComponent } from "@web/legacy/legacy_component";
 
-    const { Component, hooks } = owl;
-    const { useState, useSubEnv } = hooks;
+    const { onMounted, onWillStart, onWillUpdateProps, useRef, useState, useSubEnv } = owl;
 
     /**
      * Search panel
@@ -15,7 +15,7 @@
      * Its state is directly affected by its model (@see SearchPanelModelExtension).
      * @extends Component
      */
-    class SearchPanel extends Component {
+    class SearchPanel extends LegacyComponent {
         setup() {
             useSubEnv({ searchModel: this.props.searchModel });
 
@@ -28,22 +28,24 @@
             this.hasImportedState = false;
 
             this.importState(this.props.importedState);
-        }
 
-        async willStart() {
-            this._expandDefaultValue();
-            this._updateActiveValues();
-        }
+            this.legacySearchPanelRef = useRef("legacySearchPanel");
 
-        mounted() {
-            this._updateGroupHeadersChecked();
-            if (this.hasImportedState) {
-                this.el.scroll({ top: this.scrollTop });
-            }
-        }
+            onWillStart(async () => {
+                this._expandDefaultValue();
+                this._updateActiveValues();
+            });
 
-        async willUpdateProps() {
-            this._updateActiveValues();
+            onMounted(() => {
+                this._updateGroupHeadersChecked();
+                if (this.hasImportedState && this.legacySearchPanelRef.el) {
+                    this.legacySearchPanelRef.el.scroll({ top: this.scrollTop });
+                }
+            });
+
+            onWillUpdateProps(async () => {
+                this._updateActiveValues();
+            });
         }
 
         //---------------------------------------------------------------------
@@ -61,7 +63,7 @@
         exportState() {
             const exported = {
                 expanded: this.state.expanded,
-                scrollTop: this.el.scrollTop,
+                scrollTop: this.legacySearchPanelRef.el ? this.legacySearchPanelRef.el.scrollTop : 0,
             };
             return JSON.stringify(exported);
         }
@@ -191,7 +193,10 @@
          * @private
          */
         _updateGroupHeadersChecked() {
-            const groups = this.el.querySelectorAll(":scope .o_search_panel_filter_group");
+            if (!this.legacySearchPanelRef.el) {
+                return;
+            }
+            const groups = this.legacySearchPanelRef.el.querySelectorAll(":scope .o_search_panel_filter_group");
             for (const group of groups) {
                 const header = group.querySelector(":scope .o_search_panel_group_header input");
                 const vals = [...group.querySelectorAll(":scope .o_search_panel_filter_value input")];

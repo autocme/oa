@@ -4,7 +4,6 @@ odoo.define('portal.portal', function (require) {
 var publicWidget = require('web.public.widget');
 const Dialog = require('web.Dialog');
 const {_t, qweb} = require('web.core');
-const ajax = require('web.ajax');
 const session = require('web.session');
 
 publicWidget.registry.portalDetails = publicWidget.Widget.extend({
@@ -71,26 +70,50 @@ publicWidget.registry.PortalHomeCounters = publicWidget.Widget.extend({
     //--------------------------------------------------------------------------
 
     /**
+     * Return a list of counters name linked to a line that we want to keep
+     * regardless of the number of documents present
+     * @private
+     * @returns {Array}
+     */
+    _getCountersAlwaysDisplayed() {
+        return [];
+    },
+
+    /**
      * @private
      */
     async _updateCounters(elem) {
         const numberRpc = 3;
-        const needed = this.$('[data-placeholder_count]')
-                                .map((i, o) => $(o).data('placeholder_count'))
-                                .toArray();
+        const needed = Object.values(this.el.querySelectorAll('[data-placeholder_count]'))
+                                .map(documentsCounterEl => documentsCounterEl.dataset['placeholder_count']);
         const counterByRpc = Math.ceil(needed.length / numberRpc);  // max counter, last can be less
+        const countersAlwaysDisplayed = this._getCountersAlwaysDisplayed();
 
         const proms = [...Array(Math.min(numberRpc, needed.length)).keys()].map(async i => {
-            await this._rpc({
+            const documentsCountersData = await this._rpc({
                 route: "/my/counters",
                 params: {
                     counters: needed.slice(i * counterByRpc, (i + 1) * counterByRpc)
                 },
-            }).then(data => {
-                Object.keys(data).map(k => this.$("[data-placeholder_count='" + k + "']").text(data[k]));
             });
+            Object.keys(documentsCountersData).forEach(counterName => {
+                const documentsCounterEl = this.el.querySelector(`[data-placeholder_count='${counterName}']`);
+                documentsCounterEl.textContent = documentsCountersData[counterName];
+                // The element is hidden by default, only show it if its counter is > 0 or if it's in the list of counters always shown
+                if (documentsCountersData[counterName] !== 0 || countersAlwaysDisplayed.includes(counterName)) {
+                    documentsCounterEl.parentElement.classList.remove('d-none');
+                }
+            });
+            return documentsCountersData;
         });
-        return Promise.all(proms);
+        return Promise.all(proms).then((results) => {
+            const counters = results.reduce((prev, current) => Object.assign({...prev, ...current}), {});
+            this.el.querySelector('.o_portal_doc_spinner').remove();
+            // Display a message when there are no documents available if there are no counters > 0 and no counters always shown
+            if (!countersAlwaysDisplayed.length && !Object.values(counters).filter((val) => val > 0).length) {
+                this.el.querySelector('.o_portal_no_doc_message').classList.remove('d-none');
+            }
+        });
     },
 });
 
@@ -175,7 +198,6 @@ publicWidget.registry.NewAPIKeyButton = publicWidget.Widget.extend({
             method: 'api_key_wizard',
             args: [session.user_id],
         }));
-        await ajax.loadXML('/portal/static/src/xml/portal_security.xml', qweb);
         const self = this;
         const d_description = new Dialog(self, {
             title: _t('New API Key'),
@@ -238,6 +260,30 @@ publicWidget.registry.RemoveAPIKeyButton = publicWidget.Widget.extend({
     }
 });
 
+publicWidget.registry.portalSecurity = publicWidget.Widget.extend({
+    selector: '.o_portal_security_body',
+
+    /**
+     * @override
+     */
+    init: function () {
+        // Show the "deactivate your account" modal if needed
+        $('.modal.show#portal_deactivate_account_modal').removeClass('d-block').modal('show');
+
+        // Remove the error messages when we close the modal,
+        // so when we re-open it again we get a fresh new form
+        $('.modal#portal_deactivate_account_modal').on('hide.bs.modal', (event) => {
+            const $target = $(event.currentTarget);
+            $target.find('.alert').remove();
+            $target.find('.invalid-feedback').remove();
+            $target.find('.is-invalid').removeClass('is-invalid');
+        });
+
+        return this._super(...arguments);
+    },
+
+});
+
 /**
  * Wraps an RPC call in a check for the result being an identity check action
  * descriptor. If no such result is found, just returns the wrapped promise's
@@ -257,7 +303,7 @@ function handleCheckIdentity(rpc, wrapped) {
             return r;
         }
         const check_id = r.res_id;
-        return ajax.loadXML('/portal/static/src/xml/portal_security.xml', qweb).then(() => new Promise((resolve, reject) => {
+        return new Promise((resolve, reject) => {
             const d = new Dialog(null, {
                 title: _t("Security Control"),
                 $content: qweb.render('portal.identitycheck'),
@@ -308,7 +354,7 @@ function handleCheckIdentity(rpc, wrapped) {
                 });
             });
             d.open();
-        }));
+        });
     });
 }
 return {

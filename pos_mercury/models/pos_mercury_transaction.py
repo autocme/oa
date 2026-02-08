@@ -60,7 +60,7 @@ class MercuryTransaction(models.Model):
       <mer:pw>{password}</mer:pw>
     </mer:CreditTransaction>
   </soapenv:Body>
-</soapenv:Envelope>''').format(transaction=str(self.env.ref(template)._render(data)), password=data['merchant_pwd'])
+</soapenv:Envelope>''').format(transaction=str(self.env['ir.qweb']._render(template, data)), password=data['merchant_pwd'])
 
         response = ''
 

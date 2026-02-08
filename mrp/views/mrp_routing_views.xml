@@ -7,15 +7,17 @@
             <field name="model">mrp.routing.workcenter</field>
             <field name="arch" type="xml">
                 <tree string="Routing Work Centers" multi_edit="1">
+                    <field name="company_id" invisible="1"/>
                     <field name="name"/>
                     <field name="bom_id"/>
                     <field name="workcenter_id"/>
                     <field name="time_mode" optional="show"/>
                     <field name="time_computed_on" optional="hide"/>
                     <field name="time_cycle" widget="float_time" string="Duration (minutes)" width="1.5"/>
-                    <field name="company_id" optional="show" groups="base.group_multi_company"/>
+                    <field name="company_id" optional="hide" groups="base.group_multi_company"/>
                     <field name="possible_bom_product_template_attribute_value_ids" invisible="1"/>
                     <field name="bom_product_template_attribute_value_ids" optional="hide" widget="many2many_tags" options="{'no_create': True}" groups="product.group_product_variant"/>
+                    <field name="blocked_by_operation_ids" widget="many2many_tags" optional="hide" groups="mrp.group_mrp_workorder_dependencies"/>
                 </tree>
             </field>
         </record>
@@ -30,6 +32,12 @@
                 <xpath expr="//tree" position="attributes">
                     <attribute name="delete">0</attribute>
                 </xpath>
+                <xpath expr="//tree" position="inside">
+                    <control>
+                        <create string="Add a line"/>
+                        <button name="copy_existing_operations" class="btn-link" type="object" string="Copy Existing Operations" context="{'bom_id': parent.id}"/>
+                    </control>
+                </xpath>
                 <xpath expr="//field[@name='name']" position="before">
                     <field name="sequence" widget="handle"/>
                 </xpath>
@@ -41,7 +49,13 @@
                     <attribute name="attrs">{'column_invisible': [('parent.product_id', '!=', False)]}</attribute>
                 </xpath>
                 <xpath expr="//field[@name='bom_product_template_attribute_value_ids']" position="after">
-                    <button name="action_archive" class="btn-link" type="object" icon="fa-times"/>
+                    <button name="action_archive" class="oe_right" type="object" string="Archive Operation"/>
+                </xpath>
+                <xpath expr="//field[@name='blocked_by_operation_ids']" position="replace">
+                </xpath>
+                <xpath expr="//field[@name='name']" position="after">
+                    <field name="bom_id" invisible="1"/>
+                    <field name="blocked_by_operation_ids" widget="many2many_tags" optional="hide" attrs="{'column_invisible': [('parent.allow_operation_dependencies', '=', False)]}"/>
                 </xpath>
             </field>
         </record>
@@ -76,12 +90,14 @@
                         <group>
                             <group name="description">
                                 <field name="active" invisible="1"/>
+                                <field name="company_id" invisible="1"/>
                                 <field name="name"/>
-                                <field name="sequence" invisible="1"/>
-                                <field name="bom_id" invisible="context.get('bom_id_invisible', False)" domain="[]"/>
+                                <field name="bom_id" invisible="context.get('bom_id_invisible', False)" domain="[]" readonly="context.get('default_bom_id', False)"/>
                                 <field name="workcenter_id" context="{'default_company_id': company_id}"/>
                                 <field name="possible_bom_product_template_attribute_value_ids" invisible="1"/>
                                 <field name="bom_product_template_attribute_value_ids" widget="many2many_tags" options="{'no_create': True}" groups="product.group_product_variant"/>
+                                <field name="allow_operation_dependencies" invisible="1"/>
+                                <field name="blocked_by_operation_ids" widget="many2many_tags" context="{'default_bom_id':bom_id}" attrs="{'invisible': [('allow_operation_dependencies', '=', False)]}"/>
                             </group><group name="workorder">
                                 <field name="workorder_count" invisible="1"/>
                                 <field name="time_mode" widget="radio"/>

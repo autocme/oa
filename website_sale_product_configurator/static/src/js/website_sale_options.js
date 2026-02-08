@@ -4,7 +4,7 @@ odoo.define('website_sale_options.website_sale', function (require) {
 var ajax = require('web.ajax');
 var core = require('web.core');
 var publicWidget = require('web.public.widget');
-var OptionalProductsModal = require('sale_product_configurator.OptionalProductsModal');
+var { OptionalProductsModal } = require('@sale_product_configurator/js/product_configurator_modal');
 require('website_sale.website_sale');
 
 var _t = core._t;
@@ -26,6 +26,7 @@ publicWidget.registry.WebsiteSale.include({
             cancelButtonText: _t('Continue Shopping'),
             title: _t('Add to cart'),
             context: this._getContext(),
+            forceDialog: this.forceDialog,
         }).open();
 
         this.optionalProductsModal.on('options_empty', null, this._submitForm.bind(this));
@@ -108,14 +109,17 @@ publicWidget.registry.WebsiteSale.include({
         this.optionalProductsModal.getAndCreateSelectedProducts()
             .then((products) => {
                 const productAndOptions = JSON.stringify(products);
-                ajax.post('/shop/cart/update_option', {product_and_options: productAndOptions})
-                    .then(function (quantity) {
+                ajax.post('/shop/cart/update_option', {
+                    product_and_options: productAndOptions,
+                    ...this._getOptionalCombinationInfoParam()
+                }).then(function (quantity) {
                         if (goToShop) {
                             window.location.pathname = "/shop/cart";
                         }
                         const $quantity = $(".my_cart_quantity");
                         $quantity.parent().parent().removeClass('d-none');
                         $quantity.text(quantity).hide().fadeIn(600);
+                        sessionStorage.setItem('website_sale_cart_quantity', quantity);
                     }).then(()=>{
                         this._getCombinationInfo($.Event('click', {target: $("#add_to_cart")}));
                     });

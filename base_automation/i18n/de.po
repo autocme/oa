@@ -3,16 +3,15 @@
 # 	* base_automation
 # 
 # Translators:
-# Friederike Fasterling-Nesselbosch, 2022
 # Martin Trigaux, 2023
 # Larissa Manderfeld, 2023
 # 
 msgid ""
 msgstr ""
-"Project-Id-Version: Odoo Server saas~14.5\n"
+"Project-Id-Version: Odoo Server 16.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2021-09-14 10:28+0000\n"
-"PO-Revision-Date: 2021-09-14 12:20+0000\n"
+"POT-Creation-Date: 2024-02-06 13:31+0000\n"
+"PO-Revision-Date: 2022-09-22 05:45+0000\n"
 "Last-Translator: Larissa Manderfeld, 2023\n"
 "Language-Team: German (https://app.transifex.com/odoo/teams/41243/de/)\n"
 "MIME-Version: 1.0\n"
@@ -22,7 +21,7 @@ msgstr ""
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
 
 #. module: base_automation
-#. openerp-web
+#. odoo-javascript
 #: code:addons/base_automation/static/src/xml/base_automation_error_dialog.xml:0
 #, python-format
 msgid ""
@@ -102,7 +101,6 @@ msgstr "Automatisierung"
 #. module: base_automation
 #: model:ir.actions.server,name:base_automation.ir_cron_data_base_automation_check_ir_actions_server
 #: model:ir.cron,cron_name:base_automation.ir_cron_data_base_automation_check
-#: model:ir.cron,name:base_automation.ir_cron_data_base_automation_check
 msgid "Base Action Rule: check and execute"
 msgstr "Basisaktionsregel: Überprüfen und Ausführen"
 
@@ -152,6 +150,19 @@ msgstr ""
 "Rückgabewert verwendet wird."
 
 #. module: base_automation
+#: model:ir.model.fields,help:base_automation.field_base_automation__mail_post_method
+msgid ""
+"Choose method for email sending:\n"
+"EMail: send directly emails\n"
+"Post as Message: post on document and notify followers\n"
+"Post as Note: log a note on document"
+msgstr ""
+"Methode für E-Mail-Versand wählen:\n"
+"E-Mail: E-Mails direkt versenden\n"
+"Als Nachricht hinterlassen: in Dokument hinterlassen und Follower benachrichtigen\n"
+"Als Notiz hinterlassen: eine Notiz im Dokument hinterlassen"
+
+#. module: base_automation
 #: model:ir.model.fields,field_description:base_automation.field_base_automation__create_uid
 msgid "Created by"
 msgstr "Erstellt von"
@@ -170,11 +181,12 @@ msgstr "Tage"
 #: model:ir.model.fields,help:base_automation.field_base_automation__trg_date_range
 msgid ""
 "Delay after the trigger date.\n"
-"                                    You can put a negative number if you need a delay before the\n"
-"                                    trigger date, like sending a reminder 15 minutes before a meeting."
+"        You can put a negative number if you need a delay before the\n"
+"        trigger date, like sending a reminder 15 minutes before a meeting."
 msgstr ""
-"Verzögerung nach dem Auslösedatum.\n"
-"Sie können eine negative Zahl eingeben, wenn Sie eine Verzögerung vor dem Triggerdatum, wie z.B. das Senden einer Erinnerung 15 Minuten vor einer Besprechung."
+"Verzögerung nach Auslösedatum.\n"
+"        Sie können eine negative Zahl eingeben, wenn Sie eine Verzögerung vor dem\n"
+"        Auslösedatum benötigen, wie z. B. der Versand einer Erinnerung 15 Minuten vor dem Meeting."
 
 #. module: base_automation
 #: model:ir.model.fields,field_description:base_automation.field_base_automation__trg_date_range
@@ -187,14 +199,14 @@ msgid "Delay type"
 msgstr "Verzögerungstyp"
 
 #. module: base_automation
-#. openerp-web
+#. odoo-javascript
 #: code:addons/base_automation/static/src/xml/base_automation_error_dialog.xml:0
 #, python-format
 msgid "Disable Action"
 msgstr "Aktion deaktivieren"
 
 #. module: base_automation
-#. openerp-web
+#. odoo-javascript
 #: code:addons/base_automation/static/src/xml/base_automation_error_dialog.xml:0
 #, python-format
 msgid ""
@@ -224,7 +236,7 @@ msgid "Due type"
 msgstr "Fälligkeitstyp"
 
 #. module: base_automation
-#. openerp-web
+#. odoo-javascript
 #: code:addons/base_automation/static/src/xml/base_automation_error_dialog.xml:0
 #, python-format
 msgid "Edit action"
@@ -236,6 +248,17 @@ msgid "Email Template"
 msgstr "E-Mail-Vorlage"
 
 #. module: base_automation
+#. odoo-python
+#: code:addons/base_automation/models/base_automation.py:0
+#, python-format
+msgid ""
+"Email, followers or activities action types cannot be used when deleting "
+"records."
+msgstr ""
+"Aktiontypen für E-Mails, Follower oder Aktivitäten können bei der Löschung "
+"von Datensätzen nicht verwendet werden."
+
+#. module: base_automation
 #: model:ir.model.fields,field_description:base_automation.field_base_automation__xml_id
 msgid "External ID"
 msgstr "Externe ID"
@@ -244,6 +267,16 @@ msgstr "Externe ID"
 #: model:ir.model.fields,help:base_automation.field_base_automation__on_change_field_ids
 msgid "Fields that trigger the onchange."
 msgstr "Felder, die den Onchange auslösen."
+
+#. module: base_automation
+#. odoo-python
+#: code:addons/base_automation/models/base_automation.py:0
+#, python-format
+msgid ""
+"Form Modification based actions can only be used with code action type."
+msgstr ""
+"Aktionen, die auf einer Formularmodifikation basieren, können nur mit Code-"
+"Aktionstypen verwendet werden."
 
 #. module: base_automation
 #: model:ir.model.fields,field_description:base_automation.field_base_automation__groups_id
@@ -286,7 +319,7 @@ msgstr ""
 #. module: base_automation
 #: model:ir.model.fields,field_description:base_automation.field_base_automation____last_update
 msgid "Last Modified on"
-msgstr "Zuletzt geändert am"
+msgstr "Letzte Änderung am"
 
 #. module: base_automation
 #: model:ir.model.fields,field_description:base_automation.field_base_automation__last_run
@@ -353,10 +386,11 @@ msgid "Note"
 msgstr "Notiz"
 
 #. module: base_automation
+#. odoo-python
 #: code:addons/base_automation/models/base_automation.py:0
 #, python-format
 msgid ""
-"Note that this action can be trigged up to %d minutes after its schedule."
+"Note that this action can be triggered up to %d minutes after its schedule."
 msgstr ""
 "Beachten Sie, dass diese Aktion bis zu %d Minuten nach ihrem Zeitplan "
 "ausgelöst werden kann."
@@ -415,6 +449,11 @@ msgid "Responsible"
 msgstr "Verantwortlich"
 
 #. module: base_automation
+#: model:ir.model.fields,field_description:base_automation.field_base_automation__mail_post_method
+msgid "Send as"
+msgstr "Senden als"
+
+#. module: base_automation
 #: model:ir.model.fields,field_description:base_automation.field_base_automation__sequence
 msgid "Sequence"
 msgstr "Sequenz"
@@ -444,6 +483,11 @@ msgid "Setup a new automated automation"
 msgstr "Richten Sie eine neue Automatisierung ein"
 
 #. module: base_automation
+#: model:ir.model.fields,field_description:base_automation.field_base_automation__mail_post_autofollow
+msgid "Subscribe Recipients"
+msgstr "Empfänger abonnieren"
+
+#. module: base_automation
 #: model:ir.model.fields,field_description:base_automation.field_base_automation__activity_summary
 msgid "Summary"
 msgstr "Zusammenfassung"
@@ -459,11 +503,7 @@ msgid "Target Model Name"
 msgstr "Zielmodellname"
 
 #. module: base_automation
-#: model:ir.model.fields,help:base_automation.field_base_automation__activity_user_field_name
-msgid "Technical name of the user on the record"
-msgstr "Technische Bezeichnung des Benutzers im Datensatz"
-
-#. module: base_automation
+#. odoo-python
 #: code:addons/base_automation/models/base_automation.py:0
 #, python-format
 msgid ""
@@ -476,14 +516,14 @@ msgstr ""
 #. module: base_automation
 #: model:ir.model.fields,help:base_automation.field_base_automation__trigger_field_ids
 msgid ""
-"The action will be triggered if and only if one of these fields is "
-"updated.If empty, all fields are watched."
+"The action will be triggered if and only if one of these fields is updated. "
+"If empty, all fields are watched."
 msgstr ""
-"Diese Aufgabe wird ausgelöst, wenn eines dieser Felder aktualisiert wird. "
-"Ohne Angabe werden alle Felder auf Änderungen beobachtet."
+"Die Aktion wird nur dann ausgelöst, wenn eines dieser Felder aktualisiert "
+"wird. Ohne Angabe werden alle Felder beobachtet."
 
 #. module: base_automation
-#. openerp-web
+#. odoo-javascript
 #: code:addons/base_automation/static/src/xml/base_automation_error_dialog.xml:0
 #, python-format
 msgid ""
@@ -514,21 +554,23 @@ msgstr "Auslöser-Felder"
 msgid ""
 "Type of server action. The following values are available:\n"
 "- 'Execute Python Code': a block of python code that will be executed\n"
-"- 'Create': create a new record with new values\n"
+"- 'Create a new Record': create a new record with new values\n"
 "- 'Update a Record': update the values of a record\n"
 "- 'Execute several actions': define an action that triggers several other server actions\n"
-"- 'Send Email': automatically send an email (Discuss)\n"
+"- 'Send Email': post a message, a note or send an email (Discuss)\n"
 "- 'Add Followers': add followers to a record (Discuss)\n"
-"- 'Create Next Activity': create an activity (Discuss)"
+"- 'Create Next Activity': create an activity (Discuss)\n"
+"- 'Send SMS Text Message': send SMS, log them on documents (SMS)"
 msgstr ""
 "Art der Serveraktionen. Folgende Werte sind verfügbar:\n"
 "- „Python-Code ausführen“: ein Block Python-Code, der ausgeführt wird\n"
-"- „Erstellen“: einen neuen Datensatz mit neuen Werten erstellen\n"
+"- „Einen neuen Datensatz erstellen“: einen neuen Datensatz mit neuen Werten erstellen\n"
 "- „Einen Datensatz aktualisieren“: die Werte eines Datensatzes aktualisieren\n"
 "- „Mehrere Aktionen durchführen“: eine Aktion definieren, die weitere Serveraktionen auslöst\n"
-"- „E-Mail versenden“: eine Nachricht oder Notiz automatisch hinterlassen oder eine E-Mail automatisch versenden (Dialog)\n"
+"- „E-Mail versenden“: eine Nachricht oder Notiz hinterlassen oder eine E-Mail versenden (Dialog)\n"
 "- „Follower hinzufügen“: einem Datensatz Follower hinzufügen (Dialog)\n"
-"- „Nächste Aktivität erstellen“: eine Aktivität erstellen (Dialog)"
+"- „Nächste Aktivität erstellen“: eine Aktivität erstellen (Dialog)\n"
+"- „SMS-Textnachricht versenden“: SMS senden, diese in Dokumenten protokollieren (SMS)"
 
 #. module: base_automation
 #: model:ir.model.fields,field_description:base_automation.field_base_automation__usage
@@ -580,6 +622,7 @@ msgid "Value Mapping"
 msgstr "Wertzuordnung"
 
 #. module: base_automation
+#. odoo-python
 #: code:addons/base_automation/models/base_automation.py:0
 #: code:addons/base_automation/models/base_automation.py:0
 #, python-format
@@ -608,10 +651,10 @@ msgstr ""
 #: model:ir.model.fields,help:base_automation.field_base_automation__trg_date_id
 msgid ""
 "When should the condition be triggered.\n"
-"                                  If present, will be checked by the scheduler. If empty, will be checked at creation and update."
+"                If present, will be checked by the scheduler. If empty, will be checked at creation and update."
 msgstr ""
 "Wann die Bedingung ausgelöst werden sollte.\n"
-" Falls vorhanden, wird der Zeitplaner die Überprüfung vornehmen. Falls leer, wird bei der Erstellung und Aktualisierung eine Überprüfung vorgenommen."
+"                Falls vorhanden, wird der Zeitplaner die Überprüfung vornehmen. Falls leer, wird bei der Erstellung und Aktualisierung eine Überprüfung vorgenommen."
 
 #. module: base_automation
 #: model:ir.model.fields,help:base_automation.field_base_automation__active
@@ -631,7 +674,7 @@ msgstr ""
 "Registerkarte „Hilfe“."
 
 #. module: base_automation
-#. openerp-web
+#. odoo-javascript
 #: code:addons/base_automation/static/src/xml/base_automation_error_dialog.xml:0
 #, python-format
 msgid ""
@@ -641,7 +684,7 @@ msgstr ""
 "deaktivieren oder zu korrigieren."
 
 #. module: base_automation
-#. openerp-web
+#. odoo-javascript
 #: code:addons/base_automation/static/src/xml/base_automation_error_dialog.xml:0
 #, python-format
 msgid "You can disable this automated action or edit it to solve the issue."
@@ -650,6 +693,7 @@ msgstr ""
 "Problem zu beheben."
 
 #. module: base_automation
+#. odoo-python
 #: code:addons/base_automation/models/base_automation.py:0
 #, python-format
 msgid ""

@@ -54,6 +54,8 @@ class Team(models.Model):
     alias_user_id = fields.Many2one(
         'res.users', related='alias_id.alias_user_id', readonly=False, inherited=True,
         domain=lambda self: [('groups_id', 'in', self.env.ref('sales_team.group_sale_salesman_all_leads').id)])
+    # properties
+    lead_properties_definition = fields.PropertiesDefinition('Lead Properties')
 
     @api.depends('crm_team_member_ids.assignment_max')
     def _compute_assignment_max(self):
@@ -70,7 +72,7 @@ class Team(models.Model):
         self.assignment_auto_enabled = auto_assign_enabled
 
     def _compute_lead_unassigned_count(self):
-        leads_data = self.env['crm.lead'].read_group([
+        leads_data = self.env['crm.lead']._read_group([
             ('team_id', 'in', self.ids),
             ('type', '=', 'lead'),
             ('user_id', '=', False),
@@ -85,7 +87,7 @@ class Team(models.Model):
             team.lead_all_assigned_month_count = sum(member.lead_month_count for member in team.crm_team_member_ids)
 
     def _compute_opportunities_data(self):
-        opportunity_data = self.env['crm.lead'].read_group([
+        opportunity_data = self.env['crm.lead']._read_group([
             ('team_id', 'in', self.ids),
             ('probability', '<', 100),
             ('type', '=', 'opportunity'),
@@ -97,7 +99,7 @@ class Team(models.Model):
             team.opportunities_amount = amounts.get(team.id, 0)
 
     def _compute_opportunities_overdue_data(self):
-        opportunity_data = self.env['crm.lead'].read_group([
+        opportunity_data = self.env['crm.lead']._read_group([
             ('team_id', 'in', self.ids),
             ('probability', '<', 100),
             ('type', '=', 'opportunity'),
@@ -603,22 +605,18 @@ class Team(models.Model):
     @api.model
     def _action_update_to_pipeline(self, action):
         user_team_id = self.env.user.sale_team_id.id
-        if user_team_id:
-            # To ensure that the team is readable in multi company
-            user_team_id = self.search([('id', '=', user_team_id)], limit=1).id
-        else:
+        if not user_team_id:
             user_team_id = self.search([], limit=1).id
-            action['help'] = _("""<p class='o_view_nocontent_smiling_face'>Add new opportunities</p><p>
-    Looks like you are not a member of a Sales Team. You should add yourself
-    as a member of one of the Sales Team.
-</p>""")
+            action['help'] = "<p class='o_view_nocontent_smiling_face'>%s</p><p>" % _("Create an Opportunity")
             if user_team_id:
-                action['help'] += _("<p>As you don't belong to any Sales Team, Odoo opens the first one by default.</p>")
-
+                if self.user_has_groups('sales_team.group_sale_manager'):
+                    action['help'] += "<p>%s</p>" % _("""As you are a member of no Sales Team, you are showed the Pipeline of the <b>first team by default.</b>
+                                        To work with the CRM, you should <a name="%d" type="action" tabindex="-1">join a team.</a>""",
+                                        self.env.ref('sales_team.crm_team_action_config').id)
+                else:
+                    action['help'] += "<p>%s</p>" % _("""As you are a member of no Sales Team, you are showed the Pipeline of the <b>first team by default.</b>
+                                        To work with the CRM, you should join a team.""")
         action_context = safe_eval(action['context'], {'uid': self.env.uid})
-        if user_team_id:
-            action_context['default_team_id'] = user_team_id
-
         action['context'] = action_context
         return action
 

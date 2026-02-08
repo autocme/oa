@@ -15,7 +15,6 @@ var _t = core._t;
  */
 var SignatureForm = publicWidget.Widget.extend({
     template: 'portal.portal_signature',
-    xmlDependencies: ['/portal/static/src/xml/portal_signature.xml'],
     events: {
         'click .o_portal_sign_submit': 'async _onClickSignSubmit',
     },
@@ -82,6 +81,9 @@ var SignatureForm = publicWidget.Widget.extend({
      * @see NameAndSignature.resetSignature();
      */
     resetSignature: function () {
+        if (this.isDestroyed()) {
+            return;
+        }
         return this.nameAndSignature.resetSignature();
     },
 

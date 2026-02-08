@@ -10,7 +10,7 @@ import {
     PyTimeDelta,
 } from "./py_date";
 import { PY_DICT, toPyDict } from "./py_utils";
-import { parseArgs } from './py_parser';
+import { parseArgs } from "./py_parser";
 
 // -----------------------------------------------------------------------------
 // Types
@@ -166,14 +166,14 @@ function applyBinaryOp(ast, context) {
                 if (right instanceof PyDate || right instanceof PyDateTime) {
                     return right.add(left);
                 } else {
-                    throw NotSupportedError();
+                    throw new NotSupportedError();
                 }
             }
             if (timeDeltaOnRight) {
                 if (left instanceof PyDate || left instanceof PyDateTime) {
                     return left.add(right);
                 } else {
-                    throw NotSupportedError();
+                    throw new NotSupportedError();
                 }
             }
 
@@ -192,7 +192,7 @@ function applyBinaryOp(ast, context) {
                 } else if (left instanceof PyDate || left instanceof PyDateTime) {
                     return left.substract(right);
                 } else {
-                    throw NotSupportedError();
+                    throw new NotSupportedError();
                 }
             }
 
@@ -201,7 +201,7 @@ function applyBinaryOp(ast, context) {
             }
             return left - right;
         }
-        case "*":
+        case "*": {
             const timeDeltaOnLeft = left instanceof PyTimeDelta;
             const timeDeltaOnRight = right instanceof PyTimeDelta;
             if (timeDeltaOnLeft || timeDeltaOnRight) {
@@ -211,6 +211,7 @@ function applyBinaryOp(ast, context) {
             }
 
             return left * right;
+        }
         case "/":
             return left / right;
         case "%":
@@ -268,7 +269,7 @@ function methods(_class) {
     return Object.getOwnPropertyNames(_class.prototype).map((prop) => _class.prototype[prop]);
 }
 
-const allowedFns = new Set([
+export const allowedFns = new Set([
     BUILTINS.time.strftime,
     BUILTINS.bool,
     BUILTINS.context_today,
@@ -321,28 +322,30 @@ export function evaluate(ast, context = {}) {
                 return applyUnaryOp(ast, evalContext);
             case 7 /* BinaryOperator */:
                 return applyBinaryOp(ast, evalContext);
-            case 14 /* BooleanOperator */:
+            case 14 /* BooleanOperator */: {
                 const left = _evaluate(ast.left);
                 if (ast.op === "and") {
                     return isTrue(left) ? _evaluate(ast.right) : left;
                 } else {
                     return isTrue(left) ? left : _evaluate(ast.right);
                 }
+            }
             case 4 /* List */:
             case 10 /* Tuple */:
                 return ast.value.map(_evaluate);
-            case 11 /* Dictionary */:
+            case 11 /* Dictionary */: {
                 const dict = {};
-                for (let key in ast.value) {
+                for (const key in ast.value) {
                     dict[key] = _evaluate(ast.value[key]);
                 }
                 dicts.add(dict);
                 return dict;
-            case 8 /* FunctionCall */:
+            }
+            case 8 /* FunctionCall */: {
                 const fnValue = _evaluate(ast.fn);
                 const args = ast.args.map(_evaluate);
                 const kwargs = {};
-                for (let kwarg in ast.kwargs) {
+                for (const kwarg in ast.kwargs) {
                     kwargs[kwarg] = _evaluate(ast.kwargs[kwarg]);
                 }
                 if (
@@ -355,6 +358,7 @@ export function evaluate(ast, context = {}) {
                     return fnValue.create(...args, kwargs);
                 }
                 return fnValue(...args, kwargs);
+            }
             case 12 /* Lookup */: {
                 const dict = _evaluate(ast.target);
                 const key = _evaluate(ast.key);

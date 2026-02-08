@@ -10,7 +10,14 @@ from odoo import Command
 
 class TestSaleMrpProcurement(TransactionCase):
 
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.env.ref('base.group_user').write({'implied_ids': [(4, cls.env.ref('product.group_product_variant').id)]})
+
     def test_sale_mrp(self):
+        # Required for `uom_id` to be visible in the view
+        self.env.user.groups_id += self.env.ref('uom.group_uom')
         self.env.ref('stock.route_warehouse0_mto').active = True
         warehouse0 = self.env.ref('stock.warehouse0')
         # In order to test the sale_mrp module in OpenERP, I start by creating a new product 'Slider Mobile'
@@ -78,6 +85,10 @@ class TestSaleMrpProcurement(TransactionCase):
         to avoid generating multiple deliveries
         to the customer location
         """
+        # Required for `uom_id` to be visible in the view
+        self.env.user.groups_id += self.env.ref('uom.group_uom')
+        # Required for `manufacture_step` to be visible in the view
+        self.env.user.groups_id += self.env.ref('stock.group_adv_location')
         self.env.ref('stock.route_warehouse0_mto').active = True
         # Create warehouse
         self.customer_location = self.env['ir.model.data']._xmlid_to_res_id('stock.stock_location_customers')
@@ -175,8 +186,7 @@ class TestSaleMrpProcurement(TransactionCase):
         self.assertEqual(len(pickings), 1)
 
         # ...with two products
-        move_lines = pickings[0].move_lines
-        self.assertEqual(len(move_lines), 2)
+        self.assertEqual(len(pickings[0].move_ids), 2)
 
     def test_post_prod_location_child_of_stock_location(self):
         """
@@ -237,81 +247,36 @@ class TestSaleMrpProcurement(TransactionCase):
         self.assertIn(so.name, mo.origin)
 
     def test_so_reordering_rule(self):
-        Orderpoint = self.env['stock.warehouse.orderpoint']
-
-        # mulitple variant product
-        car = self.env['product.template'].create({
-            'name': 'Car',
-        })
-        color_attribute = self.env['product.attribute'].create({'name': 'Color', 'sequence': 1})
-        color_red = self.env['product.attribute.value'].create({
-            'name': 'Red',
-            'attribute_id': color_attribute.id,
-            'sequence': 1,
-        })
-        color_blue = self.env['product.attribute.value'].create({
-            'name': 'Blue',
-            'attribute_id': color_attribute.id,
-            'sequence': 2,
-        })
-        self.env['product.template.attribute.line'].create({
-            'product_tmpl_id': car.id,
-            'attribute_id': color_attribute.id,
-            'value_ids': [(6, 0, [color_red.id, color_blue.id])],
-        })
-        mrp_prod = car.product_variant_id
-
-        component_prod = self.env['product.product'].create({
-            'name': 'Component 1',
+        kit_1, component_1 = self.env['product.product'].create([{
+            'name': n,
             'type': 'product',
-        })
+        } for n in ['Kit 1', 'Compo 1']])
 
-        bom = self.env['mrp.bom'].create([{
-            'product_tmpl_id': mrp_prod.product_tmpl_id.id,
-            'product_id': mrp_prod.id,
+        self.env['mrp.bom'].create([{
+            'product_tmpl_id': kit_1.product_tmpl_id.id,
             'product_qty': 1,
-            'type': 'normal',
+            'type': 'phantom',
             'bom_line_ids': [
-                (0, 0, {'product_id': component_prod.id, 'product_qty': 2}),
+                (0, 0, {'product_id': component_1.id, 'product_qty': 1}),
             ],
         }])
-
         customer = self.env['res.partner'].create({
             'name': 'customer',
         })
-
-        self.env['sale.order'].create({
+        so = self.env['sale.order'].create({
             'partner_id': customer.id,
             'order_line': [
                 (0, 0, {
-                    'product_id': mrp_prod.id,
-                    'product_uom_qty': 3,
+                    'product_id': kit_1.id,
+                    'product_uom_qty': 1.0,
                 })],
-        }).action_confirm()
-        Orderpoint._get_orderpoint_action()
+        })
+        so.action_confirm()
 
-        # change product type to Kit
-        mrp_prod.orderpoint_ids.unlink()
-        bom.type = 'phantom'
-
-        self.env['sale.order'].create({
-            'partner_id': customer.id,
-            'order_line': [
-                (0, 0, {
-                    'product_id': mrp_prod.id,
-                    'product_uom_qty': 3,
-                })],
-        }).action_confirm()
-
-        Orderpoint._get_orderpoint_action()
-        orderpoint_kit = Orderpoint.search([('product_id', '=', mrp_prod.id)])
-        orderpoint_component = Orderpoint.search([('product_id', '=', component_prod.id)])
-
-        self.assertFalse(orderpoint_kit)
-        self.assertEqual(orderpoint_component.qty_to_order, 3*2)
-        # only exclude the kit variant
-        self.assertIn(car.product_variant_id.id, Orderpoint._product_exclude_list())
-        self.assertNotIn((car.product_variant_ids - car.product_variant_id).id, Orderpoint._product_exclude_list())
+        self.env['stock.warehouse.orderpoint']._get_orderpoint_action()
+        orderpoint_product = self.env['stock.warehouse.orderpoint'].search(
+            [('product_id', '=', kit_1.id)])
+        self.assertFalse(orderpoint_product)
 
     def test_sale_mrp_avoid_multiple_pickings(self):
         """

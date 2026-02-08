@@ -90,10 +90,11 @@ class FleetVehicle(models.Model):
                     employee = employee_ids[0].id
             vals['future_driver_employee_id'] = employee
 
-    @api.model
-    def create(self, vals):
-        self._update_create_write_vals(vals)
-        return super().create(vals)
+    @api.model_create_multi
+    def create(self, vals_list):
+        for vals in vals_list:
+            self._update_create_write_vals(vals)
+        return super().create(vals_list)
 
     def write(self, vals):
         self._update_create_write_vals(vals)
@@ -116,3 +117,8 @@ class FleetVehicle(models.Model):
             'view_mode': 'form',
             'res_id': self.driver_employee_id.id,
         }
+
+    def open_assignation_logs(self):
+        action = super().open_assignation_logs()
+        action['views'] = [[self.env.ref('hr_fleet.fleet_vehicle_assignation_log_view_list').id, 'tree']]
+        return action

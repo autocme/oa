@@ -11,7 +11,7 @@ class TestAttendances(TestContractCommon):
 
     @classmethod
     def setUpClass(cls):
-        super(TestAttendances, cls).setUpClass()
+        super().setUpClass()
         cls.env.company.resource_calendar_id.tz = "Europe/Brussels"
 
         resource_calendar_half_time = cls.env['resource.calendar'].create([{

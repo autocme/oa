@@ -3,21 +3,21 @@
 # 	* uom
 # 
 # Translators:
-# Martin Trigaux, 2021
-# Khwunchai Jaengsawang <khwunchai.j@ku.th>, 2021
-# monchai7 <montchye@gmail.com>, 2021
-# Pornvibool Tippayawat <pornvibool.t@gmail.com>, 2021
-# Amin Cheloh <amincheloh@gmail.com>, 2021
-# Odoo Thaidev <odoothaidev@gmail.com>, 2021
+# Odoo Thaidev <odoothaidev@gmail.com>, 2022
+# Khwunchai Jaengsawang <khwunchai.j@ku.th>, 2022
+# monchai7 <montchye@gmail.com>, 2022
+# Martin Trigaux, 2022
+# Pornvibool Tippayawat <pornvibool.t@gmail.com>, 2022
 # Wichanon Jamwutthipreecha, 2022
+# Amin Cheloh <amincheloh@gmail.com>, 2022
 # Rasareeyar Lappiam, 2024
 # 
 msgid ""
 msgstr ""
-"Project-Id-Version: Odoo Server saas~14.4\n"
+"Project-Id-Version: Odoo Server 16.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2021-07-12 07:50+0000\n"
-"PO-Revision-Date: 2021-09-14 12:27+0000\n"
+"POT-Creation-Date: 2025-02-10 08:27+0000\n"
+"PO-Revision-Date: 2022-09-22 05:55+0000\n"
 "Last-Translator: Rasareeyar Lappiam, 2024\n"
 "Language-Team: Thai (https://app.transifex.com/odoo/teams/41243/th/)\n"
 "MIME-Version: 1.0\n"
@@ -66,7 +66,7 @@ msgstr "เพิ่มหมวดหมู่หน่วยวัดใหม
 #. module: uom
 #: model_terms:ir.ui.view,arch_db:uom.uom_uom_view_search
 msgid "Archived"
-msgstr "เก็บถาวร"
+msgstr "เก็บถาวรแล้ว"
 
 #. module: uom
 #: model:ir.model.fields,field_description:uom.field_uom_uom__factor_inv
@@ -101,7 +101,7 @@ msgid ""
 "same category. The conversion will be made based on the ratios."
 msgstr ""
 "การแปลงระหว่างหน่วยวัดจะเกิดขึ้นได้ก็ต่อเมื่ออยู่ในหมวดหมู่เดียวกัน "
-"การแปลงจะทำตามอัตราส่วน"
+"การแปลงจะอิงตามอัตราส่วน"
 
 #. module: uom
 #: model:ir.model.fields,field_description:uom.field_uom_category__create_uid
@@ -130,11 +130,6 @@ msgstr "แสดงชื่อ"
 #: model:uom.uom,name:uom.product_uom_dozen
 msgid "Dozens"
 msgstr "โหล"
-
-#. module: uom
-#: model:ir.model.fields,help:uom.field_uom_category__reference_uom_id
-msgid "Dummy field to keep track of reference uom change"
-msgstr "ฟิลด์ดัมมี่เพื่อติดตามการเปลี่ยนแปลงข้อมูลอ้างอิง"
 
 #. module: uom
 #: model_terms:ir.ui.view,arch_db:uom.uom_uom_view_search
@@ -245,6 +240,7 @@ msgid "Smaller than the reference Unit of Measure"
 msgstr "เล็กกว่าหน่วยวัดอ้างอิง"
 
 #. module: uom
+#. odoo-python
 #: code:addons/uom/models/uom_uom.py:0
 #, python-format
 msgid ""
@@ -284,6 +280,7 @@ msgid "The conversion ratio for a unit of measure cannot be 0!"
 msgstr "อัตราการแปลงสำหรับหน่วยวัดไม่สามารถเป็น 0!"
 
 #. module: uom
+#. odoo-python
 #: code:addons/uom/models/uom_uom.py:0
 #, python-format
 msgid ""
@@ -304,6 +301,7 @@ msgid "The rounding precision must be strictly positive."
 msgstr "ความแม่นยำในการปัดเศษต้องเป็นค่าบวกเท่านั้น"
 
 #. module: uom
+#. odoo-python
 #: code:addons/uom/models/uom_uom.py:0
 #, python-format
 msgid ""
@@ -318,6 +316,7 @@ msgstr ""
 "ซึ่งควรอยู่ในหมวดหมู่เดียวกัน"
 
 #. module: uom
+#. odoo-python
 #: code:addons/uom/models/uom_uom.py:0
 #, python-format
 msgid "The value of ratio could not be Zero"
@@ -387,12 +386,21 @@ msgstr ""
 "            ชั่วโมง วัน"
 
 #. module: uom
-#: code:addons/uom/models/uom_uom.py:0 code:addons/uom/models/uom_uom.py:0
+#. odoo-python
+#: code:addons/uom/models/uom_uom.py:0
+#, python-format
+msgid "UoM category %s must have at least one reference unit of measure."
+msgstr "หมวดหมู่ UoM %s ต้องมีหน่วยวัดอ้างอิงอย่างน้อยหนึ่งหน่วย"
+
+#. module: uom
+#. odoo-python
+#: code:addons/uom/models/uom_uom.py:0
 #, python-format
 msgid "UoM category %s should have a reference unit of measure."
 msgstr "หมวดหมู่ UoM %s ควรมีหน่วยวัดอ้างอิง"
 
 #. module: uom
+#. odoo-python
 #: code:addons/uom/models/uom_uom.py:0
 #, python-format
 msgid "UoM category %s should only have one reference unit of measure."
@@ -409,16 +417,11 @@ msgid "Volume"
 msgstr "ปริมาตร"
 
 #. module: uom
+#. odoo-python
 #: code:addons/uom/models/uom_uom.py:0
 #, python-format
 msgid "Warning for %s"
 msgstr "คำเตือนสำหรับ %s"
-
-#. module: uom
-#: code:addons/uom/models/uom_uom.py:0
-#, python-format
-msgid "Warning!"
-msgstr "คำเตือน!"
 
 #. module: uom
 #: model:uom.category,name:uom.product_uom_categ_kgm
@@ -472,17 +475,17 @@ msgstr "gal (US)"
 #. module: uom
 #: model:uom.uom,name:uom.product_uom_inch
 msgid "in"
-msgstr "in"
+msgstr "นิ้ว"
 
 #. module: uom
 #: model:uom.uom,name:uom.product_uom_cubic_inch
 msgid "in³"
-msgstr "in³"
+msgstr "นิ้ว³"
 
 #. module: uom
 #: model:uom.uom,name:uom.product_uom_kgm
 msgid "kg"
-msgstr "kg"
+msgstr "กก."
 
 #. module: uom
 #: model:uom.uom,name:uom.product_uom_km
@@ -492,7 +495,7 @@ msgstr "กม."
 #. module: uom
 #: model:uom.uom,name:uom.product_uom_lb
 msgid "lb"
-msgstr "lb"
+msgstr "ปอนด์"
 
 #. module: uom
 #: model:uom.uom,name:uom.product_uom_mile
@@ -523,3 +526,8 @@ msgstr "ออนซ์"
 #: model:uom.uom,name:uom.product_uom_qt
 msgid "qt (US)"
 msgstr "qt (US)"
+
+#. module: uom
+#: model:uom.uom,name:uom.product_uom_yard
+msgid "yd"
+msgstr "หลา"

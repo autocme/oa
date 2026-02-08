@@ -8,6 +8,7 @@ from odoo.tools import consteq
 from odoo import _, api, fields, models
 from odoo.addons.base.models.res_partner import _tz_get
 from odoo.exceptions import UserError
+from odoo.addons.bus.models.bus_presence import AWAY_TIMER, DISCONNECTION_TIMER
 
 
 class MailGuest(models.Model):
@@ -27,7 +28,23 @@ class MailGuest(models.Model):
     country_id = fields.Many2one(string="Country", comodel_name='res.country')
     lang = fields.Selection(string="Language", selection=_lang_get)
     timezone = fields.Selection(string="Timezone", selection=_tz_get)
-    channel_ids = fields.Many2many(string="Channels", comodel_name='mail.channel', relation='mail_channel_partner', column1='guest_id', column2='channel_id', copy=False)
+    channel_ids = fields.Many2many(string="Channels", comodel_name='mail.channel', relation='mail_channel_member', column1='guest_id', column2='channel_id', copy=False)
+    im_status = fields.Char('IM Status', compute='_compute_im_status')
+
+    def _compute_im_status(self):
+        self.env.cr.execute("""
+            SELECT
+                guest_id as id,
+                CASE WHEN age(now() AT TIME ZONE 'UTC', last_poll) > interval %s THEN 'offline'
+                     WHEN age(now() AT TIME ZONE 'UTC', last_presence) > interval %s THEN 'away'
+                     ELSE 'online'
+                END as status
+            FROM bus_presence
+            WHERE guest_id IN %s
+        """, ("%s seconds" % DISCONNECTION_TIMER, "%s seconds" % AWAY_TIMER, tuple(self.ids)))
+        res = dict(((status['id'], status['status']) for status in self.env.cr.dictfetchall()))
+        for guest in self:
+            guest.im_status = res.get(guest.id, 'offline')
 
     def _get_guest_from_context(self):
         """Returns the current guest record from the context, if applicable."""
@@ -96,14 +113,28 @@ class MailGuest(models.Model):
             'current_partner': False,
             'current_user_id': False,
             'current_user_settings': False,
-            'mail_failures': [],
+            'hasLinkPreviewFeature': self.env['mail.link.preview']._is_link_preview_enabled(),
             'menu_id': False,
             'needaction_inbox_counter': False,
             'partner_root': {
                 'id': partner_root.id,
                 'name': partner_root.name,
             },
-            'public_partners': [],
             'shortcodes': [],
             'starred_counter': False,
         }
+
+    def _guest_format(self, fields=None):
+        if not fields:
+            fields = {'id': True, 'name': True, 'im_status': True}
+        guests_formatted_data = {}
+        for guest in self:
+            data = {}
+            if 'id' in fields:
+                data['id'] = guest.id
+            if 'name' in fields:
+                data['name'] = guest.name
+            if 'im_status' in fields:
+                data['im_status'] = guest.im_status
+            guests_formatted_data[guest] = data
+        return guests_formatted_data

@@ -3,22 +3,31 @@
 # 	* website_event_booth
 # 
 # Translators:
-# Martin Trigaux, 2021
-# Vo Thanh Thuy, 2021
+# Martin Trigaux, 2022
+# Thi Huong Nguyen, 2025
 # 
 msgid ""
 msgstr ""
-"Project-Id-Version: Odoo Server saas~14.5\n"
+"Project-Id-Version: Odoo Server 16.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2021-09-14 10:29+0000\n"
-"PO-Revision-Date: 2021-09-14 12:27+0000\n"
-"Last-Translator: Vo Thanh Thuy, 2021\n"
+"POT-Creation-Date: 2024-02-06 13:32+0000\n"
+"PO-Revision-Date: 2022-09-22 05:56+0000\n"
+"Last-Translator: Thi Huong Nguyen, 2025\n"
 "Language-Team: Vietnamese (https://app.transifex.com/odoo/teams/41243/vi/)\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: \n"
 "Language: vi\n"
 "Plural-Forms: nplurals=1; plural=0;\n"
+
+#. module: website_event_booth
+#: model_terms:ir.ui.view,arch_db:website_event_booth.event_booth_registration_details
+msgid ""
+"<i class=\"fa fa-exclamation-triangle me-2\" role=\"img\" aria-label=\"Error\" title=\"Error\"/>\n"
+"                    <span class=\"o_wbooth_registration_error_message\"/>"
+msgstr ""
+"<i class=\"fa fa-exclamation-triangle me-2\" role=\"img\" aria-label=\"Lỗi\" title=\"Lỗi\"/>\n"
+"                    <span class=\"o_wbooth_registration_error_message\"/>"
 
 #. module: website_event_booth
 #: model_terms:ir.ui.view,arch_db:website_event_booth.event_booth_registration
@@ -32,11 +41,16 @@ msgstr ""
 #. module: website_event_booth
 #: model_terms:ir.ui.view,arch_db:website_event_booth.event_booth_layout
 msgid ""
-"<i class=\"fa fa-gear mr-1\" role=\"img\" aria-label=\"Configure\" "
+"<i class=\"fa fa-gear me-1\" role=\"img\" aria-label=\"Configure\" "
 "title=\"Configure event booths\"/><em>Configure Booths</em>"
 msgstr ""
-"<i class=\"fa fa-gear mr-1\" role=\"img\" aria-label=\"Configure\" "
-"title=\"Thiết lập gian hàng sự kiện \"/><em>Thiết lập gian hàng</em>"
+
+#. module: website_event_booth
+#: model_terms:ir.ui.view,arch_db:website_event_booth.event_booth_layout
+msgid ""
+"<span class=\"alert alert-info\">This event is finished. It's no longer "
+"possible to book a booth.</span>"
+msgstr ""
 
 #. module: website_event_booth
 #: model_terms:ir.ui.view,arch_db:website_event_booth.event_booth_registration
@@ -67,13 +81,6 @@ msgstr ""
 "                            <span> *</span>"
 
 #. module: website_event_booth
-#: model_terms:ir.ui.view,arch_db:website_event_booth.event_booth_layout
-msgid ""
-"<span>This event is finished. It's no longer possible to book a "
-"booth.</span>"
-msgstr "<span>Sự kiện đã hoàn thành. Không thể đặt gian hàng được nữa.</span>"
-
-#. module: website_event_booth
 #: model_terms:ir.ui.view,arch_db:website_event_booth.event_booth_registration_details
 msgid "<strong>Contact Details</strong>"
 msgstr "<strong>Chi tiết liên hệ</strong>"
@@ -94,15 +101,18 @@ msgid "Booth Register"
 msgstr "Đăng ký gian hàng"
 
 #. module: website_event_booth
-#: model_terms:ir.ui.view,arch_db:website_event_booth.event_booth_registration_complete
+#. odoo-javascript
+#: code:addons/website_event_booth/static/src/xml/event_booth_registration_templates.xml:0
+#, python-format
 msgid "Booth Registration completed!"
 msgstr "Đăng ký gian hàng đã hoàn tất!"
 
 #. module: website_event_booth
-#: code:addons/website_event_booth/controllers/event_booth.py:0
+#. odoo-javascript
+#: code:addons/website_event_booth/static/src/js/booth_register.js:0
 #, python-format
-msgid "Booth registration failed. Please try again."
-msgstr "Đăng ký gian hàng thất bại. Hãy thử lại. "
+msgid "Booth registration failed."
+msgstr "Đăng ký gian hàng không thành công."
 
 #. module: website_event_booth
 #: model_terms:ir.ui.view,arch_db:website_event_booth.event_booth_registration
@@ -113,12 +123,6 @@ msgstr "Gian hàng"
 #: model:ir.model.fields,field_description:website_event_booth.field_event_type__booth_menu
 msgid "Booths on Website"
 msgstr "Gian hàng trên website"
-
-#. module: website_event_booth
-#: code:addons/website_event_booth/controllers/event_booth.py:0
-#, python-format
-msgid "Booths should belong to the same category."
-msgstr "Gian hàng phải thuộc cùng một danh mục. "
 
 #. module: website_event_booth
 #: model_terms:ir.ui.view,arch_db:website_event_booth.event_booth_registration
@@ -143,7 +147,7 @@ msgstr "Menu gian hàng sự kiện"
 #. module: website_event_booth
 #: model:ir.model,name:website_event_booth.model_event_type
 msgid "Event Template"
-msgstr "Mẫu sự kiện"
+msgstr "Event Template"
 
 #. module: website_event_booth
 #: model:ir.model.fields,field_description:website_event_booth.field_event_event__exhibition_map
@@ -151,11 +155,19 @@ msgid "Exhibition Map"
 msgstr "Bản đồ triển lãm"
 
 #. module: website_event_booth
+#. odoo-python
 #: code:addons/website_event_booth/models/event_event.py:0
 #: model_terms:ir.ui.view,arch_db:website_event_booth.event_booth_layout
 #, python-format
 msgid "Get A Booth"
 msgstr "Nhận gian hàng "
+
+#. module: website_event_booth
+#. odoo-javascript
+#: code:addons/website_event_booth/static/src/js/booth_register.js:0
+#, python-format
+msgid "It looks like your email is linked to an existing account."
+msgstr "Có vẻ như email của bạn đã được liên kết với một tài khoản hiện có."
 
 #. module: website_event_booth
 #: model:ir.model.fields,field_description:website_event_booth.field_website_event_menu__menu_type
@@ -173,9 +185,28 @@ msgid "Phone"
 msgstr "Điện thoại"
 
 #. module: website_event_booth
+#: model_terms:ir.ui.view,arch_db:website_event_booth.event_booth_registration_details
+msgid "Please Sign In."
+msgstr "Vui lòng Đăng nhập."
+
+#. module: website_event_booth
+#. odoo-javascript
+#: code:addons/website_event_booth/static/src/js/booth_register.js:0
+#, python-format
+msgid "Please fill out the form correctly."
+msgstr "Vui lòng điền đơn chính xác. "
+
+#. module: website_event_booth
 #: model_terms:ir.ui.view,arch_db:website_event_booth.event_booth_registration
 msgid "Sorry, all the booths are sold out."
 msgstr "Xin lỗi, không còn gian hàng nào. "
+
+#. module: website_event_booth
+#. odoo-javascript
+#: code:addons/website_event_booth/static/src/js/booth_register.js:0
+#, python-format
+msgid "The booth category doesn't exist."
+msgstr "Danh mục gian hàng không tồn tại."
 
 #. module: website_event_booth
 #: model_terms:ir.ui.view,arch_db:website_event_booth.event_booth_layout

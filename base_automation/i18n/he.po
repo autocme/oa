@@ -3,24 +3,24 @@
 # 	* base_automation
 # 
 # Translators:
-# Martin Trigaux, 2021
-# ExcaliberX <excaliberx@gmail.com>, 2021
-# Leandro Noijovich <eliel.sorcerer@gmail.com>, 2021
-# Yihya Hugirat <hugirat@gmail.com>, 2021
-# דודי מלכה <Dudimalka6@gmail.com>, 2021
-# ZVI BLONDER <ZVIBLONDER@gmail.com>, 2021
+# Leandro Noijovich <eliel.sorcerer@gmail.com>, 2022
 # Lilach Gilliam <lilach.gilliam@gmail.com>, 2022
+# ExcaliberX <excaliberx@gmail.com>, 2022
 # Netta Waizer, 2022
-# Ha Ketem <haketem@gmail.com>, 2022
+# Yihya Hugirat <hugirat@gmail.com>, 2022
+# Martin Trigaux, 2022
+# דודי מלכה <Dudimalka6@gmail.com>, 2022
+# ZVI BLONDER <ZVIBLONDER@gmail.com>, 2022
 # yael terner, 2023
+# Ha Ketem <haketem@gmail.com>, 2024
 # 
 msgid ""
 msgstr ""
-"Project-Id-Version: Odoo Server saas~14.5\n"
+"Project-Id-Version: Odoo Server 16.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2021-09-14 10:28+0000\n"
-"PO-Revision-Date: 2021-09-14 12:20+0000\n"
-"Last-Translator: yael terner, 2023\n"
+"POT-Creation-Date: 2024-02-06 13:31+0000\n"
+"PO-Revision-Date: 2022-09-22 05:45+0000\n"
+"Last-Translator: Ha Ketem <haketem@gmail.com>, 2024\n"
 "Language-Team: Hebrew (https://app.transifex.com/odoo/teams/41243/he/)\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
@@ -29,7 +29,7 @@ msgstr ""
 "Plural-Forms: nplurals=3; plural=(n == 1 && n % 1 == 0) ? 0 : (n == 2 && n % 1 == 0) ? 1: 2;\n"
 
 #. module: base_automation
-#. openerp-web
+#. odoo-javascript
 #: code:addons/base_automation/static/src/xml/base_automation_error_dialog.xml:0
 #, python-format
 msgid ""
@@ -109,7 +109,6 @@ msgstr "אוטומציה"
 #. module: base_automation
 #: model:ir.actions.server,name:base_automation.ir_cron_data_base_automation_check_ir_actions_server
 #: model:ir.cron,cron_name:base_automation.ir_cron_data_base_automation_check
-#: model:ir.cron,name:base_automation.ir_cron_data_base_automation_check
 msgid "Base Action Rule: check and execute"
 msgstr "כלל פעולה בסיסי: בדוק ובצע"
 
@@ -158,6 +157,15 @@ msgstr ""
 "גלובלי."
 
 #. module: base_automation
+#: model:ir.model.fields,help:base_automation.field_base_automation__mail_post_method
+msgid ""
+"Choose method for email sending:\n"
+"EMail: send directly emails\n"
+"Post as Message: post on document and notify followers\n"
+"Post as Note: log a note on document"
+msgstr ""
+
+#. module: base_automation
 #: model:ir.model.fields,field_description:base_automation.field_base_automation__create_uid
 msgid "Created by"
 msgstr "נוצר על-ידי"
@@ -176,12 +184,9 @@ msgstr "ימים"
 #: model:ir.model.fields,help:base_automation.field_base_automation__trg_date_range
 msgid ""
 "Delay after the trigger date.\n"
-"                                    You can put a negative number if you need a delay before the\n"
-"                                    trigger date, like sending a reminder 15 minutes before a meeting."
+"        You can put a negative number if you need a delay before the\n"
+"        trigger date, like sending a reminder 15 minutes before a meeting."
 msgstr ""
-"השהה לאחר תאריך הטריגר.\n"
-"                                    אתה יכול להזין מספר שלילי אם אתה זקוק להשהייה לפני \n"
-"                                    תאריך הטריגר, כמו למשל שליחת תזכורת 15 דקות לפני פגישה."
 
 #. module: base_automation
 #: model:ir.model.fields,field_description:base_automation.field_base_automation__trg_date_range
@@ -194,14 +199,14 @@ msgid "Delay type"
 msgstr "סוג עיכוב"
 
 #. module: base_automation
-#. openerp-web
+#. odoo-javascript
 #: code:addons/base_automation/static/src/xml/base_automation_error_dialog.xml:0
 #, python-format
 msgid "Disable Action"
 msgstr "השבתת פעולה"
 
 #. module: base_automation
-#. openerp-web
+#. odoo-javascript
 #: code:addons/base_automation/static/src/xml/base_automation_error_dialog.xml:0
 #, python-format
 msgid ""
@@ -227,7 +232,7 @@ msgid "Due type"
 msgstr "סוג יעד"
 
 #. module: base_automation
-#. openerp-web
+#. odoo-javascript
 #: code:addons/base_automation/static/src/xml/base_automation_error_dialog.xml:0
 #, python-format
 msgid "Edit action"
@@ -239,6 +244,15 @@ msgid "Email Template"
 msgstr "תבנית דוא\"ל"
 
 #. module: base_automation
+#. odoo-python
+#: code:addons/base_automation/models/base_automation.py:0
+#, python-format
+msgid ""
+"Email, followers or activities action types cannot be used when deleting "
+"records."
+msgstr ""
+
+#. module: base_automation
 #: model:ir.model.fields,field_description:base_automation.field_base_automation__xml_id
 msgid "External ID"
 msgstr "מזהה חיצוני"
@@ -246,6 +260,14 @@ msgstr "מזהה חיצוני"
 #. module: base_automation
 #: model:ir.model.fields,help:base_automation.field_base_automation__on_change_field_ids
 msgid "Fields that trigger the onchange."
+msgstr ""
+
+#. module: base_automation
+#. odoo-python
+#: code:addons/base_automation/models/base_automation.py:0
+#, python-format
+msgid ""
+"Form Modification based actions can only be used with code action type."
 msgstr ""
 
 #. module: base_automation
@@ -261,7 +283,7 @@ msgstr "שעות"
 #. module: base_automation
 #: model:ir.model.fields,field_description:base_automation.field_base_automation__id
 msgid "ID"
-msgstr "תעודה מזהה"
+msgstr "מזהה"
 
 #. module: base_automation
 #: model:ir.model.fields,help:base_automation.field_base_automation__xml_id
@@ -351,11 +373,12 @@ msgid "Note"
 msgstr "הערה"
 
 #. module: base_automation
+#. odoo-python
 #: code:addons/base_automation/models/base_automation.py:0
 #, python-format
 msgid ""
-"Note that this action can be trigged up to %d minutes after its schedule."
-msgstr "שימו לב שפעולה זו יכולה להתרחש עד %d דקות אחרי שתוזמנה."
+"Note that this action can be triggered up to %d minutes after its schedule."
+msgstr ""
 
 #. module: base_automation
 #: model:ir.model.fields,field_description:base_automation.field_base_automation__on_change_field_ids
@@ -410,6 +433,11 @@ msgid "Responsible"
 msgstr "אחראי"
 
 #. module: base_automation
+#: model:ir.model.fields,field_description:base_automation.field_base_automation__mail_post_method
+msgid "Send as"
+msgstr "שליחה בתור"
+
+#. module: base_automation
 #: model:ir.model.fields,field_description:base_automation.field_base_automation__sequence
 msgid "Sequence"
 msgstr "רצף"
@@ -437,6 +465,11 @@ msgid "Setup a new automated automation"
 msgstr "הגדר אוטומציה אוטומטית חדשה"
 
 #. module: base_automation
+#: model:ir.model.fields,field_description:base_automation.field_base_automation__mail_post_autofollow
+msgid "Subscribe Recipients"
+msgstr ""
+
+#. module: base_automation
 #: model:ir.model.fields,field_description:base_automation.field_base_automation__activity_summary
 msgid "Summary"
 msgstr "תקציר"
@@ -452,11 +485,7 @@ msgid "Target Model Name"
 msgstr "שם דגם היעד"
 
 #. module: base_automation
-#: model:ir.model.fields,help:base_automation.field_base_automation__activity_user_field_name
-msgid "Technical name of the user on the record"
-msgstr "השם הטכני של המשתמש ברשומה"
-
-#. module: base_automation
+#. odoo-python
 #: code:addons/base_automation/models/base_automation.py:0
 #, python-format
 msgid ""
@@ -469,21 +498,18 @@ msgstr ""
 #. module: base_automation
 #: model:ir.model.fields,help:base_automation.field_base_automation__trigger_field_ids
 msgid ""
-"The action will be triggered if and only if one of these fields is "
-"updated.If empty, all fields are watched."
+"The action will be triggered if and only if one of these fields is updated. "
+"If empty, all fields are watched."
 msgstr ""
-"הפעולה תופעל אם ורק אם אחד מהשדות הללו מתעדכן. אם ריק, כל השדות נצפים."
 
 #. module: base_automation
-#. openerp-web
+#. odoo-javascript
 #: code:addons/base_automation/static/src/xml/base_automation_error_dialog.xml:0
 #, python-format
 msgid ""
 "The error occurred during the execution of the automated action\n"
 "                \""
-msgstr ""
-"השגיאה קרתה בסמן ביצוע פעולה אוטומטית\n"
-"                 \""
+msgstr "השגיאה קרתה בסמן ביצוע פעולה אוטומטית"
 
 #. module: base_automation
 #: model:ir.model.fields,field_description:base_automation.field_base_automation__trigger
@@ -506,21 +532,14 @@ msgstr "שדות ההפעלה"
 msgid ""
 "Type of server action. The following values are available:\n"
 "- 'Execute Python Code': a block of python code that will be executed\n"
-"- 'Create': create a new record with new values\n"
+"- 'Create a new Record': create a new record with new values\n"
 "- 'Update a Record': update the values of a record\n"
 "- 'Execute several actions': define an action that triggers several other server actions\n"
-"- 'Send Email': automatically send an email (Discuss)\n"
+"- 'Send Email': post a message, a note or send an email (Discuss)\n"
 "- 'Add Followers': add followers to a record (Discuss)\n"
-"- 'Create Next Activity': create an activity (Discuss)"
+"- 'Create Next Activity': create an activity (Discuss)\n"
+"- 'Send SMS Text Message': send SMS, log them on documents (SMS)"
 msgstr ""
-"סוג פעולת השרת. הערכים הבאים זמינים:\n"
-"- 'בצע קוד פייתון': בלוק של קוד פייתון שיבוצע\n"
-"- 'צור': צור רשומה חדשה עם ערכים חדשים\n"
-"- 'עדכן רשומה': עדכן את ערכי הרשומה\n"
-"- 'בצע מספר פעולות': הגדר פעולה שמפעילה מספר פעולות שרת אחרות\n"
-"- 'שלח דוא\"ל': שלח דוא\"ל באופן אוטומטי (צ'אט)\n"
-"- 'הוסף עוקבים': הוסף עוקבים לרשומה (צ'אט)\n"
-"- 'צור פעילות הבאה': צור פעילות (צ'אט)"
 
 #. module: base_automation
 #: model:ir.model.fields,field_description:base_automation.field_base_automation__usage
@@ -570,6 +589,7 @@ msgid "Value Mapping"
 msgstr "מיפוי ערך"
 
 #. module: base_automation
+#. odoo-python
 #: code:addons/base_automation/models/base_automation.py:0
 #: code:addons/base_automation/models/base_automation.py:0
 #, python-format
@@ -598,10 +618,8 @@ msgstr ""
 #: model:ir.model.fields,help:base_automation.field_base_automation__trg_date_id
 msgid ""
 "When should the condition be triggered.\n"
-"                                  If present, will be checked by the scheduler. If empty, will be checked at creation and update."
+"                If present, will be checked by the scheduler. If empty, will be checked at creation and update."
 msgstr ""
-"מתי צריך להפעיל את התנאי.\n"
-"                                  אם קיים, ייבדק על ידי המתזמן. אם הוא ריק, ייבדק ביצירה ועדכון."
 
 #. module: base_automation
 #: model:ir.model.fields,help:base_automation.field_base_automation__active
@@ -618,7 +636,7 @@ msgstr ""
 "פייתון ניתנת בכרטיסייה עזרה."
 
 #. module: base_automation
-#. openerp-web
+#. odoo-javascript
 #: code:addons/base_automation/static/src/xml/base_automation_error_dialog.xml:0
 #, python-format
 msgid ""
@@ -626,7 +644,7 @@ msgid ""
 msgstr "ביכולתך לבקש מהמנהל להשהות או לתקן את הפעולה האוטומטית הזו."
 
 #. module: base_automation
-#. openerp-web
+#. odoo-javascript
 #: code:addons/base_automation/static/src/xml/base_automation_error_dialog.xml:0
 #, python-format
 msgid "You can disable this automated action or edit it to solve the issue."
@@ -634,6 +652,7 @@ msgstr ""
 "כדי לפתור את העניין באפשרותך להשהות את הפעולה האוטומטית או לערוך אותה."
 
 #. module: base_automation
+#. odoo-python
 #: code:addons/base_automation/models/base_automation.py:0
 #, python-format
 msgid ""

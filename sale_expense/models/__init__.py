@@ -2,6 +2,7 @@
 
 from . import hr_expense
 from . import hr_expense_sheet
+from . import hr_expense_split
 from . import sale_order
 from . import product_template
 from . import account_move

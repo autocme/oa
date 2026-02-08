@@ -3,17 +3,26 @@
 {
     'name': 'Saudi Arabia - Accounting',
     'version': '2.0',
-    'author': 'DVIT.ME',
+    'author': 'Odoo S.A., DVIT.ME',
     'category': 'Accounting/Localizations/Account Charts',
+    'website': 'https://www.odoo.com/documentation/16.0/applications/finance/fiscal_localizations/saudi_arabia.html',
     'description': """
-Odoo Arabic localization for most arabic countries and Saudi Arabia.
+Saudi Arabia Accounting Module
+===========================================================
+Saudi Arabia Accounting Basic Charts and Localization
 
-This initially includes chart of accounts of USA translated to Arabic.
+Activates:
 
-In future this module will include some payroll rules for ME .
+- Chart of Accounts
+- Taxes
+- Vat Filling Report
+- Withholding Tax Report
+- Fiscal Positions
 """,
-    'website': 'http://www.dvit.me',
-    'depends': ['account', 'l10n_multilang'],
+    'depends': [
+        'l10n_multilang',
+        'l10n_gcc_invoice',
+    ],
     'data': [
         'data/account_data.xml',
         'data/account_chart_template_data.xml',
@@ -24,6 +33,10 @@ In future this module will include some payroll rules for ME .
         'data/account_tax_template_data.xml',
         'data/account_fiscal_position_template_data.xml',
         'data/account_chart_template_configure_data.xml',
+        'data/report_paperformat_data.xml',
+        'views/view_move_form.xml',
+        'views/report_invoice.xml',
+        'views/report_templates_views.xml'
     ],
     'demo': [
         'demo/demo_company.xml',

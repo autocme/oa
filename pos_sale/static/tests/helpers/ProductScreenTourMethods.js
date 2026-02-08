@@ -27,6 +27,19 @@ odoo.define('pos_sale.tour.ProductScreenTourMethods', function (require) {
             ];
         }
 
+        selectNthOrder(n) {
+            return [
+                {
+                    content: `select order`,
+                    trigger: `.order-list .order-row:nth-child(${n})`,
+                },
+                {
+                    content: `click on select the order`,
+                    trigger: `.selection-item:contains('Settle the order')`,
+                }
+            ];
+        }
+
         downPaymentFirstOrder() {
             return [
                 {
@@ -43,15 +56,6 @@ odoo.define('pos_sale.tour.ProductScreenTourMethods', function (require) {
                 },
                 {
                     content: `click on ok button`,
-                    trigger: `.button.confirm`,
-                }
-            ];
-        }
-
-        acceptNewProduct() {
-            return [
-                {
-                    content: `click on accept button`,
                     trigger: `.button.confirm`,
                 }
             ];

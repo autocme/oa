@@ -1,9 +1,10 @@
 # -*- coding: utf-8 -*-
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
 
+import werkzeug
+
 from odoo import http
 from odoo.http import request
-from odoo.tools.translate import _
 
 
 class WebsiteBackend(http.Controller):
@@ -19,50 +20,42 @@ class WebsiteBackend(http.Controller):
                 'website_designer': has_group_designer
             },
             'currency': request.env.company.currency_id.id,
-            'dashboards': {
-                'visits': {},
-            }
+            'dashboards': {}
         }
 
         current_website = website_id and Website.browse(website_id) or Website.get_current_website()
         multi_website = request.env.user.has_group('website.group_multi_website')
         websites = multi_website and request.env['website'].search([]) or current_website
         dashboard_data['websites'] = websites.read(['id', 'name'])
-        for rec, website in zip(websites, dashboard_data['websites']):
-            website['domain'] = rec._get_http_domain()
+        for website in dashboard_data['websites']:
             if website['id'] == current_website.id:
                 website['selected'] = True
 
         if has_group_designer:
-            if current_website.google_management_client_id and current_website.google_analytics_key:
-                dashboard_data['dashboards']['visits'] = dict(
-                    ga_client_id=current_website.google_management_client_id or '',
-                    ga_analytics_key=current_website.google_analytics_key or '',
-                )
+            dashboard_data['dashboards']['plausible_share_url'] = current_website._get_plausible_share_url()
         return dashboard_data
 
-    @http.route('/website/dashboard/set_ga_data', type='json', auth='user')
-    def website_set_ga_data(self, website_id, ga_client_id, ga_analytics_key):
-        if not request.env.user.has_group('base.group_system'):
-            return {
-                'error': {
-                    'title': _('Access Error'),
-                    'message': _('You do not have sufficient rights to perform that action.'),
-                }
-            }
-        if not ga_analytics_key or not ga_client_id.endswith('.apps.googleusercontent.com'):
-            return {
-                'error': {
-                    'title': _('Incorrect Client ID / Key'),
-                    'message': _('The Google Analytics Client ID or Key you entered seems incorrect.'),
-                }
-            }
-        Website = request.env['website']
-        current_website = website_id and Website.browse(website_id) or Website.get_current_website()
+    @http.route('/website/iframefallback', type="http", auth='user', website=True)
+    def get_iframe_fallback(self):
+        # TODO adapt in master (done like this as a fix in stable)
+        view = request.env.ref('website.iframefallback').with_context(no_cow=True).sudo()
+        if '"website.assets_wysiwyg"' in view.arch:
+            view.arch = view.arch.replace('"website.assets_wysiwyg"', '"website.assets_wysiwyg_inside"')
+        return request.render('website.iframefallback')
 
-        request.env['res.config.settings'].create({
-            'google_management_client_id': ga_client_id,
-            'google_analytics_key': ga_analytics_key,
-            'website_id': current_website.id,
-        }).execute()
-        return True
+    @http.route('/website/check_new_content_access_rights', type="json", auth='user')
+    def check_create_access_rights(self, models):
+        """
+        TODO: In master, remove this route and method and find a better way
+        to do this. This route is only here to ensure that the "New Content"
+        modal displays the correct elements for each user, and there might be
+        a way to do it with the framework rather than having a dedicated
+        controller route. (maybe by using a template or a JS util)
+        """
+        if not request.env.user.has_group('website.group_website_restricted_editor'):
+            raise werkzeug.exceptions.Forbidden()
+
+        return {
+            model: request.env[model].check_access_rights('create', raise_exception=False)
+            for model in models
+        }

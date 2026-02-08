@@ -6,23 +6,17 @@ const { Component } = owl;
 
 export class ThreadTextualTypingStatus extends Component {
 
-    //--------------------------------------------------------------------------
-    // Public
-    //--------------------------------------------------------------------------
-
     /**
-     * @returns {mail.thread}
+     * @returns {Thread}
      */
     get thread() {
-        return this.messaging && this.messaging.models['mail.thread'].get(this.props.threadLocalId);
+        return this.props.thread;
     }
 
 }
 
 Object.assign(ThreadTextualTypingStatus, {
-    props: {
-        threadLocalId: String,
-    },
+    props: { thread: Object },
     template: 'mail.ThreadTextualTypingStatus',
 });
 

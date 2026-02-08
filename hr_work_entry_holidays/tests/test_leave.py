@@ -4,6 +4,9 @@
 from datetime import datetime, date
 from dateutil.relativedelta import relativedelta
 
+from freezegun import freeze_time
+
+from odoo import SUPERUSER_ID
 from odoo.addons.hr_work_entry_holidays.tests.common import TestWorkEntryHolidaysBase
 from odoo.tests import tagged
 
@@ -100,7 +103,7 @@ class TestWorkEntryLeave(TestWorkEntryHolidaysBase):
 
     def test_refuse_leave(self):
         leave = self.create_leave(datetime(2019, 10, 10, 9, 0), datetime(2019, 10, 10, 18, 0))
-        work_entries = self.richard_emp.contract_id._generate_work_entries(datetime(2019, 10, 10, 9, 0), datetime(2019, 10, 10, 18, 0))
+        work_entries = self.richard_emp.contract_id.generate_work_entries(date(2019, 10, 10), date(2019, 10, 10))
         adjacent_work_entry = self.create_work_entry(datetime(2019, 10, 7, 9, 0), datetime(2019, 10, 10, 9, 0))
         self.assertTrue(all(work_entries.mapped(lambda w: w.state == 'conflict')), "Attendance work entries should all conflict with the leave")
         self.assertNotEqual(adjacent_work_entry.state, 'conflict', "Non overlapping work entry should not conflict")
@@ -121,7 +124,7 @@ class TestWorkEntryLeave(TestWorkEntryHolidaysBase):
         leave = self.create_leave(start, end)
         leave.action_validate()
         work_entries = self.env['hr.work.entry'].search([('employee_id', '=', self.richard_emp.id), ('date_start', '<=', end), ('date_stop', '>=', start)])
-        leave_work_entry = self.richard_emp.contract_ids._generate_work_entries(start, end)
+        leave_work_entry = self.richard_emp.contract_ids.generate_work_entries(start.date(), end.date())
         self.assertEqual(leave_work_entry[:1].leave_id, leave)
         leave.action_refuse()
         work_entries = self.env['hr.work.entry'].search([('employee_id', '=', self.richard_emp.id), ('date_start', '>=', start), ('date_stop', '<=', end)])
@@ -138,6 +141,38 @@ class TestWorkEntryLeave(TestWorkEntryHolidaysBase):
         self.assertEqual(work_entry.state, 'cancelled', "Attendance work entries should be cancelled and not conflict")
         self.assertFalse(work_entry.active)
 
+    def test_work_entry_cancel_leave(self):
+        user = self.env['res.users'].create({
+            'name': 'User Employee',
+            'login': 'jul',
+            'password': 'julpassword',
+        })
+        self.richard_emp.user_id = user
+        self.richard_emp.contract_ids.state = 'open'
+        with freeze_time(datetime(2022, 3, 21)):
+            # Tests that cancelling a leave archives the work entries.
+            leave = self.env['hr.leave'].with_user(user).create({
+                'name': 'Sick 1 week during christmas snif',
+                'employee_id': self.richard_emp.id,
+                'holiday_status_id': self.leave_type.id,
+                'date_from': datetime(2022, 3, 22, 6),
+                'date_to': datetime(2022, 3, 25, 20),
+                'number_of_days': 4,
+            })
+            leave.with_user(SUPERUSER_ID).action_validate()
+            # No work entries exist yet
+            self.assertTrue(leave.can_cancel, "The leave should still be cancellable")
+            # can not create in the future
+            self.richard_emp.contract_ids.generate_work_entries(date(2022, 3, 21), date(2022, 3, 25))
+            work_entries = self.env['hr.work.entry'].search([('employee_id', '=', self.richard_emp.id)])
+            leave.invalidate_recordset(['can_cancel'])
+            # Work entries exist but are not locked yet
+            self.assertTrue(leave.can_cancel, "The leave should still be cancellable")
+            work_entries.action_validate()
+            leave.invalidate_recordset(['can_cancel'])
+            # Work entries locked
+            self.assertFalse(leave.can_cancel, "The leave should not be cancellable")
+
     def test_work_entry_generation_company_time_off(self):
         existing_leaves = self.env['hr.leave'].search([])
         existing_leaves.action_refuse()
@@ -145,7 +180,7 @@ class TestWorkEntryLeave(TestWorkEntryHolidaysBase):
         existing_leaves.unlink()
         start = date(2022, 8, 1)
         end = date(2022, 8, 31)
-        self.contract_cdi._generate_work_entries(start, end)
+        self.contract_cdi.generate_work_entries(start, end)
         work_entries = self.env['hr.work.entry'].search([
             ('employee_id', '=', self.jules_emp.id),
             ('date_start', '>=', start),

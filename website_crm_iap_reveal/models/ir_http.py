@@ -19,9 +19,9 @@ class IrHttp(models.AbstractModel):
             visitor_sudo = request.env['website.visitor']._get_visitor_from_request()
             # We are avoiding to create a reveal_view if a lead is already
             # created from another module, e.g. website_form
-            if not visitor_sudo or 'lead_ids' not in visitor_sudo or not visitor_sudo.lead_ids:
-                country_code = 'geoip' in request.session and request.session['geoip'].get('country_code')
-                state_code = 'geoip' in request.session and request.session['geoip'].get('region')
+            if not (visitor_sudo and visitor_sudo.lead_ids):
+                country_code = request.geoip.get('country_code')
+                state_code = request.geoip.get('region')
                 if country_code:
                     try:
                         url = request.httprequest.url
@@ -37,7 +37,7 @@ class IrHttp(models.AbstractModel):
                                      time.time() - before, new_rules_excluded == rules_excluded, country_code,
                                      ip_address)
                         if new_rules_excluded:
-                            response.set_cookie('rule_ids', ','.join(new_rules_excluded))
+                            response.set_cookie('rule_ids', ','.join(new_rules_excluded), cookie_type='optional')
                     except Exception:
                         # just in case - we never want to crash a page view
                         _logger.exception("Failed to process reveal rules")

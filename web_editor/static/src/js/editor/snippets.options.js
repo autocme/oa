@@ -1,6 +1,8 @@
 odoo.define('web_editor.snippets.options', function (require) {
 'use strict';
 
+const { ComponentWrapper } = require('web.OwlCompatibility');
+const { MediaDialogWrapper } = require('@web_editor/components/media_dialog/media_dialog');
 var core = require('web.core');
 const {ColorpickerWidget} = require('web.Colorpicker');
 const Dialog = require('web.Dialog');
@@ -11,6 +13,7 @@ const utils = require('web.utils');
 var Widget = require('web.Widget');
 var ColorPaletteWidget = require('web_editor.ColorPalette').ColorPaletteWidget;
 const weUtils = require('web_editor.utils');
+const gridUtils = require('@web_editor/js/common/grid_layout_utils');
 const {
     normalizeColor,
     getBgImageURL,
@@ -27,8 +30,11 @@ const {
     removeOnImageChangeAttrs,
     isImageSupportedForProcessing,
     isImageSupportedForStyle,
+    createDataURL,
+    isGif,
 } = require('web_editor.image_processing');
-const OdooEditorLib = require('@web_editor/../lib/odoo-editor/src/OdooEditor');
+const OdooEditorLib = require('@web_editor/js/editor/odoo-editor/src/OdooEditor');
+const {SIZES, MEDIAS_BREAKPOINTS} = require('@web/core/ui/ui_service');
 
 var qweb = core.qweb;
 var _t = core._t;
@@ -51,6 +57,9 @@ function _addTitleAndAllowedAttributes(el, title, options) {
         const titleEl = _buildTitleElement(title);
         tooltipEl = titleEl;
         el.appendChild(titleEl);
+        if (options && options.dataAttributes && options.dataAttributes.fontFamily) {
+            titleEl.style.fontFamily = options.dataAttributes.fontFamily;
+        }
     }
 
     if (options && options.classes) {
@@ -86,16 +95,7 @@ function _buildElement(tagName, title, options) {
  */
 function _buildTitleElement(title) {
     const titleEl = document.createElement('we-title');
-    // As a stable fix, to not touch XML templates and break existing
-    // translations, the ⌙ character is automatically replaced by └ which makes
-    // more sense for the usecase and should work properly in all browsers. The
-    // ⌙ character is actually rendered mirrored on Windows 11 Chrome (and
-    // others) as the font used for those unicode characters is left to the
-    // browser. We could force a font of our own but it's probably not worth it.
-    // TODO a better solution with a SVG or CSS solution has to be done in
-    // master. That would unify the look of the symbol across all browsers and
-    // also prevent special characters to be placed in translations.
-    titleEl.textContent = title.replace(/⌙/g, '└');
+    titleEl.textContent = title;
     return titleEl;
 }
 /**
@@ -157,6 +157,7 @@ function _buildCollapseElement(title, options) {
     const children = options && options.childNodes || [];
     if (titleEl) {
         titleEl.remove();
+        titleEl.classList.add('o_we_collapse_toggler');
         children.unshift(titleEl);
     }
     let i = 0;
@@ -169,9 +170,6 @@ function _buildCollapseElement(title, options) {
 
     const togglerEl = document.createElement('we-toggler');
     togglerEl.classList.add('o_we_collapse_toggler');
-    if (_t.database.parameters.direction === 'rtl') {
-        togglerEl.classList.add('o_we_collapse_toggler_rtl');
-    }
     groupEl.appendChild(togglerEl);
 
     const containerEl = document.createElement('div');
@@ -1228,8 +1226,8 @@ const InputUserValueWidget = UnitUserValueWidget.extend({
         this.inputEl.setAttribute('type', 'text');
         this.inputEl.setAttribute('autocomplete', 'chrome-off');
         this.inputEl.setAttribute('placeholder', this.el.getAttribute('placeholder') || '');
-        this.inputEl.classList.toggle('text-left', !unit);
-        this.inputEl.classList.toggle('text-right', !!unit);
+        this.inputEl.classList.toggle('text-start', !unit);
+        this.inputEl.classList.toggle('text-end', !!unit);
         this.containerEl.appendChild(this.inputEl);
 
         var unitEl = document.createElement('span');
@@ -1552,14 +1550,17 @@ const ColorpickerUserValueWidget = SelectUserValueWidget.extend({
         this.colorPreviewEl.classList.remove(...classes);
         this.colorPreviewEl.style.removeProperty('background-color');
         this.colorPreviewEl.style.removeProperty('background-image');
+        const prefix = this.options.dataAttributes.colorPrefix || 'bg';
         if (this._ccValue) {
-            this.colorPreviewEl.classList.add('o_cc', `o_cc${this._ccValue}`);
+            this.colorPreviewEl.style.backgroundColor = `var(--we-cp-o-cc${this._ccValue}-${prefix.replace(/-/, '')})`;
         }
         if (this._value) {
             if (ColorpickerWidget.isCSSColor(this._value)) {
                 this.colorPreviewEl.style.backgroundColor = this._value;
             } else if (weUtils.isColorGradient(this._value)) {
                 this.colorPreviewEl.style.backgroundImage = this._value;
+            } else if (weUtils.EDITOR_COLOR_CSS_VARIABLES.includes(this._value)) {
+                this.colorPreviewEl.style.backgroundColor = `var(--we-cp-${this._value}`;
             } else {
                 // Checking if the className actually exists seems overkill but
                 // it is actually needed to prevent a crash. As an example, if a
@@ -1619,6 +1620,25 @@ const ColorpickerUserValueWidget = SelectUserValueWidget.extend({
         if (this.options.dataAttributes.selectedTab) {
             options.selectedTab = this.options.dataAttributes.selectedTab;
         }
+
+        // TODO see comment below: retrieving wysiwyg here is not needed
+        // anymore so this can be removed in master. Meanwhile, this is patched
+        // in an ugly way so that custo work consistently if they use
+        // `ownerDocument` or `editable` from `options`.
+        let optionWidget = this;
+        do {
+            optionWidget = optionWidget.getParent();
+        } while (optionWidget && !optionWidget.options.wysiwyg);
+        const wysiwyg = optionWidget && optionWidget.options.wysiwyg;
+        if (wysiwyg) {
+            // TODO remove both of these in master: options.ownerDocument has
+            // just never been used and options.editable is a duplicate of
+            // options.$editable which is retrieved by the ColorPaletteWidget
+            // instance itself in case it is not received anyway.
+            options.ownerDocument = wysiwyg.el.ownerDocument;
+            options.editable = wysiwyg.$editable[0];
+        }
+
         const oldColorPalette = this.colorPalette;
         this.colorPalette = new ColorPaletteWidget(this, options);
         if (oldColorPalette) {
@@ -1730,10 +1750,10 @@ const MediapickerUserValueWidget = UserValueWidget.extend({
      * @param {boolean} [videos] whether videos should be available
      *   default: false
      */
-    _openDialog(el, {images = false, videos = false}) {
+    _openDialog(el, {images = false, videos = false, save}) {
         el.src = this._value;
         const $editable = this.$target.closest('.o_editable');
-        const mediaDialog = new weWidgets.MediaDialog(this, {
+        const mediaDialogWrapper = new ComponentWrapper(this, MediaDialogWrapper, {
             noImages: !images,
             noVideos: !videos,
             noIcons: true,
@@ -1743,8 +1763,10 @@ const MediapickerUserValueWidget = UserValueWidget.extend({
                 '499761556', '392935303', '728584384', '865314310', '511727912', '466830211'],
             'res_model': $editable.data('oe-model'),
             'res_id': $editable.data('oe-id'),
-        }, el).open();
-        return mediaDialog;
+            save,
+            media: el,
+        });
+        return mediaDialogWrapper.mount(this.el);
     },
 
     //--------------------------------------------------------------------------
@@ -1783,13 +1805,15 @@ const ImagepickerUserValueWidget = MediapickerUserValueWidget.extend({
     _onEditMedia(ev) {
         // Need a dummy element for the media dialog to modify.
         const dummyEl = document.createElement('img');
-        const dialog = this._openDialog(dummyEl, {images: true});
-        dialog.on('save', this, data => {
-            // Accessing the value directly through dummyEl.src converts the url to absolute,
-            // using getAttribute allows us to keep the url as it was inserted in the DOM
-            // which can be useful to compare it to values stored in db.
-            this._value = dummyEl.getAttribute('src');
-            this._onUserValueChange();
+        this._openDialog(dummyEl, {
+            images: true,
+            save: (media) => {
+                // Accessing the value directly through dummyEl.src converts the url to absolute,
+                // using getAttribute allows us to keep the url as it was inserted in the DOM
+                // which can be useful to compare it to values stored in db.
+                this._value = media.getAttribute('src');
+                this._onUserValueChange();
+            }
         });
     },
 });
@@ -1805,11 +1829,12 @@ const VideopickerUserValueWidget = MediapickerUserValueWidget.extend({
     _onEditMedia(ev) {
         // Need a dummy element for the media dialog to modify.
         const dummyEl = document.createElement('iframe');
-        const dialog = this._openDialog(dummyEl, {videos: true});
-        dialog.on('save', this, data => {
-            this._value = data.bgVideoSrc;
-            this._onUserValueChange();
-        });
+        this._openDialog(dummyEl, {
+            videos: true,
+            save: (media) => {
+                this._value = media.querySelector('iframe').src;
+                this._onUserValueChange();
+        }});
     },
 });
 
@@ -1838,7 +1863,7 @@ const DatetimePickerUserValueWidget = InputUserValueWidget.extend({
 
         const datetimePickerId = _.uniqueId('datetimepicker');
         this.el.classList.add('o_we_large');
-        this.inputEl.classList.add('datetimepicker-input', 'mx-0', 'text-left');
+        this.inputEl.classList.add('datetimepicker-input', 'mx-0', 'text-start');
         this.inputEl.setAttribute('id', datetimePickerId);
         this.inputEl.setAttribute('data-target', '#' + datetimePickerId);
 
@@ -2028,7 +2053,7 @@ const ListUserValueWidget = UserValueWidget.extend({
      */
     setValue() {
         this._super(...arguments);
-        const currentValues = JSON.parse(this._value);
+        const currentValues = this._value ? JSON.parse(this._value) : [];
         this.listTable.innerHTML = '';
         if (this.addItemButton) {
             this.addItemButton.remove();
@@ -2122,6 +2147,7 @@ const ListUserValueWidget = UserValueWidget.extend({
             draggableTdEl.appendChild(draggableEl);
             trEl.appendChild(draggableTdEl);
         }
+        let recordDataSelected = false;
         const inputEl = document.createElement('input');
         inputEl.type = this.el.dataset.inputType || 'text';
         if (value) {
@@ -2131,14 +2157,15 @@ const ListUserValueWidget = UserValueWidget.extend({
             inputEl.name = id;
         }
         if (recordData) {
+            recordDataSelected = recordData.selected;
+            if (recordData.placeholder) {
+                inputEl.placeholder = recordData.placeholder;
+            }
             for (const key of Object.keys(recordData)) {
                 inputEl.dataset[key] = recordData[key];
             }
         }
         inputEl.disabled = !this.isCustom;
-        const buttonEl = document.createElement('we-button');
-        buttonEl.classList.add('o_we_select_remove_option', 'o_we_link', 'o_we_text_danger', 'fa', 'fa-fw', 'fa-minus');
-        buttonEl.dataset.removeOption = id;
         const inputTdEl = document.createElement('td');
         inputTdEl.classList.add('o_we_list_record_name');
         inputTdEl.appendChild(inputEl);
@@ -2146,22 +2173,35 @@ const ListUserValueWidget = UserValueWidget.extend({
         if (this.hasDefault) {
             const checkboxEl = document.createElement('we-button');
             checkboxEl.classList.add('o_we_user_value_widget', 'o_we_checkbox_wrapper');
-            if (this.selected.includes(id)) {
+            if (this.selected.includes(id) || recordDataSelected) {
                 checkboxEl.classList.add('active');
             }
-            const div = document.createElement('div');
-            const checkbox = document.createElement('we-checkbox');
-            div.appendChild(checkbox);
-            checkboxEl.appendChild(div);
-            checkboxEl.appendChild(checkbox);
-            const checkboxTdEl = document.createElement('td');
-            checkboxTdEl.appendChild(checkboxEl);
-            trEl.appendChild(checkboxTdEl);
+            if (!recordData || !recordData.notToggleable) {
+                const div = document.createElement('div');
+                const checkbox = document.createElement('we-checkbox');
+                div.appendChild(checkbox);
+                checkboxEl.appendChild(div);
+                checkboxEl.appendChild(checkbox);
+                const checkboxTdEl = document.createElement('td');
+                checkboxTdEl.appendChild(checkboxEl);
+                trEl.appendChild(checkboxTdEl);
+            }
         }
-        const buttonTdEl = document.createElement('td');
-        buttonTdEl.appendChild(buttonEl);
-        trEl.appendChild(buttonTdEl);
+        if (!recordData || !recordData.undeletable) {
+            const buttonTdEl = document.createElement('td');
+            const buttonEl = document.createElement('we-button');
+            buttonEl.classList.add('o_we_select_remove_option', 'o_we_link', 'o_we_text_danger', 'fa', 'fa-fw', 'fa-minus');
+            buttonEl.dataset.removeOption = id;
+            buttonTdEl.appendChild(buttonEl);
+            trEl.appendChild(buttonTdEl);
+        }
         this.listTable.appendChild(trEl);
+    },
+    /**
+     * @override
+     */
+    _getFocusableElement() {
+        return this.listTable.querySelector('input');
     },
     /**
      * @private
@@ -2185,9 +2225,10 @@ const ListUserValueWidget = UserValueWidget.extend({
      * @private
      */
     _notifyCurrentState() {
+        const isIdModeName = this.el.dataset.idMode === "name" || !this.isCustom;
         const trimmed = (str) => str.trim().replace(/\s+/g, " ");
         const values = [...this.listTable.querySelectorAll('.o_we_list_record_name input')].map(el => {
-            const id = trimmed(this.isCustom ? el.value : el.name);
+            const id = trimmed(isIdModeName ? el.name : el.value);
             return Object.assign({
                 id: /^-?[0-9]{1,15}$/.test(id) ? parseInt(id) : id,
                 name: trimmed(el.value),
@@ -2198,11 +2239,14 @@ const ListUserValueWidget = UserValueWidget.extend({
             const checkboxes = [...this.listTable.querySelectorAll('we-button.o_we_checkbox_wrapper.active')];
             this.selected = checkboxes.map(el => {
                 const input = el.parentElement.previousSibling.firstChild;
-                const id = trimmed(this.isCustom ? input.value : input.name);
+                const id = trimmed(isIdModeName ? input.name : input.value);
                 return /^-?[0-9]{1,15}$/.test(id) ? parseInt(id) : id;
             });
             values.forEach(v => {
-                v.selected = this.selected.includes(v.id);
+                // Elements not toggleable are considered as always selected.
+                // We have to check that it is equal to the string 'true'
+                // because this information comes from the dataset.
+                v.selected = this.selected.includes(v.id) || v.notToggleable === 'true';
             });
         }
         this._value = JSON.stringify(values);
@@ -2244,7 +2288,11 @@ const ListUserValueWidget = UserValueWidget.extend({
      * @private
      */
     _onAddCustomItemClick() {
-        this._addItemToTable();
+        const recordData = {};
+        if (this.el.dataset.newElementsNotToggleable) {
+            recordData.notToggleable = true;
+        }
+        this._addItemToTable(undefined, this.el.dataset.defaultValue, recordData);
         this._notifyCurrentState();
     },
     /**
@@ -2350,12 +2398,18 @@ const RangeUserValueWidget = UnitUserValueWidget.extend({
         let min = this.el.dataset.min && parseFloat(this.el.dataset.min) || 0;
         let max = this.el.dataset.max && parseFloat(this.el.dataset.max) || 100;
         const step = this.el.dataset.step && parseFloat(this.el.dataset.step) || 1;
+        this.displayValue = this.el.dataset.displayRangeValue;
         if (min > max) {
             [min, max] = [max, min];
             this.input.classList.add('o_we_inverted_range');
         }
         this._setInputAttributes(min, max, step);
         this.containerEl.appendChild(this.input);
+        if (this.displayValue) {
+            this.outputEl = document.createElement('output');
+            this.outputEl.classList.add('ms-2');
+            this.containerEl.appendChild(this.outputEl);
+        }
 
         this._onInputChange = _.debounce(this._onInputChange, 100);
     },
@@ -2383,7 +2437,11 @@ const RangeUserValueWidget = UnitUserValueWidget.extend({
     async setValue(value, methodName) {
         await this._super(...arguments);
         const possibleValues = this._methodsParams.optionsPossibleValues[methodName];
-        this.input.value = possibleValues.length > 1 ? possibleValues.indexOf(value) : this._value;
+        const inputValue = possibleValues.length > 1 ? possibleValues.indexOf(value) : this._value;
+        this.input.value = inputValue;
+        if (this.displayValue) {
+            this.outputEl.value = inputValue;
+        }
     },
     /**
      * @override
@@ -2411,6 +2469,9 @@ const RangeUserValueWidget = UnitUserValueWidget.extend({
      */
     _onInputInput(ev) {
         this._value = ev.target.value;
+        if (this.displayValue) {
+            this.outputEl.value = this._value;
+        }
         this._onUserValuePreview(ev);
     },
     /**
@@ -2518,7 +2579,10 @@ const SelectPagerUserValueWidget = SelectUserValueWidget.extend({
     },
 });
 
-const m2oRpcCache = {};
+let m2oRpcCache = {};
+const clearM2oRpcCache = () => {
+    m2oRpcCache = {};
+};
 const Many2oneUserValueWidget = SelectUserValueWidget.extend({
     className: (SelectUserValueWidget.prototype.className || '') + ' o_we_many2one',
     events: Object.assign({}, SelectUserValueWidget.prototype.events, {
@@ -3110,8 +3174,9 @@ const SnippetOptionWidget = Widget.extend({
      * menu. Note: this is called after the start and onFocus methods.
      *
      * @abstract
+     * @returns {Promise|undefined}
      */
-    onBuilt: function () {},
+    async onBuilt() {},
     /**
      * Called when the parent edition overlay is removed from the associated
      * snippet (another snippet enters edition for example).
@@ -3269,7 +3334,8 @@ const SnippetOptionWidget = Widget.extend({
      *      example). If defined (as a string), it acts as the "priority" param
      *      of @see CSSStyleDeclaration.setProperty: it should be 'important' to
      *      set the style as important or '' otherwise. Note that if forceStyle
-     *      is undefined, the style is always set as important when applied.
+     *      is undefined, the style is set as important only if required to have
+     *      an effect.
      * @returns {Promise|undefined}
      */
     selectStyle: async function (previewMode, widgetValue, params) {
@@ -3395,11 +3461,17 @@ const SnippetOptionWidget = Widget.extend({
         applyAllCSS([...values]);
 
         function applyCSS(cssProp, cssValue, styles) {
-            const forceStyle = (typeof params.forceStyle !== 'undefined');
-            if (forceStyle
-                    || !weUtils.areCssValuesEqual(styles[cssProp], cssValue, cssProp, this.$target[0])) {
-                const priority = forceStyle ? params.forceStyle : 'important';
-                this.$target[0].style.setProperty(cssProp, cssValue, priority);
+            if (typeof params.forceStyle !== 'undefined') {
+                this.$target[0].style.setProperty(cssProp, cssValue, params.forceStyle);
+                return true;
+            }
+
+            if (!weUtils.areCssValuesEqual(styles.getPropertyValue(cssProp), cssValue, cssProp, this.$target[0])) {
+                this.$target[0].style.setProperty(cssProp, cssValue);
+                // If change had no effect then make it important.
+                if (!weUtils.areCssValuesEqual(styles.getPropertyValue(cssProp), cssValue, cssProp, this.$target[0])) {
+                    this.$target[0].style.setProperty(cssProp, cssValue, 'important');
+                }
                 return true;
             }
             return false;
@@ -3614,7 +3686,8 @@ const SnippetOptionWidget = Widget.extend({
         // TODO improve this, this is hackish to rely on DOM structure here.
         // Layouting elements should be handled as widgets or other.
         for (const el of this.$el.find('we-row')) {
-            el.classList.toggle('d-none', !$(el).find('> div > .o_we_user_value_widget').not('.d-none').length);
+            const $userValueWidget = $(el).find('> div > .o_we_user_value_widget');
+            el.classList.toggle('d-none', $userValueWidget.length && !$userValueWidget.not('.d-none').length);
         }
         for (const el of this.$el.find('we-collapse')) {
             const $el = $(el);
@@ -3751,7 +3824,7 @@ const SnippetOptionWidget = Widget.extend({
                 const cssProps = weUtils.CSS_SHORTHANDS[params.cssProperty] || [params.cssProperty];
                 const borderWidthCssProps = weUtils.CSS_SHORTHANDS['border-width'];
                 const cssValues = cssProps.map(cssProp => {
-                    let value = styles[cssProp].trim();
+                    let value = styles.getPropertyValue(cssProp).trim();
                     if (cssProp === 'box-shadow') {
                         const inset = value.includes('inset');
                         let values = value.replace(/,\s/g, ',').replace('inset', '').trim().split(/\s+/g);
@@ -3830,6 +3903,13 @@ const SnippetOptionWidget = Widget.extend({
         const moveDownOrRight = widgetName === 'move_down_opt' || widgetName === 'move_right_opt';
 
         if (moveUpOrLeft || moveDownOrRight) {
+            // The arrows are not displayed if the target is in a grid and if
+            // not in mobile view.
+            const mobileViewThreshold = MEDIAS_BREAKPOINTS[SIZES.LG].minWidth;
+            const isMobileView = this.$target[0].ownerDocument.defaultView.frameElement.clientWidth < mobileViewThreshold;
+            if (this.$target[0].classList.contains('o_grid_item') && !isMobileView) {
+                return false;
+            }
             // Consider only visible elements.
             const direction = moveUpOrLeft ? "previousElementSibling" : "nextElementSibling";
             let siblingEl = this.$target[0][direction];
@@ -3946,7 +4026,7 @@ const SnippetOptionWidget = Widget.extend({
                 // widget start.
                 parentEl.removeChild(el);
 
-                if (widget.isContainer()) {
+                if (widget.isContainer() && !widget.isDestroyed()) {
                     return this._renderXMLWidgets(widget.el, widget);
                 }
             });
@@ -4135,28 +4215,7 @@ const SnippetOptionWidget = Widget.extend({
                 }
             }
 
-            const reloadMessage = await this._checkIfWidgetsUpdateNeedReload(widgets);
-            requiresReload = !!reloadMessage;
-            if (requiresReload) {
-                const save = await new Promise(resolve => {
-                    Dialog.confirm(this, _t("To apply this change, we need to save all your previous modifications and reload the page.") + ' '
-                            + (typeof reloadMessage === 'string' ? reloadMessage : ''), {
-                        buttons: [{
-                            text: _t('Save and Reload'),
-                            classes: 'btn-primary',
-                            close: true,
-                            click: () => resolve(true),
-                        }, {
-                            text: _t("Cancel"),
-                            close: true,
-                            click: () => resolve(false)
-                        }],
-                    });
-                });
-                if (!save) {
-                    return;
-                }
-            }
+            requiresReload = !!await this._checkIfWidgetsUpdateNeedReload(widgets);
         }
 
         // Queue action so that we can later skip useless actions.
@@ -4205,8 +4264,10 @@ const SnippetOptionWidget = Widget.extend({
                 return;
             }
 
+            this.__willReload = requiresReload;
             // Call widget option methods and update $target
             await this._select(previewMode, widget);
+            this.__willReload = false;
 
             // If it is not preview mode, the user selected the option for good
             // (so record the action)
@@ -4214,7 +4275,7 @@ const SnippetOptionWidget = Widget.extend({
                 this.options.wysiwyg.odooEditor.historyStep();
             }
 
-            if (previewMode) {
+            if (previewMode || requiresReload) {
                 return;
             }
 
@@ -4269,6 +4330,8 @@ const SnippetOptionWidget = Widget.extend({
         if (requiresReload) {
             this.trigger_up('request_save', {
                 reloadEditor: true,
+                optionSelector: this.data.selector,
+                url: this.data.reload,
             });
         }
     },
@@ -4292,22 +4355,28 @@ registry.sizing = SnippetOptionWidget.extend({
      * @override
      */
     start: function () {
-        var self = this;
-        var def = this._super.apply(this, arguments);
+        const self = this;
+        const def = this._super.apply(this, arguments);
 
         this.$handles = this.$overlay.find('.o_handle');
 
-        var resizeValues = this._getSize();
+        let resizeValues = this._getSize();
         this.$handles.on('mousedown', function (ev) {
             ev.preventDefault();
+
+            // If the handle has the class 'readonly', don't allow to resize.
+            // (For the grid handles when we are in mobile view).
+            if (ev.currentTarget.classList.contains('readonly')) {
+                return;
+            }
 
             // First update size values as some element sizes may not have been
             // initialized on option start (hidden slides, etc)
             resizeValues = self._getSize();
-            var $handle = $(ev.currentTarget);
+            const $handle = $(ev.currentTarget);
 
-            var compass = false;
-            var XY = false;
+            let compass = false;
+            let XY = false;
             if ($handle.hasClass('n')) {
                 compass = 'n';
                 XY = 'Y';
@@ -4320,95 +4389,176 @@ registry.sizing = SnippetOptionWidget.extend({
             } else if ($handle.hasClass('w')) {
                 compass = 'w';
                 XY = 'X';
+            } else if ($handle.hasClass('nw')) {
+                compass = 'nw';
+                XY = 'YX';
+            } else if ($handle.hasClass('ne')) {
+                compass = 'ne';
+                XY = 'YX';
+            } else if ($handle.hasClass('sw')) {
+                compass = 'sw';
+                XY = 'YX';
+            } else if ($handle.hasClass('se')) {
+                compass = 'se';
+                XY = 'YX';
             }
 
-            var resize = resizeValues[compass];
-            if (!resize) {
+            // Don't call the normal resize methods if we are in a grid and
+            // vice-versa.
+            const isGrid = Object.keys(resizeValues).length === 4;
+            const isGridHandle = $handle[0].classList.contains('o_grid_handle');
+            if (isGrid && !isGridHandle || !isGrid && isGridHandle) {
                 return;
             }
 
-            var current = 0;
-            var cssProperty = resize[2];
-            var cssPropertyValue = parseInt(self.$target.css(cssProperty));
-            _.each(resize[0], function (val, key) {
-                if (self.$target.hasClass(val)) {
-                    current = key;
-                } else if (resize[1][key] === cssPropertyValue) {
-                    current = key;
-                }
-            });
-            var begin = current;
-            var beginClass = self.$target.attr('class');
-            var regClass = new RegExp('\\s*' + resize[0][begin].replace(/[-]*[0-9]+/, '[-]*[0-9]+'), 'g');
+            let resizeVal;
+            if (compass.length > 1) {
+                resizeVal = [resizeValues[compass[0]], resizeValues[compass[1]]];
+            } else {
+                resizeVal = [resizeValues[compass]];
+            }
 
-            self.options.wysiwyg.odooEditor.automaticStepUnactive("resizing");
-            var cursor = $handle.css('cursor') + '-important';
-            var $body = $(this.ownerDocument.body);
-            $body.addClass(cursor);
+            if (resizeVal.some(rV => !rV)) {
+                return;
+            }
 
-            var xy = ev['page' + XY];
-            var bodyMouseMove = function (ev) {
+            // If we are in grid mode, add a background grid and place it in
+            // front of the other elements.
+            const rowEl = self.$target[0].parentNode;
+            let backgroundGridEl;
+            if (rowEl.classList.contains('o_grid_mode')) {
+                self.options.wysiwyg.odooEditor.observerUnactive('displayBackgroundGrid');
+                backgroundGridEl = gridUtils._addBackgroundGrid(rowEl, 0);
+                gridUtils._setElementToMaxZindex(backgroundGridEl, rowEl);
+                self.options.wysiwyg.odooEditor.observerActive('displayBackgroundGrid');
+            }
+
+            // For loop to handle the cases where it is ne, nw, se or sw. Since
+            // there are two directions, we compute for both directions and we
+            // store the values in an array.
+            const directions = [];
+            for (const [i, resize] of resizeVal.entries()) {
+                const props = {};
+                let current = 0;
+                const cssProperty = resize[2];
+                const cssPropertyValue = parseInt(self.$target.css(cssProperty));
+                _.each(resize[0], function (val, key) {
+                    if (self.$target.hasClass(val)) {
+                        current = key;
+                    } else if (parseInt(resize[1][key]) === cssPropertyValue) {
+                        current = key;
+                    }
+                });
+
+                props.resize = resize;
+                props.current = current;
+                props.begin = current;
+                props.beginClass = self.$target.attr('class');
+                props.regClass = new RegExp('\\s*' + resize[0][current].replace(/[-]*[0-9]+/, '[-]*[0-9]+'), 'g');
+                props.xy = ev['page' + XY[i]];
+                props.XY = XY[i];
+                props.compass = compass[i];
+
+                directions.push(props);
+            }
+
+            self.options.wysiwyg.odooEditor.automaticStepUnactive('resizing');
+
+            const cursor = $handle.css('cursor') + '-important';
+            const $iframeWindow = $(this.ownerDocument.defaultView);
+            $iframeWindow[0].document.body.classList.add(cursor);
+
+            const bodyMouseMove = function (ev) {
                 ev.preventDefault();
 
-                var dd = ev['page' + XY] - xy + resize[1][begin];
-                var next = current + (current + 1 === resize[1].length ? 0 : 1);
-                var prev = current ? (current - 1) : 0;
+                let changeTotal = false;
+                for (const dir of directions) {
+                    // dd is the number of pixels by which the mouse moved,
+                    // compared to the initial position of the handle.
+                    const dd = ev['page' + dir.XY] - dir.xy + dir.resize[1][dir.begin];
+                    const next = dir.current + (dir.current + 1 === dir.resize[1].length ? 0 : 1);
+                    const prev = dir.current ? (dir.current - 1) : 0;
 
-                var change = false;
-                if (dd > (2 * resize[1][next] + resize[1][current]) / 3) {
-                    self.$target.attr('class', (self.$target.attr('class') || '').replace(regClass, ''));
-                    self.$target.addClass(resize[0][next]);
-                    current = next;
-                    change = true;
-                }
-                if (prev !== current && dd < (2 * resize[1][prev] + resize[1][current]) / 3) {
-                    self.$target.attr('class', (self.$target.attr('class') || '').replace(regClass, ''));
-                    self.$target.addClass(resize[0][prev]);
-                    current = prev;
-                    change = true;
+                    let change = false;
+                    // If the mouse moved to the right/down by at least 2/3 of
+                    // the space between the previous and the next steps, the
+                    // handle is snapped to the next step and the class is
+                    // replaced by the one matching this step.
+                    if (dd > (2 * dir.resize[1][next] + dir.resize[1][dir.current]) / 3) {
+                        self.$target.attr('class', (self.$target.attr('class') || '').replace(dir.regClass, ''));
+                        self.$target.addClass(dir.resize[0][next]);
+                        dir.current = next;
+                        change = true;
+                    }
+                    // Same as above but to the left/up.
+                    if (prev !== dir.current && dd < (2 * dir.resize[1][prev] + dir.resize[1][dir.current]) / 3) {
+                        self.$target.attr('class', (self.$target.attr('class') || '').replace(dir.regClass, ''));
+                        self.$target.addClass(dir.resize[0][prev]);
+                        dir.current = prev;
+                        change = true;
+                    }
+
+                    if (change) {
+                        self._onResize(dir.compass, dir.beginClass, dir.current);
+                    }
+
+                    changeTotal = changeTotal || change;
                 }
 
-                if (change) {
-                    self._onResize(compass, beginClass, current);
+                if (changeTotal) {
                     self.trigger_up('cover_update');
                     $handle.addClass('o_active');
                 }
             };
-            var bodyMouseUp = function () {
-                $body.off('mousemove', bodyMouseMove);
-                $body.off('mouseup', bodyMouseUp);
-                $body.removeClass(cursor);
+            const bodyMouseUp = function () {
+                $iframeWindow.off("mousemove", bodyMouseMove);
+                $iframeWindow.off("mouseup", bodyMouseUp);
+                $iframeWindow[0].document.body.classList.remove(cursor);
                 $handle.removeClass('o_active');
 
+                // If we are in grid mode, removes the background grid.
+                // Also sync the col-* class with the g-col-* class so the
+                // toggle to normal mode and the mobile view are well done.
+                if (rowEl.classList.contains('o_grid_mode')) {
+                    self.options.wysiwyg.odooEditor.observerUnactive('displayBackgroundGrid');
+                    backgroundGridEl.remove();
+                    self.options.wysiwyg.odooEditor.observerActive('displayBackgroundGrid');
+                    gridUtils._resizeGrid(rowEl);
+
+                    const colClass = [...self.$target[0].classList].find(c => /^col-/.test(c));
+                    const gColClass = [...self.$target[0].classList].find(c => /^g-col-/.test(c));
+                    self.$target[0].classList.remove(colClass);
+                    self.$target[0].classList.add(gColClass.substring(2));
+                }
+
                 // Highlights the previews for a while
-                var $handlers = self.$overlay.find('.o_handle');
+                const $handlers = self.$overlay.find('.o_handle');
                 $handlers.addClass('o_active').delay(300).queue(function () {
                     $handlers.removeClass('o_active').dequeue();
                 });
 
-                self.options.wysiwyg.odooEditor.automaticStepActive("resizing");
-                if (begin === current) {
+                self.options.wysiwyg.odooEditor.automaticStepActive('resizing');
+
+                if (directions.every(dir => dir.begin === dir.current)) {
                     return;
                 }
+
                 setTimeout(function () {
                     self.options.wysiwyg.odooEditor.historyStep();
                 }, 0);
             };
-            $body.on('mousemove', bodyMouseMove);
-            $body.on('mouseup', bodyMouseUp);
+            $iframeWindow.on("mousemove", bodyMouseMove);
+            $iframeWindow.on("mouseup", bodyMouseUp);
         });
 
         _.each(resizeValues, (value, key) => {
             this.$handles.filter('.' + key).toggleClass('readonly', !value);
         });
+        if (this.$target[0].classList.contains('o_grid_item')) {
+            this.$handles.filter('.o_grid_handle').toggleClass('readonly', false);
+        }
 
         return def;
-    },
-    /**
-     * @override
-     */
-    onFocus: function () {
-        this._onResize();
     },
 
     //--------------------------------------------------------------------------
@@ -4418,9 +4568,58 @@ registry.sizing = SnippetOptionWidget.extend({
     /**
      * @override
      */
+    async updateUI() {
+        this._updateSizingHandles();
+        return this._super(...arguments);
+    },
+    /**
+     * @override
+     */
     setTarget: function () {
         this._super(...arguments);
+        // TODO master: _onResize should not be called here, need to check if
+        // updateUI is called when the target is changed
         this._onResize();
+    },
+    /**
+     * @override
+     */
+    async updateUIVisibility() {
+        await this._super(...arguments);
+
+        const mobileViewThreshold = MEDIAS_BREAKPOINTS[SIZES.LG].minWidth;
+        const isMobileView = this.$target[0].ownerDocument.defaultView.frameElement.clientWidth < mobileViewThreshold;
+        const isGrid = this.$target[0].classList.contains('o_grid_item');
+        if (this.$target[0].parentNode && this.$target[0].parentNode.classList.contains('row')) {
+            // Hiding/showing the correct resize handles if we are in grid mode
+            // or not.
+            for (const handleEl of this.$handles) {
+                const isGridHandle = handleEl.classList.contains('o_grid_handle');
+                handleEl.classList.toggle('d-none', isGrid ^ isGridHandle);
+                // Disabling the resize if we are in mobile view.
+                const isHorizontalSizing = handleEl.matches('.e, .w');
+                handleEl.classList.toggle('readonly', isMobileView && (isHorizontalSizing || isGridHandle));
+            }
+
+            // Hiding the move handle in mobile view so we can't drag the
+            // columns.
+            const moveHandleEl = this.$overlay[0].querySelector('.o_move_handle');
+            moveHandleEl.classList.toggle('d-none', isMobileView);
+
+            // Hiding/showing the arrows.
+            if (isGrid) {
+                const moveLeftArrowEl = this.$overlay[0].querySelector('.fa-angle-left');
+                const moveRightArrowEl = this.$overlay[0].querySelector('.fa-angle-right');
+                const showLeft = await this._computeWidgetVisibility('move_left_opt');
+                const showRight = await this._computeWidgetVisibility('move_right_opt');
+                moveLeftArrowEl.classList.toggle('d-none', !showLeft);
+                moveRightArrowEl.classList.toggle('d-none', !showRight);
+            }
+
+            // Show/hide the buttons to send back/front a grid item.
+            const bringFrontBackEls = this.$overlay[0].querySelectorAll('.o_front_back');
+            bringFrontBackEls.forEach(button => button.classList.toggle('d-none', !isGrid || isMobileView));
+        }
     },
 
     //--------------------------------------------------------------------------
@@ -4450,6 +4649,13 @@ registry.sizing = SnippetOptionWidget.extend({
      * @param {integer} [current] - current increment in this.grid
      */
     _onResize: function (compass, beginClass, current) {
+        this._updateSizingHandles();
+        this._notifyResizeChange();
+    },
+    /**
+     * @private
+     */
+    _updateSizingHandles: function () {
         var self = this;
 
         // Adapt the resize handles according to the classes and dimensions
@@ -4490,6 +4696,11 @@ registry.sizing = SnippetOptionWidget.extend({
             var direction = $handle.hasClass('n') ? 'top' : 'bottom';
             $handle.height(self.$target.css('padding-' + direction));
         });
+    },
+    /**
+     * @override
+     */
+    async _notifyResizeChange() {
         this.$target.trigger('content_changed');
     },
 });
@@ -4570,7 +4781,7 @@ registry['sizing_x'] = registry.sizing.extend({
 
             if (compass === 'w') {
                 // don't change the right border position when we change the offset (replace col size)
-                var beginCol = Number(beginClass.match(/col-lg-([0-9]+)|$/)[1] || 0);
+                var beginCol = Number(beginClass.match(/col-lg-([0-9]+)|$/)[1] || 12);
                 var offset = Number(this.grid.w[0][current].match(/offset-lg-([0-9-]+)|$/)[1] || 0);
                 if (offset < 0) {
                     offset = 0;
@@ -4597,6 +4808,118 @@ registry['sizing_x'] = registry.sizing.extend({
             }
         }
         this._super.apply(this, arguments);
+    },
+    /**
+     * @override
+     */
+    async _notifyResizeChange() {
+        this.trigger_up('option_update', {
+            optionName: 'StepsConnector',
+            name: 'change_column_size',
+        });
+        this._super.apply(this, arguments);
+    },
+});
+
+/**
+ * Handles the sizing in grid mode: edition of grid-{column|row}-{start|end}.
+ */
+registry['sizing_grid'] = registry.sizing.extend({
+    /**
+     * @override
+     */
+    _getSize() {
+        const rowEl = this.$target.closest('.row')[0];
+        const gridProp = gridUtils._getGridProperties(rowEl);
+
+        const rowStart = this.$target[0].style.gridRowStart;
+        const rowEnd = parseInt(this.$target[0].style.gridRowEnd);
+        const columnStart = this.$target[0].style.gridColumnStart;
+        const columnEnd = this.$target[0].style.gridColumnEnd;
+
+        const gridN = [];
+        const gridS = [];
+        for (let i = 1; i < rowEnd + 12; i++) {
+            gridN.push(i);
+            gridS.push(i + 1);
+        }
+        const gridW = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
+        const gridE = [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13];
+
+        this.grid = {
+            n: [_.map(gridN, v => ('g-height-' + (rowEnd - v))), _.map(gridN, v => ((gridProp.rowSize + gridProp.rowGap) * (v - 1))), 'grid-row-start'],
+            s: [_.map(gridS, v => ('g-height-' + (v - rowStart))), _.map(gridS, v => ((gridProp.rowSize + gridProp.rowGap) * (v - 1))), 'grid-row-end'],
+            w: [_.map(gridW, v => ('g-col-lg-' + (columnEnd - v))), _.map(gridW, v => ((gridProp.columnSize + gridProp.columnGap) * (v - 1))), 'grid-column-start'],
+            e: [_.map(gridE, v => ('g-col-lg-' + (v - columnStart))), _.map(gridE, v => ((gridProp.columnSize + gridProp.columnGap) * (v - 1))), 'grid-column-end'],
+        };
+
+        return this.grid;
+    },
+    /**
+     * @override
+     */
+    _onResize(compass, beginClass, current) {
+        if (compass === 'n') {
+            const rowEnd = parseInt(this.$target[0].style.gridRowEnd);
+            if (current < 0) {
+                this.$target[0].style.gridRowStart = 1;
+            } else if (current + 1 >= rowEnd) {
+                this.$target[0].style.gridRowStart = rowEnd - 1;
+            } else {
+                this.$target[0].style.gridRowStart = current + 1;
+            }
+        } else if (compass === 's') {
+            const rowStart = parseInt(this.$target[0].style.gridRowStart);
+            const rowEnd = parseInt(this.$target[0].style.gridRowEnd);
+            if (current + 2 <= rowStart) {
+                this.$target[0].style.gridRowEnd = rowStart + 1;
+            } else {
+                this.$target[0].style.gridRowEnd = current + 2;
+            }
+
+            // Updating the grid height.
+            const rowEl = this.$target[0].parentNode;
+            const rowCount = parseInt(rowEl.dataset.rowCount);
+            const backgroundGridEl = rowEl.querySelector('.o_we_background_grid');
+            const backgroundGridRowEnd = parseInt(backgroundGridEl.style.gridRowEnd);
+            let rowMove = 0;
+            if (this.$target[0].style.gridRowEnd > rowEnd && this.$target[0].style.gridRowEnd > rowCount + 1) {
+                rowMove = this.$target[0].style.gridRowEnd - rowEnd;
+            } else if (this.$target[0].style.gridRowEnd < rowEnd && this.$target[0].style.gridRowEnd >= rowCount + 1) {
+                rowMove = this.$target[0].style.gridRowEnd - rowEnd;
+            }
+            backgroundGridEl.style.gridRowEnd = backgroundGridRowEnd + rowMove;
+        } else if (compass === 'w') {
+            const columnEnd = parseInt(this.$target[0].style.gridColumnEnd);
+            if (current < 0) {
+                this.$target[0].style.gridColumnStart = 1;
+            } else if (current + 1 >= columnEnd) {
+                this.$target[0].style.gridColumnStart = columnEnd - 1;
+            } else {
+                this.$target[0].style.gridColumnStart = current + 1;
+            }
+        } else if (compass === 'e') {
+            const columnStart = parseInt(this.$target[0].style.gridColumnStart);
+            if (current + 2 > 13) {
+                this.$target[0].style.gridColumnEnd = 13;
+            } else if (current + 2 <= columnStart) {
+                this.$target[0].style.gridColumnEnd = columnStart + 1;
+            } else {
+                this.$target[0].style.gridColumnEnd = current + 2;
+            }
+        }
+
+        if (compass === 'n' || compass === 's') {
+            const numberRows = this.$target[0].style.gridRowEnd - this.$target[0].style.gridRowStart;
+            this.$target.attr('class', this.$target.attr('class').replace(/\s*(g-height-)([0-9-]+)/g, ''));
+            this.$target.addClass('g-height-' + numberRows);
+        }
+
+        if (compass === 'w' || compass === 'e') {
+            const numberColumns = this.$target[0].style.gridColumnEnd - this.$target[0].style.gridColumnStart;
+            this.$target.attr('class', this.$target.attr('class').replace(/\s*(g-col-lg-)([0-9-]+)/g, ''));
+            this.$target.addClass('g-col-lg-' + numberColumns);
+        }
     },
 });
 
@@ -4649,7 +4972,7 @@ registry.Box = SnippetOptionWidget.extend({
             shadow = this._prevBoxShadow;
         } else {
             if (currentBoxShadow === 'none') {
-                shadow = this._getDefaultShadow(widgetValue, params.shadowClass) || 'none';
+                shadow = this._getDefaultShadow(widgetValue, params.shadowClass);
             } else {
                 if (widgetValue === 'outset') {
                     shadow = currentBoxShadow.replace('inset', '').trim();
@@ -4694,31 +5017,31 @@ registry.Box = SnippetOptionWidget.extend({
      * @returns {string}
      */
     _getDefaultShadow(type, shadowClass) {
-        const el = document.createElement('div');
-        if (type) {
-            el.classList.add(shadowClass);
+        if (!type) {
+            return 'none';
         }
 
-        let shadow = ''; // TODO in master this should be changed to 'none'
+        const el = document.createElement('div');
+        el.classList.add(shadowClass);
         document.body.appendChild(el);
-        switch (type) {
-            case 'outset': {
-                shadow = $(el).css('box-shadow');
-                break;
-            }
-            case 'inset': {
-                shadow = $(el).css('box-shadow') + ' inset';
-                break;
-            }
-        }
+        const shadow = `${$(el).css('box-shadow')}${type === 'inset' ? ' inset' : ''}`;
         el.remove();
         return shadow;
-    }
+    },
 });
 
 
 
 registry.layout_column = SnippetOptionWidget.extend({
+    /**
+     * @override
+     */
+    cleanForSave() {
+        // Remove the padding highlights.
+        this.$target[0].querySelectorAll('.o_we_padding_highlight').forEach(highlightedEl => {
+            highlightedEl._removePaddingPreview();
+        });
+    },
 
     //--------------------------------------------------------------------------
     // Options
@@ -4758,6 +5081,144 @@ registry.layout_column = SnippetOptionWidget.extend({
         } else if (previousNbColumns === 0) {
             this.trigger_up('activate_snippet', {$snippet: this.$('> .row').children().first()});
         }
+        this.trigger_up('option_update', {
+            optionName: 'StepsConnector',
+            name: 'change_columns',
+        });
+    },
+    /**
+     * Changes the layout (columns or grid).
+     *
+     * @see this.selectClass for parameters
+     */
+    async selectLayout(previewMode, widgetValue, params) {
+        if (widgetValue === "grid") {
+            const rowEl = this.$target[0].querySelector('.row');
+            if (!rowEl || !rowEl.classList.contains('o_grid_mode')) { // Prevent toggling grid mode twice.
+                gridUtils._toggleGridMode(this.$target[0]);
+                this.trigger_up('activate_snippet', {$snippet: this.$target});
+            }
+        } else {
+            // Toggle normal mode only if grid mode was activated (as it's in
+            // normal mode by default).
+            const rowEl = this.$target[0].querySelector('.row');
+            if (rowEl && rowEl.classList.contains('o_grid_mode')) {
+                this._toggleNormalMode(rowEl);
+                this.trigger_up('activate_snippet', {$snippet: this.$target});
+            }
+        }
+        this.trigger_up('option_update', {
+            optionName: 'StepsConnector',
+            name: 'change_columns',
+        });
+    },
+    /**
+     * Adds an image, some text or a button in the grid.
+     *
+     * @see this.selectClass for parameters
+     */
+    async addElement(previewMode, widgetValue, params) {
+        const rowEl = this.$target[0].querySelector('.row');
+        const elementType = widgetValue;
+
+        // If it has been less than 15 seconds that we have added an element,
+        // shift the new element right and down by one cell. Otherwise, put it
+        // on the top left corner.
+        const currentTime = new Date().getTime();
+        if (this.lastAddTime && (currentTime - this.lastAddTime) / 1000 < 15) {
+            this.lastStartPosition = [this.lastStartPosition[0] + 1, this.lastStartPosition[1] + 1];
+        } else {
+            this.lastStartPosition = [1, 1]; // [rowStart, columnStart]
+        }
+        this.lastAddTime = currentTime;
+
+        // Create the new column.
+        const newColumnEl = document.createElement('div');
+        newColumnEl.classList.add('o_grid_item');
+        let numberColumns, numberRows;
+
+        if (elementType === 'image') {
+            // Set the columns properties.
+            newColumnEl.classList.add('col-lg-6', 'g-col-lg-6', 'g-height-6', 'o_grid_item_image');
+            numberColumns = 6;
+            numberRows = 6;
+
+            // Create a default image and add it to the new column.
+            const imgEl = document.createElement('img');
+            imgEl.classList.add('img', 'img-fluid', 'mx-auto');
+            imgEl.src = '/web/image/website.s_text_image_default_image';
+            imgEl.alt = '';
+            imgEl.loading = 'lazy';
+
+            newColumnEl.appendChild(imgEl);
+        } else if (elementType === 'text') {
+            newColumnEl.classList.add('col-lg-4', 'g-col-lg-4', 'g-height-2');
+            numberColumns = 4;
+            numberRows = 2;
+
+            // Create default text content.
+            const pEl = document.createElement('p');
+            pEl.classList.add('o_default_snippet_text');
+            pEl.textContent = _t("Write something...");
+
+            newColumnEl.appendChild(pEl);
+        } else if (elementType === 'button') {
+            newColumnEl.classList.add('col-lg-2', 'g-col-lg-2', 'g-height-1');
+            numberColumns = 2;
+            numberRows = 1;
+
+            // Create default button.
+            const aEl = document.createElement('a');
+            aEl.href = '#';
+            aEl.classList.add('mb-2', 'btn', 'btn-primary');
+            aEl.textContent = "Button";
+
+            newColumnEl.appendChild(aEl);
+        }
+        // Place the column in the grid.
+        const rowStart = this.lastStartPosition[0];
+        let columnStart = this.lastStartPosition[1];
+        if (columnStart + numberColumns > 13) {
+            columnStart = 1;
+            this.lastStartPosition[1] = columnStart;
+        }
+        newColumnEl.style.gridArea = `${rowStart} / ${columnStart} / ${rowStart + numberRows} / ${columnStart + numberColumns}`;
+
+        // Setting the z-index to the maximum of the grid.
+        gridUtils._setElementToMaxZindex(newColumnEl, rowEl);
+
+        // Add the new column and update the grid height.
+        rowEl.appendChild(newColumnEl);
+        gridUtils._resizeGrid(rowEl);
+
+        // Scroll to the new column if more than half of it is hidden (= out of
+        // the viewport or hidden by an other element).
+        const newColumnPosition = newColumnEl.getBoundingClientRect();
+        const middleX = (newColumnPosition.left + newColumnPosition.right) / 2;
+        const middleY = (newColumnPosition.top + newColumnPosition.bottom) / 2;
+        const sameCoordinatesEl = this.ownerDocument.elementFromPoint(middleX, middleY);
+        if (!sameCoordinatesEl || !newColumnEl.contains(sameCoordinatesEl)) {
+            newColumnEl.scrollIntoView({behavior: "smooth", block: "center"});
+        }
+        this.trigger_up('activate_snippet', {$snippet: $(newColumnEl)});
+    },
+    /**
+     * @override
+     */
+    async selectStyle(previewMode, widgetValue, params) {
+        await this._super(...arguments);
+        if (params.cssProperty.startsWith('--grid-item-padding')) {
+            // Reset the animations.
+            this._removePaddingPreview();
+            void this.$target[0].offsetWidth; // Trigger a DOM reflow.
+
+            // Highlight the padding when changing it, by adding a pseudo-
+            // element with an animated colored border inside the grid items.
+            const rowEl = this.$target[0];
+            rowEl.classList.add('o_we_padding_highlight');
+            rowEl._removePaddingPreview = this._removePaddingPreview.bind(this);
+            rowEl.addEventListener('animationend', rowEl._removePaddingPreview);
+        }
     },
 
     //--------------------------------------------------------------------------
@@ -4770,6 +5231,13 @@ registry.layout_column = SnippetOptionWidget.extend({
     _computeWidgetState: function (methodName, params) {
         if (methodName === 'selectCount') {
             return this.$('> .row').children().length;
+        } else if (methodName === 'selectLayout') {
+            const rowEl = this.$target[0].querySelector('.row');
+            if (rowEl && rowEl.classList.contains('o_grid_mode')) {
+                return "grid";
+            } else {
+                return 'normal';
+            }
         }
         return this._super(...arguments);
     },
@@ -4784,6 +5252,11 @@ registry.layout_column = SnippetOptionWidget.extend({
             // were marked as such as they were allowed to have bare content in
             // the first place.
             return this.$target.is('.s_allow_columns');
+        } else if (params.optionsPossibleValues.selectCount) {
+            // TODO in master: use the option `data-name` that will be added.
+            // Hide the selectCount widget if the `s_nb_column_fixed` class is
+            // on the row.
+            return !this.$target[0].querySelector(":scope > .row.s_nb_column_fixed");
         }
         return this._super(...arguments);
     },
@@ -4839,6 +5312,59 @@ registry.layout_column = SnippetOptionWidget.extend({
             $columns.first().addClass('offset-lg-' + colOffset);
         }
     },
+    /**
+     * Toggles the normal mode.
+     *
+     * @private
+     * @param {Element} rowEl
+     */
+    _toggleNormalMode(rowEl) {
+        // Removing the grid class
+        rowEl.classList.remove('o_grid_mode');
+        const columnEls = rowEl.children;
+        for (const columnEl of columnEls) {
+            // Reloading the images.
+            gridUtils._reloadLazyImages(columnEl);
+
+            // Removing the grid properties.
+            const gridSizeClasses = columnEl.className.match(/(g-col-lg|g-height)-[0-9]+/g);
+            columnEl.classList.remove('o_grid_item', 'o_grid_item_image', 'o_grid_item_image_contain', ...gridSizeClasses);
+            columnEl.style.removeProperty('grid-area');
+            columnEl.style.removeProperty('z-index');
+        }
+        // Removing the grid properties.
+        delete rowEl.dataset.rowCount;
+        rowEl.style.removeProperty('--grid-item-padding-x');
+        rowEl.style.removeProperty('--grid-item-padding-y');
+    },
+    /**
+     * Removes the padding highlights that were added when changing the grid
+     * items padding.
+     *
+     * @private
+     */
+    _removePaddingPreview() {
+        const rowEl = this.$target[0];
+        rowEl.removeEventListener('animationend', rowEl._removePaddingPreview);
+        rowEl.classList.remove('o_we_padding_highlight');
+        delete rowEl._removePaddingPreview;
+    },
+});
+
+registry.vAlignment = SnippetOptionWidget.extend({
+    /**
+     * @override
+     */
+    async _computeWidgetState(methodName, params) {
+        const value = await this._super(...arguments);
+        if (methodName === 'selectClass' && !value) {
+            // If there is no `align-items-` class on the row, then the `align-
+            // items-stretch` class is selected, because the behaviors are
+            // equivalent in both situations.
+            return 'align-items-stretch';
+        }
+        return value;
+    },
 });
 
 /**
@@ -4853,21 +5379,11 @@ registry.SnippetMove = SnippetOptionWidget.extend({
     start: function () {
         var $buttons = this.$el.find('we-button');
         var $overlayArea = this.$overlay.find('.o_overlay_move_options');
+        // Putting the arrows side by side.
+        $overlayArea.prepend($buttons[1]);
         $overlayArea.prepend($buttons[0]);
-        $overlayArea.append($buttons[1]);
 
         return this._super(...arguments);
-    },
-    /**
-     * @override
-     */
-    onFocus: function () {
-        // TODO improve this: hack to hide options section if snippet move is
-        // the only one.
-        const $allOptions = this.$el.parent();
-        if ($allOptions.find('we-customizeblock-option').length <= 1) {
-            $allOptions.addClass('d-none');
-        }
     },
 
     //--------------------------------------------------------------------------
@@ -4924,6 +5440,10 @@ registry.SnippetMove = SnippetOptionWidget.extend({
                 });
             }
         }
+        this.trigger_up('option_update', {
+            optionName: 'StepsConnector',
+            name: 'move_snippet',
+        });
         // Update the "Invisible Elements" panel as the order of invisible
         // snippets could have changed on the page.
         this.trigger_up("update_invisible_dom");
@@ -4934,7 +5454,6 @@ registry.SnippetMove = SnippetOptionWidget.extend({
  * Allows for media to be replaced.
  */
 registry.ReplaceMedia = SnippetOptionWidget.extend({
-    xmlDependencies: ['/web_editor/static/src/xml/image_link_tools.xml'],
 
     /**
      * @override
@@ -4975,7 +5494,7 @@ registry.ReplaceMedia = SnippetOptionWidget.extend({
      * @see this.selectClass for parameters
      */
     setLink(previewMode, widgetValue, params) {
-        const parentEl = this.$target[0].parentNode;
+        const parentEl = this._searchSupportedParentLinkEl();
         if (parentEl.tagName !== 'A') {
             const wrapperEl = document.createElement('a');
             this.$target[0].after(wrapperEl);
@@ -5000,7 +5519,7 @@ registry.ReplaceMedia = SnippetOptionWidget.extend({
      * @see this.selectClass for parameters
      */
     setNewWindow(previewMode, widgetValue, params) {
-        const linkEl = this.$target[0].parentElement;
+        const linkEl = this._searchSupportedParentLinkEl();
         if (widgetValue) {
             linkEl.setAttribute('target', '_blank');
         } else {
@@ -5013,7 +5532,7 @@ registry.ReplaceMedia = SnippetOptionWidget.extend({
      * @see this.selectClass for parameters
      */
     setUrl(previewMode, widgetValue, params) {
-        const linkEl = this.$target[0].parentElement;
+        const linkEl = this._searchSupportedParentLinkEl();
         let url = widgetValue;
         if (!url) {
             // As long as there is no URL, the image is not considered a link.
@@ -5051,7 +5570,8 @@ registry.ReplaceMedia = SnippetOptionWidget.extend({
      * @private
      */
     _activateLinkTool() {
-        if (this.$target[0].parentElement.tagName === 'A') {
+        const parentEl = this._searchSupportedParentLinkEl();
+        if (parentEl.tagName === 'A') {
             this._requestUserValueWidgets('media_url_opt')[0].focus();
         } else {
             this._requestUserValueWidgets('media_link_opt')[0].enable();
@@ -5061,7 +5581,7 @@ registry.ReplaceMedia = SnippetOptionWidget.extend({
      * @private
      */
     _deactivateLinkTool() {
-        const parentEl = this.$target[0].parentNode;
+        const parentEl = this._searchSupportedParentLinkEl();
         if (parentEl.tagName === 'A') {
             this._requestUserValueWidgets('media_link_opt')[0].enable();
         }
@@ -5070,7 +5590,7 @@ registry.ReplaceMedia = SnippetOptionWidget.extend({
      * @override
      */
     _computeWidgetState(methodName, params) {
-        const parentEl = this.$target[0].parentElement;
+        const parentEl = this._searchSupportedParentLinkEl();
         const linkEl = parentEl.tagName === 'A' ? parentEl : null;
         switch (methodName) {
             case 'setLink': {
@@ -5093,24 +5613,25 @@ registry.ReplaceMedia = SnippetOptionWidget.extend({
     async _computeWidgetVisibility(widgetName, params) {
         if (widgetName === 'media_link_opt') {
             if (this.$target[0].matches('img')) {
-                return isImageSupportedForStyle(this.$target[0]);
+                return isImageSupportedForStyle(this.$target[0])
+                    && !this._searchSupportedParentLinkEl().matches("a[data-oe-xpath]");
             }
             return !this.$target[0].classList.contains('media_iframe_video');
         }
         return this._super(...arguments);
     },
     /**
-     * @override
+     * @private
+     * @returns {Element} The "closest" element that can be supported as a <a>.
      */
-    async _renderCustomXML(uiFragment) {
-        const rowEl = uiFragment.querySelector('we-row');
-        rowEl.insertAdjacentHTML('beforeend', qweb.render('web_editor.media_link_tools_button'));
-        rowEl.insertAdjacentHTML('afterend', qweb.render('web.editor.media_link_tools_fields'));
+    _searchSupportedParentLinkEl() {
+        const parentEl = this.$target[0].parentElement;
+        return parentEl.matches("figure") ? parentEl.parentElement : parentEl;
     },
 });
 
 /*
- * Abstract option to be extended by the ImageOptimize and BackgroundOptimize
+ * Abstract option to be extended by the ImageTools and BackgroundOptimize
  * options that handles all the common parts.
  */
 const ImageHandlerOption = SnippetOptionWidget.extend({
@@ -5131,6 +5652,10 @@ const ImageHandlerOption = SnippetOptionWidget.extend({
         weightEl.classList.add('o_we_image_weight', 'o_we_tag', 'd-none');
         weightEl.title = _t("Size");
         this.$weight = $(weightEl);
+        // Perform the loading of the image info synchronously in order to
+        // avoid an intermediate rendering of the Blocks tab during the
+        // loadImageInfo RPC that obtains the file size.
+        // This does not update the target.
         await this._applyOptions(false);
     },
 
@@ -5258,11 +5783,7 @@ const ImageHandlerOption = SnippetOptionWidget.extend({
      */
     async _renderCustomXML(uiFragment) {
         const img = this._getImg();
-        if (this._isAllowedOnAllImages()) {
-            return;
-        }
         if (!this.originalSrc || !this._isImageSupportedForProcessing(img)) {
-            [...uiFragment.childNodes].forEach(node => node.remove());
             return;
         }
         const $select = $(uiFragment).find('we-select[data-name=width_select_opt]');
@@ -5318,6 +5839,12 @@ const ImageHandlerOption = SnippetOptionWidget.extend({
         if (!this._isImageSupportedForProcessing(img)) {
             this.originalId = null;
             this._filesize = undefined;
+            return;
+        }
+        // Do not apply modifications if there is no original src, since it is
+        // needed for it.
+        if (!img.dataset.originalSrc) {
+            delete img.dataset.mimetype;
             return;
         }
         const dataURL = await applyModifications(img, {mimetype: this._getImageMimetype(img)});
@@ -5400,19 +5927,34 @@ const ImageHandlerOption = SnippetOptionWidget.extend({
      /**
      * @private
      * @param {HTMLImageElement} img
+     * @param {Boolean} [strict=false]
      * @returns {Boolean}
      */
-    _isImageSupportedForProcessing(img) {
-        return isImageSupportedForProcessing(this._getImageMimetype(img));
+    _isImageSupportedForProcessing(img, strict = false) {
+        return isImageSupportedForProcessing(this._getImageMimetype(img), strict);
     },
     /**
-     * TODO: adapt in master (used to keep ImageTools related options available
-     * for all supported images).
+     * @override
+     */
+    _computeWidgetVisibility(widgetName, params) {
+        if (this._isImageProcessingWidget(widgetName, params)) {
+            const img = this._getImg();
+            return this._isImageSupportedForProcessing(img, true);
+        }
+        return isImageSupportedForStyle(this._getImg());
+    },
+    /**
+     * Indicates if an option should be applied only on supported mimetypes.
      *
+     * @param {String} widgetName
+     * @param {Object} params
      * @returns {Boolean}
      */
-    _isAllowedOnAllImages() {
-        return isImageSupportedForStyle(this._getImg());
+    _isImageProcessingWidget(widgetName, params) {
+        return params.optionsPossibleValues.glFilter
+            || 'customFilter' in params.optionsPossibleValues
+            || params.optionsPossibleValues.setQuality
+            || widgetName === 'width_select_opt';
     },
 });
 
@@ -5473,10 +6015,14 @@ registry.ImageTools = ImageHandlerOption.extend({
      */
     async crop() {
         this.trigger_up('disable_loading_effect');
-        new weWidgets.ImageCropWidget(this, this.$target[0]).appendTo(this.options.wysiwyg.odooEditor.document.body);
+        const img = this._getImg();
+        new weWidgets.ImageCropWidget(this, img, {mimetype: this._getImageMimetype(img)}).appendTo(this.$el[0].ownerDocument.body);
 
         await new Promise(resolve => {
             this.$target.one('image_cropper_destroyed', async () => {
+                if (isGif(this._getImageMimetype(img))) {
+                    img.dataset[img.dataset.shape ? 'originalMimetype' : 'mimetype'] = 'image/png';
+                }
                 await this._reapplyCurrentShape();
                 resolve();
             });
@@ -5519,8 +6065,9 @@ registry.ImageTools = ImageHandlerOption.extend({
      * @see this.selectClass for parameters
      */
     async resetCrop() {
-        const cropper = new weWidgets.ImageCropWidget(this, this.$target[0]);
-        await cropper.appendTo(this.options.wysiwyg.odooEditor.document.body);
+        const img = this._getImg();
+        const cropper = new weWidgets.ImageCropWidget(this, img, {mimetype: this._getImageMimetype(img)});
+        await cropper.appendTo(this.$el[0].ownerDocument.body);
         await cropper.reset();
         await this._reapplyCurrentShape();
     },
@@ -5550,10 +6097,6 @@ registry.ImageTools = ImageHandlerOption.extend({
                 // If the preview mode === false we want to save the colors
                 // as the user chose their shape
                 await this._applyShapeAndColors(saveData);
-                if (saveData && img.dataset.mimetype !== 'image/svg+xml') {
-                    img.dataset.originalMimetype = img.dataset.mimetype;
-                    img.dataset.mimetype = 'image/svg+xml';
-                }
             }
         } else {
             // Re-applying the modifications and deleting the shapes
@@ -5669,34 +6212,57 @@ registry.ImageTools = ImageHandlerOption.extend({
      */
     async _writeShape(svgText) {
         const img = this._getImg();
+        const dataURL = await this.computeShape(svgText, img);
+        return loadImage(dataURL, img);
+    },
+    /**
+     * Sets the image in the supplied SVG and replace the src with a dataURL
+     *
+     * @param {string} svgText svg text file
+     * @param img JQuery image
+     * @returns {Promise} resolved once the svg is properly loaded
+     * in the document
+     */
+    async computeShape(svgText, img) {
+        const initialImageWidth = img.naturalWidth;
 
         const svg = new DOMParser().parseFromString(svgText, 'image/svg+xml').documentElement;
+        const svgAspectRatio = parseInt(svg.getAttribute('width')) / parseInt(svg.getAttribute('height'));
         // We will store the image in base64 inside the SVG.
         // applyModifications will return a dataURL with the current filters
         // and size options.
-        const imgDataURL = await applyModifications(img, {mimetype: this._getImageMimetype(img)});
+        const options = {
+            mimetype: this._getImageMimetype(img),
+            perspective: svg.dataset.imgPerspective || null,
+            imgAspectRatio: svg.dataset.imgAspectRatio || null,
+            svgAspectRatio: svgAspectRatio,
+        };
+        const imgDataURL = await applyModifications(img, options);
         svg.removeChild(svg.querySelector('#preview'));
         svg.querySelector('image').setAttribute('xlink:href', imgDataURL);
         // Force natural width & height (note: loading the original image is
         // needed for Safari where natural width & height of SVG does not return
         // the correct values).
-        const originalImage = await loadImage(img.src);
-        svg.setAttribute('width', originalImage.naturalWidth);
-        svg.setAttribute('height', originalImage.naturalHeight);
+        const originalImage = await loadImage(imgDataURL, img);
+        // If the svg forces the size of the shape we still want to have the resized
+        // width
+        if (!svg.dataset.forcedSize) {
+            svg.setAttribute('width', originalImage.naturalWidth);
+            svg.setAttribute('height', originalImage.naturalHeight);
+        } else {
+            const imageWidth = Math.trunc(img.dataset.resizeWidth || img.dataset.width || initialImageWidth);
+            const newHeight = imageWidth / svgAspectRatio;
+            svg.setAttribute('width', imageWidth);
+            svg.setAttribute('height', newHeight);
+        }
         // Transform the current SVG in a base64 file to be saved by the server
         const blob = new Blob([svg.outerHTML], {
             type: 'image/svg+xml',
         });
-
-        const reader = new FileReader();
-        const readPromise = new Promise(resolve => {
-            reader.addEventListener('load', () => resolve(reader.result));
-        });
-        reader.readAsDataURL(blob);
-        const dataURL = await readPromise;
+        const dataURL = await createDataURL(blob);
         const imgFilename = (img.dataset.originalSrc.split('/').pop()).split('.')[0];
         img.dataset.fileName = `${imgFilename}.svg`;
-        return loadImage(dataURL, img);
+        return dataURL;
     },
     /**
      * @override
@@ -5743,15 +6309,8 @@ registry.ImageTools = ImageHandlerOption.extend({
      * @override
      */
     _relocateWeightEl() {
-        if (!this.$overlay.data('$optionsSection')) {
-            return;
-        }
         const leftPanelEl = this.$overlay.data('$optionsSection')[0];
         const titleTextEl = leftPanelEl.querySelector('we-title > span');
-        const weightEl = titleTextEl.querySelector('.o_we_image_weight');
-        if (weightEl) {
-            weightEl.remove();
-        }
         this.$weight.appendTo(titleTextEl);
     },
     /**
@@ -5773,11 +6332,11 @@ registry.ImageTools = ImageHandlerOption.extend({
         if (params.optionsPossibleValues.resetCrop) {
             return this._isCropped();
         }
-        // Only the 'Crop' widget is visible when image is not supported for style options.
-        if (Object.keys(params.optionsPossibleValues).some(methodName => ['transform', 'selectStyle'].includes(methodName))) {
-            return isImageSupportedForStyle(this._getImg());
+        if (params.optionsPossibleValues.crop) {
+            const img = this._getImg();
+            return isImageSupportedForStyle(img) || this._isImageSupportedForProcessing(img);
         }
-        return this._super();
+        return this._super(...arguments);
     },
     /**
      * @override
@@ -5838,7 +6397,7 @@ registry.ImageTools = ImageHandlerOption.extend({
      * @override
      */
     _getImageMimetype(img) {
-        if (img.dataset.shape) {
+        if (img.dataset.shape && img.dataset.originalMimetype) {
             return img.dataset.originalMimetype;
         }
         return this._super(...arguments);
@@ -5862,12 +6421,50 @@ registry.ImageTools = ImageHandlerOption.extend({
      * @private
      */
     async _initializeImage() {
-        const img = this._getImg();
-        const match = img.src.match(/\/web_editor\/image_shape\/(\w+\.\w+)/);
-        if (img.dataset.shape && match) {
-            return this._loadImageInfo(`/web/image/${encodeURIComponent(match[1])}`);
+        const _super = this._super.bind(this);
+        let img = this._getImg();
+
+        // Check first if the `src` and eventual `data-original-src` attributes
+        // are correct (i.e. the await are not rejected), as they may have been
+        // wrongly hardcoded in some templates.
+        let checkedAttribute = 'src';
+        try {
+            await loadImage(img.src);
+            if (img.dataset.originalSrc) {
+                checkedAttribute = 'originalSrc';
+                await loadImage(img.dataset.originalSrc);
+            }
+        } catch {
+            if (checkedAttribute === 'src') {
+                // If `src` does not exist, replace the image by a placeholder.
+                Object.keys(img.dataset).forEach(key => delete img.dataset[key]);
+                img.dataset.mimetype = 'image/png';
+                const newSrc = '/web/image/web.image_placeholder';
+                img = await loadImage(newSrc, img);
+                return this._loadImageInfo(newSrc);
+            } else {
+                // If `data-original-src` does not exist, remove the `data-
+                // original-*` attributes (they will be set correctly afterwards
+                // in `_loadImageInfo`).
+                delete img.dataset.originalId;
+                delete img.dataset.originalSrc;
+                delete img.dataset.originalMimetype;
+            }
         }
-        return this._super(...arguments);
+
+        let match = img.src.match(/\/web_editor\/image_shape\/(\w+\.\w+)/);
+        if (img.dataset.shape && match) {
+            match = match[1];
+            if (match.endsWith("_perspective")) {
+                // As an image might already have been modified with a
+                // perspective for some customized snippets in themes. We need
+                // to find the original image to set the 'data-original-src'
+                // attribute.
+                match = match.slice(0, -12);
+            }
+            return this._loadImageInfo(`/web/image/${encodeURIComponent(match)}`);
+        }
+        return _super(...arguments);
     },
     /**
      * @override
@@ -5876,8 +6473,10 @@ registry.ImageTools = ImageHandlerOption.extend({
     async _loadImageInfo() {
         await this._super(...arguments);
         const img = this._getImg();
-        if (img.dataset.shape && img.dataset.mimetype !== 'image/svg+xml') {
-            img.dataset.originalMimetype = img.dataset.mimetype;
+        if (img.dataset.shape) {
+            if (img.dataset.mimetype !== "image/svg+xml") {
+                img.dataset.originalMimetype = img.dataset.mimetype;
+            }
             if (!this._isImageSupportedForProcessing(img)) {
                 delete img.dataset.shape;
                 delete img.dataset.shapeColors;
@@ -5885,9 +6484,12 @@ registry.ImageTools = ImageHandlerOption.extend({
                 delete img.dataset.originalMimetype;
                 return;
             }
-            // Image data-mimetype should be changed to SVG since loadImageInfo()
-            // will set the original attachment mimetype on it.
-            img.dataset.mimetype = 'image/svg+xml';
+            if (img.dataset.mimetype !== "image/svg+xml") {
+                // Image data-mimetype should be changed to SVG since
+                // loadImageInfo() will set the original attachment mimetype on
+                // it.
+                img.dataset.mimetype = "image/svg+xml";
+            }
         }
     },
     /**
@@ -5899,6 +6501,15 @@ registry.ImageTools = ImageHandlerOption.extend({
             await this._loadShape(img.dataset.shape);
             await this._applyShapeAndColors(true, (img.dataset.shapeColors && img.dataset.shapeColors.split(';')));
         }
+    },
+    /**
+     * @override
+     */
+    _isImageProcessingWidget(widgetName, params) {
+        if (widgetName === 'shape_img_opt') {
+            return !isGif(this._getImageMimetype(this._getImg()));
+        }
+        return this._super(...arguments);
     },
 
     //--------------------------------------------------------------------------
@@ -5915,6 +6526,9 @@ registry.ImageTools = ImageHandlerOption.extend({
         this.trigger_up('snippet_edition_request', {exec: async () => {
             await this._autoOptimizeImage();
             this.trigger_up('cover_update');
+            if (ev._complete) {
+                ev._complete();
+            }
         }});
     },
     /**
@@ -5925,21 +6539,6 @@ registry.ImageTools = ImageHandlerOption.extend({
      */
     async _onImageCropped(ev) {
         await this._rerenderXML();
-    },
-});
-
-// TODO: adapt in master to only use ImageTools.
-registry.ImageOptimize = registry.ImageTools.extend({
-
-    //--------------------------------------------------------------------------
-    // Private
-    //--------------------------------------------------------------------------
-
-    /**
-     * @override
-     */
-    _isAllowedOnAllImages() {
-        return false;
     },
 });
 
@@ -6321,17 +6920,19 @@ registry.BackgroundImage = SnippetOptionWidget.extend({
         const parts = backgroundImageCssToParts(this.$target.css('background-image'));
         if (backgroundURL) {
             parts.url = `url('${backgroundURL}')`;
-            this.$target.addClass('oe_img_bg o_bg_img_center');
+            this.$target.addClass('oe_img_bg o_bg_img_center o_bg_img_origin_border_box');
         } else {
             delete parts.url;
             this.$target[0].classList.remove(
                 "oe_img_bg",
                 "o_bg_img_center",
+                "o_bg_img_origin_border_box",
                 "o_modified_image_to_save",
             );
         }
         const combined = backgroundImagePartsToCss(parts);
         this.$target.css('background-image', combined);
+        this.options.wysiwyg.odooEditor.editable.focus();
     },
 });
 
@@ -6458,6 +7059,26 @@ registry.BackgroundShape = SnippetOptionWidget.extend({
                 .prepend($(`<we-colorpicker data-color="true" data-color-name="${colorName}"></we-colorpicker>`)[0]);
         });
 
+        // Inventory shape URLs per class.
+        const style = window.getComputedStyle(this.$target[0]);
+        const palette = [1, 2, 3, 4, 5].map(n => style.getPropertyValue(`--o-cc${n}-bg`)).join();
+        if (palette !== this._lastShapePalette) {
+            this._lastShapePalette = palette;
+            this._shapeBackgroundImagePerClass = {};
+            for (const styleSheet of this.$target[0].ownerDocument.styleSheets) {
+                if (styleSheet.href && new URL(styleSheet.href).host !== location.host) {
+                    // In some browsers, if a stylesheet is loaded from a different domain
+                    // accessing cssRules results in a SecurityError.
+                    continue;
+                }
+                for (const rule of [...styleSheet.cssRules]) {
+                    if (rule.selectorText && rule.selectorText.startsWith(".o_we_shape.")) {
+                        this._shapeBackgroundImagePerClass[rule.selectorText] = rule.style.backgroundImage;
+                    }
+                }
+            }
+        }
+
         uiFragment.querySelectorAll('we-select-pager we-button[data-shape]').forEach(btn => {
             const btnContent = document.createElement('div');
             btnContent.classList.add('o_we_shape_btn_content', 'position-relative', 'border-dark');
@@ -6471,19 +7092,14 @@ registry.BackgroundShape = SnippetOptionWidget.extend({
 
             const {shape} = btn.dataset;
             const shapeEl = btnContent.querySelector('.o_we_shape');
-            shapeEl.classList.add(`o_${shape.replace(/\//g, '_')}`);
+            const shapeClassName = `o_${shape.replace(/\//g, '_')}`;
+            shapeEl.classList.add(shapeClassName);
+            // Match current palette.
+            const shapeBackgroundImage = this._shapeBackgroundImagePerClass[`.o_we_shape.${shapeClassName}`];
+            shapeEl.style.setProperty("background-image", shapeBackgroundImage);
             btn.append(btnContent);
         });
         return uiFragment;
-    },
-    /**
-     * @override
-     */
-    async _computeWidgetVisibility(widgetName, params) {
-        if (widgetName === 'shape_none_opt') {
-            return false;
-        }
-        return this._super(...arguments);
     },
     /**
      * Flips the shape on its x/y axis.
@@ -6667,7 +7283,7 @@ registry.BackgroundShape = SnippetOptionWidget.extend({
                 return `${colorName}=${encodedCol}`;
             });
         if (flip.length) {
-            searchParams.push(`flip=${flip.sort().join('')}`);
+            searchParams.push(`flip=${encodeURIComponent(flip.sort().join(''))}`);
         }
         return `/web_editor/shape/${encodeURIComponent(shape)}.svg?${searchParams.join('&')}`;
     },
@@ -6699,7 +7315,7 @@ registry.BackgroundShape = SnippetOptionWidget.extend({
             .clone()
             .addClass('d-none')
             // Needs to be in document for bg-image class to take effect
-            .appendTo(document.body);
+            .appendTo(this.$target[0].ownerDocument.body);
         const shapeContainer = $shapeContainer[0];
         $shapeContainer.css('background-image', '');
         const shapeSrc = shapeContainer && getBgImageURL(shapeContainer);
@@ -6806,8 +7422,6 @@ registry.BackgroundShape = SnippetOptionWidget.extend({
  * Handles the edition of snippets' background image position.
  */
 registry.BackgroundPosition = SnippetOptionWidget.extend({
-    xmlDependencies: ['/web_editor/static/src/xml/editor.xml'],
-
     /**
      * @override
      */
@@ -6947,7 +7561,7 @@ registry.BackgroundPosition = SnippetOptionWidget.extend({
             return;
         }
         // TODO: change #wrapwrap after web_editor rework.
-        const $wrapwrap = $('#wrapwrap');
+        const $wrapwrap = $(this.ownerDocument.body).find("#wrapwrap");
         const targetOffset = this.$target.offset();
 
         this.$backgroundOverlay.css({
@@ -6982,6 +7596,9 @@ registry.BackgroundPosition = SnippetOptionWidget.extend({
             this.trigger_up('activate_snippet', {$snippet: this.$target});
 
             $(document).off('click.bgposition');
+            if (this.$bgDragger) {
+                this.$bgDragger.tooltip('dispose');
+            }
             return;
         }
 
@@ -7066,7 +7683,7 @@ registry.BackgroundPosition = SnippetOptionWidget.extend({
     _onDragBackgroundStart: function (ev) {
         ev.preventDefault();
         this.$bgDragger.addClass('o_we_grabbing');
-        const $document = $(this.ownerDocument);
+        const $document = $(this.$target[0].ownerDocument);
         $document.on('mousemove.bgposition', this._onDragBackgroundMove.bind(this));
         $document.one('mouseup', () => {
             this.$bgDragger.removeClass('o_we_grabbing');
@@ -7177,6 +7794,10 @@ registry.ContainerWidth = SnippetOptionWidget.extend({
         } else if (previewMode) {
             this.$target.addClass('o_container_preview');
         }
+        this.trigger_up('option_update', {
+            optionName: 'StepsConnector',
+            name: 'change_container_width',
+        });
     },
 });
 
@@ -7314,8 +7935,6 @@ registry.many2one = SnippetOptionWidget.extend({
  * Allows to display a warning message on outdated snippets.
  */
 registry.VersionControl = SnippetOptionWidget.extend({
-    xmlDependencies: ['/web_editor/static/src/xml/snippets.xml'],
-
     /**
      * @override
      */
@@ -7337,7 +7956,6 @@ registry.VersionControl = SnippetOptionWidget.extend({
  * Handle the save of a snippet as a template that can be reused later
  */
 registry.SnippetSave = SnippetOptionWidget.extend({
-    xmlDependencies: ['/web_editor/static/src/xml/editor.xml'],
     isTopOption: true,
 
     //--------------------------------------------------------------------------
@@ -7369,14 +7987,39 @@ registry.SnippetSave = SnippetOptionWidget.extend({
                             });
                             this.trigger_up('request_save', {
                                 reloadEditor: true,
+                                invalidateSnippetCache: true,
                                 onSuccess: async () => {
                                     const defaultSnippetName = _.str.sprintf(_t("Custom %s"), this.data.snippetName);
                                     const targetCopyEl = this.$target[0].cloneNode(true);
+                                    targetCopyEl.classList.add('s_custom_snippet');
+                                    // when cloning the snippets which has o_snippet_invisible, o_snippet_mobile_invisible or
+                                    // o_snippet_desktop_invisible class will be hidden because of d-none class added on it,
+                                    // so we needs to remove `d-none` explicity in such case from the target.
+                                    const isTargetHidden = [
+                                        "o_snippet_invisible",
+                                        "o_snippet_mobile_invisible",
+                                        "o_snippet_desktop_invisible"
+                                    ].some(className => this.$target[0].classList.contains(className));
+                                    if (isTargetHidden) {
+                                        targetCopyEl.classList.remove("d-none");
+                                    }
                                     delete targetCopyEl.dataset.name;
                                     // By the time onSuccess is called after request_save, the
                                     // current widget has been destroyed and is orphaned, so this._rpc
                                     // will not work as it can't trigger_up. For this reason, we need
                                     // to bypass the service provider and use the global RPC directly
+
+                                    // Get editable parent TODO find proper method to get it directly
+                                    let editableParentEl;
+                                    for (parent of this.options.getContentEditableAreas()) {
+                                        if (parent.contains(this.$target[0])) {
+                                            editableParentEl = parent;
+                                            break;
+                                        }
+                                    }
+                                    context['model'] = editableParentEl.dataset.oeModel;
+                                    context['field'] = editableParentEl.dataset.oeField;
+                                    context['resId'] = editableParentEl.dataset.oeId;
                                     await rpc.query({
                                         model: 'ir.ui.view',
                                         method: 'save_snippet',
@@ -7720,5 +8363,7 @@ return {
     // Other names for convenience
     Class: SnippetOptionWidget,
     registry: registry,
+
+    clearM2oRpcCache,
 };
 });

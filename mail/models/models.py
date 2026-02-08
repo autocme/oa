@@ -2,6 +2,7 @@
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
 
 from lxml.builder import E
+from markupsafe import Markup
 
 from odoo import api, models, tools, _
 
@@ -93,7 +94,7 @@ class BaseModel(models.AbstractModel):
             res[record.id] = {'partner_ids': recipient_ids, 'email_to': email_to, 'email_cc': email_cc}
         return res
 
-    def _notify_get_reply_to(self, default=None, records=None, company=None, doc_names=None):
+    def _notify_get_reply_to(self, default=None):
         """ Returns the preferred reply-to email address when replying to a thread
         on documents. This method is a generic implementation available for
         all models as we could send an email through mail templates on models
@@ -113,20 +114,9 @@ class BaseModel(models.AbstractModel):
         An example would be tasks taking their reply-to alias from their project.
 
         :param default: default email if no alias or catchall is found;
-        :param records: DEPRECATED, self should be a valid record set or an
-          empty recordset if a generic reply-to is required;
-        :param company: used to compute company name part of the from name; provide
-          it if already known, otherwise use records company it they all belong to the same company
-          and fall back on user's company in mixed companies environments;
-        :param doc_names: dict(res_id, doc_name) used to compute doc name part of
-          the from name; provide it if already known to avoid queries, otherwise
-          name_get on document will be performed;
         :return result: dictionary. Keys are record IDs and value is formatted
           like an email "Company_name Document_name <reply_to@email>"/
         """
-        if records:
-            raise ValueError('Use of records is deprecated as this method is available on BaseModel.')
-
         _records = self
         model = _records._name if _records and _records._name != 'mail.thread' else False
         res_ids = _records.ids if _records and model else []
@@ -135,15 +125,12 @@ class BaseModel(models.AbstractModel):
         alias_domain = self.env['ir.config_parameter'].sudo().get_param("mail.catchall.domain")
         result = dict.fromkeys(_res_ids, False)
         result_email = dict()
-        doc_names = doc_names if doc_names else dict()
+        doc_names = dict()
 
         if alias_domain:
             if model and res_ids:
                 if not doc_names:
                     doc_names = dict((rec.id, rec.display_name) for rec in _records)
-
-                if not company and 'company_id' in self and len(self.company_id) == 1:
-                    company = self.company_id
 
                 mail_aliases = self.env['mail.alias'].sudo().search([
                     ('alias_parent_model_id.model', '=', model),
@@ -164,7 +151,6 @@ class BaseModel(models.AbstractModel):
                 result[res_id] = self._notify_get_reply_to_formatted_email(
                     result_email[res_id],
                     doc_names.get(res_id) or '',
-                    company
                 )
 
         left_ids = set(_res_ids) - set(result_email)
@@ -173,7 +159,7 @@ class BaseModel(models.AbstractModel):
 
         return result
 
-    def _notify_get_reply_to_formatted_email(self, record_email, record_name, company):
+    def _notify_get_reply_to_formatted_email(self, record_email, record_name):
         """ Compute formatted email for reply_to and try to avoid refold issue
         with python that splits the reply-to over multiple lines. It is due to
         a bad management of quotes (missing quotes after refold). This appears
@@ -200,7 +186,10 @@ class BaseModel(models.AbstractModel):
                 'Reply-To: %s ', record_name, record_email)
             return record_email
 
-        company_name = company.name if company else self.env.company.name
+        if 'company_id' in self and len(self.company_id) == 1:
+            company_name = self.sudo().company_id.name
+        else:
+            company_name = self.env.company.name
 
         # try company_name + record_name, or record_name alone (or company_name alone)
         name = f"{company_name} {record_name}" if record_name else company_name
@@ -256,19 +245,31 @@ class BaseModel(models.AbstractModel):
             '&', ('hidden', '=', False),
             '|', ('res_model', '=', self._name), ('res_model', '=', False)])
 
-    def _notify_email_headers(self):
-        """
-            Generate the email headers based on record
-        """
+    def _notify_by_email_get_headers(self):
+        """ Generate the email headers based on record """
         if not self:
             return {}
         self.ensure_one()
-        return repr(self._notify_email_header_dict())
-
-    def _notify_email_header_dict(self):
         return {
             'X-Odoo-Objects': "%s-%s" % (self._name, self.id),
         }
+
+    # ------------------------------------------------------------
+    # TOOLS
+    # ------------------------------------------------------------
+
+    def _get_html_link(self, title=None):
+        """Generate the record html reference for chatter use.
+
+        :param str title: optional reference title, the record display_name
+            is used if not provided. The title/display_name will be escaped.
+        :returns: generated html reference,
+            in the format <a href data-oe-model="..." data-oe-id="...">title</a>
+        :rtype: str
+        """
+        self.ensure_one()
+        return Markup("<a href=# data-oe-model='%s' data-oe-id='%s'>%s</a>") % (
+            self._name, self.id, title or self.display_name)
 
     # ------------------------------------------------------
     # CONTROLLERS

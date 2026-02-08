@@ -1,26 +1,20 @@
 /** @odoo-module **/
 
+import { useRefToModel } from '@mail/component_hooks/use_ref_to_model';
+import { useUpdate } from '@mail/component_hooks/use_update';
 import { registerMessagingComponent } from '@mail/utils/messaging_component';
-import { useRefToModel } from '@mail/component_hooks/use_ref_to_model/use_ref_to_model';
-import { useUpdate } from '@mail/component_hooks/use_update/use_update';
 
 const { Component } = owl;
-const { useRef } = owl.hooks;
 
 export class DiscussSidebar extends Component {
 
     /**
      * @override
      */
-    constructor(...args) {
-        super(...args);
+    setup() {
+        super.setup();
         useUpdate({ func: () => this._update() });
-        useRefToModel({ fieldName: 'startAMeetingButtonRef', modelName: 'mail.discuss', propNameAsRecordLocalId: 'localId', refName: 'startAMeetingButton' });
-        /**
-         * Reference of the quick search input. Useful to filter channels and
-         * chats based on this input content.
-         */
-        this._quickSearchInputRef = useRef('quickSearchInput');
+        useRefToModel({ fieldName: 'quickSearchInputRef', refName: 'quickSearchInput' });
     }
 
     //--------------------------------------------------------------------------
@@ -28,10 +22,10 @@ export class DiscussSidebar extends Component {
     //--------------------------------------------------------------------------
 
     /**
-     * @returns {mail.discuss}
+     * @returns {DiscussView}
      */
-    get discuss() {
-        return this.messaging && this.messaging.models['mail.discuss'].get(this.props.localId);
+    get discussView() {
+        return this.props.record;
     }
 
     //--------------------------------------------------------------------------
@@ -42,33 +36,15 @@ export class DiscussSidebar extends Component {
      * @private
      */
     _update() {
-        if (!this.discuss) {
-            return;
+        if (this.discussView.quickSearchInputRef.el) {
+            this.discussView.quickSearchInputRef.el.value = this.discussView.discuss.sidebarQuickSearchValue;
         }
-        if (this._quickSearchInputRef.el) {
-            this._quickSearchInputRef.el.value = this.discuss.sidebarQuickSearchValue;
-        }
-    }
-
-    //--------------------------------------------------------------------------
-    // Handlers
-    //--------------------------------------------------------------------------
-
-    /**
-     * @private
-     * @param {KeyboardEvent} ev
-     */
-    _onInputQuickSearch(ev) {
-        ev.stopPropagation();
-        this.discuss.onInputQuickSearch(this._quickSearchInputRef.el.value);
     }
 
 }
 
 Object.assign(DiscussSidebar, {
-    props: {
-        localId: String
-    },
+    props: { record: Object },
     template: 'mail.DiscussSidebar',
 });
 

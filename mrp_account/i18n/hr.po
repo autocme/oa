@@ -3,18 +3,19 @@
 # 	* mrp_account
 # 
 # Translators:
-# Tina Milas, 2022
 # Milan Tribuson <one.mile.code@gmail.com>, 2022
+# Tina Milas, 2022
+# Martin Trigaux, 2023
 # Bole <bole@dajmi5.com>, 2023
-# Martin Trigaux, 2024
+# Vladimir Vrgoč, 2025
 # 
 msgid ""
 msgstr ""
-"Project-Id-Version: Odoo Server 15.0\n"
+"Project-Id-Version: Odoo Server 16.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-08-14 15:43+0000\n"
-"PO-Revision-Date: 2021-09-14 12:24+0000\n"
-"Last-Translator: Martin Trigaux, 2024\n"
+"POT-Creation-Date: 2025-02-10 08:27+0000\n"
+"PO-Revision-Date: 2022-09-22 05:53+0000\n"
+"Last-Translator: Vladimir Vrgoč, 2025\n"
 "Language-Team: Croatian (https://app.transifex.com/odoo/teams/41243/hr/)\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
@@ -23,6 +24,7 @@ msgstr ""
 "Plural-Forms: nplurals=3; plural=n%10==1 && n%100!=11 ? 0 : n%10>=2 && n%10<=4 && (n%100<10 || n%100>=20) ? 1 : 2;\n"
 
 #. module: mrp_account
+#. odoo-python
 #: code:addons/mrp_account/models/mrp_production.py:0
 #: model:ir.model,name:mrp_account.model_account_analytic_account
 #: model:ir.model.fields,field_description:mrp_account.field_mrp_bom__analytic_account_id
@@ -31,7 +33,7 @@ msgstr ""
 #: model_terms:ir.ui.view,arch_db:mrp_account.mrp_production_form_view_inherited
 #, python-format
 msgid "Analytic Account"
-msgstr "Konto analitike"
+msgstr "Analitički konto"
 
 #. module: mrp_account
 #: model:ir.model,name:mrp_account.model_account_analytic_line
@@ -58,6 +60,7 @@ msgid "Bill of Material"
 msgstr "Sastavnica"
 
 #. module: mrp_account
+#. odoo-python
 #: code:addons/mrp_account/models/analytic_account.py:0
 #: model:ir.model.fields,field_description:mrp_account.field_account_analytic_account__bom_ids
 #: model_terms:ir.ui.view,arch_db:mrp_account.account_analytic_account_view_form_mrp
@@ -102,22 +105,8 @@ msgstr "Trošak ubilježen"
 
 #. module: mrp_account
 #: model:ir.model.fields,field_description:mrp_account.field_mrp_production__extra_cost
-msgid "Extra Cost"
-msgstr "Dodatni trošak"
-
-#. module: mrp_account
-#: model:ir.model.fields,help:mrp_account.field_mrp_production__extra_cost
-msgid "Extra cost per produced unit"
-msgstr "Dodatni trošak po proizvedenom komadu"
-
-#. module: mrp_account
-#: model:ir.model.fields,help:mrp_account.field_mrp_workcenter__costs_hour_account_id
-msgid ""
-"Fill this only if you want automatic analytic accounting entries on "
-"production orders."
-msgstr ""
-"Ovo ispunite samo ako želite automatsko analitičko knjigovodstvo na "
-"proizvodnim nalozima."
+msgid "Extra Unit Cost"
+msgstr "Dodatni trošak po jedinici"
 
 #. module: mrp_account
 #: model:ir.model,name:mrp_account.model_account_move_line
@@ -130,6 +119,7 @@ msgid "Manufacturing Order"
 msgstr "Nalog za proizvodnju"
 
 #. module: mrp_account
+#. odoo-python
 #: code:addons/mrp_account/models/analytic_account.py:0
 #: model:ir.model.fields,field_description:mrp_account.field_account_analytic_account__production_ids
 #: model_terms:ir.ui.view,arch_db:mrp_account.account_analytic_account_view_form_mrp
@@ -148,14 +138,23 @@ msgid "Mo Analytic Account Line"
 msgstr "Analitička stavka PN"
 
 #. module: mrp_account
-#: model:ir.model,name:mrp_account.model_product_product
+#: model:ir.model.fields,help:mrp_account.field_mrp_workcenter__costs_hour_account_id
+msgid ""
+"Posts analytical accounting entries in real time for both component and "
+"operational costs."
+msgstr ""
+"Knjiži automatikom računovodstvene stavke analitike za komponente i troškove"
+" operacija."
+
+#. module: mrp_account
+#: model:ir.model,name:mrp_account.model_product_template
 msgid "Product"
 msgstr "Proizvod"
 
 #. module: mrp_account
-#: model:ir.model,name:mrp_account.model_product_template
-msgid "Product Template"
-msgstr "Predložak proizvoda"
+#: model:ir.model,name:mrp_account.model_product_product
+msgid "Product Variant"
+msgstr "Varijanta proizvoda"
 
 #. module: mrp_account
 #: model:ir.model,name:mrp_account.model_mrp_production
@@ -178,19 +177,6 @@ msgid "Stock Rule"
 msgstr "Skladišno pravilo"
 
 #. module: mrp_account
-#: model:ir.model.fields,help:mrp_account.field_mrp_workcenter_productivity__cost_already_recorded
-msgid ""
-"Technical field automatically checked when a ongoing production posts "
-"journal entries for its costs. This way, we can record one production's cost"
-" multiple times and only consider new entries in the work centers time "
-"lines."
-msgstr ""
-"Tehničko polje automatski označeno kada proizvodnja u tijeku knjiži stavke "
-"za svoje troškove. Na taj način možemo bilježiti jedan trošak proizvodnje "
-"više puta i samo uzeti u obzir nove stavke u retcima eviednice vremena "
-"radnog centra."
-
-#. module: mrp_account
 #: model_terms:ir.ui.view,arch_db:mrp_account.mrp_production_form_view_inherited
 msgid "Valuation"
 msgstr "Vrednovanje"
@@ -198,12 +184,17 @@ msgstr "Vrednovanje"
 #. module: mrp_account
 #: model:ir.model.fields,field_description:mrp_account.field_mrp_workorder__wc_analytic_account_line_id
 msgid "Wc Analytic Account Line"
-msgstr "PN stavka analitike"
+msgstr "RN stavka analitike"
 
 #. module: mrp_account
 #: model:ir.model,name:mrp_account.model_mrp_workcenter
 msgid "Work Center"
 msgstr "Radni centar"
+
+#. module: mrp_account
+#: model:ir.model,name:mrp_account.model_mrp_routing_workcenter
+msgid "Work Center Usage"
+msgstr "Korištenje radnog centra"
 
 #. module: mrp_account
 #: model:ir.model,name:mrp_account.model_mrp_workorder
@@ -216,6 +207,7 @@ msgid "Work Order Count"
 msgstr "Broj radnih naloga"
 
 #. module: mrp_account
+#. odoo-python
 #: code:addons/mrp_account/models/analytic_account.py:0
 #, python-format
 msgid "Work Orders"
@@ -232,12 +224,14 @@ msgid "Workcenters"
 msgstr "Radni centri"
 
 #. module: mrp_account
+#. odoo-python
 #: code:addons/mrp_account/models/stock_move.py:0
 #, python-format
 msgid "[Raw] %s"
 msgstr "[Sirov] %s"
 
 #. module: mrp_account
+#. odoo-python
 #: code:addons/mrp_account/models/mrp_production.py:0
 #: code:addons/mrp_account/models/mrp_workorder.py:0
 #, python-format

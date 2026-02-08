@@ -171,7 +171,9 @@ class WebsiteAccount(CustomerPortal):
             "website_crm_partner_assign.portal_my_opportunity", {
                 'opportunity': opp,
                 'user_activity': opp.sudo().activity_ids.filtered(lambda activity: activity.user_id == request.env.user)[:1],
-                'stages': request.env['crm.stage'].search([('is_won', '!=', True)], order='sequence desc, name desc, id desc'),
+                'stages': request.env['crm.stage'].search([
+                    ('is_won', '!=', True), '|', ('team_id', '=', False), ('team_id', '=', opp.team_id.id)
+                ], order='sequence desc, name desc, id desc'),
                 'activity_types': request.env['mail.activity.type'].sudo().search(['|', ('res_model', '=', opp._name), ('res_model', '=', False)]),
                 'states': request.env['res.country.state'].sudo().search([]),
                 'countries': request.env['res.country'].sudo().search([]),
@@ -223,7 +225,7 @@ class WebsiteCrmPartnerAssign(WebsitePartnerPage):
         search = post.get('search', '')
 
         base_partner_domain = [('is_company', '=', True), ('grade_id', '!=', False), ('website_published', '=', True), ('grade_id.active', '=', True)]
-        if not request.env['res.users'].has_group('website.group_website_publisher'):
+        if not request.env['res.users'].has_group('website.group_website_restricted_editor'):
             base_partner_domain += [('grade_id.website_published', '=', True)]
         if search:
             base_partner_domain += ['|', ('name', 'ilike', search), ('website_description', 'ilike', search)]
@@ -231,7 +233,7 @@ class WebsiteCrmPartnerAssign(WebsitePartnerPage):
         # group by grade
         grade_domain = list(base_partner_domain)
         if not country and not country_all:
-            country_code = request.session['geoip'].get('country_code')
+            country_code = request.geoip.get('country_code')
             if country_code:
                 country = country_obj.search([('code', '=', country_code)], limit=1)
         if country:
@@ -294,7 +296,7 @@ class WebsiteCrmPartnerAssign(WebsitePartnerPage):
 
         # search partners matching current search parameters
         partner_ids = partner_obj.sudo().search(
-            base_partner_domain, order="grade_sequence ASC, implemented_count DESC, display_name ASC, id ASC",
+            base_partner_domain, order="grade_sequence ASC, implemented_partner_count DESC, display_name ASC, id ASC",
             offset=pager['offset'], limit=self._references_per_page)
         partners = partner_ids.sudo()
 
@@ -331,12 +333,13 @@ class WebsiteCrmPartnerAssign(WebsitePartnerPage):
             current_country = request.env['res.country'].browse(int(country_id)).exists()
         if partner_id:
             partner = request.env['res.partner'].sudo().browse(partner_id)
-            is_website_publisher = request.env['res.users'].has_group('website.group_website_publisher')
-            if partner.exists() and (partner.website_published or is_website_publisher):
+            is_website_restricted_editor = request.env['res.users'].has_group('website.group_website_restricted_editor')
+            if partner.exists() and (partner.website_published or is_website_restricted_editor):
                 if slug(partner) != current_slug:
                     return request.redirect('/partners/%s' % slug(partner))
                 values = {
-                    'main_object': partner,
+                    # See REVIEW_CAN_PUBLISH_UNSUDO
+                    'main_object': partner.with_context(can_publish_unsudo_main_object=True),
                     'partner': partner,
                     'current_grade': current_grade,
                     'current_country': current_country

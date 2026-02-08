@@ -3,25 +3,38 @@ odoo.define('web.pager_tests', function (require) {
 
     const Pager = require('web.Pager');
     const testUtils = require('web.test_utils');
+    const { LegacyComponent } = require("@web/legacy/legacy_component");
 
     const { createComponent } = testUtils;
 
+    const { xml, useState } = owl;
+
+    class PagerController extends LegacyComponent {
+        setup() {
+            this.state = useState({ ...this.props });
+        }
+        async updateProps(nextProps) {
+            Object.assign(this.state, nextProps);
+            await testUtils.nextTick();
+        }
+    }
+    PagerController.template = xml`<Pager t-props="state" />`;
+    PagerController.components = { Pager };
+
     QUnit.module('Components', {}, function () {
 
-        QUnit.module('Pager');
+        QUnit.module('Legacy Pager');
 
         QUnit.test('basic interactions', async function (assert) {
             assert.expect(2);
 
-            const pager = await createComponent(Pager, {
+            const pager = await createComponent(PagerController, {
                 props: {
                     currentMinimum: 1,
                     limit: 4,
                     size: 10,
-                },
-                intercepts: {
-                    'pager-changed': function (ev) {
-                        Object.assign(this.state, ev.detail);
+                    onPagerChanged: function (detail) {
+                        pager.updateProps(detail);
                     },
                 },
             });
@@ -33,22 +46,18 @@ odoo.define('web.pager_tests', function (require) {
 
             assert.strictEqual(testUtils.controlPanel.getPagerValue(pager), "5-8",
                 "currentMinimum should now be 5");
-
-            pager.destroy();
         });
 
         QUnit.test('edit the pager', async function (assert) {
             assert.expect(4);
 
-            const pager = await createComponent(Pager, {
+            const pager = await createComponent(PagerController, {
                 props: {
                     currentMinimum: 1,
                     limit: 4,
                     size: 10,
-                },
-                intercepts: {
-                    'pager-changed': function (ev) {
-                        Object.assign(this.state, ev.detail);
+                    onPagerChanged: function (detail) {
+                        pager.updateProps(detail);
                     },
                 },
             });
@@ -67,21 +76,17 @@ odoo.define('web.pager_tests', function (require) {
                 "the pager should not contain an input anymore");
             assert.strictEqual(testUtils.controlPanel.getPagerValue(pager), "1-6",
                 "the limit should have been updated");
-
-            pager.destroy();
         });
 
         QUnit.test("keydown on pager with same value", async function (assert) {
             assert.expect(7);
 
-            const pager = await createComponent(Pager, {
+            const pager = await createComponent(PagerController, {
                 props: {
                     currentMinimum: 1,
                     limit: 4,
                     size: 10,
-                },
-                intercepts: {
-                    "pager-changed": () => assert.step("pager-changed"),
+                    onPagerChanged: () => assert.step("pager-changed"),
                 },
             });
 
@@ -98,22 +103,18 @@ odoo.define('web.pager_tests', function (require) {
             assert.containsNone(pager, "input");
             assert.strictEqual(testUtils.controlPanel.getPagerValue(pager), "1-4");
             assert.verifySteps(["pager-changed"]);
-
-            pager.destroy();
         });
 
         QUnit.test('pager value formatting', async function (assert) {
             assert.expect(8);
 
-            const pager = await createComponent(Pager, {
+            const pager = await createComponent(PagerController, {
                 props: {
                     currentMinimum: 1,
                     limit: 4,
                     size: 10,
-                },
-                intercepts: {
-                    'pager-changed': function (ev) {
-                        Object.assign(this.state, ev.detail);
+                    onPagerChanged: (detail) => {
+                        pager.updateProps(detail);
                     },
                 },
             });
@@ -133,29 +134,25 @@ odoo.define('web.pager_tests', function (require) {
             await inputAndAssert("definitelyValidNumber", "10", "fallback to previous value if not a number");
             await inputAndAssert(" 1 ,  2   ", "1-2", "value is normalized and accepts several separators");
             await inputAndAssert("3  8", "3-8", "value accepts whitespace(s) as a separator");
-
-            pager.destroy();
         });
 
         QUnit.test('pager disabling', async function (assert) {
             assert.expect(10);
 
             const reloadPromise = testUtils.makeTestPromise();
-            const pager = await createComponent(Pager, {
+            const pager = await createComponent(PagerController, {
                 props: {
                     currentMinimum: 1,
                     limit: 4,
                     size: 10,
-                },
-                intercepts: {
                     // The goal here is to test the reactivity of the pager; in a
                     // typical views, we disable the pager after switching page
                     // to avoid switching twice with the same action (double click).
-                    'pager-changed': async function (ev) {
+                    onPagerChanged: async function (detail) {
                         // 1. Simulate a (long) server action
                         await reloadPromise;
                         // 2. Update the view with loaded data
-                        Object.assign(this.state, ev.detail);
+                        pager.updateProps(detail);
                     },
                 },
             });
@@ -186,8 +183,6 @@ odoo.define('web.pager_tests', function (require) {
 
             assert.strictEqual(pager.el.querySelector('.o_pager_value').tagName, 'INPUT',
                 "pager edition is re-enabled");
-
-            pager.destroy();
         });
     });
 });

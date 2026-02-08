@@ -7,16 +7,20 @@ odoo.define('point_of_sale.ErrorPopup', function(require) {
 
     // formerly ErrorPopupWidget
     class ErrorPopup extends AbstractAwaitablePopup {
-        mounted() {
+        setup() {
+            super.setup();
+            owl.onMounted(this.onMounted);
+        }
+        onMounted() {
             this.playSound('error');
         }
     }
     ErrorPopup.template = 'ErrorPopup';
     ErrorPopup.defaultProps = {
         confirmText: _lt('Ok'),
-        cancelText: _lt('Cancel'),
         title: _lt('Error'),
         body: '',
+        cancelKey: false,
     };
 
     Registries.Component.add(ErrorPopup);

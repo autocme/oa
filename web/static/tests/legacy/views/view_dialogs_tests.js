@@ -18,7 +18,7 @@ async function createParent(params) {
     return widget;
 }
 
-QUnit.module('Views', {
+QUnit.module('LegacyViews', {
     beforeEach: function () {
         this.data = {
             partner: {
@@ -63,7 +63,7 @@ QUnit.module('Views', {
     },
 }, function () {
 
-    QUnit.module('view_dialogs');
+    QUnit.module('ViewDialog (legacy)');
 
     QUnit.test('formviewdialog buttons in footer are positioned properly', async function (assert) {
         assert.expect(2);
@@ -195,7 +195,6 @@ QUnit.module('Views', {
             },
         });
 
-        var dialog;
         new dialogs.SelectCreateDialog(parent, {
             no_create: true,
             readonly: true,
@@ -205,9 +204,7 @@ QUnit.module('Views', {
                 search_default_groupby_bar: true,
                 search_default_foo: 'piou',
             },
-        }).open().then(function (result) {
-            dialog = result;
-        });
+        }).open();
         await testUtils.nextTick();
         const modal = document.body.querySelector(".modal");
         await cpHelpers.removeFacet(modal, "Bar");
@@ -280,9 +277,9 @@ QUnit.module('Views', {
         await testUtils.nextTick();
 
         // click on the first row to see if the list is editable
-        await testUtils.dom.click(dialog.$('.o_list_view tbody tr:first td:not(.o_list_record_selector):first'));
+        await testUtils.dom.click(dialog.$('.o_legacy_list_view tbody tr:first td:not(.o_list_record_selector):first'));
 
-        assert.equal(dialog.$('.o_list_view tbody tr:first td:not(.o_list_record_selector):first input').length, 0,
+        assert.equal(dialog.$('.o_legacy_list_view tbody tr:first td:not(.o_list_record_selector):first input').length, 0,
             "list view should not be editable in a SelectCreateDialog");
 
         parent.destroy();

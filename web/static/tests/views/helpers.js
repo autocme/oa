@@ -1,13 +1,34 @@
 /** @odoo-module **/
 
-import { registerCleanup } from "@web/../tests/helpers/cleanup";
+import { Dialog } from "@web/core/dialog/dialog";
+import { registry } from "@web/core/registry";
 import { makeTestEnv } from "@web/../tests/helpers/mock_env";
-import { getFixture } from "@web/../tests/helpers/utils";
-import { View } from "@web/views/view";
-import { _fieldsViewGet } from "../helpers/mock_server";
+import { getFixture, mount, nextTick } from "@web/../tests/helpers/utils";
+import { getDefaultConfig, View } from "@web/views/view";
+import { MainComponentsContainer } from "@web/core/main_components_container";
+import {
+    setupControlPanelFavoriteMenuRegistry,
+    setupControlPanelServiceRegistry,
+} from "../search/helpers";
 import { addLegacyMockEnvironment } from "../webclient/helpers";
+import {
+    fakeCompanyService,
+    makeFakeLocalizationService,
+    makeFakeRouterService,
+    makeFakeUserService,
+} from "../helpers/mock_services";
+import { commandService } from "@web/core/commands/command_service";
+import { popoverService } from "@web/core/popover/popover_service";
+import { createDebugContext } from "@web/core/debug/debug_context";
 
-const { mount } = owl;
+import { Component, useSubEnv, xml } from "@odoo/owl";
+
+import { mapLegacyEnvToWowlEnv } from "@web/legacy/utils";
+import makeTestEnvironment from "web.test_env";
+
+const serviceRegistry = registry.category("services");
+
+const rootDialogTemplate = xml`<Dialog><View t-props="props.viewProps"/></Dialog>`;
 
 /**
  * @typedef {{
@@ -21,15 +42,17 @@ const { mount } = owl;
 
 /**
  * @param {MakeViewParams} params
- * @param {Object} [options={}]
- * @param {boolean} [options.noFields] Do not add default fields
- * @returns {owl.Component}
+ * @param {boolean} [inDialog=false]
+ * @returns {Component}
  */
-export const makeView = async (params, options = {}) => {
+async function _makeView(params, inDialog = false) {
     const props = { ...params };
     const serverData = props.serverData;
     const mockRPC = props.mockRPC;
-    const config = props.config || {};
+    const config = {
+        ...getDefaultConfig(),
+        ...props.config,
+    };
     const legacyParams = props.legacyParams || {};
 
     delete props.serverData;
@@ -37,29 +60,19 @@ export const makeView = async (params, options = {}) => {
     delete props.legacyParams;
     delete props.config;
 
-    const env = await makeTestEnv({ serverData, mockRPC, config });
-
-    if (!options.noFields && props.arch) {
-        const defaultFields = serverData.models[props.resModel].fields;
-        if (!props.fields) {
-            props.fields = Object.assign({}, defaultFields);
-            // write the field name inside the field description (as done by fields_get)
-            for (const fieldName in props.fields) {
-                props.fields[fieldName].name = fieldName;
-            }
-        }
-        const fvg = _fieldsViewGet({
-            arch: props.arch,
-            modelName: props.resModel,
-            fields: props.fields,
-            context: props.context || {},
-            models: serverData.models,
-        });
-        props.arch = fvg.arch;
-        props.fields = Object.assign({}, props.fields, fvg.fields);
-        props.searchViewArch = props.searchViewArch || "<search/>";
-        props.searchViewFields = props.searchViewFields || Object.assign({}, props.fields);
+    if (props.arch) {
+        serverData.views = serverData.views || {};
+        props.viewId = params.viewId || 100000001; // hopefully will not conflict with an id already in views
+        serverData.views[`${props.resModel},${props.viewId},${props.type}`] = props.arch;
+        delete props.arch;
+        props.searchViewId = 100000002; // hopefully will not conflict with an id already in views
+        const searchViewArch = props.searchViewArch || "<search/>";
+        serverData.views[`${props.resModel},${props.searchViewId},search`] = searchViewArch;
+        delete props.searchViewArch;
     }
+
+    const env = await makeTestEnv({ serverData, mockRPC });
+    Object.assign(env, createDebugContext(env)); // This is needed if the views are in debug mode
 
     /** Legacy Environment, for compatibility sakes
      *  Remove this as soon as we drop the legacy support
@@ -75,16 +88,86 @@ export const makeView = async (params, options = {}) => {
             }
         });
     }
-    addLegacyMockEnvironment(env, legacyParams);
-    //
+    await addLegacyMockEnvironment(env, legacyParams);
 
     const target = getFixture();
-    const view = await mount(View, { env, props, target });
+    const viewEnv = Object.assign(Object.create(env), { config });
 
-    registerCleanup(() => view.destroy());
-
-    const withSearch = Object.values(view.__owl__.children)[0];
-    const concreteView = Object.values(withSearch.__owl__.children)[0];
+    await mount(MainComponentsContainer, target, { env });
+    let viewNode;
+    if (inDialog) {
+        let root;
+        class RootDialog extends Component {
+            setup() {
+                root = this;
+                useSubEnv(viewEnv);
+            }
+        }
+        RootDialog.components = { Dialog, View };
+        RootDialog.template = rootDialogTemplate;
+        env.services.dialog.add(RootDialog, { viewProps: props });
+        await nextTick();
+        const rootNode = root.__owl__;
+        const dialogNode = Object.values(rootNode.children)[0];
+        viewNode = Object.values(dialogNode.children)[0];
+    } else {
+        const view = await mount(View, target, { env: viewEnv, props });
+        await nextTick();
+        viewNode = view.__owl__;
+    }
+    const withSearchNode = Object.values(viewNode.children)[0];
+    const concreteViewNode = Object.values(withSearchNode.children)[0];
+    const concreteView = concreteViewNode.component;
 
     return concreteView;
-};
+}
+
+/**
+ * @param {MakeViewParams} params
+ * @returns {Component}
+ */
+export function makeView(params) {
+    return _makeView(params);
+}
+
+/**
+ * @param {MakeViewParams} params
+ * @returns {Component}
+ */
+export function makeViewInDialog(params) {
+    return _makeView(params, true);
+}
+
+export function setupViewRegistries() {
+    setupControlPanelFavoriteMenuRegistry();
+    setupControlPanelServiceRegistry();
+    serviceRegistry.add(
+        "user",
+        makeFakeUserService((group) => group === "base.group_allow_export"),
+        { force: true }
+    );
+    serviceRegistry.add("router", makeFakeRouterService(), { force: true });
+    serviceRegistry.add("localization", makeFakeLocalizationService()), { force: true };
+    serviceRegistry.add("popover", popoverService), { force: true };
+    serviceRegistry.add("company", fakeCompanyService);
+    serviceRegistry.add("command", commandService);
+}
+
+/**
+ * This helper sets the legacy env and mounts a MainComponentsContainer
+ * to allow legacy code to use wowl FormViewDialogs.
+ *
+ * TODO: remove this when there's no legacy code using the wowl FormViewDialog.
+ *
+ * @param {Object} serverData
+ * @param {Function} [mockRPC]
+ * @returns {Promise}
+ */
+export async function prepareWowlFormViewDialogs(serverData, mockRPC) {
+    setupViewRegistries();
+    const wowlEnv = await makeTestEnv({ serverData, mockRPC });
+    const legacyEnv = makeTestEnvironment();
+    mapLegacyEnvToWowlEnv(legacyEnv, wowlEnv);
+    owl.Component.env = legacyEnv;
+    await mount(MainComponentsContainer, getFixture(), { env: wowlEnv });
+}

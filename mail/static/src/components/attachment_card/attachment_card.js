@@ -1,33 +1,22 @@
 /** @odoo-module **/
 
 import { registerMessagingComponent } from '@mail/utils/messaging_component';
-import { useComponentToModel } from '@mail/component_hooks/use_component_to_model/use_component_to_model';
+
 const { Component } = owl;
 
 export class AttachmentCard extends Component {
 
-    setup() {
-        super.setup();
-        useComponentToModel({ fieldName: 'component', modelName: 'mail.attachment_card', propNameAsRecordLocalId: 'attachmentCardLocalId' });
-    }
-
-    //--------------------------------------------------------------------------
-    // Public
-    //--------------------------------------------------------------------------
-
     /**
-     * @returns {mail.attachment_card}
+     * @returns {AttachmentCard}
      */
     get attachmentCard() {
-        return this.messaging && this.messaging.models['mail.attachment_card'].get(this.props.attachmentCardLocalId);
+        return this.props.record;
     }
 
 }
 
 Object.assign(AttachmentCard, {
-    props: {
-        attachmentCardLocalId: String,
-    },
+    props: { record: Object },
     template: 'mail.AttachmentCard',
 });
 

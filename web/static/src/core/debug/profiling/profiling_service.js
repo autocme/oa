@@ -3,38 +3,44 @@
 import { registry } from "@web/core/registry";
 import { ProfilingItem } from "./profiling_item";
 import { session } from "@web/session";
+import { profilingSystrayItem } from "./profiling_systray_item";
 
-const { core } = owl;
+import { EventBus, reactive } from "@odoo/owl";
+
+const systrayRegistry = registry.category("systray");
 
 const profilingService = {
     dependencies: ["orm"],
     start(env, { orm }) {
-        const state = {
-            session: session.profile_session || false,
-            collectors: session.profile_collectors || ["sql", "traces_async"],
-            params: session.profile_params || {},
-            get isEnabled() {
-                return Boolean(state.session);
-            },
-        };
-        const bus = new core.EventBus();
+        // Only set up profiling when in debug mode
+        if (!env.debug) {
+            return;
+        }
 
-        let recordingIcon = null;
-        function updateDebugIcon() {
-            const debugItem = document.querySelector(".o_main_navbar .o_debug_manager .fa-bug");
-            if (state.isEnabled) {
-                recordingIcon = document.createElement("span");
-                recordingIcon.classList.add("o_recording", "text-danger", "fa", "fa-circle");
-                debugItem.appendChild(recordingIcon);
-            } else if (recordingIcon) {
-                debugItem.removeChild(recordingIcon);
-                recordingIcon = null;
+        function notify() {
+            if (systrayRegistry.contains("web.profiling") && state.isEnabled === false) {
+                systrayRegistry.remove("web.profiling", profilingSystrayItem);
             }
+            if (!systrayRegistry.contains("web.profiling") && state.isEnabled === true) {
+                systrayRegistry.add("web.profiling", profilingSystrayItem, { sequence: 99 });
+            }
+            bus.trigger("UPDATE");
         }
 
-        if (env.debug) {
-            env.bus.on("WEB_CLIENT_READY", null, updateDebugIcon);
-        }
+        const state = reactive(
+            {
+                session: session.profile_session || false,
+                collectors: session.profile_collectors || ["sql", "traces_async"],
+                params: session.profile_params || {},
+                get isEnabled() {
+                    return Boolean(state.session);
+                },
+            },
+            notify
+        );
+
+        const bus = new EventBus();
+        notify();
 
         async function setProfiling(params) {
             const kwargs = Object.assign(
@@ -46,14 +52,13 @@ const profilingService = {
                 params
             );
             const resp = await orm.call("ir.profile", "set_profiling", [], kwargs);
-            if (resp.type) {  // most likely an "ir.actions.act_window"
+            if (resp.type) {
+                // most likely an "ir.actions.act_window"
                 env.services.action.doAction(resp);
             } else {
                 state.session = resp.session;
                 state.collectors = resp.collectors;
                 state.params = resp.params;
-                bus.trigger("UPDATE");
-                updateDebugIcon();
             }
         }
 
@@ -85,7 +90,7 @@ const profilingService = {
                 await setProfiling({ profile: !state.isEnabled });
             },
             async toggleCollector(collector) {
-                let nextCollectors = state.collectors.slice();
+                const nextCollectors = state.collectors.slice();
                 const index = nextCollectors.indexOf(collector);
                 if (index >= 0) {
                     nextCollectors.splice(index, 1);

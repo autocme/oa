@@ -2,9 +2,7 @@ odoo.define('base_import.import', function (require) {
 "use strict";
 
 var AbstractAction = require('web.AbstractAction');
-var config = require('web.config');
 var core = require('web.core');
-var Dialog = require('web.Dialog');
 var session = require('web.session');
 var time = require('web.time');
 var fieldUtils = require('web.field_utils');
@@ -126,12 +124,6 @@ var DataImport = AbstractAction.extend({
             });
             this.do_action(_.extend(action, {
                 target: 'new',
-                flags: {
-                    search_view: true,
-                    display_title: true,
-                    pager: true,
-                    list: {selectable: false}
-                }
             }));
         },
     },
@@ -143,7 +135,7 @@ var DataImport = AbstractAction.extend({
         // import object id
         this.id = null;
         this.session = session;
-        this._title = _t('Import a File'); // Displayed in the breadcrumbs
+        this._title = action.name || _t('Import a File'); // Displayed in the breadcrumbs
         this.do_not_change_match = false;
         this.sheets = [];
         this.selectionFields = {};  // Used to compute fallback values in backend.
@@ -170,19 +162,16 @@ var DataImport = AbstractAction.extend({
         this.setup_float_format_picker();
         this.setup_date_format_picker();
         this.setup_sheets_picker();
+        this.renderButtons();
+        this.controlPanelProps.cp_content = { $buttons: this.$buttons };
 
-        return this._super().then(function () {
-            return self.create_model().then(function (id) {
+        return Promise.all([
+            this._super(),
+            self.create_model().then(function (id) {
                 self.id = id;
                 self.$('input[name=import_id]').val(id);
-
-                self.renderButtons();
-                var status = {
-                    cp_content: {$buttons: self.$buttons},
-                };
-                self.updateControlPanel(status);
-            });
-        });
+            }),
+        ]);
     },
     create_model: function() {
         return this._rpc({
@@ -387,7 +376,6 @@ var DataImport = AbstractAction.extend({
         this.$('.oe_import_sheet').val('');
 
         this.$form.removeClass('oe_import_preview oe_import_error');
-        var import_toggle = false;
         var file = this.$('input.oe_import_file')[0].files[0];
         // some platforms send text/csv, application/csv, or other things if Excel is prevent
         var isCSV = ((file.type && _.last(file.type.split('/')) === "csv") || ( _.last(file.name.split('.')) === "csv"))
@@ -622,7 +610,7 @@ var DataImport = AbstractAction.extend({
                 },
                 // For each choice, if field is required, make it bold in the list
                 formatResultCssClass: function (object) {
-                    if (object.required) { return "font-weight-bold text-decoration-underline"; }
+                    if (object.required) { return "fw-bold text-decoration-underline"; }
                     return "";
                 },
                 placeholder: _t('To import, select a field...'),

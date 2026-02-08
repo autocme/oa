@@ -31,7 +31,7 @@ import SearchPanel from "web.searchPanel";
 import mvc from 'web.mvc';
 import viewUtils from 'web.viewUtils';
 
-const { Component } = owl;
+import { Component } from "@odoo/owl";
 
 var Factory = mvc.Factory;
 
@@ -126,15 +126,10 @@ var AbstractView = Factory.extend({
         // button when the graph view is embedded.
         var isEmbedded = params.isEmbedded || false;
 
-        // The noContentHelper's message can be empty, i.e. either a real empty string
-        // or an empty html tag. In both cases, we consider the helper empty.
-        var help = params.noContentHelp || "";
-        var htmlHelp = document.createElement("div");
-        htmlHelp.innerHTML = help;
         this.rendererParams = {
             arch: this.arch,
             isEmbedded: isEmbedded,
-            noContentHelp: htmlHelp.innerText.trim() ? help : "",
+            noContentHelp: params.noContentHelp,
         };
 
         this.controllerParams = {
@@ -425,11 +420,13 @@ var AbstractView = Factory.extend({
         this.loadParams = _.extend(this.loadParams, {
             context: searchQuery.context,
             domain: searchQuery.domain,
-            groupedBy: searchQuery.groupBy,
         });
         this.loadParams.orderedBy = Array.isArray(searchQuery.orderedBy) && searchQuery.orderedBy.length ?
                                         searchQuery.orderedBy :
                                         this.loadParams.orderedBy;
+        this.loadParams.groupedBy = Array.isArray(searchQuery.groupBy) && searchQuery.groupBy.length ?
+            searchQuery.groupBy :
+            this.loadParams.groupedBy || [];
         if (searchQuery.timeRanges) {
             this.loadParams.timeRanges = searchQuery.timeRanges;
             this.rendererParams.timeRanges = searchQuery.timeRanges;

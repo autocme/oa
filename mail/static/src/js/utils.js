@@ -1,6 +1,7 @@
 /** @odoo-module **/
 
 import core from 'web.core';
+import { escape } from '@web/core/utils/strings';
 
 var _t = core._t;
 
@@ -19,7 +20,7 @@ function parseAndTransform(htmlString, transformFunction) {
     var children;
     try {
         children = $('<div>').html(string).contents();
-    } catch (e) {
+    } catch (_e) {
         children = $('<div>').html('<pre>' + string + '</pre>').contents();
     }
     return _parseAndTransform(children, transformFunction)
@@ -64,7 +65,7 @@ var _escapeEntities = (function () {
 // Suggested URL Javascript regex of http://stackoverflow.com/questions/3809401/what-is-a-good-regular-expression-to-match-a-url
 // Adapted to make http(s):// not required if (and only if) www. is given. So `should.notmatch` does not match.
 // And further extended to include Latin-1 Supplement, Latin Extended-A, Latin Extended-B and Latin Extended Additional.
-var urlRegexp = /\b(?:https?:\/\/\d{1,3}(?:\.\d{1,3}){3}|(?:https?:\/\/|(?:www\.))[-a-z0-9@:%._+~#=\u00C0-\u024F\u1E00-\u1EFF]{2,256}\.[a-z]{2,13})\b(?:[-a-z0-9@:%_+.~#?&'$//=;\u00C0-\u024F\u1E00-\u1EFF]*)/gi;
+var urlRegexp = /\b(?:https?:\/\/\d{1,3}(?:\.\d{1,3}){3}|(?:https?:\/\/|(?:www\.))[-a-z0-9@:%._+~#=\u00C0-\u024F\u1E00-\u1EFF]{1,256}\.[a-z]{2,13})\b(?:[-a-z0-9@:%_+~#?&[\]^|{}`\\'$//=\u00C0-\u024F\u1E00-\u1EFF]|,(?!$| )|\.(?!$| |\.)|;(?!$| ))*/gi;
 /**
  * @param {string} text
  * @param {Object} [attrs={}]
@@ -124,7 +125,7 @@ function htmlToTextContentInline(htmlString) {
     htmlString = htmlString.replace(/<br\s*\/?>/gi,' ');
     try {
         div.innerHTML = htmlString;
-    } catch (e) {
+    } catch (_e) {
         div.innerHTML = `<pre>${htmlString}</pre>`;
     }
     return div
@@ -173,7 +174,7 @@ function parseEmail(text) {
  */
 function escapeAndCompactTextContent(content) {
     //Removing unwanted extra spaces from message
-    let value = owl.utils.escape(content).trim();
+    let value = escape(content).trim();
     value = value.replace(/(\r|\n){2,}/g, '<br/><br/>');
     value = value.replace(/(\r|\n)/g, '<br/>');
 

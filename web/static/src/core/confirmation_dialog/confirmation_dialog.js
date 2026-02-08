@@ -2,60 +2,88 @@
 
 import { Dialog } from "../dialog/dialog";
 import { _lt } from "../l10n/translation";
+import { useChildRef } from "@web/core/utils/hooks";
 
-export class ConfirmationDialog extends Dialog {
+import { Component } from "@odoo/owl";
+
+export class ConfirmationDialog extends Component {
     setup() {
-        super.setup();
-        this.title = this.props.title;
+        this.env.dialogData.close = () => this._cancel();
+        this.modalRef = useChildRef();
+        this.isConfirmedOrCancelled = false; // ensures we do not confirm and/or cancel twice
     }
-    _cancel() {
+    async _cancel() {
+        if (this.isConfirmedOrCancelled) {
+            return;
+        }
+        this.isConfirmedOrCancelled = true;
+        this.disableButtons();
         if (this.props.cancel) {
-            this.props.cancel();
+            try {
+                await this.props.cancel();
+            } catch (e) {
+                this.props.close();
+                throw e;
+            }
         }
-        this.close();
+        this.props.close();
     }
-
-    _confirm() {
-        if (this.props.confirm) {
-            this.props.confirm();
+    async _confirm() {
+        if (this.isConfirmedOrCancelled) {
+            return;
         }
-        this.close();
+        this.isConfirmedOrCancelled = true;
+        this.disableButtons();
+        if (this.props.confirm) {
+            try {
+                await this.props.confirm();
+            } catch (e) {
+                this.props.close();
+                throw e;
+            }
+        }
+        this.props.close();
+    }
+    disableButtons() {
+        if (!this.modalRef.el) {
+            return; // safety belt for stable versions
+        }
+        for (const button of [...this.modalRef.el.querySelectorAll(".modal-footer button")]) {
+            button.disabled = true;
+        }
     }
 }
+ConfirmationDialog.template = "web.ConfirmationDialog";
+ConfirmationDialog.components = { Dialog };
 ConfirmationDialog.props = {
+    close: Function,
     title: {
         validate: (m) => {
             return (
                 typeof m === "string" || (typeof m === "object" && typeof m.toString === "function")
             );
         },
+        optional: true,
     },
     body: String,
     confirm: { type: Function, optional: true },
+    confirmLabel: { type: String, optional: true },
     cancel: { type: Function, optional: true },
-    close: Function,
+    cancelLabel: { type: String, optional: true },
 };
 ConfirmationDialog.defaultProps = {
+    confirmLabel: _lt("Ok"),
+    cancelLabel: _lt("Cancel"),
     title: _lt("Confirmation"),
 };
 
-ConfirmationDialog.bodyTemplate = "web.ConfirmationDialogBody";
-ConfirmationDialog.footerTemplate = "web.ConfirmationDialogFooter";
-ConfirmationDialog.size = "modal-md";
-
-export class AlertDialog extends ConfirmationDialog {
-    setup() {
-        super.setup();
-        if ("contentClass" in this.props) {
-            this.contentClass = this.props.contentClass;
-        }
-    }
-}
-AlertDialog.size = "modal-sm";
-AlertDialog.props = Object.assign(Object.create(ConfirmationDialog.props), {
+export class AlertDialog extends ConfirmationDialog {}
+AlertDialog.template = "web.AlertDialog";
+AlertDialog.props = {
+    ...ConfirmationDialog.props,
     contentClass: { type: String, optional: true },
-});
-
+};
 AlertDialog.defaultProps = {
+    ...ConfirmationDialog.defaultProps,
     title: _lt("Alert"),
 };

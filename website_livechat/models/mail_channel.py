@@ -8,17 +8,17 @@ from odoo.exceptions import AccessError
 class MailChannel(models.Model):
     _inherit = 'mail.channel'
 
-    livechat_visitor_id = fields.Many2one('website.visitor', string='Visitor')
+    livechat_visitor_id = fields.Many2one('website.visitor', string='Visitor', index='btree_not_null')
 
-    def _execute_channel_pin(self, pinned=False):
+    def channel_pin(self, pinned=False):
         """ Override to clean an empty livechat channel.
          This is typically called when the operator send a chat request to a website.visitor
-         but don't speak to him and closes the chatter.
+         but don't speak to them and closes the chatter.
          This allows operators to send the visitor a new chat request.
          If active empty livechat channel,
          delete mail_channel as not useful to keep empty chat
          """
-        super(MailChannel, self)._execute_channel_pin(pinned)
+        super().channel_pin(pinned=pinned)
         if self.livechat_active and not self.message_ids:
             self.sudo().unlink()
 

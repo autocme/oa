@@ -15,7 +15,7 @@ from odoo.osv import expression
 _logger = logging.getLogger(__name__)
 
 
-class Team(models.Model):
+class TeamMember(models.Model):
     _inherit = 'crm.team.member'
 
     # assignment
@@ -138,7 +138,7 @@ class Team(models.Model):
                 ['&', '&', ('user_id', '=', False), ('date_open', '=', False), ('team_id', '=', member.crm_team_id.id)]
             ])
 
-            leads = self.env["crm.lead"].search(lead_domain, order='probability DESC', limit=lead_limit)
+            leads = self.env["crm.lead"].search(lead_domain, order='probability DESC, id', limit=lead_limit)
 
             to_assign = member._get_assignment_quota(work_days=work_days)
             members_data[member.id] = {
@@ -169,7 +169,7 @@ class Team(models.Model):
                 weights[member_index] = weights[member_index] - 1
 
                 lead.with_context(mail_auto_subscribe_no_notify=True).convert_opportunity(
-                    lead.partner_id.id,
+                    lead.partner_id,
                     user_ids=member_data['team_member'].user_id.ids
                 )
 

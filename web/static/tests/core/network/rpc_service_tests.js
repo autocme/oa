@@ -8,11 +8,17 @@ import { useService } from "@web/core/utils/hooks";
 import { patch, unpatch } from "@web/core/utils/patch";
 import { clearRegistryWithCleanup, makeTestEnv } from "../../helpers/mock_env";
 import { makeMockXHR } from "../../helpers/mock_services";
-import { getFixture, makeDeferred, nextTick, patchWithCleanup } from "../../helpers/utils";
+import {
+    destroy,
+    getFixture,
+    makeDeferred,
+    mount,
+    nextTick,
+    patchWithCleanup,
+} from "../../helpers/utils";
 import { registerCleanup } from "../../helpers/cleanup";
 
-const { Component, mount, tags } = owl;
-const { xml } = tags;
+import { Component, xml } from "@odoo/owl";
 
 let isXHRMocked = false;
 const serviceRegistry = registry.category("services");
@@ -21,7 +27,7 @@ let isDeployed = false;
 async function testRPC(route, params) {
     let url = "";
     let request;
-    let MockXHR = makeMockXHR({ test: true }, function (data) {
+    const MockXHR = makeMockXHR({ test: true }, function (data) {
         request = data;
         url = this.url;
     });
@@ -70,7 +76,7 @@ QUnit.module("RPC", {
 
 QUnit.test("can perform a simple rpc", async (assert) => {
     assert.expect(4);
-    let MockXHR = makeMockXHR({ result: { action_id: 123 } }, (request) => {
+    const MockXHR = makeMockXHR({ result: { action_id: 123 } }, (request) => {
         assert.strictEqual(request.jsonrpc, "2.0");
         assert.strictEqual(request.method, "call");
         assert.ok(typeof request.id === "number");
@@ -94,7 +100,7 @@ QUnit.test("trigger an error when response has 'error' key", async (assert) => {
             message: "data_message",
         },
     };
-    let MockXHR = makeMockXHR({ error });
+    const MockXHR = makeMockXHR({ error });
     patch(browser, "mock.xhr", { XMLHttpRequest: MockXHR }, { pure: true });
 
     const env = await makeTestEnv({
@@ -102,7 +108,7 @@ QUnit.test("trigger an error when response has 'error' key", async (assert) => {
     });
     try {
         await env.services.rpc("/test/");
-    } catch (error) {
+    } catch (_error) {
         assert.ok(true);
     }
     unpatch(browser, "mock.xhr");
@@ -126,14 +132,14 @@ QUnit.test("rpc coming from destroyed components are left pending", async (asser
     }
     MyComponent.template = xml`<div/>`;
     const def = makeDeferred();
-    let MockXHR = makeMockXHR({ result: "1" }, () => {}, def);
+    const MockXHR = makeMockXHR({ result: "1" }, () => {}, def);
     patch(browser, "mock.xhr", { XMLHttpRequest: MockXHR }, { pure: true });
 
     const env = await makeTestEnv({
         serviceRegistry,
     });
     const target = getFixture();
-    const component = await mount(MyComponent, { env, target });
+    const component = await mount(MyComponent, target, { env });
     let isResolved = false;
     let isFailed = false;
     component
@@ -146,7 +152,7 @@ QUnit.test("rpc coming from destroyed components are left pending", async (asser
         });
     assert.strictEqual(isResolved, false);
     assert.strictEqual(isFailed, false);
-    component.destroy();
+    destroy(component);
     def.resolve();
     await nextTick();
     assert.strictEqual(isResolved, false);
@@ -166,8 +172,8 @@ QUnit.test("rpc initiated from destroyed components throw exception", async (ass
         serviceRegistry,
     });
     const target = getFixture();
-    const component = await mount(MyComponent, { env, target });
-    component.destroy();
+    const component = await mount(MyComponent, target, { env });
+    destroy(component);
     try {
         await component.rpc("/my/route");
     } catch (e) {
@@ -176,19 +182,19 @@ QUnit.test("rpc initiated from destroyed components throw exception", async (ass
 });
 
 QUnit.test("check trigger RPC:REQUEST and RPC:RESPONSE for a simple rpc", async (assert) => {
-    let MockXHR = makeMockXHR({ test: true }, () => 1);
+    const MockXHR = makeMockXHR({ test: true }, () => 1);
     patch(browser, "mock.xhr", { XMLHttpRequest: MockXHR }, { pure: true });
 
     const env = await makeTestEnv({
         serviceRegistry,
     });
-    let rpcIdsRequest = [];
-    let rpcIdsResponse = [];
-    env.bus.on("RPC:REQUEST", null, (rpcId) => {
+    const rpcIdsRequest = [];
+    const rpcIdsResponse = [];
+    env.bus.addEventListener("RPC:REQUEST", (rpcId) => {
         rpcIdsRequest.push(rpcId);
         assert.step("RPC:REQUEST");
     });
-    env.bus.on("RPC:RESPONSE", null, (rpcId) => {
+    env.bus.addEventListener("RPC:RESPONSE", (rpcId) => {
         rpcIdsResponse.push(rpcId);
         assert.step("RPC:RESPONSE");
     });
@@ -211,24 +217,24 @@ QUnit.test("check trigger RPC:REQUEST and RPC:RESPONSE for a rpc with an error",
             message: "data_message",
         },
     };
-    let MockXHR = makeMockXHR({ error });
+    const MockXHR = makeMockXHR({ error });
     patch(browser, "mock.xhr", { XMLHttpRequest: MockXHR }, { pure: true });
     const env = await makeTestEnv({
         serviceRegistry,
     });
-    let rpcIdsRequest = [];
-    let rpcIdsResponse = [];
-    env.bus.on("RPC:REQUEST", null, (rpcId) => {
+    const rpcIdsRequest = [];
+    const rpcIdsResponse = [];
+    env.bus.addEventListener("RPC:REQUEST", (rpcId) => {
         rpcIdsRequest.push(rpcId);
         assert.step("RPC:REQUEST");
     });
-    env.bus.on("RPC:RESPONSE", null, (rpcId) => {
+    env.bus.addEventListener("RPC:RESPONSE", (rpcId) => {
         rpcIdsResponse.push(rpcId);
         assert.step("RPC:RESPONSE");
     });
     try {
         await env.services.rpc("/test/");
-    } catch (e) {
+    } catch (_e) {
         assert.ok(true);
     }
     assert.strictEqual(rpcIdsRequest.toString(), rpcIdsResponse.toString());
@@ -238,13 +244,13 @@ QUnit.test("check trigger RPC:REQUEST and RPC:RESPONSE for a rpc with an error",
 
 QUnit.test("check connection aborted", async (assert) => {
     const def = makeDeferred();
-    let MockXHR = makeMockXHR({}, () => {}, def);
+    const MockXHR = makeMockXHR({}, () => {}, def);
     patchWithCleanup(browser, { XMLHttpRequest: MockXHR }, { pure: true });
     const env = await makeTestEnv({ serviceRegistry });
-    env.bus.on("RPC:REQUEST", null, (rpcId) => {
+    env.bus.addEventListener("RPC:REQUEST", () => {
         assert.step("RPC:REQUEST");
     });
-    env.bus.on("RPC:RESPONSE", null, (rpcId) => {
+    env.bus.addEventListener("RPC:RESPONSE", () => {
         assert.step("RPC:RESPONSE");
     });
 

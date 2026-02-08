@@ -7,12 +7,13 @@ import requests
 
 from werkzeug.urls import url_parse
 
-from odoo import models
+from odoo import api, models
 
 
 class Assets(models.AbstractModel):
     _inherit = 'web_editor.assets'
 
+    @api.model
     def make_scss_customization(self, url, values):
         """
         Makes a scss customization of the given file. That file must
@@ -22,7 +23,7 @@ class Assets(models.AbstractModel):
         Params:
             url (str):
                 the URL of the scss file to customize (supposed to be a variable
-                file which will appear in the assets_common bundle)
+                file which will appear in the assets_frontend bundle)
 
             values (dict):
                 key,value mapping to integrate in the file's map (containing the
@@ -31,8 +32,8 @@ class Assets(models.AbstractModel):
         """
         IrAttachment = self.env['ir.attachment']
         if 'color-palettes-name' in values:
-            self.reset_asset('/website/static/src/scss/options/colors/user_color_palette.scss', 'web.assets_common')
-            self.reset_asset('/website/static/src/scss/options/colors/user_gray_color_palette.scss', 'web.assets_common')
+            self.reset_asset('/website/static/src/scss/options/colors/user_color_palette.scss', 'web.assets_frontend')
+            self.reset_asset('/website/static/src/scss/options/colors/user_gray_color_palette.scss', 'web.assets_frontend')
             # Do not reset all theme colors for compatibility (not removing alpha -> epsilon colors)
             self.make_scss_customization('/website/static/src/scss/options/colors/user_theme_color_palette.scss', {
                 'success': 'null',
@@ -118,8 +119,8 @@ class Assets(models.AbstractModel):
             # {'font_x': 45, 'font_y': 55} -> "('font_x': 45, 'font_y': 55)"
             values['google-local-fonts'] = str(google_local_fonts).replace('{', '(').replace('}', ')')
 
-        custom_url = self.make_custom_asset_file_url(url, 'web.assets_common')
-        updatedFileContent = self.get_asset_content(custom_url) or self.get_asset_content(url)
+        custom_url = self._make_custom_asset_url(url, 'web.assets_frontend')
+        updatedFileContent = self._get_content_from_url(custom_url) or self._get_content_from_url(url)
         updatedFileContent = updatedFileContent.decode('utf-8')
         for name, value in values.items():
             # Protect variable names so they cannot be computed as numbers
@@ -137,10 +138,9 @@ class Assets(models.AbstractModel):
             else:
                 updatedFileContent = re.sub(r'( *)(.*hook.*)', r'\1%s\1\2' % replacement, updatedFileContent)
 
-        # Bundle is 'assets_common' as this route is only meant to update
-        # variables scss files
-        self.save_asset(url, 'web.assets_common', updatedFileContent, 'scss')
+        self.save_asset(url, 'web.assets_frontend', updatedFileContent, 'scss')
 
+    @api.model
     def _get_custom_attachment(self, custom_url, op='='):
         """
         See web_editor.Assets._get_custom_attachment
@@ -149,7 +149,7 @@ class Assets(models.AbstractModel):
         if self.env.user.has_group('website.group_website_designer'):
             self = self.sudo()
         website = self.env['website'].get_current_website()
-        res = super(Assets, self)._get_custom_attachment(custom_url, op=op)
+        res = super()._get_custom_attachment(custom_url, op=op)
         # FIXME (?) In website, those attachments should always have been
         # created with a website_id. The "not website_id" part in the following
         # condition might therefore be useless (especially since the attachments
@@ -161,6 +161,7 @@ class Assets(models.AbstractModel):
         # but will be reviewed and made more robust in master.
         return res.with_context(website_id=website.id).filtered(lambda x: not x.website_id or x.website_id == website)
 
+    @api.model
     def _get_custom_asset(self, custom_url):
         """
         See web_editor.Assets._get_custom_asset
@@ -171,15 +172,16 @@ class Assets(models.AbstractModel):
             #       unlink to designer but not working without -u in stable
             self = self.sudo()
         website = self.env['website'].get_current_website()
-        res = super(Assets, self)._get_custom_asset(custom_url)
+        res = super()._get_custom_asset(custom_url)
         return res.with_context(website_id=website.id).filter_duplicate()
 
+    @api.model
     def _save_asset_hook(self):
         """
         See web_editor.Assets._save_asset_hook
         Extend to add website ID at attachment creation.
         """
-        res = super(Assets, self)._save_asset_hook()
+        res = super()._save_asset_hook()
 
         website = self.env['website'].get_current_website()
         if website:

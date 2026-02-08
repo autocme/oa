@@ -2,6 +2,7 @@ odoo.define('barcodes_gs1_nomenclature/static/src/js/tests/barcode_parser_tests.
 "use strict";
 
 const BarcodeParser = require('barcodes.BarcodeParser');
+const { barcodeService } = require('@barcodes/barcode_service');
 
 
 QUnit.module('Barcodes', {}, function () {
@@ -75,12 +76,12 @@ QUnit.module('Barcode GS1 Parser', {
                         gs1_decimal_usage: false
                     }, {
                         id: 6,
-                        name: "Packaging date (YYMMDD)",
+                        name: "Pack date (YYMMDD)",
                         barcode_nomenclature_id: 2,
                         sequence: 103,
                         encoding: "gs1-128",
                         pattern: "(13)(\\d{6})",
-                        type: "packaging_date",
+                        type: "pack_date",
                         gs1_content_type: "date",
                         gs1_decimal_usage: false
                     }, {
@@ -207,7 +208,7 @@ QUnit.module('Barcode GS1 Parser', {
     });
 
     QUnit.test('Test gs1 decompose extanded', async function (assert) {
-        assert.expect(19);
+        assert.expect(37);
         const barcodeNomenclature = new BarcodeParser({'nomenclature_id': 2});
         await barcodeNomenclature.loaded;
 
@@ -231,46 +232,53 @@ QUnit.module('Barcode GS1 Parser', {
         assert.equal(res[3].value.getDate(), 18);
         assert.equal(res[3].value.getMonth() + 1, 10);
 
-        // (01)94019097685457(13)170119(30)17
-        code128 = "0194019097685457131701193017";
-        res = barcodeNomenclature.gs1_decompose_extanded(code128);
-        assert.equal(res.length, 3);
-        assert.equal(res[0].ai, "01");
+        // Check multiple variants of the same GS1, the result should be always the same.
+        // (01)94019097685457(30)17(13)170119
+        const gs1Barcodes = [
+            "0194019097685457300000001713170119",
+            "\x1D0194019097685457300000001713170119",
+            "01940190976854573017\x1D13170119",
+        ];
+        for (const gs1Barcode of gs1Barcodes) {
+            res = barcodeNomenclature.gs1_decompose_extanded(gs1Barcode);
+            assert.equal(res.length, 3);
+            assert.equal(res[0].ai, "01");
 
-        assert.equal(res[1].ai, "13");
-        assert.equal(typeof res[1].value.getFullYear, 'function');
-        assert.equal(res[1].value.getFullYear(), 2017);
-        assert.equal(res[1].value.getDate(), 19);
-        assert.equal(res[1].value.getMonth() + 1, 1);
+            assert.equal(res[1].ai, "30");
+            assert.equal(res[1].value, 17);
 
-        assert.equal(res[2].ai, "30");
-        assert.equal(res[2].value, 17);
-
+            assert.equal(res[2].ai, "13");
+            assert.equal(typeof res[2].value.getFullYear, "function");
+            assert.equal(res[2].value.getFullYear(), 2017);
+            assert.equal(res[2].value.getDate(), 19);
+            assert.equal(res[2].value.getMonth() + 1, 1);
+        }
     });
 
     QUnit.test('Test Alternative GS1 Separator (fnc1)', async function (assert) {
         assert.expect(6);
-        let barcodeNomenclature = new BarcodeParser({'nomenclature_id': 2});
+        const nomenclature = this.data['barcode.nomenclature'].records[1];
+        nomenclature.rules = this.data['barcode.rule'].records;
+        let barcodeNomenclature = new BarcodeParser({ nomenclature });
         await barcodeNomenclature.loaded;
 
-        barcodeNomenclature.nomenclature = this.data['barcode.nomenclature'].records[0];
-        barcodeNomenclature.nomenclature.gs1_separator_fnc1 = "#";
-        barcodeNomenclature.nomenclature.rules = this.data['barcode.rule'].records;
-
         // (21)12345(15)090101(16)100101
-        let code128 = "2112345\x1D1509010116100101";
+        const code128 = "2112345#1509010116100101";
         let res;
         try {
-            res = barcodeNomenclature.gs1_decompose_extanded(code128);
+            res = barcodeNomenclature.gs1_decompose_extanded(barcodeService.cleanBarcode(code128));
         } catch (error) {
             assert.ok(
                 error instanceof Error,
-                "Default separator shouldn't work"
+                "Still using the default separator, so using a custom separator shouldn't work"
             );
         }
 
-        code128 = "2112345#1509010116100101";
-        res = barcodeNomenclature.gs1_decompose_extanded(code128);
+        // Reload the nomenclature but this time using '#' as separator.
+        nomenclature.gs1_separator_fnc1 = '#';
+        barcodeNomenclature = new BarcodeParser({ nomenclature });
+        res = barcodeNomenclature.gs1_decompose_extanded(barcodeService.cleanBarcode(code128));
+        await barcodeNomenclature.loaded;
         assert.equal(res.length, 3);
         assert.equal(res[0].ai, "21");
         assert.equal(res[0].value, "12345");

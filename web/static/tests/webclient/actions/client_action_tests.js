@@ -6,17 +6,25 @@ import core from "web.core";
 import AbstractAction from "web.AbstractAction";
 import testUtils from "web.test_utils";
 import { registerCleanup } from "../../helpers/cleanup";
-import { click, legacyExtraNextTick, nextTick, patchWithCleanup } from "../../helpers/utils";
+import {
+    click,
+    getFixture,
+    legacyExtraNextTick,
+    nextTick,
+    patchWithCleanup,
+} from "../../helpers/utils";
 import { createWebClient, doAction, getActionManagerServerData } from "./../helpers";
 
-const { Component, tags } = owl;
+import { Component, xml } from "@odoo/owl";
 
 let serverData;
+let target;
 const actionRegistry = registry.category("actions");
 
 QUnit.module("ActionManager", (hooks) => {
     hooks.beforeEach(() => {
         serverData = getActionManagerServerData();
+        target = getFixture();
     });
 
     QUnit.module("Client Actions");
@@ -30,8 +38,8 @@ QUnit.module("ActionManager", (hooks) => {
             tag: "__test__client__action__",
             type: "ir.actions.client",
         });
-        assert.containsOnce(webClient, ".modal .test_client_action");
-        assert.strictEqual(webClient.el.querySelector(".modal-title").textContent, "Dialog Test");
+        assert.containsOnce(target, ".modal .test_client_action");
+        assert.strictEqual(target.querySelector(".modal-title").textContent, "Dialog Test");
     });
 
     QUnit.test(
@@ -45,14 +53,11 @@ QUnit.module("ActionManager", (hooks) => {
                 tag: "__test__client__action__",
                 type: "ir.actions.client",
             });
-            assert.containsOnce(webClient, ".modal .test_client_action");
-            assert.strictEqual(
-                webClient.el.querySelector(".modal-title").textContent,
-                "Dialog Test"
-            );
-            webClient.el.querySelector(".modal footer .btn.btn-primary").click();
+            assert.containsOnce(target, ".modal .test_client_action");
+            assert.strictEqual(target.querySelector(".modal-title").textContent, "Dialog Test");
+            target.querySelector(".modal footer .btn.btn-primary").click();
             await nextTick();
-            assert.containsNone(webClient, ".modal .test_client_action");
+            assert.containsNone(target, ".modal .test_client_action");
         }
     );
 
@@ -60,14 +65,14 @@ QUnit.module("ActionManager", (hooks) => {
         assert.expect(3);
         const webClient = await createWebClient({ serverData });
         await doAction(webClient, "__test__client__action__");
-        assert.containsOnce(webClient, ".o_action_manager .test_client_action");
+        assert.containsOnce(target, ".o_action_manager .test_client_action");
         await doAction(webClient, {
             target: "new",
             tag: "__test__client__action__",
             type: "ir.actions.client",
         });
-        assert.containsOnce(webClient, ".o_action_manager .test_client_action");
-        assert.containsOnce(webClient, ".modal .test_client_action");
+        assert.containsOnce(target, ".o_action_manager .test_client_action");
+        assert.containsOnce(target, ".modal .test_client_action");
     });
 
     QUnit.test(
@@ -80,13 +85,32 @@ QUnit.module("ActionManager", (hooks) => {
                 tag: "__test__client__action__",
                 type: "ir.actions.client",
             });
-            assert.containsOnce(webClient, ".test_client_action");
-            assert.containsOnce(webClient, ".modal .test_client_action");
+            assert.containsOnce(target, ".test_client_action");
+            assert.containsOnce(target, ".modal .test_client_action");
             await doAction(webClient, "__test__client__action__");
-            assert.containsOnce(webClient, ".test_client_action");
-            assert.containsNone(webClient, ".modal .test_client_action");
+            assert.containsOnce(target, ".test_client_action");
+            assert.containsNone(target, ".modal .test_client_action");
         }
     );
+
+    QUnit.test("soft_reload will refresh data", async (assert) => {
+        const mockRPC = async function (route, args) {
+            if (route === "/web/dataset/call_kw/partner/web_search_read") {
+                assert.step("web_search_read");
+            }
+        };
+        const webClient = await createWebClient({ serverData, mockRPC });
+        await doAction(webClient, 1);
+        assert.verifySteps(["web_search_read"]);
+        await doAction(webClient, "soft_reload");
+        assert.verifySteps(["web_search_read"]);
+    });
+
+    QUnit.test("soft_reload when there is no controller", async (assert) => {
+        const webClient = await createWebClient({ serverData });
+        await doAction(webClient, "soft_reload");
+        assert.ok(true, "No ControllerNotFoundError when there is no controller to restore");
+    });
 
     QUnit.test("can execute client actions from tag name (legacy)", async function (assert) {
         // remove this test as soon as legacy Widgets are no longer supported
@@ -110,7 +134,7 @@ QUnit.module("ActionManager", (hooks) => {
             "shouldn't have rendered a control panel"
         );
         assert.strictEqual(
-            $(webClient.el).find(".o_client_action_test").text(),
+            $(target).find(".o_client_action_test").text(),
             "Hello World",
             "should have correctly rendered the client action"
         );
@@ -120,7 +144,7 @@ QUnit.module("ActionManager", (hooks) => {
     QUnit.test("can execute client actions from tag name", async function (assert) {
         assert.expect(4);
         class ClientAction extends Component {}
-        ClientAction.template = tags.xml`<div class="o_client_action_test">Hello World</div>`;
+        ClientAction.template = xml`<div class="o_client_action_test">Hello World</div>`;
         actionRegistry.add("HelloWorldTest", ClientAction);
 
         const mockRPC = async function (route, args) {
@@ -134,7 +158,7 @@ QUnit.module("ActionManager", (hooks) => {
             "shouldn't have rendered a control panel"
         );
         assert.strictEqual(
-            $(webClient.el).find(".o_client_action_test").text(),
+            $(target).find(".o_client_action_test").text(),
             "Hello World",
             "should have correctly rendered the client action"
         );
@@ -150,7 +174,7 @@ QUnit.module("ActionManager", (hooks) => {
         });
         const webClient = await createWebClient({ serverData });
         await doAction(webClient, "my_action");
-        assert.containsOnce(webClient, ".o_kanban_view");
+        assert.containsOnce(target, ".o_kanban_view");
     });
 
     QUnit.test(
@@ -163,7 +187,7 @@ QUnit.module("ActionManager", (hooks) => {
             });
 
             const webClient = await createWebClient({ serverData });
-            webClient.env.bus.on("CLEAR-UNCOMMITTED-CHANGES", webClient, () => {
+            webClient.env.bus.addEventListener("CLEAR-UNCOMMITTED-CHANGES", () => {
                 assert.step("CLEAR-UNCOMMITTED-CHANGES");
             });
 
@@ -194,7 +218,7 @@ QUnit.module("ActionManager", (hooks) => {
             "should have rendered a control panel"
         );
         assert.containsN(
-            webClient.el,
+            target,
             ".o_control_panel .breadcrumb-item",
             1,
             "there should be one controller in the breadcrumbs"
@@ -205,7 +229,7 @@ QUnit.module("ActionManager", (hooks) => {
             "breadcrumbs should still display the title of the controller"
         );
         assert.strictEqual(
-            $(webClient.el).find(".o_client_action_test .o_content").text(),
+            $(target).find(".o_client_action_test .o_content").text(),
             "Hello World",
             "should have correctly rendered the client action"
         );
@@ -252,7 +276,7 @@ QUnit.module("ActionManager", (hooks) => {
     QUnit.test("action can use a custom control panel (legacy)", async function (assert) {
         assert.expect(1);
         class CustomControlPanel extends Component {}
-        CustomControlPanel.template = tags.xml`
+        CustomControlPanel.template = xml`
         <div class="custom-control-panel">My custom control panel</div>
       `;
         const ClientAction = AbstractAction.extend({
@@ -265,11 +289,7 @@ QUnit.module("ActionManager", (hooks) => {
         registerCleanup(() => delete core.action_registry.map.HelloWorldTest);
         const webClient = await createWebClient({ serverData });
         await doAction(webClient, "HelloWorldTest");
-        assert.containsOnce(
-            webClient.el,
-            ".custom-control-panel",
-            "should have a custom control panel"
-        );
+        assert.containsOnce(target, ".custom-control-panel", "should have a custom control panel");
     });
 
     QUnit.test("breadcrumb is updated on title change (legacy)", async function (assert) {
@@ -297,7 +317,7 @@ QUnit.module("ActionManager", (hooks) => {
             "initial title",
             "should have initial title as breadcrumb content"
         );
-        await testUtils.dom.click($(webClient.el).find(".o_client_action_test"));
+        await testUtils.dom.click($(target).find(".o_client_action_test"));
         await legacyExtraNextTick();
         assert.strictEqual(
             $("ol.breadcrumb").text(),
@@ -334,16 +354,70 @@ QUnit.module("ActionManager", (hooks) => {
         core.action_registry.add("ClientAction2", ClientAction2);
         const webClient = await createWebClient({ serverData });
         await doAction(webClient, "ClientAction");
-        assert.containsOnce(webClient.el, ".breadcrumb-item");
+        assert.containsOnce(target, ".breadcrumb-item");
         assert.strictEqual(
-            webClient.el.querySelector(".breadcrumb-item.active").textContent,
+            target.querySelector(".breadcrumb-item.active").textContent,
             "Goldeneye"
         );
         await doAction(webClient, "ClientAction2", { clearBreadcrumbs: false });
-        assert.containsN(webClient.el, ".breadcrumb-item", 2);
+        assert.containsN(target, ".breadcrumb-item", 2);
         assert.strictEqual(
-            webClient.el.querySelector(".breadcrumb-item.active").textContent,
+            target.querySelector(".breadcrumb-item.active").textContent,
             "No time for sweetness"
+        );
+        delete core.action_registry.map.ClientAction;
+        delete core.action_registry.map.ClientAction2;
+    });
+
+    QUnit.test("client action restore scrollbar (legacy)", async function (assert) {
+        assert.expect(7);
+        const ClientAction = AbstractAction.extend({
+            hasControlPanel: true,
+            init(parent, action) {
+                action.display_name = "Title1";
+                this._super.apply(this, arguments);
+            },
+            async start() {
+                for (let i = 0; i < 100; i++) {
+                    const content = document.createElement("div");
+                    content.innerText = "Paper company";
+                    content.className = "lorem";
+                    this.el.querySelector(".o_content").appendChild(content);
+                }
+                await this._super(arguments);
+            },
+        });
+        const ClientAction2 = AbstractAction.extend({
+            hasControlPanel: true,
+            init(parent, action) {
+                action.display_name = "Title2";
+                this._super.apply(this, arguments);
+            },
+            start() {
+                return this._super.apply(this, arguments);
+            },
+        });
+        core.action_registry.add("ClientAction", ClientAction);
+        core.action_registry.add("ClientAction2", ClientAction2);
+        const webClient = await createWebClient({ serverData });
+        await doAction(webClient, "ClientAction");
+        assert.containsOnce(target, ".breadcrumb-item");
+        assert.strictEqual(target.querySelector(".breadcrumb-item.active").textContent, "Title1");
+
+        target.querySelector(".lorem:last-child").scrollIntoView();
+        const scrollPosition = target.querySelector(".o_content").scrollTop;
+        assert.ok(scrollPosition > 0);
+        await doAction(webClient, "ClientAction2", { clearBreadcrumbs: false });
+        assert.containsN(target, ".breadcrumb-item", 2);
+        assert.strictEqual(target.querySelector(".breadcrumb-item.active").textContent, "Title2");
+
+        await click(target.querySelector(".breadcrumb-item:first-child"));
+        assert.strictEqual(target.querySelector(".breadcrumb-item.active").textContent, "Title1");
+
+        assert.strictEqual(
+            target.querySelector(".o_content").scrollTop,
+            scrollPosition,
+            "Should restore the scroll"
         );
         delete core.action_registry.map.ClientAction;
         delete core.action_registry.map.ClientAction2;
@@ -355,27 +429,27 @@ QUnit.module("ActionManager", (hooks) => {
             setup() {
                 this.breadcrumbTitle = "myOwlAction";
                 const { breadcrumbs } = this.env.config;
-                assert.strictEqual(breadcrumbs.length, 1);
+                assert.strictEqual(breadcrumbs.length, 2);
                 assert.strictEqual(breadcrumbs[0].name, "Favorite Ponies");
-            }
-            mounted() {
-                this.trigger("controller-title-updated", this.breadcrumbTitle);
+                owl.onMounted(() => {
+                    this.env.config.setDisplayName(this.breadcrumbTitle);
+                });
             }
             onClick() {
                 this.breadcrumbTitle = "newOwlTitle";
-                this.trigger("controller-title-updated", this.breadcrumbTitle);
+                this.env.config.setDisplayName(this.breadcrumbTitle);
             }
         }
-        ClientAction.template = tags.xml`<div class="my_owl_action" t-on-click="onClick">owl client action</div>`;
+        ClientAction.template = xml`<div class="my_owl_action" t-on-click="onClick">owl client action</div>`;
         actionRegistry.add("OwlClientAction", ClientAction);
         const webClient = await createWebClient({ serverData });
         await doAction(webClient, 8);
         await doAction(webClient, "OwlClientAction");
-        assert.containsOnce(webClient.el, ".my_owl_action");
-        await click(webClient.el, ".my_owl_action");
+        assert.containsOnce(target, ".my_owl_action");
+        await click(target, ".my_owl_action");
         await doAction(webClient, 3);
         assert.strictEqual(
-            webClient.el.querySelector(".breadcrumb").textContent,
+            target.querySelector(".breadcrumb").textContent,
             "Favorite PoniesnewOwlTitlePartners"
         );
     });
@@ -387,7 +461,7 @@ QUnit.module("ActionManager", (hooks) => {
                 assert.strictEqual(this.props.division, "bell");
             }
         }
-        ClientAction.template = tags.xml`<div class="my_owl_action"></div>`;
+        ClientAction.template = xml`<div class="my_owl_action"></div>`;
         actionRegistry.add("OwlClientAction", ClientAction);
         const webClient = await createWebClient({ serverData });
         await doAction(webClient, "OwlClientAction", {
@@ -415,7 +489,7 @@ QUnit.module("ActionManager", (hooks) => {
         assert.expect(6);
         const webClient = await createWebClient({ serverData });
         await doAction(webClient, 1);
-        assert.containsOnce(webClient, ".o_kanban_view");
+        assert.containsOnce(target, ".o_kanban_view");
         await doAction(webClient, {
             type: "ir.actions.client",
             tag: "display_notification",
@@ -442,7 +516,7 @@ QUnit.module("ActionManager", (hooks) => {
             "message",
             "the notification should have the correct message"
         );
-        assert.containsOnce(webClient, ".o_kanban_view");
+        assert.containsOnce(target, ".o_kanban_view");
         await testUtils.dom.click(notificationElement.querySelector(".o_notification_close"));
         assert.containsNone(
             document.body,
@@ -455,7 +529,7 @@ QUnit.module("ActionManager", (hooks) => {
         assert.expect(8);
         const webClient = await createWebClient({ serverData });
         await doAction(webClient, 1);
-        assert.containsOnce(webClient, ".o_kanban_view");
+        assert.containsOnce(target, ".o_kanban_view");
         await doAction(webClient, {
             type: "ir.actions.client",
             tag: "display_notification",
@@ -488,7 +562,7 @@ QUnit.module("ActionManager", (hooks) => {
             "message test <R&D> <R&D>",
             "the notification should have the correct message"
         );
-        assert.containsOnce(webClient, ".o_kanban_view");
+        assert.containsOnce(target, ".o_kanban_view");
         await testUtils.dom.click(notificationElement.querySelector(".o_notification_close"));
         assert.containsNone(
             document.body,

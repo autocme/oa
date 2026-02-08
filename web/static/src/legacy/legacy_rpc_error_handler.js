@@ -17,7 +17,7 @@ const errorHandlerRegistry = registry.category("error_handlers");
 
 /**
  * @param {OdooEnv} env
- * @param {Error} error
+ * @param {UncaughError} error
  * @param {Error} originalError
  * @returns {boolean}
  */
@@ -44,4 +44,4 @@ function legacyRPCErrorHandler(env, error, originalError) {
     }
     return false;
 }
-errorHandlerRegistry.add("legacyRPCErrorHandler", legacyRPCErrorHandler, { sequence: 2 });
+errorHandlerRegistry.add("legacyRPCErrorHandler", legacyRPCErrorHandler, { sequence: 97 });

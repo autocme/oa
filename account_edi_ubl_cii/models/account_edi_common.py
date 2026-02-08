@@ -1,12 +1,11 @@
 # -*- coding: utf-8 -*-
 
-from odoo import _, models
+from odoo import _, models, Command
 from odoo.addons.base.models.res_bank import sanitize_account_number
 from odoo.tools import float_repr
-from odoo.tests.common import Form
 from odoo.exceptions import UserError, ValidationError
 from odoo.tools.float_utils import float_round
-from odoo.tools.misc import formatLang
+from odoo.tools.misc import clean_context, formatLang
 
 from odoo.tools.zeep import Client
 
@@ -84,6 +83,7 @@ COUNTRY_EAS = {
     'NO': '0192',
     'SG': '0195',
     'AU': '0151',
+    'NZ': '0088',
     'FI': '0216',
 }
 
@@ -206,6 +206,7 @@ class AccountEdiCommon(models.AbstractModel):
                 'id': tax_unece_codes.get('tax_category_code'),
                 'percent': tax.amount if tax.amount_type == 'percent' else False,
                 'name': tax_unece_codes.get('tax_exemption_reason'),
+                'tax_scheme_id': 'VAT',
                 **tax_unece_codes,
             })
         return res
@@ -248,7 +249,7 @@ class AccountEdiCommon(models.AbstractModel):
 
     def _invoice_constraints_common(self, invoice):
         # check that there is a tax on each line
-        for line in invoice.invoice_line_ids.filtered(lambda x: not x.display_type):
+        for line in invoice.invoice_line_ids.filtered(lambda x: x.display_type not in ('line_note', 'line_section')):
             if not line.tax_ids:
                 return {'tax_on_line': _("Each invoice line should have at least one tax.")}
         return {}
@@ -277,14 +278,18 @@ class AccountEdiCommon(models.AbstractModel):
             else:
                 return
 
-        invoice = existing_invoice or self.env['account.move']
-        invoice_form = Form(invoice.with_context(
+        with (existing_invoice or self.env['account.move']).with_context(
             account_predictive_bills_disable_prediction=True,
             default_move_type=move_type,
             default_journal_id=journal.id,
-        ))
-        invoice_form, logs = self._import_fill_invoice_form(journal, tree, invoice_form, qty_factor)
-        invoice = invoice_form.save()
+        )._get_edi_creation() as invoice:
+            logs = self._import_fill_invoice_form(journal, tree, invoice, qty_factor)
+
+        # For UBL, we should override the computed tax amount if it is less than 0.05 different of the one in the xml.
+        # In order to support use case where the tax total is adapted for rounding purpose.
+        # This has to be done after the first import in order to let Odoo compute the taxes before overriding if needed.
+        with invoice.with_context(account_predictive_bills_disable_prediction=True)._get_edi_creation() as invoice:
+            self._correct_invoice_tax_amount(tree, invoice)
         if invoice:
             if logs:
                 body = _(
@@ -330,14 +335,14 @@ class AccountEdiCommon(models.AbstractModel):
 
         return invoice
 
-    def _import_retrieve_and_fill_partner(self, invoice, name, phone, mail, vat, country_code=False):
+    def _import_retrieve_and_fill_partner(self, invoice, name, phone, mail, vat, country_code=False, street=False, street2=False, city=False, zip_code=False):
         """ Retrieve the partner, if no matching partner is found, create it (only if he has a vat and a name)
         """
         invoice.partner_id = self.env['account.edi.format'] \
             .with_company(invoice.company_id) \
             ._retrieve_partner(name=name, phone=phone, mail=mail, vat=vat)
         if not invoice.partner_id and name and vat:
-            partner_vals = {'name': name, 'email': mail, 'phone': phone}
+            partner_vals = {'name': name, 'email': mail, 'phone': phone, 'street': street, 'street2': street2, 'zip': zip_code, 'city': city}
             country = self.env.ref(f'base.{country_code.lower()}', raise_if_not_found=False) if country_code else False
             if country:
                 partner_vals['country_id'] = country.id
@@ -346,42 +351,11 @@ class AccountEdiCommon(models.AbstractModel):
                 invoice.partner_id.vat = vat
 
     def _import_retrieve_and_fill_partner_bank_details(self, invoice, bank_details):
-        """ Retrieve the bank account, if no matching bank account is found, create it
-        """
+        """ Log the bank account numbers"""
+        body = _("The following bank account numbers got retrieved during the import : %s", ", ".join(bank_details))
+        invoice.with_context(no_new_invoice=True).message_post(body=body)
 
-        bank_details = map(sanitize_account_number, bank_details)
-
-        if invoice.move_type in ('out_refund', 'in_invoice'):
-            partner = invoice.partner_id
-        elif invoice.move_type in ('out_invoice', 'in_refund'):
-            partner = self.env.company.partner_id
-        else:
-            return
-
-        banks_to_create = []
-        acc_number_partner_bank_dict = {
-            bank.sanitized_acc_number: bank
-            for bank in self.env['res.partner.bank'].search(
-                [('company_id', 'in', [False, invoice.company_id.id]), ('acc_number', 'in', bank_details)]
-            )
-        }
-
-        for account_number in bank_details:
-            partner_bank = acc_number_partner_bank_dict.get(account_number, self.env['res.partner.bank'])
-
-            if partner_bank.partner_id == partner:
-                invoice.partner_bank_id = partner_bank
-                return
-            elif not partner_bank and account_number:
-                banks_to_create.append({
-                    'acc_number': account_number,
-                    'partner_id': partner.id,
-                })
-
-        if banks_to_create:
-            invoice.partner_bank_id = self.env['res.partner.bank'].create(banks_to_create)[0]
-
-    def _import_fill_invoice_allowance_charge(self, tree, invoice_form, journal, qty_factor):
+    def _import_fill_invoice_allowance_charge(self, tree, invoice, journal, qty_factor):
         logs = []
         if '{urn:oasis:names:specification:ubl:schema:xsd' in tree.tag:
             is_ubl = True
@@ -392,60 +366,70 @@ class AccountEdiCommon(models.AbstractModel):
 
         xpath = './{*}AllowanceCharge' if is_ubl else './{*}SupplyChainTradeTransaction/{*}ApplicableHeaderTradeSettlement/{*}SpecifiedTradeAllowanceCharge'
         allowance_charge_nodes = tree.findall(xpath)
+        line_vals = []
         for allow_el in allowance_charge_nodes:
-            with invoice_form.invoice_line_ids.new() as invoice_line_form:
-                invoice_line_form.sequence = 0  # be sure to put these lines above the 'real' invoice lines
+            # get the charge factor
+            charge_factor = -1  # factor is -1 for discount, 1 for charge
+            if is_ubl:
+                charge_indicator_node = allow_el.find('./{*}ChargeIndicator')
+            else:
+                charge_indicator_node = allow_el.find('./{*}ChargeIndicator/{*}Indicator')
+            if charge_indicator_node is not None:
+                charge_factor = -1 if charge_indicator_node.text == 'false' else 1
 
-                charge_factor = -1  # factor is -1 for discount, 1 for charge
-                if is_ubl:
-                    charge_indicator_node = allow_el.find('./{*}ChargeIndicator')
+            # get the name
+            name = ""
+            reason_node = allow_el.find('./{*}AllowanceChargeReason' if is_ubl else './{*}Reason')
+            if reason_node is not None:
+                name = reason_node.text
+
+            # get quantity and price unit
+            quantity = 1
+            price_unit = 0
+            amount_node = allow_el.find('./{*}Amount' if is_ubl else './{*}ActualAmount')
+            base_amount_node = allow_el.find('./{*}BaseAmount' if is_ubl else './{*}BasisAmount')
+            # Since there is no quantity associated for the allowance/charge on document level,
+            # if we have an invoice with negative amounts, the price was multiplied by -1 and not the quantity
+            # See the file in test_files: 'base-negative-inv-correction.xml' VS 'base-example.xml' for 'Insurance'
+            if base_amount_node is not None:
+                price_unit = float(base_amount_node.text) * charge_factor * qty_factor
+                percent_node = allow_el.find('./{*}MultiplierFactorNumeric' if is_ubl else './{*}CalculationPercent')
+                if percent_node is not None:
+                    quantity = float(percent_node.text) / 100
+            elif amount_node is not None:
+                price_unit = float(amount_node.text) * charge_factor * qty_factor
+
+            # get taxes
+            tax_xpath = './{*}TaxCategory/{*}Percent' if is_ubl else './{*}CategoryTradeTax/{*}RateApplicablePercent'
+            tax_ids = []
+            for tax_categ_percent_el in allow_el.findall(tax_xpath):
+                tax = self.env['account.tax'].search([
+                    ('company_id', '=', journal.company_id.id),
+                    ('amount', '=', float(tax_categ_percent_el.text)),
+                    ('amount_type', '=', 'percent'),
+                    ('type_tax_use', '=', journal.type),
+                ], limit=1)
+                if tax:
+                    tax_ids += tax.ids
                 else:
-                    charge_indicator_node = allow_el.find('./{*}ChargeIndicator/{*}Indicator')
-                if charge_indicator_node is not None:
-                    charge_factor = -1 if charge_indicator_node.text == 'false' else 1
+                    logs.append(
+                        _("Could not retrieve the tax: %s %% for line '%s'.",
+                            float(tax_categ_percent_el.text),
+                            name)
+                    )
 
-                name = ""
-                reason_code_node = allow_el.find('./{*}AllowanceChargeReasonCode' if is_ubl else './{*}ReasonCode')
-                if reason_code_node is not None:
-                    name += reason_code_node.text + " "
-                reason_node = allow_el.find('./{*}AllowanceChargeReason' if is_ubl else './{*}Reason')
-                if reason_node is not None:
-                    name += reason_node.text
-                invoice_line_form.name = name
+            line_vals += [Command.create({
+                'sequence': 0,  # be sure to put these lines above the 'real' invoice lines
+                'name': name,
+                'quantity': quantity,
+                'price_unit': price_unit,
+                'tax_ids': [Command.set(tax_ids)],
+            })]
 
-                amount_node = allow_el.find('./{*}Amount' if is_ubl else './{*}ActualAmount')
-                base_amount_node = allow_el.find('./{*}BaseAmount' if is_ubl else './{*}BasisAmount')
-                # Since there is no quantity associated for the allowance/charge on document level,
-                # if we have an invoice with negative amounts, the price was multiplied by -1 and not the quantity
-                # See the file in test_files: 'base-negative-inv-correction.xml' VS 'base-example.xml' for 'Insurance'
-                if base_amount_node is not None:
-                    invoice_line_form.price_unit = float(base_amount_node.text) * charge_factor * qty_factor
-                    percent_node = allow_el.find('./{*}MultiplierFactorNumeric' if is_ubl else './{*}CalculationPercent')
-                    if percent_node is not None:
-                        invoice_line_form.quantity = float(percent_node.text) / 100
-                elif amount_node is not None:
-                    invoice_line_form.price_unit = float(amount_node.text) * charge_factor * qty_factor
-
-                invoice_line_form.tax_ids.clear()  # clear the default taxes applied to the line
-                tax_xpath = './{*}TaxCategory/{*}Percent' if is_ubl else './{*}CategoryTradeTax/{*}RateApplicablePercent'
-                for tax_categ_percent_el in allow_el.findall(tax_xpath):
-                    tax = self.env['account.tax'].search([
-                        ('company_id', '=', journal.company_id.id),
-                        ('amount', '=', float(tax_categ_percent_el.text)),
-                        ('amount_type', '=', 'percent'),
-                        ('type_tax_use', '=', journal.type),
-                    ], limit=1)
-                    if tax:
-                        invoice_line_form.tax_ids.add(tax)
-                    else:
-                        logs.append(
-                            _("Could not retrieve the tax: %s %% for line '%s'.",
-                              float(tax_categ_percent_el.text),
-                              name)
-                        )
+        invoice.write({'invoice_line_ids': line_vals})
         return logs
 
-    def _import_fill_invoice_down_payment(self, invoice_form, prepaid_node, qty_factor):
+    def _import_fill_invoice_down_payment(self, invoice, prepaid_node, qty_factor):
         """
         DEPRECATED: removed in master
         Creates a down payment line on the invoice at import if prepaid_node (TotalPrepaidAmount in CII,
@@ -454,21 +438,22 @@ class AccountEdiCommon(models.AbstractModel):
         needed, so we need this multiplier. Otherwise, qty_factor is 1.
         """
         if prepaid_node is not None and float(prepaid_node.text) != 0:
-            # create a section
-            with invoice_form.invoice_line_ids.new() as invoice_line_form:
-                invoice_line_form.sequence = 998
-                invoice_line_form.display_type = 'line_section'
-                invoice_line_form.name = _("Down Payments")
-                invoice_line_form.price_unit = 0
-                invoice_line_form.quantity = 0
-                invoice_line_form.account_id = self.env['account.account']
-            # create the line with the down payment
-            with invoice_form.invoice_line_ids.new() as invoice_line_form:
-                invoice_line_form.sequence = 999
-                invoice_line_form.name = _("Down Payment")
-                invoice_line_form.price_unit = float(prepaid_node.text)
-                invoice_line_form.quantity = qty_factor * -1
-                invoice_line_form.tax_ids.clear()
+            invoice.write({
+                'invoice_line_ids': [
+                    Command.create({
+                        'display_type': 'line_section',
+                        'sequence': 9998,
+                        'name': _("Down Payments"),
+                    }),
+                    Command.create({
+                        'sequence': 9999,
+                        'name': _("Down Payment"),
+                        'price_unit': float(prepaid_node.text),
+                        'quantity': qty_factor * -1,
+                        'tax_ids': False,
+                    }),
+                ]
+            })
 
     def _import_log_prepaid_amount(self, invoice_form, prepaid_node, qty_factor):
         """
@@ -483,7 +468,7 @@ class AccountEdiCommon(models.AbstractModel):
             ]
         return []
 
-    def _import_fill_invoice_line_values(self, tree, xpath_dict, invoice_line_form, qty_factor):
+    def _import_fill_invoice_line_values(self, tree, xpath_dict, invoice_line, qty_factor):
         """
         Read the xml invoice, extract the invoice line values, compute the odoo values
         to fill an invoice line form: quantity, price_unit, discount, product_uom_id.
@@ -535,7 +520,7 @@ class AccountEdiCommon(models.AbstractModel):
             'allowance_charge_amount': str, relative xpath from allowance_charge,
             'line_total_amount': str,
         }
-        :params: invoice_line_form
+        :params: invoice_line
         :params: qty_factor
         :returns: {
             'quantity': float,
@@ -617,7 +602,7 @@ class AccountEdiCommon(models.AbstractModel):
             price_subtotal = float(line_total_amount_node.text)
 
         ####################################################
-        # Setting the values on the invoice_line_form
+        # Setting the values on the invoice_line
         ####################################################
 
         # quantity
@@ -687,15 +672,24 @@ class AccountEdiCommon(models.AbstractModel):
                 ('type_tax_use', '=', journal.type),
                 ('amount', '=', amount),
             ]
-            tax_excl = self.env['account.tax'].search(domain + [('price_include', '=', False)], limit=1)
-            tax_incl = self.env['account.tax'].search(domain + [('price_include', '=', True)], limit=1)
-            if tax_excl:
-                inv_line_vals['taxes'].append(tax_excl)
-            elif tax_incl:
-                inv_line_vals['taxes'].append(tax_incl)
-                inv_line_vals['price_unit'] *= (1 + tax_incl.amount / 100)
-            else:
+
+            tax = False
+            if hasattr(invoice_line_form, '_predict_specific_tax'):
+                # company check is already done in the prediction query
+                predicted_tax_id = invoice_line_form\
+                    ._predict_specific_tax('percent', amount, invoice_line_form.move_id.journal_id.type)
+                tax = self.env['account.tax'].browse(predicted_tax_id)
+            if not tax:
+                tax = self.env['account.tax'].search(domain + [('price_include', '=', False)], limit=1)
+            if not tax:
+                tax = self.env['account.tax'].search(domain + [('price_include', '=', True)], limit=1)
+
+            if not tax:
                 logs.append(_("Could not retrieve the tax: %s %% for line '%s'.", amount, invoice_line_form.name))
+            else:
+                inv_line_vals['taxes'].append(tax.id)
+                if tax.price_include:
+                    inv_line_vals['price_unit'] *= (1 + tax.amount / 100)
 
         # Handle Fixed Taxes
         for fixed_tax_vals in inv_line_vals['fixed_taxes_list']:
@@ -704,10 +698,10 @@ class AccountEdiCommon(models.AbstractModel):
                 # Nothing found: fix the price_unit s.t. line subtotal is matching the original invoice
                 inv_line_vals['price_unit'] += fixed_tax_vals['tax_amount']
             elif tax.price_include:
-                inv_line_vals['taxes'].append(tax)
+                inv_line_vals['taxes'].append(tax.id)
                 inv_line_vals['price_unit'] += tax.amount
             else:
-                inv_line_vals['taxes'].append(tax)
+                inv_line_vals['taxes'].append(tax.id)
 
         # Set the values on the line_form
         invoice_line_form.quantity = inv_line_vals['quantity']
@@ -723,10 +717,11 @@ class AccountEdiCommon(models.AbstractModel):
 
         invoice_line_form.price_unit = inv_line_vals['price_unit']
         invoice_line_form.discount = inv_line_vals['discount']
-        invoice_line_form.tax_ids.clear()
-        for tax in inv_line_vals['taxes']:
-            invoice_line_form.tax_ids.add(tax)
+        invoice_line_form.tax_ids = inv_line_vals['taxes'] or False
         return logs
+
+    def _correct_invoice_tax_amount(self, tree, invoice):
+        pass  # To be implemented by the format if needed
 
     # -------------------------------------------------------------------------
     # Check xml using the free API from Ph. Helger, don't abuse it !

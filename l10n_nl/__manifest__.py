@@ -5,7 +5,7 @@
 
 {
     'name': 'Netherlands - Accounting',
-    'version': '3.0',
+    'version': '3.3',
     'category': 'Accounting/Localizations/Account Charts',
     'author': 'Onestein',
     'website': 'http://www.onestein.eu',
@@ -13,7 +13,6 @@
         'account',
         'base_iban',
         'base_vat',
-        'base_address_extended',
     ],
     'data': [
         'data/account_account_tag.xml',
@@ -27,14 +26,13 @@
         'data/account_fiscal_position_tax_template.xml',
         'data/account_fiscal_position_account_template.xml',
         'data/account_chart_template_data.xml',
-        'data/menuitem.xml',
         'views/res_partner_views.xml',
         'views/res_company_views.xml',
+        'views/res_config_settings_view.xml',
     ],
     'demo': [
         'demo/demo_company.xml',
     ],
-    'auto_install': False,
     'installable': True,
     'license': 'LGPL-3',
 }

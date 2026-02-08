@@ -7,18 +7,16 @@ const { Component } = owl;
 export class AttachmentList extends Component {
 
     /**
-     * @returns {mail.attachment_list}
+     * @returns {AttachmentList}
      */
     get attachmentList() {
-        return this.messaging && this.messaging.models['mail.attachment_list'].get(this.props.attachmentListLocalId);
+        return this.props.record;
     }
 
 }
 
 Object.assign(AttachmentList, {
-    props: {
-        attachmentListLocalId: String,
-    },
+    props: { record: Object },
     template: 'mail.AttachmentList',
 });
 

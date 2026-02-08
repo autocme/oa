@@ -55,8 +55,8 @@ class AccountMove(models.Model):
     )
 
     def _reverse_moves(self, default_values_list=None, cancel=False):
-        res = super()._reverse_moves(default_values_list, cancel)
         self.expense_sheet_id._sale_expense_reset_sol_quantities()
+        res = super()._reverse_moves(default_values_list, cancel)
         return res
 
     def button_draft(self):

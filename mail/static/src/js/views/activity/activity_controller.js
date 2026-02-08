@@ -4,10 +4,11 @@ import '@mail/js/activity';
 
 import BasicController from 'web.BasicController';
 import core from 'web.core';
-import field_registry from 'web.field_registry';
-import ViewDialogs from 'web.view_dialogs';
+import { sprintf } from '@web/core/utils/strings';
 
-var KanbanActivity = field_registry.get('kanban_activity');
+import { SelectCreateDialog } from '@web/views/view_dialogs/select_create_dialog';
+
+const { Component } = owl;
 var _t = core._t;
 
 var ActivityController = BasicController.extend({
@@ -35,6 +36,14 @@ var ActivityController = BasicController.extend({
         this.searchViewId = params.searchViewId;
     },
 
+    /**
+     * @override
+     */
+    async start() {
+        await this._super(...arguments);
+        this.el.classList.toggle("o_action_delegate_scroll", Component.env.isSmall);
+    },
+
     //--------------------------------------------------------------------------
     // Private
     //--------------------------------------------------------------------------
@@ -56,22 +65,25 @@ var ActivityController = BasicController.extend({
      * @private
      */
     _onScheduleActivity: function () {
-        var self = this;
         var state = this.model.get(this.handle);
-        new ViewDialogs.SelectCreateDialog(this, {
-            res_model: state.model,
+        Component.env.services.dialog.add(SelectCreateDialog, {
+            resModel: state.model,
             searchViewId: this.searchViewId,
             domain: this.model.originalDomain,
-            title: _.str.sprintf(_t("Search: %s"), this.title),
-            no_create: !this.activeActions.create,
-            disable_multiple_selection: true,
+            title: sprintf(_t("Search: %s"), this.title),
+            noCreate: !this.activeActions.create,
+            multiSelect: false,
             context: state.context,
-            on_selected: function (record) {
-                var fakeRecord = state.getKanbanActivityData({}, record[0]);
-                var widget = new KanbanActivity(self, 'activity_ids', fakeRecord, {});
-                widget.scheduleActivity();
+            onSelected: async resIds => {
+                const messaging = await owl.Component.env.services.messaging.get();
+                const thread = messaging.models['Thread'].insert({ id: resIds[0], model: this.model.modelName });
+                await messaging.openActivityForm({ thread });
             },
-        }).open();
+        },
+        {
+            onClose: () => this.trigger_up("reload"),
+        }
+    );
     },
     /**
      * @private

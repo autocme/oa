@@ -22,13 +22,14 @@ class IapAccount(models.Model):
     account_token = fields.Char(default=lambda s: uuid.uuid4().hex)
     company_ids = fields.Many2many('res.company')
 
-    @api.model
-    def create(self, vals):
-        account = super().create(vals)
-        if self.env['ir.config_parameter'].sudo().get_param('database.is_neutralized') and account.account_token:
+    @api.model_create_multi
+    def create(self, vals_list):
+        accounts = super().create(vals_list)
+        if self.env['ir.config_parameter'].sudo().get_param('database.is_neutralized'):
             # Disable new accounts on a neutralized database
-            account.account_token = f"{account.account_token.split('+')[0]}+disabled"
-        return account
+            for account in accounts:
+                account.account_token = f"{account.account_token.split('+')[0]}+disabled"
+        return accounts
 
     @api.model
     def get(self, service_name, force_create=True):
@@ -46,7 +47,7 @@ class IapAccount(models.Model):
                 # use a different SQL cursor to avoid undo the accounts deletion.
 
                 # Flush the pending operations to avoid a deadlock.
-                self.flush()
+                self.env.flush_all()
                 IapAccount = self.with_env(self.env(cr=cr))
                 # Need to use sudo because regular users do not have delete right
                 IapAccount.search(domain + [('account_token', '=', False)]).sudo().unlink()
@@ -58,7 +59,7 @@ class IapAccount(models.Model):
                 # preventing the process to continue any further.
 
                 # Flush the pending operations to avoid a deadlock.
-                self.flush()
+                self.env.flush_all()
                 IapAccount = self.with_env(self.env(cr=cr))
                 account = IapAccount.search(domain, order='id desc', limit=1)
                 if not account:

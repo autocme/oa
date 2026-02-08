@@ -1,16 +1,15 @@
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
 {
     'name': 'Peru - Accounting',
-    "version": "2.0",
+    "version": "3.0",
     'summary': "PCGE Simplified",
     'category': 'Accounting/Localizations/Account Charts',
     'author': 'Vauxoo, Odoo',
-    'website': 'https://www.odoo.com/documentation/15.0/applications/finance/accounting/fiscal_localizations/localizations/peru.html',
+    'website': 'https://www.odoo.com/documentation/16.0/applications/finance/accounting/fiscal_localizations/localizations/peru.html',
     'license': 'LGPL-3',
     'depends': [
         'base_vat',
         'base_address_extended',
-        'base_address_city',
         'l10n_latam_base',
         'l10n_latam_invoice_document',
         'account_debit_note',

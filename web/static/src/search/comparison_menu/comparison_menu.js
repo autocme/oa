@@ -1,10 +1,11 @@
 /** @odoo-module **/
 
+import { Dropdown } from "@web/core/dropdown/dropdown";
+import { SearchDropdownItem } from "@web/search/search_dropdown_item/search_dropdown_item";
 import { FACET_ICONS } from "../utils/misc";
 import { useBus } from "@web/core/utils/hooks";
-import { SearchDropdownItem } from "@web/search/search_dropdown_item/search_dropdown_item";
 
-const { Component } = owl;
+import { Component } from "@odoo/owl";
 
 export class ComparisonMenu extends Component {
     setup() {
@@ -23,12 +24,11 @@ export class ComparisonMenu extends Component {
     }
 
     /**
-     * @param {CustomEvent}
+     * @param {number} itemId
      */
-    onComparisonSelected(ev) {
-        const { itemId } = ev.detail.payload;
+    onComparisonSelected(itemId) {
         this.env.searchModel.toggleSearchItem(itemId);
     }
 }
-ComparisonMenu.components = { DropdownItem: SearchDropdownItem };
 ComparisonMenu.template = "web.ComparisonMenu";
+ComparisonMenu.components = { Dropdown, DropdownItem: SearchDropdownItem };

@@ -17,8 +17,7 @@ class TestFrontend(AccountTestInvoicingCommon, odoo.tests.HttpCase):
 
         account_receivable = account_obj.create({'code': 'X1012',
                                                  'name': 'Account Receivable - Test',
-                                                 'user_type_id': cls.env.ref(
-                                                     'account.data_account_type_receivable').id,
+                                                 'account_type': 'asset_receivable',
                                                  'reconcile': True})
 
         printer = cls.env['restaurant.printer'].create({
@@ -45,7 +44,6 @@ class TestFrontend(AccountTestInvoicingCommon, odoo.tests.HttpCase):
 
         pos_config = cls.env['pos.config'].create({
             'name': 'Bar',
-            'barcode_nomenclature_id': cls.env.ref('barcodes.default_barcode_nomenclature').id,
             'module_pos_restaurant': True,
             'is_table_management': True,
             'iface_splitbill': True,
@@ -175,7 +173,7 @@ class TestFrontend(AccountTestInvoicingCommon, odoo.tests.HttpCase):
 
     def test_01_pos_restaurant(self):
 
-        self.pos_config.with_user(self.env.ref('base.user_admin')).open_session_cb(check_coa=False)
+        self.pos_config.with_user(self.env.ref('base.user_admin')).open_ui()
 
         self.start_tour("/pos/ui?config_id=%d" % self.pos_config.id, 'pos_restaurant_sync', login="admin")
 
@@ -189,18 +187,18 @@ class TestFrontend(AccountTestInvoicingCommon, odoo.tests.HttpCase):
         self.assertEqual(2, self.env['pos.order'].search_count([('amount_total', '=', 4.4), ('state', '=', 'paid')]))
 
     def test_02_others(self):
-        self.pos_config.with_user(self.env.ref('base.user_admin')).open_session_cb(check_coa=False)
+        self.pos_config.with_user(self.env.ref('base.user_admin')).open_ui()
         self.start_tour("/pos/ui?config_id=%d" % self.pos_config.id, 'SplitBillScreenTour', login="admin")
         self.start_tour("/pos/ui?config_id=%d" % self.pos_config.id, 'ControlButtonsTour', login="admin")
         self.start_tour("/pos/ui?config_id=%d" % self.pos_config.id, 'FloorScreenTour', login="admin")
 
     def test_04_ticket_screen(self):
-        self.pos_config.with_user(self.env.ref('base.user_admin')).open_session_cb(check_coa=False)
+        self.pos_config.with_user(self.env.ref('base.user_admin')).open_ui()
         self.start_tour("/pos/ui?config_id=%d" % self.pos_config.id, 'PosResTicketScreenTour', login="admin")
 
     def test_05_tip_screen(self):
         self.pos_config.write({'set_tip_after_payment': True, 'iface_tipproduct': True, 'tip_product_id': self.env.ref('point_of_sale.product_product_tip')})
-        self.pos_config.with_user(self.env.ref('base.user_admin')).open_session_cb(check_coa=False)
+        self.pos_config.with_user(self.env.ref('base.user_admin')).open_ui()
         self.start_tour("/pos/ui?config_id=%d" % self.pos_config.id, 'PosResTipScreenTour', login="admin")
 
         order1 = self.env['pos.order'].search([('pos_reference', 'ilike', '%-0001')])
@@ -213,9 +211,14 @@ class TestFrontend(AccountTestInvoicingCommon, odoo.tests.HttpCase):
         self.assertTrue(order4.is_tipped and order4.tip_amount == 1.00)
 
     def test_06_split_bill_screen(self):
-        self.pos_config.with_user(self.env.ref('base.user_admin')).open_session_cb(check_coa=False)
+        self.pos_config.with_user(self.env.ref('base.user_admin')).open_ui()
         self.start_tour("/pos/ui?config_id=%d" % self.pos_config.id, 'SplitBillScreenTour2', login="admin")
 
     def test_07_refund_stay_current_table(self):
-        self.pos_config.with_user(self.env.ref('base.user_admin')).open_session_cb(check_coa=False)
+        self.pos_config.with_user(self.env.ref('base.user_admin')).open_ui()
         self.start_tour("/pos/ui?config_id=%d" % self.pos_config.id, 'RefundStayCurrentTableTour', login="admin")
+
+    def test_11_bill_screen_qrcode(self):
+        self.env.company.point_of_sale_use_ticket_qr_code = True
+        self.pos_config.with_user(self.env.ref('base.user_admin')).open_ui()
+        self.start_tour("/pos/ui?config_id=%d" % self.pos_config.id, 'BillScreenTour', login="admin")

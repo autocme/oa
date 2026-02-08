@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
 
+from . import ir_http
 from odoo import models
 
 
@@ -27,14 +28,21 @@ class BaseModel(models.AbstractModel):
 
         if self._name == 'website':
             # Note that website_1.company_id.website_id might not be website_1
-            return self._get_http_domain() or super().get_base_url()
-        if 'website_id' in self and self.website_id.domain:
-            return self.website_id._get_http_domain()
+            return self.domain or super().get_base_url()
+        if 'website_id' in self and self.sudo().website_id.domain:
+            return self.sudo().website_id.domain
         if 'company_id' in self and self.company_id.website_id.domain:
-            return self.company_id.website_id._get_http_domain()
+            return self.company_id.website_id.domain
         return super().get_base_url()
 
     def get_website_meta(self):
         # dummy version of 'get_website_meta' above; this is a graceful fallback
         # for models that don't inherit from 'website.seo.metadata'
         return {}
+
+    def _get_base_lang(self):
+        """ Returns the default language of the website as the base language if the record is bound to it """
+        website = ir_http.get_request_website()
+        if website:
+            return website.default_lang_id.code
+        return super()._get_base_lang()

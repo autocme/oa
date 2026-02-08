@@ -25,7 +25,7 @@ var TagCourseDialog = Dialog.extend({
                 classes: 'btn-primary',
                 click: this._onClickFormSubmit.bind(this)
             }, {
-                text: _t("Discard"),
+                text: _t("Back"),
                 click: this._onClickClose.bind(this)
             }]
         });
@@ -45,6 +45,19 @@ var TagCourseDialog = Dialog.extend({
                 self._setDefaultSelection();
             }
         });
+    },
+
+    /**
+     * Dirty hack to de-activate the "focustrap" from Bootstrap.
+     * Indeed, it prevents typing into our "select2" elements.
+     *
+     * Note that this is removed in saas-17.1 as dialog is owlified.
+     */
+    on_attach_callback: function () {
+        const bootstrapModal = Modal.getInstance(this.$modal[0]);
+        if (bootstrapModal) {
+            bootstrapModal._focustrap.deactivate();
+        }
     },
 
     //--------------------------------------------------------------------------
@@ -201,7 +214,7 @@ var TagCourseDialog = Dialog.extend({
         var $tagInput = this.$('#tag_id');
         if ($tagInput.length !== 0){
             var $tagSelect2Container = $tagInput
-                .closest('.form-group')
+                .parent()
                 .find('.select2-container');
             $tagSelect2Container.removeClass('is-invalid is-valid');
             if ($tagInput.is(':invalid')) {
@@ -211,7 +224,7 @@ var TagCourseDialog = Dialog.extend({
                 var $tagGroupInput = this.$('#tag_group_id');
                 if ($tagGroupInput.length !== 0){
                     var $tagGroupSelect2Container = $tagGroupInput
-                        .closest('.form-group')
+                        .parent()
                         .find('.select2-container');
                     if ($tagGroupInput.is(':invalid')) {
                         $tagGroupSelect2Container.addClass('is-invalid');
@@ -244,7 +257,7 @@ var TagCourseDialog = Dialog.extend({
      */
     _hideTagGroup: function () {
         var $tag_group_id = this.$('#tag_group_id');
-        var $tagGroupSelect2Container = $tag_group_id.closest('.form-group');
+        var $tagGroupSelect2Container = $tag_group_id.parent();
         $tagGroupSelect2Container.hide();
         $tag_group_id.removeAttr("required");
         $tag_group_id.select2("val", "");
@@ -259,7 +272,7 @@ var TagCourseDialog = Dialog.extend({
      */
     _showTagGroup: function () {
         var $tag_group_id = this.$('#tag_group_id');
-        var $tagGroupSelect2Container = $tag_group_id.closest('.form-group');
+        var $tagGroupSelect2Container = $tag_group_id.parent();
         $tagGroupSelect2Container.show();
         $tag_group_id.attr("required", "required");
     },
@@ -337,7 +350,6 @@ var TagCourseDialog = Dialog.extend({
 
 publicWidget.registry.websiteSlidesTag = publicWidget.Widget.extend({
     selector: '.o_wslides_js_channel_tag_add',
-    xmlDependencies: ['/website_slides/static/src/xml/website_slides_channel_tag.xml'],
     events: {
         'click': '_onAddTagClick',
     },

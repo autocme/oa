@@ -4,6 +4,8 @@ from lxml import etree
 
 from odoo.addons.l10n_account_edi_ubl_cii_tests.tests.common import TestUBLCommon
 from odoo.tests import tagged
+from odoo import Command
+
 
 @tagged('post_install_l10n', 'post_install', '-at_install')
 class TestUBLBE(TestUBLCommon):
@@ -72,6 +74,14 @@ class TestUBLBE(TestUBLCommon):
             'country_id': cls.env.ref('base.be').id,
         })
 
+        cls.tax_6 = cls.env['account.tax'].create({
+            'name': 'tax_6',
+            'amount_type': 'percent',
+            'amount': 6,
+            'type_tax_use': 'sale',
+            'country_id': cls.env.ref('base.be').id,
+        })
+
         cls.tax_0 = cls.env['account.tax'].create({
             'name': 'tax_0',
             'amount_type': 'percent',
@@ -89,7 +99,7 @@ class TestUBLBE(TestUBLCommon):
             'move_type': 'out_invoice',
             'journal_id': cls.journal.id,
             'partner_id': cls.partner_1.id,
-            'partner_bank_id': cls.acc_bank,
+            'partner_bank_id': cls.acc_bank.id,
             'invoice_date': '2017-01-01',
             'date': '2017-01-01',
             'currency_id': cls.currency_data['currency'].id,
@@ -101,6 +111,13 @@ class TestUBLBE(TestUBLCommon):
                 'discount': 20.0,
                 'tax_ids': [(6, 0, cls.tax_21.ids)],
             })],
+        })
+
+        cls.pay_term = cls.env['account.payment.term'].create({
+            'name': "2/7 Net 30",
+            'note': "Payment terms: 30 Days, 2% Early Payment Discount under 7 days",
+            'line_ids': [
+                Command.create({'value': 'balance', 'days': 30, 'discount_percentage': 2, 'discount_days': 7})],
         })
 
     @classmethod
@@ -148,7 +165,7 @@ class TestUBLBE(TestUBLCommon):
                 },
             ],
         )
-        xml_etree, xml_filename = self._assert_invoice_attachment(
+        attachment = self._assert_invoice_attachment(
             invoice,
             xpaths='''
                 <xpath expr="./*[local-name()='ID']" position="replace">
@@ -169,8 +186,8 @@ class TestUBLBE(TestUBLCommon):
             ''',
             expected_file='from_odoo/bis3_out_invoice.xml',
         )
-        self.assertEqual(xml_filename[-12:], "ubl_bis3.xml")  # ensure we test the right format !
-        self._assert_imported_invoice_from_etree(invoice, xml_etree, xml_filename)
+        self.assertEqual(attachment.name[-12:], "ubl_bis3.xml")  # ensure we test the right format !
+        self._assert_imported_invoice_from_etree(invoice, attachment)
 
     def test_export_import_refund(self):
         refund = self._generate_move(
@@ -202,7 +219,7 @@ class TestUBLBE(TestUBLCommon):
                 },
             ],
         )
-        xml_etree, xml_filename = self._assert_invoice_attachment(
+        attachment = self._assert_invoice_attachment(
             refund,
             xpaths='''
                 <xpath expr="./*[local-name()='ID']" position="replace">
@@ -223,8 +240,8 @@ class TestUBLBE(TestUBLCommon):
             ''',
             expected_file='from_odoo/bis3_out_refund.xml',
         )
-        self.assertEqual(xml_filename[-12:], "ubl_bis3.xml")
-        self._assert_imported_invoice_from_etree(refund, xml_etree, xml_filename)
+        self.assertEqual(attachment.name[-12:], "ubl_bis3.xml")
+        self._assert_imported_invoice_from_etree(refund, attachment)
 
     def test_encoding_in_attachment_ubl(self):
         self._test_encoding_in_attachment('ubl_bis3', 'INV_2017_00002_ubl_bis3.xml')
@@ -378,6 +395,128 @@ class TestUBLBE(TestUBLCommon):
         self.assertEqual(invoice.amount_total, 218.042)
         self._assert_invoice_attachment(invoice, None, 'from_odoo/bis3_ecotaxes_case4.xml')
 
+    def test_export_payment_terms(self):
+        """
+        Tests the early payment discount using the example case from the VBO/FEB.
+
+        ------------- + Price + Tax + Cash Discount (2%) + Taxable Amount + VAT --
+        Product A     |   200 |  6% |                 -4 |            196 |  11.76
+        Product B     |  2400 | 21% |                -48 |           2352 | 493.92
+        --------------+-------+-----+--------------------+----------------+-------
+
+        Subtotal (Taxable amount incl. payment discount): 2548
+        VAT: 505.68
+        Payable amount (excl. payment discount): 3105.68
+        Payable amount (incl. payment discount): 3053.68
+        """
+        invoice = self._generate_move(
+            self.partner_1,
+            self.partner_2,
+            move_type='out_invoice',
+            invoice_payment_term_id=self.pay_term.id,
+            invoice_line_ids=[
+                {
+                    'product_id': self.product_a.id,
+                    'quantity': 1,
+                    'price_unit': 200,
+                    'tax_ids': [(6, 0, [self.tax_6.id])],
+                },
+                {
+                    'product_id': self.product_b.id,
+                    'quantity': 1,
+                    'price_unit': 2400,
+                    'tax_ids': [(6, 0, [self.tax_21.id])],
+                }
+            ],
+        )
+        self._assert_invoice_attachment(invoice, None, 'from_odoo/bis3_pay_term.xml')
+
+    def test_export_payment_terms_fixed_tax(self):
+        """
+        Tests the early payment discount combined with a fixed tax.
+
+        ------------- + Price + Tax + Cash Discount (2%) + ------- Taxable Amount + VAT ----
+        Product A     |    99 | 21% |              -1.98 |  97.02 + 1 (fixed tax) |  20.5842
+        --------------+-------+-----+--------------------+------------------------+---------
+        NB: The fixed taxes (recupel, auvibel, etc) are excluded from the early payment discount !
+
+        Subtotal (Taxable amount incl. payment discount): 97.02 + 1
+        VAT: (97.02 + 1) * 0.21 = 20.58
+        Payable amount (excl. payment discount): 99 + 1 + 20.58 = 120.58
+        Payable amount (incl. payment discount): 97.02 + 1 + 20.58 = 118.60
+        """
+        invoice = self._generate_move(
+            self.partner_1,
+            self.partner_2,
+            move_type='out_invoice',
+            invoice_payment_term_id=self.pay_term.id,
+            invoice_line_ids=[
+                {
+                    'product_id': self.product_a.id,
+                    'quantity': 1,
+                    'price_unit': 99,
+                    'tax_ids': [(6, 0, [self.tax_21.id, self.recupel.id])],
+                },
+            ],
+        )
+        self._assert_invoice_attachment(invoice, None, 'from_odoo/bis3_pay_term_ecotax.xml')
+
+    def test_export_with_changed_taxes(self):
+        invoice = self._generate_move(
+            self.partner_1,
+            self.partner_2,
+            move_type='out_invoice',
+            invoice_line_ids=[
+                {
+                    'product_id': self.product_a.id,
+                    'quantity': 1,
+                    'price_unit': 200,
+                    'tax_ids': [Command.set([self.tax_21.id])],
+                },
+                {
+                    'product_id': self.product_a.id,
+                    'quantity': 1,
+                    'price_unit': 200,
+                    'tax_ids': [Command.set([self.tax_21.id])],
+                },
+                {
+                    'product_id': self.product_b.id,
+                    'quantity': 1,
+                    'price_unit': 100,
+                    'tax_ids': [Command.set([self.tax_12.id])],
+                },
+                {
+                    'product_id': self.product_b.id,
+                    'quantity': 1,
+                    'price_unit': 100,
+                    'tax_ids': [Command.set([self.tax_12.id])],
+                },
+            ],
+        )
+        self.assertRecordValues(invoice, [{
+            'amount_untaxed': 600.00,
+            'amount_tax': 108.00,  # tax_12: 24.00 ; tax_21: 84.00
+            'amount_total': 708.00
+        }])
+
+        invoice.button_draft()
+        tax_lines = invoice.line_ids.filtered(lambda line: line.display_type == 'tax')
+        tax_line_21 = next((line for line in tax_lines if line.name == 'tax_21'))
+        tax_line_12 = next((line for line in tax_lines if line.name == 'tax_12'))
+        invoice.line_ids = [
+            Command.update(tax_line_21.id, {'amount_currency': -84.03}), # distribute  3 cents over 2 lines
+            Command.update(tax_line_12.id, {'amount_currency': -23.99}), # distribute -1 cent  over 2 lines
+        ]
+        invoice.action_post()
+
+        self.assertRecordValues(invoice, [{
+            'amount_untaxed': 600.00,
+            'amount_tax': 108.02,  # tax_12: 23.99 ; tax_21: 84.03
+            'amount_total': 708.02
+        }])
+
+        self._assert_invoice_attachment(invoice, None, 'from_odoo/bis3_export_with_changed_taxes.xml')
+
     def test_export_rounding_price_amount(self):
         invoice = self._generate_move(
             self.partner_1,
@@ -408,6 +547,26 @@ class TestUBLBE(TestUBLCommon):
         )
         self._assert_invoice_attachment(invoice, None, 'from_odoo/bis3_out_invoice_tax_exempt.xml')
 
+    def test_export_gln(self):
+        """ GLN was added in a fixup module account_add_gln. """
+        # TODO master: clean that skiptest, when the module account_add_gln is merged with account
+        if 'global_location_number' not in self.partner_2._fields:
+            self.skipTest("Fixup module with GLN not installed.")
+        self.partner_2.global_location_number = "222222222222"
+        invoice = self._generate_move(
+            self.partner_1,
+            self.partner_2,
+            move_type='out_invoice',
+            invoice_line_ids=[
+                {
+                    'product_id': self.product_a.id,
+                    'price_unit': 990.0,
+                    'tax_ids': [(6, 0, self.tax_0.ids)],
+                },
+            ],
+        )
+        self._assert_invoice_attachment(invoice, None, 'from_odoo/bis3_out_invoice_gln.xml')
+
     ####################################################
     # Test import
     ####################################################
@@ -429,6 +588,27 @@ class TestUBLBE(TestUBLCommon):
 
         new_invoice = self._import_invoice_attachment(invoice, 'ubl_bis3', self.company_data['default_journal_purchase'])
         self.assertEqual(self.partner_1, new_invoice.partner_id)
+
+    def test_import_journal_ubl(self):
+        """
+        If the context contains the info about the current default journal, we should use it
+        instead of infering the journal from the move type.
+        """
+        journal2 = self.company_data['default_journal_sale'].copy()
+        journal2.default_account_id = self.company_data['default_account_revenue'].id
+        invoice = self._generate_move(
+            seller=self.partner_1,
+            buyer=self.partner_2,
+            move_type='out_invoice',
+            invoice_line_ids=[{'product_id': self.product_a.id}],
+        )
+        edi_attachment = invoice._get_edi_attachment(self.env.ref('account_edi_ubl_cii.ubl_bis3')).id
+
+        new_invoice = self.env['account.journal'].with_context(default_move_type='out_invoice')._create_document_from_attachment(edi_attachment)
+        self.assertEqual(new_invoice.journal_id, self.company_data['default_journal_sale'])
+
+        new_invoice = self.env['account.journal'].with_context(default_journal_id=journal2.id)._create_document_from_attachment(edi_attachment)
+        self.assertEqual(new_invoice.journal_id, journal2)
 
     def test_import_and_create_partner_ubl(self):
         """ Tests whether the partner is created at import if no match is found when decoding the EDI attachment
@@ -555,9 +735,21 @@ class TestUBLBE(TestUBLCommon):
             list_line_discount=[0], list_line_taxes=[tax_21+self.recupel], move_type='out_invoice',
         )
         self._assert_imported_invoice_from_file(
-            subfolder=subfolder, filename='bis3_ecotaxes_case4.xml', amount_total=218.042, amount_tax=39.842,
-            list_line_subtotals=[178.2], currency_id=self.currency_data['currency'].id, list_line_price_unit=[99],
-            list_line_discount=[10], list_line_taxes=[tax_21+self.recupel], move_type='out_invoice',
+            subfolder=subfolder, filename='bis3_ecotaxes_case4.xml', amount_total=218.04, amount_tax=39.84,
+            list_line_subtotals=[178.20000000000002], currency_id=self.currency_data['currency'].id,
+            list_line_price_unit=[99], list_line_discount=[10], list_line_taxes=[tax_21+self.recupel],
+            move_type='out_invoice',
+        )
+
+    def test_import_payment_terms(self):
+        # The tax 21% from l10n_be is retrieved since it's a duplicate of self.tax_21
+        tax_21 = self.env.ref(f'l10n_be.{self.env.company.id}_attn_VAT-OUT-21-L')
+        self._assert_imported_invoice_from_file(
+            subfolder='tests/test_files/from_odoo', filename='bis3_pay_term.xml', amount_total=3105.68,
+            amount_tax=505.68, list_line_subtotals=[-4, -48, 52, 200, 2400],
+            currency_id=self.currency_data['currency'].id, list_line_price_unit=[-4, -48, 52, 200, 2400],
+            list_line_discount=[0, 0, 0, 0, 0], list_line_taxes=[self.tax_6, tax_21, self.tax_0, self.tax_6, tax_21],
+            move_type='out_invoice',
         )
 
     def test_inverting_negative_price_unit(self):

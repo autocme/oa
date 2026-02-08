@@ -10,16 +10,8 @@ class HrWorkEntry(models.Model):
     leave_id = fields.Many2one('hr.leave', string='Time Off')
     leave_state = fields.Selection(related='leave_id.state')
 
-    def _get_duration(self, date_start, date_stop):
-        if not date_start or not date_stop:
-            return 0
-        if not self.work_entry_type_id and self.leave_id:
-            calendar = self.contract_id.resource_calendar_id
-            employee = self.contract_id.employee_id
-            contract_data = employee._get_work_days_data_batch(
-                date_start, date_stop, compute_leaves=False, calendar=calendar)[employee.id]
-            return contract_data.get('hours', 0)
-        return super()._get_duration(date_start, date_stop)
+    def _is_duration_computed_from_calendar(self):
+        return super()._is_duration_computed_from_calendar() or bool(not self.work_entry_type_id and self.leave_id)
 
     def write(self, vals):
         if 'state' in vals and vals['state'] == 'cancelled':
@@ -40,8 +32,8 @@ class HrWorkEntry(models.Model):
         if not self:
             return False
 
-        self.flush(['date_start', 'date_stop', 'employee_id'])
-        self.env['hr.leave'].flush(['date_from', 'date_to', 'state', 'employee_id'])
+        self.flush_recordset(['date_start', 'date_stop', 'employee_id', 'active'])
+        self.env['hr.leave'].flush_model(['date_from', 'date_to', 'state', 'employee_id'])
 
         query = """
             SELECT
@@ -91,4 +83,4 @@ class HrWorkEntryType(models.Model):
 
     leave_type_ids = fields.One2many(
         'hr.leave.type', 'work_entry_type_id', string='Time Off Type',
-        help="Every new time off type in this list will be reported as select work entry in payslip.")
+        help="Work entry used in the payslip.")

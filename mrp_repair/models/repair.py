@@ -6,11 +6,11 @@ from odoo import api, models
 class Repair(models.Model):
     _inherit = 'repair.order'
 
-    @api.model
-    def create(self, vals):
-        res = super().create(vals)
-        res.action_explode()
-        return res
+    @api.model_create_multi
+    def create(self, vals_list):
+        orders = super().create(vals_list)
+        orders.action_explode()
+        return orders
 
     def write(self, vals):
         res = super().write(vals)
@@ -44,11 +44,11 @@ class RepairLine(models.Model):
         product = bom_line.product_id
         uom = bom_line.product_uom_id
         partner = self.repair_id.partner_id
-        price = self.repair_id.pricelist_id.get_product_price(product, qty, partner, uom_id=uom.id)
+        price = self.repair_id.pricelist_id._get_product_price(product, qty, uom=uom)
         tax = self.env['account.tax']
         if partner:
             partner_invoice = self.repair_id.partner_invoice_id or partner
-            fpos = self.env['account.fiscal.position'].get_fiscal_position(partner_invoice.id, delivery_id=self.repair_id.address_id.id)
+            fpos = self.env['account.fiscal.position']._get_fiscal_position(partner_invoice, delivery=self.repair_id.address_id)
             taxes = self.product_id.taxes_id.filtered(lambda x: x.company_id == self.repair_id.company_id)
             tax = fpos.map_tax(taxes)
         return {

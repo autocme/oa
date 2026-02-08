@@ -3,7 +3,7 @@
 
 from odoo import Command
 from odoo.addons.mrp.tests.common import TestMrpCommon
-from odoo.addons.stock_account.tests.test_account_move import TestAccountMove
+from odoo.addons.stock_account.tests.test_account_move import TestAccountMoveStockCommon
 from odoo.tests import Form, tagged
 
 
@@ -17,14 +17,14 @@ class TestMrpAccount(TestMrpCommon):
         # setting up alternative workcenters
         cls.wc_alt_1 = cls.env['mrp.workcenter'].create({
             'name': 'Nuclear Workcenter bis',
-            'capacity': 3,
+            'default_capacity': 3,
             'time_start': 9,
             'time_stop': 5,
             'time_efficiency': 80,
         })
         cls.wc_alt_2 = cls.env['mrp.workcenter'].create({
             'name': 'Nuclear Workcenter ter',
-            'capacity': 1,
+            'default_capacity': 1,
             'time_start': 10,
             'time_stop': 5,
             'time_efficiency': 85,
@@ -169,6 +169,7 @@ class TestMrpAccount(TestMrpCommon):
         quants.action_apply_inventory()
 
         bom = self.mrp_bom_desk.copy()
+        bom.bom_line_ids.manual_consumption = False
         bom.operation_ids = False
         production_table_form = Form(self.env['mrp.production'])
         production_table_form.product_id = self.dining_table
@@ -190,7 +191,7 @@ class TestMrpAccount(TestMrpCommon):
 
 
 @tagged("post_install", "-at_install")
-class TestMrpAccountMove(TestAccountMove):
+class TestMrpAccountMove(TestAccountMoveStockCommon):
 
     @classmethod
     def setUpClass(cls):
@@ -271,12 +272,12 @@ class TestMrpAccountMove(TestAccountMove):
         wip_incoming_account = self.env['account.account'].create({
             'name': 'wip incoming',
             'code': '000001',
-            'user_type_id': self.env.ref('account.data_account_type_current_assets').id,
+            'account_type': 'asset_current',
         })
         wip_outgoing_account = self.env['account.account'].create({
             'name': 'wip outgoing',
             'code': '000002',
-            'user_type_id': self.env.ref('account.data_account_type_current_assets').id,
+            'account_type': 'asset_current',
         })
         production_location.write({
             'valuation_in_account_id': wip_incoming_account.id,
@@ -342,12 +343,8 @@ class TestMrpAnalyticAccount(TestMrpCommon):
         mo = self.env['mrp.production'].with_user(mrp_user.id).create({
             'product_id': product.id,
             'product_uom_id': product.uom_id.id,
-            'product_qty':1,
-            'bom_id': bom.id,
+            'bom_id': bom.id
         })
-        mo_form = Form(mo)
-        mo_form.bom_id = self.bom_4
-        mo = mo_form.save()
         mo.with_user(mrp_user.id).action_confirm()
         action = mo.with_user(mrp_user.id).button_mark_done()
         wizard = Form(self.env[action['res_model']].with_context(action['context']).with_user(mrp_user.id)).save()

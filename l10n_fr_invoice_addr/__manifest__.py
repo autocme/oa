@@ -10,12 +10,10 @@ Add new address fields necessary to respect the new 2024-07-01 French law
 """,
     'depends': [
         'l10n_fr',
-        'sale',
     ],
     'auto_install': True,
     'data': [
         'views/report_invoice.xml',
-        'views/account_move_views.xml',
     ],
     'license': 'LGPL-3',
 }

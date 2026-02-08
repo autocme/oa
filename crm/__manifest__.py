@@ -4,11 +4,10 @@
 
 {
     'name': 'CRM',
-    'version': '1.6',
+    'version': '1.8',
     'category': 'Sales/CRM',
     'sequence': 15,
     'summary': 'Track leads and close opportunities',
-    'description': "",
     'website': 'https://www.odoo.com/app/crm',
     'depends': [
         'base_setup',
@@ -16,7 +15,6 @@
         'mail',
         'calendar',
         'resource',
-        'fetchmail',
         'utm',
         'web_tour',
         'web_kanban_gauge',
@@ -28,6 +26,7 @@
         'security/crm_security.xml',
         'security/ir.model.access.csv',
 
+        'data/crm_lead_merge_template.xml',
         'data/crm_lead_prediction_data.xml',
         'data/crm_lost_reason_data.xml',
         'data/crm_stage_data.xml',
@@ -35,7 +34,7 @@
         'data/digest_data.xml',
         'data/ir_action_data.xml',
         'data/ir_cron_data.xml',
-        'data/mail_data.xml',
+        'data/mail_message_subtype_data.xml',
         'data/crm_recurring_plan_data.xml',
 
         'wizard/crm_lead_lost_views.xml',
@@ -65,33 +64,27 @@
         'data/crm_team_demo.xml',
         'data/mail_template_demo.xml',
         'data/crm_team_member_demo.xml',
-        'data/mail_activity_demo.xml',
+        'data/mail_activity_type_demo.xml',
         'data/crm_lead_demo.xml',
     ],
-    'css': ['static/src/css/crm.css'],
     'installable': True,
     'application': True,
-    'auto_install': False,
     'assets': {
-        'web.assets_qweb': [
-            'crm/static/src/xml/forecast_kanban.xml',
+        'mail.assets_messaging': [
+            'crm/static/src/models/*.js',
         ],
         'web.assets_backend': [
-            'crm/static/src/js/crm_form.js',
-            'crm/static/src/js/crm_kanban.js',
-            'crm/static/src/js/forecast/*',
-            'crm/static/src/js/systray_activity_menu.js',
+            'crm/static/src/views/**/*.js',
+            'crm/static/src/views/**/*.xml',
             'crm/static/src/js/tours/crm.js',
             'crm/static/src/scss/crm.scss',
             'crm/static/src/scss/crm_team_member_views.scss',
-        ],
-        "web.assets_backend_legacy_lazy": [
-            'crm/static/src/js/*_legacy.js',
         ],
         'web.assets_tests': [
             'crm/static/tests/tours/**/*',
         ],
         'web.qunit_suite_tests': [
+            'crm/static/tests/crm_kanban_progress_bar_mrr_sum_field_tests.js',
             'crm/static/tests/mock_server.js',
             'crm/static/tests/forecast_kanban_tests.js',
             'crm/static/tests/forecast_view_tests.js',

@@ -1,6 +1,4 @@
 /* global YT */
-var onYouTubeIframeAPIReady;
-
 odoo.define('website_event_track_live.website_event_youtube_embed', function (require) {
 'use strict';
 
@@ -17,6 +15,10 @@ publicWidget.registry.websiteEventTrackLive = publicWidget.Widget.extend({
     start: function () {
         var self = this;
         return this._super(...arguments).then(function () {
+            // Remove me in master. Make sure position-relative is set on o_wevent_event_track_live
+            // in stable otherwise suggestion screen is relative to the window, not to the youtube
+            // frame, breaking screen display. Loading wheel would not be centered either.
+            self.$el.addClass('position-relative');
             self._setupYoutubePlayer();
         });
     },
@@ -79,7 +81,7 @@ publicWidget.registry.websiteEventTrackLive = publicWidget.Widget.extend({
         var $youtubeElement = $('<script/>', {src: 'https://www.youtube.com/iframe_api'});
         $(document.head).append($youtubeElement);
 
-        onYouTubeIframeAPIReady = function () {
+        window.onYouTubeIframeAPIReady = function () {
             self.youtubePlayer = new YT.Player('o_wevent_youtube_iframe_container', {
                 height: '100%',
                 width: '100%',

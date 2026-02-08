@@ -3,6 +3,7 @@
 
 import json
 import jinja2
+import platform
 import logging
 import os
 from pathlib import Path
@@ -11,14 +12,14 @@ import subprocess
 import sys
 import threading
 
-from odoo import http, tools
+from odoo import http, service, tools
 from odoo.http import Response, request
 from odoo.modules.module import get_resource_path
-
+from odoo.addons.hw_drivers.connection_manager import connection_manager
 from odoo.addons.hw_drivers.main import iot_devices
 from odoo.addons.hw_drivers.tools import helpers
 from odoo.addons.hw_drivers.server_logger import check_and_update_odoo_config_log_to_server_option, close_server_log_sender_handler, get_odoo_config_log_to_server_option
-from odoo.addons.web.controllers import main as web
+from odoo.addons.web.controllers.home import Home
 
 _logger = logging.getLogger(__name__)
 
@@ -47,7 +48,7 @@ six_payment_terminal_template = jinja_env.get_template('six_payment_terminal.htm
 list_credential_template = jinja_env.get_template('list_credential.html')
 upgrade_page_template = jinja_env.get_template('upgrade_page.html')
 
-class IoTboxHomepage(web.Home):
+class IoTboxHomepage(Home):
     def __init__(self):
         super(IoTboxHomepage,self).__init__()
         self.updating = threading.Lock()
@@ -61,8 +62,11 @@ class IoTboxHomepage(web.Home):
 
     def get_homepage_data(self):
         hostname = str(socket.gethostname())
-        ssid = helpers.get_ssid()
-        wired = subprocess.check_output(['cat', '/sys/class/net/eth0/operstate']).decode('utf-8').strip('\n')
+        if platform.system() == 'Linux':
+            ssid = helpers.get_ssid()
+            wired = helpers.read_file_first_line('/sys/class/net/eth0/operstate')
+        else:
+            wired = 'up'
         if wired == 'up':
             network = 'Ethernet'
         elif ssid:
@@ -89,9 +93,11 @@ class IoTboxHomepage(web.Home):
             'mac': helpers.get_mac_address(),
             'iot_device_status': iot_device,
             'server_status': helpers.get_odoo_server_url() or 'Not Configured',
+            'pairing_code': connection_manager.pairing_code,
             'six_terminal': self.get_six_terminal(),
             'network_status': network,
             'version': helpers.get_version(),
+            'system': platform.system(),
             'is_certificate_ok': is_certificate_ok,
             'certificate_details': certificate_details,
             }
@@ -105,7 +111,7 @@ class IoTboxHomepage(web.Home):
         else:
             return homepage_template.render(self.get_homepage_data())
 
-    @http.route('/list_handlers', type='http', auth='none', methods=['GET', 'POST'], website=True, csrf=False)
+    @http.route('/list_handlers', type='http', auth='none', website=True, csrf=False, save_session=False)
     def list_handlers(self, **post):
         AVAILABLE_LOG_LEVELS = ('debug', 'info', 'warning', 'error')
         if request.httprequest.method == 'POST':
@@ -131,14 +137,10 @@ class IoTboxHomepage(web.Home):
                     need_config_save |= self._update_logger_level('', log_level_or_parent, AVAILABLE_LOG_LEVELS)
                 elif post_request_key == 'odoo':
                     need_config_save |= self._update_logger_level('odoo', log_level_or_parent, AVAILABLE_LOG_LEVELS)
-                    need_config_save |= self._update_logger_level(
-                        'werkzeug',
-                        log_level_or_parent if log_level_or_parent != 'debug' else 'info',
-                        AVAILABLE_LOG_LEVELS)
+                    need_config_save |= self._update_logger_level('werkzeug', log_level_or_parent if log_level_or_parent != 'debug' else 'info', AVAILABLE_LOG_LEVELS)
                 elif post_request_key.startswith(INTERFACE_PREFIX):
                     logger_name = post_request_key[len(INTERFACE_PREFIX):]
                     need_config_save |= self._update_logger_level(logger_name, log_level_or_parent, AVAILABLE_LOG_LEVELS_WITH_PARENT, 'interfaces')
-
                 elif post_request_key.startswith(DRIVER_PREFIX):
                     logger_name = post_request_key[len(DRIVER_PREFIX):]
                     need_config_save |= self._update_logger_level(logger_name, log_level_or_parent, AVAILABLE_LOG_LEVELS_WITH_PARENT, 'drivers')
@@ -147,20 +149,10 @@ class IoTboxHomepage(web.Home):
 
             # Update and save the config file (in case of IoT box reset)
             if need_config_save:
-                # TODO: replace mount calls `with writable():` (in version >= 16.0)
-                subprocess.call(["sudo", "mount", "-o", "remount,rw", "/"])
-                tools.config.save()
-                subprocess.call(["sudo", "mount", "-o", "remount,ro", "/"])
-
-        drivers_list = []
-        for driver in os.listdir(get_resource_path('hw_drivers', 'iot_handlers/drivers')):
-            if driver != '__pycache__':
-                drivers_list.append(driver)
-        interfaces_list = []
-        for interface in os.listdir(get_resource_path('hw_drivers', 'iot_handlers/interfaces')):
-            if interface != '__pycache__':
-                interfaces_list.append(interface)
-
+                with helpers.writable():
+                    tools.config.save()
+        drivers_list = helpers.list_file_by_os(get_resource_path('hw_drivers', 'iot_handlers', 'drivers'))
+        interfaces_list = helpers.list_file_by_os(get_resource_path('hw_drivers', 'iot_handlers', 'interfaces'))
         return handler_list_template.render({
             'title': "Odoo's IoT Box - Handlers list",
             'breadcrumb': 'Handlers list',
@@ -179,7 +171,7 @@ class IoTboxHomepage(web.Home):
     @http.route('/load_iot_handlers', type='http', auth='none', website=True)
     def load_iot_handlers(self):
         helpers.download_iot_handlers(False)
-        subprocess.check_call(["sudo", "service", "odoo", "restart"])
+        helpers.odoo_restart(0)
         return "<meta http-equiv='refresh' content='20; url=http://" + helpers.get_ip() + ":8069/list_handlers'>"
 
     @http.route('/list_credential', type='http', auth='none', website=True)
@@ -193,15 +185,16 @@ class IoTboxHomepage(web.Home):
 
     @http.route('/save_credential', type='http', auth='none', cors='*', csrf=False)
     def save_credential(self, db_uuid, enterprise_code):
-        helpers.add_credential(db_uuid, enterprise_code)
-        subprocess.check_call(["sudo", "service", "odoo", "restart"])
+        helpers.write_file('odoo-db-uuid.conf', db_uuid)
+        helpers.write_file('odoo-enterprise-code.conf', enterprise_code)
+        helpers.odoo_restart(0)
         return "<meta http-equiv='refresh' content='20; url=http://" + helpers.get_ip() + ":8069'>"
 
     @http.route('/clear_credential', type='http', auth='none', cors='*', csrf=False)
     def clear_credential(self):
         helpers.unlink_file('odoo-db-uuid.conf')
         helpers.unlink_file('odoo-enterprise-code.conf')
-        subprocess.check_call(["sudo", "service", "odoo", "restart"])
+        helpers.odoo_restart(0)
         return "<meta http-equiv='refresh' content='20; url=http://" + helpers.get_ip() + ":8069'>"
 
     @http.route('/wifi', type='http', auth='none', website=True)
@@ -252,9 +245,9 @@ class IoTboxHomepage(web.Home):
     @http.route('/handlers_clear', type='http', auth='none', cors='*', csrf=False)
     def clear_handlers_list(self):
         for directory in ['drivers', 'interfaces']:
-            for file in os.listdir(get_resource_path('hw_drivers', 'iot_handlers', directory)):
-                if file != '__pycache__':
-                    helpers.unlink_file(get_resource_path('hw_drivers', 'iot_handlers', directory, file))
+            for file in list(Path(get_resource_path('hw_drivers', 'iot_handlers', directory)).glob('*')):
+                if file.name != '__pycache__':
+                    helpers.unlink_file(str(file.relative_to(*file.parts[:3])))
         return "<meta http-equiv='refresh' content='0; url=http://" + helpers.get_ip() + ":8069/list_handlers'>"
 
     @http.route('/server_connect', type='http', auth='none', cors='*', csrf=False)
@@ -263,16 +256,15 @@ class IoTboxHomepage(web.Home):
             credential = token.split('|')
             url = credential[0]
             token = credential[1]
-            if len(credential) > 2:
-                # IoT Box send token with db_uuid and enterprise_code only since V13
-                db_uuid = credential[2]
-                enterprise_code = credential[3]
-                helpers.add_credential(db_uuid, enterprise_code)
+            db_uuid = credential[2]
+            enterprise_code = credential[3]
+            helpers.save_conf_server(url, token, db_uuid, enterprise_code)
         else:
             url = helpers.get_odoo_server_url()
             token = helpers.get_token()
-        reboot = 'reboot'
-        subprocess.check_call([get_resource_path('point_of_sale', 'tools/posbox/configuration/connect_to_server.sh'), url, iotname, token, reboot])
+        if iotname and platform.system() == 'Linux':
+            subprocess.check_call([get_resource_path('point_of_sale', 'tools/posbox/configuration/rename_iot.sh'), iotname])
+        helpers.odoo_restart(5)
         return 'http://' + helpers.get_ip() + ':8069'
 
     @http.route('/steps', type='http', auth='none', cors='*', csrf=False)
@@ -307,6 +299,11 @@ class IoTboxHomepage(web.Home):
             'loading_message': 'Configure Domain Server'
         })
 
+    # Get password
+    @http.route('/hw_posbox_homepage/password', type='json', auth='none', methods=['POST'])
+    def view_password(self):
+        return helpers.generate_password()
+
     @http.route('/remote_connect', type='http', auth='none', cors='*')
     def remote_connect(self):
         """
@@ -339,14 +336,18 @@ class IoTboxHomepage(web.Home):
 
     @http.route('/six_payment_terminal_add', type='http', auth='none', cors='*', csrf=False)
     def add_six_payment_terminal(self, terminal_id):
-        helpers.write_file('odoo-six-payment-terminal.conf', terminal_id)
-        subprocess.check_call(["sudo", "service", "odoo", "restart"])
+        if terminal_id.isdigit():
+            helpers.write_file('odoo-six-payment-terminal.conf', terminal_id)
+            service.server.restart()
+        else:
+            _logger.warning('Ignoring invalid Six TID: "%s". Only digits are allowed', terminal_id)
+            self.clear_six_payment_terminal()
         return 'http://' + helpers.get_ip() + ':8069'
 
     @http.route('/six_payment_terminal_clear', type='http', auth='none', cors='*', csrf=False)
     def clear_six_payment_terminal(self):
         helpers.unlink_file('odoo-six-payment-terminal.conf')
-        subprocess.check_call(["sudo", "service", "odoo", "restart"])
+        service.server.restart()
         return "<meta http-equiv='refresh' content='0; url=http://" + helpers.get_ip() + ":8069'>"
 
     @http.route('/hw_proxy/upgrade', type='http', auth='none', )
@@ -386,7 +387,7 @@ class IoTboxHomepage(web.Home):
         except subprocess.CalledProcessError as e:
             raise Exception(e.output)
         except Exception as e:
-            _logger.error('A error encountered : %s ' % e)
+            _logger.exception("Flashing create partition failed")
             return Response(str(e), status=500)
 
     @http.route('/hw_proxy/perform_flashing_download_raspios', type='http', auth='none')
@@ -400,7 +401,7 @@ class IoTboxHomepage(web.Home):
             raise Exception(e.output)
         except Exception as e:
             self.clean_partition()
-            _logger.error('A error encountered : %s ' % e)
+            _logger.exception("Flashing download raspios failed")
             return Response(str(e), status=500)
 
     @http.route('/hw_proxy/perform_flashing_copy_raspios', type='http', auth='none')
@@ -414,8 +415,21 @@ class IoTboxHomepage(web.Home):
             raise Exception(e.output)
         except Exception as e:
             self.clean_partition()
-            _logger.error('A error encountered : %s ' % e)
+            _logger.exception("Flashing copy raspios failed")
             return Response(str(e), status=500)
+
+    @http.route('/iot_restart_odoo_or_reboot', type='json', auth='none', cors='*', csrf=False)
+    def iot_restart_odoo_or_reboot(self, action):
+        """ Reboots the IoT Box / restarts Odoo on it depending on chosen 'action' argument"""
+        try:
+            if action == 'restart_odoo':
+                helpers.odoo_restart(3)
+            else:
+                subprocess.call(['sudo', 'reboot'])
+            return 'success'
+        except Exception as e:
+            _logger.exception("Failed to restart/reboot the IoT")
+            return str(e)
 
     def _get_logger_effective_level_str(self, logger):
         return logging.getLevelName(logger.getEffectiveLevel()).lower()
@@ -456,7 +470,6 @@ class IoTboxHomepage(web.Home):
         LOG_HANDLERS = tools.config[ODOO_TOOL_CONFIG_HANDLER_NAME]
         LOGGER_PREFIX = logger_name + ':'
         IS_NEW_LEVEL_PARENT = new_level == 'parent'
-
 
         if not IS_NEW_LEVEL_PARENT:
             intended_to_find = LOGGER_PREFIX + new_level.upper()

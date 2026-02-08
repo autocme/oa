@@ -143,6 +143,7 @@ odoo.define('point_of_sale.tour.TicketScreenTourMethods', function (require) {
             return [
                 {
                     trigger: '.ticket-screen:not(:has(.order-empty))',
+                    run: () => {},
                 },
             ];
         }
@@ -154,10 +155,10 @@ odoo.define('point_of_sale.tour.TicketScreenTourMethods', function (require) {
                 },
             ];
         }
-        customerIs(name) {
+        partnerIs(name) {
             return [
                 {
-                    trigger: `.ticket-screen .set-customer:contains("${name}")`,
+                    trigger: `.ticket-screen .set-partner:contains("${name}")`,
                     run: () => {},
                 },
             ];
@@ -166,13 +167,23 @@ odoo.define('point_of_sale.tour.TicketScreenTourMethods', function (require) {
             return [
                 {
                     trigger: `.ticket-screen .to-refund-highlight:contains("${text}")`,
-                },
+                    run: () => {},
+               },
             ];
         }
         refundedNoteContains(text) {
             return [
                 {
                     trigger: `.ticket-screen .refund-note:contains("${text}")`,
+                    run: () => {},
+                },
+            ];
+        }
+        tipContains(amount) {
+            return [
+                {
+                    trigger: `.ticket-screen .tip-cell:contains("${amount}")`,
+                    run: () => {},
                 },
             ];
         }

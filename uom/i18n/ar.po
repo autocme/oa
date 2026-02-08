@@ -3,15 +3,15 @@
 # 	* uom
 # 
 # Translators:
-# Martin Trigaux, 2021
+# Martin Trigaux, 2022
 # Malaz Abuidris <msea@odoo.com>, 2023
 # 
 msgid ""
 msgstr ""
-"Project-Id-Version: Odoo Server saas~14.4\n"
+"Project-Id-Version: Odoo Server 16.0beta\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2021-07-12 07:50+0000\n"
-"PO-Revision-Date: 2021-09-14 12:27+0000\n"
+"POT-Creation-Date: 2022-09-23 08:03+0000\n"
+"PO-Revision-Date: 2022-09-22 05:55+0000\n"
 "Last-Translator: Malaz Abuidris <msea@odoo.com>, 2023\n"
 "Language-Team: Arabic (https://app.transifex.com/odoo/teams/41243/ar/)\n"
 "MIME-Version: 1.0\n"
@@ -76,7 +76,7 @@ msgstr "أكبر من وحدة القياس المرجعية"
 #: model:ir.model.fields,field_description:uom.field_uom_uom__category_id
 #: model_terms:ir.ui.view,arch_db:uom.uom_uom_view_search
 msgid "Category"
-msgstr "الفئة "
+msgstr "فئة"
 
 #. module: uom
 #: model:ir.model.fields,field_description:uom.field_uom_uom__color
@@ -112,7 +112,7 @@ msgstr "أنشئ في"
 #. module: uom
 #: model:uom.uom,name:uom.product_uom_day
 msgid "Days"
-msgstr "الأيام"
+msgstr "أيام "
 
 #. module: uom
 #: model:ir.model.fields,field_description:uom.field_uom_category__display_name
@@ -126,11 +126,6 @@ msgid "Dozens"
 msgstr "درزينات "
 
 #. module: uom
-#: model:ir.model.fields,help:uom.field_uom_category__reference_uom_id
-msgid "Dummy field to keep track of reference uom change"
-msgstr "حقل وهمي لتتبع تغيرات وحدة القياس المرجعية "
-
-#. module: uom
 #: model_terms:ir.ui.view,arch_db:uom.uom_uom_view_search
 msgid "Group By"
 msgstr "التجميع حسب "
@@ -138,7 +133,7 @@ msgstr "التجميع حسب "
 #. module: uom
 #: model:uom.uom,name:uom.product_uom_hour
 msgid "Hours"
-msgstr "ساعات "
+msgstr "الساعات"
 
 #. module: uom
 #: model:ir.model.fields,help:uom.field_uom_uom__factor_inv
@@ -195,7 +190,7 @@ msgstr "إدارة وحدات قياس متعددة "
 #. module: uom
 #: model:ir.model,name:uom.model_uom_uom
 msgid "Product Unit of Measure"
-msgstr "وحدة قياس المنتج "
+msgstr "وحدة قياس المنتج"
 
 #. module: uom
 #: model:ir.model,name:uom.model_uom_category
@@ -380,7 +375,13 @@ msgstr ""
 "             ساعات، أيام. "
 
 #. module: uom
-#: code:addons/uom/models/uom_uom.py:0 code:addons/uom/models/uom_uom.py:0
+#: code:addons/uom/models/uom_uom.py:0
+#, python-format
+msgid "UoM category %s must have at least one reference unit of measure."
+msgstr "يجب أن يكون لفئة وحدة القياس %s وحدة قياس مرجعية واحدة على الأقل. "
+
+#. module: uom
+#: code:addons/uom/models/uom_uom.py:0
 #, python-format
 msgid "UoM category %s should have a reference unit of measure."
 msgstr "يجب أن يكون لفئة وحدة القياس %s وحدة قياس مرجعية. "
@@ -399,19 +400,13 @@ msgstr "وحدة القياس "
 #. module: uom
 #: model:uom.category,name:uom.product_uom_categ_vol
 msgid "Volume"
-msgstr "الحجم"
+msgstr "الكثافة "
 
 #. module: uom
 #: code:addons/uom/models/uom_uom.py:0
 #, python-format
 msgid "Warning for %s"
 msgstr "تحذير لـ %s"
-
-#. module: uom
-#: code:addons/uom/models/uom_uom.py:0
-#, python-format
-msgid "Warning!"
-msgstr "تحذير!"
 
 #. module: uom
 #: model:uom.category,name:uom.product_uom_categ_kgm
@@ -421,7 +416,7 @@ msgstr "الوزن"
 #. module: uom
 #: model:uom.category,name:uom.uom_categ_wtime
 msgid "Working Time"
-msgstr "فترة العمل"
+msgstr "وقت العمل "
 
 #. module: uom
 #: model_terms:ir.actions.act_window,help:uom.product_uom_form_action
@@ -516,3 +511,8 @@ msgstr "أونصة "
 #: model:uom.uom,name:uom.product_uom_qt
 msgid "qt (US)"
 msgstr "الكمية (الولايات المتحدة الأمريكية) "
+
+#. module: uom
+#: model:uom.uom,name:uom.product_uom_yard
+msgid "yd"
+msgstr "yd"

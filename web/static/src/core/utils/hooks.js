@@ -2,7 +2,7 @@
 
 import { SERVICES_METADATA } from "@web/env";
 
-const { onMounted, onWillPatch, onPatched, onWillUnmount, useComponent } = owl.hooks;
+import { status, useComponent, useEffect, useRef, onWillUnmount } from "@odoo/owl";
 
 /**
  * This file contains various custom hooks.
@@ -24,40 +24,39 @@ const { onMounted, onWillPatch, onPatched, onWillUnmount, useComponent } = owl.h
 // -----------------------------------------------------------------------------
 
 /**
- * Focus a given selector as soon as it appears in the DOM and if it was not
- * displayed before. If the selected target is an input|textarea, set the selection
- * at the end.
- *
+ * Focus an element referenced by a t-ref="autofocus" in the current component
+ * as soon as it appears in the DOM and if it was not displayed before.
+ * If it is an input/textarea, set the selection at the end.
  * @param {Object} [params]
- * @param {string} [params.selector='autofocus'] default: select the first element
- *                 with an `autofocus` attribute.
- * @returns {Function} function that forces the focus on the next update if visible.
+ * @param {string} [params.refName] override the ref name "autofocus"
+ * @param {boolean} [params.selectAll] if true, will select the entire text value.
+ * @returns {Object} the element reference
  */
-export function useAutofocus(params = {}) {
+export function useAutofocus({ refName, selectAll } = {}) {
     const comp = useComponent();
+    const ref = useRef(refName || "autofocus");
     // Prevent autofocus in mobile
     if (comp.env.isSmall) {
-        return () => {};
+        return ref;
     }
-    const selector = params.selector || "[autofocus]";
-    let forceFocusCount = 0;
+    // LEGACY
+    if (comp.env.device && comp.env.device.isMobileDevice) {
+        return ref;
+    }
+    // LEGACY
     useEffect(
-        function autofocus() {
-            const target = comp.el.querySelector(selector);
-            if (target) {
-                target.focus();
-                if (["INPUT", "TEXTAREA"].includes(target.tagName) && target.type !== 'number') {
-                    const inputEl = target;
-                    inputEl.selectionStart = inputEl.selectionEnd = inputEl.value.length;
+        (el) => {
+            if (el) {
+                el.focus();
+                if (["INPUT", "TEXTAREA"].includes(el.tagName) && el.type !== "number") {
+                    el.selectionEnd = el.value.length;
+                    el.selectionStart = selectAll ? 0 : el.value.length;
                 }
             }
         },
-        () => [forceFocusCount]
+        () => [ref.el]
     );
-
-    return function focusOnUpdate() {
-        forceFocusCount++; // force the effect to rerun on next patch
-    };
+    return ref;
 }
 
 // -----------------------------------------------------------------------------
@@ -75,60 +74,12 @@ export function useBus(bus, eventName, callback) {
     const component = useComponent();
     useEffect(
         () => {
-            bus.on(eventName, component, callback);
-            return () => bus.off(eventName, component);
+            const listener = callback.bind(component);
+            bus.addEventListener(eventName, listener);
+            return () => bus.removeEventListener(eventName, listener);
         },
         () => []
     );
-}
-
-// -----------------------------------------------------------------------------
-// useEffect
-// -----------------------------------------------------------------------------
-
-const NO_OP = () => {};
-/**
- * @callback Effect
- * @param {...any} dependencies the dependencies computed by computeDependencies
- * @returns {void|(()=>void)} a cleanup function that reverses the side
- *      effects of the effect callback.
- */
-
-/**
- * This hook will run a callback when a component is mounted and patched, and
- * will run a cleanup function before patching and before unmounting the
- * the component.
- *
- * @param {Effect} effect the effect to run on component mount and/or patch
- * @param {()=>any[]} [computeDependencies=()=>[NaN]] a callback to compute
- *      dependencies that will decide if the effect needs to be cleaned up and
- *      run again. If the dependencies did not change, the effect will not run
- *      again. The default value returns an array containing only NaN because
- *      NaN !== NaN, which will cause the effect to rerun on every patch.
- */
-export function useEffect(effect, computeDependencies = () => [NaN]) {
-    let cleanup, dependencies;
-    onMounted(() => {
-        dependencies = computeDependencies();
-        cleanup = effect(...dependencies) || NO_OP;
-    });
-
-    let shouldReapplyOnPatch = false;
-    onWillPatch(() => {
-        const newDeps = computeDependencies();
-        shouldReapplyOnPatch = newDeps.some((val, i) => val !== dependencies[i]);
-        if (shouldReapplyOnPatch) {
-            cleanup();
-            dependencies = newDeps;
-        }
-    });
-    onPatched(() => {
-        if (shouldReapplyOnPatch) {
-            cleanup = effect(...dependencies) || NO_OP;
-        }
-    });
-
-    onWillUnmount(() => cleanup());
 }
 
 // -----------------------------------------------------------------------------
@@ -136,6 +87,7 @@ export function useEffect(effect, computeDependencies = () => [NaN]) {
 // -----------------------------------------------------------------------------
 
 /**
+ * @deprecated
  * The useListener hook offers an alternative to Owl's classical event
  * registration mechanism (with attribute 't-on-eventName' in xml).
  *
@@ -157,12 +109,12 @@ export function useEffect(effect, computeDependencies = () => [NaN]) {
  *
  *   useListener('click', 'button', () => { console.log('clicked'); });
  *
- * Note: components that alter the event's target (e.g. Portal) are not
+ * Note: components that alter the event's target and the t-portal directive are not
  * expected to behave as expected with event delegation.
  *
  * @param {string} eventName the name of the event
  * @param {string} [querySelector] a JS native selector for event delegation
- * @param {function} handler the event handler (will be bound to the component)
+ * @param {function} [handler] the event handler (will be bound to the component)
  * @param {Object} [options] to be passed to addEventListener as options.
  *   Useful for listening in the capture phase
  */
@@ -212,14 +164,20 @@ export function useListener(eventName, querySelector, handler, options = {}) {
 // -----------------------------------------------------------------------------
 // useService
 // -----------------------------------------------------------------------------
-
-function _protectMethod(component, caller, fn) {
-    return async (...args) => {
-        if (component.__owl__.status === 5 /* DESTROYED */) {
-            throw new Error("Component is destroyed");
+function _protectMethod(component, fn) {
+    return function (...args) {
+        if (status(component) === "destroyed") {
+            return Promise.reject(new Error("Component is destroyed"));
         }
-        const result = await fn.call(caller, ...args);
-        return component.__owl__.status === 5 ? new Promise(() => {}) : result;
+
+        const prom = Promise.resolve(fn.call(this, ...args));
+        const protectedProm = prom.then((result) =>
+            status(component) === "destroyed" ? new Promise(() => {}) : result
+        );
+        return Object.assign(protectedProm, {
+            abort: prom.abort,
+            cancel: prom.cancel,
+        });
     };
 }
 
@@ -238,12 +196,12 @@ export function useService(serviceName) {
     const service = services[serviceName];
     if (serviceName in SERVICES_METADATA) {
         if (service instanceof Function) {
-            return _protectMethod(component, null, service);
+            return _protectMethod(component, service);
         } else {
             const methods = SERVICES_METADATA[serviceName];
             const result = Object.create(service);
-            for (let method of methods) {
-                result[method] = _protectMethod(component, service, service[method]);
+            for (const method of methods) {
+                result[method] = _protectMethod(component, service[method]);
             }
             return result;
         }
@@ -252,15 +210,62 @@ export function useService(serviceName) {
 }
 
 /**
- * Executes "callback" when the component is being destroyed
- * @param  {Function} callback
+ * @typedef {Function} ForwardRef
+ * @property {HTMLElement | undefined} el
  */
-export function onDestroyed(callback) {
-    const component = useComponent();
-    const _destroy = component.__destroy;
-    component.__destroy = (...args) => {
-        _destroy.call(component, ...args);
-        // callback is called after super to guarantee the component is actually destroyed
-        callback();
+
+/**
+ * Use a ref that was forwarded by a child @see useForwardRefToParent
+ *
+ * @returns {ForwardRef} a ref that can be called to set its value to that of a
+ *  child ref, but can otherwise be used as a normal ref object
+ */
+export function useChildRef() {
+    let defined = false;
+    let value;
+    return function ref(v) {
+        value = v;
+        if (defined) {
+            return;
+        }
+        Object.defineProperty(ref, "el", {
+            get() {
+                return value.el;
+            },
+        });
+        defined = true;
     };
+}
+/**
+ * Forwards the given refName to the parent by calling the corresponding
+ * ForwardRef received as prop. @see useChildRef
+ *
+ * @param {string} refName name of the ref to forward
+ * @returns {{el: HTMLelement | null}} the same ref that is forwarded to the
+ *  parent
+ */
+export function useForwardRefToParent(refName) {
+    const component = useComponent();
+    const ref = useRef(refName);
+    if (component.props[refName]) {
+        component.props[refName](ref);
+    }
+    return ref;
+}
+/**
+ * Use the dialog service while also automatically closing the dialogs opened
+ * by the current component when it is unmounted.
+ */
+export function useOwnedDialogs() {
+    const dialogService = useService("dialog");
+    const cbs = [];
+    onWillUnmount(() => {
+        cbs.forEach((cb) => cb());
+    });
+    const addDialog = (...args) => {
+        const close = dialogService.add(...args);
+        cbs.push(close);
+        return close;
+    };
+    return addDialog;
 }

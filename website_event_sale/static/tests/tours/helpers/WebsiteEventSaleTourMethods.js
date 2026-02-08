@@ -9,7 +9,7 @@ odoo.define('website_event_sale.tour.WebsiteEventSaleTourMethods', function (req
             },
             {
                 content: "Toggle Pricelist",
-                trigger: "div.o_pricelist_dropdown a[data-toggle=dropdown]",
+                trigger: '.o_pricelist_dropdown > .dropdown-toggle',
                 run: 'click',
             },
             {
@@ -57,9 +57,9 @@ odoo.define('website_event_sale.tour.WebsiteEventSaleTourMethods', function (req
                 content: "Go to page Cart",
                 trigger: '.fa-shopping-cart',
             },
-            {
+           {
                 content: "Verify Price",
-                trigger: `#order_total td:contains(${price})`,
+                trigger: `[id=order_total] .oe_currency_value:contains(${price})`,
                 run: function () {}, // it's a check
             },
         ]

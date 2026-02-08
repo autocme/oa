@@ -1,6 +1,6 @@
 /** @odoo-module **/
 
-import { SampleServer } from "@web/views/helpers/sample_server";
+import { SampleServer } from "@web/views/sample_server";
 
 const {
     MAIN_RECORDSET_SIZE,
@@ -120,7 +120,7 @@ QUnit.module(
             const allFieldNames = Object.keys(fields["res.users"]);
             const server = new DeterministicSampleServer("res.users", fields["res.users"]);
             const { records } = await server.mockRpc({
-                method: "/web/dataset/search_read",
+                method: "web_search_read",
                 model: "res.users",
                 fields: allFieldNames,
             });
@@ -201,7 +201,7 @@ QUnit.module(
 
             const server = new DeterministicSampleServer("res.country", fields["res.country"]);
             const { records } = await server.mockRpc({
-                method: "/web/dataset/search_read",
+                method: "web_search_read",
                 model: "res.country",
                 fields: ["display_name"],
             });
@@ -215,7 +215,7 @@ QUnit.module(
             const server = new DeterministicSampleServer("hobbit", fields.hobbit);
 
             const { records } = await server.mockRpc({
-                method: "/web/dataset/search_read",
+                method: "web_search_read",
                 model: "hobbit",
                 fields: ["display_name"],
             });
@@ -231,7 +231,7 @@ QUnit.module(
             const server = new DeterministicSampleServer("hobbit", fields.hobbit);
 
             const result = await server.mockRpc({
-                method: "/web/dataset/search_read",
+                method: "web_search_read",
                 model: "hobbit",
                 fields: ["display_name"],
             });
@@ -247,7 +247,7 @@ QUnit.module(
             const server = new DeterministicSampleServer("hobbit", fields.hobbit);
 
             const result = await server.mockRpc({
-                method: "/web/dataset/search_read",
+                method: "web_search_read",
                 model: "hobbit",
                 fields: ["name"],
             });
@@ -265,7 +265,7 @@ QUnit.module(
             assert.expect(1);
 
             const server = new DeterministicSampleServer("hobbit", fields.hobbit);
-            server.setExistingGroups([]);
+            server.setExistingGroups(null);
 
             const result = await server.mockRpc({
                 method: "web_read_group",
@@ -273,7 +273,26 @@ QUnit.module(
                 groupBy: ["profession"],
             });
 
-            assert.deepEqual(result, { groups: [], length: 0 });
+            assert.deepEqual(result, {
+                groups: [
+                    {
+                        __domain: [],
+                        profession: "adventurer",
+                        profession_count: 5,
+                    },
+                    {
+                        __domain: [],
+                        profession: "brewer",
+                        profession_count: 5,
+                    },
+                    {
+                        __domain: [],
+                        profession: "gardener",
+                        profession_count: 6,
+                    },
+                ],
+                length: 3,
+            });
         });
 
         QUnit.test("Send 'web_read_group' RPC: 2 groups", async function (assert) {
@@ -281,8 +300,8 @@ QUnit.module(
 
             const server = new DeterministicSampleServer("hobbit", fields.hobbit);
             const existingGroups = [
-                { profession: "gardener", profession_count: 0 },
-                { profession: "adventurer", profession_count: 0 },
+                { value: "gardener", profession_count: 0 }, // fake group
+                { value: "adventurer", profession_count: 0 }, // fake group
             ];
             server.setExistingGroups(existingGroups);
 
@@ -297,7 +316,7 @@ QUnit.module(
             assert.strictEqual(result.groups.length, 2);
 
             assert.deepEqual(
-                result.groups.map((g) => g.profession),
+                result.groups.map((g) => g.value),
                 ["gardener", "adventurer"]
             );
 
@@ -313,9 +332,9 @@ QUnit.module(
 
             const server = new DeterministicSampleServer("hobbit", fields.hobbit);
             const existingGroups = [
-                { profession: "gardener", profession_count: 0 },
-                { profession: "brewer", profession_count: 0 },
-                { profession: "adventurer", profession_count: 0 },
+                { value: "gardener", profession_count: 0 }, // fake group
+                { value: "brewer", profession_count: 0 }, // fake group
+                { value: "adventurer", profession_count: 0 }, // fake group
             ];
             server.setExistingGroups(existingGroups);
 
@@ -330,7 +349,7 @@ QUnit.module(
             assert.strictEqual(result.groups.length, 3);
 
             assert.deepEqual(
-                result.groups.map((g) => g.profession),
+                result.groups.map((g) => g.value),
                 ["gardener", "brewer", "adventurer"]
             );
 
@@ -444,6 +463,22 @@ QUnit.module(
 
                 assert.ok("profession" in result[0]);
                 assert.ok("age" in result[0]);
+            }
+        );
+
+        QUnit.test(
+            "Send 'read_group' RPC: multiple groupBys among which a many2many",
+            async function (assert) {
+                const server = new DeterministicSampleServer("res.users", fields["res.users"]);
+                const result = await server.mockRpc({
+                    method: "read_group",
+                    model: "res.users",
+                    fields: [],
+                    groupBy: ["height", "tag_ids"],
+                    lazy: false,
+                });
+                assert.ok(typeof result[0].tag_ids[0] === "number");
+                assert.ok(typeof result[0].tag_ids[1] === "string");
             }
         );
 

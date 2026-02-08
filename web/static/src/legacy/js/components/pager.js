@@ -1,10 +1,10 @@
 odoo.define('web.Pager', function (require) {
     "use strict";
 
-    const { useAutofocus } = require('web.custom_hooks');
+    const { useAutofocus } = require("@web/core/utils/hooks");
+    const { LegacyComponent } = require("@web/legacy/legacy_component");
 
-    const { Component, hooks } = owl;
-    const { useState } = hooks;
+    const { onWillUpdateProps, useState } = owl;
 
     /**
      * Pager
@@ -19,7 +19,7 @@ odoo.define('web.Pager', function (require) {
      * or previous).
      * @extends Component
      */
-    class Pager extends Component {
+    class Pager extends LegacyComponent {
         /**
          * @param {Object} [props]
          * @param {int} [props.size] the total number of elements
@@ -31,18 +31,18 @@ odoo.define('web.Pager', function (require) {
          * @param {boolean} [props.withAccessKey] can be disabled, for example,
          *   for x2m widgets
          */
-        constructor() {
-            super(...arguments);
-
+        setup() {
             this.state = useState({
                 disabled: false,
                 editing: false,
             });
 
             useAutofocus();
+
+            onWillUpdateProps(this.onWillUpdateProps);
         }
 
-        async willUpdateProps() {
+        async onWillUpdateProps() {
             this.state.editing = false;
             this.state.disabled = false;
         }
@@ -84,7 +84,7 @@ odoo.define('web.Pager', function (require) {
         async _changeSelection(direction) {
             try {
                 await this.props.validate();
-            } catch (err) {
+            } catch (_err) {
                 return;
             }
             const { limit, size } = this.props;
@@ -115,7 +115,7 @@ odoo.define('web.Pager', function (require) {
         async _saveValue(value) {
             try {
                 await this.props.validate();
-            } catch (err) {
+            } catch (_err) {
                 return;
             }
             const [min, max] = value.trim().split(/\s*[\-\s,;]\s*/);
@@ -155,7 +155,7 @@ odoo.define('web.Pager', function (require) {
                 // have to disable the edition manually here.
                 this.state.editing = false;
             }
-            this.trigger('pager-changed', { currentMinimum, limit });
+            this.props.onPagerChanged({ currentMinimum, limit });
         }
 
         //---------------------------------------------------------------------
@@ -213,13 +213,14 @@ odoo.define('web.Pager', function (require) {
     };
     Pager.props = {
         currentMinimum: { type: Number, optional: 1 },
-        editable: Boolean,
+        editable: { type: Boolean, optional: true },
         limit: { validate: l => !isNaN(l), optional: 1 },
         size: { type: Number, optional: 1 },
-        validate: Function,
-        withAccessKey: Boolean,
+        validate: { type: Function, optional: true },
+        withAccessKey: { type: Boolean, optional: true },
+        onPagerChanged: Function,
     };
-    Pager.template = 'web.Pager';
+    Pager.template = 'web.legacy.Pager';
 
     return Pager;
 });

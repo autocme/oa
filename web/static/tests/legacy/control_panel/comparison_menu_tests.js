@@ -76,7 +76,6 @@ odoo.define('web.comparison_menu_tests', function (require) {
                 ["false", "false"]
             );
 
-            controlPanel.destroy();
             unpatchDate();
         });
 
@@ -147,7 +146,6 @@ odoo.define('web.comparison_menu_tests', function (require) {
 
             assert.deepEqual(cpHelpers.getFacetTexts(controlPanel), []);
 
-            controlPanel.destroy();
             unpatchDate();
         });
 
@@ -166,8 +164,6 @@ odoo.define('web.comparison_menu_tests', function (require) {
             await cpHelpers.toggleMenuItemOption(controlPanel, "Birthday", 0);
 
             assert.notOk("timeRanges" in controlPanel.getQuery());
-
-            controlPanel.destroy();
         });
     });
 });

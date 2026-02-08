@@ -13,16 +13,17 @@ Lets the user create a custom dashboard.
 
 Allows users to create custom dashboard.
     """,
-    'depends': ['base', 'web'],
+    'depends': ['spreadsheet_dashboard'],
     'data': [
         'security/ir.model.access.csv',
         'views/board_views.xml',
         ],
-    'application': True,
+    'application': False,
     'assets': {
         'web.assets_backend': [
             'board/static/src/**/*.scss',
             'board/static/src/**/*.js',
+            'board/static/src/**/*.xml',
         ],
         'web.qunit_suite_tests': [
             'board/static/tests/**/*',
@@ -30,9 +31,6 @@ Allows users to create custom dashboard.
         ],
         'web.qunit_mobile_suite_tests': [
             'board/static/tests/mobile/**/*',
-        ],
-        'web.assets_qweb': [
-            'board/static/src/**/*.xml',
         ],
     },
     'license': 'LGPL-3',

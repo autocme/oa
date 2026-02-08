@@ -2,7 +2,9 @@
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
 
 from odoo import api, fields, models, _
-from odoo.tools import html_escape
+from odoo.tools import email_normalize, email_split, html_escape, html2plaintext, plaintext2html
+
+from markupsafe import Markup
 
 
 class MailChannel(models.Model):
@@ -15,10 +17,12 @@ class MailChannel(models.Model):
     _inherit = ['mail.channel', 'rating.mixin']
 
     anonymous_name = fields.Char('Anonymous Name')
-    channel_type = fields.Selection(selection_add=[('livechat', 'Livechat Conversation')])
-    livechat_active = fields.Boolean('Is livechat ongoing?', help='Livechat session is active until visitor leave the conversation.')
-    livechat_channel_id = fields.Many2one('im_livechat.channel', 'Channel')
-    livechat_operator_id = fields.Many2one('res.partner', string='Operator', help="""Operator for this specific channel""")
+    channel_type = fields.Selection(selection_add=[('livechat', 'Livechat Conversation')], ondelete={'livechat': 'cascade'})
+    livechat_active = fields.Boolean('Is livechat ongoing?', help='Livechat session is active until visitor leaves the conversation.')
+    livechat_channel_id = fields.Many2one('im_livechat.channel', 'Channel', index='btree_not_null')
+    livechat_operator_id = fields.Many2one('res.partner', string='Operator')
+    chatbot_current_step_id = fields.Many2one('chatbot.script.step', string='Chatbot Current Step')
+    chatbot_message_ids = fields.One2many('chatbot.message', 'mail_channel_id', string='Chatbot Messages')
     country_id = fields.Many2one('res.country', string="Country", help="Country of the visitor of the channel")
 
     _sql_constraints = [('livechat_operator_id', "CHECK((channel_type = 'livechat' and livechat_operator_id is not null) or (channel_type != 'livechat'))",
@@ -37,14 +41,14 @@ class MailChannel(models.Model):
         """
         notifications = super()._channel_message_notifications(message=message, message_format=message_format)
         for channel in self:
-            # add uuid for private livechat channels to allow anonymous to listen
-            if channel.channel_type == 'livechat' and channel.public == 'private':
+            # add uuid to allow anonymous to listen
+            if channel.channel_type == 'livechat':
                 notifications.append([channel.uuid, 'mail.channel/new_message', notifications[0][2]])
         if not message.author_id:
-            unpinned_channel_partner = self.channel_last_seen_partner_ids.filtered(lambda cp: not cp.is_pinned)
-            if unpinned_channel_partner:
-                unpinned_channel_partner.write({'is_pinned': True})
-                notifications = self._channel_channel_notifications(unpinned_channel_partner.mapped('partner_id').ids) + notifications
+            unpinned_members = self.channel_member_ids.filtered(lambda member: not member.is_pinned)
+            if unpinned_members:
+                unpinned_members.write({'is_pinned': True})
+                notifications = self._channel_channel_notifications(unpinned_members.partner_id.ids) + notifications
         return notifications
 
     def channel_info(self):
@@ -54,75 +58,16 @@ class MailChannel(models.Model):
         channel_infos = super().channel_info()
         channel_infos_dict = dict((c['id'], c) for c in channel_infos)
         for channel in self:
-            # add the last message date
-            if channel.channel_type == 'livechat':
-                # add the operator id
-                if channel.livechat_operator_id:
-                    display_name = channel.livechat_operator_id.user_livechat_username or channel.livechat_operator_id.display_name
-                    channel_infos_dict[channel.id]['operator_pid'] = (channel.livechat_operator_id.id, display_name.replace(',', ''))
-                # add the anonymous or partner name
-                channel_infos_dict[channel.id]['livechat_visitor'] = channel._channel_get_livechat_visitor_info()
+            channel_infos_dict[channel.id]['channel']['anonymous_name'] = channel.anonymous_name
+            channel_infos_dict[channel.id]['channel']['anonymous_country'] = {
+                'code': channel.country_id.code,
+                'id': channel.country_id.id,
+                'name': channel.country_id.name,
+            } if channel.country_id else [('clear',)]
+            if channel.livechat_operator_id:
+                display_name = channel.livechat_operator_id.user_livechat_username or channel.livechat_operator_id.display_name
+                channel_infos_dict[channel.id]['operator_pid'] = (channel.livechat_operator_id.id, display_name.replace(',', ''))
         return list(channel_infos_dict.values())
-
-    def _channel_info_format_member(self, partner, partner_info):
-        """Override to remove sensitive information in livechat."""
-        if self.channel_type == 'livechat':
-            return {
-                'active': partner.active,
-                'id': partner.id,
-                'name': partner.user_livechat_username or partner.name,  # for API compatibility in stable
-                'email': False,  # for API compatibility in stable
-                'im_status': False,  # for API compatibility in stable
-                'livechat_username': partner.user_livechat_username,
-            }
-        return super()._channel_info_format_member(partner=partner, partner_info=partner_info)
-
-    def _notify_typing_partner_data(self):
-        """Override to remove name and return livechat username if applicable."""
-        data = super()._notify_typing_partner_data()
-        if self.channel_type == 'livechat' and self.env.user.partner_id.user_livechat_username:
-            data['partner_name'] = self.env.user.partner_id.user_livechat_username  # for API compatibility in stable
-            data['livechat_username'] = self.env.user.partner_id.user_livechat_username
-        return data
-
-    def _channel_get_livechat_visitor_info(self):
-        self.ensure_one()
-        # remove active test to ensure public partner is taken into account
-        channel_partner_ids = self.with_context(active_test=False).channel_partner_ids
-        partners = channel_partner_ids - self.livechat_operator_id
-        if not partners:
-            # operator probably testing the livechat with his own user
-            partners = channel_partner_ids
-        first_partner = partners and partners[0]
-        if first_partner and (not first_partner.user_ids or not any(user._is_public() for user in first_partner.user_ids)):
-            # legit non-public partner
-            return {
-                'country': first_partner.country_id.name_get()[0] if first_partner.country_id else False,
-                'id': first_partner.id,
-                'name': first_partner.name,
-            }
-        return {
-            'country': self.country_id.name_get()[0] if self.country_id else False,
-            'id': False,
-            'name': self.anonymous_name or _("Visitor"),
-        }
-
-    def _channel_get_livechat_partner_name(self):
-        if self.livechat_operator_id in self.channel_partner_ids:
-            partners = self.channel_partner_ids - self.livechat_operator_id
-            if partners:
-                partner_name = False
-                for partner in partners:
-                    if not partner_name:
-                        partner_name = partner.name
-                    else:
-                        partner_name += ', %s' % partner.name
-                    if partner.country_id:
-                        partner_name += ' (%s)' % partner.country_id.name
-                return partner_name
-        if self.anonymous_name:
-            return self.anonymous_name
-        return _("Visitor")
 
     @api.autovacuum
     def _gc_empty_livechat_sessions(self):
@@ -131,7 +76,7 @@ class MailChannel(models.Model):
             SELECT id as id
             FROM mail_channel C
             WHERE NOT EXISTS (
-                SELECT *
+                SELECT 1
                 FROM mail_message M
                 WHERE M.res_id = C.id AND m.model = 'mail.channel'
             ) AND C.channel_type = 'livechat' AND livechat_channel_id IS NOT NULL AND
@@ -161,7 +106,7 @@ class MailChannel(models.Model):
                 'id': message.id,
                 'body': message.body,
             })
-        super()._message_update_content_after_hook(message=message)
+        return super()._message_update_content_after_hook(message=message)
 
     def _get_visitor_leave_message(self, operator=False, cancel=False):
         return _('Visitor has left the conversation.')
@@ -189,14 +134,102 @@ class MailChannel(models.Model):
             "company": company,
             "channel": self,
         }
-        template = self.env.ref('im_livechat.livechat_email_template')
-        mail_body = template._render(render_context, engine='ir.qweb', minimal_qcontext=True)
+        mail_body = self.env['ir.qweb']._render('im_livechat.livechat_email_template', render_context, minimal_qcontext=True)
         mail_body = self.env['mail.render.mixin']._replace_local_links(mail_body)
         mail = self.env['mail.mail'].sudo().create({
             'subject': _('Conversation with %s', self.livechat_operator_id.user_livechat_username or self.livechat_operator_id.name),
             'email_from': company.catchall_formatted or company.email_formatted,
             'author_id': self.env.user.partner_id.id,
-            'email_to': email,
+            'email_to': email_split(email)[0],
             'body_html': mail_body,
         })
         mail.send()
+
+    def _get_channel_history(self):
+        """
+        Converting message body back to plaintext for correct data formatting in HTML field.
+        """
+        return Markup('').join(
+            Markup('%s: %s<br/>') % (message.author_id.name or self.anonymous_name, html2plaintext(message.body))
+            for message in self.message_ids.sorted('id')
+        )
+
+    # =======================
+    # Chatbot
+    # =======================
+
+    def _chatbot_find_customer_values_in_messages(self, step_type_to_field):
+        """
+        Look for user's input in the channel's messages based on a dictionary
+        mapping the step_type to the field name of the model it will be used on.
+
+        :param dict step_type_to_field: a dict of step types to customer fields
+            to fill, like : {'question_email': 'email_from', 'question_phone': 'mobile'}
+        """
+        values = {}
+        filtered_message_ids = self.chatbot_message_ids.filtered(
+            lambda m: m.script_step_id.step_type in step_type_to_field.keys()
+        )
+        for message_id in filtered_message_ids:
+            field_name = step_type_to_field[message_id.script_step_id.step_type]
+            if not values.get(field_name):
+                values[field_name] = html2plaintext(message_id.user_raw_answer or '')
+
+        return values
+
+    def _chatbot_post_message(self, chatbot_script, body):
+        """ Small helper to post a message as the chatbot operator
+
+        :param record chatbot_script
+        :param string body: message HTML body """
+
+        return self.with_context(mail_create_nosubscribe=True).message_post(
+            author_id=chatbot_script.operator_partner_id.id,
+            body=body,
+            message_type='comment',
+            subtype_xmlid='mail.mt_comment',
+        )
+
+    def _chatbot_validate_email(self, email_address, chatbot_script):
+        email_address = html2plaintext(email_address)
+        email_normalized = email_normalize(email_address)
+
+        posted_message = False
+        error_message = False
+        if not email_normalized:
+            error_message = _(
+                "'%(input_email)s' does not look like a valid email. Can you please try again?",
+                input_email=email_address
+            )
+            posted_message = self._chatbot_post_message(chatbot_script, plaintext2html(error_message))
+
+        return {
+            'success': bool(email_normalized),
+            'posted_message': posted_message,
+            'error_message': error_message,
+        }
+
+    def _message_post_after_hook(self, message, msg_vals):
+        """
+        This method is called just before _notify_thread() method which is calling the _message_format()
+        method. We need a 'chatbot.message' record before it happens to correctly display the message.
+        It's created only if the mail channel is linked to a chatbot step.
+        """
+        if self.chatbot_current_step_id:
+            self.env['chatbot.message'].sudo().create({
+                'mail_message_id': message.id,
+                'mail_channel_id': self.id,
+                'script_step_id': self.chatbot_current_step_id.id,
+            })
+        return super(MailChannel, self)._message_post_after_hook(message, msg_vals)
+
+    def _chatbot_restart(self, chatbot_script):
+        self.write({
+            'chatbot_current_step_id': False
+        })
+
+        self.chatbot_message_ids.unlink()
+
+        return self._chatbot_post_message(
+            chatbot_script,
+            '<div class="o_mail_notification">%s</div>' % _('Restarting conversation...'))

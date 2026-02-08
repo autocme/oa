@@ -72,7 +72,7 @@ class PurchaseOrderLine(models.Model):
 
     def _get_upstream_documents_and_responsibles(self, visited):
         return [(self.order_id, self.order_id.user_id, visited)]
-    
+
     def _get_qty_procurement(self):
         self.ensure_one()
         # Specific case when we change the qty on a PO for a kit product.
@@ -83,4 +83,3 @@ class PurchaseOrderLine(models.Model):
         if bom and 'previous_product_qty' in self.env.context:
             return self.env.context['previous_product_qty'].get(self.id, 0.0)
         return super()._get_qty_procurement()
-

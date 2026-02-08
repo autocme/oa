@@ -8,13 +8,17 @@ import { capitalize } from "@web/core/utils/strings";
 import { getVisibleElements } from "@web/core/utils/ui";
 import { DefaultCommandItem } from "./command_palette";
 
-const { Component } = owl;
+import { Component } from "@odoo/owl";
+
+const commandSetupRegistry = registry.category("command_setup");
+commandSetupRegistry.add("default", {
+    emptyMessage: _lt("No command found"),
+    placeholder: _lt("Search for a command..."),
+});
 
 export class HotkeyCommandItem extends Component {
     setup() {
-        useHotkey(this.props.hotkey, () => {
-            this.trigger("execute-command");
-        });
+        useHotkey(this.props.hotkey, this.props.executeCommand);
     }
 
     getKeysToPress(command) {
@@ -29,20 +33,20 @@ export class HotkeyCommandItem extends Component {
     }
 }
 HotkeyCommandItem.template = "web.HotkeyCommandItem";
-const commandEmptyMessageRegistry = registry.category("command_empty_list");
-commandEmptyMessageRegistry.add("default", _lt("No commands found"));
 
 const commandCategoryRegistry = registry.category("command_categories");
-
 const commandProviderRegistry = registry.category("command_provider");
 commandProviderRegistry.add("command", {
     provide: (env, options = {}) => {
-        const commands = env.services.command.getCommands(options.activeElement).map((cmd) => {
-            cmd.category = commandCategoryRegistry.contains(cmd.category)
-                ? cmd.category
-                : "default";
-            return cmd;
-        });
+        const commands = env.services.command
+            .getCommands(options.activeElement)
+            .map((cmd) => {
+                cmd.category = commandCategoryRegistry.contains(cmd.category)
+                    ? cmd.category
+                    : "default";
+                return cmd;
+            })
+            .filter((command) => command.isAvailable === undefined || command.isAvailable());
 
         return commands.map((command) => ({
             Component: command.hotkey ? HotkeyCommandItem : DefaultCommandItem,
@@ -71,7 +75,7 @@ commandProviderRegistry.add("data-hotkeys", {
 
             const description =
                 el.title ||
-                el.dataset.originalTitle || // LEGACY: bootstrap moves title to data-original-title
+                el.dataset.bsOriginalTitle || // LEGACY: bootstrap moves title to data-bs-original-title
                 el.dataset.tooltip ||
                 el.placeholder ||
                 (el.innerText &&

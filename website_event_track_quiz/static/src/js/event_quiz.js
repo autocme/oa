@@ -5,7 +5,6 @@ odoo.define('website_event_track_quiz.event.quiz', function (require) {
 var publicWidget = require('web.public.widget');
 var core = require('web.core');
 var session = require('web.session');
-var utils = require('web.utils');
 
 var QWeb = core.qweb;
 var _t = core._t;
@@ -19,7 +18,6 @@ var _t = core._t;
  */
 var Quiz = publicWidget.Widget.extend({
     template: 'quiz.main',
-    xmlDependencies: ['/website_event_track_quiz/static/src/xml/quiz_templates.xml'],
     events: {
         "click .o_quiz_quiz_answer": '_onAnswerClick',
         "click .o_quiz_js_quiz_submit": '_submitQuiz',
@@ -68,7 +66,7 @@ var Quiz = publicWidget.Widget.extend({
      * Overridden to add custom rendering behavior upon start of the widget.
      *
      * If the user has answered the quiz before having joined the course, we check
-     * his answers (saved into his session) here as well.
+     * their answers (saved into their session) here as well.
      *
      * @override
      */
@@ -235,9 +233,6 @@ var Quiz = publicWidget.Widget.extend({
                 }
                 self._renderAnswersHighlightingAndComments();
                 self._renderValidationInfo();
-                if (data.visitor_uuid) {
-                    utils.set_cookie('visitor_uuid', data.visitor_uuid);
-                }
             }
 
             return Promise.resolve(data);

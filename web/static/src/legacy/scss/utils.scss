@@ -67,37 +67,6 @@
 @function luma($color) {
     @return ((red($color) * .299) + (green($color) * .587) + (blue($color) * .114)) / 255 * 100%;
 }
-//
-// Given two colors, returns the one which has the most constrast with another
-// given color. Careful: if you want to find the text color which will suit the
-// most on a given background color, you should use the 'color-yiq' function.
-//
-@function o-get-most-contrast($color, $c1, $c2, $background: #FFFFFF, $threshold: false, $cross-mix: true) {
-    $background: if($background == null, #FFFFFF, $background);
-
-    $real-color: mix(rgba($color, 1.0), $background, percentage(alpha($color)));
-    $luma: luma($real-color);
-
-    $cross-color: if($cross-mix, $real-color, $background);
-
-    $real-c1: mix(rgba($c1, 1.0), $cross-color, percentage(alpha($c1)));
-    $luma-c1: luma($real-c1);
-
-    $real-c2: mix(rgba($c2, 1.0), $cross-color, percentage(alpha($c2)));
-    $luma-c2: luma($real-c2);
-
-    $-dark: if($luma-c1 <= $luma-c2, $c1, $c2);
-    $-light: if($luma-c1 > $luma-c2, $c1, $c2);
-
-    @if $threshold == false {
-        // Automatic threshold: give a really small preference to light results
-        // as bootstrap does by default (mainly by compatibility at the moment
-        // this code is written)
-        $threshold: ($luma-c1 + $luma-c2) * 0.515; // 150 / 145.63 * 0.5 would be the BS value
-    }
-
-    @return if($luma > $threshold, $-dark, $-light);
-}
 
 // Extend placeholder which adds a chess-like background below the color and
 // image of an element to preview the transparency of that color and image.
@@ -127,11 +96,11 @@
 // This function checks if the color ($color) has enough contrast to be visible
 // on a background with the color ($background-color). If not, it is replaced
 // with $light (if too dark) or $dark (if too light).
-@function adjust-color-to-background($color, $background-color, $light: $yiq-text-light, $dark: $yiq-text-dark) {
+@function adjust-color-to-background($color, $background-color, $light: $color-contrast-light, $dark: $color-contrast-dark) {
     @return if(
-        color-yiq($color) == $yiq-text-dark,
-        color-yiq($background-color, $color, $dark),
-        color-yiq($background-color, $light, $color)
+        color-contrast($color) == $color-contrast-dark,
+        color-contrast($background-color, $color, $dark),
+        color-contrast($background-color, $light, $color)
     );
 }
 
@@ -148,7 +117,7 @@
 // ------------------------------------------------------------------
 // Caret
 // ------------------------------------------------------------------
-@mixin o-caret-down($caret-width: $caret-width, $caret-color: var(--o-input-border-color, currentColor)) {
+@mixin o-caret-down($caret-width: $caret-width, $caret-color: var(--o-caret-color, currentColor)) {
     @include utils-caret-boilerplate;
     border-bottom: 0;
     border-left: $caret-width solid transparent;
@@ -184,7 +153,18 @@
 @mixin o-grab-cursor() {
     // Use a custom cursor for the open hand icon as "grab" is not properly
     // working on Chrome Linux (at least)
-    cursor: url(/web/static/src/img/openhand.cur), grab;
+    cursor: url(/web/static/img/openhand.cur), grab;
+}
+
+@mixin o-field-pointer() {
+    // Force `pointer`cursor on  inputs and labels
+    .form-check-input:not(:disabled), .form-check-input:not(:disabled) + label {
+        cursor: pointer;
+    }
+
+    &:hover, &:hover .form-check-input:not(:disabled) {
+        border-color: $form-check-input-checked-border-color;
+    }
 }
 
 // ------------------------------------------------------------------
@@ -206,12 +186,16 @@
     @include o-hover-text-color($default-color: $color, $hover-color: $color-active);
 
     &, &:hover, &:focus, &:active, &.active {
-        border-color: transparent;
-        background-color: transparent;
+        border-color: transparent !important;
+        background-color: transparent !important;
+    }
+
+    &:hover:active:focus {
+        box-shadow: none;
+        outline: none;
     }
 
     &.text-muted, .text-muted {
-        @include o-hover-opacity;
         @include o-hover-text-color($default-color: $text-muted, $hover-color: $color-active);
     }
 }
@@ -225,16 +209,13 @@
 // @param {integer} [$index] - the position where to add the support font, if
 //        not given, it will be placed before the generic one.
 @function o-add-unicode-support-font($font, $index: false) {
-    @if $index == false {
-        $index: length($font);
-    }
-
     $-with-support-font: ();
     @for $i from 1 through length($font) {
-        @if $i == $index {
+        $-part: nth($font, $i);
+        @if $i == $index or $-part == serif or $-part == sans-serif {
             $-with-support-font: append($-with-support-font, 'Odoo Unicode Support Noto', $separator: comma);
         }
-        $-with-support-font: append($-with-support-font, nth($font, $i), $separator: comma);
+        $-with-support-font: append($-with-support-font, $-part, $separator: comma);
     }
 
     @return $-with-support-font;
@@ -275,14 +256,6 @@
 }
 
 // ------- Kanban grouped mixins -------
-@mixin o-kanban-icon($base-opacity: 0.5) {
-    display: block;
-    text-align: center;
-    color: $o-main-text-color;
-    font-size: $font-size-sm;
-    cursor: pointer;
-    @include o-hover-opacity($base-opacity);
-}
 @mixin o-kanban-tag-color {
     @for $size from 1 through length($o-colors) {
         // Note: the first color is supposed to be invisible if there is a color
@@ -323,8 +296,6 @@
     transform-origin: left bottom 0;
     transform: rotate(90deg);
     overflow: visible;
-    white-space: nowrap;
-    font-size: 15px;
 }
 
 // ------- Kanban records mixins -------
@@ -337,7 +308,7 @@
 }
 @mixin o-kanban-dropdown($padding-base: $o-kanban-inside-vgutter) {
     margin: -1px -1px 1px;
-    padding: $padding-base/2 $padding-base;
+    padding: if(type-of($padding-base) == 'string', calc(#{$padding-base}/2) $padding-base, $padding-base/2 $padding-base);
     border: 1px solid transparent;
     border-bottom: none;
     vertical-align: top;
@@ -350,15 +321,9 @@
 }
 @mixin o-kanban-dropdown-open {
     position: relative;
-    background: white;
+    background: $dropdown-bg;
     border-color: $border-color;
     z-index: $zindex-dropdown + 1;
-}
-@mixin o-kanban-dropdown-menu {
-    @include o-position-absolute($right: -1px);
-    margin-top: -2px;
-    border-color: $border-color;
-    border-top-right-radius: 0;
 }
 @mixin o-kanban-colorpicker {
     max-width: 150px;
@@ -368,7 +333,7 @@
         display: inline-block;
         margin: $o-kanban-inner-hmargin $o-kanban-inner-hmargin 0 0;
         border: 1px solid white;
-        box-shadow: 0 0 0 1px gray('300');
+        box-shadow: 0 0 0 1px map-get($grays, '300');
 
         > a {
             display: block;
@@ -453,10 +418,18 @@
 
 %o-nocontent-empty-document {
     @extend %o-nocontent-init-image;
-    @include size(120px, 80px);
+    width: 120px;
+    height: 80px;
     margin-top: 30px;
     margin-bottom: 30px;
     background: transparent url(/web/static/img/empty_folder.svg) no-repeat center;
+}
+
+// Sample data
+@mixin o-sample-data-disabled {
+    opacity: 0.33;
+    pointer-events: none;
+    user-select: none;
 }
 
 // ----------------------------------------------------------------------------

@@ -11,8 +11,8 @@ from odoo.addons.website.tools import MockRequest
 class WebsiteSaleCartPayment(PaymentCommon):
 
     @classmethod
-    def setUpClass(cls, chart_template_ref=None):
-        super().setUpClass(chart_template_ref=chart_template_ref)
+    def setUpClass(cls):
+        super().setUpClass()
 
         cls.website = cls.env['website'].get_current_website()
         with MockRequest(cls.env, website=cls.website):
@@ -20,7 +20,7 @@ class WebsiteSaleCartPayment(PaymentCommon):
         cls.tx = cls.env['payment.transaction'].create({
             'amount': cls.amount,
             'currency_id': cls.currency.id,
-            'acquirer_id': cls.acquirer.id,
+            'provider_id': cls.provider.id,
             'reference': cls.reference,
             'operation': 'online_redirect',
             'partner_id': cls.partner.id,
@@ -43,7 +43,7 @@ class WebsiteSaleCartPayment(PaymentCommon):
     def test_paid_orders_cannot_be_retrieved(self):
         """ Test that fetching sales orders linked to a payment transaction in the states 'pending',
         'authorized', or 'done' returns an empty recordset to prevent updating the paid orders. """
-        self.tx.acquirer_id.support_authorization = True
+        self.tx.provider_id.support_manual_capture = True
         for paid_order_tx_state in ('pending', 'authorized', 'done'):
             self.tx.state = paid_order_tx_state
             with MockRequest(self.env, website=self.website, sale_order_id=self.order.id):

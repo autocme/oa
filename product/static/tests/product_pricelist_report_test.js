@@ -4,6 +4,7 @@ const GeneratePriceList = require('product.generate_pricelist').GeneratePriceLis
 const testUtils = require('web.test_utils');
 
 const { createWebClient, doAction } = require('@web/../tests/webclient/helpers');
+const { getFixture, patchWithCleanup  } = require("@web/../tests/helpers/utils");
 
 let serverData;
 
@@ -36,11 +37,10 @@ QUnit.module('Product Pricelist', {
         },
 }, function () {
     QUnit.test('Pricelist Client Action', async function (assert) {
-        assert.expect(21);
+        assert.expect(23);
 
-        const self = this;
         let Qty = [1, 5, 10]; // default quantities
-        testUtils.mock.patch(GeneratePriceList, {
+        patchWithCleanup(GeneratePriceList.prototype, {
             _onFieldChanged: function (event) {
                 assert.step('field_changed');
                 return this._super.apply(this, arguments);
@@ -57,6 +57,7 @@ QUnit.module('Product Pricelist', {
             }
         };
 
+        const target = getFixture();
         const webClient = await createWebClient({ serverData, mockRPC });
         await doAction(webClient, {
             id: 1,
@@ -72,7 +73,7 @@ QUnit.module('Product Pricelist', {
         });
 
         // checking default pricelist
-        assert.strictEqual($(webClient.el).find('.o_field_many2one input').val(), "Public Pricelist",
+        assert.strictEqual($(target).find('.o_field_many2one input').val(), "Public Pricelist",
             "should have default pricelist");
 
         // changing pricelist
@@ -80,45 +81,46 @@ QUnit.module('Product Pricelist', {
         await testUtils.fields.many2one.clickItem("pricelist_id", "Test");
 
         // check wherther pricelist value has been updated or not. along with that check default quantities should be there.
-        assert.strictEqual($(webClient.el).find('.o_field_many2one input').val(), "Test",
+        assert.strictEqual($(target).find('.o_field_many2one input').val(), "Test",
             "After pricelist change, the pricelist_id field should be updated");
-        assert.strictEqual($(webClient.el).find('.o_badges > .badge').length, 3,
+        assert.strictEqual($(target).find('.o_badges > .badge').length, 3,
             "There should be 3 default Quantities");
 
         // existing quantity can not be added.
-        await testUtils.dom.click($(webClient.el).find('.o_add_qty'));
-        let notificationElement = document.body.querySelector('.o_notification_manager .o_notification.bg-info');
+        await testUtils.dom.click($(target).find('.o_add_qty'));
+        let notificationElement = document.body.querySelector('.o_notification_manager .o_notification');
         assert.strictEqual(notificationElement.querySelector('.o_notification_content').textContent,
             "Quantity already present (1).", "Existing Quantity can not be added");
+        assert.hasClass(notificationElement, "border-info");
 
         // adding few more quantities to check.
-        $(webClient.el).find('.o_product_qty').val(2);
+        $(target).find('.o_product_qty').val(2);
         Qty.push(2);
-        await testUtils.dom.click($(webClient.el).find('.o_add_qty'));
-        $(webClient.el).find('.o_product_qty').val(3);
+        await testUtils.dom.click($(target).find('.o_add_qty'));
+        $(target).find('.o_product_qty').val(3);
         Qty.push(3);
-        await testUtils.dom.click($(webClient.el).find('.o_add_qty'));
+        await testUtils.dom.click($(target).find('.o_add_qty'));
 
         // should not be added more then 5 quantities.
-        $(webClient.el).find('.o_product_qty').val(4);
-        await testUtils.dom.click($(webClient.el).find('.o_add_qty'));
+        $(target).find('.o_product_qty').val(4);
+        await testUtils.dom.click($(target).find('.o_add_qty'));
 
-        notificationElement = document.body.querySelector('.o_notification_manager .o_notification.bg-warning');
+        notificationElement = document.body.querySelector('.o_notification_manager .o_notification:nth-child(2)');
         assert.strictEqual(notificationElement.querySelector('.o_notification_content').textContent,
             "At most 5 quantities can be displayed simultaneously. Remove a selected quantity to add others.",
             "Can not add more then 5 quantities");
-
+        assert.hasClass(notificationElement, "border-warning");
         // removing all the quantities should work
         Qty.pop(10);
-        await testUtils.dom.click($(webClient.el).find('.o_badges .badge:contains("10") .o_remove_qty'));
+        await testUtils.dom.click($(target).find('.o_badges .badge:contains("10") .o_remove_qty'));
         Qty.pop(5);
-        await testUtils.dom.click($(webClient.el).find('.o_badges .badge:contains("5") .o_remove_qty'));
+        await testUtils.dom.click($(target).find('.o_badges .badge:contains("5") .o_remove_qty'));
         Qty.pop(3);
-        await testUtils.dom.click($(webClient.el).find('.o_badges .badge:contains("3") .o_remove_qty'));
+        await testUtils.dom.click($(target).find('.o_badges .badge:contains("3") .o_remove_qty'));
         Qty.pop(2);
-        await testUtils.dom.click($(webClient.el).find('.o_badges .badge:contains("2") .o_remove_qty'));
+        await testUtils.dom.click($(target).find('.o_badges .badge:contains("2") .o_remove_qty'));
         Qty.pop(1);
-        await testUtils.dom.click($(webClient.el).find('.o_badges .badge:contains("1") .o_remove_qty'));
+        await testUtils.dom.click($(target).find('.o_badges .badge:contains("1") .o_remove_qty'));
 
         assert.verifySteps([
             'field_changed',
@@ -130,8 +132,6 @@ QUnit.module('Product Pricelist', {
             'qty_changed',
             'qty_changed'
         ]);
-
-        testUtils.mock.unpatch(GeneratePriceList);
     });
 }
 

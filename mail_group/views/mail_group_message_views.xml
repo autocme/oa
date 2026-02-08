@@ -5,7 +5,7 @@
         <field name="model">mail.group.message</field>
         <field name="arch" type="xml">
             <tree sample="1">
-                <field name="create_date" string="Date"/>
+                <field name="create_date"/>
                 <field name="author_id"/>
                 <field name="email_from"/>
                 <field name="subject"/>
@@ -76,11 +76,12 @@
                         <label for="email_from" string="From"/>
                         <div>
                             <field name="email_from" nolabel="1"/>
-                            <span class="oe_read_only ml-2 badge badge-success" attrs="{'invisible': [('author_moderation', '!=', 'allow')]}">Whitelisted</span>
-                            <span class="oe_read_only ml-2 badge badge-danger" attrs="{'invisible': [('author_moderation', '!=', 'ban')]}">Banned</span>
+                            <span class="ms-2 badge text-bg-success" attrs="{'invisible': [('author_moderation', '!=', 'allow')]}">Whitelisted</span>
+                            <span class="ms-2 badge text-bg-danger" attrs="{'invisible': [('author_moderation', '!=', 'ban')]}">Banned</span>
                             <field name="author_moderation" invisible="1"/>
                         </div>
                         <field name="mail_group_id"/>
+                        <field name="create_date"/>
                         <field name="attachment_ids" widget="many2many_binary"/>
                         <field name="body" options="{'style-inline': true}"/>
                     </group>

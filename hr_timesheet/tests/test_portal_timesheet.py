@@ -20,4 +20,4 @@ class TestPortalTimesheet(TestProjectSharingCommon):
         })
         for view in ['form', 'tree']:
             # Should not raise any access error
-            self.env['account.analytic.line'].with_user(self.user_portal).fields_view_get(view_type=view)
+            self.env['account.analytic.line'].with_user(self.user_portal).get_view(view_type=view)

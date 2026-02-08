@@ -12,8 +12,7 @@ class HrEmployee(models.Model):
     _inherit = "hr.employee"
 
     attendance_ids = fields.One2many(
-        'hr.attendance', 'employee_id', groups="hr_attendance.group_hr_attendance_user,hr.group_hr_user",
-        help='list of attendances for the employee')
+        'hr.attendance', 'employee_id', groups="hr_attendance.group_hr_attendance_user,hr.group_hr_user")
     last_attendance_id = fields.Many2one(
         'hr.attendance', compute='_compute_last_attendance_id', store=True,
         groups="hr_attendance.group_hr_attendance_kiosk,hr_attendance.group_hr_attendance,hr.group_hr_user")
@@ -163,13 +162,18 @@ class HrEmployee(models.Model):
         action_message['barcode'] = employee.barcode
         action_message['next_action'] = next_action
         action_message['hours_today'] = employee.hours_today
+        action_message['kiosk_delay'] = employee.company_id.attendance_kiosk_delay * 1000
 
         if employee.user_id:
-            modified_attendance = employee.with_user(employee.user_id)._attendance_action_change()
+            modified_attendance = employee.with_user(employee.user_id).sudo()._attendance_action_change()
         else:
             modified_attendance = employee._attendance_action_change()
         action_message['attendance'] = modified_attendance.read()[0]
+        action_message['show_total_overtime'] = employee.company_id.hr_attendance_overtime
         action_message['total_overtime'] = employee.total_overtime
+        # Overtime have an unique constraint on the day, no need for limit=1
+        action_message['overtime_today'] = self.env['hr.attendance.overtime'].sudo().search([
+            ('employee_id', '=', employee.id), ('date', '=', fields.Date.context_today(self)), ('adjustment', '=', False)]).duration or 0
         return {'action': action_message}
 
     def _attendance_action_change(self):
@@ -203,6 +207,5 @@ class HrEmployee(models.Model):
     def _compute_presence_icon(self):
         res = super()._compute_presence_icon()
         # All employee must chek in or check out. Everybody must have an icon
-        employee_to_define = self.filtered(lambda e: e.hr_icon_display == 'presence_undetermined')
-        employee_to_define.hr_icon_display = 'presence_to_define'
+        self.filtered(lambda employee: not employee.show_hr_icon_display).show_hr_icon_display = True
         return res

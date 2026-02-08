@@ -1,41 +1,27 @@
 /** @odoo-module **/
 
+import { useUpdateToModel } from '@mail/component_hooks/use_update_to_model';
 import { registerMessagingComponent } from '@mail/utils/messaging_component';
 
 const { Component } = owl;
 
 export class DialogManager extends Component {
 
-    mounted() {
-        this._checkDialogOpen();
-    }
-
-    patched() {
-        this._checkDialogOpen();
-    }
-
-    //--------------------------------------------------------------------------
-    // Private
-    //--------------------------------------------------------------------------
-
     /**
-     * @private
+     * @override
      */
-    _checkDialogOpen() {
-        if (!this.messaging || !this.messaging.dialogManager) {
-            return;
-        }
-        if (this.messaging.dialogManager.dialogs.length > 0) {
-            document.body.classList.add('modal-open');
-        } else {
-            document.body.classList.remove('modal-open');
-        }
+    setup() {
+        super.setup();
+        useUpdateToModel({ methodName: 'onComponentUpdate' });
     }
 
+    get dialogManager() {
+        return this.props.record;
+    }
 }
 
 Object.assign(DialogManager, {
-    props: {},
+    props: { record: Object },
     template: 'mail.DialogManager',
 });
 

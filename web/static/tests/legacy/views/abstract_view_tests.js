@@ -1,14 +1,13 @@
 odoo.define('web.abstract_view_tests', function (require) {
 "use strict";
 
-var AbstractView = require('web.AbstractView');
-var ajax = require('web.ajax');
-var testUtils = require('web.test_utils');
+const { registry } = require('@web/core/registry');
+const legacyViewRegistry = require('web.view_registry');
+var ListView = require('web.ListView');
 
 const { createWebClient, doAction } = require('@web/../tests/webclient/helpers');
-var createView = testUtils.createView;
 
-QUnit.module('Views', {
+QUnit.module('LegacyViews', {
     beforeEach: function () {
         this.data = {
             fake_model: {
@@ -31,87 +30,11 @@ QUnit.module('Views', {
 
     QUnit.module('AbstractView');
 
-    QUnit.test('lazy loading of js libs (in parallel)', async function (assert) {
-        var done = assert.async();
-        assert.expect(6);
-
-        var prom = testUtils.makeTestPromise();
-        var loadJS = ajax.loadJS;
-        ajax.loadJS = function (url) {
-            assert.step(url);
-            return prom.then(function () {
-                assert.step(url + ' loaded');
-            });
-        };
-
-        var View = AbstractView.extend({
-            jsLibs: [['a', 'b']],
-        });
-        createView({
-            View: View,
-            arch: '<fake/>',
-            data: this.data,
-            model: 'fake_model',
-        }).then(function (view) {
-            assert.verifySteps(['a loaded', 'b loaded'],
-                "should wait for both libs to be loaded");
-            ajax.loadJS = loadJS;
-            view.destroy();
-            done();
-        });
-
-        await testUtils.nextTick();
-        assert.verifySteps(['a', 'b'], "both libs should be loaded in parallel");
-        prom.resolve();
-    });
-
-    QUnit.test('lazy loading of js libs (sequentially)', async function (assert) {
-        var done = assert.async();
-        assert.expect(10);
-
-        var proms = {
-            a:  testUtils.makeTestPromise(),
-            b:  testUtils.makeTestPromise(),
-            c:  testUtils.makeTestPromise(),
-        };
-        var loadJS = ajax.loadJS;
-        ajax.loadJS = function (url) {
-            assert.step(url);
-            return proms[url].then(function () {
-                assert.step(url + ' loaded');
-            });
-        };
-
-        var View = AbstractView.extend({
-            jsLibs: [
-                ['a', 'b'],
-                'c',
-            ],
-        });
-        createView({
-            View: View,
-            arch: '<fake/>',
-            data: this.data,
-            model: 'fake_model',
-        }).then(function (view) {
-            assert.verifySteps(['c loaded'], "should wait for all libs to be loaded");
-            ajax.loadJS = loadJS;
-            view.destroy();
-            done();
-        });
-        await testUtils.nextTick();
-        assert.verifySteps(['a', 'b'], "libs 'a' and 'b' should be loaded in parallel");
-        await proms.b.resolve();
-        await testUtils.nextTick();
-        assert.verifySteps(['b loaded'], "should wait for 'a' and 'b' to be loaded before loading 'c'");
-        await proms.a.resolve();
-        await testUtils.nextTick();
-        assert.verifySteps(['a loaded', 'c'], "should load 'c' when 'a' and 'b' are loaded");
-        await proms.c.resolve();
-    });
-
     QUnit.test('group_by from context can be a string, instead of a list of strings', async function (assert) {
         assert.expect(1);
+
+        registry.category("views").remove("list"); // remove new list from registry
+        legacyViewRegistry.add("list", ListView); // add legacy list -> will be wrapped and added to new registry
 
         const serverData = {
             actions: {

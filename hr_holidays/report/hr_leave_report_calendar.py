@@ -16,7 +16,7 @@ class LeaveReportCalendar(models.Model):
     start_datetime = fields.Datetime(string='From', readonly=True)
     stop_datetime = fields.Datetime(string='To', readonly=True)
     tz = fields.Selection(_tz_get, string="Timezone", readonly=True)
-    duration = fields.Float(string='Duration', readonly=True, store=False)
+    duration = fields.Float(string='Duration', readonly=True)
     employee_id = fields.Many2one('hr.employee', readonly=True)
     department_id = fields.Many2one('hr.department', readonly=True)
     job_id = fields.Many2one('hr.job', readonly=True)
@@ -44,6 +44,7 @@ class LeaveReportCalendar(models.Model):
             hl.employee_id AS employee_id,
             hl.state AS state,
             hl.department_id AS department_id,
+            hl.number_of_days as duration,
             em.company_id AS company_id,
             em.job_id AS job_id,
             COALESCE(
@@ -66,6 +67,7 @@ class LeaveReportCalendar(models.Model):
                 ON cc.id = co.resource_calendar_id
         WHERE 
             hl.state IN ('confirm', 'validate', 'validate1')
+            AND hl.active IS TRUE
         );
         """)
 

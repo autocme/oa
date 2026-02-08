@@ -22,8 +22,12 @@ const makeTestEnvironment = require('web.test_env');
 const MockServer = require('web.MockServer');
 const RamStorage = require('web.RamStorage');
 const session = require('web.session');
-const { patchDate } = require("@web/../tests/helpers/utils");
+const { patchWithCleanup, patchDate } = require("@web/../tests/helpers/utils");
+const { browser } = require("@web/core/browser/browser");
+const { assets } = require("@web/core/assets");
+const { processArch } = require("@web/legacy/legacy_load_views");
 
+const { Component } = require("@odoo/owl");
 const DebouncedField = basic_fields.DebouncedField;
 
 
@@ -79,11 +83,11 @@ async function _getMockedOwlEnv(params, mockServer) {
                         options: options,
                         views: params.views_descr,
                     },
-                    method: 'load_views',
+                    method: 'get_views',
                     model: params.model,
                 }).then(function (views) {
                     views = _.mapObject(views, viewParams => {
-                        return fieldsViewGet(mockServer, viewParams);
+                        return getView(mockServer, viewParams);
                     });
                     if (favoriteFilters && 'search' in views) {
                         views.search.favoriteFilters = favoriteFilters;
@@ -246,7 +250,7 @@ function _observe(widget) {
 //------------------------------------------------------------------------------
 
 /**
- * performs a fields_view_get, and mocks the postprocessing done by the
+ * performs a get_view, and mocks the postprocessing done by the
  * data_manager to return an equivalent structure.
  *
  * @param {MockServer} server
@@ -254,12 +258,24 @@ function _observe(widget) {
  * @param {string} params.model
  * @returns {Object} an object with 3 keys: arch, fields and viewFields
  */
-function fieldsViewGet(server, params) {
-    var fieldsView = server.fieldsViewGet(params);
+function getView(server, params) {
+    var view = server.getView(params);
+    const fields = server.fieldsGet(params.model);
     // mock the structure produced by the DataManager
-    fieldsView.viewFields = fieldsView.fields;
-    fieldsView.fields = server.fieldsGet(params.model);
-    return fieldsView;
+    const models = { [params.model]: fields };
+    for (const modelName of view.models) {
+        models[modelName] = models[modelName] || server.fieldsGet(modelName);
+    }
+    const { arch, viewFields } = processArch(view.arch, view.type, params.model, models);
+    return {
+        arch,
+        fields,
+        model: view.model,
+        toolbar: view.toolbar,
+        type: view.type,
+        viewFields,
+        view_id: view.id,
+    };
 }
 
 /**
@@ -284,49 +300,6 @@ function intercept(widget, eventName, fn, propagate) {
         }
         _trigger_up(event);
     };
-}
-
-/**
- * Removes the src attribute on images and iframes to prevent not found errors,
- * and optionally triggers an rpc with the src url as route on a widget.
- * This method is critical and must be fastest (=> no jQuery, no underscore)
- *
- * @param {HTMLElement} el
- * @param {[function]} rpc
- */
-function removeSrcAttribute(el, rpc) {
-    var nodes;
-    if (el.nodeName === "#comment") {
-        return;
-    }
-    el = el.nodeType === 8 ? el.nextSibling : el;
-    if (el.nodeName === 'IMG' || el.nodeName === 'IFRAME') {
-        nodes = [el];
-    } else {
-        nodes = Array.prototype.slice.call(el.getElementsByTagName('img'))
-            .concat(Array.prototype.slice.call(el.getElementsByTagName('iframe')));
-    }
-    var node;
-    while (node = nodes.pop()) {
-        const dataSrc = node.dataset.src;
-        if (dataSrc && dataSrc !== "about:blank" && rpc) {
-            rpc(dataSrc, []);
-            $(node).trigger("load");
-        }
-        var src = node.attributes.src && node.attributes.src.value;
-        if (src && src !== 'about:blank') {
-            node.setAttribute('data-src', src);
-            if (node.nodeName === 'IMG') {
-                node.attributes.removeNamedItem('src');
-            } else {
-                node.setAttribute('src', 'about:blank');
-            }
-            if (rpc) {
-                rpc(src, []);
-            }
-            $(node).trigger('load');
-        }
-    }
 }
 
 /**
@@ -362,7 +335,7 @@ async function addMockEnvironmentOwl(Component, params, mockServer) {
     if (!mockServer) {
         let Server = MockServer;
         if (params.mockFetch) {
-            Server = MockServer.extend({ _performFetch: params.mockFetch });
+            Server = Server.extend({ _performFetch: params.mockFetch });
         }
         if (params.mockRPC) {
             Server = Server.extend({ _performRpc: params.mockRPC });
@@ -372,6 +345,40 @@ async function addMockEnvironmentOwl(Component, params, mockServer) {
             archs: params.archs,
             currentDate: params.currentDate,
             debug: params.debug,
+        });
+    }
+
+    patchWithCleanup(browser, {
+        fetch: async (url, args) => {
+            const result = await mockServer.performFetch(url, args || {});
+            return {
+                json: () => result,
+                text: () => result,
+            };
+        },
+    });
+
+    if (params.mockFetch) {
+        const { loadJS, loadCSS } = assets;
+        patchWithCleanup(assets, {
+            loadJS: async function (ressource) {
+                let res = await params.mockFetch(ressource, {});
+                if (res === undefined) {
+                    res = await loadJS(ressource);
+                } else {
+                    console.log("%c[assets] fetch (mock) JS ressource " + ressource, "color: #66e; font-weight: bold;");
+                }
+                return res;
+            },
+            loadCSS: async function (ressource) {
+                let res = await params.mockFetch(ressource, {});
+                if (res === undefined) {
+                    res = await loadCSS(ressource);
+                } else {
+                    console.log("%c[assets] fetch (mock) CSS ressource " + ressource, "color: #66e; font-weight: bold;");
+                }
+                return res;
+            },
         });
     }
 
@@ -400,22 +407,14 @@ async function addMockEnvironmentOwl(Component, params, mockServer) {
         };
     }
 
-    // make sure images do not trigger a GET on the server
-    $('body').on('DOMNodeInserted.removeSRC', function (ev) {
-        let rpc;
-        if (params.mockSRC) {
-            rpc = mockServer.performRpc.bind(mockServer);
-        }
-        removeSrcAttribute(ev.target, rpc);
-    });
-
     // mock global objects for legacy widgets (session, config...)
     const restoreMockedGlobalObjects = _mockGlobalObjects(params);
 
     // set the test env on owl Component
     const env = await _getMockedOwlEnv(params, mockServer);
     const originalEnv = Component.env;
-    Component.env = makeTestEnvironment(env, mockServer.performRpc.bind(mockServer));
+    const __env = makeTestEnvironment(env, mockServer.performRpc.bind(mockServer));
+    owl.Component.env = __env;
 
     // while we have a mix between Owl and legacy stuff, some of them triggering
     // events on the env.bus (a new Bus instance especially created for the current
@@ -546,8 +545,8 @@ async function addMockEnvironment(widget, params) {
     if (!('mockSRC' in params)) { // redirect src rpcs to the mock server
         params.mockSRC = true;
     }
-    const cleanUp = await addMockEnvironmentOwl(owl.Component, params, mockServer);
-    const env = owl.Component.env;
+    const cleanUp = await addMockEnvironmentOwl(Component, params, mockServer);
+    const env = Component.env;
 
     // ensure to clean up everything when the widget will be destroyed
     const destroy = widget.destroy;
@@ -731,7 +730,7 @@ function patchSetTimeout() {
 
 return {
     addMockEnvironment: addMockEnvironment,
-    fieldsViewGet: fieldsViewGet,
+    getView: getView,
     addMockEnvironmentOwl: addMockEnvironmentOwl,
     intercept: intercept,
     patchDate: legacyPatchDate,

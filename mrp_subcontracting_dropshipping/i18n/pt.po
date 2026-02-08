@@ -3,18 +3,20 @@
 # 	* mrp_subcontracting_dropshipping
 # 
 # Translators:
-# Martin Trigaux, 2021
-# Pedro Castro Silva <pedrocs@exo.pt>, 2021
-# Nuno Silva <nuno.silva@arxi.pt>, 2021
-# Pedro Filipe <pedro2.10@hotmail.com>, 2021
+# Pedro Filipe <pedro2.10@hotmail.com>, 2022
+# Martin Trigaux, 2022
+# Nuno Silva <nuno.silva@arxi.pt>, 2022
+# Reinaldo Ramos <reinaldo.ramos@arxi.pt>, 2022
+# Pedro Castro Silva <pedrocs@exo.pt>, 2022
+# Manuela Silva <mmsrs@sky.com>, 2023
 # Peter Lawrence Romão <peterromao@yahoo.co.uk>, 2024
 # 
 msgid ""
 msgstr ""
-"Project-Id-Version: Odoo Server 15.0\n"
+"Project-Id-Version: Odoo Server 16.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-08-14 15:43+0000\n"
-"PO-Revision-Date: 2021-09-14 12:24+0000\n"
+"POT-Creation-Date: 2023-05-23 08:23+0000\n"
+"PO-Revision-Date: 2022-09-22 05:53+0000\n"
 "Last-Translator: Peter Lawrence Romão <peterromao@yahoo.co.uk>, 2024\n"
 "Language-Team: Portuguese (https://app.transifex.com/odoo/teams/41243/pt/)\n"
 "MIME-Version: 1.0\n"
@@ -24,13 +26,29 @@ msgstr ""
 "Plural-Forms: nplurals=3; plural=(n == 0 || n == 1) ? 0 : n != 0 && n % 1000000 == 0 ? 1 : 2;\n"
 
 #. module: mrp_subcontracting_dropshipping
+#: model:ir.model.fields,help:mrp_subcontracting_dropshipping.field_purchase_order__default_location_dest_id_is_subcontracting_loc
+msgid ""
+"Check this box to create a new dedicated subcontracting location for this "
+"company. Note that standard subcontracting routes will be adapted so as to "
+"take these into account automatically."
+msgstr ""
+
+#. module: mrp_subcontracting_dropshipping
 #: model:ir.model,name:mrp_subcontracting_dropshipping.model_res_company
 msgid "Companies"
 msgstr "Empresas"
 
 #. module: mrp_subcontracting_dropshipping
+#: model:ir.model.fields,field_description:mrp_subcontracting_dropshipping.field_res_company__dropship_subcontractor_pick_type_id
+msgid "Dropship Subcontractor Pick Type"
+msgstr ""
+
+#. module: mrp_subcontracting_dropshipping
+#. odoo-python
 #: code:addons/mrp_subcontracting_dropshipping/models/stock_warehouse.py:0
-#: model:stock.location.route,name:mrp_subcontracting_dropshipping.route_subcontracting_dropshipping
+#: code:addons/mrp_subcontracting_dropshipping/models/stock_warehouse.py:0
+#: code:addons/mrp_subcontracting_dropshipping/models/stock_warehouse.py:0
+#: model:stock.route,name:mrp_subcontracting_dropshipping.route_subcontracting_dropshipping
 #, python-format
 msgid "Dropship Subcontractor on Order"
 msgstr ""
@@ -46,11 +64,20 @@ msgid "Dropship subcontractors with components"
 msgstr ""
 
 #. module: mrp_subcontracting_dropshipping
+#: model:ir.model.fields,field_description:mrp_subcontracting_dropshipping.field_purchase_order__default_location_dest_id_is_subcontracting_loc
+msgid "Is a Subcontracting Location?"
+msgstr ""
+
+#. module: mrp_subcontracting_dropshipping
+#: model:ir.model,name:mrp_subcontracting_dropshipping.model_stock_warehouse_orderpoint
+msgid "Minimum Inventory Rule"
+msgstr "Regra de Inventário Minimo"
+
+#. module: mrp_subcontracting_dropshipping
+#. odoo-python
 #: code:addons/mrp_subcontracting_dropshipping/models/purchase.py:0
 #, python-format
-msgid ""
-"It appears some components in this RFQ are not meant for subcontracting. "
-"Please create a separate order for these."
+msgid "Please note this purchase order is for subcontracting purposes."
 msgstr ""
 
 #. module: mrp_subcontracting_dropshipping
@@ -61,7 +88,7 @@ msgstr "Ordem de Compra"
 #. module: mrp_subcontracting_dropshipping
 #: model:ir.model,name:mrp_subcontracting_dropshipping.model_stock_move
 msgid "Stock Move"
-msgstr "Movimento do Inventário"
+msgstr "Movimento do Stock"
 
 #. module: mrp_subcontracting_dropshipping
 #: model:ir.model,name:mrp_subcontracting_dropshipping.model_stock_rule
@@ -81,4 +108,11 @@ msgstr "Transferência"
 #. module: mrp_subcontracting_dropshipping
 #: model:ir.model,name:mrp_subcontracting_dropshipping.model_stock_warehouse
 msgid "Warehouse"
-msgstr "Warehouse"
+msgstr "Armazém"
+
+#. module: mrp_subcontracting_dropshipping
+#. odoo-python
+#: code:addons/mrp_subcontracting_dropshipping/models/purchase.py:0
+#, python-format
+msgid "Warning"
+msgstr "Aviso"

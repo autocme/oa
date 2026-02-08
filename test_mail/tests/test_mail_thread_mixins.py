@@ -54,7 +54,7 @@ class TestMailThread(TestMailCommon, TestRecipients):
                 else:
                     bl_record = self.env['mail.blacklist']._add(email_from)
                     self.assertEqual(bl_record.email, exp_email_normalized)
-                    new_record.invalidate_cache(fnames=['is_blacklisted'])
+                    new_record.invalidate_recordset(fnames=['is_blacklisted'])
                     self.assertTrue(new_record.is_blacklisted)
 
                 bl_record.unlink()

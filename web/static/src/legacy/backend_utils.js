@@ -91,6 +91,9 @@ function searchModelStateFromLegacy(state) {
         newState.sections = sections;
         //! Can be undefined. See search_model.__legacyParseSearchPanelArchAnyway
         newState.searchPanelInfo = searchPanelInfo;
+        if (newState.searchPanelInfo) {
+            newState.searchPanelInfo.loaded = true;
+        }
     }
 
     for (const [key, extension] of Object.entries(ActionModel.registry.entries())) {
@@ -166,12 +169,15 @@ export function searchModelStateToLegacy(state) {
                 filter.orderedBy = item.orderBy;
                 delete filter.orderBy;
                 break;
-            case "filter":
+            case "filter": {
                 let context = item.context;
                 try {
                     context = makeContext([context]);
-                } catch (e) {}
+                } catch (_e) {
+                    // pass
+                }
                 filter.context = context;
+            }
         }
         filters[item.id] = filter;
     }
@@ -214,6 +220,10 @@ export function getGlobalState(legacyControllerState) {
 
 export function getLocalState(legacyControllerState) {
     const state = Object.assign({}, legacyControllerState);
+    if ("currentId" in state) {
+        state.resId = state.currentId;
+        delete state.currentId;
+    }
     delete state.searchModel;
     delete state.searchPanel;
     delete state.resIds;
@@ -264,7 +274,7 @@ export function breadcrumbsToLegacy(breadcrumbs) {
     if (!breadcrumbs) {
         return;
     }
-    return breadcrumbs.slice().map((bc) => {
+    return breadcrumbs.slice(0, -1).map((bc) => {
         return { title: bc.name, controllerID: bc.jsId };
     });
 }

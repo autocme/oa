@@ -25,8 +25,6 @@ const NUMBERING_SYSTEMS = [
 export const localizationService = {
     dependencies: ["user"],
     start: async (env, { user }) => {
-        // add "data-toolip" to the list of translatable attributes in owl templates
-        owl.config.translatableAttributes.push("data-tooltip");
         const locale = document.documentElement.getAttribute("lang") || "";
         const cacheHashes = session.cache_hashes || {};
         const translationsHash = cacheHashes.translations || new Date().getTime().toString();
@@ -50,7 +48,7 @@ export const localizationService = {
 
         // FIXME We flatten the result of the python route.
         // Eventually, we want a new python route to return directly the good result.
-        let terms = {};
+        const terms = {};
         for (const addon of Object.keys(modules)) {
             for (const message of modules[addon].messages) {
                 terms[message.id] = message.string;
@@ -59,13 +57,16 @@ export const localizationService = {
 
         Object.setPrototypeOf(translatedTerms, terms);
         env._t = _t;
-        env.qweb.translateFn = _t;
 
         if (lang) {
             // Setup lang inside luxon. The locale codes received from the server contain "_",
             // whereas the Intl codes use "-" (Unicode BCP 47). There's only one exception, which
             // is locale "sr@latin", for which we manually fallback to the "sr-Latn-RS" locale.
-            const locale = lang === "sr@latin" ? "sr-Latn-RS" : lang.replace(/_/g, "-");
+            const momentJSLangCodesMap = {
+                "sr_RS": "sr-cyrl",
+                "sr@latin": "sr-Latn-RS",
+            };
+            const locale = momentJSLangCodesMap[lang] || lang.replace(/_/g, "-");
             Settings.defaultLocale = locale;
             for (const [re, numberingSystem] of NUMBERING_SYSTEMS) {
                 if (re.test(locale)) {

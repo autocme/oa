@@ -1,12 +1,12 @@
 odoo.define('web.FilterMenu', function (require) {
     "use strict";
 
+    const { Dropdown } = require("@web/core/dropdown/dropdown");
+    const { SearchDropdownItem } = require("@web/search/search_dropdown_item/search_dropdown_item");
     const CustomFilterItem = require('web.CustomFilterItem');
     const { FACET_ICONS } = require("web.searchUtils");
     const { useModel } = require('web.Model');
-    const { SearchDropdownItem } = require("@web/search/search_dropdown_item/search_dropdown_item");
-
-    const { Component } = owl;
+    const { LegacyComponent } = require("@web/legacy/legacy_component");
 
     /**
      * 'Filters' menu
@@ -15,10 +15,9 @@ odoo.define('web.FilterMenu', function (require) {
      * model. It uses most of the behaviours implemented by the dropdown menu Component,
      * with the addition of a filter generator (@see CustomFilterItem).
      */
-    class FilterMenu extends Component {
+    class FilterMenu extends LegacyComponent {
 
-        constructor() {
-            super(...arguments);
+        setup() {
             this.icon = FACET_ICONS.filter;
             this.model = useModel('searchModel');
         }
@@ -40,11 +39,11 @@ odoo.define('web.FilterMenu', function (require) {
 
         /**
          * @private
-         * @param {OwlEvent} ev
+         * @param {Object} param0
+         * @param {number} param0.itemId
+         * @param {number} [param0.optionId]
          */
-        onFilterSelected(ev) {
-            ev.stopPropagation();
-            const { itemId, optionId } = ev.detail.payload;
+        onFilterSelected({ itemId, optionId }) {
             if (optionId) {
                 this.model.dispatch('toggleFilterWithOptions', itemId, optionId);
             } else {
@@ -53,9 +52,15 @@ odoo.define('web.FilterMenu', function (require) {
         }
     }
 
-    FilterMenu.components = { CustomFilterItem, DropdownItem: SearchDropdownItem };
-    FilterMenu.props = { fields: Object };
+    FilterMenu.defaultProps = {
+        class: "",
+    };
+    FilterMenu.props = {
+        fields: Object,
+        class: { String, optional: true },
+    };
     FilterMenu.template = "web.legacy.FilterMenu";
+    FilterMenu.components = { CustomFilterItem, Dropdown, DropdownItem: SearchDropdownItem };
 
     return FilterMenu;
 });

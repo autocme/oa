@@ -71,7 +71,7 @@
                                         <span><t t-esc="record.product_id.value"/></span>
                                     </div>
                                     <div class="col-4">
-                                        <span class="float-right text-right">
+                                        <span class="float-end text-end">
                                             <field name="state" widget="label_selection" options="{'classes': {'draft': 'default', 'done': 'success'}}" readonly="1"/>
                                         </span>
                                     </div>
@@ -88,6 +88,7 @@
             <field name="model">mrp.unbuild</field>
             <field name="arch" type="xml">
                 <form string="Unbuild Orders">
+                    <field name="company_id" invisible="1"/>
                     <header>
                         <button name="action_validate" string="Unbuild" type="object" states="draft" class="oe_highlight" data-hotkey="v"/>
                         <field name="state" widget="statusbar" statusbar_visible="draft,done"/>
@@ -116,7 +117,7 @@
                                 <field name="location_id" options="{'no_create': True}" groups="stock.group_stock_multi_locations"/>
                                 <field name="location_dest_id" options="{'no_create': True}" groups="stock.group_stock_multi_locations"/>
                                 <field name="has_tracking" invisible="1"/>
-                                <field name="lot_id" attrs="{'invisible': [('has_tracking', '=', 'none')], 'required': [('has_tracking', '!=', 'none')]}" groups="stock.group_production_lot"/>
+                                <field name="lot_id" attrs="{'invisible': [('has_tracking', '=', 'none')], 'required': [('has_tracking', '!=', 'none')], 'readonly':['|', ('mo_id','!=',False), ('state', '=', 'done')]}" groups="stock.group_production_lot" force_save="1"/>
                                 <field name="company_id" groups="base.group_multi_company"/>
                             </group>
                         </group>
@@ -140,6 +141,7 @@
                     <sheet>
                         <group>
                             <group>
+                                <field name="company_id" invisible="1"/>
                                 <field name="state" invisible="1"/>
                                 <field name="product_id" invisible="1"/>
                                 <field name="bom_id" invisible="1"/>
@@ -154,7 +156,7 @@
                                 <field name="location_id" options="{'no_create': True}" groups="stock.group_stock_multi_locations"/>
                                 <field name="location_dest_id" options="{'no_create': True}" groups="stock.group_stock_multi_locations"/>
                                 <field name="has_tracking" invisible="1"/>
-                                <field name="lot_id" attrs="{'invisible': [('has_tracking', '=', 'none')], 'required': [('has_tracking', '!=', 'none')]}" groups="stock.group_production_lot"/>
+                                <field name="lot_id" readonly="1" attrs="{'invisible': [('has_tracking', '=', 'none')], 'required': [('has_tracking', '!=', 'none')]}" groups="stock.group_production_lot"/>
                                 <field name="company_id" groups="base.group_multi_company" readonly="1"/>
                             </group>
                         </group>

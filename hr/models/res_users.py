@@ -3,6 +3,7 @@
 
 from odoo import api, models, fields, _, SUPERUSER_ID
 from odoo.exceptions import AccessError
+from odoo.tools.misc import clean_context
 
 
 HR_READABLE_FIELDS = [
@@ -17,6 +18,7 @@ HR_READABLE_FIELDS = [
     'last_activity_time',
     'can_edit',
     'is_system',
+    'employee_resource_calendar_id',
 ]
 
 HR_WRITABLE_FIELDS = [
@@ -136,6 +138,10 @@ class User(models.Model):
     last_activity = fields.Date(related='employee_id.last_activity')
     last_activity_time = fields.Char(related='employee_id.last_activity_time')
     employee_type = fields.Selection(related='employee_id.employee_type', readonly=False, related_sudo=False)
+    employee_resource_calendar_id = fields.Many2one(related='employee_id.resource_calendar_id', string="Employee's Working Hours", readonly=True)
+
+    create_employee = fields.Boolean(store=False, default=True, copy=False, string="Technical field, whether to create an employee")
+    create_employee_id = fields.Many2one('hr.employee', store=False, copy=False, string="Technical field, bind user to this employee on create")
 
     can_edit = fields.Boolean(compute='_compute_can_edit')
     is_system = fields.Boolean(compute="_compute_is_system")
@@ -163,7 +169,21 @@ class User(models.Model):
         return super().SELF_WRITEABLE_FIELDS + HR_WRITABLE_FIELDS
 
     @api.model
-    def fields_view_get(self, view_id=None, view_type='form', toolbar=False, submenu=False):
+    def get_views(self, views, options=None):
+        # Requests the My Profile form view as last.
+        # Otherwise the fields of the 'search' view will take precedence
+        # and will omit the fields that are requested as SUPERUSER
+        # in `get_view()`.
+        profile_view = self.env.ref("hr.res_users_view_form_profile")
+        profile_form = profile_view and [profile_view.id, 'form']
+        if profile_form and profile_form in views:
+            views.remove(profile_form)
+            views.append(profile_form)
+        result = super().get_views(views, options)
+        return result
+
+    @api.model
+    def get_view(self, view_id=None, view_type='form', **options):
         # When the front-end loads the views it gets the list of available fields
         # for the user (according to its access rights). Later, when the front-end wants to
         # populate the view with data, it only asks to read those available fields.
@@ -173,19 +193,29 @@ class User(models.Model):
         # Note: limit the `sudo` to the only action of "editing own profile" action in order to
         # avoid breaking `groups` mecanism on res.users form view.
         profile_view = self.env.ref("hr.res_users_view_form_profile")
-        original_user = self.env.user
         if profile_view and view_id == profile_view.id:
             self = self.with_user(SUPERUSER_ID)
-        result = super(User, self).fields_view_get(view_id=view_id, view_type=view_type, toolbar=toolbar, submenu=submenu)
-        # Due to using the SUPERUSER the result will contain action that the user may not have access too
-        # here we filter out actions that requires special implicit rights to avoid having unusable actions
-        # in the dropdown menu.
-        if toolbar and self.env.user != original_user:
-            self = self.with_user(original_user.id)
-            if not self.user_has_groups("base.group_erp_manager"):
-                change_password_action = self.env.ref("base.change_password_wizard_action")
-                result['toolbar']['action'] = [act for act in result['toolbar']['action'] if act['id'] != change_password_action.id]
+        result = super(User, self).get_view(view_id, view_type, **options)
         return result
+
+    @api.model_create_multi
+    def create(self, vals_list):
+        res = super().create(vals_list)
+        employee_create_vals = []
+        for user, vals in zip(res, vals_list):
+            if not vals.get('create_employee') and not vals.get('create_employee_id'):
+                continue
+            if vals.get('create_employee_id'):
+                self.env['hr.employee'].browse(vals.get('create_employee_id')).user_id = user
+            else:
+                employee_create_vals.append(dict(
+                    name=user.name,
+                    company_id=user.env.company.id,
+                    **self.env['hr.employee']._sync_user(user)
+                ))
+        if employee_create_vals:
+            self.env['hr.employee'].with_context(clean_context(self.env.context)).create(employee_create_vals)
+        return res
 
     def _get_employee_fields_to_sync(self):
         """Get values to sync to the related employee when the User is changed.
@@ -225,7 +255,9 @@ class User(models.Model):
                     employee_values.pop('image_1920')
                 with_image.write(employee_values)
             else:
-                self.env['hr.employee'].sudo().search([('user_id', 'in', self.ids)]).write(employee_values)
+                employees = self.env['hr.employee'].sudo().search([('user_id', 'in', self.ids)])
+                if employees:
+                    employees.write(employee_values)
         return result
 
     @api.model

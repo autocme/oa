@@ -8,6 +8,7 @@
     import CourseJoin from '@website_slides/js/slides_course_join';
     import QuestionFormWidget from '@website_slides/js/slides_course_quiz_question_form';
     import SlideQuizFinishModal from '@website_slides/js/slides_course_quiz_finish';
+    import { SlideCoursePage } from '@website_slides/js/slides_course_page';
 
     import SlideEnroll from '@website_slides/js/slides_course_enroll_email';
 
@@ -18,7 +19,7 @@
      * This widget is responsible of displaying quiz questions and propositions. Submitting the quiz will fetch the
      * correction and decorate the answers according to the result. Error message or modal can be displayed.
      *
-     * This widget can be attached to DOM rendered server-side by `website_slides.slide_type_quiz` or
+     * This widget can be attached to DOM rendered server-side by `website_slides.slide_category_quiz` or
      * used client side (Fullscreen).
      *
      * Triggered events are :
@@ -27,10 +28,6 @@
      */
     var Quiz = publicWidget.Widget.extend({
         template: 'slide.slide.quiz',
-        xmlDependencies: [
-            '/website_slides/static/src/xml/slide_quiz.xml',
-            '/website_slides/static/src/xml/slide_course_join.xml'
-        ],
         events: {
             "click .o_wslides_quiz_answer": '_onAnswerClick',
             "click .o_wslides_js_lesson_quiz_submit": '_submitQuiz',
@@ -91,7 +88,7 @@
          * Overridden to add custom rendering behavior upon start of the widget.
          *
          * If the user has answered the quiz before having joined the course, we check
-         * his answers (saved into his session) here as well.
+         * their answers (saved into their session) here as well.
          *
          * @override
          */
@@ -114,21 +111,25 @@
         // Private
         //--------------------------------------------------------------------------
 
-        _alertShow: function (alertCode) {
+        _showErrorMessage: function (errorCode) {
             var message = _t('There was an error validating this quiz.');
-            if (alertCode === 'slide_quiz_incomplete') {
+            if (errorCode === 'slide_quiz_incomplete') {
                 message = _t('All questions must be answered !');
-            } else if (alertCode === 'slide_quiz_done') {
+            } else if (errorCode === 'slide_quiz_done') {
                 message = _t('This quiz is already done. Retaking it is not possible.');
-            } else if (alertCode === 'public_user') {
+            } else if (errorCode === 'public_user') {
                 message = _t('You must be logged to submit the quiz.');
             }
 
-            this.displayNotification({
-                type: 'warning',
-                message: message,
-                sticky: true
-            });
+            this.$('.o_wslides_js_quiz_submit_error')
+                .removeClass('d-none')
+                .find('.o_wslides_js_quiz_submit_error_text')
+                .text(message);
+        },
+
+        _hideErrorMessage: function () {
+            this.$('.o_wslides_js_quiz_submit_error')
+                .addClass('d-none');
         },
 
         /**
@@ -193,12 +194,15 @@
                     'slide_id': self.slide.id,
                 }
             }).then(function (quiz_data) {
+                self.slide.sessionAnswers = quiz_data.session_answers;
                 self.quiz = {
+                    description_safe: Markup(quiz_data.slide_description),
                     questions: quiz_data.slide_questions || [],
                     questionsCount: quiz_data.slide_questions.length,
                     quizAttemptsCount: quiz_data.quiz_attempts_count || 0,
                     quizKarmaGain: quiz_data.quiz_karma_gain || 0,
                     quizKarmaWon: quiz_data.quiz_karma_won || 0,
+                    slideResources: quiz_data.slide_resource_ids || [],
                 };
             });
         },
@@ -296,7 +300,16 @@
                 QWeb.render('slide.slide.quiz.validation', {'widget': this})
             );
         },
-
+        /*
+        * Toggle additional resource info box
+        * 
+        * @private
+        * @param {Boolean} show - Whether show or hide the information
+        */
+        _toggleAdditionalResourceInfo: function(show) {
+            const resourceInfo = document.getElementsByClassName('o_wslides_js_lesson_quiz_resource_info')[0];
+            resourceInfo && (show ? resourceInfo.classList.remove('d-none') : resourceInfo.classList.add('d-none'));
+        },
         /**
          * Renders the button to join a course.
          * If the user is logged in, the course is public, and the user has previously tried to
@@ -350,8 +363,10 @@
                 }
             });
             if (data.error) {
-                this._alertShow(data.error);
+                this._showErrorMessage(data.error);
                 return;
+            } else {
+                this._hideErrorMessage();
             }
             Object.assign(this.quiz, data);
             const {rankProgress, completed, channel_completion: completion} = this.quiz;
@@ -369,11 +384,16 @@
                     userId: this.userId
                 }).open();
                 this.slide.completed = true;
-                this.trigger_up('slide_completed', {slide: this.slide, completion});
+                this.trigger_up('slide_completed', {
+                    slideId: this.slide.id,
+                    channelCompletion: completion,
+                    completed: true,
+                });
             }
             this._hideEditOptions();
             this._renderAnswersHighlightingAndComments();
             this._renderValidationInfo();
+            this._toggleAdditionalResourceInfo(!completed);
         },
 
         /**
@@ -407,7 +427,7 @@
          * @private
          */
         _checkLocationHref: function () {
-            if (window.location.href.includes('quiz_quick_create')) {
+            if (window.location.href.includes('quiz_quick_create') && this.quiz.questionsCount === 0) {
                 this._onCreateQuizClick();
             }
         },
@@ -464,31 +484,25 @@
          * @private
          */
         _saveQuizAnswersToSession: function () {
-            var quizAnswers = this._getQuizAnswers();
-            if (quizAnswers.length === this.quiz.questions.length) {
-                return this._rpc({
-                    route: '/slides/slide/quiz/save_to_session',
-                    params: {
-                        'quiz_answers': {'slide_id': this.slide.id, 'slide_answers': quizAnswers},
-                    }
-                });
-            } else {
-                this._alertShow('slide_quiz_incomplete');
-                return Promise.reject('The quiz is incomplete');
-            }
+            this._hideErrorMessage();
+
+            return this._rpc({
+                route: '/slides/slide/quiz/save_to_session',
+                params: {
+                    'quiz_answers': {'slide_id': this.slide.id, 'slide_answers': this._getQuizAnswers()},
+                }
+            });
         },
         /**
-        * After joining the course, we immediately submit the quiz and get the correction.
-        * This allows a smooth onboarding when the user is logged in and the course is public.
+        * After joining the course, we save the questions in the session
+        * and reload the page to update the view.
         *
         * @private
         */
        _afterJoin: function () {
-            this.isMember = true;
-            this.trigger_up('join_course');
-            this._renderValidationInfo();
-            this._applySessionAnswers();
-            this._submitQuiz();
+            this._saveQuizAnswersToSession().then(() => {
+                window.location.reload();
+            });
        },
 
         /**
@@ -636,10 +650,6 @@
      */
     var ConfirmationDialog = Dialog.extend({
         template: 'slide.quiz.confirm.deletion',
-        xmlDependencies: Dialog.prototype.xmlDependencies.concat(
-            ['/website_slides/static/src/xml/slide_quiz_create.xml']
-        ),
-
         /**
          * @override
          * @param parent
@@ -678,12 +688,11 @@
         }
     });
 
-    publicWidget.registry.websiteSlidesQuizNoFullscreen = publicWidget.Widget.extend({
+    publicWidget.registry.websiteSlidesQuizNoFullscreen = SlideCoursePage.extend({
         selector: '.o_wslides_lesson_main', // selector of complete page, as we need slide content and aside content table
-        custom_events: {
+        custom_events: _.extend({}, SlideCoursePage.prototype.custom_events, {
             slide_go_next: '_onQuizNextSlide',
-            slide_completed: '_onQuizCompleted',
-        },
+        }),
 
         //----------------------------------------------------------------------
         // Public
@@ -694,36 +703,32 @@
          * @param {Object} parent
          */
         start: function () {
-            var self = this;
-            this.quizWidgets = [];
-            var defs = [this._super.apply(this, arguments)];
-            this.$('.o_wslides_js_lesson_quiz').each(function () {
-                var slideData = $(this).data();
-                var channelData = self._extractChannelData(slideData);
+            const ret = this._super(...arguments);
+
+            const $quiz = this.$('.o_wslides_js_lesson_quiz');
+            if ($quiz.length) {
+                const slideData = $quiz.data();
+                const channelData = this._extractChannelData(slideData);
                 slideData.quizData = {
-                    questions: self._extractQuestionsAndAnswers(),
+                    questions: this._extractQuestionsAndAnswers(),
                     sessionAnswers: slideData.sessionAnswers || [],
                     quizKarmaMax: slideData.quizKarmaMax,
                     quizKarmaWon: slideData.quizKarmaWon || 0,
                     quizKarmaGain: slideData.quizKarmaGain,
                     quizAttemptsCount: slideData.quizAttemptsCount,
                 };
-                defs.push(new Quiz(self, slideData, channelData, slideData.quizData).attachTo($(this)));
-            });
-            return Promise.all(defs);
+
+                this.quiz = new Quiz(this, slideData, channelData, slideData.quizData);
+                this.quiz.attachTo($quiz);
+            } else {
+                this.quiz = null;
+            }
+            return ret;
         },
 
         //----------------------------------------------------------------------
         // Handlers
         //---------------------------------------------------------------------
-        _onQuizCompleted: function (ev) {
-            var slide = ev.data.slide;
-            var completion = ev.data.completion;
-            this.$('#o_wslides_lesson_aside_slide_check_' + slide.id).addClass('text-success fa-check').removeClass('text-600 fa-circle-o');
-            // need to use global selector as progress bar is outside this animation widget scope
-            $('.o_wslides_lesson_header .progress-bar').css('width', completion + "%");
-            $('.o_wslides_lesson_header .progress span').text(_.str.sprintf("%s %%", completion));
-        },
         _onQuizNextSlide: function () {
             var url = this.$('.o_wslides_js_lesson_quiz').data('next-slide-url');
             window.location.replace(url);
@@ -732,6 +737,63 @@
         //----------------------------------------------------------------------
         // Private
         //---------------------------------------------------------------------
+
+        /**
+         * Get the slide data from the elements in the DOM.
+         *
+         * We need this overwrite because a documentation in non-fullscreen view
+         * doesn't have the standard "done" button and so in that case the slide
+         * data can not be retrieved.
+         *
+         * @override
+         * @param {Integer} slideId
+         */
+        _getSlide: function (slideId) {
+            const slide = this._super(...arguments);
+            if (slide) {
+                return slide;
+            }
+            // A quiz in a documentation on non fullscreen view
+            return $(`.o_wslides_js_lesson_quiz[data-id="${slideId}"`).data();
+        },
+
+        /**
+         * After a slide has been marked as completed / uncompleted, update the state
+         * of this widget and reload the slide if needed (e.g. to re-show the questions
+         * of a quiz).
+         *
+         * @override
+         * @param {Object} slide
+         * @param {Boolean} completed
+         */
+        toggleCompletionButton: function (slide, completed = true) {
+            this._super(...arguments);
+
+            if (this.quiz && this.quiz.slide.id === slide.id && !completed && this.quiz.quiz.questionsCount) {
+                // The quiz has been marked as "Not Done", re-load the questions
+                this.quiz.quiz.answers = null;
+                this.quiz.quiz.sessionAnswers = null;
+                this.quiz.slide.completed = false;
+                this.quiz._fetchQuiz().then(() => {
+                    this.quiz.renderElement();
+                    this.quiz._renderValidationInfo();
+                });
+
+            }
+
+            // The quiz has been submitted in a documentation and in non fullscreen view,
+            // should update the button "Mark Done" to "Mark To Do"
+            const $doneButton = $('.o_wslides_done_button');
+            if ($doneButton.length && completed) {
+                $doneButton
+                    .removeClass('o_wslides_done_button disabled btn-primary text-white')
+                    .addClass('o_wslides_undone_button btn-light')
+                    .text(_t('Mark To Do'))
+                    .removeAttr('title')
+                    .removeAttr('aria-disabled')
+                    .attr('href', `/slides/slide/${encodeURIComponent(slide.id)}/set_uncompleted`);
+            }
+        },
 
         _extractChannelData: function (slideData) {
             return {
@@ -773,4 +835,4 @@
 
     export var Quiz = Quiz;
     export var ConfirmationDialog = ConfirmationDialog;
-    export const websiteSlidesQuizNoFullscree = publicWidget.registry.websiteSlidesQuizNoFullscreen;
+    export const websiteSlidesQuizNoFullscreen = publicWidget.registry.websiteSlidesQuizNoFullscreen;

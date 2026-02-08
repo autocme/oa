@@ -6,6 +6,7 @@ from dateutil.relativedelta import relativedelta
 
 from odoo.tests.common import TransactionCase, new_test_user, Form
 from odoo import fields, Command
+from freezegun import freeze_time
 
 
 class TestEventNotifications(TransactionCase):
@@ -40,7 +41,7 @@ class TestEventNotifications(TransactionCase):
 
     def test_attendee_added_create_with_specific_states(self):
         """
-        When an event is created from an external calendar account (such as Google) which is not linked to an 
+        When an event is created from an external calendar account (such as Google) which is not linked to an
         Odoo account, attendee info such as email and state are given at sync.
         In this case, attendee_ids should be created accordingly.
         """
@@ -98,6 +99,24 @@ class TestEventNotifications(TransactionCase):
         self.assertNotIn(self.partner, self.event.message_follower_ids.partner_id, "It should have unsubscribed the partner")
         self.assertIn(partner_bis, self.event.attendee_ids.partner_id, "It should have left the attendee")
 
+    def test_attendee_without_email(self):
+        self.partner.email = False
+        self.event.partner_ids = self.partner
+
+        self.assertTrue(self.event.attendee_ids)
+        self.assertEqual(self.event.attendee_ids.partner_id, self.partner)
+        self.assertTrue(self.event.invalid_email_partner_ids)
+        self.assertEqual(self.event.invalid_email_partner_ids, self.partner)
+
+    def test_attendee_with_invalid_email(self):
+        self.partner.email = "I'm an invalid email"
+        self.event.partner_ids = self.partner
+
+        self.assertTrue(self.event.attendee_ids)
+        self.assertEqual(self.event.attendee_ids.partner_id, self.partner)
+        self.assertTrue(self.event.invalid_email_partner_ids)
+        self.assertEqual(self.event.invalid_email_partner_ids, self.partner)
+
     def test_default_attendee(self):
         """
         Check if priority list id correctly followed
@@ -136,6 +155,32 @@ class TestEventNotifications(TransactionCase):
         })
         initial_start = event.start
         with Form(event) as event_form:
-            event_form.stop = datetime.today() + relativedelta(days=1)
-            event_form.start = datetime.today() + relativedelta(days=1)
+            event_form.stop_date = datetime.today() + relativedelta(days=1)
+            event_form.start_date = datetime.today() + relativedelta(days=1)
         self.assertFalse(initial_start == event.start)
+
+    @freeze_time("2019-10-24 09:00:00", tick=True)
+    def test_multi_attendee_mt_note_default(self):
+        mt_note = self.env.ref("mail.mt_note")
+        mt_note.default = True
+        user_exta = new_test_user(self.env, "extra", email="extra@il.com")
+        partner_extra = user_exta.partner_id
+        event = self.env["calendar.event"].create({
+            "name": "Team meeting",
+            "attendee_ids": [
+                (0, 0, {"partner_id": self.partner.id}),
+                (0, 0, {"partner_id": partner_extra.id})
+            ],
+            "start": datetime(2019, 10, 25, 8, 0),
+            "stop": datetime(2019, 10, 25, 10, 0),
+        })
+        messages = self.env["mail.message"].search([
+            ("model", "=", event._name),
+            ("res_id", "=", event.id),
+            ("message_type", "=", "user_notification")
+        ])
+        self.assertEqual(len(messages), 2)
+        mesage_user = messages.filtered(lambda x: self.partner in x.partner_ids)
+        self.assertNotIn(partner_extra, mesage_user.notified_partner_ids)
+        mesage_user_extra = messages.filtered(lambda x: partner_extra in x.partner_ids)
+        self.assertNotIn(self.partner, mesage_user_extra.notified_partner_ids)

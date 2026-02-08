@@ -7,14 +7,14 @@ from odoo import api, fields, models, _
 from odoo.tools.sql import column_exists, create_column
 
 
-class StockLocationRoute(models.Model):
-    _inherit = "stock.location.route"
+class StockRoute(models.Model):
+    _inherit = "stock.route"
     sale_selectable = fields.Boolean("Selectable on Sales Order Line")
 
 
 class StockMove(models.Model):
     _inherit = "stock.move"
-    sale_line_id = fields.Many2one('sale.order.line', 'Sale Line', index=True)
+    sale_line_id = fields.Many2one('sale.order.line', 'Sale Line', index='btree_not_null')
 
     @api.model
     def _prepare_merge_moves_distinct_fields(self):
@@ -34,7 +34,7 @@ class StockMove(models.Model):
 
     def _get_source_document(self):
         res = super()._get_source_document()
-        return self.sale_line_id.order_id or res
+        return self.sudo().sale_line_id.order_id or res
 
     def _assign_picking_post_process(self, new=False):
         super(StockMove, self)._assign_picking_post_process(new=new)
@@ -47,6 +47,8 @@ class StockMove(models.Model):
                     values={'self': picking_id, 'origin': sale_order_id},
                     subtype_id=self.env.ref('mail.mt_note').id)
 
+    def _get_all_related_sm(self, product):
+        return super()._get_all_related_sm(product) | self.filtered(lambda m: m.sale_line_id.product_id == product)
 
 class ProcurementGroup(models.Model):
     _inherit = 'procurement.group'
@@ -59,14 +61,14 @@ class StockRule(models.Model):
 
     def _get_custom_move_fields(self):
         fields = super(StockRule, self)._get_custom_move_fields()
-        fields += ['sale_line_id', 'partner_id', 'sequence']
+        fields += ['sale_line_id', 'partner_id', 'sequence', 'to_refund']
         return fields
 
 
 class StockPicking(models.Model):
     _inherit = 'stock.picking'
 
-    sale_id = fields.Many2one(related="group_id.sale_id", string="Sales Order", store=True, readonly=False)
+    sale_id = fields.Many2one(related="group_id.sale_id", string="Sales Order", store=True, readonly=False, index='btree_not_null')
 
     def _auto_init(self):
         """
@@ -83,7 +85,7 @@ class StockPicking(models.Model):
     def _action_done(self):
         res = super()._action_done()
         sale_order_lines_vals = []
-        for move in self.move_lines:
+        for move in self.move_ids:
             sale_order = move.picking_id.sale_id
             # Creates new SO line only when pickings linked to a sale order and
             # for moves with qty. done and not already linked to a SO line.
@@ -116,16 +118,12 @@ class StockPicking(models.Model):
 
     def _log_less_quantities_than_expected(self, moves):
         """ Log an activity on sale order that are linked to moves. The
-        note summarize the real proccessed quantity and promote a
+        note summarize the real processed quantity and promote a
         manual action.
 
         :param dict moves: a dict with a move as key and tuple with
         new and old quantity as value. eg: {move_1 : (4, 5)}
         """
-
-        def _keys_in_sorted(sale_line):
-            """ sort by order_id and the sale_person on the order """
-            return (sale_line.order_id.id, sale_line.order_id.user_id.id)
 
         def _keys_in_groupby(sale_line):
             """ group by order_id and the sale_person on the order """
@@ -149,15 +147,15 @@ class StockPicking(models.Model):
                 'origin_picking': origin_picking,
                 'moves_information': moves_information.values(),
             }
-            return self.env.ref('sale_stock.exception_on_picking')._render(values=values)
+            return self.env['ir.qweb']._render('sale_stock.exception_on_picking', values)
 
-        documents = self._log_activity_get_documents(moves, 'sale_line_id', 'DOWN', _keys_in_sorted, _keys_in_groupby)
+        documents = self.sudo()._log_activity_get_documents(moves, 'sale_line_id', 'DOWN', _keys_in_groupby)
         self._log_activity(_render_note_exception_quantity, documents)
 
         return super(StockPicking, self)._log_less_quantities_than_expected(moves)
 
-class ProductionLot(models.Model):
-    _inherit = 'stock.production.lot'
+class StockLot(models.Model):
+    _inherit = 'stock.lot'
 
     sale_order_ids = fields.Many2many('sale.order', string="Sales Orders", compute='_compute_sale_order_ids')
     sale_order_count = fields.Integer('Sale order count', compute='_compute_sale_order_ids')

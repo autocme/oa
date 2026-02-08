@@ -1,17 +1,17 @@
 /** @odoo-module **/
 
-import tour from 'web_tour.tour';
 import wTourUtils from 'website.tour_utils';
 
-tour.register("website_snippets_menu_tabs", {
+wTourUtils.registerWebsitePreviewTour("website_snippets_menu_tabs", {
     test: true,
-    url: "/?enable_editor=1",
+    url: "/",
+    edition: true,
 }, [
     wTourUtils.goToTheme(),
     {
         content: "Click on the empty 'DRAG BUILDING BLOCKS HERE' area.",
         extra_trigger: 'we-customizeblock-option.snippet-option-ThemeColors',
-        trigger: 'main > .oe_structure.oe_empty',
+        trigger: 'iframe main > .oe_structure.oe_empty',
         run: 'click',
     },
     wTourUtils.goToTheme(),

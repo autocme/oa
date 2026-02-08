@@ -7,8 +7,9 @@ from odoo import api, fields, models
 class ResUsersSettings(models.Model):
     _name = 'res.users.settings'
     _description = 'User Settings'
+    _rec_name = 'user_id'
 
-    user_id = fields.Many2one('res.users', string="User", required=True, readonly=True, ondelete='cascade')
+    user_id = fields.Many2one('res.users', string="User", required=True, ondelete='cascade', domain=[("res_users_settings_id", "=", False)])
     is_discuss_sidebar_category_channel_open = fields.Boolean(string="Is discuss sidebar category channel open?", default=True)
     is_discuss_sidebar_category_chat_open = fields.Boolean(string="Is discuss sidebar category chat open?", default=True)
 
@@ -29,14 +30,16 @@ class ResUsersSettings(models.Model):
             settings = self.sudo().create({'user_id': user.id})
         return settings
 
-    def _res_users_settings_format(self):
+    def _res_users_settings_format(self, fields_to_format=None):
         self.ensure_one()
-        res = self._read_format(fnames=[name for name, field in self._fields.items() if name == 'id' or not field.automatic])[0]
-        res.pop('volume_settings_ids')
-        volume_settings = self.volume_settings_ids._discuss_users_settings_volume_format()
-        res.update({
-            'volume_settings': [('insert', volume_settings)] if volume_settings else [],
-        })
+        if not fields_to_format:
+            fields_to_format = [name for name, field in self._fields.items() if name == 'id' or not field.automatic]
+        res = self._read_format(fnames=fields_to_format)[0]
+        if 'user_id' in fields_to_format:
+            res['user_id'] = {'id': self.user_id.id}
+        if 'volume_settings_ids' in fields_to_format:
+            volume_settings = self.volume_settings_ids._discuss_users_settings_volume_format()
+            res['volume_settings_ids'] = [('insert', volume_settings)]
         return res
 
     def set_res_users_settings(self, new_settings):
@@ -46,7 +49,7 @@ class ResUsersSettings(models.Model):
             if setting in self._fields and new_settings[setting] != self[setting]:
                 changed_settings[setting] = new_settings[setting]
         self.write(changed_settings)
-        self.env['bus.bus']._sendone(self.user_id.partner_id, 'res.users.settings/changed', changed_settings)
+        self.env['bus.bus']._sendone(self.user_id.partner_id, 'res.users.settings/insert', self._res_users_settings_format([*changed_settings.keys(), 'id']))
 
     def set_volume_setting(self, partner_id, volume, guest_id=None):
         """
@@ -69,6 +72,4 @@ class ResUsersSettings(models.Model):
                 'partner_id': partner_id,
                 'guest_id': guest_id,
             })
-        self.env['bus.bus']._sendone(self.user_id.partner_id, 'res.users.settings/volumes_update', {
-            'volumeSettings': [('insert', volume_setting._discuss_users_settings_volume_format())],
-        })
+        self.env['bus.bus']._sendone(self.user_id.partner_id, 'res.users.settings.volumes/insert', volume_setting._discuss_users_settings_volume_format())

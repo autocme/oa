@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
 
 from odoo.addons.sale_timesheet.tests.common import TestCommonSaleTimesheet
@@ -27,23 +26,16 @@ class TestSaleService(TestCommonSaleTimesheet):
             'name': self.product_delivery_timesheet2.name,
             'product_id': self.product_delivery_timesheet2.id,
             'product_uom_qty': 50,
-            'product_uom': self.product_delivery_timesheet2.uom_id.id,
-            'price_unit': self.product_delivery_timesheet2.list_price
         })
 
-        self.sale_order.order_line._compute_product_updatable()
         self.assertTrue(sale_order_line.product_updatable)
         self.sale_order.action_confirm()
-        self.sale_order.order_line._compute_product_updatable()
-
-        self.sale_order.action_confirm()
-        self.sale_order.order_line._compute_product_updatable()
         self.assertFalse(sale_order_line.product_updatable)
         self.assertEqual(self.sale_order.invoice_status, 'no', 'Sale Service: there should be nothing to invoice after validation')
 
         # check task creation
         project = self.project_global
-        task = project.task_ids.filtered(lambda t: t.name == '%s: %s' % (self.sale_order.name, self.product_delivery_timesheet2.name))
+        task = project.task_ids.filtered(lambda t: t.name == '%s - %s' % (self.sale_order.name, self.product_delivery_timesheet2.name))
         self.assertTrue(task, 'Sale Service: task is not created, or it badly named')
         self.assertEqual(task.partner_id, self.sale_order.partner_id, 'Sale Service: customer should be the same on task and on SO')
         self.assertEqual(task.email_from, self.sale_order.partner_id.email, 'Sale Service: Task Email should be the same as the SO customer Email')
@@ -79,11 +71,8 @@ class TestSaleService(TestCommonSaleTimesheet):
         })
 
         self.env['sale.order.line'].create({
-            'name': product_service_task.name,
             'product_id': product_service_task.id,
             'product_uom_qty': 10,
-            'product_uom': product_service_task.uom_id.id,
-            'price_unit': product_service_task.list_price,
             'order_id': self.sale_order.id,
         })
 
@@ -92,9 +81,9 @@ class TestSaleService(TestCommonSaleTimesheet):
         # delete timesheets before deleting the task, so as to trigger the error
         # about linked sales order lines and not the one about linked timesheets
         task.timesheet_ids.unlink()
-        # not possible to delete a task linked to a SOL
-        with self.assertRaises(ValidationError):
-            task.unlink()
+        # unlink automatically task from the SOL when deleting the task
+        task.unlink()
+        self.assertFalse(sale_order_line.task_id, "Deleting the task its should automatically unlink the task from SOL.")
 
     def test_timesheet_uom(self):
         """ Test timesheet invoicing and uom conversion """
@@ -102,11 +91,9 @@ class TestSaleService(TestCommonSaleTimesheet):
         uom_days = self.env.ref('uom.product_uom_day')
         sale_order_line = self.env['sale.order.line'].create({
             'order_id': self.sale_order.id,
-            'name': self.product_delivery_timesheet3.name,
             'product_id': self.product_delivery_timesheet3.id,
             'product_uom_qty': 5,
             'product_uom': uom_days.id,
-            'price_unit': self.product_delivery_timesheet3.list_price
         })
         self.sale_order.action_confirm()
         task = self.env['project.task'].search([('sale_line_id', '=', sale_order_line.id)])
@@ -134,14 +121,10 @@ class TestSaleService(TestCommonSaleTimesheet):
     def test_task_so_line_assignation(self):
         # create SO line and confirm it
         so_line_deliver_global_project = self.env['sale.order.line'].create({
-            'name': self.product_delivery_timesheet2.name,
             'product_id': self.product_delivery_timesheet2.id,
             'product_uom_qty': 10,
-            'product_uom': self.product_delivery_timesheet2.uom_id.id,
-            'price_unit': self.product_delivery_timesheet2.list_price,
             'order_id': self.sale_order.id,
         })
-        so_line_deliver_global_project.product_id_change()
         self.sale_order.action_confirm()
         task_serv2 = self.env['project.task'].search([('sale_line_id', '=', so_line_deliver_global_project.id)])
 
@@ -180,14 +163,10 @@ class TestSaleService(TestCommonSaleTimesheet):
     def test_delivered_quantity(self):
         # create SO line and confirm it
         so_line_deliver_new_task_project = self.env['sale.order.line'].create({
-            'name': self.product_delivery_timesheet3.name,
             'product_id': self.product_delivery_timesheet3.id,
             'product_uom_qty': 10,
-            'product_uom': self.product_delivery_timesheet3.uom_id.id,
-            'price_unit': self.product_delivery_timesheet3.list_price,
             'order_id': self.sale_order.id,
         })
-        so_line_deliver_new_task_project.product_id_change()
         self.sale_order.action_confirm()
         task_serv2 = self.env['project.task'].search([('sale_line_id', '=', so_line_deliver_new_task_project.id)])
 
@@ -231,11 +210,8 @@ class TestSaleService(TestCommonSaleTimesheet):
             the ordered quantity of a SO line that have created a task should update the planned hours of this task.
         """
         so_line1 = self.env['sale.order.line'].create({
-            'name': self.product_delivery_timesheet3.name,
             'product_id': self.product_delivery_timesheet3.id,
             'product_uom_qty': 7,
-            'product_uom': self.product_delivery_timesheet3.uom_id.id,
-            'price_unit': self.product_delivery_timesheet3.list_price,
             'order_id': self.sale_order.id,
         })
 
@@ -253,7 +229,7 @@ class TestSaleService(TestCommonSaleTimesheet):
         self.assertEqual(so_line1.product_uom_qty, so_line1.task_id.planned_hours, "The planned hours should have changed when updating the ordered quantity of the native SO line")
 
         # cancel SO
-        self.sale_order.action_cancel()
+        self.sale_order._action_cancel()
 
         self.assertTrue(so_line1.task_id, "SO cancellation should keep the task")
         self.assertTrue(so_line1.project_id, "SO cancellation should create a project")
@@ -318,43 +294,28 @@ class TestSaleService(TestCommonSaleTimesheet):
 
         # create 5 so lines
         so_line1 = self.env['sale.order.line'].create({
-            'name': self.product_delivery_timesheet5.name,
             'product_id': self.product_delivery_timesheet5.id,
             'product_uom_qty': 11,
-            'product_uom': self.product_delivery_timesheet5.uom_id.id,
-            'price_unit': self.product_delivery_timesheet5.list_price,
             'order_id': self.sale_order.id,
         })
         so_line2 = self.env['sale.order.line'].create({
-            'name': self.product_order_timesheet4.name,
             'product_id': self.product_order_timesheet4.id,
             'product_uom_qty': 10,
-            'product_uom': self.product_order_timesheet4.uom_id.id,
-            'price_unit': self.product_order_timesheet4.list_price,
             'order_id': self.sale_order.id,
         })
         so_line3 = self.env['sale.order.line'].create({
-            'name': self.product_delivery_timesheet5.name,
             'product_id': self.product_delivery_timesheet5.id,
             'product_uom_qty': 5,
-            'product_uom': self.product_delivery_timesheet5.uom_id.id,
-            'price_unit': self.product_delivery_timesheet5.list_price,
             'order_id': self.sale_order.id,
         })
         so_line4 = self.env['sale.order.line'].create({
-            'name': self.product_delivery_manual3.name,
             'product_id': self.product_delivery_manual3.id,
             'product_uom_qty': 4,
-            'product_uom': self.product_delivery_manual3.uom_id.id,
-            'price_unit': self.product_delivery_manual3.list_price,
             'order_id': self.sale_order.id,
         })
         so_line5 = self.env['sale.order.line'].create({
-            'name': product_deli_ts_tmpl.name,
             'product_id': product_deli_ts_tmpl.id,
             'product_uom_qty': 8,
-            'product_uom': product_deli_ts_tmpl.uom_id.id,
-            'price_unit': product_deli_ts_tmpl.list_price,
             'order_id': self.sale_order.id,
         })
 
@@ -412,27 +373,18 @@ class TestSaleService(TestCommonSaleTimesheet):
         self.assertEqual(self.sale_order.analytic_account_id, self.analytic_account_sale, "Changing the project on the SO should set the analytic account accordingly.")
 
         so_line1 = self.env['sale.order.line'].create({
-            'name': self.product_order_timesheet3.name,
             'product_id': self.product_order_timesheet3.id,
             'product_uom_qty': 11,
-            'product_uom': self.product_order_timesheet3.uom_id.id,
-            'price_unit': self.product_order_timesheet3.list_price,
             'order_id': self.sale_order.id,
         })
         so_line2 = self.env['sale.order.line'].create({
-            'name': self.product_order_timesheet3.name,
             'product_id': self.product_order_timesheet3.id,
             'product_uom_qty': 10,
-            'product_uom': self.product_order_timesheet3.uom_id.id,
-            'price_unit': self.product_order_timesheet3.list_price,
             'order_id': self.sale_order.id,
         })
         so_line3 = self.env['sale.order.line'].create({
-            'name': self.product_order_timesheet4.name,
             'product_id': self.product_order_timesheet4.id,
             'product_uom_qty': 5,
-            'product_uom': self.product_order_timesheet4.uom_id.id,
-            'price_unit': self.product_order_timesheet4.list_price,
             'order_id': self.sale_order.id,
         })
 
@@ -469,11 +421,8 @@ class TestSaleService(TestCommonSaleTimesheet):
         """
 
         so_line1 = self.env['sale.order.line'].create({
-            'name': self.product_order_timesheet3.name,
             'product_id': self.product_order_timesheet3.id,
             'product_uom_qty': 10,
-            'product_uom': self.product_order_timesheet3.uom_id.id,
-            'price_unit': self.product_order_timesheet3.list_price,
             'order_id': self.sale_order.id,
         })
 
@@ -495,23 +444,16 @@ class TestSaleService(TestCommonSaleTimesheet):
         """ Test if subtasks and tasks are billed on the correct SO line """
         # create SO line and confirm it
         so_line_deliver_new_task_project = self.env['sale.order.line'].create({
-            'name': self.product_delivery_timesheet3.name,
             'product_id': self.product_delivery_timesheet3.id,
             'product_uom_qty': 10,
-            'product_uom': self.product_delivery_timesheet3.uom_id.id,
-            'price_unit': self.product_delivery_timesheet3.list_price,
             'order_id': self.sale_order.id,
         })
         so_line_deliver_new_task_project_2 = self.env['sale.order.line'].create({
             'name': self.product_delivery_timesheet3.name + "(2)",
             'product_id': self.product_delivery_timesheet3.id,
             'product_uom_qty': 10,
-            'product_uom': self.product_delivery_timesheet3.uom_id.id,
-            'price_unit': self.product_delivery_timesheet3.list_price,
             'order_id': self.sale_order.id,
         })
-        so_line_deliver_new_task_project.product_id_change()
-        so_line_deliver_new_task_project_2.product_id_change()
         self.sale_order.action_confirm()
 
         project = so_line_deliver_new_task_project.project_id
@@ -556,11 +498,8 @@ class TestSaleService(TestCommonSaleTimesheet):
         """ Changing the ordered quantity of a SO line that have created a task should update the planned hours of this task """
         sale_order_line = self.env['sale.order.line'].create({
             'order_id': self.sale_order.id,
-            'name': self.product_delivery_timesheet2.name,
             'product_id': self.product_delivery_timesheet2.id,
             'product_uom_qty': 50,
-            'product_uom': self.product_delivery_timesheet2.uom_id.id,
-            'price_unit': self.product_delivery_timesheet2.list_price
         })
 
         self.sale_order.action_confirm()
@@ -569,7 +508,7 @@ class TestSaleService(TestCommonSaleTimesheet):
         sale_order_line.write({'product_uom_qty': 20})
         self.assertEqual(sale_order_line.product_uom_qty, sale_order_line.task_id.planned_hours, "The planned hours should have changed when updating the ordered quantity of the native SO line")
 
-        self.sale_order.action_cancel()
+        self.sale_order._action_cancel()
         sale_order_line.write({'product_uom_qty': 30})
         self.assertEqual(sale_order_line.product_uom_qty, sale_order_line.task_id.planned_hours, "The planned hours should have changed when updating the ordered quantity, even after SO cancellation")
 
@@ -580,11 +519,8 @@ class TestSaleService(TestCommonSaleTimesheet):
     def test_copy_billable_project_and_task(self):
         sale_order_line = self.env['sale.order.line'].create({
             'order_id': self.sale_order.id,
-            'name': self.product_delivery_timesheet3.name,
             'product_id': self.product_delivery_timesheet3.id,
             'product_uom_qty': 5,
-            'product_uom': self.product_delivery_timesheet3.uom_id.id,
-            'price_unit': self.product_delivery_timesheet3.list_price
         })
         self.sale_order.action_confirm()
         task = self.env['project.task'].search([('sale_line_id', '=', sale_order_line.id)])
@@ -614,7 +550,7 @@ class TestSaleService(TestCommonSaleTimesheet):
             5) Create without storing the timesheet to check if remaining hours in SOL does not change.
         """
         # 1) Check the remaining hours in the SOL containing a prepaid service product
-        prepaid_service_sol = self.so.order_line.filtered(lambda sol: sol.product_id.service_policy == 'ordered_timesheet')
+        prepaid_service_sol = self.so.order_line.filtered(lambda sol: sol.product_id.service_policy == 'ordered_prepaid')
         self.assertEqual(len(prepaid_service_sol), 1, "It should only have one SOL with prepaid service product in this SO.")
         self.assertEqual(prepaid_service_sol.remaining_hours, prepaid_service_sol.product_uom_qty - prepaid_service_sol.qty_delivered, "The remaining hours of this SOL should be equal to the ordered quantity minus the delivered quantity.")
 
@@ -634,6 +570,7 @@ class TestSaleService(TestCommonSaleTimesheet):
             'project_id': self.project_task_rate.id,
             'task_id': task.id,
             'unit_amount': 1,
+            'employee_id': self.employee_user.id,
         })
         self.assertEqual(task.remaining_hours_so, 1, "Before the creation of a timesheet, the remaining hours was 2 hours, when we timesheet 1 hour, the remaining hours should be equal to 1 hour.")
         self.assertEqual(prepaid_service_sol.remaining_hours, task.remaining_hours_so, "The remaining hours on the SOL should also be equal to 1 hour.")
@@ -653,6 +590,7 @@ class TestSaleService(TestCommonSaleTimesheet):
             'unit_amount': 1,
             'so_line': prepaid_service_sol.id,
             'is_so_line_edited': True,
+            'employee_id': self.employee_user.id,
         })
         self.assertEqual(timesheet.so_line, prepaid_service_sol, "The SOL should be the same than one containing the prepaid service product.")
         self.assertEqual(prepaid_service_sol.remaining_hours, 2, "The remaining hours should not change.")
@@ -665,11 +603,12 @@ class TestSaleService(TestCommonSaleTimesheet):
             'gram': 0.0,
         }
 
+        project = self.project_global.copy({'tasks': False})
         Product = self.env['product.product']
         product_vals = {
             'type': 'service',
             'service_type': 'timesheet',
-            'project_id': self.project_global.id,
+            'project_id': project.id,
             'service_tracking': 'task_global_project',
         }
 
@@ -680,7 +619,6 @@ class TestSaleService(TestCommonSaleTimesheet):
             'order_id': self.sale_order.id,
         }
 
-        self.project_global.task_ids = False
         for uom_name in planned_hours_for_uom:
             uom_id = self.env.ref('uom.product_uom_%s' % uom_name)
 
@@ -700,29 +638,9 @@ class TestSaleService(TestCommonSaleTimesheet):
 
         self.sale_order.action_confirm()
 
-        tasks = self.project_global.task_ids
+        tasks = project.task_ids
         for task in tasks:
             self.assertEqual(task.planned_hours, planned_hours_for_uom[task.sale_line_id.name])
-
-        project_updates_data = self.project_global._get_sold_items()['data']
-        for datum in project_updates_data:
-            # A datum looks like this: {'name': 'day', 'value': '0.0 / 8.0 Hours',...}
-            uom_in = datum['name']
-
-            # So the value looks like this: '0.0 / 8.0 Hours'
-            # We extract the ordered quantity (second number in the string) and the displayed unit of measure
-            values = datum['value'][6:].split(' ')
-            qty = float(values[0])
-            uom_out = values[1]
-
-            # All uom but grams should have been converted to company's project time unit
-            company_time_uom = self.env.company.project_time_mode_id
-            if uom_in == 'gram':
-                self.assertEqual(qty, 1.0)
-                self.assertEqual(uom_out, self.env.ref('uom.product_uom_gram').display_name)
-            else:
-                self.assertEqual(qty, planned_hours_for_uom[uom_in])
-                self.assertEqual(uom_out, company_time_uom.display_name)
 
     def test_add_product_analytic_account(self):
         """ When we have a project with an analytic account and we add a product to the task,
@@ -766,8 +684,114 @@ class TestSaleService(TestCommonSaleTimesheet):
 
         # Check that the resulting invoice line and the project have the same analytic account
         invoice_line = self.sale_order.invoice_ids.line_ids.filtered(lambda line: line.product_id == product_add)
-        self.assertEqual(invoice_line.analytic_account_id, self.project_global.analytic_account_id,
-             "SOL's analytic account should be the same as the project's")
+        self.assertEqual(invoice_line.analytic_distribution, {str(self.project_global.analytic_account_id.id): 100},
+             "SOL's analytic distribution should contain the project analytic account")
+
+    def test_sale_timesheet_invoice(self):
+        """ Test timesheet is correctly linked to an invoice when its SOL is invoiced
+
+            Test Cases:
+            ==========
+            1) Create a SOL on a SO
+            2) Confirm the SO
+            3) Set the SOL on a new timesheet
+            4) Create an invoice for this SO
+            5) Check the timesheet is linked to the invoice
+        """
+        so_line = self.env['sale.order.line'].create({
+            'product_id': self.product_delivery_timesheet2.id,
+            'product_uom_qty': 10,
+            'order_id': self.sale_order.id,
+        })
+        self.sale_order.action_confirm()
+
+        timesheet = self.env['account.analytic.line'].create({
+            'name': 'Test Line',
+            'project_id': so_line.task_id.project_id.id,
+            'task_id': so_line.task_id.id,
+            'unit_amount': 5,
+            'employee_id': self.employee_manager.id,
+        })
+
+        self.assertFalse(timesheet.timesheet_invoice_id)
+        invoice = self.sale_order._create_invoices()
+        invoice.action_post()
+
+        self.assertEqual(invoice, timesheet.timesheet_invoice_id)
+
+    def test_prevent_update_project_allocated_hours_after_confirming_quotation(self):
+        """ Test allocated hours in the project linked to a SO is not automatically updated
+
+            When the project is linked to a SO (confirmed quotation) the allocated
+            hours should not be recomputed when the quantity ordered of a product
+            is changed in the SO.
+
+            Test Cases:
+            ==========
+            1) Create a SOL on a SO
+            2) Confirm the SO
+            3) Store the project allocated hour
+            4) Modify the SOL product qty
+            5) Check the project allocated hour is modify
+        """
+        order_line = self.env['sale.order.line'].create({
+            'order_id': self.sale_order.id,
+            'product_id': self.product_delivery_timesheet3.id,
+            'product_uom_qty': 8,
+        })
+        self.sale_order.action_confirm()
+        allocated_hours = order_line.project_id.allocated_hours
+        order_line.product_uom_qty = 10
+        self.assertEqual(allocated_hours, order_line.project_id.allocated_hours, 'Project allocated hours should not be changed.')
+
+    def test_different_uom_to_hours_on_sale_order_confirmation(self):
+        """ Verify correctness of a project's allocted hours for multiple UOMs.
+
+            The conversion to time should be processed as follows :
+                H : qty = uom_qty [Hours]
+                D : qty = uom_qty * 8 [Hours]
+                U : qty =  uom_qty [Hours]
+                Other : qty = 0
+
+            Test Cases:
+            ==========
+            1) Create a 4 SOL on a SO With different UOM
+            2) Confirm the SO
+            3) Check the project allocated hour is correctly set
+            4) Repeat with different timesheet encoding UOM
+        """
+
+        self.env['sale.order.line'].create([{
+            'order_id': self.sale_order.id,
+            'product_id': self.product_delivery_timesheet3.id,
+            'product_uom_qty': 2,
+            'product_uom': self.env.ref('uom.product_uom_day').id, # 16 hours
+        }, {
+            'order_id': self.sale_order.id,
+            'product_id': self.product_delivery_timesheet3.id,
+            'product_uom_qty': 8,
+            'product_uom': self.env.ref('uom.product_uom_hour').id, # 8 hours
+        }, {
+            'order_id': self.sale_order.id,
+            'product_id': self.product_delivery_timesheet3.id,
+            'product_uom_qty': 1,
+            'product_uom': self.env.ref('uom.product_uom_dozen').id, # 0 hours
+        }, {
+            'order_id': self.sale_order.id,
+            'product_id': self.product_delivery_timesheet3.id,
+            'product_uom_qty': 6,
+            'product_uom': self.env.ref('uom.product_uom_unit').id, # 6 hours
+        }])
+        self.sale_order.action_confirm()
+        allocated_hours = self.sale_order.project_ids.allocated_hours
+        self.assertEqual(16 + 8 + 6, allocated_hours,
+                         "Project's allocated hours should add up correctly.")
+
+        self.env.company.timesheet_encode_uom_id = self.env.ref('uom.product_uom_day')
+        so_copy = self.sale_order.copy()
+        so_copy.action_confirm()
+        self.assertEqual(allocated_hours, so_copy.project_ids.allocated_hours,
+                         "Timesheet encoding shouldn't affect hours allocated.")
 
     def test_timesheet_hours_delivered_rounding(self):
         """

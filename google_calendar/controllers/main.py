@@ -22,7 +22,7 @@ class GoogleCalendarController(http.Controller):
             GoogleCal = GoogleCalendarService(request.env['google.service'].with_context(base_url=base_url))
 
             # Checking that admin have already configured Google API for google synchronization !
-            client_id = request.env['ir.config_parameter'].sudo().get_param('google_calendar_client_id')
+            client_id = request.env['google.service']._get_client_id('calendar')
 
             if not client_id or client_id == '':
                 action_id = ''

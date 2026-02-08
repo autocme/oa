@@ -9,10 +9,22 @@
                 <div class="o_handle w readonly"/>
                 <div class="o_handle s readonly"/>
 
+                <!-- Grid resize handles -->
+                <div class="o_handle o_grid_handle n d-none"/>
+                <div class="o_handle o_grid_handle e d-none"/>
+                <div class="o_handle o_grid_handle w d-none"/>
+                <div class="o_handle o_grid_handle s d-none"/>
+                <div class="o_handle o_grid_handle ne d-none"/>
+                <div class="o_handle o_grid_handle nw d-none"/>
+                <div class="o_handle o_grid_handle se d-none"/>
+                <div class="o_handle o_grid_handle sw d-none"/>
+
                 <div class="o_overlay_options_wrap">
                     <!-- Overlay move specific section -->
                     <div class="o_overlay_move_options">
                         <!-- Button-like handle to drag and drop -->
+                        <div class="o_front_back o_send_back d-none"/>
+                        <div class="o_front_back o_bring_front d-none"/>
                         <div class="o_move_handle"/>
                     </div>
                     <div class="o_overlay_edit_options">
@@ -58,7 +70,7 @@
             </button>
             <t t-if="widget.resetButton">
                 <t t-set="trash_title"><t t-if="widget.withCombinations">None</t><t t-else="">Reset</t></t>
-                <button type="button" class="fa fa-trash my-1 ml-5 py-0 o_we_color_btn o_colorpicker_reset o_we_hover_danger" t-att-title="trash_title"/>
+                <button type="button" class="fa fa-trash my-1 ms-5 py-0 o_we_color_btn o_colorpicker_reset o_we_hover_danger" t-att-title="trash_title"/>
             </t>
         </div>
         <div class="o_colorpicker_sections pt-2 px-2 pb-3" data-color-tab="color-combinations">
@@ -83,7 +95,7 @@
         <div class="o_we_cc_preview_wrapper d-flex justify-content-between">
             <h1 class="o_we_color_combination_btn_title">Title</h1>
             <p class="o_we_color_combination_btn_text flex-grow-1">Text</p>
-            <span class="o_we_color_combination_btn_btn btn btn-sm btn-primary o_btn_preview mr-1"><small>Button</small></span>
+            <span class="o_we_color_combination_btn_btn btn btn-sm btn-primary o_btn_preview me-1"><small>Button</small></span>
             <span class="o_we_color_combination_btn_btn btn btn-sm btn-secondary o_btn_preview"><small>Button</small></span>
         </div>
     </t>

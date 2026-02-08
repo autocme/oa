@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
 
-from odoo import api, fields, models
+from odoo import api, fields, models, _
 
 
 class MailTestSimple(models.Model):
@@ -60,6 +60,19 @@ class MailTestGatewayGroups(models.Model):
             values['alias_parent_thread_id'] = self.id
         return values
 
+    def _mail_get_partner_fields(self):
+        return ['customer_id']
+
+    def _message_get_default_recipients(self):
+        return dict(
+            (record.id, {
+                'email_cc': False,
+                'email_to': record.email_from if not record.customer_id.ids else False,
+                'partner_ids': record.customer_id.ids,
+            })
+            for record in self
+        )
+
 
 class MailTestStandard(models.Model):
     """ This model can be used in tests when automatic subscription and simple
@@ -73,11 +86,6 @@ class MailTestStandard(models.Model):
     user_id = fields.Many2one('res.users', 'Responsible', tracking=True)
     container_id = fields.Many2one('mail.test.container', tracking=True)
     company_id = fields.Many2one('res.company')
-
-    def _get_share_url(self, redirect, signup_partner, share_token):
-        """This function is required for a test on 'mail.mail_notification_paynow' template (test_message_post/test_mail_add_signature),
-        another model should be created in master"""
-        return '/mail/view'
 
 
 class MailTestActivity(models.Model):
@@ -98,8 +106,10 @@ class MailTestActivity(models.Model):
             summary=action_summary
         )
 
-    def action_close(self, action_feedback):
-        self.activity_feedback(['test_mail.mail_act_test_todo'], feedback=action_feedback)
+    def action_close(self, action_feedback, attachment_ids=None):
+        self.activity_feedback(['test_mail.mail_act_test_todo'],
+                               feedback=action_feedback,
+                               attachment_ids=attachment_ids)
 
 
 class MailTestTicket(models.Model):
@@ -108,6 +118,7 @@ class MailTestTicket(models.Model):
     _description = 'Ticket-like model'
     _name = 'mail.test.ticket'
     _inherit = ['mail.thread']
+    _primary_email = 'email_from'
 
     name = fields.Char()
     email_from = fields.Char(tracking=True)
@@ -117,6 +128,41 @@ class MailTestTicket(models.Model):
     customer_id = fields.Many2one('res.partner', 'Customer', tracking=2)
     user_id = fields.Many2one('res.users', 'Responsible', tracking=1)
     container_id = fields.Many2one('mail.test.container', tracking=True)
+
+    def _mail_get_partner_fields(self):
+        return ['customer_id']
+
+    def _message_get_default_recipients(self):
+        return dict(
+            (record.id, {
+                'email_cc': False,
+                'email_to': record.email_from if not record.customer_id.ids else False,
+                'partner_ids': record.customer_id.ids,
+            })
+            for record in self
+        )
+
+    def _notify_get_recipients_groups(self, msg_vals=None):
+        """ Activate more groups to test query counters notably (and be backward
+        compatible for tests). """
+        local_msg_vals = dict(msg_vals or {})
+        groups = super()._notify_get_recipients_groups(msg_vals=msg_vals)
+        for group_name, _group_method, group_data in groups:
+            if group_name == 'portal':
+                group_data['active'] = True
+            elif group_name == 'customer':
+                group_data['active'] = True
+                group_data['has_button_access'] = True
+                group_data['actions'] = [{
+                    'url': self._notify_get_action_link(
+                        'controller',
+                        controller='/test_mail/do_stuff',
+                        **local_msg_vals
+                    ),
+                    'title': _('NotificationButtonTitle')
+                }]
+
+        return groups
 
     def _track_template(self, changes):
         res = super(MailTestTicket, self)._track_template(changes)
@@ -139,6 +185,53 @@ class MailTestTicket(models.Model):
         return super(MailTestTicket, self)._track_subtype(init_values)
 
 
+
+class MailTestTicketEL(models.Model):
+    """ Just mail.test.ticket, but exclusion-list enabled. Kept as different
+    model to avoid messing with existing tests, notably performance, and ease
+    backward comparison. """
+    _description = 'Ticket-like model with exclusion list'
+    _name = 'mail.test.ticket.el'
+    _inherit = [
+        'mail.test.ticket',
+        'mail.thread.blacklist',
+    ]
+    _primary_email = 'email_from'
+
+    email_from = fields.Char(
+        'Email',
+        compute='_compute_email_from', readonly=False, store=True)
+
+    @api.depends('customer_id')
+    def _compute_email_from(self):
+        for ticket in self.filtered(lambda r: r.customer_id and not r.email_from):
+            ticket.email_from = ticket.customer_id.email_formatted
+
+
+class MailTestTicketMC(models.Model):
+    """ Just mail.test.ticket, but multi company. Kept as different model to
+    avoid messing with existing tests, notably performance, and ease backward
+    comparison. """
+    _description = 'Ticket-like model'
+    _name = 'mail.test.ticket.mc'
+    _inherit = ['mail.test.ticket']
+    _primary_email = 'email_from'
+
+    company_id = fields.Many2one('res.company', 'Company', default=lambda self: self.env.company)
+    container_id = fields.Many2one('mail.test.container.mc', tracking=True)
+
+    def _creation_subtype(self):
+        if self.container_id:
+            return self.env.ref('test_mail.st_mail_test_ticket_container_mc_upd')
+        return super()._creation_subtype()
+
+    def _track_subtype(self, init_values):
+        self.ensure_one()
+        if 'container_id' in init_values and self.container_id:
+            return self.env.ref('test_mail.st_mail_test_ticket_container_mc_upd')
+        return super()._track_subtype(init_values)
+
+
 class MailTestContainer(models.Model):
     """ This model can be used in tests when container records like projects
     or teams are required. """
@@ -154,6 +247,29 @@ class MailTestContainer(models.Model):
         'mail.alias', 'Alias',
         delegate=True)
 
+    def _mail_get_partner_fields(self):
+        return ['customer_id']
+
+    def _message_get_default_recipients(self):
+        return dict(
+            (record.id, {
+                'email_cc': False,
+                'email_to': False,
+                'partner_ids': record.customer_id.ids,
+            })
+            for record in self
+        )
+
+    def _notify_get_recipients_groups(self, msg_vals=None):
+        """ Activate more groups to test query counters notably (and be backward
+        compatible for tests). """
+        groups = super(MailTestContainer, self)._notify_get_recipients_groups(msg_vals=msg_vals)
+        for group_name, _group_method, group_data in groups:
+            if group_name == 'portal':
+                group_data['active'] = True
+
+        return groups
+
     def _alias_get_creation_values(self):
         values = super(MailTestContainer, self)._alias_get_creation_values()
         values['alias_model_id'] = self.env['ir.model']._get('mail.test.container').id
@@ -162,9 +278,23 @@ class MailTestContainer(models.Model):
             values['alias_parent_thread_id'] = self.id
         return values
 
+class MailTestContainerMC(models.Model):
+    """ Just mail.test.container, but multi company. Kept as different model to
+    avoid messing with existing tests, notably performance, and ease backward
+    comparison. """
+    _description = 'Project-like model with alias (MC)'
+    _name = 'mail.test.container.mc'
+    _mail_post_access = 'read'
+    _inherit = ['mail.test.container']
+
+    company_id = fields.Many2one('res.company', 'Company', default=lambda self: self.env.company)
+
+
 class MailTestComposerMixin(models.Model):
     """ A simple invite-like wizard using the composer mixin, rendering on
-    itself. """
+    composer source test model. Purpose is to have a minimal composer which
+    runs on other records and check notably dynamic template support and
+    translations. """
     _description = 'Invite-like Wizard'
     _name = 'mail.test.composer.mixin'
     _inherit = ['mail.composer.mixin']
@@ -172,6 +302,29 @@ class MailTestComposerMixin(models.Model):
     name = fields.Char('Name')
     author_id = fields.Many2one('res.partner')
     description = fields.Html('Description', render_engine="qweb", render_options={"post_process": True}, sanitize=False)
+    source_ids = fields.Many2many('mail.test.composer.source', string='Invite source')
 
     def _compute_render_model(self):
-        self.render_model = self._name
+        self.render_model = 'mail.test.composer.source'
+
+
+class MailTestComposerSource(models.Model):
+    """ A simple model on which invites are sent. """
+    _description = 'Invite-like Wizard'
+    _name = 'mail.test.composer.source'
+    _inherit = ['mail.thread.blacklist']
+    _primary_email = 'email_from'
+
+    name = fields.Char('Name')
+    customer_id = fields.Many2one('res.partner', 'Main customer')
+    email_from = fields.Char(
+        'Email',
+        compute='_compute_email_from', readonly=False, store=True)
+
+    @api.depends('customer_id')
+    def _compute_email_from(self):
+        for source in self.filtered(lambda r: r.customer_id and not r.email_from):
+            source.email_from = source.customer_id.email_formatted
+
+    def _mail_get_partner_fields(self):
+        return ['customer_id']

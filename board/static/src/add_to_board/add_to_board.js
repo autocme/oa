@@ -1,5 +1,6 @@
 /** @odoo-module **/
 
+import { Dropdown } from "@web/core/dropdown/dropdown";
 import { registry } from "@web/core/registry";
 import { useAutofocus, useService } from "@web/core/utils/hooks";
 import { sprintf } from "@web/core/utils/strings";
@@ -24,7 +25,7 @@ export class AddToBoard extends Component {
     setup() {
         this.notification = useService("notification");
         this.rpc = useService("rpc");
-        this.state = useState({ name: this.env.config.displayName });
+        this.state = useState({ name: this.env.config.getDisplayName() });
 
         useAutofocus();
     }
@@ -35,13 +36,22 @@ export class AddToBoard extends Component {
 
     async addToBoard() {
         const { domain, globalContext } = this.env.searchModel;
-        const { context } = this.env.searchModel.getIrFilterValues();
+        const { context, groupBys, orderBy } = this.env.searchModel.getPreFavoriteValues();
+        const comparison = this.env.searchModel.comparison;
         const contextToSave = {
-            ...globalContext,
+            ...Object.fromEntries(
+                Object.entries(globalContext).filter(
+                    (entry) => !entry[0].startsWith("search_default_")
+                )
+            ),
             ...context,
-            orderedBy: this.env.searchModel.orderBy,
+            orderedBy: orderBy,
+            group_by: groupBys,
             dashboard_merge_domains_contexts: false,
         };
+        if (comparison) {
+            contextToSave.comparison = comparison;
+        }
 
         const result = await this.rpc("/board/add_to_dashboard", {
             action_id: this.env.config.actionId || false,
@@ -59,7 +69,7 @@ export class AddToBoard extends Component {
                     type: "warning",
                 }
             );
-            this.state.name = this.env.config.displayName;
+            this.state.name = this.env.config.getDisplayName();
         } else {
             this.notification.add(this.env._t("Could not add filter to dashboard"), {
                 type: "danger",
@@ -83,6 +93,7 @@ export class AddToBoard extends Component {
 }
 
 AddToBoard.template = "board.AddToBoard";
+AddToBoard.components = { Dropdown };
 
 export const addToBoardItem = {
     Component: AddToBoard,

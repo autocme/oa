@@ -1,13 +1,13 @@
 /** @odoo-module **/
 
+import { Dropdown } from "@web/core/dropdown/dropdown";
+import { SearchDropdownItem } from "@web/search/search_dropdown_item/search_dropdown_item";
 import { CustomGroupByItem } from "./custom_group_by_item";
 import { FACET_ICONS, GROUPABLE_TYPES } from "../utils/misc";
-import { Dropdown } from "@web/core/dropdown/dropdown";
 import { sortBy } from "@web/core/utils/arrays";
 import { useBus } from "@web/core/utils/hooks";
-import { SearchDropdownItem } from "@web/search/search_dropdown_item/search_dropdown_item";
 
-const { Component } = owl;
+import { Component } from "@odoo/owl";
 
 export class GroupByMenu extends Component {
     setup() {
@@ -27,6 +27,13 @@ export class GroupByMenu extends Component {
     }
 
     /**
+     * @returns {boolean}
+     */
+    get hideCustomGroupBy() {
+        return this.env.searchModel.hideCustomGroupBy || false;
+    }
+
+    /**
      * @returns {Object[]}
      */
     get items() {
@@ -41,15 +48,20 @@ export class GroupByMenu extends Component {
      * @returns {boolean}
      */
     validateField(fieldName, field) {
-        const { sortable, type } = field;
-        return fieldName !== "id" && sortable && GROUPABLE_TYPES.includes(type);
+        const { sortable, store, type } = field;
+        return (
+            (type === "many2many" ? store : sortable) &&
+            fieldName !== "id" &&
+            GROUPABLE_TYPES.includes(type)
+        );
     }
 
     /**
-     * @param {CustomEvent} ev
+     * @param {Object} param0
+     * @param {number} param0.itemId
+     * @param {number} [param0.optionId]
      */
-    onGroupBySelected(ev) {
-        const { itemId, optionId } = ev.detail.payload;
+    onGroupBySelected({ itemId, optionId }) {
         if (optionId) {
             this.env.searchModel.toggleDateGroupBy(itemId, optionId);
         } else {
@@ -58,15 +70,14 @@ export class GroupByMenu extends Component {
     }
 
     /**
-     * @param {CustomEvent} ev
+     * @param {string} fieldName
      */
-    onAddCustomGroup(ev) {
-        const { fieldName } = ev.detail;
+    onAddCustomGroup(fieldName) {
         this.env.searchModel.createNewGroupBy(fieldName);
     }
 }
 
-GroupByMenu.components = { CustomGroupByItem, DropdownItem: SearchDropdownItem };
+GroupByMenu.components = { CustomGroupByItem, Dropdown, DropdownItem: SearchDropdownItem };
 GroupByMenu.template = "web.GroupByMenu";
 GroupByMenu.defaultProps = {
     showActiveItems: true,

@@ -11,9 +11,7 @@ const _t = core._t;
 
 const CountdownWidget = publicWidget.Widget.extend({
     selector: '.s_countdown',
-    xmlDependencies: ['/website/static/src/snippets/s_countdown/000.xml'],
     disabledInEditableMode: false,
-    defaultColor: 'rgba(0, 0, 0, 255)',
 
     /**
      * @override
@@ -26,6 +24,17 @@ const CountdownWidget = publicWidget.Widget.extend({
         this.endTime = parseInt(this.el.dataset.endTime);
         this.size = parseInt(this.el.dataset.size);
         this.display = this.el.dataset.display;
+        if (!this.display && this.el.dataset.bsDisplay) {
+            // With the BS5 upgrade script of 16.0, countdowns' data-display may
+            // have been converted to data-bs-display by mistake. This will fix
+            // the DOM for good measures, maybe even allowing to remove this
+            // code in a few years as hopefully all current countdowns will have
+            // been removed or edited (or when a proper upgrade script in a
+            // future version of Odoo will be made, if necessary). TODO.
+            this.display = this.el.dataset.bsDisplay;
+            delete this.el.dataset.bsDisplay;
+            this.el.dataset.display = this.display;
+        }
 
         this.layout = this.el.dataset.layout;
         this.layoutBackground = this.el.dataset.layoutBackground;
@@ -193,7 +202,7 @@ const CountdownWidget = publicWidget.Widget.extend({
                 });
                 this.$textWrapper.text(_t("Countdown ends in"));
                 this.$textWrapper.append($('<span/>').attr({
-                    class: 's_countdown_text ml-1',
+                    class: 's_countdown_text ms-1',
                 }));
                 this.$textWrapper.appendTo(this.$wrapper);
             }

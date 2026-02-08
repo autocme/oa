@@ -15,7 +15,11 @@ from odoo.exceptions import AccessError
 def _check_special_access(res_model, res_id, token='', _hash='', pid=False):
     record = request.env[res_model].browse(res_id).sudo()
     if _hash and pid:  # Signed Token Case: hash implies token is signed by partner pid
-        return consteq(_hash, record._sign_token(pid))
+        can_access = consteq(_hash, record._sign_token(pid))
+        if not can_access:
+            parent_sign_token = record._portal_get_parent_hash_token(pid)
+            can_access = parent_sign_token and consteq(_hash, parent_sign_token)
+        return can_access
     elif token:  # Token Case: token is the global one of the document
         token_field = request.env[res_model]._mail_post_token_field
         return (token and record and consteq(record[token_field], token))
@@ -59,6 +63,9 @@ def _message_post_helper(res_model, res_id, message, token='', _hash=False, pid=
             record = record.sudo()
         else:
             raise Forbidden()
+    else:  # early check on access to avoid useless computation
+        record.check_access_rights('read')
+        record.check_access_rule('read')
 
     # deduce author of message
     author_id = request.env.user.partner_id.id if request.env.user.partner_id else False
@@ -105,6 +112,25 @@ class PortalChatter(http.Controller):
     def _portal_post_check_attachments(self, attachment_ids, attachment_tokens):
         request.env['ir.attachment'].browse(attachment_ids)._check_attachments_access(attachment_tokens)
 
+    def _portal_post_has_content(self, res_model, res_id, message, attachment_ids=None, **kw):
+        """ Tells if we can effectively post on the model based on content. """
+        return bool(message) or bool(attachment_ids)
+
+    @http.route('/mail/avatar/mail.message/<int:res_id>/author_avatar/<int:width>x<int:height>', type='http', auth='public')
+    def portal_avatar(self, res_id=None, height=50, width=50, access_token=None, _hash=None, pid=None):
+        """ Get the avatar image in the chatter of the portal """
+        if access_token or (_hash and pid):
+            message = request.env['mail.message'].browse(int(res_id)).exists().filtered(
+                lambda msg: _check_special_access(msg.model, msg.res_id, access_token, _hash, pid and int(pid))
+            ).sudo()
+        else:
+            message = request.env.ref('web.image_placeholder').sudo()
+        # in case there is no message, it creates a stream with the placeholder image
+        stream = request.env['ir.binary']._get_image_stream_from(
+            message, field_name='author_avatar', width=int(width), height=int(height),
+        )
+        return stream.get_response()
+
     @http.route(['/mail/chatter_post'], type='json', methods=['POST'], auth='public', website=True)
     def portal_chatter_post(self, res_model, res_id, message, attachment_ids=None, attachment_tokens=None, **kw):
         """Create a new `mail.message` with the given `message` and/or `attachment_ids` and return new message values.
@@ -113,39 +139,43 @@ class PortalChatter(http.Controller):
         `res_model`. The user must have access rights on this target document or
         must provide valid identifiers through `kw`. See `_message_post_helper`.
         """
+        if not self._portal_post_has_content(res_model, res_id, message,
+                                             attachment_ids=attachment_ids, attachment_tokens=attachment_tokens,
+                                             **kw):
+            return
+
         res_id = int(res_id)
 
         self._portal_post_check_attachments(attachment_ids or [], attachment_tokens or [])
 
-        if message or attachment_ids:
-            result = {'default_message': message}
-            # message is received in plaintext and saved in html
-            if message:
-                message = plaintext2html(message)
-            post_values = {
-                'res_model': res_model,
-                'res_id': res_id,
-                'message': message,
-                'send_after_commit': False,
-                'attachment_ids': False,  # will be added afterward
-            }
-            post_values.update((fname, kw.get(fname)) for fname in self._portal_post_filter_params())
-            post_values['_hash'] = kw.get('hash')
-            message = _message_post_helper(**post_values)
-            result.update({'default_message_id': message.id})
+        result = {'default_message': message}
+        # message is received in plaintext and saved in html
+        if message:
+            message = plaintext2html(message)
+        post_values = {
+            'res_model': res_model,
+            'res_id': res_id,
+            'message': message,
+            'send_after_commit': False,
+            'attachment_ids': False,  # will be added afterward
+        }
+        post_values.update((fname, kw.get(fname)) for fname in self._portal_post_filter_params())
+        post_values['_hash'] = kw.get('hash')
+        message = _message_post_helper(**post_values)
+        result.update({'default_message_id': message.id})
 
-            if attachment_ids:
-                # sudo write the attachment to bypass the read access
-                # verification in mail message
-                record = request.env[res_model].browse(res_id)
-                message_values = {'res_id': res_id, 'model': res_model}
-                attachments = record._message_post_process_attachments([], attachment_ids, message_values)
+        if attachment_ids:
+            # sudo write the attachment to bypass the read access
+            # verification in mail message
+            record = request.env[res_model].browse(res_id)
+            message_values = {'res_id': res_id, 'model': res_model}
+            attachments = record._message_post_process_attachments([], attachment_ids, message_values)
 
-                if attachments.get('attachment_ids'):
-                    message.sudo().write(attachments)
+            if attachments.get('attachment_ids'):
+                message.sudo().write(attachments)
 
-                result.update({'default_attachment_ids': message.attachment_ids.sudo().read(['id', 'name', 'mimetype', 'file_size', 'access_token'])})
-            return result
+            result.update({'default_attachment_ids': message.attachment_ids.sudo().read(['id', 'name', 'mimetype', 'file_size', 'access_token'])})
+        return result
 
     @http.route('/mail/chatter_init', type='json', auth='public', website=True)
     def portal_chatter_init(self, res_model, res_id, domain=False, limit=False, **kwargs):
@@ -159,8 +189,8 @@ class PortalChatter(http.Controller):
             'options': {
                 'message_count': message_data['message_count'],
                 'is_user_public': is_user_public,
-                'is_user_employee': request.env.user.has_group('base.group_user'),
-                'is_user_publisher': request.env.user.has_group('website.group_website_publisher'),
+                'is_user_employee': request.env.user._is_internal(),
+                'is_user_publisher': request.env.user.has_group('website.group_website_restricted_editor'),
                 'display_composer': display_composer,
                 'partner_id': request.env.user.partner_id.id
             }
@@ -207,9 +237,16 @@ class PortalChatter(http.Controller):
 class MailController(mail.MailController):
 
     @classmethod
+    def _redirect_to_generic_fallback(cls, model, res_id, access_token=None, **kwargs):
+        # Generic fallback for a share user is the customer portal
+        if request.session.uid and request.env.user.share:
+            return request.redirect('/my')
+        return super()._redirect_to_generic_fallback(model, res_id, access_token=access_token, **kwargs)
+
+    @classmethod
     def _redirect_to_record(cls, model, res_id, access_token=None, **kwargs):
         """ If the current user doesn't have access to the document, but provided
-        a valid access token, redirect him to the front-end view.
+        a valid access token, redirect them to the front-end view.
         If the partner_id and hash parameters are given, add those parameters to the redirect url
         to authentify the recipient in the chatter, if any.
 
@@ -233,7 +270,7 @@ class MailController(mail.MailController):
                 record_sudo.with_user(uid).check_access_rule('read')
             except AccessError:
                 if record_sudo.access_token and access_token and consteq(record_sudo.access_token, access_token):
-                    record_action = record_sudo.with_context(force_website=True).get_access_action()
+                    record_action = record_sudo._get_access_action(force_website=True)
                     if record_action['type'] == 'ir.actions.act_url':
                         pid = kwargs.get('pid')
                         hash = kwargs.get('hash')
@@ -242,6 +279,6 @@ class MailController(mail.MailController):
                             url = urls.url_parse(url)
                             url_params = url.decode_query()
                             url_params.update([("pid", pid), ("hash", hash)])
-                            url = url.replace(query=urls.url_encode(url_params)).to_url()
+                            url = url.replace(query=urls.url_encode(url_params, sort=True)).to_url()
                         return request.redirect(url)
         return super(MailController, cls)._redirect_to_record(model, res_id, access_token=access_token, **kwargs)

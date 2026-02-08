@@ -33,18 +33,18 @@ class PaymentPortal(payment_portal.PaymentPortal):
 
         return self.payment_pay(**kwargs)
 
-    @http.route('/donation/get_acquirer_fees', type='json', auth='public', website=True, sitemap=False)
-    def get_acquirer_fees(self, acquirer_ids=None, amount=None, currency_id=None, country_id=None):
-        acquirers_sudo = request.env['payment.acquirer'].sudo().browse(acquirer_ids)
+    @http.route('/donation/get_provider_fees', type='json', auth='public', website=True, sitemap=False)
+    def get_provider_fees(self, provider_ids=None, amount=None, currency_id=None, country_id=None):
+        providers_sudo = request.env['payment.provider'].sudo().browse(provider_ids)
         currency = request.env['res.currency'].browse(currency_id)
         country = request.env['res.country'].browse(country_id)
 
-        # Compute the fees taken by acquirers supporting the feature
-        fees_by_acquirer = {
-            acq_sudo.id: acq_sudo._compute_fees(amount, currency, country)
-            for acq_sudo in acquirers_sudo.filtered('fees_active')
+        # Compute the fees taken by providers supporting the feature
+        fees_by_provider = {
+            pro_sudo.id: pro_sudo._compute_fees(amount, currency, country)
+            for pro_sudo in providers_sudo.filtered('fees_active')
         }
-        return fees_by_acquirer
+        return fees_by_provider
 
     @http.route('/donation/transaction/<minimum_amount>', type='json', auth='public', website=True, sitemap=False)
     def donation_transaction(self, amount, currency_id, partner_id, access_token, minimum_amount=0, **kwargs):
@@ -73,10 +73,10 @@ class PaymentPortal(payment_portal.PaymentPortal):
             tx_sudo.update({
                 'partner_name': details['name'],
                 'partner_email': details['email'],
-                'partner_country_id': details['country_id'],
+                'partner_country_id': int(details['country_id']),
             })
         elif not tx_sudo.partner_country_id:
-            tx_sudo.partner_country_id = kwargs['partner_details']['country_id']
+            tx_sudo.partner_country_id = int(kwargs['partner_details']['country_id'])
         # the user can change the donation amount on the payment page,
         # therefor we need to recompute the access_token
         access_token = payment_utils.generate_access_token(
@@ -91,8 +91,15 @@ class PaymentPortal(payment_portal.PaymentPortal):
 
         return tx_sudo._get_processing_values()
 
-    def _get_custom_rendering_context_values(self, donation_options=None, donation_descriptions=None, is_donation=False, **kwargs):
-        rendering_context = super()._get_custom_rendering_context_values(**kwargs)
+    def _get_custom_rendering_context_values(
+        self, donation_options=None, donation_descriptions=None, is_donation=False, **kwargs
+    ):
+        rendering_context = super()._get_custom_rendering_context_values(
+            donation_options=donation_options,
+            donation_descriptions=donation_descriptions,
+            is_donation=is_donation,
+            **kwargs,
+        )
         if is_donation:
             user_sudo = request.env.user
             logged_in = not user_sudo._is_public()

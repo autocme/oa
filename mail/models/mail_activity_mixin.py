@@ -45,9 +45,7 @@ class MailActivityMixin(models.AbstractModel):
         Can be overriden to specify the default activity type of a model.
         It is only called in in activity_schedule() for now.
         """
-        return self.env.ref('mail.mail_activity_data_todo', raise_if_not_found=False) \
-            or self.env['mail.activity.type'].search([('res_model', '=', self._name)], limit=1) \
-            or self.env['mail.activity.type'].search([('res_model', '=', False)], limit=1)
+        return self.env['mail.activity']._default_activity_type_for_model(self._name)
 
     activity_ids = fields.One2many(
         'mail.activity', 'res_id', 'Activities',
@@ -261,7 +259,9 @@ class MailActivityMixin(models.AbstractModel):
         # explicitly check access rights, since we bypass the ORM
         self.check_access_rights('read')
         self._flush_search(domain, fields=[group_by_fname], order='id')
-        self.env['mail.activity'].flush(['res_model', 'res_id', 'user_id', 'date_deadline'])
+        self.env['mail.activity'].flush_model(['res_model', 'res_id', 'user_id', 'date_deadline'])
+        self.env['res.users'].flush_model(['partner_id'])
+        self.env['res.partner'].flush_model(['tz'])
 
         query = self._where_calc(domain)
         self._apply_ir_rules(query, 'read')
@@ -399,16 +399,20 @@ class MailActivityMixin(models.AbstractModel):
         if isinstance(date_deadline, datetime):
             _logger.warning("Scheduled deadline should be a date (got %s)", date_deadline)
         if act_type_xmlid:
-            activity_type = self.env.ref(act_type_xmlid, raise_if_not_found=False) or self._default_activity_type()
+            activity_type_id = self.env['ir.model.data']._xmlid_to_res_id(act_type_xmlid, raise_if_not_found=False)
+            if activity_type_id:
+                activity_type = self.env['mail.activity.type'].browse(activity_type_id)
+            else:
+                activity_type = self._default_activity_type()
         else:
             activity_type_id = act_values.get('activity_type_id', False)
-            activity_type = activity_type_id and self.env['mail.activity.type'].sudo().browse(activity_type_id)
+            activity_type = self.env['mail.activity.type'].browse(activity_type_id) if activity_type_id else self.env['mail.activity.type']
 
         model_id = self.env['ir.model']._get(self._name).id
-        activities = self.env['mail.activity']
+        create_vals_list = []
         for record in self:
             create_vals = {
-                'activity_type_id': activity_type and activity_type.id,
+                'activity_type_id': activity_type.id,
                 'summary': summary or activity_type.summary,
                 'automated': True,
                 'note': note or activity_type.default_note,
@@ -419,8 +423,8 @@ class MailActivityMixin(models.AbstractModel):
             create_vals.update(act_values)
             if not create_vals.get('user_id'):
                 create_vals['user_id'] = activity_type.default_user_id.id or self.env.uid
-            activities |= self.env['mail.activity'].create(create_vals)
-        return activities
+            create_vals_list.append(create_vals)
+        return self.env['mail.activity'].create(create_vals_list)
 
     def _activity_schedule_with_view(self, act_type_xmlid='', date_deadline=None, summary='', views_or_xmlid='', render_context=None, **act_values):
         """ Helper method: Schedule an activity on each record of the current record set.
@@ -435,18 +439,13 @@ class MailActivityMixin(models.AbstractModel):
         if self.env.context.get('mail_activity_automation_skip'):
             return False
 
+        view_ref = views_or_xmlid.id if isinstance(views_or_xmlid, models.BaseModel) else views_or_xmlid
         render_context = render_context or dict()
-        if isinstance(views_or_xmlid, str):
-            views = self.env.ref(views_or_xmlid, raise_if_not_found=False)
-        else:
-            views = views_or_xmlid
-        if not views:
-            return
         activities = self.env['mail.activity']
         for record in self:
             render_context['object'] = record
-            note = views._render(render_context, engine='ir.qweb', minimal_qcontext=True)
-            activities |= record.activity_schedule(act_type_xmlid=act_type_xmlid, date_deadline=date_deadline, summary=summary, note=note, **act_values)
+            note = self.env['ir.qweb']._render(view_ref, render_context, minimal_qcontext=True, raise_if_not_found=False)
+            activities += record.activity_schedule(act_type_xmlid=act_type_xmlid, date_deadline=date_deadline, summary=summary, note=note, **act_values)
         return activities
 
     def activity_reschedule(self, act_type_xmlids, user_id=None, date_deadline=None, new_user_id=None):
@@ -475,7 +474,7 @@ class MailActivityMixin(models.AbstractModel):
             activities.write(write_vals)
         return activities
 
-    def activity_feedback(self, act_type_xmlids, user_id=None, feedback=None):
+    def activity_feedback(self, act_type_xmlids, user_id=None, feedback=None, attachment_ids=None):
         """ Set activities as done, limiting to some activity types and
         optionally to a given user. """
         if self.env.context.get('mail_activity_automation_skip'):
@@ -488,7 +487,7 @@ class MailActivityMixin(models.AbstractModel):
             return False
         activities = self.activity_search(act_type_xmlids, user_id=user_id)
         if activities:
-            activities.action_feedback(feedback=feedback)
+            activities.action_feedback(feedback=feedback, attachment_ids=attachment_ids)
         return True
 
     def activity_unlink(self, act_type_xmlids, user_id=None):

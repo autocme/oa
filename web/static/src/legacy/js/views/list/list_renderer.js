@@ -34,7 +34,7 @@ var FIELD_CLASSES = {
 };
 
 var ListRenderer = BasicRenderer.extend({
-    className: 'o_list_view',
+    className: 'o_legacy_list_view',
     events: {
         "mousedown": "_onMouseDown",
         "click .o_optional_columns_dropdown .dropdown-item": "_onToggleOptionalColumn",
@@ -218,9 +218,9 @@ var ListRenderer = BasicRenderer.extend({
             if (DECORATIONS.includes(key)) {
                 let cssClass;
                 if (key === 'decoration-bf') {
-                    cssClass = 'font-weight-bold';
+                    cssClass = 'fw-bold';
                 } else if (key === 'decoration-it') {
-                    cssClass = 'font-italic';
+                    cssClass = 'fst-italic';
                 } else {
                     cssClass = key.replace('decoration', 'text');
                 }
@@ -725,8 +725,8 @@ var ListRenderer = BasicRenderer.extend({
         const groupByFieldName = groupBy.split(':')[0];
         const groupByField = group.fields[groupByFieldName];
         const name = groupByField.type === "boolean"
-            ? (group.value === undefined ? _t('Undefined') : group.value)
-            : (group.value === undefined || group.value === false ? _t('Undefined') : group.value);
+            ? (group.value === undefined ? _t('None') : (group.value ? _t('Yes') : _t('No')))
+            : (group.value === undefined || group.value === false ? _t('None') : group.value);
         var $th = $('<th>')
             .addClass('o_group_name')
             .attr('tabindex', -1)
@@ -830,10 +830,13 @@ var ListRenderer = BasicRenderer.extend({
         if (!this._shouldRenderPager(currentMinimum, limit, size)) {
             return;
         }
-        const pager = new ComponentWrapper(this, Pager, { currentMinimum, limit, size });
+        const pager = new ComponentWrapper(this, Pager, {
+            currentMinimum,
+            limit,
+            size,
+            onPagerChanged: this._onPagerChanged.bind(this, group),
+        });
         const pagerMounting = pager.mount(target).then(() => {
-            // Event binding is done here to get the related group and wrapper.
-            pager.el.addEventListener('pager-changed', ev => this._onPagerChanged(ev, group));
             // Prevent pager clicks to toggle the group.
             pager.el.addEventListener('click', ev => ev.stopPropagation());
         });
@@ -1010,8 +1013,8 @@ var ListRenderer = BasicRenderer.extend({
             'class': "dropdown-toggle text-dark o-no-caret",
             'href': "#",
             'role': "button",
-            'data-toggle': "dropdown",
-            'data-display': "static",
+            'data-bs-toggle': "dropdown",
+            'data-bs-offset': "0,30",
             'aria-expanded': false,
             'aria-label': _t('Optional columns'),
         });
@@ -1022,7 +1025,7 @@ var ListRenderer = BasicRenderer.extend({
         // We want the dropdown to expand towards the list rather than away from it
         // https://getbootstrap.com/docs/4.0/components/dropdowns/#menu-alignment
         var direction = _t.database.parameters.direction;
-        var dropdownMenuClass = direction === 'rtl' ? 'dropdown-menu-left' : 'dropdown-menu-right';
+        var dropdownMenuClass = direction === 'rtl' ? 'dropdown-menu-start' : 'dropdown-menu-end';
         var $dropdown = $("<div>", {
             class: 'dropdown-menu o_optional_columns_dropdown ' + dropdownMenuClass,
             role: 'menu',
@@ -1129,7 +1132,7 @@ var ListRenderer = BasicRenderer.extend({
             if (this._shouldRenderOptionalColumnsDropdown()) {
                 this.el.classList.add('o_list_optional_columns');
                 this.$('table').append(
-                    $('<i class="o_optional_columns_dropdown_toggle fa fa-ellipsis-v"/>')
+                    $('<i class="o_optional_columns_dropdown_toggle oi oi-fw oi-settings-adjust lh-base"/>')
                 );
                 this.$el.append(this._renderOptionalColumnsDropdown());
             }
@@ -1161,7 +1164,7 @@ var ListRenderer = BasicRenderer.extend({
      * @param {jQueryElement} $el the element to which to add the classes (a tr
      *   or td)
      * @param {Object} decorations keys are the decoration classes (e.g.
-     *   'font-weight-bold') and values are the python expressions to evaluate
+     *   'fw-bold') and values are the python expressions to evaluate
      * @param {Object} record a basic model record
      */
     _setDecorationClasses: function ($el, decorations, record) {
@@ -1409,9 +1412,7 @@ var ListRenderer = BasicRenderer.extend({
      * @param {OwlEvent} ev
      * @param {Object} group
      */
-    _onPagerChanged: async function (ev, group) {
-        ev.stopPropagation();
-        const { currentMinimum, limit } = ev.detail;
+    _onPagerChanged: async function (group, { currentMinimum, limit }) {
         this.trigger_up('load', {
             id: group.id,
             limit: limit,

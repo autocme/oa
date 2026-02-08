@@ -52,14 +52,14 @@ class MrpStockReport(models.TransientModel):
         return lines_seen - move_lines
 
     @api.model
-    def get_lines(self, line_id=None, **kw):
+    def get_lines(self, line_id=False, **kw):
         context = dict(self.env.context)
         model = kw and kw['model_name'] or context.get('model')
         rec_id = kw and kw['model_id'] or context.get('active_id')
         level = kw and kw['level'] or 1
         lines = self.env['stock.move.line']
         move_line = self.env['stock.move.line']
-        if rec_id and model == 'stock.production.lot':
+        if rec_id and model == 'stock.lot':
             lines = move_line.search([
                 ('lot_id', '=', context.get('lot_name') or rec_id),
                 ('state', '=', 'done'),
@@ -72,7 +72,7 @@ class MrpStockReport(models.TransientModel):
         elif rec_id and model in ('stock.picking', 'mrp.production'):
             record = self.env[model].browse(rec_id)
             if model == 'stock.picking':
-                lines = record.move_lines.mapped('move_line_ids').filtered(lambda m: m.lot_id and m.state == 'done')
+                lines = record.move_ids.move_line_ids.filtered(lambda m: m.lot_id and m.state == 'done')
             else:
                 lines = record.move_finished_ids.mapped('move_line_ids').filtered(lambda m: m.state == 'done')
         move_line_vals = self._lines(line_id, model_id=rec_id, model=model, level=level, move_lines=lines)
@@ -172,7 +172,7 @@ class MrpStockReport(models.TransientModel):
         return False, False
 
     @api.model
-    def _lines(self, line_id=None, model_id=False, model=False, level=0, move_lines=[], **kw):
+    def _lines(self, line_id=False, model_id=False, model=False, level=0, move_lines=None, **kw):
         final_vals = []
         lines = move_lines or []
         if model and line_id:
@@ -185,7 +185,7 @@ class MrpStockReport(models.TransientModel):
                 lines = self._get_move_lines(move_line, line_id=line_id)
         for line in lines:
             unfoldable = False
-            if line.consume_line_ids or (model != "stock.production.lot" and line.lot_id and self._get_move_lines(line)):
+            if line.consume_line_ids or (model != "stock.lot" and line.lot_id and self._get_move_lines(line)):
                 unfoldable = True
             final_vals += self._make_dict_move(level, parent_id=line_id, move_line=line, unfoldable=unfoldable)
         return final_vals
@@ -236,7 +236,7 @@ class MrpStockReport(models.TransientModel):
         rcontext = {}
         context = dict(self.env.context)
         rcontext['lines'] = self.with_context(context).get_lines()
-        result['html'] = self.env.ref('stock.report_stock_inventory')._render(rcontext)
+        result['html'] = self.env['ir.qweb']._render('stock.report_stock_inventory', rcontext)
         return result
 
     @api.model

@@ -1,8 +1,9 @@
 odoo.define('website.s_image_gallery_options', function (require) {
 'use strict';
 
+const { MediaDialogWrapper } = require('@web_editor/components/media_dialog/media_dialog');
+const { ComponentWrapper } = require('web.OwlCompatibility');
 var core = require('web.core');
-var weWidgets = require('wysiwyg.widgets');
 var options = require('web_editor.snippets.options');
 const wUtils = require("website.utils");
 
@@ -10,8 +11,6 @@ var _t = core._t;
 var qweb = core.qweb;
 
 options.registry.gallery = options.Class.extend({
-    xmlDependencies: ['/website/static/src/snippets/s_image_gallery/000.xml'],
-
     /**
      * @override
      */
@@ -37,7 +36,7 @@ options.registry.gallery = options.Class.extend({
         this.$target.on('image_changed.gallery', 'img', function (ev) {
             var $img = $(ev.currentTarget);
             var index = self.$target.find('.carousel-item.active').index();
-            self.$('.carousel:first li[data-target]:eq(' + index + ')')
+            self.$('.carousel:first li[data-bs-target]:eq(' + index + ')')
                 .css('background-image', 'url(' + $img.attr('src') + ')');
         });
 
@@ -111,31 +110,33 @@ options.registry.gallery = options.Class.extend({
     addImages: function (previewMode) {
         const $images = this.$('img');
         var $container = this.$('> .container, > .container-fluid, > .o_container_small');
-        var dialog = new weWidgets.MediaDialog(this, {multiImages: true, onlyImages: true, mediaWidth: 1920});
-        var lastImage = _.last(this._getImages());
-        var index = lastImage ? this._getIndex(lastImage) : -1;
-        return new Promise(resolve => {
-            let savedPromise = Promise.resolve();
-            dialog.on('save', this, function (attachments) {
-                for (var i = 0; i < attachments.length; i++) {
-                    $('<img/>', {
-                        class: $images.length > 0 ? $images[0].className : 'img img-fluid d-block ',
-                        src: attachments[i].image_src,
-                        'data-index': ++index,
-                        alt: attachments[i].description || '',
-                        'data-name': _t('Image'),
-                        style: $images.length > 0 ? $images[0].style.cssText : '',
-                    }).appendTo($container);
-                }
-                if (attachments.length > 0) {
-                    savedPromise = this._modeWithImageWait('reset', this.getMode()).then(() => {
-                        this.trigger_up('cover_update');
-                    });
-                }
-            });
-            dialog.on('closed', this, () => savedPromise.then(resolve));
-            dialog.open();
+        const lastImage = _.last(this._getImages());
+        let index = lastImage ? this._getIndex(lastImage) : -1;
+        const dialog = new ComponentWrapper(this, MediaDialogWrapper, {
+            multiImages: true,
+            onlyImages: true,
+            save: images => {
+                // TODO In master: restore addImages Promise result.
+                this.trigger_up('snippet_edition_request', {exec: () => {
+                    for (const image of images) {
+                        $('<img/>', {
+                            class: $images.length > 0 ? $images[0].className : 'img img-fluid d-block ',
+                            src: image.src,
+                            'data-index': ++index,
+                            alt: image.alt || '',
+                            'data-name': _t('Image'),
+                            style: $images.length > 0 ? $images[0].style.cssText : '',
+                        }).appendTo($container);
+                    }
+                    if (images.length > 0) {
+                        return this._modeWithImageWait('reset', this.getMode()).then(() => {
+                            this.trigger_up('cover_update');
+                        });
+                    }
+                }});
+            },
         });
+        dialog.mount(this.el);
     },
     /**
      * Allows to change the number of columns when displaying images with a
@@ -179,7 +180,7 @@ options.registry.gallery = options.Class.extend({
         var $container = this._replaceContent($row);
 
         _.each(imgs, function (img, index) {
-            var $img = $(img);
+            const $img = $(img.cloneNode(true));
             var $col = $('<div/>', {class: colClass});
             $col.append($img).appendTo($row);
             if ((index + 1) % columns === 0) {
@@ -226,7 +227,7 @@ options.registry.gallery = options.Class.extend({
                             smallestColEl = colEl;
                         }
                     }
-                    smallestColEl.append(imgEl);
+                    smallestColEl.append(imgEl.cloneNode(true));
                     await wUtils.onceAllImagesLoaded(this.$target);
                 }
                 resolve();
@@ -248,7 +249,10 @@ options.registry.gallery = options.Class.extend({
                     $lowest = $col;
                 }
             });
-            $lowest.append(imgs.shift());
+            // Only on Chrome: appended images are sometimes invisible and not
+            // correctly loaded from cache, we use a clone of the image to force
+            // the loading.
+            $lowest.append(imgs.shift().cloneNode(true));
         }
     },
     /**
@@ -262,6 +266,13 @@ options.registry.gallery = options.Class.extend({
         this.$target
             .removeClass('o_nomode o_masonry o_grid o_slideshow')
             .addClass('o_' + widgetValue);
+        // Used to prevent the editor's "unbreakable protection mechanism" from
+        // restoring Image Wall adaptations (images removed > new images added
+        // to the container & layout updates) when adding new images to the
+        // snippet.
+        if (this.options.wysiwyg) {
+            this.options.wysiwyg.odooEditor.unbreakableStepUnactive();
+        }
         this[widgetValue]();
         this.trigger_up('cover_update');
         this._refreshPublicWidgets();
@@ -320,7 +331,7 @@ options.registry.gallery = options.Class.extend({
             // by the elements of `imgHolderEls`.
             alt: img.getAttribute('alt'),
         }));
-        var currentInterval = this.$target.find('.carousel:first').attr('data-interval');
+        var currentInterval = this.$target.find('.carousel:first').attr('data-bs-interval');
         var params = {
             images: images,
             index: 0,
@@ -377,8 +388,10 @@ options.registry.gallery = options.Class.extend({
         // TODO In master: nest in a snippet_edition_request to await mode.
         if (name === 'image_removed') {
             data.$image.remove(); // Force the removal of the image before reset
-            // TODO In 16.0: use _modeWithImageWait.
-            this.mode('reset', this.getMode());
+            // TODO In master: use async mode.
+            this.trigger_up('snippet_edition_request', {exec: () => {
+                return this._modeWithImageWait('reset', this.getMode());
+            }});
         } else if (name === 'image_index_request') {
             var imgs = this._getImages();
             var position = _.indexOf(imgs, data.$image[0]);
@@ -410,25 +423,29 @@ options.registry.gallery = options.Class.extend({
                 $(img).attr('data-index', index);
             });
             const currentMode = this.getMode();
-            // TODO In 16.0: use _modeWithImageWait.
-            this.mode('reset', currentMode);
-            if (currentMode === 'slideshow') {
-                const $carousel = this.$target.find('.carousel');
-                $carousel.removeClass('slide');
-                $carousel.carousel(position);
-                this.$target.find('.carousel-indicators li').removeClass('active');
-                this.$target.find('.carousel-indicators li[data-slide-to="' + position + '"]').addClass('active');
-                this.trigger_up('activate_snippet', {
-                    $snippet: this.$target.find('.carousel-item.active img'),
-                    ifInactiveOptions: true,
+            // TODO In master: use async mode.
+            this.trigger_up('snippet_edition_request', {exec: () => {
+                return this._modeWithImageWait('reset', currentMode).then(() => {
+                    if (currentMode === 'slideshow') {
+                        const $carousel = this.$target.find('.carousel');
+                        $carousel.removeClass('slide');
+                        $carousel.carousel(position);
+                        this.$target.find('.carousel-indicators li').removeClass('active');
+                        this.$target.find('.carousel-indicators li[data-bs-slide-to="' + position + '"]').addClass('active');
+                        this.trigger_up('activate_snippet', {
+                            $snippet: this.$target.find('.carousel-item.active img'),
+                            ifInactiveOptions: true,
+                        });
+                        $carousel.addClass('slide');
+                    } else {
+                        const imageEl = this.$target[0].querySelector(`[data-index='${position}']`);
+                        this.trigger_up('activate_snippet', {
+                            $snippet: $(imageEl),
+                            ifInactiveOptions: true,
+                        });
+                    }
                 });
-                $carousel.addClass('slide');
-            } else {
-                this.trigger_up('activate_snippet', {
-                    $snippet: data.$image,
-                    ifInactiveOptions: true,
-                });
-            }
+            }});
         }
     },
 
@@ -442,10 +459,10 @@ options.registry.gallery = options.Class.extend({
     _adaptNavigationIDs: function () {
         var uuid = new Date().getTime();
         this.$target.find('.carousel').attr('id', 'slideshow_' + uuid);
-        _.each(this.$target.find('[data-slide], [data-slide-to]'), function (el) {
+        _.each(this.$target.find('[data-bs-slide], [data-bs-slide-to]'), function (el) {
             var $el = $(el);
-            if ($el.attr('data-target')) {
-                $el.attr('data-target', '#slideshow_' + uuid);
+            if ($el.attr('data-bs-target')) {
+                $el.attr('data-bs-target', '#slideshow_' + uuid);
             } else if ($el.attr('href')) {
                 $el.attr('href', '#slideshow_' + uuid);
             }
@@ -542,7 +559,7 @@ options.registry.gallery = options.Class.extend({
      * Sets up listeners on slideshow to activate selected image.
      */
     _slideshowStart() {
-        const $carousel = this.$target.find(".carousel:first");
+        const $carousel = this.$bsTarget.is(".carousel") ? this.$bsTarget : this.$bsTarget.find(".carousel");
         let _previousEditor;
         let _miniatureClicked;
         const carouselIndicatorsEl = this.$target[0].querySelector(".carousel-indicators");

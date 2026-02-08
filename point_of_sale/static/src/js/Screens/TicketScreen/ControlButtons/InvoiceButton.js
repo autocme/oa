@@ -1,14 +1,14 @@
 odoo.define('point_of_sale.InvoiceButton', function (require) {
     'use strict';
 
-    const { useListener } = require('web.custom_hooks');
+    const { useListener } = require("@web/core/utils/hooks");
     const { isConnectionError } = require('point_of_sale.utils');
     const PosComponent = require('point_of_sale.PosComponent');
     const Registries = require('point_of_sale.Registries');
 
     class InvoiceButton extends PosComponent {
-        constructor() {
-            super(...arguments);
+        setup() {
+            super.setup();
             useListener('click', this._onClick);
         }
         get isAlreadyInvoiced() {
@@ -21,8 +21,6 @@ odoo.define('point_of_sale.InvoiceButton', function (require) {
             } else {
                 return this.isAlreadyInvoiced
                     ? this.env._t('Reprint Invoice')
-                    : this.props.order.isFromClosedSession
-                    ? this.env._t('Cannot Invoice')
                     : this.env._t('Invoice');
             }
         }
@@ -35,7 +33,7 @@ odoo.define('point_of_sale.InvoiceButton', function (require) {
                     kwargs: { load: false },
                 });
                 if (orderWithInvoice && orderWithInvoice.account_move) {
-                    await this.env.pos.do_action('account.account_invoices', {
+                    await this.env.legacyActionManager.do_action(this.env.pos.invoiceReportAction, {
                         additional_context: {
                             active_ids: [orderWithInvoice.account_move],
                         },
@@ -59,40 +57,30 @@ odoo.define('point_of_sale.InvoiceButton', function (require) {
 
             const orderId = order.backendId;
 
-            // Part 0.1. If already invoiced, print the invoice.
+            // Part 0. If already invoiced, print the invoice.
             if (this.isAlreadyInvoiced) {
                 await this._downloadInvoice(orderId);
                 return;
             }
 
-            // Part 0.2. Check if order belongs to an active session.
-            // If not, do not allow invoicing.
-            if (order.isFromClosedSession) {
-                this.showPopup('ErrorPopup', {
-                    title: this.env._t('Session is closed'),
-                    body: this.env._t('Cannot invoice order from closed session.'),
-                });
-                return;
-            }
-
-            // Part 1: Handle missing client.
-            // Write to pos.order the selected client.
-            if (!order.get_client()) {
+            // Part 1: Handle missing partner.
+            // Write to pos.order the selected partner.
+            if (!order.get_partner()) {
                 const { confirmed: confirmedPopup } = await this.showPopup('ConfirmPopup', {
                     title: this.env._t('Need customer to invoice'),
                     body: this.env._t('Do you want to open the customer list to select customer?'),
                 });
                 if (!confirmedPopup) return;
 
-                const { confirmed: confirmedTempScreen, payload: newClient } = await this.showTempScreen(
-                    'ClientListScreen'
+                const { confirmed: confirmedTempScreen, payload: newPartner } = await this.showTempScreen(
+                    'PartnerListScreen'
                 );
                 if (!confirmedTempScreen) return;
 
                 await this.rpc({
                     model: 'pos.order',
                     method: 'write',
-                    args: [[orderId], { partner_id: newClient.id }],
+                    args: [[orderId], { partner_id: newPartner.id }],
                     kwargs: { context: this.env.session.user_context },
                 });
             }

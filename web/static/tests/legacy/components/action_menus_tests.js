@@ -60,12 +60,12 @@ odoo.define('web.action_menus_tests', function (require) {
             assert.strictEqual(dropdowns.length, 2, "ActionMenus should contain 2 menus");
             assert.strictEqual(dropdowns[0].querySelector('.o_dropdown_title').innerText.trim(), "Print");
             assert.strictEqual(dropdowns[1].querySelector('.o_dropdown_title').innerText.trim(), "Action");
-            assert.containsNone(actionMenus, '.dropdown-menu');
+            assert.containsNone(actionMenus, '.o-dropdown-menu');
 
             await testUtils.controlPanel.toggleActionMenu(actionMenus, "Action");
 
-            assert.containsOnce(actionMenus, '.dropdown-menu');
-            assert.containsN(actionMenus, '.dropdown-menu .o_menu_item', 4);
+            assert.containsOnce(actionMenus, '.o-dropdown-menu');
+            assert.containsN(actionMenus, '.o-dropdown-menu .o_menu_item', 4);
             const actionsTexts = [...dropdowns[1].querySelectorAll('.o_menu_item')].map(el => el.innerText.trim());
             assert.deepEqual(actionsTexts, [
                 "Boil'em",
@@ -76,14 +76,12 @@ odoo.define('web.action_menus_tests', function (require) {
 
             await testUtils.controlPanel.toggleActionMenu(actionMenus, "Print");
 
-            assert.containsOnce(actionMenus, '.dropdown-menu');
-            assert.containsN(actionMenus, '.dropdown-menu .o_menu_item', 1);
+            assert.containsOnce(actionMenus, '.o-dropdown-menu');
+            assert.containsN(actionMenus, '.o-dropdown-menu .o_menu_item', 1);
 
             await testUtils.controlPanel.toggleActionMenu(actionMenus, "Print");
 
-            assert.containsNone(actionMenus, '.dropdown-menu');
-
-            actionMenus.destroy();
+            assert.containsNone(actionMenus, '.o-dropdown-menu');
         });
 
         QUnit.test("empty action menus", async function (assert) {
@@ -101,8 +99,6 @@ odoo.define('web.action_menus_tests', function (require) {
             });
 
             assert.containsNone(actionMenus, ".o_cp_action_menus > *");
-
-            actionMenus.destroy();
         });
 
         QUnit.test('execute action', async function (assert) {
@@ -139,8 +135,6 @@ odoo.define('web.action_menus_tests', function (require) {
             await testUtils.controlPanel.toggleMenuItem(actionMenus, "What's taters, precious ?");
 
             assert.verifySteps(['load-action', 'do-action']);
-
-            actionMenus.destroy();
         });
 
         QUnit.test('execute callback action', async function (assert) {
@@ -173,8 +167,6 @@ odoo.define('web.action_menus_tests', function (require) {
             await testUtils.controlPanel.toggleMenuItem(actionMenus, "Boil'em");
 
             await callbackPromise;
-
-            actionMenus.destroy();
         });
 
         QUnit.test('execute print action', async function (assert) {
@@ -211,8 +203,6 @@ odoo.define('web.action_menus_tests', function (require) {
             await testUtils.controlPanel.toggleMenuItem(actionMenus, "Po-ta-toes");
 
             assert.verifySteps(['load-action', 'do-action']);
-
-            actionMenus.destroy();
         });
 
         QUnit.test('execute url action', async function (assert) {
@@ -243,8 +233,6 @@ odoo.define('web.action_menus_tests', function (require) {
             await testUtils.controlPanel.toggleMenuItem(actionMenus, "Stick'em in a stew");
 
             assert.verifySteps(['#stew']);
-
-            actionMenus.destroy();
         });
 
         QUnit.test('execute action with context', async function (assert) {
@@ -271,8 +259,6 @@ odoo.define('web.action_menus_tests', function (require) {
 
             await testUtils.controlPanel.toggleActionMenu(actionMenus, "Action");
             await testUtils.controlPanel.toggleMenuItem(actionMenus, "What's taters, precious ?");
-
-            actionMenus.destroy();
         });
     });
 });

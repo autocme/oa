@@ -1,7 +1,5 @@
 .modal.o_technical_modal {
-
     .modal-content {
-        border-radius: 0;
 
         .modal-header .o_subtitle {
             margin-left: 10px;
@@ -16,6 +14,14 @@
         .modal-body {
             &.o_act_window {
                 padding: 0;
+
+                @include media-breakpoint-down(md) {
+                    .o_action {
+                        display: flex;
+                        flex-direction: column;
+                        height: 100%;
+                    }
+                }
             }
 
             // Fix dropzones of nested sortable.
@@ -35,10 +41,6 @@
                 }
             }
 
-            > :not(.o_view_sample_data) .o_view_nocontent {
-                position: unset;
-            }
-
             .o_modal_changes td {
                 &:first-child {
                     padding-right: 10px;
@@ -52,23 +54,7 @@
         }
 
         .modal-footer {
-            flex-wrap: wrap;
             text-align: left;
-            justify-content: flex-start;
-
-            // TODO These rules should not be necessary if we used buttons
-            // as direct children of the modal-footer as normally required
-            > div, > footer {
-                flex: 1 1 auto;
-            }
-
-            footer {
-                > :not(:first-child) { margin-left: .25rem; }
-                > :not(:last-child) { margin-right: .25rem; }
-                button {
-                    margin-bottom: .5rem;
-                }
-            }
         }
     }
 
@@ -90,7 +76,7 @@
         }
     }
 
-    @include media-breakpoint-down(xs) {
+    @include media-breakpoint-down(sm) {
         &.o_modal_full {
             .modal-dialog {
                 margin: 0px;
@@ -101,9 +87,10 @@
                     border: none;
 
                     .modal-header {
-                        background: $o-brand-odoo;
+                        background: $o-navbar-background;
+
                         .modal-title, .o_subtitle, button.close {
-                            color: white;
+                            color: $o-navbar-entry-color;
                         }
                     }
 

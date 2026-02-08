@@ -19,14 +19,12 @@ trigger an automatic reminder email.
     'data': [
         'security/ir.model.access.csv',
         'data/base_automation_data.xml',
-        'views/base_automation_view.xml',
+        'views/base_automation_views.xml',
     ],
     'assets': {
-        'web.assets_qweb': [
-            'base_automation/static/src/xml/*.xml',
-        ],
         'web.assets_backend': [
             'base_automation/static/src/js/**/*',
+            'base_automation/static/src/xml/*.xml',
         ],
         'web.qunit_suite_tests': [
             'base_automation/static/tests/**/*',

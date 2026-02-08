@@ -9,7 +9,7 @@ odoo.define('web.basic_model_tests', function (require) {
     var createModel = testUtils.createModel;
     var createView = testUtils.createView;
 
-    QUnit.module('Views', {
+    QUnit.module('LegacyViews', {
         beforeEach: function () {
             this.data = {
                 partner: {
@@ -106,7 +106,7 @@ odoo.define('web.basic_model_tests', function (require) {
                 groupedBy: ['product_id'],
                 fieldNames: ['foo'],
             });
-    
+
             model.load(params)
                 .then(function (stateID) {
                     return model.resequence('product', [41, 37], stateID);
@@ -154,7 +154,7 @@ odoo.define('web.basic_model_tests', function (require) {
             });
 
             assert.verifySteps([
-                'load_views',
+                'get_views',
                 'onchange',
             ]);
             assert.containsOnce(form, '.o_field_x2many_list', 'should have rendered a x2many list');
@@ -247,7 +247,7 @@ odoo.define('web.basic_model_tests', function (require) {
             try {
                 await model.load(this.params);
             }
-            catch (e) {
+            catch (_e) {
                 assert.ok("load should return a rejected deferred for an invalid id");
             }
 

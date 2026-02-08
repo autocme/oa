@@ -2,23 +2,23 @@
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
 
 from . import assets
-from . import ir_actions
+from . import base_partner_merge
+from . import ir_actions_server
 from . import ir_asset
 from . import ir_attachment
+from . import ir_binary
 from . import ir_http
 from . import ir_model
 from . import ir_model_data
 from . import ir_module_module
 from . import ir_qweb
 from . import ir_qweb_fields
-from . import mail_thread
 from . import mixins
 from . import website
 from . import website_menu
 from . import website_page
 from . import website_rewrite
 from . import ir_rule
-from . import ir_translation
 from . import ir_ui_menu
 from . import ir_ui_view
 from . import res_company

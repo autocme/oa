@@ -3,17 +3,17 @@
 # 	* barcodes
 # 
 # Translators:
-# Martin Trigaux, 2021
+# Martin Trigaux, 2022
 # Braulio D. López Vázquez <bdl@odoo.com>, 2022
-# Fernanda Alvarez, 2024
+# Fernanda Alvarez, 2025
 # 
 msgid ""
 msgstr ""
-"Project-Id-Version: Odoo Server saas~14.4\n"
+"Project-Id-Version: Odoo Server 16.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2021-07-12 07:50+0000\n"
-"PO-Revision-Date: 2021-09-14 12:20+0000\n"
-"Last-Translator: Fernanda Alvarez, 2024\n"
+"POT-Creation-Date: 2025-05-22 18:35+0000\n"
+"PO-Revision-Date: 2022-09-22 05:45+0000\n"
+"Last-Translator: Fernanda Alvarez, 2025\n"
 "Language-Team: Spanish (Mexico) (https://app.transifex.com/odoo/teams/41243/es_MX/)\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
@@ -22,11 +22,13 @@ msgstr ""
 "Plural-Forms: nplurals=3; plural=n == 1 ? 0 : n != 0 && n % 1000000 == 0 ? 1 : 2;\n"
 
 #. module: barcodes
+#. odoo-python
 #: code:addons/barcodes/models/barcode_rule.py:0
 #, python-format
 msgid " '*' is not a valid Regex Barcode Pattern. Did you mean '.*' ?"
 msgstr ""
-"'*' no es un patrón Regex válido para código de barras. ¿Desea usar '.*'?"
+" '*' no es un patrón de código de barras válido en expresiones regulares. "
+"¿Quizás te refieres a '.*'?"
 
 #. module: barcodes
 #: model_terms:ir.ui.view,arch_db:barcodes.view_barcode_nomenclature_form
@@ -36,9 +38,9 @@ msgid ""
 "                                pattern. The pattern syntax is that of regular expression, and a barcode is matched\n"
 "                                if the regular expression matches a prefix of the barcode."
 msgstr ""
-"Las <i>nomenclaturas de códigos de barras</i> definen cómo se reconocen y categorizan los códigos de barras.\n"
-"                                Cuando se escanea un código de barras, se asocia a la <i>primera</i> regla con un patrón\n"
-"                                coincidente. La sintaxis del patrón es la de una expresión regular, y un código de barras se empareja\n"
+"Las <i>nomenclaturas de códigos de barras</i> definen cómo se reconocen y categorizan estos códigos.\n"
+"                                Al escanear un código de barras, se asocia con la <i>primera</i> regla que tenga un patrón\n"
+"                                coincidente. La sintaxis del patrón es la de una expresión regular, y un código de barras coincide\n"
 "                                si la expresión regular coincide con el prefijo de un código de barras."
 
 #. module: barcodes
@@ -119,6 +121,13 @@ msgid "Barcode Scanned"
 msgstr "Código de barras escaneado"
 
 #. module: barcodes
+#. odoo-javascript
+#: code:addons/barcodes/static/src/barcode_handlers.js:0
+#, python-format
+msgid "Barcode: "
+msgstr "Código de barras:"
+
+#. module: barcodes
 #: model:ir.model,name:barcodes.model_res_company
 msgid "Companies"
 msgstr "Empresas"
@@ -134,13 +143,6 @@ msgstr "Creado por"
 #: model:ir.model.fields,field_description:barcodes.field_barcode_rule__create_date
 msgid "Created on"
 msgstr "Creado el"
-
-#. module: barcodes
-#. openerp-web
-#: code:addons/barcodes/static/src/js/barcode_form_view.js:0
-#, python-format
-msgid "Discard"
-msgstr "Descartar"
 
 #. module: barcodes
 #: model:ir.model.fields,field_description:barcodes.field_barcode_nomenclature__display_name
@@ -164,13 +166,6 @@ msgid "EAN-8"
 msgstr "EAN-8"
 
 #. module: barcodes
-#. openerp-web
-#: code:addons/barcodes/static/src/js/barcode_form_view.js:0
-#, python-format
-msgid "Enable edit mode to modify this document"
-msgstr "Habilite el modo de edición para modificar este documento"
-
-#. module: barcodes
 #: model:ir.model.fields,field_description:barcodes.field_barcode_rule__encoding
 msgid "Encoding"
 msgstr "Codificación"
@@ -185,6 +180,17 @@ msgstr "Enrutamiento HTTP "
 #: model:ir.model.fields,field_description:barcodes.field_barcode_rule__id
 msgid "ID"
 msgstr "ID"
+
+#. module: barcodes
+#. odoo-python
+#: code:addons/barcodes/models/barcode_events_mixin.py:0
+#, python-format
+msgid ""
+"In order to use barcodes.barcode_events_mixin, method on_barcode_scanned "
+"must be implemented"
+msgstr ""
+"Es necesario implementar el método on_barcode_scanned para poder utilizar "
+"barcodes.barcode_events_mixin."
 
 #. module: barcodes
 #: model:ir.model.fields,field_description:barcodes.field_barcode_nomenclature____last_update
@@ -215,13 +221,6 @@ msgid "Nomenclature"
 msgstr "Nomenclatura"
 
 #. module: barcodes
-#. openerp-web
-#: code:addons/barcodes/static/src/js/barcode_form_view.js:0
-#, python-format
-msgid "Pager unavailable"
-msgstr "Paginador no disponible"
-
-#. module: barcodes
 #: model_terms:ir.ui.view,arch_db:barcodes.view_barcode_nomenclature_form
 msgid ""
 "Patterns can also define how numerical values, such as weight or price, can be\n"
@@ -231,11 +230,11 @@ msgid ""
 "                                the barcode field on the associated records <i>must</i> show these digits as \n"
 "                                zeroes."
 msgstr ""
-"Los patrones también pueden definir cómo los valores numéricos, tales como el peso o el precio,\n"
-"                                se codifican en el código de barras. Se indican por <code>{NNN}</code> donde las letras N\n"
-"                                definen en qué posición se codifican los números. También se permiten las comas flotantes al indicar los \n"
-"                                decimales con la letra D, tal como<code>{NNNDD}</code>. En estos casos, \n"
-"                                el campo de código de barras en los registros asociados <i>debe</i> mostrar estos dígitos como \n"
+"Los patrones también pueden definir el modo en que los valores numéricos, como el peso o el precio, se\n"
+"                                codifican en el código de barras. Estos se indican con <code>{NNN}</code>, donde las N\n"
+"                                definen dónde se codifican los dígitos del número. También se admiten valores decimales con\n"
+"                                D, como en <code>{NNNDD}</code>. En estos casos,\n"
+"                                el campo del código de barras en los registros asociados <i>debe</i> mostrar estos dígitos como\n"
 "                                ceros."
 
 #. module: barcodes
@@ -249,30 +248,9 @@ msgid "Rules"
 msgstr "Reglas"
 
 #. module: barcodes
-#. openerp-web
-#: code:addons/barcodes/static/src/js/barcode_form_view.js:0
-#, python-format
-msgid "Scan a barcode to set the quantity"
-msgstr "Escanee un código de barras para establecer la cantidad"
-
-#. module: barcodes
-#. openerp-web
-#: code:addons/barcodes/static/src/js/barcode_form_view.js:0
-#, python-format
-msgid "Select"
-msgstr "Seleccionar"
-
-#. module: barcodes
 #: model:ir.model.fields,field_description:barcodes.field_barcode_rule__sequence
 msgid "Sequence"
 msgstr "Secuencia"
-
-#. module: barcodes
-#. openerp-web
-#: code:addons/barcodes/static/src/js/barcode_form_view.js:0
-#, python-format
-msgid "Set quantity"
-msgstr "Establecer cantidad"
 
 #. module: barcodes
 #: model_terms:ir.ui.view,arch_db:barcodes.view_barcode_nomenclature_form
@@ -285,9 +263,19 @@ msgid "The barcode matching pattern"
 msgstr "Patrón de concordancia para el código de barras"
 
 #. module: barcodes
+#. odoo-python
+#: code:addons/barcodes/models/barcode_rule.py:0
+#, python-format
+msgid ""
+"The barcode pattern %(pattern)s does not lead to a valid regular expression."
+msgstr ""
+"El patrón %(pattern)s del código de barras no lleva a una expresión regular "
+"válida."
+
+#. module: barcodes
 #: model:ir.model.fields,help:barcodes.field_barcode_nomenclature__rule_ids
 msgid "The list of barcode rules"
-msgstr "Lista de reglas de códigos de barras"
+msgstr "La lista de reglas de códigos de barras"
 
 #. module: barcodes
 #: model:ir.model.fields,help:barcodes.field_barcode_rule__alias
@@ -296,6 +284,7 @@ msgstr ""
 "El patrón de concordancia será un seudónimo para este código de barras"
 
 #. module: barcodes
+#. odoo-python
 #: code:addons/barcodes/models/barcode_rule.py:0
 #, python-format
 msgid ""
@@ -306,6 +295,7 @@ msgstr ""
 "regla solo puede contener un par de llaves."
 
 #. module: barcodes
+#. odoo-python
 #: code:addons/barcodes/models/barcode_rule.py:0
 #, python-format
 msgid ""
@@ -316,6 +306,7 @@ msgstr ""
 "llaves solo pueden contener N seguido de D."
 
 #. module: barcodes
+#. odoo-python
 #: code:addons/barcodes/models/barcode_rule.py:0
 #, python-format
 msgid ""
@@ -345,10 +336,10 @@ msgid ""
 "setting determines if a UPC/EAN barcode should be automatically converted in"
 " one way or another when trying to match a rule with the other encoding."
 msgstr ""
-"Los códigos UPC se pueden convertir a EAN al utilizar cero como su prefijo. "
-"Este ajuste determina si un código de barras UPC/EAN se debe convertir "
-"automáticamente en uno u otro sentido al buscar una coincidencia de regla "
-"con la otra codificación."
+"Los códigos UPC se pueden convertir a EAN al agregar un cero al inicio. Esta"
+" opción define si un código de barras UPC/EAN debe convertirse de forma "
+"automática de un formato a otro al intentar aplicar una regla con la otra "
+"codificación."
 
 #. module: barcodes
 #: model:ir.model.fields.selection,name:barcodes.selection__barcode_rule__encoding__upca
@@ -366,24 +357,24 @@ msgid "UPC/EAN Conversion"
 msgstr "Conversión UPC/EAN"
 
 #. module: barcodes
-#. openerp-web
-#: code:addons/barcodes/static/src/js/barcode_form_view.js:0
-#, python-format
-msgid "Undefined barcode command"
-msgstr "Comando de código de barras indefinido"
-
-#. module: barcodes
 #: model:ir.model.fields.selection,name:barcodes.selection__barcode_rule__type__product
 msgid "Unit Product"
 msgstr "Producto unitario"
+
+#. module: barcodes
+#. odoo-javascript
+#: code:addons/barcodes/static/src/barcode_handlers.js:0
+#, python-format
+msgid "Unknown barcode command"
+msgstr "Comando de código de barras desconocido"
 
 #. module: barcodes
 #: model:ir.model.fields,help:barcodes.field_barcode_rule__sequence
 msgid ""
 "Used to order rules such that rules with a smaller sequence match first"
 msgstr ""
-"Se utiliza para ordenar reglas, de esta forma las reglas con una secuencia "
-"menor se emparejan primero"
+"Se utiliza para ordenar reglas de modo que las que tienen una secuencia "
+"menor se evalúen primero"
 
 #. module: barcodes
 #: model:ir.model.fields,help:barcodes.field_barcodes_barcode_events_mixin___barcode_scanned

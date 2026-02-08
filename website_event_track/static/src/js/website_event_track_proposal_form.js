@@ -9,9 +9,6 @@ var _t = core._t;
 
 publicWidget.registry.websiteEventTrackProposalForm = publicWidget.Widget.extend({
     selector: '.o_website_event_track_proposal_form',
-    xmlDependencies: [
-        '/website_event_track/static/src/xml/event_track_proposal_templates.xml',
-    ],
     events: {
         'click .o_wetrack_add_contact_information_checkbox': '_onAdvancedContactToggle',
         'input input[name="partner_name"]': '_onPartnerNameInput',
@@ -43,17 +40,17 @@ publicWidget.registry.websiteEventTrackProposalForm = publicWidget.Widget.extend
         var formErrors = [];
 
         // 1) Valid Form Inputs
-        this.$('.form-group').each(function (index, field) {
-            var $field = $(field);
+        this.$('.form-control').each(function () {
+            var $formControl = $(this);
             // Validate current input, if not select2 field.
-            var inputs = $field.find('.form-control').not('.o_wetrack_select2_tags');
+            var inputs = $formControl.not('.o_wetrack_select2_tags');
             var invalidInputs = inputs.toArray().filter(function (input) {
                 return !input.checkValidity();
             });
 
-            $field.find('.form-control').removeClass('o_wetrack_input_error is-invalid');
+            $formControl.removeClass('o_wetrack_input_error is-invalid');
             if (invalidInputs.length) {
-                $field.find('.form-control').addClass('o_wetrack_input_error is-invalid');
+                $formControl.addClass('o_wetrack_input_error is-invalid');
                 formErrors.push('invalidFormInputs');
             }
         });

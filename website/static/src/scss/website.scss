@@ -18,6 +18,15 @@ $-seen-urls: ();
 }
 
 :root {
+    // The color behind the boxed layout is forced by Odoo. The box background
+    // color uses the `$body-bg` variable.
+    // grep: BOXED_BODY_BG_ODOO
+    @if o-website-value('layout') != 'full' {
+        $-boxed-layout-body-bg: o-color('body');
+        --#{$variable-prefix}body-bg-rgb: #{to-rgb($-boxed-layout-body-bg)};
+        --#{$variable-prefix}body-bg: #{$-boxed-layout-body-bg};
+    }
+
     // The theme customize modal JS will need to know the value of some scss
     // variables used to render the user website, and those may have been
     // customized by themes, the user or anything else (so there is no file to
@@ -28,6 +37,11 @@ $-seen-urls: ();
 
     // 1) Handle default values
     @include print-variable('header-font-size', $font-size-base);
+
+    $-font-website-value: o-website-value('font');
+    @include print-variable('headings-font', $-font-website-value);
+    @include print-variable('navbar-font', $-font-website-value);
+    @include print-variable('buttons-font', $-font-website-value);
 
     // 2) The values in the $theme-colors map are already printed by Bootstrap.
 
@@ -47,8 +61,6 @@ $-seen-urls: ();
     }
 
     // 5) Use final value used by the theme
-    @include print-variable('body', $body-bg);
-
     @include print-variable('logo-height', $o-theme-navbar-logo-height);
     @include print-variable('fixed-logo-height', $o-theme-navbar-fixed-logo-height);
 
@@ -120,7 +132,10 @@ $-seen-urls: ();
 
     @if o-website-value('layout') != 'full' {
         > main {
-            background-color: o-color('o-cc1-bg');
+            // The color behind the boxed layout is forced by Odoo. The box
+            // background color uses the `$body-bg` variable.
+            // grep: BOXED_BODY_BG_ODOO
+            background-color: $body-bg;
         }
 
         @include media-breakpoint-up(sm) {
@@ -195,23 +210,6 @@ $-seen-urls: ();
     }
 }
 
-body:not(.o_fullscreen) {
-    #oe_main_menu_navbar:not(.o_hidden) + #wrapwrap {
-        .o_header_affixed, .modal {
-            // For these elements, in #wrapwrap, position top should be size of
-            // the navbar.
-            top: $o-navbar-height;
-        }
-        .modal {
-            // As the default bootstrap style no longer uses 'bottom: 0' and
-            // added 'height: 100%' since the V4.2 because of a bug on Android.
-            // We have to adapt the height of the modal by removing the height
-            // of the navbar.
-            height: calc(100vh - #{$o-navbar-height});
-        }
-    }
-}
-
 .navbar {
 
     .navbar-collapse {
@@ -241,14 +239,7 @@ body:not(.o_fullscreen) {
     }
 }
 
-// ":not(.bg-light)" was added as a fix in the stable version because, without
-// it, the two classes ".navbar-light" and ".bg-light" did not work together
-// correctly. For instance, if a ".navbar-light" element had a dark background
-// (resulting in light text), combining it with the "bg-light" class would keep
-// the background light, rendering the light text invisible.
-// TODO: In the Master, we should remove this ':where(:not(.bg-light))' and find
-// a more consistent solution.
-.navbar-light:where(:not(.bg-light)) {
+.navbar-light {
     // Style only navbar-light which Odoo is only supposed to use in standard
     // anyway. Automatically mimic navbar-dark if the user's menu color is dark.
     // Note: this only works because navbar-light is defined before navbar-dark,
@@ -256,7 +247,7 @@ body:not(.o_fullscreen) {
     @include o-apply-colors('menu');
     @include o-apply-colors('menu-custom');
     $-menu-color: o-color('menu-custom') or o-color('menu');
-    @if ($-menu-color and color-yiq($-menu-color) != $yiq-text-dark) {
+    @if ($-menu-color and color-contrast($-menu-color) != $color-contrast-dark) {
         @extend .navbar-dark;
     }
     @include o-add-gradient('menu-gradient');
@@ -305,19 +296,19 @@ $-header-nav-link-height: $nav-link-height;
 }
 
 h2, h3, h4, h5, h6 {
-    color: color('o-cc1-h2');
+    color: map-get($colors, 'o-cc1-h2');
 }
 h3, h4, h5, h6 {
-    color: color('o-cc1-h3');
+    color: map-get($colors, 'o-cc1-h3');
 }
 h4, h5, h6 {
-    color: color('o-cc1-h4');
+    color: map-get($colors, 'o-cc1-h4');
 }
 h5, h6 {
-    color: color('o-cc1-h5');
+    color: map-get($colors, 'o-cc1-h5');
 }
 h6 {
-    color: color('o-cc1-h6');
+    color: map-get($colors, 'o-cc1-h6');
 }
 .btn {
     @if ($o-theme-buttons-font != $o-theme-font) {
@@ -346,11 +337,13 @@ font[class*='bg-'] {
         vertical-align: middle;
         text-align: center;
         // fa-1x is not ouput
-        @include size($size);
+        width: $size;
+        height: $size;
         line-height: $size;
         @for $i from 2 through 5 {
             &.fa-#{$i}x {
-                @include size($size + $i);
+                width: $size + $i;
+                height: $size + $i;
                 line-height: $size + $i;
             }
         }
@@ -385,17 +378,17 @@ font[class*='bg-'] {
         border: 0;
         letter-spacing: 0.05em;
         text-transform: uppercase;
-        @include button-size(0.75rem, 1.5rem, ($font-size-base * .75), $btn-line-height, 0);
-        &.btn-lg { @include button-size(1rem, 2rem, ($font-size-lg * .75), $btn-line-height-lg, 0); }
-        &.btn-sm { @include button-size(.5rem, 1rem, ($font-size-sm * .75), $btn-line-height-sm, 0); }
-        &.btn-xs { @include button-size(.25rem, .5rem, ($font-size-base * .5), $btn-line-height-sm, 0); }
+        @include button-size(0.75rem, 1.5rem, ($font-size-base * .75), 0);
+        &.btn-lg { @include button-size(1rem, 2rem, ($font-size-lg * .75), 0); }
+        &.btn-sm { @include button-size(.5rem, 1rem, ($font-size-sm * .75), 0); }
+        &.btn-xs { @include button-size(.25rem, .5rem, ($font-size-base * .5), 0); }
     }
     &.rounded-circle {
         border-radius: 100px !important;
-        @include button-size(0.45rem, 1.35rem, $font-size-base, $btn-line-height, 30px);
-        &.btn-lg { @include button-size(.6rem, 1.8rem, $font-size-lg, $btn-line-height-lg, 30px); }
-        &.btn-sm { @include button-size(.3rem, .9rem, $font-size-sm, $btn-line-height-sm, 30px); }
-        &.btn-xs { @include button-size(.15rem, .45rem, ($font-size-base * .75), $btn-line-height-sm, 30px); }
+        @include button-size(0.45rem, 1.35rem, $font-size-base, 30px);
+        &.btn-lg { @include button-size(.6rem, 1.8rem, $font-size-lg, 30px); }
+        &.btn-sm { @include button-size(.3rem, .9rem, $font-size-sm, 30px); }
+        &.btn-xs { @include button-size(.15rem, .45rem, ($font-size-base * .75), 30px); }
     }
 }
 
@@ -446,7 +439,7 @@ font[class*='bg-'] {
 
 // Probably outdated
 // Disable fixed height
-@include media-breakpoint-down(sm) {
+@include media-breakpoint-down(md) {
     section,
     .parallax,
     .row,
@@ -532,7 +525,7 @@ table.table_desc tr td {
         width: 8%;
         opacity: 1;
     }
-    @include media-breakpoint-down(sm) {
+    @include media-breakpoint-down(md) {
         .carousel-control-prev,
         .carousel-control-next {
             display: none; // remove arrows on mobile
@@ -542,7 +535,8 @@ table.table_desc tr td {
     .carousel-control-next { justify-content: flex-end; }
     .carousel-control-prev-icon,
     .carousel-control-next-icon {
-        @include size(auto);
+        width: auto;
+        height: auto;
         background-image: none;
         color: $body-color;
         &:before {
@@ -553,6 +547,9 @@ table.table_desc tr td {
     }
     // Content
     .carousel-inner {
+        // Create a new stacking context to ensure that elements like indicators
+        // and arrows will always appear on top of the carousel content.
+        isolation: isolate;
         overflow: hidden;
         height: 100%;
         .carousel-item {
@@ -593,7 +590,7 @@ table.table_desc tr td {
     // Border
     &.s_carousel_bordered {
         border: 2rem solid rgba(0,0,0,0);
-        @include media-breakpoint-down(sm) {
+        @include media-breakpoint-down(md) {
             border: 0.5rem solid rgba(0,0,0,0);
         }
         // Controls - caret
@@ -601,13 +598,15 @@ table.table_desc tr td {
         .carousel-control-next-icon:before { content: "\f0da"; }
         .carousel-control-prev-icon:before,
         .carousel-control-next-icon:before {
-            @include size(2rem, 6rem);
+            width: 2rem;
+            height: 6rem;
             line-height: 6rem;
             font-size: 1.5rem;
         }
         // Indicators
         .carousel-indicators li {
-            @include size(3rem, 1rem);
+            width: 3rem;
+            height: 1rem;
         }
     }
 
@@ -625,14 +624,16 @@ table.table_desc tr td {
         .carousel-control-next-icon:before { content: "\f061"; }
         .carousel-control-prev-icon:before,
         .carousel-control-next-icon:before {
-            @include size(4rem);
+            width: 4rem;
+            height: 4rem;
             line-height: 4rem;
             border-radius: 50%;
             font-size: 1.25rem;
         }
         // Indicators
         .carousel-indicators li {
-            @include size(1rem);
+            width: 1rem;
+            height: 1rem;
             border-radius: 50%;
         }
     }
@@ -656,13 +657,15 @@ table.table_desc tr td {
         .carousel-control-next-icon:before { content: "\f105"; }
         .carousel-control-prev-icon:before,
         .carousel-control-next-icon:before {
-            @include size(2rem);
+            width: 2rem;
+            height: 2rem;
             line-height: 2rem;
             font-size: 1.25rem;
         }
         // Indicators
         .carousel-indicators li {
-            @include size(1rem);
+            width: 1rem;
+            height: 1rem;
             &:hover:not(.active) {
                 background-color: rgba(255,255,255,.8);
             }
@@ -777,17 +780,6 @@ $-transition-duration: 200ms;
     @include o-position-absolute(0, 0, auto, 0);
     position: fixed;
 
-    // TODO remove me in master, the $light color makes no sense as is visible
-    // if the header uses rounded corners but is impossible to edit / remove.
-    // As a stable fix, it was decided to not remove it if the header uses a
-    // transparent color, in which case mixing it with $light actually alters
-    // the whole menu color. In case there is a background gradient, we suppose
-    // it is opaque and remove the $light color.
-    $-menu-color: o-color('menu-custom') or o-color('menu');
-    @if not o-website-value('menu-gradient') and (not $-menu-color or alpha($-menu-color) < 0.95) {
-        background: $light;
-    }
-
     &:not(.o_header_no_transition) {
         transition: transform $-transition-duration;
     }
@@ -832,13 +824,13 @@ $-transition-duration: 200ms;
 }
 
 // Navbar
-.navbar .o_extra_menu_items.show > div {
+.navbar .o_extra_menu_items > .show {
     > li {
         + li {
-            border-top: 1px solid gray('200');
+            border-top: 1px solid map-get($grays, '200');
         }
         > a.dropdown-toggle {
-            background-color: gray('200');
+            background-color: map-get($grays, '200');
             color: inherit; // Useful when the toggle is active
             pointer-events: none; // hack to prevent clicking on it because dropdown always opened
         }
@@ -853,7 +845,7 @@ $-transition-duration: 200ms;
             box-shadow: none;
         }
         > .o_mega_menu .row > div { // remove mega menu col-lg-* style
-            max-width: none;
+            width: 100%;
             flex: auto;
         }
         > .o_mega_menu_container_size {
@@ -905,7 +897,7 @@ header {
         overflow-y: auto;
         overflow-x: hidden; // Needed because of container in container having 0px padding... TODO improve
 
-        @include media-breakpoint-down(md) {
+        @include media-breakpoint-down(lg) {
             .nav-link, .dropdown-item {
                 white-space: normal;
             }
@@ -1088,23 +1080,8 @@ header {
                     // of the 'template_header_vertical' template puts the menu
                     // behind the "backdrop" and it's no longer possible to
                     // click on the menu links (only on Firefox).
-                    order: unset;
+                    order: unset !important;
                 }
-            }
-            .o_connected_user:not(.editor_has_snippets):not(.o_fullscreen) header & {
-                padding-top: $o-navbar-height;
-            }
-            // The "off-canvas" navbar has a "fixed" position (therefore
-            // relative to the viewport). But when the header is "affixed", the
-            // "fixed" position of the navbar is no longer relative to the
-            // viewport but it is relative to the header (this is due to
-            // "transform" CSS rule of the "affixed" header.
-            .o_connected_user:not(.editor_has_snippets):not(.o_fullscreen) header.o_header_affixed & {
-                top: -$o-navbar-height;
-            }
-            .editor_has_snippets:not(.o_fullscreen) header:not(.o_header_affixed) &.collapsing,
-            .editor_has_snippets:not(.o_fullscreen) header:not(.o_header_affixed) &.show {
-                right: $o-we-sidebar-width;
             }
         }
         &.collapsing #top_menu {
@@ -1211,16 +1188,6 @@ header {
                 }
             }
         }
-        body.o_connected_user:not(.o_fullscreen) {
-            &:not(.editor_has_snippets) #wrapwrap > header {
-                top: $o-navbar-height;
-            }
-            &.editor_has_snippets #wrapwrap > header {
-                @if $-hamburger-right {
-                    right: $o-we-sidebar-width;
-                }
-            }
-        }
     }
 } @else if o-website-value('header-template') == 'boxed' {
     #wrapwrap:not(.o_header_overlay) .o_header_boxed_background {
@@ -1244,7 +1211,8 @@ header {
                 $o-hamburger-full-navbar-height: $o-theme-navbar-logo-height + ($navbar-padding-y * 2);
                 > header {
                     .navbar-collapse {
-                        max-height: 100vh;
+                        max-height: unset;
+
                         > .container {
                             height: calc(100vh - #{$o-hamburger-full-navbar-height});
                             transition: height .3s ease;
@@ -1276,9 +1244,11 @@ header {
 .o_mega_menu {
     width: 100%;
     padding: 0;
-    margin-top: 0;
+    margin-top: 0 !important;
     border-radius: 0;
     background-clip: unset; // Remove the 1px gap introduced by BS4
+    background-color: transparent; // In order to allow the mega menu to be transparent
+    border: 1px solid $gray-200; // Prevent to see the color of the block behind.
 
     .container, .container-fluid {
         // Need to reforce those because they are removed since its a container
@@ -1288,7 +1258,7 @@ header {
     }
 }
 
-.o_mega_menu_container_size {
+.dropdown-menu.o_mega_menu_container_size {
     $-header-template: o-website-value('header-template');
     @if not index(('sidebar', 'hamburger', 'magazine'), $-header-template) {
         $bp: if($-header-template == 'minimalist', md, lg);
@@ -1401,18 +1371,6 @@ header {
             border-color: currentColor;
         }
     }
-
-    // On the "/Help" page (with "website_helpdesk" installed), the navbar for
-    // helpdesk teams uses the both "navbar-nav" and "nav-tabs" BS classes on
-    // the same element, which is not compatible. This results in the text and
-    // background of the active "nav-link" having the same color if the
-    // background of the website is black, and consequently, the text is not
-    // visible.
-    // TODO: In Master, modify the layout of the navbar for helpdesk teams to
-    // avoid using BS Tabs within a BS Navbar.
-    &.nav-tabs > .nav-item.active > .nav-link.active {
-        color: color-yiq($nav-tabs-link-active-bg, $light: $navbar-light-active-color, $dark: $navbar-dark-active-color);
-    }
 }
 
 @if index(('slideout_slide_hover', 'slideout_shadow'), o-website-value('footer-effect')) {
@@ -1456,14 +1414,10 @@ header {
 }
 
 // Language selector
-#wrapwrap:not(.o_rtl) {
-    .js_language_selector {
-        .dropdown-menu {
-            min-width: 0;
-        }
-    }
-}
 .js_language_selector {
+    .dropdown-menu {
+        min-width: 0;
+    }
     a.list-inline-item {
         padding: 3px 0;
 
@@ -1490,7 +1444,7 @@ header {
     width: 1em;
     height: 1em;
     margin-right: 0.2em;
-    border-radius: $rounded-pill;
+    border-radius: $border-radius-pill;
     object-fit: cover;
 }
 a.js_change_lang:hover, a.o_add_language:hover {
@@ -1509,6 +1463,12 @@ span.list-inline-item.o_add_language:last-child {
     #o_footer_scrolltop_wrapper {
         position: relative;
         z-index: 1;
+
+        &:last-child {
+            height: 3rem !important;
+            margin-top: -3rem;
+            margin-bottom: 1rem;
+        }
     }
     #o_footer_scrolltop {
         $-footer-color: o-color('footer-custom') or o-color('footer') or rgba(0, 0, 0, 0);
@@ -1525,10 +1485,10 @@ span.list-inline-item.o_add_language:last-child {
         text-decoration: none;
 
         @if $-footer-color == $-copyright-color {
-            color: rgba(color-yiq($-footer-color), 0.5);
+            color: rgba(color-contrast($-footer-color), 0.5);
         }
 
-        @include hover-focus {
+        &:hover, &:focus {
             @include o-apply-colors($-copyright-color, $with-extras: false, $background: $-footer-color);
             text-decoration: none;
         }
@@ -1544,7 +1504,7 @@ span.list-inline-item.o_add_language:last-child {
     }
     .figure-caption {
         @include o-position-absolute(auto, 0, 0, 0);
-        @include o-bg-color(rgba(theme-color('dark'), $o-theme-figcaption-opacity));
+        @include o-bg-color(rgba(map-get($theme-colors, 'dark'), $o-theme-figcaption-opacity));
         padding: $tooltip-padding-y $tooltip-padding-x;
         font-weight: $font-weight-bold;
         a {
@@ -1564,7 +1524,7 @@ span.list-inline-item.o_add_language:last-child {
 }
 
 // TODO: Will be handled properly in master/saas-12.2, temp fix for website_event.registration_attendee_details
-.modal-footer > .float-left {
+.modal-footer > .float-start {
     margin-right: auto;
 }
 
@@ -1607,7 +1567,7 @@ span.list-inline-item.o_add_language:last-child {
     }
     7%, 21% {
         transform: scale(1.3);
-        background-color: rgba(theme-color('primary'), 0.8);
+        background-color: rgba(map-get($theme-colors, 'primary'), 0.8);
     }
 }
 
@@ -1647,27 +1607,23 @@ $ribbon-padding: 100px;
 #website_cookies_bar {
     min-height: 0px;
     height: 0px;
+}
 
-    :not(.o_cookies_popup) {
-        bottom: 0;
-    }
-    .o_cookies_discrete {
-        .js_close_popup.o_cookies_bar_text_button, .o_cookies_bar_text_policy {
-            @include media-breakpoint-down(md) {
-                margin-bottom: 1rem;
-            }
-        }
-    }
+// Search results
+.o_search_result_item_detail {
+    flex: 1;
 }
 
 .o_cookies_bar_toggle {
     gap: 0.5rem;
-    pointer-events: auto;
+    inset-inline-end: 1rem;
+    inset-block-end: var(--cookies-bar-toggle-inset-block-end, 1rem);
+    z-index: $zindex-modal + 1; // Over the modal backdrop.
 }
 
 .o_website_btn_loading {
-    cursor: wait;
     opacity: $btn-disabled-opacity;
+
     .fa:not(.fa-spin) {
         display: none;
     }
@@ -1694,7 +1650,7 @@ ul.o_checklist > li.o_checked::after {
 .o_text_content_invisible {
     color: transparent !important;
 }
-[placeholder*="data-oe-translation-id"] {
+[placeholder*="data-oe-translation-initial-sha"] {
     &::-webkit-input-placeholder{ /* WebKit */
         color: transparent;
         opacity: 0;
@@ -1704,10 +1660,10 @@ ul.o_checklist > li.o_checked::after {
         opacity: 0;
     }
 }
-input[value*="data-oe-translation-id"] {
+input[value*="data-oe-translation-initial-sha"] {
     @extend .o_text_content_invisible;
 }
-[data-oe-translation-id] {
+[data-oe-translation-initial-sha] {
     > .o_translation_select {
         border: $input-border-width solid $input-border-color;
         @include border-radius($input-border-radius, 0);
@@ -1728,12 +1684,21 @@ input[value*="data-oe-translation-id"] {
 //------------------------------------------------------------------------------
 
 .o_animate {
+    // Elements with an animation must always be above the elements that are
+    // around so that the animation is fully visible.
+    z-index: 1;
     animation-duration: 1s;
     animation-fill-mode: both;
     transform: translate3d(0,0,0); // force GPU acceleration
     backface-visibility: hidden; // avoid flickering
     text-rendering: geometricPrecision; // take care of animated titles
     visibility: hidden;
+    --wanim-intensity: 50;
+    --wanim-intensity-squared: calc(var(--wanim-intensity) * var(--wanim-intensity));
+    --wanim-zoom-out-scale: calc(1 + (var(--wanim-intensity-squared) / 8333.3));
+    --wanim-zoom-in-scale: calc(1.01 - (var(--wanim-intensity) / 100 ));
+    --wanim-zoom-in-scale-60: calc(var(--wanim-zoom-in-scale) + ((1 - var(--wanim-zoom-in-scale)) / 2));
+    --wanim-opacity-adjustment: 0;
 
     &:not(.o_animating):not(.o_animate_in_dropdown) {
         transform: none !important;
@@ -1742,7 +1707,7 @@ input[value*="data-oe-translation-id"] {
 .o_animate_preview {
     visibility: visible;
 }
-.o_wanim_overflow_x_hidden {
+.o_wanim_overflow_xy_hidden {
     overflow-x: hidden !important;
 
     &.o_rtl, .o_rtl {
@@ -1756,10 +1721,85 @@ input[value*="data-oe-translation-id"] {
             overflow-y: hidden;
         }
     }
+    .o_footer_slideout {
+        overflow-y: hidden !important;
+    }
 }
 .o_animated_text {
     display: inline-block;
 }
+.o_animate_on_scroll {
+    animation-play-state: paused;
+    --wanim-opacity-adjustment: 1;
+}
+
+// Slide //////////////////////////////////////////////////////////////////////
+
+@keyframes o_anim_slide_in_down {
+    0% {
+        opacity: 0;
+        transform: translate(0, calc(-2% * var(--wanim-intensity)));
+    }
+    10% {
+        opacity: 1;
+    }
+    100% {
+        transform: translate(0, 0);
+    }
+}
+.o_anim_slide_in.o_anim_from_top {
+    animation-name: o_anim_slide_in_down;
+}
+
+@keyframes o_anim_slide_in_left {
+    0% {
+        opacity: 0;
+        transform: translate(calc(-2% * var(--wanim-intensity)), 0);
+    }
+    10% {
+        opacity: 1;
+    }
+    100% {
+        transform: translate(0, 0);
+    }
+}
+.o_anim_slide_in.o_anim_from_left {
+    animation-name: o_anim_slide_in_left;
+}
+
+@keyframes o_anim_slide_in_right {
+    0% {
+        opacity: 0;
+        transform: translate(calc(2% * var(--wanim-intensity)), 0);
+    }
+    10% {
+        opacity: 1;
+    }
+    100% {
+        transform: translate(0, 0);
+    }
+}
+.o_anim_slide_in.o_anim_from_right{
+    animation-name: o_anim_slide_in_right;
+}
+
+@keyframes o_anim_slide_in_up {
+    0% {
+        opacity: 0;
+        transform: translate(0, calc(2% * var(--wanim-intensity)));
+    }
+    10% {
+        opacity: 1;
+    }
+    100% {
+        transform: translate(0, 0);
+    }
+}
+.o_anim_slide_in.o_anim_from_bottom {
+    animation-name: o_anim_slide_in_up;
+}
+
+// Bounce /////////////////////////////////////////////////////////////////////
 
 @keyframes o_anim_bounce_in {
     0%, 20%, 40%, 60%, 80%, 100% {
@@ -1767,20 +1807,23 @@ input[value*="data-oe-translation-id"] {
     }
     0% {
         opacity: 0;
-        transform: scale(0.3);
+        transform: scale(calc(1 - (var(--wanim-intensity) / 71.4)));
+    }
+    10% {
+        opacity: calc(0.15 + (0.85 * (var(--wanim-opacity-adjustment))));
     }
     20% {
-        transform: scale(1.1);
+        transform: scale(calc(1 + (var(--wanim-intensity-squared) / 25000)));
     }
     40% {
-        transform: scale(0.9);
+        transform: scale(calc(1 - (var(--wanim-intensity-squared) / 25000)));
     }
     60% {
         opacity: 1;
-        transform: scale(1.03);
+        transform: scale(calc(1 + (var(--wanim-intensity-squared) / 83333.3)));
     }
     80% {
-        transform: scale(0.97);
+        transform: scale(calc(1 - (var(--wanim-intensity-squared) / 83333.3)));
     }
     100% {
         opacity: 1;
@@ -1799,21 +1842,24 @@ input[value*="data-oe-translation-id"] {
         opacity: 0;
         transform: translate(0, -3000px);
     }
+    10% {
+        opacity: calc(0.15 + (0.85 * (var(--wanim-opacity-adjustment))));
+    }
     60% {
         opacity: 1;
-        transform: translate(0, 25px);
+        transform: translate(0, calc(1px * (var(--wanim-intensity-squared) / 100)));
     }
     75% {
-        transform: translate(0, -10px);
+        transform: translate(0, calc(-1px * (var(--wanim-intensity-squared) / 250)));
     }
     90% {
-        transform: translate(0, 5px);
+        transform: translate(0, calc(1px * (var(--wanim-intensity-squared) / 500)));
     }
     100% {
         transform: translate(0, 0);
     }
 }
-.o_anim_bounce_in_down {
+.o_anim_bounce_in.o_anim_from_top {
     animation-name: o_anim_bounce_in_down;
 }
 
@@ -1825,21 +1871,24 @@ input[value*="data-oe-translation-id"] {
         opacity: 0;
         transform: translate(-3000px, 0);
     }
+    10% {
+        opacity: calc(0.15 + (0.85 * (var(--wanim-opacity-adjustment))));
+    }
     60% {
         opacity: 1;
-        transform: translate(25px, 0);
+        transform: translate(calc(1px * (var(--wanim-intensity-squared) / 100)), 0);
     }
     75% {
-        transform: translate(-10px, 0);
+        transform: translate(calc(-1px * (var(--wanim-intensity-squared) / 250)), 0);
     }
     90% {
-        transform: translate(5px, 0);
+        transform: translate(calc(1px * (var(--wanim-intensity-squared) / 500)), 0);
     }
     100% {
         transform: translate(0, 0);
     }
 }
-.o_anim_bounce_in_left {
+.o_anim_bounce_in.o_anim_from_left {
     animation-name: o_anim_bounce_in_left;
 }
 
@@ -1851,23 +1900,57 @@ input[value*="data-oe-translation-id"] {
         opacity: 0;
         transform: translate(3000px, 0);
     }
+    10% {
+        opacity: calc(0.15 + (0.85 * (var(--wanim-opacity-adjustment))));
+    }
     60% {
         opacity: 1;
-        transform: translate(-25px, 0);
+        transform: translate(calc(-1px * (var(--wanim-intensity-squared) / 100)), 0);
     }
     75% {
-        transform: translate(10px, 0);
+        transform: translate(calc(1px * (var(--wanim-intensity-squared) / 250)), 0);
     }
     90% {
-        transform: translate(-5px, 0);
+        transform: translate(calc(-1px * (var(--wanim-intensity-squared) / 500)), 0);
     }
     100% {
         transform: translate(0, 0);
     }
 }
-.o_anim_bounce_in_right {
+.o_anim_bounce_in.o_anim_from_right {
     animation-name: o_anim_bounce_in_right;
 }
+
+@keyframes o_anim_bounce_in_up {
+    0%, 20%, 40%, 60%, 80%, 100% {
+        transition-timing-function: cubic-bezier(0.215, 0.61, 0.355, 1);
+    }
+    0% {
+        opacity: 0;
+        transform: translate(0, 3000px);
+    }
+    10% {
+        opacity: calc(0.15 + (0.85 * (var(--wanim-opacity-adjustment))));
+    }
+    60% {
+        opacity: 1;
+        transform: translate(0, calc(-1px * (var(--wanim-intensity-squared) / 100)));
+    }
+    75% {
+        transform: translate(0, calc(1px * (var(--wanim-intensity-squared) / 250)));
+    }
+    90% {
+        transform: translate(0, calc(-1px * (var(--wanim-intensity-squared) / 500)));
+    }
+    100% {
+        transform: translate(0, 0);
+    }
+}
+.o_anim_bounce_in.o_anim_from_bottom {
+    animation-name: o_anim_bounce_in_up;
+}
+
+// Fade ///////////////////////////////////////////////////////////////////////
 
 @keyframes o_anim_fade_in {
     0% {
@@ -1884,56 +1967,56 @@ input[value*="data-oe-translation-id"] {
 @keyframes o_anim_fade_in_down {
     0% {
         opacity: 0;
-        transform: translate(0, -100%);
+        transform: translate(0, calc(-2% * var(--wanim-intensity)));
     }
     100% {
         opacity: 1;
         transform: translate(0, 0);
     }
 }
-.o_anim_fade_in_down {
+.o_anim_fade_in.o_anim_from_top {
     animation-name: o_anim_fade_in_down;
 }
 
 @keyframes o_anim_fade_in_left {
     0% {
         opacity: 0;
-        transform: translate(-100%, 0);
+        transform: translate(calc(-2% * var(--wanim-intensity)), 0);
     }
     100% {
         opacity: 1;
         transform: translate(0, 0);
     }
 }
-.o_anim_fade_in_left {
+.o_anim_fade_in.o_anim_from_left {
     animation-name: o_anim_fade_in_left;
 }
 
 @keyframes o_anim_fade_in_right {
     0% {
         opacity: 0;
-        transform: translate(100%, 0);
+        transform: translate(calc(2% * var(--wanim-intensity)), 0);
     }
     100% {
         opacity: 1;
         transform: translate(0, 0);
     }
 }
-.o_anim_fade_in_right {
+.o_anim_fade_in.o_anim_from_right {
     animation-name: o_anim_fade_in_right;
 }
 
 @keyframes o_anim_fade_in_up {
     0% {
         opacity: 0;
-        transform: translate(0, 100%);
+        transform: translate(0, calc(2% * var(--wanim-intensity)));
     }
     100% {
         opacity: 1;
         transform: translate(0, 0);
     }
 }
-.o_anim_fade_in_up {
+.o_anim_fade_in.o_anim_from_bottom {
     animation-name: o_anim_fade_in_up;
 }
 
@@ -1945,10 +2028,15 @@ input[value*="data-oe-translation-id"] {
     animation-name: o_anim_fade_out;
 }
 
+// Rotate /////////////////////////////////////////////////////////////////////
+
 @keyframes o_anim_rotate_in {
     0% {
         opacity: 0;
-        transform: rotate(-200deg);
+        transform: rotate(calc(-1deg * (5 + (var(--wanim-intensity-squared) / 12.82))));
+    }
+    10% {
+        opacity: calc(0.1 + (0.9 * (var(--wanim-opacity-adjustment))));
     }
     100% {
         opacity: 1;
@@ -1963,7 +2051,10 @@ input[value*="data-oe-translation-id"] {
     0% {
         opacity: 0;
         transform-origin: left bottom;
-        transform: rotate(-45deg);
+        transform: rotate(calc(-1deg * (5 + (var(--wanim-intensity-squared) / 62.5))));
+    }
+    10% {
+        opacity: calc(0.1 + (0.9 * (var(--wanim-opacity-adjustment))));
     }
     100% {
         opacity: 1;
@@ -1971,7 +2062,7 @@ input[value*="data-oe-translation-id"] {
         transform: rotate(0);
     }
 }
-.o_anim_rotate_in_down_left {
+.o_anim_rotate_in.o_anim_from_bottom_left {
     animation-name: o_anim_rotate_in_down_left;
 }
 
@@ -1979,7 +2070,10 @@ input[value*="data-oe-translation-id"] {
     0% {
         opacity: 0;
         transform-origin: right bottom;
-        transform: rotate(45deg);
+        transform: rotate(calc(1deg * (5 + (var(--wanim-intensity-squared) / 62.5))));
+    }
+    10% {
+        opacity: calc(0.1 + (0.9 * (var(--wanim-opacity-adjustment))));
     }
     100% {
         opacity: 1;
@@ -1987,14 +2081,57 @@ input[value*="data-oe-translation-id"] {
         transform: rotate(0);
     }
 }
-.o_anim_rotate_in_down_right {
+.o_anim_rotate_in.o_anim_from_bottom_right {
     animation-name: o_anim_rotate_in_down_right;
 }
+
+@keyframes o_anim_rotate_in_up_left {
+    0% {
+        opacity: 0;
+        transform-origin: left top;
+        transform: rotate(calc(1deg * (5 + (var(--wanim-intensity-squared) / 62.5))));
+    }
+    10% {
+        opacity: calc(0.1 + (0.9 * (var(--wanim-opacity-adjustment))));
+    }
+    100% {
+        opacity: 1;
+        transform-origin: left top;
+        transform: rotate(0);
+    }
+}
+.o_anim_rotate_in.o_anim_from_top_left {
+    animation-name: o_anim_rotate_in_up_left;
+}
+
+@keyframes o_anim_rotate_in_up_right {
+    0% {
+        opacity: 0;
+        transform-origin: right top;
+        transform: rotate(calc(-1deg * (5 + (var(--wanim-intensity-squared) / 62.5))));
+    }
+    10% {
+        opacity: calc(0.1 + (0.9 * (var(--wanim-opacity-adjustment))));
+    }
+    100% {
+        opacity: 1;
+        transform-origin: right top;
+        transform: rotate(0);
+    }
+}
+.o_anim_rotate_in.o_anim_from_top_right {
+    animation-name: o_anim_rotate_in_up_right;
+}
+
+// Zoom out ///////////////////////////////////////////////////////////////////
 
 @keyframes o_anim_zoom_out {
     0% {
         opacity: 0;
-        transform: scale(1.3);
+        transform: scale(var(--wanim-zoom-out-scale));
+    }
+    10% {
+        opacity: calc(0.1 + (0.9 * (var(--wanim-opacity-adjustment))));
     }
     100% {
         opacity: 1;
@@ -2004,10 +2141,79 @@ input[value*="data-oe-translation-id"] {
     animation-name: o_anim_zoom_out;
 }
 
+@keyframes o_anim_zoom_out_right {
+    0% {
+        opacity: 0;
+        transform: scale(var(--wanim-zoom-out-scale)) translate(100%, 0);
+    }
+    10% {
+        opacity: calc(0.1 + (0.9 * (var(--wanim-opacity-adjustment))));
+    }
+    100% {
+        opacity: 1;
+    }
+}
+.o_anim_zoom_out.o_anim_from_right {
+    animation-name: o_anim_zoom_out_right;
+}
+
+@keyframes o_anim_zoom_out_left {
+    0% {
+        opacity: 0;
+        transform: scale(var(--wanim-zoom-out-scale)) translate(-100%, 0);
+    }
+    10% {
+        opacity: calc(0.1 + (0.9 * (var(--wanim-opacity-adjustment))));
+    }
+    100% {
+        opacity: 1;
+    }
+}
+.o_anim_zoom_out.o_anim_from_left {
+    animation-name: o_anim_zoom_out_left;
+}
+
+@keyframes o_anim_zoom_out_bottom {
+    0% {
+        opacity: 0;
+        transform: scale(var(--wanim-zoom-out-scale)) translate(0, 100%);
+    }
+    10% {
+        opacity: calc(0.1 + (0.9 * (var(--wanim-opacity-adjustment))));
+    }
+    100% {
+        opacity: 1;
+    }
+}
+.o_anim_zoom_out.o_anim_from_bottom {
+    animation-name: o_anim_zoom_out_bottom;
+}
+
+@keyframes o_anim_zoom_out_top {
+    0% {
+        opacity: 0;
+        transform: scale(var(--wanim-zoom-out-scale)) translate(0, -100%);
+    }
+    10% {
+        opacity: calc(0.1 + (0.9 * (var(--wanim-opacity-adjustment))));
+    }
+    100% {
+        opacity: 1;
+    }
+}
+.o_anim_zoom_out.o_anim_from_top {
+    animation-name: o_anim_zoom_out_top;
+}
+
+// Zoom in ////////////////////////////////////////////////////////////////////
+
 @keyframes o_anim_zoom_in {
     0% {
         opacity: 0;
-        transform: scale(0.3);
+        transform: scale(var(--wanim-zoom-in-scale));
+    }
+    10% {
+        opacity: calc(0.2 + (0.8 * (var(--wanim-opacity-adjustment))));
     }
     50% {
         opacity: 1;
@@ -2020,57 +2226,87 @@ input[value*="data-oe-translation-id"] {
 @keyframes o_anim_zoom_in_down {
     0% {
         opacity: 0;
-        transform: scale3d(0.1, 0.1, 0.1) translate3d(0, -1000px, 0);
+        transform: scale(var(--wanim-zoom-in-scale)) translate(0, calc(-0.1px * var(--wanim-intensity-squared)));
         animation-timing-function: cubic-bezier(0.55, 0.055, 0.675, 0.19);
+    }
+    10% {
+        opacity: calc(0.15 + (0.85 * (var(--wanim-opacity-adjustment))));
     }
     60% {
         opacity: 1;
-        transform: scale3d(0.475, 0.475, 0.475) translate3d(0, 60px, 0);
+        transform: scale(var(--wanim-zoom-in-scale-60)) translate(0, calc(1px * var(--wanim-intensity)));
         animation-timing-function: cubic-bezier(0.175, 0.885, 0.32, 1);
     }
 }
-.o_anim_zoom_in_down {
+.o_anim_zoom_in.o_anim_from_top {
     animation-name: o_anim_zoom_in_down;
+}
+
+@keyframes o_anim_zoom_in_up {
+    0% {
+        opacity: 0;
+        transform: scale(var(--wanim-zoom-in-scale)) translate(0, calc(0.1px * var(--wanim-intensity-squared)));
+        animation-timing-function: cubic-bezier(0.55, 0.055, 0.675, 0.19);
+    }
+    10% {
+        opacity: calc(0.15 + (0.85 * (var(--wanim-opacity-adjustment))));
+    }
+    60% {
+        opacity: 1;
+        transform: scale(var(--wanim-zoom-in-scale-60)) translate(0, calc(-1px * var(--wanim-intensity)));
+        animation-timing-function: cubic-bezier(0.175, 0.885, 0.32, 1);
+    }
+}
+.o_anim_zoom_in.o_anim_from_bottom {
+    animation-name: o_anim_zoom_in_up;
 }
 
 @keyframes o_anim_zoom_in_left {
     0% {
         opacity: 0;
-        transform: scale3d(0.1, 0.1, 0.1) translate3d(-1000px, 0, 0);
+        transform: scale(var(--wanim-zoom-in-scale)) translate(calc(-0.1px * var(--wanim-intensity-squared)), 0);
         animation-timing-function: cubic-bezier(0.55, 0.055, 0.675, 0.19);
+    }
+    10% {
+        opacity: calc(0.15 + (0.85 * (var(--wanim-opacity-adjustment))));
     }
     60% {
         opacity: 1;
-        transform: scale3d(0.475, 0.475, 0.475) translate3d(10px, 0, 0);
+        transform: scale(var(--wanim-zoom-in-scale-60)) translate(calc(0.2px * var(--wanim-intensity)), 0);
         animation-timing-function: cubic-bezier(0.175, 0.885, 0.32, 1);
     }
 }
-.o_anim_zoom_in_left {
+.o_anim_zoom_in.o_anim_from_left {
     animation-name: o_anim_zoom_in_left;
 }
 
 @keyframes o_anim_zoom_in_right {
     0% {
         opacity: 0;
-        transform: scale3d(0.1, 0.1, 0.1) translate3d(1000px, 0, 0);
+        transform: scale(var(--wanim-zoom-in-scale)) translate(calc(0.1px * var(--wanim-intensity-squared)), 0);
         animation-timing-function: cubic-bezier(0.55, 0.055, 0.675, 0.19);
+    }
+    10% {
+        opacity: calc(0.15 + (0.85 * (var(--wanim-opacity-adjustment))));
     }
     60% {
         opacity: 1;
-        transform: scale3d(0.475, 0.475, 0.475) translate3d(-10px, 0, 0);
+        transform: scale(var(--wanim-zoom-in-scale-60)) translate(calc(-0.2px * var(--wanim-intensity)), 0);
         animation-timing-function: cubic-bezier(0.175, 0.885, 0.32, 1);
     }
 }
-.o_anim_zoom_in_right {
+.o_anim_zoom_in.o_anim_from_right {
     animation-name: o_anim_zoom_in_right;
 }
+
+// Flash / Pulse / Shake / Tada ///////////////////////////////////////////////
 
 @keyframes o_anim_flash {
     0%, 50%, 100% {
         opacity: 1;
     }
     25%, 75% {
-        opacity: 0;
+        opacity: calc(1 - (var(--wanim-intensity) / 100));
     }
 }
 .o_anim_flash {
@@ -2082,7 +2318,7 @@ input[value*="data-oe-translation-id"] {
         transform: scale(1);
     }
     50% {
-        transform: scale(1.05);
+        transform: scale(calc(1.01 + (0.000016 * var(--wanim-intensity-squared))));
     }
     100% {
         transform: scale(1);
@@ -2097,10 +2333,10 @@ input[value*="data-oe-translation-id"] {
         transform: translate(0, 0);
     }
     10%, 30%, 50%, 70%, 90% {
-        transform: translate(-10px, 0);
+        transform: translate(calc(-1px - (0.0036px * var(--wanim-intensity-squared))), 0);
     }
     20%, 40%, 60%, 80% {
-        transform: translate(10px, 0);
+        transform: translate(calc(1px + (0.0036px * var(--wanim-intensity-squared))), 0);
     }
 }
 .o_anim_shake {
@@ -2109,83 +2345,55 @@ input[value*="data-oe-translation-id"] {
 
 @keyframes o_anim_tada {
     0% {
-        transform: scale3d(1, 1, 1);
+        transform: scale(1);
     }
     10%, 20% {
-        transform: scale3d(0.9, 0.9, 0.9) rotate3d(0, 0, 1, -3deg);
+        transform: scale(calc(1 - (0.00004 * var(--wanim-intensity-squared)))) rotate(calc(-2deg - (0.02deg * var(--wanim-intensity))));
     }
     30%, 50%, 70%, 90% {
-        transform: scale3d(1.1, 1.1, 1.1) rotate3d(0, 0, 1, 3deg);
+        transform: scale(calc(1 + (0.00004 * var(--wanim-intensity-squared)))) rotate(calc(2deg + (0.02deg * var(--wanim-intensity))));
     }
     40%, 60%, 80% {
-        transform: scale3d(1.1, 1.1, 1.1) rotate3d(0, 0, 1, -3deg);
+        transform: scale(calc(1 + (0.00004 * var(--wanim-intensity-squared)))) rotate(calc(-2deg - (0.02deg * var(--wanim-intensity))));
     }
     100% {
-        transform: scale3d(1, 1, 1);
+        transform: scale(1);
     }
 }
 .o_anim_tada {
     animation-name: o_anim_tada;
 }
 
+// Flip in ////////////////////////////////////////////////////////////////////
+
 @keyframes o_anim_flip_in_x {
     0% {
-        perspective: 400px;
-        transform: rotateX(90deg);
-        transition-timing-function: ease-in;
+        transform: perspective(1000px) rotateX(calc(1deg * (5 + (var(--wanim-intensity) * 1.7))));
         opacity: 0;
     }
-    40% {
-        perspective: 400px;
-        transform: rotateX(-20deg);
-        transition-timing-function: ease-in;
-    }
-    60% {
-        perspective: 400px;
-        transform: rotateX(10deg);
+    50% {
         opacity: 1;
-    }
-    80% {
-        perspective: 400px;
-        transform: rotateX(-5deg);
-    }
-    100% {
-        perspective: 400px;
     }
 }
 .o_anim_flip_in_x {
     backface-visibility: visible;
     animation-name: o_anim_flip_in_x;
+    transition-timing-function: ease-out;
 }
 
 @keyframes o_anim_flip_in_y {
     0% {
-        perspective: 400px;
-        transform: rotateY(90deg);
-        transition-timing-function: ease-in;
+        transform: perspective(1000px) rotateY(calc(1deg * (5 + (var(--wanim-intensity) * 1.7))));
         opacity: 0;
     }
-    40% {
-        perspective: 400px;
-        transform: rotateY(-20deg);
-        transition-timing-function: ease-in;
-    }
-    60% {
-        perspective: 400px;
-        transform: rotateY(10deg);
+    50% {
         opacity: 1;
-    }
-    80% {
-        perspective: 400px;
-        transform: rotateY(-5deg);
-    }
-    100% {
-        perspective: 400px;
     }
 }
 .o_anim_flip_in_y {
     backface-visibility: visible;
     animation-name: o_anim_flip_in_y;
+    transition-timing-function: ease-out;
 }
 
 // Compatibility <= 13.0
@@ -2218,4 +2426,9 @@ input[value*="data-oe-translation-id"] {
 }
 .o_anim_del2500 {
     animation-delay: 2500ms;
+}
+
+// Odoo dropdown menu
+.o_dropdown_menu {
+    @extend .dropdown-menu;
 }

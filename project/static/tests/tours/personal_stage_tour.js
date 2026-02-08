@@ -32,7 +32,7 @@ tour.register('personal_stage_tour', {
     trigger: '.o_column_quick_create .o_quick_create_folded'
 }, {
     content: "Create a new personal stage",
-    trigger: 'input[placeholder="Column title"]',
+    trigger: 'input.form-control.o_input',
     run: 'text Never',
 }, {
     content: "Confirm create",
@@ -45,14 +45,14 @@ tour.register('personal_stage_tour', {
     content: 'Open column edit dropdown',
     trigger: '.o_kanban_header:eq(0)',
     run: function () {
-        $('.o_kanban_config.dropdown .dropdown-toggle').eq(0).click();
+        document.querySelector('.o_kanban_config.dropdown .dropdown-toggle').dispatchEvent(new Event('click'));
     },
 }, {
     content: "Try editing inbox",
     trigger: ".dropdown-item.o_column_edit",
 }, {
     content: "Change title",
-    trigger: 'input.o_field_char[name="name"]',
+    trigger: 'div.o_field_char[name="name"] input',
     run: 'text  (Todo)',
 }, {
     content: "Save changes",

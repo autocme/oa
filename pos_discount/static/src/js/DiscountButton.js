@@ -3,12 +3,12 @@ odoo.define('pos_discount.DiscountButton', function(require) {
 
     const PosComponent = require('point_of_sale.PosComponent');
     const ProductScreen = require('point_of_sale.ProductScreen');
-    const { useListener } = require('web.custom_hooks');
+    const { useListener } = require("@web/core/utils/hooks");
     const Registries = require('point_of_sale.Registries');
 
     class DiscountButton extends PosComponent {
-        constructor() {
-            super(...arguments);
+        setup() {
+            super.setup();
             useListener('click', this.onClick);
         }
         async onClick() {
@@ -55,7 +55,7 @@ odoo.define('pos_discount.DiscountButton', function(require) {
                 // We add the price as manually set to avoid recomputation when changing customer.
                 let discount = - pc / 100.0 * baseToDiscount;
                 if (discount < 0) {
-                    await order.add_product(product, {
+                    order.add_product(product, {
                         price: discount,
                         lst_price: discount,
                         tax_ids: tax_ids_array,

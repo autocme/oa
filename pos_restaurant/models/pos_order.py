@@ -13,16 +13,16 @@ class PosOrderLine(models.Model):
     _inherit = 'pos.order.line'
 
     note = fields.Char('Internal Note added by the waiter.')
+    uuid = fields.Char(string='Uuid', readonly=True, copy=False)
     mp_skip = fields.Boolean('Skip line when sending ticket to kitchen printers.')
-    mp_dirty = fields.Boolean()
 
 
 class PosOrder(models.Model):
     _inherit = 'pos.order'
 
-    table_id = fields.Many2one('restaurant.table', string='Table', help='The table where this order was served', index=True)
+    table_id = fields.Many2one('restaurant.table', string='Table', help='The table where this order was served', index='btree_not_null')
     customer_count = fields.Integer(string='Guests', help='The amount of customers that have been served by this order.')
-    multiprint_resume = fields.Char()
+    multiprint_resume = fields.Char(string='Multiprint Resume', help="Last printed state of the order")
 
     def _get_pack_lot_lines(self, order_lines):
         """Add pack_lot_lines to the order_lines.
@@ -54,16 +54,16 @@ class PosOrder(models.Model):
         fields.extend([
             'id',
             'discount',
-            'tax_ids',
             'product_id',
             'price_unit',
             'order_id',
             'qty',
             'note',
+            'uuid',
             'mp_skip',
-            'mp_dirty',
             'full_product_name',
             'customer_note',
+            'price_extra',
         ])
         return fields
 
@@ -73,7 +73,7 @@ class PosOrder(models.Model):
         :type order_line: pos.order.line.
         :returns: dict -- dict representing the order line's values.
         """
-        order_line = super(PosOrder, self)._prepare_order_line(order_line)
+        order_line = super()._prepare_order_line(order_line)
         order_line["product_id"] = order_line["product_id"][0]
         order_line["server_id"] = order_line["id"]
 
@@ -82,8 +82,6 @@ class PosOrder(models.Model):
             order_line["pack_lot_ids"] = []
         else:
             order_line["pack_lot_ids"] = [[0, 0, lot] for lot in order_line["pack_lot_ids"]]
-
-        order_line["tax_ids"] = [(6, False, [tax for tax in order_line["tax_ids"]])]
         return order_line
 
     def _get_order_lines(self, orders):
@@ -147,47 +145,48 @@ class PosOrder(models.Model):
             next(order for order in orders if order['id'] == order_id[0])['statement_ids'] = list(payment_lines)
 
     def _get_fields_for_draft_order(self):
-        fields = super(PosOrder, self)._get_fields_for_draft_order()
-        fields.extend([
-                    'id',
-                    'pricelist_id',
-                    'partner_id',
-                    'sequence_number',
-                    'session_id',
-                    'pos_reference',
-                    'create_uid',
-                    'create_date',
-                    'customer_count',
-                    'fiscal_position_id',
-                    'table_id',
-                    'to_invoice',
-                    'multiprint_resume',
-                    ])
-        return fields
+        return [
+            'id',
+            'pricelist_id',
+            'partner_id',
+            'sequence_number',
+            'session_id',
+            'pos_reference',
+            'create_uid',
+            'create_date',
+            'customer_count',
+            'fiscal_position_id',
+            'table_id',
+            'to_invoice',
+            'multiprint_resume',
+            'access_token',
+        ]
 
-    @api.model
-    def _get_domain_for_draft_orders(self, table_id):
+    def _get_domain_for_draft_orders(self, table_ids):
         """ Get the domain to search for draft orders on a table.
-        :param table_id: Id of a table.
-        :type table_id: int.
+        :param table_ids: Ids of the selected tables.
+        :type table_ids: list of int.
         "returns: list -- list of tuples that represents a domain.
         """
-        return [("state", "=", "draft"), ("table_id", "=", table_id)]
+        return [('state', '=', 'draft'), ('table_id', 'in', table_ids)]
+
+    def _add_activated_coupon_to_draft_orders(self, table_orders):
+        table_orders = super()._add_activated_coupon_to_draft_orders(table_orders)
+        return table_orders
 
     @api.model
-    def get_table_draft_orders(self, table_id):
+    def get_table_draft_orders(self, table_ids):
         """Generate an object of all draft orders for the given table.
 
         Generate and return an JSON object with all draft orders for the given table, to send to the
         front end application.
 
-        :param table_id: Id of the selected table.
-        :type table_id: int.
+        :param table_ids: Ids of the selected tables.
+        :type table_ids: list of int.
         :returns: list -- list of dict representing the table orders
         """
-        self = self.with_context(prefetch_fields=False)
         table_orders = self.search_read(
-                domain=self._get_domain_for_draft_orders(table_id),
+                domain=self._get_domain_for_draft_orders(table_ids),
                 fields=self._get_fields_for_draft_order())
 
         self._get_order_lines(table_orders)
@@ -207,8 +206,6 @@ class PosOrder(models.Model):
                 order['partner_id'] = order['partner_id'][0]
             if order['table_id']:
                 order['table_id'] = order['table_id'][0]
-            if 'employee_id' in order:
-                order['employee_id'] = order['employee_id'][0] if order['employee_id'] else False
 
             if not 'lines' in order:
                 order['lines'] = []
@@ -220,7 +217,23 @@ class PosOrder(models.Model):
             del order['pos_reference']
             del order['create_date']
 
-        return table_orders
+        return self._add_activated_coupon_to_draft_orders(table_orders)
+
+    @api.model
+    def remove_from_ui(self, server_ids):
+        """ Remove orders from the frontend PoS application
+
+        Remove orders from the server by id.
+        :param server_ids: list of the id's of orders to remove from the server.
+        :type server_ids: list.
+        :returns: list -- list of db-ids for the removed orders.
+        """
+        orders = self.search([('id', 'in', server_ids), ('state', '=', 'draft')])
+        orders.write({'state': 'cancel'})
+        # TODO Looks like delete cascade is a better solution.
+        orders.mapped('payment_ids').sudo().unlink()
+        orders.sudo().unlink()
+        return orders.ids
 
     def set_tip(self, tip_line_vals):
         """Set tip to `self` based on values in `tip_line_vals`."""
@@ -272,9 +285,3 @@ class PosOrder(models.Model):
         result = super(PosOrder, self)._export_for_ui(order)
         result['table_id'] = order.table_id.id
         return result
-
-    @api.model
-    def get_all_table_draft_orders(self, pos_config_id):
-        tables = self.env['restaurant.table'].search([('floor_id.pos_config_id', '=', pos_config_id)])
-        order_obj = self.env['pos.order']
-        return [order for table in tables for order in order_obj.get_table_draft_orders(table.id) if order]

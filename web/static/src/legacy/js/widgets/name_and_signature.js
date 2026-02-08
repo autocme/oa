@@ -6,7 +6,6 @@ var config = require('web.config');
 var utils = require('web.utils');
 var Widget = require('web.Widget');
 
-var _t = core._t;
 
 /**
  * This widget allows the user to input his name and to draw his signature.
@@ -15,7 +14,6 @@ var _t = core._t;
  */
 var NameAndSignature = Widget.extend({
     template: 'web.sign_name_and_signature',
-    xmlDependencies: ['/web/static/src/legacy/xml/name_and_signature.xml'],
     events: {
         // name
         'input .o_web_sign_name_input': '_onInputSignName',
@@ -72,11 +70,13 @@ var NameAndSignature = Widget.extend({
         this.fontColor = options.fontColor || 'DarkBlue';
         this.displaySignatureRatio = options.displaySignatureRatio || 3.0;
         this.signatureType = options.signatureType || 'signature';
-        this.signMode = options.mode || 'draw';
+        // default mode should be auto except when noInputName is true and no default name
+        this.signMode = options.mode || (options.noInputName && !this.defaultName ? 'draw' : 'auto');
         this.noInputName = options.noInputName || false;
         this.currentFont = 0;
         this.drawTimeout = null;
         this.drawPreviewTimeout = null;
+        this.signatureAreaHidden = false;
     },
     /**
      * Loads the fonts.
@@ -84,11 +84,17 @@ var NameAndSignature = Widget.extend({
      * @override
      */
     willStart: function () {
-        var self = this;
+        /** LPR: in sign module, the web/sign/get_fonts call is cached since
+         * many NameAndSignature widgets are created. This way, we prevent
+         * doing the rpc call if it was already done inside sign
+         */
+        if (this.fonts && this.fonts.length > 0) {
+            return this._super.apply(this, arguments);
+        }
         return Promise.all([
             this._super.apply(this, arguments),
-            this._rpc({route: '/web/sign/get_fonts/' + self.defaultFont}).then(function (data) {
-                self.fonts = data;
+            this._rpc({route: '/web/sign/get_fonts/' + this.defaultFont}).then(data => {
+                this.fonts = data;
             })
         ]);
     },
@@ -137,6 +143,8 @@ var NameAndSignature = Widget.extend({
                 this.$autoButton.hide();
             }
             this.$nameInputGroup.hide();
+        } else if (this.defaultName === "") {
+            this._hideSignatureArea();
         }
 
         // Resize the signature area if it is resized
@@ -319,7 +327,7 @@ var NameAndSignature = Widget.extend({
         var name = this.getName();
         var isSignatureEmpty = this.isSignatureEmpty();
         this.$nameInput.parent().toggleClass('o_has_error', !name)
-            .find('.form-control, .custom-select').toggleClass('is-invalid', !name);
+            .find('.form-control, .form-select').toggleClass('is-invalid', !name);
         this.$signatureGroup.toggleClass('border-danger', isSignatureEmpty);
         return name && !isSignatureEmpty;
     },
@@ -350,7 +358,7 @@ var NameAndSignature = Widget.extend({
      */
     _getCleanedName: function () {
         var text = this.getName();
-        if (this.signatureType === 'initial') {
+        if (this.signatureType === 'initial' && text) {
             return (text.split(' ').map(function (w) {
                 return w[0];
             }).join('.') + '.');
@@ -369,7 +377,7 @@ var NameAndSignature = Widget.extend({
      * @returns {string} image = mimetype + image data
      */
     _getSVGText: function (font, text, width, height) {
-        var $svg = $(core.qweb.render('web.sign_svg_text', {
+        var $svg = $(core.qweb.render('web.legacy.sign_svg_text', {
             width: width,
             height: height,
             font: font,
@@ -463,7 +471,7 @@ var NameAndSignature = Widget.extend({
             for (var i = 0; i < self.fonts.length; i++) {
                 var imgSrc = self._getSVGText(
                     self.fonts[i],
-                    self._getCleanedName() || _t("Your name"),
+                    self._getCleanedName(),
                     width,
                     height
                 );
@@ -493,6 +501,19 @@ var NameAndSignature = Widget.extend({
             setTimeout(this._waitForSignatureNotEmpty.bind(this, def), 10);
         }
         return def;
+    },
+
+    _hideSignatureArea: function () {
+        this.$signatureField.hide();
+        this.$signatureGroup.hide();
+        this.signatureAreaHidden = true;
+    },
+
+    _showSignatureArea: function () {
+        this.$signatureField.show();
+        this.$signatureGroup.show();
+        this.signatureAreaHidden = false;
+        this.resetSignature();
     },
 
     //----------------------------------------------------------------------
@@ -558,6 +579,7 @@ var NameAndSignature = Widget.extend({
      */
     _onClickSignDrawButton: function (ev) {
         ev.preventDefault();
+        this.$signatureField.jSignature('reset'); // clears signature when clicking on draw
         this.setMode('draw');
     },
     /**
@@ -626,6 +648,9 @@ var NameAndSignature = Widget.extend({
      * @param {Event} ev
      */
     _onInputSignName: function (ev) {
+        if (this.signatureAreaHidden && this._getCleanedName()) {
+            this._showSignatureArea();
+        }
         if (this.signMode !== 'auto') {
             return;
         }

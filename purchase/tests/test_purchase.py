@@ -2,7 +2,7 @@
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
 from odoo.addons.account.tests.common import AccountTestInvoicingCommon
 from odoo.tests import tagged, Form
-from odoo import fields
+from odoo import Command, fields
 
 
 from datetime import timedelta
@@ -74,11 +74,11 @@ class TestPurchase(AccountTestInvoicingCommon):
         """Set to send reminder tomorrow, check if a reminder can be send to the
         partner.
         """
-        self.env.user.tz = 'Europe/Brussels'
         # set partner to send reminder in Company 2
         self.partner_a.with_company(self.env.companies[1]).receipt_reminder_email = True
         self.partner_a.with_company(self.env.companies[1]).reminder_date_before_receipt = 1
         # Create the PO in Company 1
+        self.env.user.tz = 'Europe/Brussels'
         po = Form(self.env['purchase.order'])
         po.partner_id = self.partner_a
         with po.order_line.new() as po_line:
@@ -89,8 +89,7 @@ class TestPurchase(AccountTestInvoicingCommon):
             po_line.product_id = self.product_b
             po_line.product_qty = 10
             po_line.price_unit = 200
-
-        # set to send reminder tomorrow
+        # set to send reminder today
         date_planned = fields.Datetime.now().replace(hour=23, minute=0) + timedelta(days=2)
         po.date_planned = date_planned
         po = po.save()
@@ -107,7 +106,7 @@ class TestPurchase(AccountTestInvoicingCommon):
         self.partner_a.receipt_reminder_email = True
         self.partner_a.reminder_date_before_receipt = 2
         # Invalidate the cache to ensure that the computed fields are recomputed
-        po.invalidate_cache()
+        self.env.invalidate_all()
         self.assertTrue(po.receipt_reminder_email)
         self.assertEqual(po.reminder_date_before_receipt, 2)
 
@@ -207,11 +206,13 @@ class TestPurchase(AccountTestInvoicingCommon):
             activity.note,
         )
 
-    def test_onchange_packaging_00(self):
+    def test_compute_packaging_00(self):
         """Create a PO and use packaging. Check we suggested suitable packaging
         according to the product_qty. Also check product_qty or product_packaging
         are correctly calculated when one of them changed.
         """
+        # Required for `product_packaging_qty` to be visible in the view
+        self.env.user.groups_id += self.env.ref('product.group_stock_packaging')
         packaging_single = self.env['product.packaging'].create({
             'name': "I'm a packaging",
             'product_id': self.product_a.id,
@@ -249,8 +250,67 @@ class TestPurchase(AccountTestInvoicingCommon):
         po_form.save()
         self.assertEqual(po.order_line.product_qty, 12)
 
+        # Do the same test but without form, to check the `product_packaging_id` and `product_packaging_qty` are set
+        # without manual call to compute
+        po = self.env['purchase.order'].create({
+            'partner_id': self.partner_a.id,
+            'order_line': [
+                Command.create({'product_id': self.product_a.id, 'product_qty': 1.0}),
+            ]
+        })
+        self.assertEqual(po.order_line.product_packaging_id, packaging_single)
+        self.assertEqual(po.order_line.product_packaging_qty, 1.0)
+        po.order_line.product_packaging_qty = 2.0
+        self.assertEqual(po.order_line.product_qty, 2.0)
+
+        po.order_line.product_qty = 24.0
+        self.assertEqual(po.order_line.product_packaging_id, packaging_dozen)
+        self.assertEqual(po.order_line.product_packaging_qty, 2.0)
+        po.order_line.product_packaging_qty = 1.0
+        self.assertEqual(po.order_line.product_qty, 12)
+
+    def test_compute_packaging_01(self):
+        """Create a PO and use packaging in a multicompany environment.
+        Ensure any suggested packaging matches the PO's.
+        """
+        company1 = self.company_data['company']
+        company2 = self.company_data_2['company']
+        generic_single_pack = self.env['product.packaging'].create({
+            'name': "single pack",
+            'product_id': self.product_a.id,
+            'qty': 1.0,
+            'company_id': False,
+        })
+        company2_pack_of_10 = self.env['product.packaging'].create({
+            'name': "pack of 10 by Company 2",
+            'product_id': self.product_a.id,
+            'qty': 10.0,
+            'company_id': company2.id,
+        })
+
+        po1 = self.env['purchase.order'].with_company(company1).create({
+            'partner_id': self.partner_a.id,
+            'order_line': [
+                Command.create({'product_id': self.product_a.id, 'product_qty': 10.0}),
+            ]
+        })
+        self.assertEqual(po1.order_line.product_packaging_id, generic_single_pack)
+        self.assertEqual(po1.order_line.product_packaging_qty, 10.0)
+
+        # verify that with the right company, we can get the other packaging
+        po2 = self.env['purchase.order'].with_company(company2).create({
+            'partner_id': self.partner_a.id,
+            'order_line': [
+                Command.create({'product_id': self.product_a.id, 'product_qty': 10.0}),
+            ]
+        })
+        self.assertEqual(po2.order_line.product_packaging_id, company2_pack_of_10)
+        self.assertEqual(po2.order_line.product_packaging_qty, 1.0)
+
     def test_with_different_uom(self):
         """ This test ensures that the unit price is correctly computed"""
+        # Required for `product_uom` to be visibile in the view
+        self.env.user.groups_id += self.env.ref('uom.group_uom')
         uom_units = self.env.ref('uom.product_uom_unit')
         uom_dozens = self.env.ref('uom.product_uom_dozen')
         uom_pairs = self.env['uom.uom'].create({
@@ -300,58 +360,94 @@ class TestPurchase(AccountTestInvoicingCommon):
         pol.product_qty += 1
         self.assertEqual(pol.name, "New custom description")
 
-    def test_on_change_quantity_subtotal(self):
+    def test_purchase_multicurrency(self):
         """
-        When a user changes the quantity of a product in a purchase order it
-        should correctly change the subtotal price even in a multi-enterprise environment
+        Purchase order lines should keep unit price precision of products
+        Also the products having prices in different currencies should be
+        correctly handled when creating a purchase order i-e product having a price of 100 usd
+        and when purchasing in EUR company the correct conversion should be applied
         """
-        seller_ids = self.env['product.supplierinfo'].create({
-            'name': self.partner_a.id,
-            'price': 20,
-            'company_id': self.company_data_2['company'].id
+        self.env['decimal.precision'].search([
+            ('name', '=', 'Product Price'),
+        ]).digits = 5
+        product = self.env['product.product'].create({
+            'name': 'product_test',
+            'uom_id': self.env.ref('uom.product_uom_unit').id,
+            'lst_price': 10.0,
+            'standard_price': 0.12345,
         })
-
-        self.product_a.write({'seller_ids': seller_ids})
-        po = Form(self.env['purchase.order'])
-        po.partner_id = self.partner_a
-        po.company_id = self.company_data_2['company']
-        with po.order_line.new() as pol:
-            pol.product_id = self.product_a
-            pol.product_qty = 4
-
-        pol.product_qty += 1
-        self.assertEqual(pol.price_subtotal, 100)
-
-    def test_tax_totals(self):
-        """ This test ensures the tax amount is correctly computed"""
-
-        self.env.company.tax_calculation_rounding_method = 'round_globally'
-        tax_21_excl = self.env['account.tax'].create({
-            'name': "21 exclude",
-            'amount': '21.00',
-            'amount_type': 'percent',
-            'price_include': False,
+        currency = self.env['res.currency'].create({
+            'name': 'Dark Chocolate Coin',
+            'symbol': '🍫',
+            'rounding': 0.001,
+            'position': 'after',
+            'currency_unit_label': 'Dark Choco',
+            'currency_subunit_label': 'Dark Cacao Powder',
+        })
+        currency_rate = self.env['res.currency.rate'].create({
+            'name': '2016-01-01',
+            'rate': 2,
+            'currency_id': currency.id,
+            'company_id': self.env.company.id,
         })
 
         po_form = Form(self.env['purchase.order'])
         po_form.partner_id = self.partner_a
         with po_form.order_line.new() as po_line:
-            po_line.product_id = self.product_a
-            po_line.product_qty = 1.0
-            po_line.price_unit = 10.74
-            po_line.taxes_id.clear()
-            po_line.taxes_id.add(tax_21_excl)
-        with po_form.order_line.new() as po_line:
-            po_line.product_id = self.product_a
-            po_line.product_qty = 2.0
-            po_line.price_unit = 0.83
-            po_line.taxes_id.clear()
-            po_line.taxes_id.add(tax_21_excl)
-        po = po_form.save()
+            po_line.product_id = product
+        purchase_order_usd = po_form.save()
+        self.assertEqual(purchase_order_usd.order_line.price_unit, product.standard_price, "Value shouldn't be rounded $")
 
-        self.assertEqual(po.amount_tax, 2.60)
-        self.assertEqual(po.amount_total, 15.00)
-        self.assertEqual(po.amount_untaxed, 12.40)
+        po_form = Form(self.env['purchase.order'])
+        po_form.partner_id = self.partner_a
+        po_form.currency_id = currency
+        with po_form.order_line.new() as po_line:
+            po_line.product_id = product
+        purchase_order_coco = po_form.save()
+        self.assertEqual(purchase_order_coco.order_line.price_unit, currency_rate.rate * product.standard_price, "Value shouldn't be rounded 🍫")
+
+        #check if the correct currency is set on the purchase order by comparing the expected price and actual price
+
+        company_a = self.company_data['company']
+        company_b = self.company_data_2['company']
+
+        company_b.currency_id = currency
+
+        self.env['res.currency.rate'].create({
+            'name': '2023-01-01',
+            'rate': 2,
+            'currency_id': currency.id,
+            'company_id': company_b.id,
+        })
+
+        product_b = self.env['product.product'].with_company(company_a).create({
+            'name': 'product_2',
+            'uom_id': self.env.ref('uom.product_uom_unit').id,
+            'standard_price': 0.0,
+        })
+
+        self.assertEqual(product_b.cost_currency_id, company_a.currency_id, 'The cost currency should be the one set on'
+                                                                            ' the company')
+
+        product_b = product_b.with_company(company_b)
+
+        self.assertEqual(product_b.cost_currency_id, currency, 'The cost currency should be the one set on the company,'
+                                                               ' as the product is now opened in another company')
+
+        product_b.supplier_taxes_id = False
+        product_b.update({'standard_price': 10.0})
+
+        #create a purchase order with the product from company B
+        order_b = self.env['purchase.order'].with_company(company_b).create({
+            'partner_id': self.partner_a.id,
+            'order_line': [(0, 0, {
+                'product_id': product_b.id,
+                'product_qty': 1,
+                'product_uom': self.env.ref('uom.product_uom_unit').id,
+            })],
+        })
+
+        self.assertEqual(order_b.order_line.price_unit, 10.0, 'The price unit should be 10.0')
 
     def test_purchase_not_creating_useless_product_vendor(self):
         """ This test ensures that the product vendor is not created when the
@@ -373,9 +469,9 @@ class TestPurchase(AccountTestInvoicingCommon):
 
         #create a product that use the delivery address as vendor
         product = self.env['product.product'].create({
-            'name': 'Product',
+            'name': 'Product A',
             'seller_ids': [(0, 0, {
-                'name': delivery_address.id,
+                'partner_id': delivery_address.id,
                 'min_qty': 1.0,
                 'price': 1.0,
             })]
@@ -390,4 +486,106 @@ class TestPurchase(AccountTestInvoicingCommon):
         po = po_form.save()
         po.button_confirm()
 
-        self.assertEqual(po.order_line.product_id.seller_ids.mapped('name'), delivery_address)
+        self.assertEqual(po.order_line.product_id.seller_ids.mapped('partner_id'), delivery_address)
+
+    def test_supplier_list_in_product_with_multicompany(self):
+        """
+        Check that a different supplier list can be added to a product for each company.
+        """
+        company_a = self.company_data['company']
+        company_b = self.company_data_2['company']
+        product = self.env['product.product'].create({
+            'name': 'product_test',
+        })
+        # create a purchase order in the company A
+        self.env['purchase.order'].with_company(company_a).create({
+            'partner_id': self.partner_a.id,
+            'order_line': [(0, 0, {
+                'product_id': product.id,
+                'product_qty': 1,
+                'product_uom': self.env.ref('uom.product_uom_unit').id,
+                'price_unit': 1,
+            })],
+        }).button_confirm()
+
+        self.assertEqual(product.seller_ids[0].partner_id, self.partner_a)
+        self.assertEqual(product.seller_ids[0].company_id, company_a)
+
+        # switch to the company B
+        self.env['purchase.order'].with_company(company_b).create({
+            'partner_id': self.partner_b.id,
+            'order_line': [(0, 0, {
+                'product_id': product.id,
+                'product_qty': 1,
+                'product_uom': self.env.ref('uom.product_uom_unit').id,
+                'price_unit': 2,
+            })],
+        }).button_confirm()
+        product = product.with_company(company_b)
+        self.assertEqual(product.seller_ids[0].partner_id, self.partner_b)
+        self.assertEqual(product.seller_ids[0].company_id, company_b)
+
+        # Switch to the company A and check that the vendor list is still the same
+        product = product.with_company(company_a)
+        self.assertEqual(product.seller_ids[0].partner_id, self.partner_a)
+        self.assertEqual(product.seller_ids[0].company_id, company_a)
+
+        product._invalidate_cache()
+        self.assertEqual(product.seller_ids[0].partner_id, self.partner_a)
+        self.assertEqual(product.seller_ids[0].company_id, company_a)
+
+    def test_purchase_order_multi_company(self):
+        """
+        Check that the unit price is correct in a multi company environment
+        when editing a PO with another company selected.
+        """
+        company_a = self.env.user.company_ids[0]
+        company_b = self.env.user.company_ids[1]
+        product = self.env['product.product'].with_company(company_a).create({
+            'name': 'product_test',
+            'standard_price': 3.0
+        })
+        product.with_company(company_b).standard_price = 5.0
+
+        po_form = Form(self.env['purchase.order'].with_company(company_a))
+        po_form.partner_id = self.partner_a
+        with po_form.order_line.new() as po_line:
+            po_line.product_id = product
+        po = po_form.save()
+
+        po_form = Form(po.with_company(company_b))
+        with po_form.order_line.edit(0) as po_line:
+            po_line.product_id = product
+        po = po_form.save()
+
+        self.assertEqual(po.order_line[0].price_unit, 3.0)
+
+    def test_action_view_po_when_product_template_archived(self):
+        """
+        Test to ensure that the purchased_product_qty value remains the same
+        after archiving the product template. Also check that the purchased smart
+        button returns the correct purchase order lines.
+        """
+        po = self.env['purchase.order'].create({
+            'partner_id': self.partner_a.id,
+            'order_line': [
+                Command.create({
+                    'product_id': self.product_a.id,
+                    'product_qty': 10,
+                    'price_unit': 1,
+                }),
+            ],
+        })
+        po.button_confirm()
+        product_tmpl = self.product_a.product_tmpl_id
+        self.assertEqual(product_tmpl.purchased_product_qty, 10)
+
+        product_tmpl.action_archive()
+        # Need to flush the recordsets to recalculate the purchased_product_qty after archiving
+        product_tmpl.invalidate_recordset()
+
+        self.assertEqual(product_tmpl.purchased_product_qty, 10)
+
+        action = product_tmpl.action_view_po()
+        action_record = self.env[action['res_model']].search(action['domain'])
+        self.assertEqual(action_record, po.order_line)

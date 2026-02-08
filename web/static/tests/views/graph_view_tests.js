@@ -1,12 +1,17 @@
 /** @odoo-module **/
 
-import { makeFakeLocalizationService } from "@web/../tests/helpers/mock_services";
-import { click, makeDeferred, nextTick, patchDate, triggerEvent } from "@web/../tests/helpers/utils";
+import {
+    click,
+    getFixture,
+    makeDeferred,
+    nextTick,
+    patchDate,
+    triggerEvent,
+    findChildren,
+} from "@web/../tests/helpers/utils";
 import {
     editFavoriteName,
     saveFavorite,
-    setupControlPanelFavoriteMenuRegistry,
-    setupControlPanelServiceRegistry,
     switchView,
     toggleComparisonMenu,
     toggleFavoriteMenu,
@@ -16,15 +21,20 @@ import {
     toggleMenuItem,
     toggleMenuItemOption,
     toggleSaveFavorite,
+    validateSearch,
 } from "@web/../tests/search/helpers";
-import { makeView } from "@web/../tests/views/helpers";
+import { makeView, setupViewRegistries } from "@web/../tests/views/helpers";
 import { createWebClient, doAction } from "@web/../tests/webclient/helpers";
-import { dialogService } from "@web/core/dialog/dialog_service";
-import { registry } from "@web/core/registry";
-import { BORDER_WHITE, DEFAULT_BG } from "@web/views/graph/colors";
-import { GraphArchParser } from "@web/views/graph/graph_arch_parser";
 import { browser } from "@web/core/browser/browser";
+import { registry } from "@web/core/registry";
+import { getBorderWhite, DEFAULT_BG, getColors, hexToRGBA } from "@web/views/graph/colors";
+import { GraphArchParser } from "@web/views/graph/graph_arch_parser";
+import { GraphRenderer } from "@web/views/graph/graph_renderer";
+import { onRendered } from "@odoo/owl";
 import { patchWithCleanup } from "../helpers/utils";
+import { fakeCookieService } from "@web/../tests/helpers/mock_services";
+import { Domain } from "@web/core/domain";
+import { GraphModel } from "@web/views/graph/graph_model";
 
 const serviceRegistry = registry.category("services");
 
@@ -33,8 +43,10 @@ function getGraphModelMetaData(graph) {
 }
 
 export function getGraphRenderer(graph) {
-    const layout = Object.values(graph.__owl__.children)[0];
-    return Object.values(layout.__owl__.children).find((c) => c.chart);
+    const layoutNode = findChildren(graph);
+    return Object.values(layoutNode.children)
+        .map((c) => c.component)
+        .find((c) => c.chart);
 }
 
 function getChart(graph) {
@@ -96,33 +108,37 @@ function checkTooltip(assert, graph, expectedTooltipContent, index, datasetIndex
         lineLabels.push(line.label);
         lineValues.push(`${line.value}`);
     }
-    assert.containsOnce(graph, "div.o_graph_custom_tooltip");
-    const tooltipTitle = graph.el.querySelector("table thead tr th.o_measure");
+    assert.containsOnce(target, "div.o_graph_custom_tooltip");
+    const tooltipTitle = target.querySelector("table thead tr th.o_measure");
     assert.strictEqual(tooltipTitle.innerText, title || "Count", `Tooltip title`);
     assert.deepEqual(
-        [...graph.el.querySelectorAll("table tbody tr td span.o_label")].map((td) => td.innerText),
+        [...target.querySelectorAll("table tbody tr td span.o_label")].map((td) => td.innerText),
         lineLabels,
         `Tooltip line labels`
     );
     assert.deepEqual(
-        [...graph.el.querySelectorAll("table tbody tr td.o_value")].map((td) => td.innerText),
+        [...target.querySelectorAll("table tbody tr td.o_value")].map((td) => td.innerText),
         lineValues,
         `Tooltip line values`
     );
 }
 
-function getModeButton(comp, mode) {
-    return comp.el.querySelector(`.o_graph_button[data-mode="${mode}"`);
+function getModeButton(el, mode) {
+    return el.querySelector(`.o_graph_button[data-mode="${mode}"`);
 }
 
-async function selectMode(comp, mode) {
-    await click(getModeButton(comp, mode));
+async function selectMode(el, mode) {
+    await click(getModeButton(el, mode));
 }
 
 function checkModeIs(assert, graph, mode) {
     assert.strictEqual(getGraphModelMetaData(graph).mode, mode);
     assert.strictEqual(getChart(graph).config.type, mode);
-    assert.hasClass(getModeButton(graph, mode), "active");
+    assert.hasClass(getModeButton(target, mode), "active");
+}
+
+function getScaleY(graph) {
+    return getChart(graph).config.options.scales.yAxes;
 }
 
 function getXAxeLabel(graph) {
@@ -133,7 +149,7 @@ function getYAxeLabel(graph) {
     return getChart(graph).config.options.scales.yAxes[0].scaleLabel.labelString;
 }
 
-async function clickOnDataset(graph) {
+export async function clickOnDataset(graph) {
     const chart = getChart(graph);
     const meta = chart.getDatasetMeta(0);
     const rectangle = chart.canvas.getBoundingClientRect();
@@ -145,6 +161,7 @@ async function clickOnDataset(graph) {
 }
 
 let serverData;
+let target;
 QUnit.module("Views", (hooks) => {
     hooks.beforeEach(async () => {
         serverData = {
@@ -152,21 +169,27 @@ QUnit.module("Views", (hooks) => {
                 foo: {
                     fields: {
                         id: { string: "Id", type: "integer" },
-                        foo: { string: "Foo", type: "integer", store: true, group_operator: "sum", sortable: true },
+                        foo: {
+                            string: "Foo",
+                            type: "integer",
+                            store: true,
+                            group_operator: "sum",
+                            sortable: true,
+                        },
                         bar: { string: "bar", type: "boolean", store: true, sortable: true },
                         product_id: {
                             string: "Product",
                             type: "many2one",
                             relation: "product",
                             store: true,
-                            sortable: true
+                            sortable: true,
                         },
                         color_id: {
                             string: "Color",
                             type: "many2one",
                             relation: "color",
                             store: true,
-                            sortable: true
+                            sortable: true,
                         },
                         date: { string: "Date", type: "date", store: true, sortable: true },
                         revenue: {
@@ -174,7 +197,13 @@ QUnit.module("Views", (hooks) => {
                             type: "float",
                             store: true,
                             group_operator: "sum",
-                            sortable: true
+                            sortable: true,
+                        },
+                        color_ids: {
+                            string: "Colors",
+                            type: "many2many",
+                            relation: "color",
+                            store: true,
                         },
                     },
                     records: [
@@ -185,6 +214,7 @@ QUnit.module("Views", (hooks) => {
                             product_id: 37,
                             date: "2016-01-01",
                             revenue: 1,
+                            color_ids: [7],
                         },
                         {
                             id: 2,
@@ -194,6 +224,7 @@ QUnit.module("Views", (hooks) => {
                             color_id: 7,
                             date: "2016-01-03",
                             revenue: 2,
+                            color_ids: [14],
                         },
                         {
                             id: 3,
@@ -202,6 +233,7 @@ QUnit.module("Views", (hooks) => {
                             product_id: 37,
                             date: "2016-03-04",
                             revenue: 3,
+                            color_ids: [7, 14],
                         },
                         {
                             id: 4,
@@ -210,6 +242,7 @@ QUnit.module("Views", (hooks) => {
                             product_id: 37,
                             date: "2016-03-07",
                             revenue: 4,
+                            color_ids: [7],
                         },
                         {
                             id: 5,
@@ -218,6 +251,7 @@ QUnit.module("Views", (hooks) => {
                             product_id: 41,
                             date: "2016-05-01",
                             revenue: 5,
+                            color_ids: [7, 14],
                         },
                         { id: 6, foo: 63, bar: false, product_id: 41 },
                         { id: 7, foo: 42, bar: false, product_id: 41 },
@@ -280,19 +314,20 @@ QUnit.module("Views", (hooks) => {
                 `,
             },
         };
-        setupControlPanelServiceRegistry();
-        setupControlPanelFavoriteMenuRegistry();
-        serviceRegistry.add("dialog", dialogService);
+        setupViewRegistries();
         patchWithCleanup(browser, { setTimeout: (fn) => fn() });
+
+        target = getFixture();
+        registry.category("services").add("cookie", fakeCookieService);
     });
 
     QUnit.module("GraphView");
 
     QUnit.test("simple bar chart rendering", async function (assert) {
-        assert.expect(12);
         const graph = await makeView({ serverData, type: "graph", resModel: "foo" });
         const { measure, mode, order, stacked } = getGraphModelMetaData(graph);
-        assert.containsOnce(graph, "div.o_graph_canvas_container canvas");
+        assert.hasClass(target.querySelector(".o_graph_view"), "o_view_controller");
+        assert.containsOnce(target, "div.o_graph_canvas_container canvas");
         assert.strictEqual(measure, "__count", `the active measure should be "__count" by default`);
         assert.strictEqual(mode, "bar", "should be in bar chart mode by default");
         assert.strictEqual(order, null, "should not be ordered by default");
@@ -313,8 +348,8 @@ QUnit.module("Views", (hooks) => {
         assert.expect(4);
         serverData.models.foo.records = [];
         const graph = await makeView({ serverData, type: "graph", resModel: "foo" });
-        assert.containsOnce(graph, "div.o_graph_canvas_container canvas");
-        assert.containsNone(graph, ".o_nocontent_help");
+        assert.containsOnce(target, "div.o_graph_canvas_container canvas");
+        assert.containsNone(target, ".o_nocontent_help");
         checkLabels(assert, graph, []);
         checkDatasets(assert, graph, [], []);
     });
@@ -327,17 +362,17 @@ QUnit.module("Views", (hooks) => {
             resModel: "foo",
             arch: `<graph><field name="bar"/></graph>`,
         });
-        assert.containsOnce(graph.el, "div.o_graph_canvas_container canvas");
-        checkLabels(assert, graph, ["true", "false"]);
+        assert.containsOnce(target, "div.o_graph_canvas_container canvas");
+        checkLabels(assert, graph, ["false", "true"]);
         checkDatasets(assert, graph, ["backgroundColor", "borderColor", "data", "label"], {
             backgroundColor: "#1f77b4",
             borderColor: undefined,
-            data: [3, 5],
+            data: [5, 3],
             label: "Count",
         });
         checkLegend(assert, graph, "Count");
-        checkTooltip(assert, graph, { lines: [{ label: "true", value: "3" }] }, 0);
-        checkTooltip(assert, graph, { lines: [{ label: "false", value: "5" }] }, 1);
+        checkTooltip(assert, graph, { lines: [{ label: "false", value: "5" }] }, 0);
+        checkTooltip(assert, graph, { lines: [{ label: "true", value: "3" }] }, 1);
     });
 
     QUnit.test("simple bar chart rendering (two groupBy)", async function (assert) {
@@ -353,8 +388,8 @@ QUnit.module("Views", (hooks) => {
                 </graph>
             `,
         });
-        assert.containsOnce(graph.el, "div.o_graph_canvas_container canvas");
-        checkLabels(assert, graph, ["true", "false"]);
+        assert.containsOnce(target, "div.o_graph_canvas_container canvas");
+        checkLabels(assert, graph, ["false", "true"]);
         checkDatasets(
             assert,
             graph,
@@ -363,22 +398,22 @@ QUnit.module("Views", (hooks) => {
                 {
                     backgroundColor: "#1f77b4",
                     borderColor: undefined,
-                    data: [3, 1],
+                    data: [1, 3],
                     label: "xphone",
                 },
                 {
                     backgroundColor: "#ff7f0e",
                     borderColor: undefined,
-                    data: [0, 4],
+                    data: [4, 0],
                     label: "xpad",
                 },
             ]
         );
         checkLegend(assert, graph, ["xphone", "xpad"]);
-        checkTooltip(assert, graph, { lines: [{ label: "true / xphone", value: "3" }] }, 0, 0);
-        checkTooltip(assert, graph, { lines: [{ label: "false / xphone", value: "1" }] }, 1, 0);
-        checkTooltip(assert, graph, { lines: [{ label: "true / xpad", value: "0" }] }, 0, 1);
-        checkTooltip(assert, graph, { lines: [{ label: "false / xpad", value: "4" }] }, 1, 1);
+        checkTooltip(assert, graph, { lines: [{ label: "false / xphone", value: "1" }] }, 0, 0);
+        checkTooltip(assert, graph, { lines: [{ label: "true / xphone", value: "3" }] }, 1, 0);
+        checkTooltip(assert, graph, { lines: [{ label: "false / xpad", value: "4" }] }, 0, 1);
+        checkTooltip(assert, graph, { lines: [{ label: "true / xpad", value: "0" }] }, 1, 1);
     });
 
     QUnit.test("bar chart rendering (no groupBy, several domains)", async function (assert) {
@@ -533,6 +568,96 @@ QUnit.module("Views", (hooks) => {
         );
     });
 
+    QUnit.test("bar chart many2many groupBy", async function (assert) {
+        assert.expect(16);
+        const graph = await makeView({
+            serverData,
+            type: "graph",
+            resModel: "foo",
+            arch: `
+                <graph>
+                    <field name="revenue" type="measure"/>
+                    <field name="color_ids"/>
+                </graph>`,
+        });
+        assert.containsOnce(target, "div.o_graph_canvas_container canvas");
+        checkLabels(assert, graph, ["Undefined", "black", "red"]);
+        checkDatasets(assert, graph, ["backgroundColor", "borderColor", "data", "label"], {
+            backgroundColor: "#1f77b4",
+            borderColor: undefined,
+            data: [8, 10, 13],
+            label: "Revenue",
+        });
+        checkLegend(assert, graph, "Revenue");
+        checkTooltip(
+            assert,
+            graph,
+            { lines: [{ label: "Undefined", value: "8" }], title: "Revenue" },
+            0
+        );
+        checkTooltip(
+            assert,
+            graph,
+            { lines: [{ label: "black", value: "10" }], title: "Revenue" },
+            1
+        );
+        checkTooltip(
+            assert,
+            graph,
+            { lines: [{ label: "red", value: "13" }], title: "Revenue" },
+            2
+        );
+    });
+
+    QUnit.test("differentiate many2many values with same label", async function (assert) {
+        assert.expect(19);
+        serverData.models.color.records.push({ id: 21, display_name: "red" });
+        serverData.models.foo.records.push({ id: 30, color_ids: [21], revenue: 14 });
+        const graph = await makeView({
+            serverData,
+            type: "graph",
+            resModel: "foo",
+            arch: `
+                <graph>
+                    <field name="revenue" type="measure"/>
+                    <field name="color_ids"/>
+                </graph>`,
+        });
+        assert.containsOnce(target, "div.o_graph_canvas_container canvas");
+        checkLabels(assert, graph, ["Undefined", "black", "red", "red (2)"]);
+        checkDatasets(assert, graph, ["backgroundColor", "borderColor", "data", "label"], {
+            backgroundColor: "#1f77b4",
+            borderColor: undefined,
+            data: [8, 10, 14, 13],
+            label: "Revenue",
+        });
+
+        checkTooltip(
+            assert,
+            graph,
+            { lines: [{ label: "Undefined", value: "8" }], title: "Revenue" },
+            0
+        );
+        checkTooltip(
+            assert,
+            graph,
+            { lines: [{ label: "black", value: "10" }], title: "Revenue" },
+            1
+        );
+        checkTooltip(
+            assert,
+            graph,
+            { lines: [{ label: "red", value: "14" }], title: "Revenue" },
+            2
+        );
+        checkTooltip(
+            assert,
+            graph,
+            { lines: [{ label: "red (2)", value: "13" }], title: "Revenue" },
+            3
+        );
+    });
+
     QUnit.test(
         "bar chart rendering (one groupBy, several domains with date identification)",
         async function (assert) {
@@ -655,11 +780,11 @@ QUnit.module("Views", (hooks) => {
         async function (assert) {
             assert.expect(15);
             serverData.models.foo.records = [
-                { date: "2021-01-04", bar: true, revenue: 12 },
-                { date: "2021-01-12", bar: false, revenue: 5 },
-                { date: "2021-02-04", bar: true, revenue: 14 },
-                { date: "2021-02-17", bar: false, revenue: false },
-                { date: false, bar: true, revenue: 0 },
+                { date: "2021-01-04", bar: false, revenue: 12 },
+                { date: "2021-01-12", bar: true, revenue: 5 },
+                { date: "2021-02-04", bar: false, revenue: 14 },
+                { date: "2021-02-17", bar: true, revenue: false },
+                { date: false, bar: false, revenue: 0 },
             ];
             const graph = await makeView({
                 serverData,
@@ -692,7 +817,7 @@ QUnit.module("Views", (hooks) => {
                     fieldName: "date",
                 },
             });
-            checkLabels(assert, graph, ["true", "false"]);
+            checkLabels(assert, graph, ["false", "true"]);
             checkDatasets(
                 assert,
                 graph,
@@ -735,7 +860,7 @@ QUnit.module("Views", (hooks) => {
                 graph,
                 {
                     title: "Revenue",
-                    lines: [{ label: "true / February 2021 / W05 2021", value: "14" }],
+                    lines: [{ label: "false / February 2021 / W05 2021", value: "14" }],
                 },
                 0,
                 0
@@ -745,7 +870,7 @@ QUnit.module("Views", (hooks) => {
                 graph,
                 {
                     title: "Revenue",
-                    lines: [{ label: "true / January 2021 / W01 2021", value: "12" }],
+                    lines: [{ label: "false / January 2021 / W01 2021", value: "12" }],
                 },
                 0,
                 2
@@ -755,7 +880,7 @@ QUnit.module("Views", (hooks) => {
                 graph,
                 {
                     title: "Revenue",
-                    lines: [{ label: "false / January 2021 / W02 2021", value: "5" }],
+                    lines: [{ label: "true / January 2021 / W02 2021", value: "5" }],
                 },
                 1,
                 3
@@ -771,7 +896,7 @@ QUnit.module("Views", (hooks) => {
             resModel: "foo",
             arch: `<graph type="line"/>`,
         });
-        assert.containsOnce(graph.el, "div.o_graph_canvas_container canvas");
+        assert.containsOnce(target, "div.o_graph_canvas_container canvas");
         const { mode } = getGraphModelMetaData(graph);
         assert.strictEqual(mode, "line");
         checkLabels(assert, graph, ["", "Total", ""]);
@@ -798,21 +923,115 @@ QUnit.module("Views", (hooks) => {
                 </graph>
             `,
         });
-        assert.containsOnce(graph.el, "div.o_graph_canvas_container canvas");
-        checkLabels(assert, graph, ["true", "false"]);
+        assert.containsOnce(target, "div.o_graph_canvas_container canvas");
+        checkLabels(assert, graph, ["false", "true"]);
         checkDatasets(assert, graph, ["backgroundColor", "borderColor", "data", "label"], {
             backgroundColor: "rgba(31,119,180,0.4)",
             borderColor: "#1f77b4",
-            data: [3, 5],
+            data: [5, 3],
             label: "Count",
         });
         checkLegend(assert, graph, "Count");
-        checkTooltip(assert, graph, { lines: [{ label: "true", value: "3" }] }, 0);
-        checkTooltip(assert, graph, { lines: [{ label: "false", value: "5" }] }, 1);
+        checkTooltip(assert, graph, { lines: [{ label: "false", value: "5" }] }, 0);
+        checkTooltip(assert, graph, { lines: [{ label: "true", value: "3" }] }, 1);
     });
 
     QUnit.test("line chart rendering (two groupBy)", async function (assert) {
         assert.expect(12);
+        const graph = await makeView({
+            serverData,
+            type: "graph",
+            resModel: "foo",
+            arch: `
+                <graph type="line" stacked="0">
+                    <field name="bar"/>
+                    <field name="product_id"/>
+                </graph>
+            `,
+        });
+        assert.containsOnce(target, "div.o_graph_canvas_container canvas");
+        checkLabels(assert, graph, ["false", "true"]);
+        checkDatasets(
+            assert,
+            graph,
+            ["backgroundColor", "borderColor", "data", "label"],
+            [
+                {
+                    backgroundColor: undefined,
+                    borderColor: "#1f77b4",
+                    data: [1, 3],
+                    label: "xphone",
+                },
+                {
+                    backgroundColor: undefined,
+                    borderColor: "#ff7f0e",
+                    data: [4, 0],
+                    label: "xpad",
+                },
+            ]
+        );
+        checkLegend(assert, graph, ["xphone", "xpad"]);
+        checkTooltip(
+            assert,
+            graph,
+            {
+                lines: [
+                    { label: "false / xpad", value: "4" },
+                    { label: "false / xphone", value: "1" },
+                ],
+            },
+            0
+        );
+        checkTooltip(
+            assert,
+            graph,
+            {
+                lines: [
+                    { label: "true / xphone", value: "3" },
+                    { label: "true / xpad", value: "0" },
+                ],
+            },
+            1
+        );
+    });
+
+    QUnit.test("line chart many2many groupBy", async function (assert) {
+        assert.expect(12);
+        const graph = await makeView({
+            serverData,
+            type: "graph",
+            resModel: "foo",
+            arch: `
+                <graph type="line">
+                    <field name="revenue" type="measure"/>
+                    <field name="color_ids"/>
+                </graph>
+            `,
+        });
+        assert.containsOnce(target, "div.o_graph_canvas_container canvas");
+        checkLabels(assert, graph, ["black", "red"]);
+        checkDatasets(assert, graph, ["backgroundColor", "borderColor", "data", "label"], {
+            backgroundColor: "rgba(31,119,180,0.4)",
+            borderColor: "#1f77b4",
+            data: [10, 13],
+            label: "Revenue",
+        });
+        checkLegend(assert, graph, "Revenue");
+        checkTooltip(
+            assert,
+            graph,
+            { lines: [{ label: "black", value: "10" }], title: "Revenue" },
+            0
+        );
+        checkTooltip(
+            assert,
+            graph,
+            { lines: [{ label: "red", value: "13" }], title: "Revenue" },
+            1
+        );
+    });
+
+    QUnit.test("Stacked button visible in the line chart", async function (assert) {
         const graph = await makeView({
             serverData,
             type: "graph",
@@ -824,50 +1043,179 @@ QUnit.module("Views", (hooks) => {
                 </graph>
             `,
         });
-        assert.containsOnce(graph.el, "div.o_graph_canvas_container canvas");
-        checkLabels(assert, graph, ["true", "false"]);
-        checkDatasets(
-            assert,
-            graph,
-            ["backgroundColor", "borderColor", "data", "label"],
-            [
-                {
-                    backgroundColor: undefined,
-                    borderColor: "#1f77b4",
-                    data: [3, 1],
-                    label: "xphone",
-                },
-                {
-                    backgroundColor: undefined,
-                    borderColor: "#ff7f0e",
-                    data: [0, 4],
-                    label: "xpad",
-                },
-            ]
+        await selectMode(target, "line");
+        checkModeIs(assert, graph, "line");
+        assert.strictEqual(graph.model.metaData.stacked, true, "graph should be stacked.");
+        assert.strictEqual(
+            getScaleY(graph).every((y) => y.stacked),
+            true,
+            "The y axes should have stacked property set to true"
         );
-        checkLegend(assert, graph, ["xphone", "xpad"]);
-        checkTooltip(
-            assert,
-            graph,
+        assert.containsOnce(target, `button.o_graph_button[data-tooltip="Stacked"]`);
+        const stackButton = target.querySelector(`button.o_graph_button[data-tooltip="Stacked"]`);
+        await click(stackButton);
+        assert.strictEqual(
+            graph.model.metaData.stacked,
+            false,
+            "graph should be a classic line chart."
+        );
+        assert.strictEqual(
+            getScaleY(graph).every((y) => y.stacked == undefined),
+            true,
+            "The y axes should have stacked property set to undefined"
+        );
+    });
+
+    QUnit.test("Stacked line prop click false", async function (assert) {
+        const graph = await makeView({
+            serverData,
+            type: "graph",
+            resModel: "foo",
+            arch: `
+                <graph type="line">
+                    <field name="bar"/>
+                    <field name="product_id"/>
+                </graph>
+            `,
+        });
+
+        const stackButton = target.querySelector(`button.o_graph_button[data-tooltip="Stacked"]`);
+        await click(stackButton);
+        assert.strictEqual(
+            graph.model.metaData.stacked,
+            false,
+            "graph should be a classic line chart."
+        );
+        assert.strictEqual(
+            getScaleY(graph).every((y) => y.stacked),
+            false,
+            "the y axes should have a stacked property set to false since the stacked property in line chart is false."
+        );
+        assert.strictEqual(
+            getGraphRenderer(graph).getElementOptions().line.fill,
+            false,
+            "The fill property should be false since the stacked property is false."
+        );
+
+        const expectedDatasets = [
             {
-                lines: [
-                    { label: "true / xphone", value: "3" },
-                    { label: "true / xpad", value: "0" },
-                ],
+                backgroundColor: undefined,
+                borderColor: "#1f77b4",
+                originIndex: 0,
+                pointBackgroundColor: "#1f77b4",
             },
-            0
-        );
-        checkTooltip(
-            assert,
-            graph,
             {
-                lines: [
-                    { label: "false / xpad", value: "4" },
-                    { label: "false / xphone", value: "1" },
-                ],
+                backgroundColor: undefined,
+                borderColor: "#ff7f0e",
+                originIndex: 0,
+                pointBackgroundColor: "#ff7f0e",
             },
-            1
+        ];
+        const keysToEvaluate = [
+            "backgroundColor",
+            "borderColor",
+            "originIndex",
+            "pointBackgroundColor",
+        ];
+        checkDatasets(assert, graph, keysToEvaluate, expectedDatasets);
+    });
+
+    QUnit.test("Stacked prop and default line chart", async function (assert) {
+        const graph = await makeView({
+            serverData,
+            type: "graph",
+            resModel: "foo",
+            arch: `
+                <graph type="line">
+                    <field name="bar"/>
+                    <field name="product_id"/>
+                </graph>
+            `,
+        });
+
+        assert.strictEqual(graph.model.metaData.mode, "line", "should be in line chart mode.");
+        assert.strictEqual(graph.model.metaData.stacked, true, "should be stacked by default.");
+
+        assert.strictEqual(
+            getScaleY(graph).every((y) => y.stacked),
+            true,
+            "the stacked property in y axes should be true when the stacked is enabled in line chart"
         );
+        assert.strictEqual(
+            getGraphRenderer(graph).getElementOptions().line.fill,
+            true,
+            "The fill property should be true to add backgroundColor in line chart."
+        );
+
+        const expectedDatasets = [];
+        const keysToEvaluate = [
+            "backgroundColor",
+            "borderColor",
+            "originIndex",
+            "pointBackgroundColor",
+        ];
+        const datasets = getChart(graph).data.datasets;
+        const colors = getColors();
+        for (let i = 0; i < datasets.length; i++) {
+            const expectedColor = colors[i];
+            expectedDatasets.push({
+                backgroundColor: hexToRGBA(expectedColor, 0.4),
+                borderColor: expectedColor,
+                originIndex: 0,
+                pointBackgroundColor: expectedColor,
+            });
+        }
+        checkDatasets(assert, graph, keysToEvaluate, expectedDatasets);
+    });
+
+    QUnit.test("Cumulative prop and default line chart", async function (assert) {
+        const graph = await makeView({
+            serverData,
+            type: "graph",
+            resModel: "foo",
+            arch: `
+                <graph type="line" stacked="0">
+                    <field name="bar"/>
+                    <field name="product_id"/>
+                </graph>
+            `,
+        });
+
+        assert.strictEqual(graph.model.metaData.mode, "line", "should be in line chart mode.");
+        assert.strictEqual(
+            graph.model.metaData.cumulated,
+            false,
+            "should not be cumulative by default."
+        );
+
+        await click(target, '[data-tooltip="Cumulative"]');
+        assert.strictEqual(graph.model.metaData.cumulated, true, "should be in cumulative");
+        const expectedDatasets = [
+            {
+                data: [1, 4],
+            },
+            {
+                data: [4, 4],
+            },
+        ];
+        checkDatasets(assert, graph, ["data"], expectedDatasets);
+    });
+
+    QUnit.test("Default cumulative prop", async function (assert) {
+        const graph = await makeView({
+            serverData,
+            type: "graph",
+            resModel: "foo",
+            arch: `
+                <graph type="line" stacked="0" cumulated="1">
+                    <field name="bar"/>
+                    <field name="product_id"/>
+                </graph>
+            `,
+        });
+
+        assert.strictEqual(graph.model.metaData.mode, "line", "should be in line chart mode.");
+        assert.strictEqual(graph.model.metaData.cumulated, true, "should be in cumulative");
     });
 
     QUnit.test("line chart rendering (no groupBy, several domains)", async function (assert) {
@@ -877,7 +1225,7 @@ QUnit.module("Views", (hooks) => {
             resModel: "foo",
             type: "graph",
             arch: `
-                <graph type="line">
+                <graph type="line" stacked="0">
                     <field name="revenue" type="measure"/>
                 </graph>
             `,
@@ -938,7 +1286,7 @@ QUnit.module("Views", (hooks) => {
             type: "graph",
             resModel: "foo",
             arch: `
-                <graph type="line">
+                <graph type="line" stacked="0">
                     <field name="revenue" type="measure"/>
                     <field name="foo"/>
                 </graph>
@@ -1022,6 +1370,56 @@ QUnit.module("Views", (hooks) => {
     });
 
     QUnit.test(
+        "line chart rendering (one groupBy, several domains with date identification) without stacked attribute",
+        async function (assert) {
+            serverData.models.foo.records = [
+                { date: "2021-01-04", revenue: 12 },
+                { date: "2021-01-12", revenue: 5 },
+                { date: "2021-01-19", revenue: 15 },
+                { date: "2021-01-26", revenue: 2 },
+                { date: "2021-02-04", revenue: 14 },
+                { date: "2021-02-17", revenue: false },
+                { date: false, revenue: 0 },
+            ];
+            await makeView({
+                serverData,
+                type: "graph",
+                resModel: "foo",
+                arch: `
+                    <graph type="line">
+                        <field name="revenue" type="measure"/>
+                        <field name="date" interval="week"/>
+                    </graph>
+                `,
+                comparison: {
+                    domains: [
+                        {
+                            arrayRepr: [
+                                ["date", ">=", "2021-02-01"],
+                                ["date", "<=", "2021-02-28"],
+                            ],
+                            description: "February 2021",
+                        },
+                        {
+                            arrayRepr: [
+                                ["date", ">=", "2021-01-01"],
+                                ["date", "<=", "2021-01-31"],
+                            ],
+                            description: "January 2021",
+                        },
+                    ],
+                    fieldName: "date",
+                },
+            });
+            assert.doesNotHaveClass(
+                target.querySelector(".o_graph_button[data-tooltip=Stacked]"),
+                "active",
+                "The stacked mode should be disabled"
+            );
+        }
+    );
+
+    QUnit.test(
         "line chart rendering (one groupBy, several domains with date identification)",
         async function (assert) {
             assert.expect(19);
@@ -1039,7 +1437,7 @@ QUnit.module("Views", (hooks) => {
                 type: "graph",
                 resModel: "foo",
                 arch: `
-                    <graph type="line">
+                    <graph type="line" stacked="0">
                         <field name="revenue" type="measure"/>
                         <field name="date" interval="week"/>
                     </graph>
@@ -1135,18 +1533,18 @@ QUnit.module("Views", (hooks) => {
         async function (assert) {
             assert.expect(11);
             serverData.models.foo.records = [
-                { date: "2021-01-04", bar: true, revenue: 12 },
-                { date: "2021-01-12", bar: false, revenue: 5 },
-                { date: "2021-02-04", bar: true, revenue: 14 },
-                { date: "2021-02-17", bar: false, revenue: false },
-                { date: false, bar: true, revenue: 0 },
+                { date: "2021-01-04", bar: false, revenue: 12 },
+                { date: "2021-01-12", bar: true, revenue: 5 },
+                { date: "2021-02-04", bar: false, revenue: 14 },
+                { date: "2021-02-17", bar: true, revenue: false },
+                { date: false, bar: false, revenue: 0 },
             ];
             const graph = await makeView({
                 serverData,
                 type: "graph",
                 resModel: "foo",
                 arch: `
-                    <graph type="line">
+                    <graph type="line" stacked="0">
                         <field name="revenue" type="measure"/>
                         <field name="bar"/>
                         <field name="date" interval="week"/>
@@ -1172,7 +1570,7 @@ QUnit.module("Views", (hooks) => {
                     fieldName: "date",
                 },
             });
-            checkLabels(assert, graph, ["true", "false"]);
+            checkLabels(assert, graph, ["false", "true"]);
             checkDatasets(
                 assert,
                 graph,
@@ -1216,10 +1614,10 @@ QUnit.module("Views", (hooks) => {
                 {
                     title: "Revenue",
                     lines: [
-                        { label: "true / February 2021 / W05 2021", value: "14" },
-                        { label: "true / January 2021 / W01 2021", value: "12" },
-                        { label: "true / February 2021 / W07 2021", value: "0" },
-                        { label: "true / January 2021 / W02 2021", value: "0" },
+                        { label: "false / February 2021 / W05 2021", value: "14" },
+                        { label: "false / January 2021 / W01 2021", value: "12" },
+                        { label: "false / February 2021 / W07 2021", value: "0" },
+                        { label: "false / January 2021 / W02 2021", value: "0" },
                     ],
                 },
                 0
@@ -1230,10 +1628,10 @@ QUnit.module("Views", (hooks) => {
                 {
                     title: "Revenue",
                     lines: [
-                        { label: "false / January 2021 / W02 2021", value: "5" },
-                        { label: "false / February 2021 / W05 2021", value: "0" },
-                        { label: "false / February 2021 / W07 2021", value: "0" },
-                        { label: "false / January 2021 / W01 2021", value: "0" },
+                        { label: "true / January 2021 / W02 2021", value: "5" },
+                        { label: "true / February 2021 / W05 2021", value: "0" },
+                        { label: "true / February 2021 / W07 2021", value: "0" },
+                        { label: "true / January 2021 / W01 2021", value: "0" },
                     ],
                 },
                 1
@@ -1246,13 +1644,13 @@ QUnit.module("Views", (hooks) => {
         // this test makes sure the line chart does not crash when only one data
         // point is displayed.
         serverData.models.foo.records = serverData.models.foo.records.slice(0, 1);
-        const graph = await makeView({
+        await makeView({
             serverData,
             type: "graph",
             resModel: "foo",
-            arch: `<graph type="line"/>`,
+            arch: `<graph type="line" stacked="0"/>`,
         });
-        assert.containsOnce(graph, "canvas", "should have a canvas");
+        assert.containsOnce(target, "canvas", "should have a canvas");
     });
 
     QUnit.test("pie chart rendering (no groupBy)", async function (assert) {
@@ -1263,13 +1661,13 @@ QUnit.module("Views", (hooks) => {
             resModel: "foo",
             arch: `<graph type="pie"/>`,
         });
-        assert.containsOnce(graph.el, "div.o_graph_canvas_container canvas");
+        assert.containsOnce(target, "div.o_graph_canvas_container canvas");
         const { mode } = getGraphModelMetaData(graph);
         assert.strictEqual(mode, "pie");
         checkLabels(assert, graph, ["Total"]);
         checkDatasets(assert, graph, ["backgroundColor", "borderColor", "data", "label", "stack"], {
             backgroundColor: ["#1f77b4"],
-            borderColor: BORDER_WHITE,
+            borderColor: getBorderWhite(),
             data: [8],
             label: "",
             stack: undefined,
@@ -1290,16 +1688,57 @@ QUnit.module("Views", (hooks) => {
                 </graph>
             `,
         });
-        assert.containsOnce(graph.el, "div.o_graph_canvas_container canvas");
-        checkLabels(assert, graph, ["true", "false"]);
+        assert.containsOnce(target, "div.o_graph_canvas_container canvas");
+        checkLabels(assert, graph, ["false", "true"]);
         checkDatasets(assert, graph, ["backgroundColor", "borderColor", "data"], {
             backgroundColor: ["#1f77b4", "#ff7f0e"],
-            borderColor: BORDER_WHITE,
-            data: [3, 5],
+            borderColor: getBorderWhite(),
+            data: [5, 3],
         });
-        checkLegend(assert, graph, ["true", "false"]);
-        checkTooltip(assert, graph, { lines: [{ label: "true", value: "3 (37.50%)" }] }, 0);
-        checkTooltip(assert, graph, { lines: [{ label: "false", value: "5 (62.50%)" }] }, 1);
+        checkLegend(assert, graph, ["false", "true"]);
+        checkTooltip(assert, graph, { lines: [{ label: "false", value: "5 (62.50%)" }] }, 0);
+        checkTooltip(assert, graph, { lines: [{ label: "true", value: "3 (37.50%)" }] }, 1);
+    });
+
+    QUnit.test("pie chart many2many groupby", async function (assert) {
+        assert.expect(16);
+        const graph = await makeView({
+            serverData,
+            type: "graph",
+            resModel: "foo",
+            arch: `
+                <graph type="pie">
+                    <field name="revenue" type="measure"/>
+                    <field name="color_ids"/>
+                </graph>
+            `,
+        });
+        assert.containsOnce(target, "div.o_graph_canvas_container canvas");
+        checkLabels(assert, graph, ["Undefined", "black", "red"]);
+        checkDatasets(assert, graph, ["backgroundColor", "borderColor", "data"], {
+            backgroundColor: ["#1f77b4", "#ff7f0e", "#aec7e8"],
+            borderColor: getBorderWhite(),
+            data: [8, 10, 13],
+        });
+        checkLegend(assert, graph, ["Undefined", "black", "red"]);
+        checkTooltip(
+            assert,
+            graph,
+            { lines: [{ label: "Undefined", value: "8 (25.81%)" }], title: "Revenue" },
+            0
+        );
+        checkTooltip(
+            assert,
+            graph,
+            { lines: [{ label: "black", value: "10 (32.26%)" }], title: "Revenue" },
+            1
+        );
+        checkTooltip(
+            assert,
+            graph,
+            { lines: [{ label: "red", value: "13 (41.94%)" }], title: "Revenue" },
+            2
+        );
     });
 
     QUnit.test("pie chart rendering (two groupBy)", async function (assert) {
@@ -1315,18 +1754,28 @@ QUnit.module("Views", (hooks) => {
                 </graph>
             `,
         });
-        assert.containsOnce(graph.el, "div.o_graph_canvas_container canvas");
-        checkLabels(assert, graph, ["true / xphone", "false / xphone", "false / xpad"]);
+        assert.containsOnce(target, "div.o_graph_canvas_container canvas");
+        checkLabels(assert, graph, ["false / xphone", "false / xpad", "true / xphone"]);
         checkDatasets(assert, graph, ["backgroundColor", "borderColor", "data", "label"], {
             backgroundColor: ["#1f77b4", "#ff7f0e", "#aec7e8"],
-            borderColor: BORDER_WHITE,
-            data: [3, 1, 4],
+            borderColor: getBorderWhite(),
+            data: [1, 4, 3],
             label: "",
         });
-        checkLegend(assert, graph, ["true / xphone", "false / xphone", "false / xpad"]);
-        checkTooltip(assert, graph, { lines: [{ label: "true / xphone", value: "3 (37.50%)" }] }, 0);
-        checkTooltip(assert, graph, { lines: [{ label: "false / xphone", value: "1 (12.50%)" }] }, 1);
-        checkTooltip(assert, graph, { lines: [{ label: "false / xpad", value: "4 (50.00%)" }] }, 2);
+        checkLegend(assert, graph, ["false / xphone", "false / xpad", "true / xphone"]);
+        checkTooltip(
+            assert,
+            graph,
+            { lines: [{ label: "false / xphone", value: "1 (12.50%)" }] },
+            0
+        );
+        checkTooltip(assert, graph, { lines: [{ label: "false / xpad", value: "4 (50.00%)" }] }, 1);
+        checkTooltip(
+            assert,
+            graph,
+            { lines: [{ label: "true / xphone", value: "3 (37.50%)" }] },
+            2
+        );
     });
 
     QUnit.test("pie chart rendering (no groupBy, several domains)", async function (assert) {
@@ -1355,13 +1804,13 @@ QUnit.module("Views", (hooks) => {
             [
                 {
                     backgroundColor: ["#1f77b4"],
-                    borderColor: BORDER_WHITE,
+                    borderColor: getBorderWhite(),
                     data: [6],
                     label: "True group",
                 },
                 {
                     backgroundColor: ["#1f77b4"],
-                    borderColor: BORDER_WHITE,
+                    borderColor: getBorderWhite(),
                     data: [17],
                     label: "False group",
                 },
@@ -1425,13 +1874,13 @@ QUnit.module("Views", (hooks) => {
             [
                 {
                     backgroundColor: ["#1f77b4", "#ff7f0e", "#aec7e8"],
-                    borderColor: BORDER_WHITE,
+                    borderColor: getBorderWhite(),
                     data: [14, 0, 0],
                     label: "True group",
                 },
                 {
                     backgroundColor: ["#1f77b4", "#ff7f0e", "#aec7e8"],
-                    borderColor: BORDER_WHITE,
+                    borderColor: getBorderWhite(),
                     data: [12, 5, 2],
                     label: "False group",
                 },
@@ -1535,13 +1984,13 @@ QUnit.module("Views", (hooks) => {
                 [
                     {
                         backgroundColor: ["#1f77b4", "#ff7f0e", "#aec7e8", "#ffbb78"],
-                        borderColor: BORDER_WHITE,
+                        borderColor: getBorderWhite(),
                         data: [1, 1, 0, 0],
                         label: "February 2021",
                     },
                     {
                         backgroundColor: ["#1f77b4", "#ff7f0e", "#aec7e8", "#ffbb78"],
-                        borderColor: BORDER_WHITE,
+                        borderColor: getBorderWhite(),
                         data: [1, 1, 1, 1],
                         label: "January 2021",
                     },
@@ -1615,11 +2064,11 @@ QUnit.module("Views", (hooks) => {
         async function (assert) {
             assert.expect(15);
             serverData.models.foo.records = [
-                { date: "2021-01-04", bar: true, revenue: 12 },
-                { date: "2021-01-12", bar: false, revenue: 5 },
-                { date: "2021-02-04", bar: true, revenue: 14 },
-                { date: "2021-02-17", bar: false, revenue: false },
-                { date: false, bar: true, revenue: 0 },
+                { date: "2021-01-04", bar: false, revenue: 12 },
+                { date: "2021-01-12", bar: true, revenue: 5 },
+                { date: "2021-02-04", bar: false, revenue: 14 },
+                { date: "2021-02-17", bar: true, revenue: false },
+                { date: false, bar: false, revenue: 0 },
             ];
             const graph = await makeView({
                 serverData,
@@ -1652,7 +2101,7 @@ QUnit.module("Views", (hooks) => {
                     fieldName: "date",
                 },
             });
-            checkLabels(assert, graph, ["true / W05 2021", "true / W01 2021", "false / W02 2021"]);
+            checkLabels(assert, graph, ["false / W05 2021", "false / W01 2021", "true / W02 2021"]);
             checkDatasets(
                 assert,
                 graph,
@@ -1660,25 +2109,25 @@ QUnit.module("Views", (hooks) => {
                 [
                     {
                         backgroundColor: ["#1f77b4", "#ff7f0e", "#aec7e8"],
-                        borderColor: BORDER_WHITE,
+                        borderColor: getBorderWhite(),
                         data: [14, 0, 0],
                         label: "February 2021",
                     },
                     {
                         backgroundColor: ["#1f77b4", "#ff7f0e", "#aec7e8"],
-                        borderColor: BORDER_WHITE,
+                        borderColor: getBorderWhite(),
                         data: [0, 12, 5],
                         label: "January 2021",
                     },
                 ]
             );
-            checkLegend(assert, graph, ["true / W05 2021", "true / W01 2021", "false / W02 2021"]);
+            checkLegend(assert, graph, ["false / W05 2021", "false / W01 2021", "true / W02 2021"]);
             checkTooltip(
                 assert,
                 graph,
                 {
                     title: "Revenue",
-                    lines: [{ label: "February 2021 / true / W05 2021", value: "14 (100.00%)" }],
+                    lines: [{ label: "February 2021 / false / W05 2021", value: "14 (100.00%)" }],
                 },
                 0,
                 0
@@ -1688,7 +2137,7 @@ QUnit.module("Views", (hooks) => {
                 graph,
                 {
                     title: "Revenue",
-                    lines: [{ label: "January 2021 / true / W01 2021", value: "12 (70.59%)" }],
+                    lines: [{ label: "January 2021 / false / W01 2021", value: "12 (70.59%)" }],
                 },
                 1,
                 1
@@ -1698,7 +2147,7 @@ QUnit.module("Views", (hooks) => {
                 graph,
                 {
                     title: "Revenue",
-                    lines: [{ label: "January 2021 / false / W02 2021", value: "5 (29.41%)" }],
+                    lines: [{ label: "January 2021 / true / W02 2021", value: "5 (29.41%)" }],
                 },
                 2,
                 1
@@ -1723,7 +2172,7 @@ QUnit.module("Views", (hooks) => {
             [
                 {
                     backgroundColor: [DEFAULT_BG],
-                    borderColor: BORDER_WHITE,
+                    borderColor: getBorderWhite(),
                     data: [1],
                     label: null,
                 },
@@ -1760,13 +2209,13 @@ QUnit.module("Views", (hooks) => {
             [
                 {
                     backgroundColor: ["#1f77b4"],
-                    borderColor: BORDER_WHITE,
+                    borderColor: getBorderWhite(),
                     data: [1],
                     label: "True group",
                 },
                 {
                     backgroundColor: ["#1f77b4", DEFAULT_BG],
-                    borderColor: BORDER_WHITE,
+                    borderColor: getBorderWhite(),
                     data: [undefined, 1],
                     label: "False group",
                 },
@@ -1808,12 +2257,20 @@ QUnit.module("Views", (hooks) => {
                     </graph>
                 `,
             });
-            assert.containsOnce(graph, ".o_view_nocontent");
-            assert.strictEqual(
-                graph.el.querySelector(".o_view_nocontent").innerText.replace(/[\s\n]/g, " "),
-                `Invalid data  Pie chart cannot mix positive and negative numbers. Try to change your domain to only display positive results`
+            assert.containsNone(target, ".o_view_nocontent");
+            assert.containsOnce(target, ".o_graph_canvas_container");
+            checkDatasets(
+                assert,
+                graph,
+                ["backgroundColor", "borderColor", "data", "label", "stack"],
+                {
+                    backgroundColor: ["#1f77b4"],
+                    borderColor: getBorderWhite(),
+                    data: [2],
+                    label: "",
+                    stack: undefined,
+                }
             );
-            assert.containsNone(graph, ".o_graph_canvas_container");
         }
     );
 
@@ -1872,15 +2329,15 @@ QUnit.module("Views", (hooks) => {
         checkModeIs(assert, graph, "bar");
         assert.strictEqual(getXAxeLabel(graph), "bar");
         assert.strictEqual(getYAxeLabel(graph), "Count");
-        await selectMode(graph, "line");
+        await selectMode(target, "line");
         checkModeIs(assert, graph, "line");
         assert.strictEqual(getXAxeLabel(graph), "bar");
-        await toggleMenu(graph, "Measures");
-        await toggleMenuItem(graph, "Revenue");
+        await toggleMenu(target, "Measures");
+        await toggleMenuItem(target, "Revenue");
         assert.strictEqual(getYAxeLabel(graph), "Revenue");
         assert.ok(true, "Message");
-        await toggleGroupByMenu(graph);
-        await toggleMenuItem(graph, "Color");
+        await toggleGroupByMenu(target);
+        await toggleMenuItem(target, "Color");
         checkModeIs(assert, graph, "line");
         assert.strictEqual(getXAxeLabel(graph), "Color");
         assert.strictEqual(getYAxeLabel(graph), "Revenue");
@@ -1890,11 +2347,11 @@ QUnit.module("Views", (hooks) => {
         assert.expect(12);
         const graph = await makeView({ serverData, type: "graph", resModel: "foo" });
         checkModeIs(assert, graph, "bar");
-        await selectMode(graph, "bar"); // click on the active mode does not change anything
+        await selectMode(target, "bar"); // click on the active mode does not change anything
         checkModeIs(assert, graph, "bar");
-        await selectMode(graph, "line");
+        await selectMode(target, "line");
         checkModeIs(assert, graph, "line");
-        await selectMode(graph, "pie");
+        await selectMode(target, "pie");
         checkModeIs(assert, graph, "pie");
     });
 
@@ -1904,15 +2361,15 @@ QUnit.module("Views", (hooks) => {
         function checkMeasure(measure) {
             const yAxe = getChart(graph).config.options.scales.yAxes[0];
             assert.strictEqual(yAxe.scaleLabel.labelString, measure);
-            const item = [...graph.el.querySelectorAll(".o_menu_item")].find(
+            const item = [...target.querySelectorAll(".o_menu_item")].find(
                 (el) => el.innerText === measure
             );
             assert.hasClass(item, "selected");
         }
-        await toggleMenu(graph, "Measures");
+        await toggleMenu(target, "Measures");
         checkMeasure("Count");
         checkLegend(assert, graph, "Count");
-        await toggleMenuItem(graph, "Foo");
+        await toggleMenuItem(target, "Foo");
         checkMeasure("Foo");
         checkLegend(assert, graph, "Foo");
     });
@@ -1938,7 +2395,7 @@ QUnit.module("Views", (hooks) => {
             mode: "line",
             order: "ASC",
         });
-        let arch2 = `<graph disable_linking="0" string="Title" stacked="False"/>`;
+        const arch2 = `<graph disable_linking="0" string="Title" stacked="False"/>`;
         propsFromArch = new GraphArchParser().parse(arch2, fields);
 
         assert.deepEqual(propsFromArch, {
@@ -1956,17 +2413,17 @@ QUnit.module("Views", (hooks) => {
         assert.expect(1);
         const fields = serverData.models.foo.fields;
         fields.fighters = { type: "text", string: "Fighters" };
-        let arch = `
+        const arch = `
             <graph type="pie">
                 <field name="revenue" type="measure"/>
                 <field name="date" interval="day"/>
-                <field name="foo" invisible="0"/>
-                <field name="bar" invisible="1" string="My invisible field"/>
+                <field name="foo" modifiers='{"invisible": false}'/>
+                <field name="bar" modifiers='{"invisible": true}' string="My invisible field"/>
                 <field name="id"/>
                 <field name="fighters" string="FooFighters"/>
             </graph>
         `;
-        let propsFromArch = new GraphArchParser().parse(arch, fields);
+        const propsFromArch = new GraphArchParser().parse(arch, fields);
         assert.deepEqual(propsFromArch, {
             fields,
             fieldAttrs: {
@@ -1980,13 +2437,13 @@ QUnit.module("Views", (hooks) => {
         });
     });
 
-    QUnit.test("process arch with non stored field tags of type measure ", async function (assert) {
+    QUnit.test("process arch with non stored field tags of type measure", async function (assert) {
         assert.expect(1);
         const fields = serverData.models.foo.fields;
         fields.revenue.store = false;
         const arch = `
             <graph>
-                 <field name="product_id"/>
+                <field name="product_id"/>
                 <field name="revenue" type="measure"/>
                 <field name="foo" type="measure"/>
             </graph>
@@ -2019,25 +2476,25 @@ QUnit.module("Views", (hooks) => {
         });
 
         checkLabels(assert, graph, ["xphone", "xpad"]);
-        checkLegend(assert, graph, ["true / Undefined", "true / red", "false / Undefined"]);
+        checkLegend(assert, graph, ["false / Undefined", "true / Undefined", "true / red"]);
 
-        await selectMode(graph, "line");
+        await selectMode(target, "line");
 
         checkLabels(assert, graph, ["xphone", "xpad"]);
-        checkLegend(assert, graph, ["true / Undefined", "true / red", "false / Undefined"]);
+        checkLegend(assert, graph, ["false / Undefined", "true / Undefined", "true / red"]);
 
-        await selectMode(graph, "pie");
+        await selectMode(target, "pie");
 
         checkLabels(assert, graph, [
+            "xphone / false / Undefined",
             "xphone / true / Undefined",
             "xphone / true / red",
-            "xphone / false / Undefined",
             "xpad / false / Undefined",
         ]);
         checkLegend(assert, graph, [
+            "xphone / false / Undefined",
             "xphone / true / Undefined",
             "xphone / true / red",
-            "xphone / false / Undefined",
             "xpad / false / Undefined",
         ]);
     });
@@ -2045,20 +2502,20 @@ QUnit.module("Views", (hooks) => {
     QUnit.test("no content helper", async function (assert) {
         assert.expect(3);
         serverData.models.foo.records = [];
-        const graph = await makeView({
+        await makeView({
             serverData,
             type: "graph",
             resModel: "foo",
             noContentHelp: '<p class="abc">This helper should not be displayed in graph views</p>',
         });
-        assert.containsOnce(graph, "div.o_graph_canvas_container canvas");
-        assert.containsNone(graph, "div.o_view_nocontent");
-        assert.containsNone(graph, ".abc");
+        assert.containsOnce(target, "div.o_graph_canvas_container canvas");
+        assert.containsNone(target, "div.o_view_nocontent");
+        assert.containsNone(target, ".abc");
     });
 
     QUnit.test("no content helper after update", async function (assert) {
         assert.expect(6);
-        const graph = await makeView({
+        await makeView({
             serverData,
             type: "graph",
             resModel: "foo",
@@ -2067,14 +2524,14 @@ QUnit.module("Views", (hooks) => {
                 views: [[false, "search"]],
             },
         });
-        assert.containsOnce(graph, "div.o_graph_canvas_container canvas");
-        assert.containsNone(graph, "div.o_view_nocontent");
-        assert.containsNone(graph, ".abc");
-        await toggleFilterMenu(graph);
-        await toggleMenuItem(graph, "False Domain");
-        assert.containsOnce(graph, "div.o_graph_canvas_container canvas");
-        assert.containsNone(graph, "div.o_view_nocontent");
-        assert.containsNone(graph, ".abc");
+        assert.containsOnce(target, "div.o_graph_canvas_container canvas");
+        assert.containsNone(target, "div.o_view_nocontent");
+        assert.containsNone(target, ".abc");
+        await toggleFilterMenu(target);
+        await toggleMenuItem(target, "False Domain");
+        assert.containsOnce(target, "div.o_graph_canvas_container canvas");
+        assert.containsNone(target, "div.o_view_nocontent");
+        assert.containsNone(target, ".abc");
     });
 
     QUnit.test("can reload with other group by", async function (assert) {
@@ -2095,8 +2552,8 @@ QUnit.module("Views", (hooks) => {
             `,
         });
         checkLabels(assert, graph, ["xphone", "xpad"]);
-        await toggleGroupByMenu(graph);
-        await toggleMenuItem(graph, "Color");
+        await toggleGroupByMenu(target);
+        await toggleMenuItem(target, "Color");
         checkLabels(assert, graph, ["Undefined", "red"]);
     });
 
@@ -2107,30 +2564,40 @@ QUnit.module("Views", (hooks) => {
                 graph_mode: "bar",
                 graph_measure: "__count",
                 graph_groupbys: ["product_id"],
+                graph_order: null,
+                graph_stacked: true,
                 group_by: [],
             },
             {
                 graph_mode: "bar",
                 graph_measure: "foo",
                 graph_groupbys: ["product_id"],
+                graph_order: null,
+                graph_stacked: true,
                 group_by: [],
             },
             {
                 graph_mode: "line",
                 graph_measure: "foo",
+                graph_cumulated: false,
                 graph_groupbys: ["product_id"],
+                graph_order: null,
+                graph_stacked: true,
                 group_by: [],
             },
             {
                 graph_mode: "line",
                 graph_measure: "foo",
+                graph_cumulated: false,
                 graph_groupbys: ["product_id", "color_id"],
+                graph_order: null,
+                graph_stacked: true,
                 group_by: ["product_id", "color_id"],
             },
         ];
 
         let serverId = 1;
-        const graph = await makeView({
+        await makeView({
             mockRPC: function (_, args) {
                 if (args.method === "create_or_replace") {
                     const favorite = args.args[0];
@@ -2161,34 +2628,34 @@ QUnit.module("Views", (hooks) => {
             `,
         });
 
-        await toggleFavoriteMenu(graph);
-        await toggleSaveFavorite(graph);
-        await editFavoriteName(graph, "First Favorite");
-        await saveFavorite(graph);
+        await toggleFavoriteMenu(target);
+        await toggleSaveFavorite(target);
+        await editFavoriteName(target, "First Favorite");
+        await saveFavorite(target);
 
-        await toggleMenu(graph, "Measures");
-        await toggleMenuItem(graph, "Foo");
+        await toggleMenu(target, "Measures");
+        await toggleMenuItem(target, "Foo");
 
-        await toggleFavoriteMenu(graph);
-        await toggleSaveFavorite(graph);
-        await editFavoriteName(graph, "Second Favorite");
-        await saveFavorite(graph);
+        await toggleFavoriteMenu(target);
+        await toggleSaveFavorite(target);
+        await editFavoriteName(target, "Second Favorite");
+        await saveFavorite(target);
 
-        await selectMode(graph, "line");
+        await selectMode(target, "line");
 
-        await toggleFavoriteMenu(graph);
-        await toggleSaveFavorite(graph);
-        await editFavoriteName(graph, "Third Favorite");
-        await saveFavorite(graph);
+        await toggleFavoriteMenu(target);
+        await toggleSaveFavorite(target);
+        await editFavoriteName(target, "Third Favorite");
+        await saveFavorite(target);
 
-        await toggleGroupByMenu(graph);
-        await toggleMenuItem(graph, "Product");
-        await toggleMenuItem(graph, "Color");
+        await toggleGroupByMenu(target);
+        await toggleMenuItem(target, "Product");
+        await toggleMenuItem(target, "Color");
 
-        await toggleFavoriteMenu(graph);
-        await toggleSaveFavorite(graph);
-        await editFavoriteName(graph, "Fourth Favorite");
-        await saveFavorite(graph);
+        await toggleFavoriteMenu(target);
+        await toggleSaveFavorite(target);
+        await editFavoriteName(target, "Fourth Favorite");
+        await saveFavorite(target);
     });
 
     QUnit.test("correctly uses graph_ keys from the context", async function (assert) {
@@ -2272,8 +2739,8 @@ QUnit.module("Views", (hooks) => {
         async function (assert) {
             assert.expect(10);
             serverData.models.foo.records = [
-                { id: 1, bar: true, revenue: 1.5 },
-                { id: 2, bar: false, revenue: 2 },
+                { id: 1, bar: false, revenue: 1.5 },
+                { id: 2, bar: true, revenue: 2 },
             ];
             const graph = await makeView({
                 serverData,
@@ -2287,17 +2754,17 @@ QUnit.module("Views", (hooks) => {
                 `,
             });
             checkDatasets(assert, graph, "data", { data: [1.5, 2] });
-            checkLabels(assert, graph, ["true", "false"]);
+            checkLabels(assert, graph, ["false", "true"]);
             checkTooltip(
                 assert,
                 graph,
-                { title: "Revenue", lines: [{ label: "true", value: "1.50" }] },
+                { title: "Revenue", lines: [{ label: "false", value: "1.50" }] },
                 0
             );
             checkTooltip(
                 assert,
                 graph,
-                { title: "Revenue", lines: [{ label: "false", value: "2.00" }] },
+                { title: "Revenue", lines: [{ label: "true", value: "2.00" }] },
                 1
             );
         }
@@ -2324,8 +2791,8 @@ QUnit.module("Views", (hooks) => {
                 { title: "FooFighters", lines: [{ label: "Total", value: "239" }] },
                 0
             );
-            await toggleMenu(graph, "Measures");
-            await toggleMenuItem(graph, "Nirvana");
+            await toggleMenu(target, "Measures");
+            await toggleMenuItem(target, "Nirvana");
             checkTooltip(
                 assert,
                 graph,
@@ -2352,8 +2819,8 @@ QUnit.module("Views", (hooks) => {
         checkLegend(assert, graph, "Count");
         assert.strictEqual(getYAxeLabel(graph), "Count");
         checkModeIs(assert, graph, "bar");
-        await toggleFilterMenu(graph);
-        await toggleMenuItem(graph, "Context");
+        await toggleFilterMenu(target);
+        await toggleMenuItem(target, "Context");
         checkLegend(assert, graph, "Foo");
         assert.strictEqual(getYAxeLabel(graph), "Foo");
         checkModeIs(assert, graph, "line");
@@ -2361,7 +2828,7 @@ QUnit.module("Views", (hooks) => {
 
     QUnit.test("reload graph with correct fields", async function (assert) {
         assert.expect(2);
-        const graph = await makeView({
+        await makeView({
             serverData,
             mockRPC: function (_, args) {
                 if (args.method === "web_read_group") {
@@ -2381,8 +2848,8 @@ QUnit.module("Views", (hooks) => {
                 </search>
             `,
         });
-        await toggleFilterMenu(graph);
-        await toggleMenuItem(graph, "False Domain");
+        await toggleFilterMenu(target);
+        await toggleMenuItem(target, "False Domain");
     });
 
     QUnit.test("initial groupby is kept when reloading", async function (assert) {
@@ -2413,8 +2880,8 @@ QUnit.module("Views", (hooks) => {
         checkDatasets(assert, graph, "data", { data: [82, 157] });
         assert.strictEqual(getXAxeLabel(graph), "Product");
         assert.strictEqual(getYAxeLabel(graph), "Foo");
-        await toggleFilterMenu(graph);
-        await toggleMenuItem(graph, "False Domain");
+        await toggleFilterMenu(target);
+        await toggleMenuItem(target, "False Domain");
         checkLabels(assert, graph, []);
         checkLegend(assert, graph, []);
         checkDatasets(assert, graph, "data", []);
@@ -2457,9 +2924,9 @@ QUnit.module("Views", (hooks) => {
               </graph>
             `,
         });
-        checkLabels(assert, graph, ["true", "false"]);
+        checkLabels(assert, graph, ["false", "true"]);
         checkLegend(assert, graph, "Product");
-        checkDatasets(assert, graph, "data", { data: [1, 2] });
+        checkDatasets(assert, graph, "data", { data: [2, 1] });
     });
 
     QUnit.test("use a many2one as a measure and as a groupby should work", async function (assert) {
@@ -2496,20 +2963,20 @@ QUnit.module("Views", (hooks) => {
                 </graph>
             `,
         });
-        checkLabels(assert, graph, ["xphone", "xpad", "xphone (2)"]);
+        checkLabels(assert, graph, ["xphone", "xphone (2)", "xpad"]);
     });
 
     QUnit.test("not use a many2one as a measure by default", async function (assert) {
         assert.expect(1);
-        const graph = await makeView({
+        await makeView({
             serverData,
             type: "graph",
             resModel: "foo",
             arch: "<graph/>",
         });
-        await toggleMenu(graph, "Measures");
+        await toggleMenu(target, "Measures");
         assert.deepEqual(
-            [...graph.el.querySelectorAll(".o_cp_bottom_left .o_menu_item")].map(
+            [...target.querySelectorAll(".o_cp_bottom_left .o_menu_item")].map(
                 (el) => el.innerText
             ),
             ["Foo", "Revenue", "Count"]
@@ -2520,13 +2987,13 @@ QUnit.module("Views", (hooks) => {
         "graph view crash when moving from search view using Down key",
         async function (assert) {
             assert.expect(1);
-            const graph = await makeView({
+            await makeView({
                 serverData,
                 type: "graph",
                 resModel: "foo",
                 arch: `<graph/>`,
             });
-            await triggerEvent(graph.el, ".o_searchview input", "keydown", { key: "ArrowDown" });
+            await triggerEvent(target, ".o_searchview input", "keydown", { key: "ArrowDown" });
             assert.ok(true, "should not generate any error");
         }
     );
@@ -2541,7 +3008,7 @@ QUnit.module("Views", (hooks) => {
                 store: true,
                 group_operator: "sum",
             };
-            const graph = await makeView({
+            await makeView({
                 serverData,
                 type: "graph",
                 resModel: "foo",
@@ -2552,9 +3019,9 @@ QUnit.module("Views", (hooks) => {
                     </graph>
                 `,
             });
-            await toggleMenu(graph, "Measures");
+            await toggleMenu(target, "Measures");
             assert.deepEqual(
-                [...graph.el.querySelectorAll(".o_cp_bottom_left .o_menu_item")].map(
+                [...target.querySelectorAll(".o_cp_bottom_left .o_menu_item")].map(
                     (el) => el.innerText
                 ),
                 ["Bouh", "Foo", "Revenue", "Count"]
@@ -2579,41 +3046,25 @@ QUnit.module("Views", (hooks) => {
         assert.strictEqual(getYAxeLabel(graph), "Product");
     });
 
-    QUnit.test("non store fields defined on the arch are present in the measures", async function (assert) {
-        serverData.models.foo.fields.revenue.store = false;
-        const graph = await makeView({
-            serverData,
-            type: "graph",
-            resModel: "foo",
-            arch: `<graph>
+    QUnit.test(
+        "non store fields defined on the arch are present in the measures",
+        async function (assert) {
+            serverData.models.foo.fields.revenue.store = false;
+            await makeView({
+                serverData,
+                type: "graph",
+                resModel: "foo",
+                arch: `<graph>
                 <field name="product_id"/>
                 <field name="revenue" type="measure"/>
                 <field name="foo" type="measure"/>
             </graph>`,
-        });
-        await toggleMenu(graph, "Measures");
-        assert.deepEqual(
-            Array.from(graph.el.querySelectorAll(".o_menu_item")).map(e => e.innerText.trim()),
-            ["Foo", "Revenue", "Count"],
-        );
-    });
-
-    QUnit.test(
-        "a many2one field can be added as measure in additionalMeasures",
-        async function (assert) {
-            assert.expect(2);
-
-            const graph = await makeView({
-                serverData,
-                type: "graph",
-                resModel: "foo",
-                arch: `<graph/>`,
-                additionalMeasures: ["product_id"],
             });
-            await toggleMenu(graph, "Measures");
-            await toggleMenuItem(graph, "Product");
-            checkLegend(assert, graph, "Product");
-            assert.strictEqual(getYAxeLabel(graph), "Product");
+            await toggleMenu(target, "Measures");
+            assert.deepEqual(
+                Array.from(target.querySelectorAll(".o_menu_item")).map((e) => e.innerText.trim()),
+                ["Foo", "Revenue", "Count"]
+            );
         }
     );
 
@@ -2681,45 +3132,18 @@ QUnit.module("Views", (hooks) => {
                 return getChart(graph).data.labels.some((l) => /Undefined/.test(l));
             }
             assert.notOk(someUndefined());
-            await selectMode(graph, "bar");
+            await selectMode(target, "bar");
             assert.ok(someUndefined());
-            await selectMode(graph, "pie");
+            await selectMode(target, "pie");
             assert.ok(someUndefined());
             // Undefined should not appear after switching back to line chart
-            await selectMode(graph, "line");
+            await selectMode(target, "line");
             assert.notOk(someUndefined());
         }
     );
 
     QUnit.test(
-        "an invisible field in additional measure can be found in the 'Measures' menu",
-        async function (assert) {
-            assert.expect(8);
-            const graph = await makeView({
-                serverData,
-                type: "graph",
-                resModel: "foo",
-                arch: `
-                    <graph>
-                        <field name="revenue" invisible="1"/>
-                    </graph>
-                `,
-                additionalMeasures: ["revenue"],
-            });
-            checkTooltip(assert, graph, { lines: [{ label: "Total", value: "8" }] }, 0);
-            await toggleMenu(graph, "Measures");
-            await toggleMenuItem(graph, "Revenue");
-            checkTooltip(
-                assert,
-                graph,
-                { title: "Revenue", lines: [{ label: "Total", value: "23" }] },
-                0
-            );
-        }
-    );
-
-    QUnit.test(
-        "an invisible field not in additional measure can not be found in the 'Measures' menu",
+        "an invisible field can not be found in the 'Measures' menu",
         async function (assert) {
             assert.expect(5);
             const graph = await makeView({
@@ -2733,9 +3157,9 @@ QUnit.module("Views", (hooks) => {
                 `,
             });
             checkTooltip(assert, graph, { lines: [{ label: "Total", value: "8" }] }, 0);
-            await toggleMenu(graph, "Measures");
+            await toggleMenu(target, "Measures");
             assert.notOk(
-                [...graph.el.querySelectorAll(".o_menu_item")].find(
+                [...target.querySelectorAll(".o_menu_item")].find(
                     (el) => el.innerText.trim() === "Revenue"
                 ),
                 `"Revenue" can not be found in the "Measures" menu`
@@ -2757,8 +3181,7 @@ QUnit.module("Views", (hooks) => {
                     views: [[false, "search"]],
                 },
             });
-            checkLabels(assert, graph, ["January 2016", "March 2016", "May 2016", "April 2016"]);
-            // mockReadGroup does not always sort groups -> May 2016 is before April 2016 for that reason.
+            checkLabels(assert, graph, ["January 2016", "March 2016", "April 2016", "May 2016"]);
             checkLegend(assert, graph, ["xphone", "xpad"]);
             checkDatasets(
                 assert,
@@ -2779,17 +3202,16 @@ QUnit.module("Views", (hooks) => {
     );
 
     QUnit.test("action name is displayed in breadcrumbs", async function (assert) {
-        assert.expect(1);
-        const graph = await makeView({
-            serverData,
-            type: "graph",
-            resModel: "foo",
-            config: {
-                displayName: "Glou glou",
-            },
+        const target = getFixture();
+        const webClient = await createWebClient({ serverData });
+        await doAction(webClient, {
+            name: "Glou glou",
+            res_model: "foo",
+            type: "ir.actions.act_window",
+            views: [[false, "graph"]],
         });
         assert.strictEqual(
-            graph.el.querySelector(".o_control_panel .breadcrumb-item.active").innerText,
+            target.querySelector(".o_control_panel .breadcrumb-item.active").innerText,
             "Glou glou"
         );
     });
@@ -2809,7 +3231,7 @@ QUnit.module("Views", (hooks) => {
                                     tz: "taht",
                                     uid: 7,
                                 },
-                                domain: [["bar", "=", true]],
+                                domain: [["bar", "=", false]],
                                 name: "Foo Analysis",
                                 res_model: "foo",
                                 target: "current",
@@ -2838,10 +3260,63 @@ QUnit.module("Views", (hooks) => {
         });
         checkModeIs(assert, graph, "bar");
         checkDatasets(assert, graph, ["domains"], {
-            domains: [[["bar", "=", true]], [["bar", "=", false]]],
+            domains: [[["bar", "=", false]], [["bar", "=", true]]],
         });
         await clickOnDataset(graph);
     });
+
+    QUnit.test(
+        "Clicking on bar charts removes group_by and search_default_* context keys",
+        async function (assert) {
+            assert.expect(2);
+
+            serviceRegistry.add(
+                "action",
+                {
+                    start() {
+                        return {
+                            doAction(actionRequest, options) {
+                                assert.deepEqual(actionRequest, {
+                                    context: {
+                                        lang: "en",
+                                        tz: "taht",
+                                        uid: 7,
+                                    },
+                                    domain: [["bar", "=", false]],
+                                    name: "Foo Analysis",
+                                    res_model: "foo",
+                                    target: "current",
+                                    type: "ir.actions.act_window",
+                                    views: [
+                                        [false, "list"],
+                                        [false, "form"],
+                                    ],
+                                });
+                                assert.deepEqual(options, { viewType: "list" });
+                            },
+                        };
+                    },
+                },
+                { force: true }
+            );
+            const graph = await makeView({
+                serverData,
+                type: "graph",
+                resModel: "foo",
+                arch: `
+                <graph string="Foo Analysis">
+                    <field name="bar"/>
+                </graph>
+            `,
+                context: {
+                    search_default_user: 1,
+                    group_by: "bar",
+                },
+            });
+
+            await clickOnDataset(graph);
+        }
+    );
 
     QUnit.test(
         "clicking on a pie chart trigger a do_action with correct views",
@@ -2862,7 +3337,7 @@ QUnit.module("Views", (hooks) => {
                                         tz: "taht",
                                         uid: 7,
                                     },
-                                    domain: [["bar", "=", true]],
+                                    domain: [["bar", "=", false]],
                                     name: "Foo Analysis",
                                     res_model: "foo",
                                     target: "current",
@@ -2898,7 +3373,7 @@ QUnit.module("Views", (hooks) => {
             });
             checkModeIs(assert, graph, "pie");
             checkDatasets(assert, graph, ["domains"], {
-                domains: [[["bar", "=", true]], [["bar", "=", false]]],
+                domains: [[["bar", "=", false]], [["bar", "=", true]]],
             });
             await clickOnDataset(graph);
         }
@@ -2907,7 +3382,6 @@ QUnit.module("Views", (hooks) => {
     QUnit.test('graph view with attribute disable_linking="1"', async function (assert) {
         assert.expect(4);
 
-        serviceRegistry.add("localization", makeFakeLocalizationService());
         serviceRegistry.add(
             "action",
             {
@@ -2934,34 +3408,34 @@ QUnit.module("Views", (hooks) => {
         });
         checkModeIs(assert, graph, "bar");
         checkDatasets(assert, graph, ["domains"], {
-            domains: [[["bar", "=", true]], [["bar", "=", false]]],
+            domains: [[["bar", "=", false]], [["bar", "=", true]]],
         });
         await clickOnDataset(graph);
     });
 
     QUnit.test("graph view without invisible attribute on field", async function (assert) {
         assert.expect(4);
-        const graph = await makeView({
+        await makeView({
             serverData,
             type: "graph",
             resModel: "foo",
             arch: `<graph/>`,
         });
-        await toggleMenu(graph, "Measures");
+        await toggleMenu(target, "Measures");
         assert.containsN(
-            graph,
+            target,
             ".o_menu_item",
             3,
             "there should be three menu item in the measures dropdown (count, revenue and foo)"
         );
-        assert.containsOnce(graph, '.o_menu_item:contains("Revenue")');
-        assert.containsOnce(graph, '.o_menu_item:contains("Foo")');
-        assert.containsOnce(graph, '.o_menu_item:contains("Count")');
+        assert.containsOnce(target, '.o_menu_item:contains("Revenue")');
+        assert.containsOnce(target, '.o_menu_item:contains("Foo")');
+        assert.containsOnce(target, '.o_menu_item:contains("Count")');
     });
 
     QUnit.test("graph view with invisible attribute on field", async function (assert) {
         assert.expect(2);
-        const graph = await makeView({
+        await makeView({
             serverData,
             type: "graph",
             resModel: "foo",
@@ -2971,14 +3445,14 @@ QUnit.module("Views", (hooks) => {
                 </graph>
             `,
         });
-        await toggleMenu(graph, "Measures");
+        await toggleMenu(target, "Measures");
         assert.containsN(
-            graph,
+            target,
             ".o_menu_item",
             2,
             "there should be only two menu item in the measures dropdown (count and foo)"
         );
-        assert.containsNone(graph, '.o_menu_item:contains("Revenue")');
+        assert.containsNone(target, '.o_menu_item:contains("Revenue")');
     });
 
     QUnit.test("graph view sort by measure", async function (assert) {
@@ -2999,66 +3473,66 @@ QUnit.module("Views", (hooks) => {
             `,
         });
 
-        assert.containsOnce(graph, "button.fa-sort-amount-asc");
-        assert.containsOnce(graph, "button.fa-sort-amount-desc");
+        assert.containsOnce(target, "button.fa-sort-amount-asc");
+        assert.containsOnce(target, "button.fa-sort-amount-desc");
 
         checkLegend(assert, graph, "Count", "measure should be by count");
         assert.hasClass(
-            graph.el.querySelector("button.fa-sort-amount-desc"),
+            target.querySelector("button.fa-sort-amount-desc"),
             "active",
             'sorting should be applie on descending order by default when sorting="desc"'
         );
         checkDatasets(assert, graph, "data", { data: [4, 3, 1] });
 
-        await click(graph.el, "button.fa-sort-amount-asc");
+        await click(target, "button.fa-sort-amount-asc");
         assert.hasClass(
-            graph.el.querySelector("button.fa-sort-amount-asc"),
+            target.querySelector("button.fa-sort-amount-asc"),
             "active",
             "ascending order should be applied"
         );
         checkDatasets(assert, graph, "data", { data: [1, 3, 4] });
 
-        await click(graph.el, "button.fa-sort-amount-desc");
+        await click(target, "button.fa-sort-amount-desc");
         assert.hasClass(
-            graph.el.querySelector("button.fa-sort-amount-desc"),
+            target.querySelector("button.fa-sort-amount-desc"),
             "active",
             "descending order button should be active"
         );
         checkDatasets(assert, graph, "data", { data: [4, 3, 1] });
 
         // again click on descending button to deactivate order button
-        await click(graph.el, "button.fa-sort-amount-desc");
+        await click(target, "button.fa-sort-amount-desc");
         assert.doesNotHaveClass(
-            graph.el.querySelector("button.fa-sort-amount-desc"),
+            target.querySelector("button.fa-sort-amount-desc"),
             "active",
             "descending order button should not be active"
         );
-        checkDatasets(assert, graph, "data", { data: [4, 3, 1] });
+        checkDatasets(assert, graph, "data", { data: [4, 1, 3] });
 
         // set line mode
-        await selectMode(graph, "line");
-        assert.containsOnce(graph, "button.fa-sort-amount-asc");
-        assert.containsOnce(graph, "button.fa-sort-amount-desc");
+        await selectMode(target, "line");
+        assert.containsOnce(target, "button.fa-sort-amount-asc");
+        assert.containsOnce(target, "button.fa-sort-amount-desc");
 
         checkLegend(assert, graph, "Count", "measure should be by count");
         assert.doesNotHaveClass(
-            graph.el.querySelector("button.fa-sort-amount-desc"),
+            target.querySelector("button.fa-sort-amount-desc"),
             "active",
             "descending order should be applied"
         );
-        checkDatasets(assert, graph, "data", { data: [4, 3, 1] });
+        checkDatasets(assert, graph, "data", { data: [4, 1, 3] });
 
-        await click(graph.el, "button.fa-sort-amount-asc");
+        await click(target, "button.fa-sort-amount-asc");
         assert.hasClass(
-            graph.el.querySelector("button.fa-sort-amount-asc"),
+            target.querySelector("button.fa-sort-amount-asc"),
             "active",
             "ascending order button should be active"
         );
         checkDatasets(assert, graph, "data", { data: [1, 3, 4] });
 
-        await click(graph.el, "button.fa-sort-amount-desc");
+        await click(target, "button.fa-sort-amount-desc");
         assert.hasClass(
-            graph.el.querySelector("button.fa-sort-amount-desc"),
+            target.querySelector("button.fa-sort-amount-desc"),
             "active",
             "descending order button should be active"
         );
@@ -3084,33 +3558,33 @@ QUnit.module("Views", (hooks) => {
             `,
         });
 
-        checkLegend(assert, graph, ["true", "false"], "measure should be by count");
-        checkDatasets(assert, graph, "data", [{ data: [3, 0, 0] }, { data: [1, 3, 1] }]);
+        checkLegend(assert, graph, ["false", "true"], "measure should be by count");
+        checkDatasets(assert, graph, "data", [{ data: [1, 1, 3] }, { data: [3, 0, 0] }]);
 
-        await click(graph.el, "button.fa-sort-amount-asc");
+        await click(target, "button.fa-sort-amount-asc");
         assert.hasClass(
-            graph.el.querySelector("button.fa-sort-amount-asc"),
+            target.querySelector("button.fa-sort-amount-asc"),
             "active",
             "ascending order should be applied by default"
         );
         checkDatasets(assert, graph, "data", [{ data: [1, 3, 1] }, { data: [0, 0, 3] }]);
 
-        await click(graph.el, "button.fa-sort-amount-desc");
+        await click(target, "button.fa-sort-amount-desc");
         assert.hasClass(
-            graph.el.querySelector("button.fa-sort-amount-desc"),
+            target.querySelector("button.fa-sort-amount-desc"),
             "active",
             "ascending order button should be active"
         );
-        checkDatasets(assert, graph, "data", [{ data: [3, 0, 0] }, { data: [1, 3, 1] }]);
+        checkDatasets(assert, graph, "data", [{ data: [1, 3, 1] }, { data: [3, 0, 0] }]);
 
         // again click on descending button to deactivate order button
-        await click(graph.el, "button.fa-sort-amount-desc");
+        await click(target, "button.fa-sort-amount-desc");
         assert.doesNotHaveClass(
-            graph.el.querySelector("button.fa-sort-amount-desc"),
+            target.querySelector("button.fa-sort-amount-desc"),
             "active",
             "descending order button should not be active"
         );
-        checkDatasets(assert, graph, "data", [{ data: [3, 0, 0] }, { data: [1, 3, 1] }]);
+        checkDatasets(assert, graph, "data", [{ data: [1, 1, 3] }, { data: [3, 0, 0] }]);
     });
 
     QUnit.test("graph view sort by measure for multiple grouped data", async function (assert) {
@@ -3140,16 +3614,16 @@ QUnit.module("Views", (hooks) => {
             `,
         });
 
-        checkLegend(assert, graph, ["xpad", "xphone", "zphone"], "measure should be by count");
+        checkLegend(assert, graph, ["xphone", "xpad", "zphone"], "measure should be by count");
         checkDatasets(assert, graph, "data", [
-            { data: [2, 1, 1, 2] },
-            { data: [0, 1, 0, 0] },
             { data: [1, 0, 0, 0] },
+            { data: [1, 2, 1, 2] },
+            { data: [0, 1, 0, 0] },
         ]);
 
-        await click(graph.el, "button.fa-sort-amount-asc");
+        await click(target, "button.fa-sort-amount-asc");
         assert.hasClass(
-            graph.el.querySelector("button.fa-sort-amount-asc"),
+            target.querySelector("button.fa-sort-amount-asc"),
             "active",
             "ascending order should be applied by default"
         );
@@ -3159,35 +3633,34 @@ QUnit.module("Views", (hooks) => {
             { data: [0, 0, 0, 1] },
         ]);
 
-        await click(graph.el, "button.fa-sort-amount-desc");
+        await click(target, "button.fa-sort-amount-desc");
         assert.hasClass(
-            graph.el.querySelector("button.fa-sort-amount-desc"),
+            target.querySelector("button.fa-sort-amount-desc"),
             "active",
             "descending order button should be active"
         );
         checkDatasets(assert, graph, "data", [
-            { data: [2, 1, 2, 1] },
             { data: [1, 0, 0, 0] },
+            { data: [2, 1, 2, 1] },
             { data: [0, 1, 0, 0] },
         ]);
 
         // again click on descending button to deactivate order button
-        await click(graph.el, "button.fa-sort-amount-desc");
+        await click(target, "button.fa-sort-amount-desc");
         assert.doesNotHaveClass(
-            graph.el.querySelector("button.fa-sort-amount-desc"),
+            target.querySelector("button.fa-sort-amount-desc"),
             "active",
             "descending order button should not be active"
         );
         checkDatasets(assert, graph, "data", [
-            { data: [2, 1, 1, 2] },
-            { data: [0, 1, 0, 0] },
             { data: [1, 0, 0, 0] },
+            { data: [1, 2, 1, 2] },
+            { data: [0, 1, 0, 0] },
         ]);
     });
 
     QUnit.test("empty graph view with sample data", async function (assert) {
-        assert.expect(8);
-        const graph = await makeView({
+        await makeView({
             serverData,
             type: "graph",
             resModel: "foo",
@@ -3206,25 +3679,23 @@ QUnit.module("Views", (hooks) => {
             noContentHelp: '<p class="abc">click to add a foo</p>',
         });
 
-        assert.hasClass(graph.el, "o_view_sample_data");
-        assert.containsOnce(graph, ".o_view_nocontent");
-        assert.containsOnce(graph, ".o_graph_canvas_container canvas");
-        assert.hasClass(graph.el.querySelector(".o_graph_renderer"), "o_sample_data_disabled");
+        assert.hasClass(target.querySelector(".o_graph_view .o_content"), "o_view_sample_data");
+        assert.containsOnce(target, ".o_view_nocontent");
+        assert.containsOnce(target, ".o_graph_canvas_container canvas");
 
-        await toggleFilterMenu(graph);
-        await toggleMenuItem(graph, "False Domain");
-        assert.doesNotHaveClass(graph.el, "o_view_sample_data");
-        assert.containsNone(graph, ".o_view_nocontent");
-        assert.containsOnce(graph, ".o_graph_canvas_container canvas");
+        await toggleFilterMenu(target);
+        await toggleMenuItem(target, "False Domain");
+
         assert.doesNotHaveClass(
-            graph.el.querySelector(".o_graph_renderer"),
-            "o_sample_data_disabled"
+            target.querySelector(".o_graph_view .o_content"),
+            "o_view_sample_data"
         );
+        assert.containsNone(target, ".o_view_nocontent");
+        assert.containsOnce(target, ".o_graph_canvas_container canvas");
     });
 
     QUnit.test("non empty graph view with sample data", async function (assert) {
-        assert.expect(8);
-        const graph = await makeView({
+        await makeView({
             serverData,
             type: "graph",
             resModel: "foo",
@@ -3241,27 +3712,39 @@ QUnit.module("Views", (hooks) => {
             `,
             noContentHelp: '<p class="abc">click to add a foo</p>',
         });
-        assert.doesNotHaveClass(graph.el, "o_view_sample_data");
-        assert.containsNone(graph, ".o_view_nocontent");
-        assert.containsOnce(graph, ".o_graph_canvas_container canvas");
-        assert.doesNotHaveClass(
-            graph.el.querySelector(".o_graph_canvas_container"),
-            "o_sample_data_disabled"
-        );
-        await toggleFilterMenu(graph);
-        await toggleMenuItem(graph, "False Domain");
-        assert.doesNotHaveClass(graph.el, "o_view_sample_data");
-        assert.containsOnce(graph, ".o_graph_canvas_container canvas");
-        assert.doesNotHaveClass(
-            graph.el.querySelector(".o_graph_canvas_container"),
-            "o_sample_data_disabled"
-        );
-        assert.containsNone(graph, ".o_view_nocontent");
+        assert.doesNotHaveClass(target, "o_view_sample_data");
+        assert.containsNone(target, ".o_view_nocontent");
+        assert.containsOnce(target, ".o_graph_canvas_container canvas");
+
+        await toggleFilterMenu(target);
+        await toggleMenuItem(target, "False Domain");
+
+        assert.doesNotHaveClass(target, "o_view_sample_data");
+        assert.containsOnce(target, ".o_graph_canvas_container canvas");
+        assert.containsOnce(target, ".o_view_nocontent");
+    });
+
+    QUnit.test("empty graph view without sample data after filter", async function (assert) {
+        await makeView({
+            serverData,
+            type: "graph",
+            resModel: "foo",
+            arch: `
+                <graph>
+                    <field name="date"/>
+                </graph>
+            `,
+            domain: Domain.FALSE.toList(),
+            noContentHelp: '<p class="abc">click to add a foo</p>',
+        });
+        assert.containsOnce(target, ".o_graph_canvas_container canvas");
+        assert.containsOnce(target, ".o_view_nocontent");
     });
 
     QUnit.test("reload chart with switchView button keep internal state", async function (assert) {
         assert.expect(3);
         serverData.views["foo,false,list"] = `<list/>`;
+        const target = getFixture();
         const webClient = await createWebClient({ serverData });
         await doAction(webClient, {
             name: "Foo Action 1",
@@ -3272,11 +3755,11 @@ QUnit.module("Views", (hooks) => {
                 [false, "list"],
             ],
         });
-        assert.hasClass(getModeButton(webClient, "bar"), "active");
-        await selectMode(webClient, "line");
-        assert.hasClass(getModeButton(webClient, "line"), "active");
-        await switchView(webClient, "graph");
-        assert.hasClass(getModeButton(webClient, "line"), "active");
+        assert.hasClass(getModeButton(target, "bar"), "active");
+        await selectMode(target, "line");
+        assert.hasClass(getModeButton(target, "line"), "active");
+        await switchView(target, "graph");
+        assert.hasClass(getModeButton(target, "line"), "active");
     });
 
     QUnit.test(
@@ -3301,9 +3784,9 @@ QUnit.module("Views", (hooks) => {
                     search_default_group_by_foo: 1,
                 },
             });
-            checkLabels(assert, graph, ["3", "53", "2", "24", "4", "63", "42", "48"]);
-            await toggleGroupByMenu(graph);
-            await toggleMenuItem(graph, "Foo");
+            checkLabels(assert, graph, ["2", "3", "4", "24", "42", "48", "53", "63"]);
+            await toggleGroupByMenu(target);
+            await toggleMenuItem(target, "Foo");
             checkLabels(assert, graph, ["xphone", "xpad"]);
         }
     );
@@ -3330,22 +3813,22 @@ QUnit.module("Views", (hooks) => {
 
             checkModeIs(assert, graph, "line");
 
-            await selectMode(graph, "bar");
+            await selectMode(target, "bar");
 
             checkModeIs(assert, graph, "bar");
-            assert.hasClass(graph.el.querySelector(`[data-tooltip="Stacked"]`), "active");
+            assert.hasClass(target.querySelector(`[data-tooltip="Stacked"]`), "active");
 
-            await click(graph.el.querySelector(`[data-tooltip="Stacked"]`));
+            await click(target.querySelector(`[data-tooltip="Stacked"]`));
 
-            assert.doesNotHaveClass(graph.el.querySelector(`[data-tooltip="Stacked"]`), "active");
-            assert.doesNotHaveClass(graph.el.querySelector(`[data-tooltip="Ascending"]`), "active");
+            assert.doesNotHaveClass(target.querySelector(`[data-tooltip="Stacked"]`), "active");
+            assert.doesNotHaveClass(target.querySelector(`[data-tooltip="Ascending"]`), "active");
 
-            await click(graph.el.querySelector(`[data-tooltip="Ascending"]`));
+            await click(target.querySelector(`[data-tooltip="Ascending"]`));
 
-            assert.hasClass(graph.el.querySelector(`[data-tooltip="Ascending"]`), "active");
+            assert.hasClass(target.querySelector(`[data-tooltip="Ascending"]`), "active");
 
-            await toggleMenu(graph, "Measures");
-            await toggleMenuItem(graph, "Foo");
+            await toggleMenu(target, "Measures");
+            await toggleMenuItem(target, "Foo");
 
             assert.verifySteps([
                 `["__count"]`, // first load
@@ -3384,8 +3867,8 @@ QUnit.module("Views", (hooks) => {
 
             // Set a domain (this reload is delayed)
             def = makeDeferred();
-            await toggleFilterMenu(graph);
-            await toggleMenuItem(graph, "My Filter");
+            await toggleFilterMenu(target);
+            await toggleMenuItem(target, "My Filter");
 
             checkDatasets(assert, graph, ["data", "label"], {
                 data: [4, 4],
@@ -3393,8 +3876,8 @@ QUnit.module("Views", (hooks) => {
             });
 
             // Toggle a measure
-            await toggleMenu(graph, "Measures");
-            await toggleMenuItem(graph, "Foo");
+            await toggleMenu(target, "Measures");
+            await toggleMenuItem(target, "Foo");
 
             checkDatasets(assert, graph, ["data", "label"], {
                 data: [4, 4],
@@ -3440,8 +3923,8 @@ QUnit.module("Views", (hooks) => {
 
         // Set a domain (this reload is delayed)
         def = makeDeferred();
-        await toggleFilterMenu(graph);
-        await toggleMenuItem(graph, "My Filter");
+        await toggleFilterMenu(target);
+        await toggleMenuItem(target, "My Filter");
 
         checkDatasets(assert, graph, ["data", "label"], {
             data: [4, 4],
@@ -3450,7 +3933,7 @@ QUnit.module("Views", (hooks) => {
         checkModeIs(assert, graph, "line");
 
         // Change graph mode
-        await selectMode(graph, "bar");
+        await selectMode(target, "bar");
 
         checkDatasets(assert, graph, ["data", "label"], {
             data: [4, 4],
@@ -3497,11 +3980,11 @@ QUnit.module("Views", (hooks) => {
         checkDatasets(assert, graph, "data", { data: [82, 157] });
 
         def = makeDeferred();
-        await toggleGroupByMenu(graph);
-        await toggleMenuItem(graph, "Color");
-        await toggleMenuItem(graph, "Color");
-        await toggleMenuItem(graph, "Date");
-        await toggleMenuItemOption(graph, "Date", "Month");
+        await toggleGroupByMenu(target);
+        await toggleMenuItem(target, "Color");
+        await toggleMenuItem(target, "Color");
+        await toggleMenuItem(target, "Date");
+        await toggleMenuItemOption(target, "Date", "Month");
 
         checkLabels(assert, graph, ["xphone", "xpad"]);
         checkDatasets(assert, graph, "data", { data: [82, 157] });
@@ -3512,17 +3995,17 @@ QUnit.module("Views", (hooks) => {
         checkLabels(assert, graph, [
             "January 2016",
             "March 2016",
+            "April 2016",
             "May 2016",
             "Undefined",
-            "April 2016",
         ]);
-        checkDatasets(assert, graph, "data", { data: [56, 26, 4, 105, 48] });
+        checkDatasets(assert, graph, "data", { data: [56, 26, 48, 4, 105] });
     });
 
     QUnit.test("fill_temporal is true by default", async function (assert) {
         assert.expect(1);
 
-        const graph = await makeView({
+        await makeView({
             serverData,
             type: "graph",
             resModel: "foo",
@@ -3541,7 +4024,7 @@ QUnit.module("Views", (hooks) => {
     QUnit.test("fill_temporal can be changed throught the context", async function (assert) {
         assert.expect(1);
 
-        const graph = await makeView({
+        await makeView({
             serverData,
             type: "graph",
             resModel: "foo",
@@ -3558,7 +4041,7 @@ QUnit.module("Views", (hooks) => {
         });
     });
 
-    QUnit.test('fake data in line chart', async function (assert) {
+    QUnit.test("fake data in line chart", async function (assert) {
         assert.expect(1);
 
         patchDate(2020, 4, 19, 1, 0, 0);
@@ -3569,26 +4052,26 @@ QUnit.module("Views", (hooks) => {
             type: "graph",
             resModel: "foo",
             serverData,
-            context: { search_default_date_filter: 1, },
+            context: { search_default_date_filter: 1 },
             arch: `
                 <graph type="line">
                     <field name="date"/>
                 </graph>
             `,
-            searchViewArch:`
+            searchViewArch: `
                 <search>
                     <filter name="date_filter" domain="[]" date="date" default_period="third_quarter"/>
                 </search>
             `,
         });
 
-        await toggleComparisonMenu(graph);
-        await toggleMenuItem(graph, 'Date: Previous period');
+        await toggleComparisonMenu(target);
+        await toggleMenuItem(target, "Date: Previous period");
 
-        checkLabels(assert, graph, ['', '']);
+        checkLabels(assert, graph, ["", ""]);
     });
 
-    QUnit.test('no filling color for period of comparison', async function (assert) {
+    QUnit.test("no filling color for period of comparison", async function (assert) {
         assert.expect(1);
 
         patchDate(2020, 4, 19, 1, 0, 0);
@@ -3603,9 +4086,9 @@ QUnit.module("Views", (hooks) => {
             type: "graph",
             resModel: "foo",
             serverData,
-            context: { search_default_date_filter: 1, },
+            context: { search_default_date_filter: 1 },
             arch: `
-                <graph type="line">
+                <graph type="line" stacked="0">
                     <field name="product_id"/>
                 </graph>
             `,
@@ -3616,11 +4099,11 @@ QUnit.module("Views", (hooks) => {
             `,
         });
 
-        await toggleComparisonMenu(graph);
-        await toggleMenuItem(graph, 'Date: Previous period');
+        await toggleComparisonMenu(target);
+        await toggleMenuItem(target, "Date: Previous period");
 
         checkDatasets(assert, graph, "backgroundColor", {
-            "backgroundColor": undefined,
+            backgroundColor: undefined,
         });
     });
 
@@ -3639,7 +4122,7 @@ QUnit.module("Views", (hooks) => {
                 views: [[false, "search"]],
             },
         });
-        checkLabels(assert, graph, ["January 2016", "March 2016", "May 2016", "April 2016"]);
+        checkLabels(assert, graph, ["January 2016", "March 2016", "April 2016", "May 2016"]);
     });
 
     QUnit.test("graph_groupbys should be also used after first load", async function (assert) {
@@ -3673,8 +4156,8 @@ QUnit.module("Views", (hooks) => {
         checkLabels(assert, graph, ["Q1 2016", "Q2 2016", "Undefined"]);
         checkLegend(assert, graph, "Count");
 
-        await toggleFavoriteMenu(graph);
-        await toggleMenuItem(graph, "Favorite");
+        await toggleFavoriteMenu(target);
+        await toggleMenuItem(target, "Favorite");
 
         checkModeIs(assert, graph, "bar");
         checkLabels(assert, graph, ["Undefined", "red"]);
@@ -3713,5 +4196,146 @@ QUnit.module("Views", (hooks) => {
             data: [1, 1, 2, 2, 2],
             label: "Count",
         });
+    });
+
+    QUnit.test("renders banner_route", async (assert) => {
+        await makeView({
+            type: "graph",
+            resModel: "foo",
+            serverData,
+            arch: `
+                <graph banner_route="/mybody/isacage">
+                    <field name="foo"/>
+                </graph>`,
+            async mockRPC(route) {
+                if (route === "/mybody/isacage") {
+                    assert.step(route);
+                    return { html: `<div class="setmybodyfree">myBanner</div>` };
+                }
+            },
+        });
+
+        assert.verifySteps(["/mybody/isacage"]);
+        assert.containsOnce(target, ".setmybodyfree");
+    });
+
+    QUnit.test(
+        "no class 'o_view_sample_data' when real data are presented",
+        async function (assert) {
+            serverData.models.foo.records = [];
+            const graph = await makeView({
+                serverData,
+                type: "graph",
+                resModel: "foo",
+                arch: `
+                    <graph sample="1">
+                        <field name="date"/>
+                    </graph>
+                `,
+            });
+            assert.containsOnce(target, ".o_graph_view .o_view_sample_data");
+            assert.ok(getChart(graph).data.datasets.length);
+            await selectMode(target, "line");
+            assert.containsOnce(target, ".o_graph_view .o_view_sample_data");
+            assert.ok(getChart(graph).data.datasets.length);
+            await toggleMenu(target, "Measures");
+            await toggleMenuItem(target, "Revenue");
+            assert.containsNone(target, ".o_graph_view .o_view_sample_data");
+            assert.notOk(getChart(graph).data.datasets.length);
+        }
+    );
+
+    QUnit.test("single chart rendering on search", async function (assert) {
+        patchWithCleanup(GraphRenderer.prototype, {
+            setup() {
+                this._super(...arguments);
+                onRendered(() => {
+                    assert.step("rendering");
+                });
+            },
+        });
+        await makeView({
+            serverData,
+            type: "graph",
+            resModel: "foo",
+        });
+        assert.verifySteps(["rendering"]);
+        await validateSearch(target);
+        assert.verifySteps(["rendering"]);
+    });
+
+    QUnit.test("limit dataset amount", async function (assert) {
+        serverData.models.project = {
+            fields: {
+                id: { type: "integer" },
+                name: { type: "char" },
+            },
+            records: [],
+        };
+        serverData.models.stage = {
+            fields: {
+                id: { type: "integer" },
+                name: { type: "char" },
+            },
+            records: [],
+        };
+        serverData.models.task = {
+            fields: {
+                id: { type: "integer" },
+                name: { type: "char" },
+                project_id: {
+                    type: "many2one",
+                    relation: "project",
+                    sortable: true,
+                    string: "Project",
+                },
+                stage_id: { type: "many2one", relation: "stage", sortable: true, string: "Stage" },
+            },
+            records: [],
+        };
+        for (let i = 1; i <= 600; i++) {
+            serverData.models.project.records.push({
+                id: i,
+                name: `Project ${i}`,
+            });
+            serverData.models.stage.records.push({
+                id: i,
+                name: `Stage ${i}`,
+            });
+            serverData.models.task.records.push({
+                id: i,
+                project_id: i,
+                stage_id: i,
+                name: `Task ${i}`,
+            });
+        }
+
+        const graph = await makeView({
+            serverData,
+            type: "graph",
+            resModel: "task",
+            arch: `
+                <graph>
+                    <field name="project_id"/>
+                    <field name="stage_id"/>
+                </graph>
+            `,
+        });
+
+        assert.strictEqual(graph.model.data.exceeds, true);
+        assert.strictEqual(graph.model.data.datasets.length, 80);
+        assert.strictEqual(graph.model.data.labels.length, 80);
+        assert.containsN(target, `.o_graph_alert`, 1);
+
+        patchWithCleanup(GraphModel.prototype, {
+            notify() {
+                assert.step("rerender");
+            },
+        });
+        await click(target, `.o_graph_load_all_btn`);
+        assert.verifySteps(["rerender"]);
+        assert.strictEqual(graph.model.data.exceeds, false);
+        assert.strictEqual(graph.model.data.datasets.length, 600);
+        assert.strictEqual(graph.model.data.labels.length, 600);
     });
 });

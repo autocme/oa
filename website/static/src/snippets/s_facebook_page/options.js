@@ -23,9 +23,8 @@ options.registry.facebookPage = options.Class.extend({
             tabs: '',
             small_header: true,
             hide_cover: true,
-            show_facepile: false,
         };
-        this.fbData = _.defaults(_.pick(this.$target.data(), _.keys(defaults)), defaults);
+        this.fbData = _.defaults(_.pick(this.$target[0].dataset, _.keys(defaults)), defaults);
 
         if (!this.fbData.href) {
             // Fetches the default url for facebook page from website config
@@ -105,13 +104,12 @@ options.registry.facebookPage = options.Class.extend({
             if (this.fbData.tabs) {
                 this.fbData.height = this.fbData.tabs === 'events' ? 300 : 500;
             } else if (this.fbData.small_header) {
-                this.fbData.height = this.fbData.show_facepile ? 165 : 70;
+                this.fbData.height = 70;
             } else {
-                this.fbData.height = this.fbData.show_facepile ? 225 : 150;
+                this.fbData.height = 150;
             }
             _.each(this.fbData, (value, key) => {
-                this.$target.attr('data-' + key, value);
-                this.$target.data(key, value);
+                this.$target[0].dataset[key] = value;
             });
         });
     },
@@ -126,7 +124,8 @@ options.registry.facebookPage = options.Class.extend({
                     return this.fbData.tabs.split(',').includes(optionName.replace(/^tab./, ''));
                 } else {
                     if (optionName === 'show_cover') {
-                        return !this.fbData.hide_cover;
+                        // Sometimes a string, sometimes a boolean.
+                        return String(this.fbData.hide_cover) === "false";
                     }
                     return this.fbData[optionName];
                 }
@@ -134,16 +133,6 @@ options.registry.facebookPage = options.Class.extend({
             case 'pageUrl': {
                 return this._checkURL().then(() => this.fbData.href);
             }
-        }
-        return this._super(...arguments);
-    },
-    /**
-     * @override
-     */
-    _computeWidgetVisibility(widgetName, params) {
-        if (params.optionName === 'show_facepile') {
-            // TODO: Remove this option in master (in the meantime we hide it).
-            return false;
         }
         return this._super(...arguments);
     },

@@ -90,9 +90,7 @@ class AccountEdiXmlUBL21Zatca(models.AbstractModel):
 
     def _get_delivery_vals_list(self, invoice):
         """ Override to include/update values specific to ZATCA's UBL 2.1 specs """
-        shipping_address = False
-        if 'partner_shipping_id' in invoice._fields and invoice.partner_shipping_id:
-            shipping_address = invoice.partner_shipping_id
+        shipping_address = invoice.partner_shipping_id
         return [{'actual_delivery_date': invoice.l10n_sa_delivery_date,
                  'delivery_address_vals': self._get_partner_address_vals(shipping_address) if shipping_address else {},}]
 
@@ -104,14 +102,27 @@ class AccountEdiXmlUBL21Zatca(models.AbstractModel):
 
     def _get_partner_party_identification_vals_list(self, partner):
         """ Override to include/update values specific to ZATCA's UBL 2.1 specs """
+        identification_number = partner.l10n_sa_additional_identification_number
+        vat = re.sub(r'[^a-zA-Z0-9]', '', partner.vat or "")
+        if partner.country_code != "SA":
+            identification_number = vat
+        elif partner.l10n_sa_additional_identification_scheme == 'TIN':
+            # according to ZATCA, the TIN number is always the first 10 digits of the VAT number
+            identification_number = vat[:10]
+
         return [{
             'id_attrs': {'schemeID': partner.l10n_sa_additional_identification_scheme},
-            'id': (
-                partner.l10n_sa_additional_identification_number
-                if partner.l10n_sa_additional_identification_scheme != 'TIN' and partner.country_code == 'SA'
-                else partner.vat
-            ),
+            'id': identification_number,
         }]
+
+    def _get_partner_party_legal_entity_vals_list(self, partner):
+        # EXTEND 'account.edi.xml.ubl_20'
+        partners_party_legal = super()._get_partner_party_legal_entity_vals_list(partner)
+        for partner_party_legal in partners_party_legal:
+            if partner_party_legal['commercial_partner'].country_code != 'SA':
+                partner_party_legal['company_id'] = False
+
+        return partners_party_legal
 
     def _l10n_sa_get_payment_means_code(self, invoice):
         """ Return payment means code to be used to set the value on the XML file """
@@ -140,9 +151,13 @@ class AccountEdiXmlUBL21Zatca(models.AbstractModel):
             Seller Vat Number (BT-31), Date (BT-2), Time (KSA-25), Invoice Number (BT-1)
         """
         vat = invoice.company_id.partner_id.commercial_partner_id.vat
-        invoice_number = re.sub("[^a-zA-Z0-9 -]", "-", invoice.name)
+        invoice_number = re.sub(r'[^a-zA-Z0-9 -]+', '-', invoice.name)
         invoice_date = fields.Datetime.context_timestamp(self.with_context(tz='Asia/Riyadh'), invoice.l10n_sa_confirmation_datetime)
-        return '%s_%s_%s.xml' % (vat, invoice_date.strftime('%Y%m%dT%H%M%S'), invoice_number)
+        file_name = f"{vat}_{invoice_date.strftime('%Y%m%dT%H%M%S')}_{invoice_number}"
+        file_format = self.env.context.get('l10n_sa_file_format', 'xml')
+        if file_format:
+            file_name = f'{file_name}.{file_format}'
+        return file_name
 
     def _l10n_sa_get_invoice_transaction_code(self, invoice):
         """
@@ -190,13 +205,14 @@ class AccountEdiXmlUBL21Zatca(models.AbstractModel):
             return super()._get_partner_party_tax_scheme_vals_list(partner, role)
         return []
 
-    def _apply_invoice_tax_filter(self, tax_values):
+    def _apply_invoice_tax_filter(self, base_line, tax_values):
         """ Override to filter out withholding tax """
-        res = not tax_values['tax_id'].l10n_sa_is_retention
+        tax_id = self.env['account.tax'].browse(tax_values['id'])
+        res = not tax_id.l10n_sa_is_retention
         # If the move that is being sent is not a down payment invoice, and the sale module is installed
         # we need to make sure the line is neither retention, nor a down payment line
-        if not tax_values['base_line_id'].move_id._is_downpayment():
-            return not tax_values['tax_id'].l10n_sa_is_retention and not tax_values['base_line_id']._get_downpayment_lines()
+        if not base_line['record'].move_id._is_downpayment():
+            return not tax_id.l10n_sa_is_retention and not base_line['record']._get_downpayment_lines()
         return res
 
     def _apply_invoice_line_filter(self, invoice_line):
@@ -209,9 +225,9 @@ class AccountEdiXmlUBL21Zatca(models.AbstractModel):
         """ Calculate the down-payment amount according to ZATCA rules """
         downpayment_lines = False if invoice._is_downpayment() else invoice.line_ids.filtered(lambda l: l._get_downpayment_lines())
         if downpayment_lines:
-            tax_vals = invoice._prepare_edi_tax_details(filter_to_apply=lambda t: not t['tax_id'].l10n_sa_is_retention)
-            base_amount = abs(sum(tax_vals['invoice_line_tax_details'][l]['base_amount_currency'] for l in downpayment_lines))
-            tax_amount = abs(sum(tax_vals['invoice_line_tax_details'][l]['tax_amount_currency'] for l in downpayment_lines))
+            tax_vals = invoice._prepare_edi_tax_details(filter_to_apply=lambda l, t: not self.env['account.tax'].browse(t['id']).l10n_sa_is_retention)
+            base_amount = abs(sum(tax_vals['tax_details_per_record'][l]['base_amount_currency'] for l in downpayment_lines))
+            tax_amount = abs(sum(tax_vals['tax_details_per_record'][l]['tax_amount_currency'] for l in downpayment_lines))
             return {
                 'total_amount': base_amount + tax_amount,
                 'base_amount': base_amount,
@@ -292,6 +308,12 @@ class AccountEdiXmlUBL21Zatca(models.AbstractModel):
             'PaymentMeansType_template': 'l10n_sa_edi.ubl_21_PaymentMeansType_zatca',
         })
 
+        # OrderReference/SalesOrderID (sales_order_id) is optional
+        sales_order_id = 'sale_line_ids' in invoice.invoice_line_ids._fields \
+                         and ",".join(invoice.invoice_line_ids.sale_line_ids.order_id.mapped('name'))
+        # OrderReference/ID (order_reference) is mandatory inside the OrderReference node !
+        order_reference = invoice.ref or invoice.name if sales_order_id else invoice.ref
+
         vals['vals'].update({
             'profile_id': 'reporting:1.0',
             'invoice_type_code_attrs': {'name': self._l10n_sa_get_invoice_transaction_code(invoice)},
@@ -303,6 +325,7 @@ class AccountEdiXmlUBL21Zatca(models.AbstractModel):
             'tax_total_vals': self._l10n_sa_get_additional_tax_total_vals(invoice, vals),
             # Due date is not required for ZATCA UBL 2.1
             'due_date': None,
+            'order_reference': order_reference,
         })
 
         vals['vals']['legal_monetary_total_vals'].update(self._l10n_sa_get_monetary_vals(invoice, vals))
@@ -352,7 +375,7 @@ class AccountEdiXmlUBL21Zatca(models.AbstractModel):
             to be included in the UBL
         """
         if not line.move_id._is_downpayment() and line.sale_line_ids and all(sale_line.is_downpayment for sale_line in line.sale_line_ids):
-            prepayment_move_id = line.sale_line_ids.invoice_lines.move_id.filtered(lambda m: m._is_downpayment())
+            prepayment_move_id = line.sale_line_ids.invoice_lines.move_id.filtered(lambda m: m.move_type == 'out_invoice' and m._is_downpayment())
             return {
                 'prepayment_id': prepayment_move_id.name,
                 'issue_date': fields.Datetime.context_timestamp(self.with_context(tz='Asia/Riyadh'),
@@ -364,15 +387,18 @@ class AccountEdiXmlUBL21Zatca(models.AbstractModel):
     def _get_invoice_line_vals(self, line, taxes_vals):
         """ Override to include/update values specific to ZATCA's UBL 2.1 specs """
 
-        def grouping_key_generator(tax_values):
-            tax = tax_values['tax_id']
+        def grouping_key_generator(base_line, tax_values):
+            tax = tax_values['tax_repartition_line'].tax_id
             tax_category_vals = self._get_tax_category_list(line.move_id, tax)[0]
-            return {
+            grouping_key = {
                 'tax_category_id': tax_category_vals['id'],
                 'tax_category_percent': tax_category_vals['percent'],
                 '_tax_category_vals_': tax_category_vals,
-                'tax_amount_type': tax.amount_type
+                'tax_amount_type': tax.amount_type,
             }
+            if tax.amount_type == 'fixed':
+                grouping_key['tax_name'] = tax.name
+            return grouping_key
 
         if not line.move_id._is_downpayment() and line._get_downpayment_lines():
             # When we initially calculate the taxes_vals, we filter out the down payment lines, which means we have no
@@ -381,8 +407,8 @@ class AccountEdiXmlUBL21Zatca(models.AbstractModel):
             # TaxableAmount and the TaxAmount nodes correctly. To avoid this, we re-caclculate the taxes_vals just before
             # we set the values for the down payment line, and we do not pass any filters to the _prepare_edi_tax_details
             # method
-            line_taxes = line.move_id._prepare_edi_tax_details(grouping_key_generator=grouping_key_generator)
-            taxes_vals = line_taxes['invoice_line_tax_details'][line]
+            line_taxes = line.move_id._prepare_edi_tax_details(filter_to_apply=lambda l, t: not self.env['account.tax'].browse(t['id']).l10n_sa_is_retention, grouping_key_generator=grouping_key_generator)
+            taxes_vals = line_taxes['tax_details_per_record'][line]
 
         line_vals = super()._get_invoice_line_vals(line, taxes_vals)
         total_amount_sa = abs(taxes_vals['tax_amount_currency'] + taxes_vals['base_amount_currency'])

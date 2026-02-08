@@ -8,6 +8,7 @@ odoo.define('web.favorite_menu_tests', function (require) {
     const testUtils = require('web.test_utils');
 
     const cpHelpers = require('@web/../tests/search/helpers');
+    const { makeLegacyDialogMappingTestEnv } = require('@web/../tests/helpers/legacy_env_utils');
     const { createControlPanel, createView, mock } = testUtils;
     const { patchDate } = mock;
 
@@ -53,14 +54,12 @@ odoo.define('web.favorite_menu_tests', function (require) {
                 controlPanel.el.querySelector('.o_add_favorite input[type="text"]').value,
                 'Action Name'
             );
-            assert.containsN(controlPanel, '.o_add_favorite .custom-checkbox input[type="checkbox"]', 2);
-            const labelEls = controlPanel.el.querySelectorAll('.o_add_favorite .custom-checkbox label');
+            assert.containsN(controlPanel, '.o_add_favorite .form-check input[type="checkbox"]', 2);
+            const labelEls = controlPanel.el.querySelectorAll('.o_add_favorite .form-check label');
             assert.deepEqual(
                 [...labelEls].map(e => e.innerText.trim()),
                 ["Use by default", "Share with all users"]
             );
-
-            controlPanel.destroy();
         });
 
         QUnit.test('favorites use by default and share are exclusive', async function (assert) {
@@ -107,8 +106,6 @@ odoo.define('web.favorite_menu_tests', function (require) {
             await testUtils.dom.click(checkboxes[0]);
             assert.notOk(checkboxes[0].checked, 'End: None of the checkboxes are checked (1)');
             assert.notOk(checkboxes[1].checked, 'End: None of the checkboxes are checked (2)');
-
-            controlPanel.destroy();
         });
 
         QUnit.test('save filter', async function (assert) {
@@ -149,8 +146,6 @@ odoo.define('web.favorite_menu_tests', function (require) {
             await cpHelpers.toggleSaveFavorite(controlPanel);
             await cpHelpers.editFavoriteName(controlPanel, "aaa");
             await cpHelpers.saveFavorite(controlPanel);
-
-            controlPanel.destroy();
         });
 
         QUnit.test('dynamic filters are saved dynamic', async function (assert) {
@@ -200,8 +195,6 @@ odoo.define('web.favorite_menu_tests', function (require) {
             await cpHelpers.saveFavorite(controlPanel);
 
             assert.deepEqual(cpHelpers.getFacetTexts(controlPanel), ["My favorite"]);
-
-            controlPanel.destroy();
         });
 
         QUnit.test('save filters created via autocompletion works', async function (assert) {
@@ -249,8 +242,6 @@ odoo.define('web.favorite_menu_tests', function (require) {
             await cpHelpers.saveFavorite(controlPanel);
 
             assert.deepEqual(cpHelpers.getFacetTexts(controlPanel), ["My favorite"]);
-
-            controlPanel.destroy();
         });
 
         QUnit.test('delete an active favorite remove it both in list of favorite and in search bar', async function (assert) {
@@ -265,6 +256,7 @@ odoo.define('web.favorite_menu_tests', function (require) {
                 sort: "[]",
                 user_id: [2, "Mitchell Admin"],
             }];
+            const { legacyEnv } = await makeLegacyDialogMappingTestEnv();
             const params = {
                 cpModelConfig: { favoriteFilters, searchMenuTypes },
                 cpProps: { searchMenuTypes, action: {} },
@@ -273,6 +265,7 @@ odoo.define('web.favorite_menu_tests', function (require) {
                     assert.deepEqual(domain, []);
                 },
                 env: {
+                    ...legacyEnv,
                     dataManager: {
                         delete_filter: function () {
                             return Promise.resolve();
@@ -300,8 +293,6 @@ odoo.define('web.favorite_menu_tests', function (require) {
             assert.deepEqual(cpHelpers.getFacetTexts(controlPanel), []);
             const itemEls = controlPanel.el.querySelectorAll('.o_favorite_menu .dropdown-item');
             assert.deepEqual([...itemEls].map(e => e.innerText.trim()), ["Save current search"]);
-
-            controlPanel.destroy();
         });
 
         QUnit.test('default favorite is not activated if key search_disable_custom_filters is set to true', async function (assert) {
@@ -331,8 +322,6 @@ odoo.define('web.favorite_menu_tests', function (require) {
             const { domain } = controlPanel.getQuery();
             assert.deepEqual(domain, []);
             assert.deepEqual(cpHelpers.getFacetTexts(controlPanel), []);
-
-            controlPanel.destroy();
         });
 
         QUnit.test('toggle favorite correctly clears filter, groupbys, comparison and field "options"', async function (assert) {
@@ -444,7 +433,6 @@ odoo.define('web.favorite_menu_tests', function (require) {
                 ["My favorite"]
             );
 
-            controlPanel.destroy();
             unpatchDate();
         });
 
@@ -511,8 +499,6 @@ odoo.define('web.favorite_menu_tests', function (require) {
             // third try: should fail
             await cpHelpers.editFavoriteName(controlPanel, "My favorite 2");
             await cpHelpers.saveFavorite(controlPanel);
-
-            controlPanel.destroy();
         });
 
         QUnit.test('save search filter in modal', async function (assert) {
@@ -590,7 +576,7 @@ odoo.define('web.favorite_menu_tests', function (require) {
             const filterNameInput = document.querySelector('.o_add_favorite input[type="text"]');
             assert.isVisible(filterNameInput, "should display an input field for the filter name");
 
-            await testUtils.fields.editInput(filterNameInput, 'Awesome Test Customer Filter');
+            await testUtils.fields.editAndTrigger(filterNameInput, 'Awesome Test Customer Filter', ["input", "change"]);
             await testUtils.dom.click(document.querySelector('.o_add_favorite button.btn-primary'));
 
             form.destroy();

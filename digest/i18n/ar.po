@@ -3,15 +3,17 @@
 # 	* digest
 # 
 # Translators:
-# Martin Trigaux, 2021
+# Martin Trigaux, 2022
+# Mehjabin Farsana, 2022
+# Niyas Raphy, 2022
 # Malaz Abuidris <msea@odoo.com>, 2023
 # 
 msgid ""
 msgstr ""
-"Project-Id-Version: Odoo Server 15.0\n"
+"Project-Id-Version: Odoo Server 16.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2022-01-24 08:19+0000\n"
-"PO-Revision-Date: 2021-09-14 12:21+0000\n"
+"POT-Creation-Date: 2024-02-06 13:31+0000\n"
+"PO-Revision-Date: 2022-09-22 05:45+0000\n"
 "Last-Translator: Malaz Abuidris <msea@odoo.com>, 2023\n"
 "Language-Team: Arabic (https://app.transifex.com/odoo/teams/41243/ar/)\n"
 "MIME-Version: 1.0\n"
@@ -19,6 +21,11 @@ msgstr ""
 "Content-Transfer-Encoding: \n"
 "Language: ar\n"
 "Plural-Forms: nplurals=6; plural=n==0 ? 0 : n==1 ? 1 : n==2 ? 2 : n%100>=3 && n%100<=10 ? 3 : n%100>=11 && n%100<=99 ? 4 : 5;\n"
+
+#. module: digest
+#: model_terms:ir.ui.view,arch_db:digest.digest_digest_view_form
+msgid "<i class=\"fa fa-arrow-right\"/> Check our Documentation"
+msgstr "<i class=\"fa fa-arrow-right\"/> ألقِ نظرة على التوثيقات "
 
 #. module: digest
 #: model_terms:ir.ui.view,arch_db:digest.digest_mail_main
@@ -42,6 +49,7 @@ msgstr "تفعيل"
 
 #. module: digest
 #: model:ir.model.fields.selection,name:digest.selection__digest_digest__state__activated
+#: model_terms:ir.ui.view,arch_db:digest.digest_digest_view_search
 msgid "Activated"
 msgstr "مفعل"
 
@@ -55,7 +63,7 @@ msgstr ""
 #. module: digest
 #: model:ir.model.fields,field_description:digest.field_digest_tip__group_id
 msgid "Authorized Group"
-msgstr "المجموعة المعتمدة"
+msgstr "المجموعة المصرح لها "
 
 #. module: digest
 #: model:ir.model.fields,field_description:digest.field_digest_digest__available_fields
@@ -63,6 +71,7 @@ msgid "Available Fields"
 msgstr "الحقول المتاحة"
 
 #. module: digest
+#. odoo-python
 #: code:addons/digest/models/digest.py:0
 #, python-format
 msgid "Choose the metrics you care about"
@@ -84,24 +93,16 @@ msgid "Configure Digest Emails"
 msgstr "تهيئة رسائل البريد التلخيصية"
 
 #. module: digest
+#. odoo-python
 #: code:addons/digest/models/digest.py:0
 #, python-format
 msgid "Connect"
-msgstr "اتصال "
+msgstr "اتصل"
 
 #. module: digest
 #: model:ir.model.fields,field_description:digest.field_digest_digest__kpi_res_users_connected
 msgid "Connected Users"
 msgstr "المستخدمين المتصلين "
-
-#. module: digest
-#: model_terms:ir.ui.view,arch_db:digest.digest_digest_view_form
-msgid ""
-"Create or edit the mail template: you may get computed KPI's value using "
-"these fields:"
-msgstr ""
-"إنشاء أو تحرير قالب رسالة بريد إلكتروني: قد تحصل على قيمة المؤشرت الرئيسية "
-"للأداء المحسوبة باستخدام هذه الحقول: "
 
 #. module: digest
 #: model:ir.model.fields,field_description:digest.field_digest_digest__create_uid
@@ -121,17 +122,23 @@ msgid "Currency"
 msgstr "العملة"
 
 #. module: digest
+#: model_terms:ir.ui.view,arch_db:digest.digest_digest_view_form
+msgid "Custom"
+msgstr "مُخصص"
+
+#. module: digest
 #: model:ir.model.fields.selection,name:digest.selection__digest_digest__periodicity__daily
 msgid "Daily"
 msgstr "يوميًا"
 
 #. module: digest
 #: model_terms:ir.ui.view,arch_db:digest.digest_digest_view_form
-msgid "Deactivate for everyone"
-msgstr "التعطيل للجميع "
+msgid "Deactivate"
+msgstr "تعطيل"
 
 #. module: digest
 #: model:ir.model.fields.selection,name:digest.selection__digest_digest__state__deactivated
+#: model_terms:ir.ui.view,arch_db:digest.digest_digest_view_search
 msgid "Deactivated"
 msgstr "معطل"
 
@@ -150,16 +157,10 @@ msgstr "البريد الإلكتروني الموجز "
 #: model:ir.actions.act_window,name:digest.digest_digest_action
 #: model:ir.actions.server,name:digest.ir_cron_digest_scheduler_action_ir_actions_server
 #: model:ir.cron,cron_name:digest.ir_cron_digest_scheduler_action
-#: model:ir.cron,name:digest.ir_cron_digest_scheduler_action
 #: model:ir.model.fields,field_description:digest.field_res_config_settings__digest_emails
 #: model:ir.ui.menu,name:digest.digest_menu
 msgid "Digest Emails"
 msgstr "رسائل البريد الإلكتروني الموجزة "
-
-#. module: digest
-#: model_terms:ir.ui.view,arch_db:digest.digest_digest_view_form
-msgid "Digest Name"
-msgstr "اسم الموجز "
 
 #. module: digest
 #: model_terms:ir.ui.view,arch_db:digest.portal_digest_unsubscribed
@@ -174,10 +175,25 @@ msgid "Digest Tips"
 msgstr "نصائح الموجز "
 
 #. module: digest
+#: model_terms:ir.ui.view,arch_db:digest.digest_digest_view_form
+msgid "Digest Title"
+msgstr "عنوان الموجز "
+
+#. module: digest
 #: model:ir.model.fields,field_description:digest.field_digest_digest__display_name
 #: model:ir.model.fields,field_description:digest.field_digest_tip__display_name
 msgid "Display Name"
 msgstr "اسم العرض "
+
+#. module: digest
+#: model_terms:ir.ui.view,arch_db:digest.res_config_settings_view_form
+msgid "Documentation"
+msgstr "التوثيق"
+
+#. module: digest
+#: model_terms:ir.ui.view,arch_db:digest.digest_digest_view_form
+msgid "Email Address"
+msgstr "عنوان البريد الإلكتروني"
 
 #. module: digest
 #: model_terms:ir.ui.view,arch_db:digest.digest_digest_view_form
@@ -200,22 +216,13 @@ msgstr ""
 "الآن. "
 
 #. module: digest
-#: model_terms:ir.ui.view,arch_db:digest.digest_digest_view_form
-msgid "How to customize your digest?"
-msgstr "كيف تقوم بتخصيص رسالتك الموجزة؟ "
-
-#. module: digest
 #: model:ir.model.fields,field_description:digest.field_digest_digest__id
 #: model:ir.model.fields,field_description:digest.field_digest_tip__id
 msgid "ID"
 msgstr "المُعرف"
 
 #. module: digest
-#: model_terms:ir.ui.view,arch_db:digest.digest_digest_view_form
-msgid "In order to build your customized digest, follow these steps:"
-msgstr "اتبع هذه الخطوات لإنشاء رسالتك الموجزة المخصصة: "
-
-#. module: digest
+#. odoo-python
 #: code:addons/digest/controllers/portal.py:0
 #, python-format
 msgid "Invalid periodicity set on digest"
@@ -224,7 +231,7 @@ msgstr "الدورية التي تم تعيينها للموجز غير صالح
 #. module: digest
 #: model:ir.model.fields,field_description:digest.field_digest_digest__is_subscribed
 msgid "Is user subscribed"
-msgstr "هو مستخدم مشترك"
+msgstr "مستخدم مشترك "
 
 #. module: digest
 #: model_terms:ir.ui.view,arch_db:digest.digest_digest_view_form
@@ -258,18 +265,21 @@ msgid "Kpi Res Users Connected Value"
 msgstr "قيمة المؤشرات الرئيسية للأداء لعدد المستخدمين المتصلين "
 
 #. module: digest
+#. odoo-python
 #: code:addons/digest/models/digest.py:0
 #, python-format
 msgid "Last 24 hours"
 msgstr "آخر 24 ساعة "
 
 #. module: digest
+#. odoo-python
 #: code:addons/digest/models/digest.py:0
 #, python-format
 msgid "Last 30 Days"
 msgstr "آخر 30 يوم"
 
 #. module: digest
+#. odoo-python
 #: code:addons/digest/models/digest.py:0
 #, python-format
 msgid "Last 7 Days"
@@ -295,8 +305,8 @@ msgstr "آخر تحديث في"
 
 #. module: digest
 #: model:ir.model.fields,field_description:digest.field_digest_digest__kpi_mail_message_total
-msgid "Messages"
-msgstr "الرسائل"
+msgid "Messages Sent"
+msgstr "الرسائل المرسلة"
 
 #. module: digest
 #: model:ir.model.fields.selection,name:digest.selection__digest_digest__periodicity__monthly
@@ -320,7 +330,7 @@ msgstr ""
 
 #. module: digest
 #: model:ir.model.fields,field_description:digest.field_digest_digest__next_run_date
-msgid "Next Send Date"
+msgid "Next Mailing Date"
 msgstr "تاريخ الإرسال التالي"
 
 #. module: digest
@@ -332,7 +342,7 @@ msgstr "أودو للهاتف المحمول "
 #: model:ir.model.fields,field_description:digest.field_digest_digest__periodicity
 #: model_terms:ir.ui.view,arch_db:digest.digest_digest_view_search
 msgid "Periodicity"
-msgstr "التكرار"
+msgstr "الوتيرة "
 
 #. module: digest
 #: model_terms:ir.ui.view,arch_db:digest.digest_mail_main
@@ -340,6 +350,7 @@ msgid "Powered by"
 msgstr "مشغل بواسطة "
 
 #. module: digest
+#. odoo-python
 #: code:addons/digest/models/digest.py:0
 #, python-format
 msgid "Prefer a broader overview ?"
@@ -364,18 +375,13 @@ msgstr "ربع سنوي"
 #: model:ir.model.fields,field_description:digest.field_digest_tip__user_ids
 #: model_terms:ir.ui.view,arch_db:digest.digest_digest_view_form
 msgid "Recipients"
-msgstr "المستلمين "
+msgstr "المستلمين"
 
 #. module: digest
 #: model_terms:ir.ui.view,arch_db:digest.digest_section_mobile
 msgid "Run your business from anywhere with <b>Odoo Mobile</b>."
 msgstr ""
 "تمكن من إدارة أعمالك من أي مكان باستخدام تطبيق <b>أودو للهاتف المحمول</b>. "
-
-#. module: digest
-#: model_terms:ir.ui.view,arch_db:digest.digest_digest_view_form
-msgid "Select your KPIs in the KPI's tab."
-msgstr "اختر مؤشراتك الرئيسية للأداء في علامة تبويب المؤشر الرئيسي للأداء. "
 
 #. module: digest
 #: model_terms:ir.ui.view,arch_db:digest.digest_digest_view_form
@@ -403,11 +409,7 @@ msgid "Status"
 msgstr "الحالة"
 
 #. module: digest
-#: model_terms:ir.ui.view,arch_db:digest.digest_digest_view_form
-msgid "Subscribe"
-msgstr "اشتراك"
-
-#. module: digest
+#. odoo-python
 #: code:addons/digest/models/digest.py:0
 #, python-format
 msgid "Switch to weekly Digests"
@@ -469,6 +471,11 @@ msgid "Tip: Speed up your workflow with shortcuts"
 msgstr "نصيحة: قم بتسريع سير عملك عن طريق الاختصارات "
 
 #. module: digest
+#: model_terms:ir.ui.view,arch_db:digest.digest_digest_view_tree
+msgid "Title"
+msgstr "العنوان"
+
+#. module: digest
 #: model_terms:digest.tip,tip_description:digest.digest_tip_digest_3
 msgid ""
 "Type \"@\" to notify someone in a message, or \"#\" to link to a channel. "
@@ -478,19 +485,14 @@ msgstr ""
 "@OdooBot لاختبار هذه الخاصية. "
 
 #. module: digest
-#: model_terms:ir.ui.view,arch_db:digest.digest_digest_view_form
-msgid "Unsubscribe me"
-msgstr "إلغاء اشتراكي"
-
-#. module: digest
 #: model:ir.model.fields,help:digest.field_digest_tip__sequence
 msgid "Used to display digest tip in email template base on order"
 msgstr "يستخدم لعرض ملاحظة موجزة في قالب البريد الإلكتروني حسب الطلب "
 
 #. module: digest
 #: model:ir.model,name:digest.model_res_users
-msgid "Users"
-msgstr "المستخدمين "
+msgid "User"
+msgstr "المستخدم"
 
 #. module: digest
 #: model:ir.model.fields,help:digest.field_digest_tip__user_ids
@@ -498,12 +500,19 @@ msgid "Users having already received this tip"
 msgstr "المستخدمين الذين استلموا هذه النصيحة بالفعل "
 
 #. module: digest
+#: model_terms:ir.ui.view,arch_db:digest.digest_digest_view_form
+msgid "Want to add your own KPIs?<br/>"
+msgstr "أتود إضافة المؤشرات الرئيسية للأداء الخاصة بك؟<br/> "
+
+#. module: digest
+#. odoo-python
 #: code:addons/digest/models/digest.py:0
 #, python-format
 msgid "Want to customize this email?"
 msgstr "أترغب في تخصيص رسالة البريد الإلكتروني هذه؟ "
 
 #. module: digest
+#. odoo-python
 #: code:addons/digest/models/digest.py:0
 #, python-format
 msgid ""
@@ -540,13 +549,8 @@ msgstr ""
 
 #. module: digest
 #: model_terms:ir.ui.view,arch_db:digest.portal_digest_unsubscribed
-msgid "You have been successfully unsubscribed from"
-msgstr "ألغيت اشتراكك بنجاح من "
-
-#. module: digest
-#: model_terms:ir.ui.view,arch_db:digest.digest_digest_view_form
-msgid "You may want to add new computed fields with Odoo Studio:"
-msgstr "قد تحتاج إلى إضافة حقول محسوبة جديدة مع استديو أودو: "
+msgid "You have been successfully unsubscribed from:<br/>"
+msgstr "ألغيت اشتراكك بنجاح من: <br/> "
 
 #. module: digest
 #: model:digest.digest,name:digest.digest_digest_default
@@ -559,52 +563,22 @@ msgid "e.g. Your Weekly Digest"
 msgstr "مثال: موجزك الأسبوعي "
 
 #. module: digest
-#: model_terms:ir.ui.view,arch_db:digest.digest_digest_view_form
-msgid ""
-"first create a boolean field called\n"
-"                                                <code>kpi_myfield</code>\n"
-"                                                and display it in the KPI's tab;"
-msgstr ""
-"قم أولًا بإنشاء حقل منطقي يُسمى\n"
-"                                                <code>kpi_myfield</code>\n"
-"                                                واعرضه في علامة تبويب مؤشر الأداء الرئيسي؛ "
-
-#. module: digest
+#. odoo-python
 #: code:addons/digest/models/digest.py:0
 #, python-format
 msgid "monthly"
 msgstr "شهرياً "
 
 #. module: digest
+#. odoo-python
 #: code:addons/digest/models/digest.py:0
 #, python-format
 msgid "quarterly"
 msgstr "ربع سنوي "
 
 #. module: digest
-#: model_terms:ir.ui.view,arch_db:digest.digest_digest_view_form
-msgid ""
-"then create a computed field called\n"
-"                                                <code>kpi_myfield_value</code>\n"
-"                                                that will compute your customized KPI."
-msgstr ""
-"ثم أنشئ حقلاً محسوباً يُسمى\n"
-"                                                <code>kpi_myfield_value</code>\n"
-"                                                لقوم باحتساب مؤشر الأداء الرئيسي المخصص الخاص بك. "
-
-#. module: digest
+#. odoo-python
 #: code:addons/digest/models/digest.py:0
 #, python-format
 msgid "weekly"
 msgstr "أسبوعياً "
-
-#. module: digest
-#: model_terms:ir.ui.view,arch_db:digest.digest_digest_view_form
-msgid ""
-"you must create 2 fields on the\n"
-"                                                <code>digest</code>\n"
-"                                                object:"
-msgstr ""
-"يجب إنشاء حقلين 2 في كائن\n"
-"                                                <code>الموجز</code>:\n"
-"                                                "

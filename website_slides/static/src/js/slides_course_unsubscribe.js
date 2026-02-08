@@ -3,7 +3,6 @@
 import core from 'web.core';
 import Dialog from 'web.Dialog';
 import publicWidget from 'web.public.widget';
-import utils from 'web.utils';
 
 var QWeb = core.qweb;
 var _t = core._t;
@@ -59,7 +58,7 @@ var SlideUnsubscribeDialog = Dialog.extend({
         if (state === '_subscription') {
             btnList.push({text: _t("Save"), classes: "btn-primary", click: this._onClickSubscriptionSubmit.bind(this)});
             btnList.push({text: _t("Discard"), close: true});
-            btnList.push({text: _t("or Leave the course"), classes: "btn-danger ml-auto", click: this._onClickLeaveCourse.bind(this)});
+            btnList.push({text: _t("or Leave the course"), classes: "btn-danger ms-auto", click: this._onClickLeaveCourse.bind(this)});
         } else if (state === '_leave') {
             btnList.push({text: _t("Leave the course"), classes: "btn-danger", click: this._onClickLeaveCourseSubmit.bind(this)});
             btnList.push({text: _t("Discard"), click: this._onClickLeaveCourseCancel.bind(this)});
@@ -132,7 +131,6 @@ var SlideUnsubscribeDialog = Dialog.extend({
 
 publicWidget.registry.websiteSlidesUnsubscribe = publicWidget.Widget.extend({
     selector: '.o_wslides_js_channel_unsubscribe',
-    xmlDependencies: ['/website_slides/static/src/xml/website_slides_unsubscribe.xml'],
     events: {
         'click': '_onUnsubscribeClick',
     },

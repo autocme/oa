@@ -11,7 +11,7 @@ import pytz
 def ctx_tz(record, field):
     res_lang = None
     ctx = record._context
-    tz_name = pytz.timezone(ctx.get('tz') or record.env.user.tz)
+    tz_name = pytz.timezone(ctx.get('tz') or record.env.user.tz or 'UTC')
     timestamp = Datetime.from_string(record[field])
     if ctx.get('lang'):
         res_lang = record.env['res.lang']._lang_get(ctx['lang'])
@@ -60,7 +60,7 @@ class ResCompany(models.Model):
         msg_alert = ''
         report_dict = {}
         if self._is_accounting_unalterable():
-            orders = self.env['pos.order'].search([('state', 'in', ['paid', 'done', 'invoiced']), ('company_id', '=', self.id),
+            orders = self.with_context(prefetch_fields=False).env['pos.order'].search([('state', 'in', ['paid', 'done', 'invoiced']), ('company_id', '=', self.id),
                                     ('l10n_fr_secure_sequence_number', '!=', 0)], order="l10n_fr_secure_sequence_number ASC")
 
             if not orders:
@@ -74,6 +74,7 @@ class ResCompany(models.Model):
                     corrupted_orders.append(order.name)
                     msg_alert = (_('Corrupted data on point of sale order with id %s.', order.id))
                 previous_hash = order.l10n_fr_hash
+            orders.invalidate_recordset()
 
             orders_sorted_date = orders.sorted(lambda o: o.date_order)
             start_order_info = build_order_info(orders_sorted_date[0])

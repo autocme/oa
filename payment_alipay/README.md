@@ -14,6 +14,14 @@ submission provided by the `payment` module.
 - Webhook notifications
 - Customer fees
 
+## Module history
+
+- `16.0`
+  - The module is deprecated and can no longer be installed from the web client. odoo/odoo#99025
+- `15.2`
+  - Webhook notifications that cannot be processed are discarded to prevent automatic disabling of
+    the webhook. odoo/odoo#81607
+
 ## Testing instructions
 
 https://docs.smart2pay.com/s2p_testdata_24/

@@ -332,11 +332,12 @@ export function getPeriodOptions(referenceMoment) {
                 defaultYear = referenceMoment.set(option.setParam).year;
                 break;
             case "month":
-            case "year":
+            case "year": {
                 const date = referenceMoment.plus(option.plusParam);
                 description = date.toFormat(option.format);
                 defaultYear = date.year;
                 break;
+            }
         }
         const setParam = getSetParam(option, referenceMoment);
         options.push({ id, groupNumber, description, defaultYear, setParam });

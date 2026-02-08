@@ -19,6 +19,18 @@
             </field>
         </record>
 
+        <record id="view_onboarding_tax_tree" model="ir.ui.view">
+            <field name="name">account.onboarding.tax.tree</field>
+            <field name="model">account.tax</field>
+            <field name="inherit_id" ref="account.view_tax_tree" />
+            <field name="mode">primary</field>
+            <field name="arch" type="xml">
+                <xpath expr="//tree" position="attributes">
+                    <attribute name="default_order">active desc, type_tax_use desc, amount desc, sequence</attribute>
+                </xpath>
+            </field>
+        </record>
+
         <record id="tax_repartition_line_tree" model="ir.ui.view">
             <field name="name">account.tax.repartition.line.tree</field>
             <field name="model">account.tax.repartition.line</field>
@@ -67,9 +79,9 @@
                                     <div class="col-6">
                                         <strong><span><t t-esc="record.name.value"/></span></strong>
                                     </div>
-                                    <div class="col-6 text-right">
-                                        <span class="badge badge-pill"><t t-esc="record.type_tax_use.value"/></span>
-                                        <span class="badge badge-pill"><t t-esc="record.tax_scope.value"/></span>
+                                    <div class="col-6 text-end">
+                                        <span class="badge rounded-pill"><t t-esc="record.type_tax_use.value"/></span>
+                                        <span class="badge rounded-pill"><t t-esc="record.tax_scope.value"/></span>
                                     </div>
                                 </div>
                             </div>
@@ -84,7 +96,7 @@
             <field name="model">account.tax</field>
             <field name="arch" type="xml">
                 <search string="Search Taxes">
-                    <field name="name" filter_domain="['|', ('name','ilike',self), ('description','ilike',self)]" string="Tax"/>
+                    <field name="name_searchable" string="Name"/>
                     <field name="company_id" groups="base.group_multi_company"/>
                     <filter string="Sale" name="sale" domain="[('type_tax_use','=','sale')]" />
                     <filter string="Purchase" name="purchase" domain="[('type_tax_use','=','purchase')]" />
@@ -119,6 +131,7 @@
             <field name="model">account.tax</field>
             <field name="arch" type="xml">
                 <form string="Account Tax">
+                    <field name="company_id" invisible="1"/>
                     <sheet>
                     <group>
                         <group>
@@ -141,10 +154,10 @@
                             <div attrs="{'invisible': [('amount_type', '=', 'group')]}">
                                 <field name="country_code" invisible="1"/>
                                 <group string="Distribution for Invoices">
-                                    <field name="invoice_repartition_line_ids" nolabel="1" context="{'default_company_id': company_id}"/>
+                                    <field name="invoice_repartition_line_ids" nolabel="1" colspan="2"/>
                                 </group>
-                                <group string="Distribution for Credit Notes">
-                                    <field name="refund_repartition_line_ids" nolabel="1" context="{'default_company_id': company_id}"/>
+                                <group string="Distribution for Refunds">
+                                    <field name="refund_repartition_line_ids" nolabel="1" colspan="2"/>
                                 </group>
                             </div>
                             <field name="children_tax_ids" attrs="{'invisible':['|', ('amount_type','!=','group'), ('type_tax_use','=','none')]}" domain="[('type_tax_use','in',('none',type_tax_use)), ('amount_type','!=','group')]">
@@ -159,7 +172,7 @@
                         <page string="Advanced Options" name="advanced_options">
                             <group>
                                 <group>
-                                    <field name="description" attrs="{'invisible':[('amount_type','=', 'group')]}"/>
+                                    <field name="description"/>
                                     <field name="tax_group_id" attrs="{'invisible': [('amount_type', '=', 'group')], 'required': [('amount_type', '!=', 'group')]}"/>
                                     <field name="analytic" attrs="{'invisible':[('amount_type','=', 'group')]}" groups="analytic.group_analytic_accounting" />
                                     <field name="company_id" options="{'no_create': True}" groups="base.group_multi_company"/>
@@ -169,9 +182,10 @@
                                     <field name="price_include" attrs="{'invisible':[('amount_type','=', 'group')]}" />
                                     <field name="include_base_amount" attrs="{'invisible':[('amount_type','=', 'group')]}" />
                                     <field name="is_base_affected"
-                                           attrs="{'invisible': ['|', ('amount_type','=', 'group'), ('price_include', '=', True)]}"/>
+                                           attrs="{'invisible': ['|', ('amount_type','=', 'group'), ('price_include', '=', True)]}"
+                                           groups="base.group_no_one"/>
                                     <field name="hide_tax_exigibility" invisible="1"/>
-                                    <field name="tax_exigibility" widget="radio" attrs="{'invisible':['|', ('amount_type','=', 'group'), ('hide_tax_exigibility', '=', False)]}" groups="account.group_account_readonly"/>
+                                    <field name="tax_exigibility" widget="radio" attrs="{'invisible':['|', ('amount_type','=', 'group'), ('hide_tax_exigibility', '=', False)]}"/>
                                     <field name="cash_basis_transition_account_id" options="{'no_create': True}" attrs="{'invisible': [('tax_exigibility', '=', 'on_invoice')], 'required': [('tax_exigibility', '=', 'on_payment')]}" groups="account.group_account_readonly"/>
                                 </group>
                             </group>
@@ -218,6 +232,7 @@
                     <field name="sequence" widget="handle"/>
                     <field name="name"/>
                     <field name="country_id"/>
+                    <field name="country_code" invisible="True"/>
 
                     <!--
                         'force_account_company' context key is used so that the RedirectWarning
@@ -237,6 +252,30 @@
 
                     <field name="preceding_subtotal" optional="hide"/>
                 </tree>
+            </field>
+        </record>
+
+        <record id="view_tax_group_form" model="ir.ui.view">
+            <field name="name">account.tax.group.form</field>
+            <field name="model">account.tax.group</field>
+            <field name="arch" type="xml">
+                <form string="Account Tax Group">
+                    <sheet>
+                        <group>
+                            <group>
+                                <field name="name"/>
+                                <field name="country_id"/>
+                                <field name="sequence"/>
+                            </group>
+                            <group>
+                                <field name="property_tax_payable_account_id"/>
+                                <field name="property_tax_receivable_account_id"/>
+                                <field name="property_advance_tax_payment_account_id"/>
+                                <field name="preceding_subtotal"/>
+                            </group>
+                        </group>
+                    </sheet>
+                </form>
             </field>
         </record>
 

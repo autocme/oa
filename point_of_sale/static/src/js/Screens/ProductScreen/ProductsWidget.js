@@ -1,34 +1,33 @@
 odoo.define('point_of_sale.ProductsWidget', function(require) {
     'use strict';
 
-    const { useState } = owl.hooks;
+    const { identifyError } = require('point_of_sale.utils');
+    const { ConnectionLostError, ConnectionAbortedError } = require('@web/core/network/rpc_service');
     const PosComponent = require('point_of_sale.PosComponent');
-    const { useListener } = require('web.custom_hooks');
+    const { useListener } = require("@web/core/utils/hooks");
     const Registries = require('point_of_sale.Registries');
+
+    const { onWillUnmount, useState } = owl;
 
     class ProductsWidget extends PosComponent {
         /**
          * @param {Object} props
          * @param {number?} props.startCategoryId
          */
-        constructor() {
-            super(...arguments);
+        setup() {
+            super.setup();
             useListener('switch-category', this._switchCategory);
             useListener('update-search', this._updateSearch);
-            useListener('try-add-product', this._tryAddProduct);
             useListener('clear-search', this._clearSearch);
-            useListener('update-product-list', this._updateProductList);
-            this.state = useState({ searchWord: '' });
+            useListener('load-products-from-server', this._onPressEnterKey);
+            this.state = useState({ searchWord: '', previousSearchWord: "", currentOffset: 0 });
+            onWillUnmount(this.onWillUnmount);
         }
-        mounted() {
-            this.env.pos.on('change:selectedCategoryId', this.render, this);
-        }
-        willUnmount() {
-            this.env.pos.off('change:selectedCategoryId', null, this);
+        onWillUnmount() {
             this.trigger('toggle-mobile-searchbar', false);
         }
         get selectedCategoryId() {
-            return this.env.pos.get('selectedCategoryId');
+            return this.env.pos.selectedCategoryId;
         }
         get searchWord() {
             return this.state.searchWord.trim();
@@ -62,30 +61,88 @@ odoo.define('point_of_sale.ProductsWidget', function(require) {
         get hasNoCategories() {
             return this.env.pos.db.get_category_childs_ids(0).length === 0;
         }
+        get shouldShowButton() {
+            return this.productsToDisplay.length === 0 && this.searchWord;
+        }
         _switchCategory(event) {
-            this.env.pos.set('selectedCategoryId', event.detail);
+            this.env.pos.setSelectedCategoryId(event.detail);
         }
         _updateSearch(event) {
             this.state.searchWord = event.detail;
-        }
-        _tryAddProduct(event) {
-            const searchResults = this.productsToDisplay;
-            // If the search result contains one item, add the product and clear the search.
-            if (searchResults.length === 1) {
-                const { searchWordInput } = event.detail;
-                this.trigger('click-product', searchResults[0]);
-                // the value of the input element is not linked to the searchWord state,
-                // so we clear both the state and the element's value.
-                searchWordInput.el.value = '';
-                this._clearSearch();
-            }
         }
         _clearSearch() {
             this.state.searchWord = '';
         }
         _updateProductList(event) {
-            this.render();
+            this.render(true);
             this.trigger('switch-category', 0);
+        }
+        async _onPressEnterKey() {
+            if (!this.state.searchWord) return;
+            if (this.state.previousSearchWord != this.state.searchWord) {
+                this.state.currentOffset = 0;
+            }
+            const result = await this.loadProductFromDB();
+            if (result.length > 0) {
+                this.showNotification(
+                    _.str.sprintf(
+                        this.env._t('%s product(s) found for "%s".'),
+                        result.length,
+                        this.state.searchWord
+                    ),
+                    3000
+                );
+            } else {
+                this.showNotification(
+                    _.str.sprintf(
+                        this.env._t('No more product found for "%s".'),
+                        this.state.searchWord
+                    ),
+                    3000
+                );
+            }
+            if (this.state.previousSearchWord == this.state.searchWord) {
+                this.state.currentOffset += result.length;
+            } else {
+                this.state.previousSearchWord = this.state.searchWord;
+                this.state.currentOffset = result.length;
+            }
+        }
+        async loadProductFromDB() {
+            if(!this.state.searchWord)
+                return;
+
+            try {
+                const limit = 30;
+                let ProductIds = await this.rpc({
+                    model: 'product.product',
+                    method: 'search',
+                    args: [['&',['available_in_pos', '=', true], '|','|',
+                     ['name', 'ilike', this.state.searchWord],
+                     ['default_code', 'ilike', this.state.searchWord],
+                     ['barcode', 'ilike', this.state.searchWord]]],
+                    context: this.env.session.user_context,
+                    kwargs: {
+                        offset: this.state.currentOffset,
+                        limit: limit,
+                    }
+                });
+                if(ProductIds.length) {
+                    await this.env.pos._addProducts(ProductIds, false);
+                }
+                this._updateProductList();
+                return ProductIds;
+            } catch (error) {
+                const identifiedError = identifyError(error)
+                if (identifiedError instanceof ConnectionLostError || identifiedError instanceof ConnectionAbortedError) {
+                    return this.showPopup('OfflineErrorPopup', {
+                        title: this.env._t('Network Error'),
+                        body: this.env._t("Product is not loaded. Tried loading the product from the server but there is a network error."),
+                    });
+                } else {
+                    throw error;
+                }
+            }
         }
     }
     ProductsWidget.template = 'ProductsWidget';

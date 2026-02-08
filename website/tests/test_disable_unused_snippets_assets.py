@@ -54,18 +54,20 @@ class TestDisableSnippetsAssets(TransactionCase):
 
         # The vaccuum should not have activated/deactivated any other snippet asset than the original ones
         self.assertEqual(
-          len(unwanted_snippets_assets_changes),
-          0,
-          'Following snippets are not following the snippet versioning system structure, or their previous assets have not been deactivated:\n'
+            len(unwanted_snippets_assets_changes),
+            0,
+            'Following snippets are not following the snippet versioning system structure, or their previous assets have not been deactivated:\n'
             + '\n'.join(unwanted_snippets_assets_changes))
 
     def test_homepage_up_to_date_and_mega_menu_outdated(self):
         self.homepage.write({
             'arch_db': HOMEPAGE_UP_TO_DATE,
         })
+        self.homepage.flush_recordset()
         self.mega_menu.write({
             'mega_menu_content': MEGA_MENU_OUTDATED,
         })
+        self.mega_menu.flush_recordset()
         self.Website._disable_unused_snippets_assets()
 
         s_website_form_000_scss = self._get_snippet_asset('s_website_form', '000', 'scss')

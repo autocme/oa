@@ -1,7 +1,6 @@
 /** @odoo-module */
 
 import { RPCErrorDialog } from "@web/core/errors/error_dialogs";
-import session from "web.session";
 import { registry } from "@web/core/registry";
 import { useService } from "@web/core/utils/hooks";
 
@@ -32,7 +31,7 @@ export class BaseAutomationErrorDialog extends RPCErrorDialog {
         await this.orm.write("base.automation", [this.actionId], {
             active: false,
         });
-        this.close();
+        this.props.close();
     }
     /**
      * This method is called when the user clicks on the 'Edit action' button
@@ -52,10 +51,10 @@ export class BaseAutomationErrorDialog extends RPCErrorDialog {
             view_mode: "form",
             target: "new",
         });
-        this.close();
+        this.props.close();
     }
 }
 
-BaseAutomationErrorDialog.bodyTemplate = "base_automation.ErrorDialogBody";
+BaseAutomationErrorDialog.template = "base_automation.ErrorDialog";
 
 registry.category("error_dialogs").add("base_automation", BaseAutomationErrorDialog);

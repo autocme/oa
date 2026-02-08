@@ -1,13 +1,14 @@
 # -*- coding: utf-8 -*-
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
-from odoo import fields
+from odoo import fields, Command
 from odoo.tests.common import TransactionCase, HttpCase, tagged, Form
 
+import json
 import time
 import base64
 from lxml import etree
 
-@tagged('post_install', '-at_install')
+
 class AccountTestInvoicingCommon(TransactionCase):
 
     @classmethod
@@ -18,7 +19,7 @@ class AccountTestInvoicingCommon(TransactionCase):
     def copy_account(cls, account, default=None):
         suffix_nb = 1
         while True:
-            new_code = '%s (%s)' % (account.code, suffix_nb)
+            new_code = '%s.%s' % (account.code, suffix_nb)
             if account.search_count([('company_id', '=', account.company_id.id), ('code', '=', new_code)]):
                 suffix_nb += 1
             else:
@@ -44,7 +45,11 @@ class AccountTestInvoicingCommon(TransactionCase):
             'name': 'Because I am accountman!',
             'login': 'accountman',
             'password': 'accountman',
-            'groups_id': [(6, 0, cls.env.user.groups_id.ids), (4, cls.env.ref('account.group_account_user').id)],
+            'groups_id': [
+                (6, 0, cls.env.user.groups_id.ids),
+                (4, cls.env.ref('account.group_account_manager').id),
+                (4, cls.env.ref('account.group_account_user').id),
+            ],
         })
         user.partner_id.email = 'accountman@test.com'
 
@@ -57,7 +62,7 @@ class AccountTestInvoicingCommon(TransactionCase):
         cls.company_data = cls.setup_company_data('company_1_data', chart_template=chart_template)
 
         user.write({
-            'company_ids': [(6, 0, (cls.company_data['company'] + cls.company_data_2['company']).ids)],
+            'company_ids': [Command.set((cls.company_data['company'] + cls.company_data_2['company']).ids)],
             'company_id': cls.company_data['company'].id,
         })
 
@@ -79,8 +84,8 @@ class AccountTestInvoicingCommon(TransactionCase):
             'standard_price': 800.0,
             'property_account_income_id': cls.company_data['default_account_revenue'].id,
             'property_account_expense_id': cls.company_data['default_account_expense'].id,
-            'taxes_id': [(6, 0, cls.tax_sale_a.ids)],
-            'supplier_taxes_id': [(6, 0, cls.tax_purchase_a.ids)],
+            'taxes_id': [Command.set(cls.tax_sale_a.ids)],
+            'supplier_taxes_id': [Command.set(cls.tax_purchase_a.ids)],
         })
         cls.product_b = cls.env['product.product'].create({
             'name': 'product_b',
@@ -90,8 +95,8 @@ class AccountTestInvoicingCommon(TransactionCase):
             'standard_price': 160.0,
             'property_account_income_id': cls.copy_account(cls.company_data['default_account_revenue']).id,
             'property_account_expense_id': cls.copy_account(cls.company_data['default_account_expense']).id,
-            'taxes_id': [(6, 0, (cls.tax_sale_a + cls.tax_sale_b).ids)],
-            'supplier_taxes_id': [(6, 0, (cls.tax_purchase_a + cls.tax_purchase_b).ids)],
+            'taxes_id': [Command.set((cls.tax_sale_a + cls.tax_sale_b).ids)],
+            'supplier_taxes_id': [Command.set((cls.tax_purchase_a + cls.tax_purchase_b).ids)],
         })
 
         # ==== Fiscal positions ====
@@ -125,16 +130,13 @@ class AccountTestInvoicingCommon(TransactionCase):
                 (0, 0, {
                     'value': 'percent',
                     'value_amount': 30.0,
-                    'sequence': 400,
                     'days': 0,
-                    'option': 'day_after_invoice_date',
                 }),
                 (0, 0, {
                     'value': 'balance',
                     'value_amount': 0.0,
-                    'sequence': 500,
-                    'days': 31,
-                    'option': 'day_following_month',
+                    'months': 1,
+                    'end_month': True,
                 }),
             ],
         })
@@ -226,22 +228,24 @@ class AccountTestInvoicingCommon(TransactionCase):
             'currency': company.currency_id,
             'default_account_revenue': cls.env['account.account'].search([
                     ('company_id', '=', company.id),
-                    ('user_type_id', '=', cls.env.ref('account.data_account_type_revenue').id)
+                    ('account_type', '=', 'income'),
+                    ('id', '!=', company.account_journal_early_pay_discount_gain_account_id.id)
                 ], limit=1),
             'default_account_expense': cls.env['account.account'].search([
                     ('company_id', '=', company.id),
-                    ('user_type_id', '=', cls.env.ref('account.data_account_type_expenses').id)
+                    ('account_type', '=', 'expense'),
+                    ('id', '!=', company.account_journal_early_pay_discount_loss_account_id.id)
                 ], limit=1),
             'default_account_receivable': search_account(company, chart_template, 'property_account_receivable_id', [
-                ('user_type_id.type', '=', 'receivable')
+                ('account_type', '=', 'asset_receivable')
             ]),
             'default_account_payable': cls.env['account.account'].search([
                     ('company_id', '=', company.id),
-                    ('user_type_id.type', '=', 'payable')
+                    ('account_type', '=', 'liability_payable')
                 ], limit=1),
             'default_account_assets': cls.env['account.account'].search([
                     ('company_id', '=', company.id),
-                    ('user_type_id', '=', cls.env.ref('account.data_account_type_current_assets').id)
+                    ('account_type', '=', 'asset_current')
                 ], limit=1),
             'default_account_tax_sale': company.account_sale_tax_id.mapped('invoice_repartition_line_ids.account_id'),
             'default_account_tax_purchase': company.account_purchase_tax_id.mapped('invoice_repartition_line_ids.account_id'),
@@ -281,21 +285,25 @@ class AccountTestInvoicingCommon(TransactionCase):
             'currency_subunit_label': 'Silver',
             **default_values,
         })
-        rate1 = cls.env['res.currency.rate'].create({
+        rates = cls.env['res.currency.rate'].create([{
+            'name': '1900-01-01',
+            'rate': 1,
+            'currency_id': foreign_currency.id,
+            'company_id': cls.env.company.id,
+        }, {
             'name': '2016-01-01',
             'rate': rate2016,
             'currency_id': foreign_currency.id,
             'company_id': cls.env.company.id,
-        })
-        rate2 = cls.env['res.currency.rate'].create({
+        }, {
             'name': '2017-01-01',
             'rate': rate2017,
             'currency_id': foreign_currency.id,
             'company_id': cls.env.company.id,
-        })
+        }])
         return {
             'currency': foreign_currency,
-            'rates': rate1 + rate2,
+            'rates': rates,
         }
 
     @classmethod
@@ -316,7 +324,6 @@ class AccountTestInvoicingCommon(TransactionCase):
                     'tax_exigibility': 'on_invoice',
                     'invoice_repartition_line_ids': [
                         (0, 0, {
-                            'factor_percent': 100,
                             'repartition_type': 'base',
                         }),
                         (0, 0, {
@@ -332,7 +339,6 @@ class AccountTestInvoicingCommon(TransactionCase):
                     ],
                     'refund_repartition_line_ids': [
                         (0, 0, {
-                            'factor_percent': 100,
                             'repartition_type': 'base',
                         }),
                         (0, 0, {
@@ -356,23 +362,19 @@ class AccountTestInvoicingCommon(TransactionCase):
                     'cash_basis_transition_account_id': cls.safe_copy(company_data['default_account_tax_sale']).id,
                     'invoice_repartition_line_ids': [
                         (0, 0, {
-                            'factor_percent': 100,
                             'repartition_type': 'base',
                         }),
                         (0, 0, {
-                            'factor_percent': 100,
                             'repartition_type': 'tax',
                             'account_id': company_data['default_account_tax_sale'].id,
                         }),
                     ],
                     'refund_repartition_line_ids': [
                         (0, 0, {
-                            'factor_percent': 100,
                             'repartition_type': 'base',
                         }),
 
                         (0, 0, {
-                            'factor_percent': 100,
                             'repartition_type': 'tax',
                             'account_id': company_data['default_account_tax_sale'].id,
                         }),
@@ -383,18 +385,28 @@ class AccountTestInvoicingCommon(TransactionCase):
 
     @classmethod
     def init_invoice(cls, move_type, partner=None, invoice_date=None, post=False, products=None, amounts=None, taxes=None, company=False, currency=None):
+        products = [] if products is None else products
+        amounts = [] if amounts is None else amounts
         move_form = Form(cls.env['account.move'] \
                     .with_company(company or cls.env.company) \
                     .with_context(default_move_type=move_type, account_predictive_bills_disable_prediction=True))
         move_form.invoice_date = invoice_date or fields.Date.from_string('2019-01-01')
-        move_form.date = move_form.invoice_date
+        # According to the state or type of the invoice, the date field is sometimes visible or not
+        # Besides, the date field can be put multiple times in the view
+        # "invisible": "['|', ('state', '!=', 'draft'), ('auto_post', '!=', 'at_date')]"
+        # "invisible": ['|', '|', ('state', '!=', 'draft'), ('auto_post', '=', 'no'), ('auto_post', '=', 'at_date')]
+        # "invisible": "['&', ('move_type', 'in', ['out_invoice', 'out_refund', 'out_receipt']), ('quick_edit_mode', '=', False)]"
+        # :TestAccountMoveOutInvoiceOnchanges, :TestAccountMoveOutRefundOnchanges, .test_00_debit_note_out_invoice, :TestAccountEdi
+        if not move_form._get_modifier('date', 'invisible'):
+            move_form.date = move_form.invoice_date
         move_form.partner_id = partner or cls.partner_a
-        move_form.currency_id = currency if currency else cls.company_data['currency']
+        if currency:
+            move_form.currency_id = currency
 
         for product in (products or []):
             with move_form.invoice_line_ids.new() as line_form:
                 line_form.product_id = product
-                if taxes:
+                if taxes is not None:
                     line_form.tax_ids.clear()
                     for tax in taxes:
                         line_form.tax_ids.add(tax)
@@ -405,7 +417,7 @@ class AccountTestInvoicingCommon(TransactionCase):
                 # We use account_predictive_bills_disable_prediction context key so that
                 # this doesn't trigger prediction in case enterprise (hence account_predictive_bills) is installed
                 line_form.price_unit = amount
-                if taxes:
+                if taxes is not None:
                     line_form.tax_ids.clear()
                     for tax in taxes:
                         line_form.tax_ids.add(tax)
@@ -431,11 +443,11 @@ class AccountTestInvoicingCommon(TransactionCase):
             'partner_id': partner_id or self.partner_agrolait.id,
             'invoice_date': date_invoice,
             'date': date_invoice,
-            'invoice_line_ids': [(0, 0, {
+            'invoice_line_ids': [Command.create({
                 'name': 'product that cost %s' % invoice_amount,
                 'quantity': 1,
                 'price_unit': invoice_amount,
-                'tax_ids': [(6, 0, taxes.ids)],
+                'tax_ids': [Command.set(taxes.ids)],
             })]
         }
 
@@ -469,8 +481,8 @@ class AccountTestInvoicingCommon(TransactionCase):
         if not tag_names:
             tag_names = {}
         tag_commands = {
-            type_rep_line: [(6, 0, cls._create_tax_tag(tag_names[type_rep_line]).ids)]
-            for type_rep_line in tag_names
+            type_rep_line: [(Command.set(cls._create_tax_tag(tags).ids))]
+            for type_rep_line, tags in tag_names.items()
         }
         vals = {
             'name': name,
@@ -478,26 +490,26 @@ class AccountTestInvoicingCommon(TransactionCase):
             'amount_type': amount_type,
             'type_tax_use': type_tax_use,
             'tax_exigibility': tax_exigibility,
-            'children_tax_ids': [(6, 0, children_taxes.ids)] if children_taxes else None,
+            'children_tax_ids': [Command.set(children_taxes.ids)] if children_taxes else None,
             'invoice_repartition_line_ids': [
-                (0, 0, {
+                Command.create({
                     'factor_percent': 100,
                     'repartition_type': 'base',
                     'tag_ids': tag_commands.get('invoice_base'),
                 }),
-                (0, 0, {
+                Command.create({
                     'factor_percent': 100,
                     'repartition_type': 'tax',
                     'tag_ids': tag_commands.get('invoice_tax'),
                 }),
             ] if not children_taxes else None,
             'refund_repartition_line_ids': [
-                (0, 0, {
+                Command.create({
                     'factor_percent': 100,
                     'repartition_type': 'base',
                     'tag_ids': tag_commands.get('refund_base'),
                 }),
-                (0, 0, {
+                Command.create({
                     'factor_percent': 100,
                     'repartition_type': 'tax',
                     'tag_ids': tag_commands.get('refund_tax'),
@@ -509,10 +521,37 @@ class AccountTestInvoicingCommon(TransactionCase):
 
     def assertInvoiceValues(self, move, expected_lines_values, expected_move_values):
         def sort_lines(lines):
-            return lines.sorted(lambda line: (line.exclude_from_invoice_tab, not bool(line.tax_line_id), line.name or '', line.balance))
+            return lines.sorted(lambda line: (line.sequence, not bool(line.tax_line_id), line.name or '', line.balance))
         self.assertRecordValues(sort_lines(move.line_ids.sorted()), expected_lines_values)
-        self.assertRecordValues(sort_lines(move.invoice_line_ids.sorted()), expected_lines_values[:len(move.invoice_line_ids)])
         self.assertRecordValues(move, [expected_move_values])
+
+    def assert_invoice_outstanding_to_reconcile_widget(self, invoice, expected_amounts):
+        """ Check the outstanding widget before the reconciliation.
+        :param invoice:             An invoice.
+        :param expected_amounts:    A map <move_id> -> <amount>
+        """
+        invoice.invalidate_recordset(['invoice_outstanding_credits_debits_widget'])
+        widget_vals = invoice.invoice_outstanding_credits_debits_widget
+
+        if widget_vals:
+            current_amounts = {vals['move_id']: vals['amount'] for vals in widget_vals['content']}
+        else:
+            current_amounts = {}
+        self.assertDictEqual(current_amounts, expected_amounts)
+
+    def assert_invoice_outstanding_reconciled_widget(self, invoice, expected_amounts):
+        """ Check the outstanding widget after the reconciliation.
+        :param invoice:             An invoice.
+        :param expected_amounts:    A map <move_id> -> <amount>
+        """
+        invoice.invalidate_recordset(['invoice_payments_widget'])
+        widget_vals = invoice.invoice_payments_widget
+
+        if widget_vals:
+            current_amounts = {vals['move_id']: vals['amount'] for vals in widget_vals['content']}
+        else:
+            current_amounts = {}
+        self.assertDictEqual(current_amounts, expected_amounts)
 
     ####################################################
     # Xml Comparison
@@ -606,7 +645,6 @@ class AccountTestInvoicingCommon(TransactionCase):
         return etree.fromstring(xml_tree_str)
 
 
-@tagged('post_install', '-at_install')
 class AccountTestInvoicingHttpCommon(AccountTestInvoicingCommon, HttpCase):
     pass
 
@@ -654,7 +692,7 @@ class TestAccountReconciliationCommon(AccountTestInvoicingCommon):
         cls.tax_waiting_account = cls.env['account.account'].create({
             'name': 'TAX_WAIT',
             'code': 'TWAIT',
-            'user_type_id': cls.env.ref('account.data_account_type_current_liabilities').id,
+            'account_type': 'liability_current',
             'reconcile': True,
             'company_id': cls.company.id,
         })
@@ -662,13 +700,13 @@ class TestAccountReconciliationCommon(AccountTestInvoicingCommon):
         cls.tax_final_account = cls.env['account.account'].create({
             'name': 'TAX_TO_DEDUCT',
             'code': 'TDEDUCT',
-            'user_type_id': cls.env.ref('account.data_account_type_current_assets').id,
+            'account_type': 'asset_current',
             'company_id': cls.company.id,
         })
         cls.tax_base_amount_account = cls.env['account.account'].create({
             'name': 'TAX_BASE',
             'code': 'TBASE',
-            'user_type_id': cls.env.ref('account.data_account_type_current_assets').id,
+            'account_type': 'asset_current',
             'company_id': cls.company.id,
         })
         cls.company.account_cash_basis_base_account_id = cls.tax_base_amount_account.id
@@ -694,24 +732,20 @@ class TestAccountReconciliationCommon(AccountTestInvoicingCommon):
             'cash_basis_transition_account_id': cls.tax_waiting_account.id,
             'invoice_repartition_line_ids': [
                     (0,0, {
-                        'factor_percent': 100,
                         'repartition_type': 'base',
                     }),
 
                     (0,0, {
-                        'factor_percent': 100,
                         'repartition_type': 'tax',
                         'account_id': cls.tax_final_account.id,
                     }),
                 ],
             'refund_repartition_line_ids': [
                     (0,0, {
-                        'factor_percent': 100,
                         'repartition_type': 'base',
                     }),
 
                     (0,0, {
-                        'factor_percent': 100,
                         'repartition_type': 'tax',
                         'account_id': cls.tax_final_account.id,
                     }),
@@ -742,38 +776,3 @@ class TestAccountReconciliationCommon(AccountTestInvoicingCommon):
             payment_term_id=payment_term_id,
             auto_validate=True
         )
-
-    def make_payment(self, invoice_record, bank_journal, amount=0.0, amount_currency=0.0, currency_id=None, reconcile_param=None):
-        reconcile_param = reconcile_param or []
-        bank_stmt = self.env['account.bank.statement'].create({
-            'journal_id': bank_journal.id,
-            'date': time.strftime('%Y') + '-07-15',
-            'name': 'payment' + invoice_record.name,
-            'line_ids': [(0, 0, {
-                'payment_ref': 'payment',
-                'partner_id': self.partner_agrolait.id,
-                'amount': amount,
-                'amount_currency': amount_currency,
-                'foreign_currency_id': currency_id,
-            })],
-        })
-        bank_stmt.button_post()
-
-        bank_stmt.line_ids[0].reconcile(reconcile_param)
-        return bank_stmt
-
-    def make_customer_and_supplier_flows(self, invoice_currency_id, invoice_amount, bank_journal, amount, amount_currency, transaction_currency_id):
-        #we create an invoice in given invoice_currency
-        invoice_record = self.create_invoice(move_type='out_invoice', invoice_amount=invoice_amount, currency_id=invoice_currency_id)
-        #we encode a payment on it, on the given bank_journal with amount, amount_currency and transaction_currency given
-        line = invoice_record.line_ids.filtered(lambda line: line.account_id.user_type_id.type in ('receivable', 'payable'))
-        bank_stmt = self.make_payment(invoice_record, bank_journal, amount=amount, amount_currency=amount_currency, currency_id=transaction_currency_id, reconcile_param=[{'id': line.id}])
-        customer_move_lines = bank_stmt.line_ids.line_ids
-
-        #we create a supplier bill in given invoice_currency
-        invoice_record = self.create_invoice(move_type='in_invoice', invoice_amount=invoice_amount, currency_id=invoice_currency_id)
-        #we encode a payment on it, on the given bank_journal with amount, amount_currency and transaction_currency given
-        line = invoice_record.line_ids.filtered(lambda line: line.account_id.user_type_id.type in ('receivable', 'payable'))
-        bank_stmt = self.make_payment(invoice_record, bank_journal, amount=-amount, amount_currency=-amount_currency, currency_id=transaction_currency_id, reconcile_param=[{'id': line.id}])
-        supplier_move_lines = bank_stmt.line_ids.line_ids
-        return customer_move_lines, supplier_move_lines

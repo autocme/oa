@@ -1,9 +1,8 @@
 # -*- coding: utf-8 -*-
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
 
-from odoo import api, fields, models, _
+from odoo import api, fields, models
 from odoo.osv import expression
-from odoo.exceptions import UserError
 
 
 class AccountPaymentMethod(models.Model):
@@ -26,7 +25,7 @@ class AccountPaymentMethod(models.Model):
             information = methods_info.get(method.code, {})
 
             if information.get('mode') == 'multi':
-                method_domain = method._get_payment_method_domain()
+                method_domain = method._get_payment_method_domain(method.code)
 
                 journals = self.env['account.journal'].search(method_domain)
 
@@ -37,12 +36,14 @@ class AccountPaymentMethod(models.Model):
                 } for journal in journals])
         return payment_methods
 
-    def _get_payment_method_domain(self):
+    @api.model
+    def _get_payment_method_domain(self, code):
         """
         :return: The domain specyfying which journal can accomodate this payment method.
         """
-        self.ensure_one()
-        information = self._get_payment_method_information().get(self.code)
+        if not code:
+            return []
+        information = self._get_payment_method_information().get(code)
 
         currency_ids = information.get('currency_ids')
         country_id = information.get('country_id')
@@ -65,7 +66,7 @@ class AccountPaymentMethod(models.Model):
         """
         Contains details about how to initialize a payment method with the code x.
         The contained info are:
-            mode: Either unique if we only want one of them at a single time (payment acquirers for example)
+            mode: Either unique if we only want one of them at a single time (payment providers for example)
                    or multi if we want the method on each journal fitting the domain.
             domain: The domain defining the eligible journals.
             currency_id: The id of the currency necessary on the journal (or company) for it to be eligible.
@@ -98,18 +99,18 @@ class AccountPaymentMethodLine(models.Model):
         string='Payment Method',
         comodel_name='account.payment.method',
         domain="[('payment_type', '=?', payment_type), ('id', 'in', available_payment_method_ids)]",
-        required=True
+        required=True,
+        ondelete='cascade'
     )
     payment_account_id = fields.Many2one(
         comodel_name='account.account',
         check_company=True,
         copy=False,
         ondelete='restrict',
-        domain=lambda self: "[('deprecated', '=', False), "
-                            "('company_id', '=', company_id), "
-                            "('user_type_id.type', 'not in', ('receivable', 'payable')), "
-                            "'|', ('user_type_id', '=', %s), ('id', '=', parent.default_account_id)]"
-                            % self.env.ref('account.data_account_type_current_assets').id
+        domain="[('deprecated', '=', False), "
+                "('company_id', '=', company_id), "
+                "('account_type', 'not in', ('asset_receivable', 'liability_payable')), "
+                "'|', ('account_type', 'in', ('asset_current', 'liability_current')), ('id', '=', parent.default_account_id)]"
     )
     journal_id = fields.Many2one(comodel_name='account.journal', ondelete="cascade")
 
@@ -136,7 +137,7 @@ class AccountPaymentMethodLine(models.Model):
         """
         unused_payment_method_lines = self
         for line in self:
-            payment_count = self.env['account.payment'].search_count([('payment_method_line_id', '=', line.id)])
+            payment_count = self.env['account.payment'].sudo().search_count([('payment_method_line_id', '=', line.id)])
             if payment_count > 0:
                 unused_payment_method_lines -= line
 
@@ -151,7 +152,7 @@ class AccountPaymentMethodLine(models.Model):
         :param account_id: The id of an account.account.
         """
         account = self.env['account.account'].browse(account_id)
-        if not account.reconcile and account.internal_type != 'liquidity' and account.internal_group != 'off_balance':
+        if not account.reconcile and account.account_type not in ('asset_cash', 'liability_credit_card') and account.internal_group != 'off_balance':
             account.reconcile = True
 
     @api.model_create_multi

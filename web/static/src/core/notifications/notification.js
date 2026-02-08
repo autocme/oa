@@ -1,37 +1,8 @@
 /** @odoo-module **/
 
-const { Component, hooks } = owl;
+import { Component } from "@odoo/owl";
 
-export class Notification extends Component {
-    setup() {
-        if (this.props.onClose) {
-            hooks.onWillUnmount(() => this.props.onClose());
-        }
-    }
-
-    shouldUpdate() {
-        return false;
-    }
-
-    get className() {
-        let className;
-        switch (this.props.type) {
-            case "danger":
-                className = "bg-danger";
-                break;
-            case "warning":
-                className = "bg-warning";
-                break;
-            case "success":
-                className = "bg-success";
-                break;
-            case "info":
-                className = "bg-info";
-                break;
-        }
-        return className ? `${className} ${this.props.className}` : this.props.className;
-    }
-}
+export class Notification extends Component {}
 
 Notification.template = "web.NotificationWowl";
 Notification.props = {
@@ -40,15 +11,14 @@ Notification.props = {
             return (
                 typeof m === "string" || (typeof m === "object" && typeof m.toString === "function")
             );
-        }
+        },
     },
     title: { type: [String, Boolean, { toString: Function }], optional: true },
     type: {
         type: String,
         optional: true,
-        validate: (t) => ["warning", "danger", "success", "info"].includes(t)
+        validate: (t) => ["warning", "danger", "success", "info"].includes(t),
     },
-    messageIsHtml: { type: Boolean, optional: true },
     className: { type: String, optional: true },
     buttons: {
         type: Array,
@@ -58,15 +28,15 @@ Notification.props = {
                 name: { type: String },
                 icon: { type: String, optional: true },
                 primary: { type: Boolean, optional: true },
-                onClick: Function
-            }
-        }
+                onClick: Function,
+            },
+        },
+        optional: true,
     },
-    onClose: { type: Function, optional: true }
+    close: { type: Function },
 };
 Notification.defaultProps = {
     buttons: [],
     className: "",
-    messageIsHtml: false,
-    type: "warning"
+    type: "warning",
 };

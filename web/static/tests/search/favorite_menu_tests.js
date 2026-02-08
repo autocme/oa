@@ -1,6 +1,11 @@
 /** @odoo-module **/
 
-import { click, patchDate } from "@web/../tests/helpers/utils";
+import { click, getFixture, patchDate } from "@web/../tests/helpers/utils";
+import { createWebClient, doAction } from "@web/../tests/webclient/helpers";
+import { registry } from "@web/core/registry";
+import { ControlPanel } from "@web/search/control_panel/control_panel";
+import { FavoriteMenu } from "@web/search/favorite_menu/favorite_menu";
+import { SearchBar } from "@web/search/search_bar/search_bar";
 import {
     deleteFavorite,
     getFacetTexts,
@@ -12,14 +17,8 @@ import {
     toggleFavoriteMenu,
     toggleMenuItem,
 } from "@web/../tests/search/helpers";
-import { createWebClient, doAction } from "@web/../tests/webclient/helpers";
-import { dialogService } from "@web/core/dialog/dialog_service";
-import { registry } from "@web/core/registry";
-import { ControlPanel } from "@web/search/control_panel/control_panel";
-import { FavoriteMenu } from "@web/search/favorite_menu/favorite_menu";
-import { SearchBar } from "@web/search/search_bar/search_bar";
 
-const serviceRegistry = registry.category("services");
+import { Component, onWillUpdateProps, xml } from "@odoo/owl";
 const viewRegistry = registry.category("views");
 const favoriteMenuRegistry = registry.category("favoriteMenu");
 
@@ -28,8 +27,10 @@ function getDomain(comp) {
 }
 
 let serverData;
+let target;
 QUnit.module("Search", (hooks) => {
     hooks.beforeEach(async () => {
+        target = getFixture();
         serverData = {
             models: {
                 foo: {
@@ -49,7 +50,6 @@ QUnit.module("Search", (hooks) => {
         };
         setupControlPanelFavoriteMenuRegistry();
         setupControlPanelServiceRegistry();
-        serviceRegistry.add("dialog", dialogService);
     });
 
     QUnit.module("FavoriteMenu");
@@ -61,91 +61,93 @@ QUnit.module("Search", (hooks) => {
 
             favoriteMenuRegistry.remove("custom-favorite-item");
 
-            const controlPanel = await makeWithSearch({
+            await makeWithSearch({
                 serverData,
                 resModel: "foo",
                 Component: ControlPanel,
                 searchMenuTypes: ["favorite"],
                 searchViewId: false,
                 config: {
-                    displayName: "Action Name",
+                    getDisplayName: () => "Action Name",
                 },
             });
 
-            assert.containsOnce(controlPanel, "div.o_favorite_menu > button i.fa.fa-star");
+            assert.containsOnce(target, "div.o_favorite_menu > button i.fa.fa-star");
             assert.strictEqual(
-                controlPanel.el
+                target
                     .querySelector("div.o_favorite_menu > button span")
                     .innerText.trim()
                     .toUpperCase(),
                 "FAVORITES"
             );
 
-            await toggleFavoriteMenu(controlPanel);
+            await toggleFavoriteMenu(target);
             assert.containsOnce(
-                controlPanel,
+                target,
                 "div.o_favorite_menu > .dropdown-menu",
                 "the menu should be opened"
             );
-            assert.containsNone(controlPanel, ".dropdown-menu *", "the menu should be empty");
+            assert.containsNone(target, ".dropdown-menu *", "the menu should be empty");
         }
     );
 
     QUnit.test("simple rendering with no favorite", async function (assert) {
         assert.expect(5);
 
-        const controlPanel = await makeWithSearch({
+        await makeWithSearch({
             serverData,
             resModel: "foo",
             Component: ControlPanel,
             searchMenuTypes: ["favorite"],
             searchViewId: false,
             config: {
-                displayName: "Action Name",
+                getDisplayName: () => "Action Name",
             },
         });
 
-        assert.containsOnce(controlPanel, "div.o_favorite_menu > button i.fa.fa-star");
+        assert.containsOnce(target, "div.o_favorite_menu > button i.fa.fa-star");
         assert.strictEqual(
-            controlPanel.el
+            target
                 .querySelector("div.o_favorite_menu > button span")
                 .innerText.trim()
                 .toUpperCase(),
             "FAVORITES"
         );
 
-        await toggleFavoriteMenu(controlPanel);
+        await toggleFavoriteMenu(target);
         assert.containsOnce(
-            controlPanel,
+            target,
             "div.o_favorite_menu > .dropdown-menu",
             "the menu should be opened"
         );
-        assert.containsNone(controlPanel, ".dropdown-menu .dropdown-divider");
-        assert.containsOnce(controlPanel, ".dropdown-menu .o_add_favorite");
+        assert.containsNone(target, ".dropdown-menu .dropdown-divider");
+        assert.containsOnce(target, ".dropdown-menu .o_add_favorite");
     });
 
     QUnit.test("delete an active favorite", async function (assert) {
         assert.expect(14);
 
-        class ToyView extends owl.Component {
+        class ToyController extends Component {
             setup() {
                 assert.deepEqual(this.props.domain, [["foo", "=", "qsdf"]]);
-            }
-            willUpdateProps(nextProps) {
-                assert.deepEqual(nextProps.domain, []);
+                onWillUpdateProps((nextProps) => {
+                    assert.deepEqual(nextProps.domain, []);
+                });
             }
         }
-        ToyView.components = { FavoriteMenu, SearchBar };
-        ToyView.template = owl.tags.xml`
+        ToyController.components = { FavoriteMenu, SearchBar };
+        ToyController.template = xml`
                 <div>
                     <SearchBar/>
                     <FavoriteMenu/>
                 </div>
             `;
-        ToyView.type = "toy";
-        ToyView.display_name = "Toy";
 
-        viewRegistry.add("toy", ToyView);
+        viewRegistry.add("toy", {
+            type: "toy",
+            display_name: "Toy",
+            Controller: ToyController,
+        });
 
         serverData.views["foo,false,toy"] = `<toy />`;
         serverData.models.foo.filters = [
@@ -177,24 +179,24 @@ QUnit.module("Search", (hooks) => {
             views: [[false, "toy"]],
         });
 
-        await toggleFavoriteMenu(webClient);
-        const favorite = webClient.el.querySelector(".o_favorite_menu .dropdown-item");
+        await toggleFavoriteMenu(target);
+        const favorite = target.querySelector(".o_favorite_menu .dropdown-item");
         assert.equal(favorite.innerText, "My favorite");
         assert.deepEqual(favorite.getAttribute("role"), "menuitemcheckbox");
         assert.deepEqual(favorite.ariaChecked, "true");
 
-        assert.deepEqual(getFacetTexts(webClient), ["My favorite"]);
-        assert.hasClass(webClient.el.querySelector(".o_favorite_menu .o_menu_item"), "selected");
+        assert.deepEqual(getFacetTexts(target), ["My favorite"]);
+        assert.hasClass(target.querySelector(".o_favorite_menu .o_menu_item"), "selected");
 
-        await deleteFavorite(webClient, 0);
+        await deleteFavorite(target, 0);
 
         assert.verifySteps([]);
 
         await click(document.querySelector("div.o_dialog footer button"));
 
-        assert.deepEqual(getFacetTexts(webClient), []);
-        assert.containsNone(webClient, ".o_favorite_menu .o_menu_item");
-        assert.containsOnce(webClient, ".o_favorite_menu .o_add_favorite");
+        assert.deepEqual(getFacetTexts(target), []);
+        assert.containsNone(target, ".o_favorite_menu .o_menu_item");
+        assert.containsOnce(target, ".o_favorite_menu .o_add_favorite");
         assert.verifySteps(["deleteFavorite", "CLEAR-CACHES"]);
     });
 
@@ -223,11 +225,11 @@ QUnit.module("Search", (hooks) => {
                 activateFavorite: false,
             });
 
-            await toggleFavoriteMenu(controlPanel);
+            await toggleFavoriteMenu(target);
 
-            assert.notOk(isItemSelected(controlPanel, "My favorite"));
+            assert.notOk(isItemSelected(target, "My favorite"));
             assert.deepEqual(getDomain(controlPanel), []);
-            assert.deepEqual(getFacetTexts(controlPanel), []);
+            assert.deepEqual(getFacetTexts(target), []);
         }
     );
 
@@ -288,15 +290,15 @@ QUnit.module("Search", (hooks) => {
             assert.deepEqual(groupBy, ["date_field:month"]);
             assert.deepEqual(comparison, null);
 
-            assert.deepEqual(getFacetTexts(controlPanel), [
+            assert.deepEqual(getFacetTexts(target), [
                 "Foo\na",
                 "Date Field Filter: 2019",
                 "Date Field Groupby: Month",
             ]);
 
             // activate a comparison
-            await toggleComparisonMenu(controlPanel);
-            await toggleMenuItem(controlPanel, "Date Field Filter: Previous Period");
+            await toggleComparisonMenu(target);
+            await toggleMenuItem(target, "Date Field Filter: Previous Period");
 
             domain = controlPanel.env.searchModel.domain;
             groupBy = controlPanel.env.searchModel.groupBy;
@@ -323,12 +325,12 @@ QUnit.module("Search", (hooks) => {
             });
 
             // activate the unique existing favorite
-            await toggleFavoriteMenu(controlPanel);
-            const favorite = controlPanel.el.querySelector(".o_favorite_menu .dropdown-item");
+            await toggleFavoriteMenu(target);
+            const favorite = target.querySelector(".o_favorite_menu .dropdown-item");
             assert.equal(favorite.innerText, "My favorite");
             assert.deepEqual(favorite.getAttribute("role"), "menuitemcheckbox");
             assert.deepEqual(favorite.ariaChecked, "false");
-            await toggleMenuItem(controlPanel, 0);
+            await toggleMenuItem(target, 0);
             assert.deepEqual(favorite.ariaChecked, "true");
 
             domain = controlPanel.env.searchModel.domain;
@@ -341,7 +343,7 @@ QUnit.module("Search", (hooks) => {
                 "favorite comparison content": "bla bla...",
             });
 
-            assert.deepEqual(getFacetTexts(controlPanel), ["My favorite"]);
+            assert.deepEqual(getFacetTexts(target), ["My favorite"]);
         }
     );
 

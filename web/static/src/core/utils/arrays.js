@@ -53,6 +53,17 @@ function _getExtractorFrom(criterion) {
 }
 
 /**
+ * Returns the array of elements contained in both arrays.
+ *
+ * @param {any[]} array1
+ * @param {any[]} array2
+ * @returns {any[]}
+ */
+export function intersection(array1, array2) {
+    return array1.filter((v) => array2.includes(v));
+}
+
+/**
  * Returns an object holding different groups defined by a given criterion
  * or a default one. Each group is a subset of the original given list.
  * The given criterion can either be:
@@ -141,6 +152,24 @@ export function cartesian() {
 }
 
 /**
+ * Shallow compares two arrays.
+ * @param {any[]} arrayA
+ * @param {any[]} arrayB
+ * @returns {boolean} true iff arrayA and arrayB are shallow equal
+ */
+export function shallowEqual(arrayA, arrayB) {
+    if (arrayA.length !== arrayB.length) {
+        return false;
+    }
+    for (let i = 0; i < arrayA.length; i++) {
+        if (arrayA[i] !== arrayB[i]) {
+            return false;
+        }
+    }
+    return true;
+}
+
+/**
  * Returns all initial sections of a given array, e.g. for [1, 2] the array
  * [[], [1], [1, 2]] is returned.
  *
@@ -153,4 +182,16 @@ export function sections(array) {
         sections.push(array.slice(0, i));
     }
     return sections;
+}
+
+/**
+ * Returns an array containing all elements of the given
+ * array but without duplicates.
+ *
+ * @template T
+ * @param {T[]} array
+ * @returns {T[]}
+ */
+export function unique(array) {
+    return Array.from(new Set(array));
 }

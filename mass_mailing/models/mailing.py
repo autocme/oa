@@ -1,19 +1,25 @@
 # -*- coding: utf-8 -*-
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
 
+import base64
 import hashlib
 import hmac
+import io
 import logging
 import lxml
 import random
 import re
+import requests
 import threading
 import werkzeug.urls
 from ast import literal_eval
 from dateutil.relativedelta import relativedelta
+from markupsafe import Markup
 from werkzeug.urls import url_join
+from PIL import Image, UnidentifiedImageError
 
 from odoo import api, fields, models, tools, _
+from odoo.addons.base_import.models.base_import import ImportValidationError
 from odoo.exceptions import UserError, ValidationError
 from odoo.osv import expression
 
@@ -22,15 +28,22 @@ _logger = logging.getLogger(__name__)
 # Syntax of the data URL Scheme: https://tools.ietf.org/html/rfc2397#section-3
 # Used to find inline images
 image_re = re.compile(r"data:(image/[A-Za-z]+);base64,(.*)")
+DEFAULT_IMAGE_TIMEOUT = 3
+DEFAULT_IMAGE_MAXBYTES = 10 * 1024 * 1024  # 10MB
+DEFAULT_IMAGE_CHUNK_SIZE = 32768
 
+mso_re = re.compile(r"\[if mso\]>[\s\S]*<!\[endif\]")
 
 class MassMailing(models.Model):
     """ Mass Mailing models the sending of emails to a list of recipients for a mass mailing campaign."""
     _name = 'mailing.mailing'
     _description = 'Mass Mailing'
-    _inherit = ['mail.thread', 'mail.activity.mixin', 'mail.render.mixin']
-    _order = 'sent_date DESC'
-    _inherits = {'utm.source': 'source_id'}
+    _inherit = ['mail.thread',
+                'mail.activity.mixin',
+                'mail.render.mixin',
+                'utm.source.mixin'
+    ]
+    _order = 'calendar_date DESC'
     _rec_name = "subject"
 
     @api.model
@@ -64,66 +77,93 @@ class MassMailing(models.Model):
             return False
 
     active = fields.Boolean(default=True, tracking=True)
-    subject = fields.Char('Subject', help='Subject of your Mailing', required=True, translate=False)
+    subject = fields.Char(
+        'Subject', required=True, translate=False)
     preview = fields.Char(
         'Preview', translate=False,
         help='Catchy preview sentence that encourages recipients to open this email.\n'
              'In most inboxes, this is displayed next to the subject.\n'
              'Keep it empty if you prefer the first characters of your email content to appear instead.')
-    email_from = fields.Char(string='Send From', required=True, store=True, readonly=False, compute='_compute_email_from',
-                             default=lambda self: self.env.user.email_formatted)
+    email_from = fields.Char(
+        string='Send From',
+        compute='_compute_email_from', readonly=False, required=True, store=True,
+        precompute=True)
+    favorite = fields.Boolean('Favorite', copy=False, tracking=True)
+    favorite_date = fields.Datetime(
+        'Favorite Date',
+        compute='_compute_favorite_date', store=True,
+        copy=False,
+        help='When this mailing was added in the favorites')
     sent_date = fields.Datetime(string='Sent Date', copy=False)
-
-    schedule_type = fields.Selection([('now', 'Send now'), ('scheduled', 'Send on')], string='Schedule',
-                                     default='now', required=True, readonly=True,
-                                     states={'draft': [('readonly', False)], 'in_queue': [('readonly', False)]})
-    schedule_date = fields.Datetime(string='Scheduled for', tracking=True, readonly=True,
-                                    states={'draft': [('readonly', False)], 'in_queue': [('readonly', False)]},
-                                    compute='_compute_schedule_date', store=True, copy=True)
-    calendar_date = fields.Datetime('Calendar Date', compute='_compute_calendar_date', store=True, copy=False,
+    schedule_type = fields.Selection(
+        [('now', 'Send now'), ('scheduled', 'Send on')],
+        string='Schedule', default='now',
+        readonly=True, required=True,
+        states={'draft': [('readonly', False)], 'in_queue': [('readonly', False)]})
+    schedule_date = fields.Datetime(
+        string='Scheduled for',
+        compute='_compute_schedule_date', readonly=True, store=True,
+        copy=True, tracking=True,
+        states={'draft': [('readonly', False)], 'in_queue': [('readonly', False)]})
+    calendar_date = fields.Datetime(
+        'Calendar Date',
+        compute='_compute_calendar_date', store=True,
+        copy=False,
         help="Date at which the mailing was or will be sent.")
     # don't translate 'body_arch', the translations are only on 'body_html'
     body_arch = fields.Html(string='Body', translate=False, sanitize=False)
     body_html = fields.Html(string='Body converted to be sent by mail', render_engine='qweb', sanitize=False)
-    is_body_empty = fields.Boolean(compute="_compute_is_body_empty",
-                                   help='Technical field used to determine if the mail body is empty')
-    attachment_ids = fields.Many2many('ir.attachment', 'mass_mailing_ir_attachments_rel',
+
+   # used to determine if the mail body is empty
+    is_body_empty = fields.Boolean(compute="_compute_is_body_empty")
+    attachment_ids = fields.Many2many(
+        'ir.attachment', 'mass_mailing_ir_attachments_rel',
         'mass_mailing_id', 'attachment_id', string='Attachments')
     keep_archives = fields.Boolean(string='Keep Archives')
-    campaign_id = fields.Many2one('utm.campaign', string='UTM Campaign', index=True)
-    source_id = fields.Many2one('utm.source', string='Source', required=True, ondelete='cascade',
-                                help="This is the link source, e.g. Search Engine, another domain, or name of email list")
+    campaign_id = fields.Many2one('utm.campaign', string='UTM Campaign', index=True, ondelete='set null')
     medium_id = fields.Many2one(
         'utm.medium', string='Medium',
         compute='_compute_medium_id', readonly=False, store=True,
+        ondelete='restrict',
         help="UTM Medium: delivery method (email, sms, ...)")
-    state = fields.Selection([('draft', 'Draft'), ('in_queue', 'In Queue'), ('sending', 'Sending'), ('done', 'Sent')],
-        string='Status', required=True, tracking=True, copy=False, default='draft', group_expand='_group_expand_states')
+    state = fields.Selection(
+        [('draft', 'Draft'), ('in_queue', 'In Queue'),
+         ('sending', 'Sending'), ('done', 'Sent')],
+        string='Status',
+        default='draft', required=True,
+        copy=False, tracking=True,
+        group_expand='_group_expand_states')
     color = fields.Integer(string='Color Index')
-    user_id = fields.Many2one('res.users', string='Responsible', tracking=True,  default=lambda self: self.env.user)
+    user_id = fields.Many2one(
+        'res.users', string='Responsible',
+        tracking=True,
+        default=lambda self: self.env.user)
     # mailing options
     mailing_type = fields.Selection([('mail', 'Email')], string="Mailing Type", default="mail", required=True)
     mailing_type_description = fields.Char('Mailing Type Description', compute="_compute_mailing_type_description")
-    reply_to_mode = fields.Selection([
-        ('update', 'Recipient Followers'), ('new', 'Specified Email Address')],
-        string='Reply-To Mode', compute='_compute_reply_to_mode',
-        readonly=False, store=True,
+    reply_to_mode = fields.Selection(
+        [('update', 'Recipient Followers'), ('new', 'Specified Email Address')],
+        string='Reply-To Mode',
+        compute='_compute_reply_to_mode', readonly=False, store=True,
         help='Thread: replies go to target document. Email: replies are routed to a given email.')
     reply_to = fields.Char(
-        string='Reply To', compute='_compute_reply_to', readonly=False, store=True,
+        string='Reply To',
+        compute='_compute_reply_to', readonly=False, store=True,
         help='Preferred Reply-To Address')
     # recipients
-    mailing_model_real = fields.Char(string='Recipients Real Model', compute='_compute_mailing_model_real')
+    mailing_model_real = fields.Char(
+        string='Recipients Real Model', compute='_compute_mailing_model_real')
     mailing_model_id = fields.Many2one(
-        'ir.model', string='Recipients Model', ondelete='cascade', required=True,
+        'ir.model', string='Recipients Model',
+        ondelete='cascade', required=True,
         domain=[('is_mailing_enabled', '=', True)],
         default=lambda self: self.env.ref('mass_mailing.model_mailing_list').id)
     mailing_model_name = fields.Char(
-        string='Recipients Model Name', related='mailing_model_id.model',
-        readonly=True, related_sudo=True)
+        string='Recipients Model Name',
+        related='mailing_model_id.model', readonly=True, related_sudo=True)
     mailing_domain = fields.Char(
-        string='Domain', compute='_compute_mailing_domain',
-        readonly=False, store=True)
+        string='Domain',
+        compute='_compute_mailing_domain', readonly=False, store=True)
     mail_server_available = fields.Boolean(
         compute='_compute_mail_server_available',
         help="Technical field used to know if the user has activated the outgoing mail server option in the settings")
@@ -131,21 +171,33 @@ class MassMailing(models.Model):
         default=_get_default_mail_server_id,
         help="Use a specific mail server in priority. Otherwise Odoo relies on the first outgoing mail server available (based on their sequencing) as it does for normal mails.")
     contact_list_ids = fields.Many2many('mailing.list', 'mail_mass_mailing_list_rel', string='Mailing Lists')
+    # Mailing Filter
+    mailing_filter_id = fields.Many2one(
+        'mailing.filter', string='Favorite Filter',
+        compute='_compute_mailing_filter_id', readonly=False, store=True,
+        domain="[('mailing_model_name', '=', mailing_model_name)]")
+    mailing_filter_domain = fields.Char('Favorite filter domain', related='mailing_filter_id.mailing_domain')
+    mailing_filter_count = fields.Integer('# Favorite Filters', compute='_compute_mailing_filter_count')
     # A/B Testing
     ab_testing_completed = fields.Boolean(related='campaign_id.ab_testing_completed', store=True)
     ab_testing_description = fields.Html('A/B Testing Description', compute="_compute_ab_testing_description")
-    ab_testing_enabled = fields.Boolean(string='Allow A/B Testing', default=False,
+    ab_testing_enabled = fields.Boolean(
+        string='Allow A/B Testing', default=False,
         help='If checked, recipients will be mailed only once for the whole campaign. '
              'This lets you send different mailings to randomly selected recipients and test '
              'the effectiveness of the mailings, without causing duplicate messages.')
     ab_testing_mailings_count = fields.Integer(related="campaign_id.ab_testing_mailings_count")
-    ab_testing_pc = fields.Integer(string='A/B Testing percentage',
-        help='Percentage of the contacts that will be mailed. Recipients will be chosen randomly.', default=10)
-    ab_testing_schedule_datetime = fields.Datetime(related="campaign_id.ab_testing_schedule_datetime", readonly=False,
+    ab_testing_pc = fields.Integer(
+        string='A/B Testing percentage',
+        default=10,
+        help='Percentage of the contacts that will be mailed. Recipients will be chosen randomly.')
+    ab_testing_schedule_datetime = fields.Datetime(
+        related="campaign_id.ab_testing_schedule_datetime", readonly=False,
         default=lambda self: fields.Datetime.now() + relativedelta(days=1))
-    ab_testing_winner_selection = fields.Selection(related="campaign_id.ab_testing_winner_selection",
-        default="opened_ratio", readonly=False, copy=True)
-
+    ab_testing_winner_selection = fields.Selection(
+        related="campaign_id.ab_testing_winner_selection", readonly=False,
+        default="opened_ratio",
+        copy=True)
     kpi_mail_required = fields.Boolean('KPI mail required', copy=False)
     # statistics data
     mailing_trace_ids = fields.One2many('mailing.trace', 'mass_mailing_id', string='Emails Statistics')
@@ -177,12 +229,21 @@ class MassMailing(models.Model):
         'The A/B Testing Percentage needs to be between 0 and 100%'
     )]
 
-    @api.depends('mail_server_id')
+    @api.constrains('mailing_model_id', 'mailing_filter_id')
+    def _check_mailing_filter_model(self):
+        """Check that if the favorite filter is set, it must contain the same recipient model as mailing"""
+        for mailing in self:
+            if mailing.mailing_filter_id and mailing.mailing_model_id != mailing.mailing_filter_id.mailing_model_id:
+                raise ValidationError(
+                    _("The saved filter targets different recipients and is incompatible with this mailing.")
+                )
+
+    @api.depends('mail_server_id', 'create_uid')
     def _compute_email_from(self):
-        user_email = self.env.user.email_formatted
         notification_email = self.env['ir.mail_server']._get_default_from_address()
 
         for mailing in self:
+            user_email = mailing.create_uid.email_formatted or self.env.user.email_formatted
             server = mailing.mail_server_id
             if not server:
                 mailing.email_from = mailing.email_from or user_email
@@ -194,6 +255,12 @@ class MassMailing(models.Model):
                 mailing.email_from = notification_email
             else:
                 mailing.email_from = mailing.email_from or user_email
+
+    @api.depends('favorite')
+    def _compute_favorite_date(self):
+        favorited = self.filtered('favorite')
+        (self - favorited).favorite_date = False
+        favorited.filtered(lambda mailing: not mailing.favorite_date).favorite_date = fields.Datetime.now()
 
     def _compute_total(self):
         for mass_mailing in self:
@@ -227,7 +294,8 @@ class MassMailing(models.Model):
         if not self.ids:
             return
         # ensure traces are sent to db
-        self.flush()
+        self.env['mailing.trace'].flush_model()
+        self.env['mailing.mailing'].flush_model()
         self.env.cr.execute("""
             SELECT
                 m.id as mailing_id,
@@ -276,7 +344,8 @@ class MassMailing(models.Model):
 
     @api.depends('email_from', 'mail_server_id')
     def _compute_warning_message(self):
-        for mailing in self:
+        self.warning_message = False
+        for mailing in self.filtered(lambda mailing: mailing.mailing_type == "mail"):
             mail_server = mailing.mail_server_id
             if mail_server and not mail_server._match_from_filter(mailing.email_from, mail_server.from_filter):
                 mailing.warning_message = _(
@@ -291,11 +360,6 @@ class MassMailing(models.Model):
         for mailing in self:
             if mailing.mailing_type == 'mail' and not mailing.medium_id:
                 mailing.medium_id = self.env.ref('utm.utm_medium_email').id
-
-    @api.depends('mailing_model_id')
-    def _compute_mailing_model_real(self):
-        for mailing in self:
-            mailing.mailing_model_real = (mailing.mailing_model_id.model != 'mailing.list') and mailing.mailing_model_id.model or 'mailing.contact'
 
     @api.depends('mailing_model_id')
     def _compute_reply_to_mode(self):
@@ -318,13 +382,34 @@ class MassMailing(models.Model):
             elif mailing.reply_to_mode == 'update':
                 mailing.reply_to = False
 
-    @api.depends('mailing_model_id', 'contact_list_ids', 'mailing_type')
+    @api.depends('mailing_model_id', 'mailing_domain')
+    def _compute_mailing_filter_count(self):
+        filter_data = self.env['mailing.filter']._read_group([
+            ('mailing_model_id', 'in', self.mailing_model_id.ids)
+        ], ['mailing_model_id'], ['mailing_model_id'])
+        mapped_data = {data['mailing_model_id'][0]: data['mailing_model_id_count'] for data in filter_data}
+        for mailing in self:
+            mailing.mailing_filter_count = mapped_data.get(mailing.mailing_model_id.id, 0)
+
+    @api.depends('mailing_model_id')
+    def _compute_mailing_model_real(self):
+        for mailing in self:
+            mailing.mailing_model_real = 'mailing.contact' if mailing.mailing_model_id.model == 'mailing.list' else mailing.mailing_model_id.model
+
+    @api.depends('mailing_model_id', 'contact_list_ids', 'mailing_type', 'mailing_filter_id')
     def _compute_mailing_domain(self):
         for mailing in self:
             if not mailing.mailing_model_id:
                 mailing.mailing_domain = ''
+            elif mailing.mailing_filter_id:
+                mailing.mailing_domain = mailing.mailing_filter_id.mailing_domain
             else:
                 mailing.mailing_domain = repr(mailing._get_default_mailing_domain())
+
+    @api.depends('mailing_model_name')
+    def _compute_mailing_filter_id(self):
+        for mailing in self:
+            mailing.mailing_filter_id = False
 
     @api.depends('schedule_type')
     def _compute_schedule_date(self):
@@ -382,40 +467,34 @@ class MassMailing(models.Model):
 
     @api.model_create_multi
     def create(self, vals_list):
-        now = fields.Datetime.now()
         ab_testing_cron = self.env.ref('mass_mailing.ir_cron_mass_mailing_ab_testing').sudo()
         for values in vals_list:
-            if values.get('subject') and not values.get('name'):
-                values['name'] = "%s %s" % (values['subject'], now)
-            if values.get('body_html'):
-                values['body_html'] = self._convert_inline_images_to_urls(values['body_html'])
             if values.get('ab_testing_schedule_datetime'):
                 at = fields.Datetime.from_string(values['ab_testing_schedule_datetime'])
                 ab_testing_cron._trigger(at=at)
         mailings = super().create(vals_list)
-        campaign_vals = [
-            mailing._get_default_ab_testing_campaign_values()
-            for mailing in mailings
-            if mailing.ab_testing_enabled and not mailing.campaign_id
-        ]
-        self.env['utm.campaign'].create(campaign_vals)
-
+        mailings._create_ab_testing_utm_campaigns()
         mailings._fix_attachment_ownership()
 
+        for values, mailing in zip(vals_list, mailings):
+            if values.get('body_arch'):
+                mailing.body_arch = mailing._convert_inline_images_to_urls(mailing.body_arch)
+            if values.get('body_html'):
+                mailing.body_html = mailing._convert_inline_images_to_urls(mailing.body_html)
         return mailings
 
     def write(self, values):
+        if values.get('body_arch'):
+            values['body_arch'] = self._convert_inline_images_to_urls(values['body_arch'])
         if values.get('body_html'):
             values['body_html'] = self._convert_inline_images_to_urls(values['body_html'])
-        # When ab_testing_enabled is checked we create a campaign if there is none set.
-        if values.get('ab_testing_enabled') and not values.get('campaign_id'):
-            # Compute the values of the A/B test campaign based on the first mailing
-            values['campaign_id'] = self.env['utm.campaign'].create(self[0]._get_default_ab_testing_campaign_values(values)).id
         # If ab_testing is already enabled on a mailing and the campaign is removed, we raise a ValidationError
         if values.get('campaign_id') is False and any(mailing.ab_testing_enabled for mailing in self) and 'ab_testing_enabled' not in values:
             raise ValidationError(_("A campaign should be set when A/B test is enabled"))
 
         result = super(MassMailing, self).write(values)
+        if values.get('ab_testing_enabled'):
+            self._create_ab_testing_utm_campaigns()
         self._fix_attachment_ownership()
 
         if any(self.mapped('ab_testing_schedule_datetime')):
@@ -425,6 +504,14 @@ class MassMailing(models.Model):
 
         return result
 
+    def _create_ab_testing_utm_campaigns(self):
+        """ Creates the A/B test campaigns for the mailings that do not have campaign set already """
+        campaign_vals = [
+            mailing._get_default_ab_testing_campaign_values()
+            for mailing in self.filtered(lambda mailing: mailing.ab_testing_enabled and not mailing.campaign_id)
+        ]
+        return self.env['utm.campaign'].create(campaign_vals)
+
     def _fix_attachment_ownership(self):
         for record in self:
             record.attachment_ids.write({'res_model': record._name, 'res_id': record.id})
@@ -433,9 +520,11 @@ class MassMailing(models.Model):
     @api.returns('self', lambda value: value.id)
     def copy(self, default=None):
         self.ensure_one()
-        default = dict(default or {},
-                       name=_('%s (copy)', self.name),
-                       contact_list_ids=self.contact_list_ids.ids)
+        default = dict(default or {}, contact_list_ids=self.contact_list_ids.ids)
+        if self.mail_server_id and not self.mail_server_id.active:
+            default['mail_server_id'] = self._get_default_mail_server_id()
+        if self.ab_testing_enabled:
+            default['ab_testing_schedule_datetime'] = self.ab_testing_schedule_datetime
         return super(MassMailing, self).copy(default=default)
 
     def _group_expand_states(self, states, domain, order):
@@ -444,6 +533,42 @@ class MassMailing(models.Model):
     # ------------------------------------------------------
     # ACTIONS
     # ------------------------------------------------------
+
+    def action_set_favorite(self):
+        """Add the current mailing in the favorites list."""
+        self.favorite = True
+
+        return {
+            'type': 'ir.actions.client',
+            'tag': 'display_notification',
+            'params': {
+                'message': _(
+                    'Design added to the %s Templates!',
+                    ', '.join(self.mapped('mailing_model_id.name')),
+                ),
+                'next': {'type': 'ir.actions.act_window_close'},
+                'sticky': False,
+                'type': 'info',
+            }
+        }
+
+    def action_remove_favorite(self):
+        """Remove the current mailing from the favorites list."""
+        self.favorite = False
+
+        return {
+            'type': 'ir.actions.client',
+            'tag': 'display_notification',
+            'params': {
+                'message': _(
+                    'Design removed from the %s Templates!',
+                    ', '.join(self.mapped('mailing_model_id.name')),
+                ),
+                'next': {'type': 'ir.actions.act_window_close'},
+                'sticky': False,
+                'type': 'info',
+            }
+        }
 
     def action_duplicate(self):
         self.ensure_one()
@@ -467,7 +592,7 @@ class MassMailing(models.Model):
 
     def action_test(self):
         self.ensure_one()
-        ctx = dict(self.env.context, default_mass_mailing_id=self.id)
+        ctx = dict(self.env.context, default_mass_mailing_id=self.id, dialog_size='medium')
         return {
             'name': _('Test Mailing'),
             'type': 'ir.actions.act_window',
@@ -485,10 +610,9 @@ class MassMailing(models.Model):
         self.ensure_one()
         if self.schedule_date and self.schedule_date > fields.Datetime.now():
             return self.action_put_in_queue()
-        else:
-            action = self.env["ir.actions.actions"]._for_xml_id("mass_mailing.mailing_mailing_schedule_date_action")
-            action['context'] = dict(self.env.context, default_mass_mailing_id=self.id)
-            return action
+        action = self.env["ir.actions.actions"]._for_xml_id("mass_mailing.mailing_mailing_schedule_date_action")
+        action['context'] = dict(self.env.context, default_mass_mailing_id=self.id, dialog_size='medium')
+        return action
 
     def action_put_in_queue(self):
         self.write({'state': 'in_queue'})
@@ -536,12 +660,19 @@ class MassMailing(models.Model):
 
     def action_view_clicked(self):
         model_name = self.env['ir.model']._get('link.tracker').display_name
+        recipient = self.env['ir.model']._get(self.mailing_model_real).display_name
+        helper_header = _("No %s clicked your mailing yet!", recipient)
+        helper_message = _("Link Trackers will measure how many times each link is clicked as well as "
+                           "the proportion of %s who clicked at least once in your mailing.", recipient)
         return {
             'name': model_name,
             'type': 'ir.actions.act_window',
             'view_mode': 'tree',
             'res_model': 'link.tracker',
-            'domain': [('mass_mailing_id.id', '=', self.id)],
+            'domain': [('mass_mailing_id', '=', self.id)],
+            'help': Markup('<p class="o_view_nocontent_smiling_face">%s</p><p>%s</p>') % (
+                helper_header, helper_message,
+            ),
             'context': dict(self._context, create=False)
         }
 
@@ -558,28 +689,88 @@ class MassMailing(models.Model):
         return self._action_view_documents_filtered('delivered')
 
     def _action_view_documents_filtered(self, view_filter):
-        if view_filter in ('reply', 'bounce'):
+        model_name = self.env['ir.model']._get(self.mailing_model_real).display_name
+        helper_header = None
+        helper_message = None
+        if view_filter == 'reply':
             found_traces = self.mailing_trace_ids.filtered(lambda trace: trace.trace_status == view_filter)
+            helper_header = _("No %s replied to your mailing yet!", model_name)
+            helper_message = _("To track how many replies this mailing gets, make sure "
+                               "its reply-to address belongs to this database.")
+        elif view_filter == 'bounce':
+            found_traces = self.mailing_trace_ids.filtered(lambda trace: trace.trace_status == view_filter)
+            helper_header = _("No %s address bounced yet!", model_name)
+            helper_message = _("Bounce happens when a mailing cannot be delivered (fake address, "
+                               "server issues, ...). Check each record to see what went wrong.")
         elif view_filter == 'open':
             found_traces = self.mailing_trace_ids.filtered(lambda trace: trace.trace_status in ('open', 'reply'))
-        elif view_filter == 'click':
-            found_traces = self.mailing_trace_ids.filtered(lambda trace: trace.links_click_datetime)
+            helper_header = _("No %s opened your mailing yet!", model_name)
+            helper_message = _("Come back once your mailing has been sent to track who opened your mailing.")
         elif view_filter == 'delivered':
             found_traces = self.mailing_trace_ids.filtered(lambda trace: trace.trace_status in ('sent', 'open', 'reply'))
+            helper_header = _("No %s received your mailing yet!", model_name)
+            helper_message = _("Wait until your mailing has been sent to check how many recipients you managed to reach.")
         elif view_filter == 'sent':
             found_traces = self.mailing_trace_ids.filtered(lambda trace: trace.sent_datetime)
         else:
             found_traces = self.env['mailing.trace']
         res_ids = found_traces.mapped('res_id')
-        model_name = self.env['ir.model']._get(self.mailing_model_real).display_name
-        return {
+        action = {
             'name': model_name,
             'type': 'ir.actions.act_window',
             'view_mode': 'tree',
             'res_model': self.mailing_model_real,
             'domain': [('id', 'in', res_ids)],
-            'context': dict(self._context, create=False)
+            'context': dict(self._context, create=False),
         }
+        if helper_header and helper_message:
+            action['help'] = Markup('<p class="o_view_nocontent_smiling_face">%s</p><p>%s</p>') % (
+                helper_header, helper_message,
+            ),
+        return action
+
+    def action_view_mailing_contacts(self):
+        """Show the mailing contacts who are in a mailing list selected for this mailing."""
+        self.ensure_one()
+        action = self.env['ir.actions.actions']._for_xml_id('mass_mailing.action_view_mass_mailing_contacts')
+        if self.contact_list_ids:
+            action['context'] = {
+                'default_mailing_list_ids': self.contact_list_ids[0].ids,
+                'default_subscription_list_ids': [(0, 0, {'list_id': self.contact_list_ids[0].id})],
+            }
+        action['domain'] = [('list_ids', 'in', self.contact_list_ids.ids)]
+        return action
+
+    @api.model
+    def action_fetch_favorites(self, extra_domain=None):
+        """Return all mailings set as favorite and skip mailings with empty body.
+
+        Return archived mailing templates as well, so the user can archive the templates
+        while keeping using it, without cluttering the Kanban view if they're a lot of
+        templates.
+        """
+        domain = [('favorite', '=', True)]
+        if extra_domain:
+            domain = expression.AND([domain, extra_domain])
+
+        values_list = self.with_context(active_test=False).search_read(
+            domain=domain,
+            fields=['id', 'subject', 'body_arch', 'user_id', 'mailing_model_id'],
+            order='favorite_date DESC',
+        )
+
+        values_list = [
+            values for values in values_list
+            if not tools.is_html_empty(values['body_arch'])
+        ]
+
+        # You see first the mailings without responsible, then your mailings and then the others
+        values_list.sort(
+            key=lambda values:
+            values['user_id'][0] != self.env.user.id if values['user_id'] else -1
+        )
+
+        return values_list
 
     def update_opt_out(self, email, list_ids, value):
         if len(list_ids) > 0:
@@ -827,7 +1018,7 @@ class MassMailing(models.Model):
 
     def _get_unsubscribe_url(self, email_to, res_id):
         url = werkzeug.urls.url_join(
-            self.get_base_url(), 'mail/mailing/%(mailing_id)s/unsubscribe?%(params)s' % {
+            self.get_base_url(), 'mailing/%(mailing_id)s/confirm_unsubscribe?%(params)s' % {
                 'mailing_id': self.id,
                 'params': werkzeug.urls.url_encode({
                     'res_id': res_id,
@@ -866,7 +1057,7 @@ class MassMailing(models.Model):
             composer_values = {
                 'author_id': author_id,
                 'attachment_ids': [(4, attachment.id) for attachment in mailing.attachment_ids],
-                'body': mailing._prepend_preview(mailing.body_html, mailing.preview),
+                'body': mailing._prepend_preview(mailing.body_html or '', mailing.preview),
                 'subject': mailing.subject,
                 'model': mailing.mailing_model_real,
                 'email_from': mailing.email_from,
@@ -930,14 +1121,15 @@ class MassMailing(models.Model):
                     'kpi_mail_required': not mass_mailing.sent_date,
                 })
 
-        mailings = self.env['mailing.mailing'].search([
-            ('kpi_mail_required', '=', True),
-            ('state', '=', 'done'),
-            ('sent_date', '<=', fields.Datetime.now() - relativedelta(days=1)),
-            ('sent_date', '>=', fields.Datetime.now() - relativedelta(days=5)),
-        ])
-        if mailings:
-            mailings._action_send_statistics()
+        if self.env['ir.config_parameter'].sudo().get_param('mass_mailing.mass_mailing_reports'):
+            mailings = self.env['mailing.mailing'].search([
+                ('kpi_mail_required', '=', True),
+                ('state', '=', 'done'),
+                ('sent_date', '<=', fields.Datetime.now() - relativedelta(days=1)),
+                ('sent_date', '>=', fields.Datetime.now() - relativedelta(days=5)),
+            ])
+            if mailings:
+                mailings._action_send_statistics()
 
     # ------------------------------------------------------
     # STATISTICS
@@ -968,16 +1160,20 @@ class MassMailing(models.Model):
                     'mailing_type': mailing_type,
                 },
             )
+            rendering_data = {
+                'body': tools.html_sanitize(link_trackers_body),
+                'company': mail_company,
+                'user': mail_user,
+                'display_mobile_banner': True,
+                ** mailing._prepare_statistics_email_values(),
+            }
+            if mail_user.has_group('mass_mailing.group_mass_mailing_user'):
+                rendering_data['mailing_report_token'] = self._get_unsubscribe_token(mail_user.id)
+                rendering_data['user_id'] = mail_user.id
 
             rendered_body = self.env['ir.qweb']._render(
                 'digest.digest_mail_main',
-                {
-                    'body': tools.html_sanitize(link_trackers_body),
-                    'company': mail_company,
-                    'user': mail_user,
-                    'display_mobile_banner': True,
-                    ** mailing._prepare_statistics_email_values()
-                },
+                rendering_data
             )
 
             full_mail = self.env['mail.render.mixin']._render_encapsulate(
@@ -1055,8 +1251,8 @@ class MassMailing(models.Model):
                 kpi,
                 {
                     'kpi_fullname': _('Business Benefits on %(expected)i %(mailing_type)s Sent',
-                                       expected=self.expected,
-                                       mailing_type=mailing_type
+                                      expected=self.expected,
+                                      mailing_type=mailing_type
                                      ),
                     'kpi_action': None,
                     'kpi_col1': {},
@@ -1070,12 +1266,145 @@ class MassMailing(models.Model):
         }
 
     def _get_pretty_mailing_type(self):
-        if self.mailing_type == 'mail':
-            return _('Emails')
+        return _('Emails')
+
+    def _get_unsubscribe_token(self, user_id):
+        """Generate a secure hash for this user. It allows to opt out from
+        mailing reports while keeping some security in that process. """
+        return tools.hmac(self.env(su=True), 'mailing-report-deactivated', user_id)
 
     # ------------------------------------------------------
     # TOOLS
     # ------------------------------------------------------
+
+    def _convert_inline_images_to_urls(self, html_content):
+        """
+        Find inline base64 encoded images, make an attachement out of
+        them and replace the inline image with an url to the attachement.
+        Find VML v:image elements, crop their source images, make an attachement
+        out of them and replace their source with an url to the attachement.
+        """
+        root = lxml.html.fromstring(html_content)
+        did_modify_body = False
+
+        conversion_info = []  # list of tuples (image: base64 image, node: lxml node, old_url: string or None, original_id))
+        with requests.Session() as session:
+            for node in root.iter(lxml.etree.Element, lxml.etree.Comment):
+                if node.tag == 'img':
+                    # Convert base64 images in img tags to attachments.
+                    match = image_re.match(node.attrib.get('src', ''))
+                    if match:
+                        image = match.group(2).encode()  # base64 image as bytes
+                        conversion_info.append((image, node, None, int(node.attrib.get('data-original-id') or "0")))
+                elif 'base64' in (node.attrib.get('style') or ''):
+                    # Convert base64 images in inline styles to attachments.
+                    for match in re.findall(r'data:image/[A-Za-z]+;base64,.+?(?=&\#34;|\"|\'|&quot;|\))', node.attrib.get('style')):
+                        image = re.sub(r'data:image/[A-Za-z]+;base64,', '', match).encode()  # base64 image as bytes
+                        conversion_info.append((image, node, match, int(node.attrib.get('data-original-id') or "0")))
+                elif mso_re.match(node.text or ''):
+                    # Convert base64 images (in img tags or inline styles) in mso comments to attachments.
+                    base64_in_element_regex = re.compile(r"""
+                        (?:(?!^)|<)[^<>]*?(data:image/[A-Za-z]+;base64,[^<]+?)(?=&\#34;|\"|'|&quot;|\))(?=[^<]+>)
+                    """, re.VERBOSE)
+                    for match in re.findall(base64_in_element_regex, node.text):
+                        image = re.sub(r'data:image/[A-Za-z]+;base64,', '', match).encode()  # base64 image as bytes
+                        conversion_info.append((image, node, match, int(node.attrib.get('data-original-id') or "0")))
+                    # Crop VML images.
+                    for match in re.findall(r'<v:image[^>]*>', node.text):
+                        url = re.search(r'src=\s*\"([^\"]+)\"', match)[1]
+                        # Make sure we have an absolute URL by adding a scheme and host if needed.
+                        absolute_url = url if '//' in url else f"{self.get_base_url()}{url if url.startswith('/') else f'/{url}'}"
+                        target_width_match = re.search(r'width:\s*([0-9\.]+)\s*px', match)
+                        target_height_match = re.search(r'height:\s*([0-9\.]+)\s*px', match)
+                        if target_width_match and target_height_match:
+                            target_width = float(target_width_match[1])
+                            target_height = float(target_height_match[1])
+                            try:
+                                image = self._get_image_by_url(absolute_url, session)
+                            except (ImportValidationError, UnidentifiedImageError):
+                                # Url invalid or doesn't resolve to a valid image.
+                                # Note: We choose to ignore errors so as not to
+                                # break the entire process just for one image's
+                                # responsive cropping behavior).
+                                pass
+                            else:
+                                image_processor = tools.ImageProcess(image)
+                                image = image_processor.crop_resize(target_width, target_height, 0, 0)
+                                conversion_info.append((base64.b64encode(image.source), node, url, int(node.attrib.get('data-original-id') or "0")))
+
+        # Apply the changes.
+        urls = self._create_attachments_from_inline_images([(image, original_id) for (image, _, _, original_id) in conversion_info])
+        for ((image, node, old_url, original_id), new_url) in zip(conversion_info, urls):
+            did_modify_body = True
+            if node.tag == 'img':
+                node.attrib['src'] = new_url
+            elif 'base64' in (node.attrib.get('style') or ''):
+                node.attrib['style'] = node.attrib['style'].replace(old_url, new_url)
+            else:
+                node.text = node.text.replace(old_url, new_url)
+
+        if did_modify_body:
+            return lxml.html.tostring(root, encoding='unicode')
+        return html_content
+
+    def _create_attachments_from_inline_images(self, b64images):
+        if not b64images:
+            return []
+
+        IrAttachment = self.env['ir.attachment']
+        existing_attachments = dict(IrAttachment.search([
+            ('res_model', '=', 'mailing.mailing'),
+            ('res_id', '=', self.id),
+        ]).mapped(lambda record: (record.checksum, record)))
+
+        attachments, vals_for_attachs, checksums = [], [], []
+        checksums_set, checksum_original_id, new_attachment_by_checksum = set(), {}, {}
+        next_img_id = len(existing_attachments)
+        for (b64image, original_id) in b64images:
+            checksum = IrAttachment._compute_checksum(base64.b64decode(b64image))
+            checksums.append(checksum)
+            existing_attach = existing_attachments.get(checksum)
+            # Existing_attach can be None, in which case it acts as placeholder
+            # for attachment to be created.
+            attachments.append(existing_attach)
+            if original_id:
+                checksum_original_id[checksum] = original_id
+            if not existing_attach and not checksum in checksums_set:
+                # We create only one attachment per checksum
+                vals_for_attachs.append({
+                    'datas': b64image,
+                    'name': f"image_mailing_{self.id}_{next_img_id}",
+                    'type': 'binary',
+                    'res_id': self.id,
+                    'res_model': 'mailing.mailing',
+                    'checksum': checksum,
+                })
+                checksums_set.add(checksum)
+                next_img_id += 1
+        for vals in vals_for_attachs:
+            if vals['checksum'] in checksum_original_id:
+                vals['original_id'] = checksum_original_id[vals['checksum']]
+            del vals['checksum']
+
+        new_attachments = iter(IrAttachment.create(vals_for_attachs))
+        checksum_iter = iter(checksums)
+        # Replace None entries by newly created attachments.
+        for i in range(len(attachments)):
+            checksum = next(checksum_iter)
+            if attachments[i]:
+                continue
+            if checksum in new_attachment_by_checksum:
+                attachments[i] = new_attachment_by_checksum[checksum]
+            else:
+                attachments[i] = next(new_attachments)
+                new_attachment_by_checksum[checksum] = attachments[i]
+
+        urls = []
+        for attachment in attachments:
+            attachment.generate_access_token()
+            urls.append('/web/image/%s?access_token=%s' % (attachment.id, attachment.access_token))
+
+        return urls
 
     def _get_default_mailing_domain(self):
         mailing_domain = []
@@ -1086,6 +1415,41 @@ class MassMailing(models.Model):
             mailing_domain = expression.AND([[('is_blacklisted', '=', False)], mailing_domain])
 
         return mailing_domain
+
+    def _get_image_by_url(self, url, session):
+        maxsize = int(tools.config.get("import_image_maxbytes", DEFAULT_IMAGE_MAXBYTES))
+        _logger.debug("Trying to import image from URL: %s", url)
+        try:
+            response = session.get(url, timeout=int(tools.config.get("import_image_timeout", DEFAULT_IMAGE_TIMEOUT)))
+            response.raise_for_status()
+
+            if response.headers.get('Content-Length') and int(response.headers['Content-Length']) > maxsize:
+                raise ImportValidationError(
+                    _("File size exceeds configured maximum (%s bytes)", maxsize)
+                )
+
+            content = bytearray()
+            for chunk in response.iter_content(DEFAULT_IMAGE_CHUNK_SIZE):
+                content += chunk
+                if len(content) > maxsize:
+                    raise ImportValidationError(
+                        _("File size exceeds configured maximum (%s bytes)", maxsize)
+                    )
+
+            image = Image.open(io.BytesIO(content))
+            w, h = image.size
+            if w * h > 42e6:
+                raise ImportValidationError(
+                    _("Image size excessive, imported images must be smaller than 42 million pixel")
+                )
+
+            return content
+        except UnidentifiedImageError:
+            _logger.warning('This file could not be decoded as an image file.', exc_info=True)
+            raise
+        except Exception as e:
+            _logger.exception(e)
+            raise ImportValidationError(_("Could not retrieve URL: %s", url)) from e
 
     def _parse_mailing_domain(self):
         self.ensure_one()
@@ -1111,32 +1475,3 @@ class MassMailing(models.Model):
         secret = self.env["ir.config_parameter"].sudo().get_param("database.secret")
         token = (self.env.cr.dbname, self.id, int(res_id), tools.ustr(email))
         return hmac.new(secret.encode('utf-8'), repr(token).encode('utf-8'), hashlib.sha512).hexdigest()
-
-    def _convert_inline_images_to_urls(self, body_html):
-        """
-        Find inline base64 encoded images, make an attachement out of
-        them and replace the inline image with an url to the attachement.
-        """
-        base64_in_element_regex = re.compile(r"""
-                # Group 1: element until the base64 data
-                (<[^>]+\b(?:src="|style=["'][^"']+\burl\((?:&\#34;|"|'|&quot;)?))
-                data:image/[A-Za-z]+;base64,
-                (.*?) # Group 2: base64 image
-                ((?:(?:&\#34;|"|'|&quot;)?\))|") # Group 3: closing the property or attribute
-            """, re.VERBOSE)
-        do_match = True
-        while do_match:
-            (body_html, do_match) = re.subn(base64_in_element_regex, lambda x: x[1] + self._image_to_url(x[2].encode()) + x[3], body_html)
-        return body_html
-
-    def _image_to_url(self, b64image: bytes):
-        """Store an image in an attachement and returns an url"""
-        attachment = self.env['ir.attachment'].create({
-            'datas': b64image,
-            'name': "cropped_image_mailing_{}".format(self.id),
-            'type': 'binary',})
-
-        attachment.generate_access_token()
-
-        return '/web/image/%s?access_token=%s' % (
-            attachment.id, attachment.access_token)

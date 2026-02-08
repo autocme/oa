@@ -1,5 +1,7 @@
 /** @odoo-module **/
 
+import { Dropdown } from "@web/core/dropdown/dropdown";
+import { DropdownItem } from "@web/core/dropdown/dropdown_item";
 import { DebugMenuBasic } from "@web/core/debug/debug_menu_basic";
 import { useCommand } from "@web/core/commands/command_hook";
 import { useService } from "@web/core/utils/hooks";
@@ -37,15 +39,18 @@ export class DebugMenu extends DebugMenuBasic {
                         return result;
                     },
                 };
-                const commandPaletteConfig = {
-                    categoriesByNamespace: {
-                        default: defaultCategories,
+                const configByNamespace = {
+                    default: {
+                        categories: defaultCategories,
+                        emptyMessage: this.env._t("No debug command found"),
+                        placeholder: this.env._t("Choose a debug command..."),
                     },
-                    emptyMessageByNamespace: { default: this.env._t("No commands found") },
-                    placeholder: this.env._t("Choose a debug command..."),
+                };
+                const commandPaletteConfig = {
+                    configByNamespace,
                     providers: [provider],
                 };
-                return this.command.openPalette(commandPaletteConfig);
+                return commandPaletteConfig;
             },
             {
                 category: "debug",
@@ -53,3 +58,4 @@ export class DebugMenu extends DebugMenuBasic {
         );
     }
 }
+DebugMenu.components = { Dropdown, DropdownItem };

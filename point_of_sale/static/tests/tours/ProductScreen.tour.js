@@ -24,7 +24,7 @@ odoo.define('point_of_sale.tour.ProductScreen', function (require) {
     // Clicking product should add new orderline and select the orderline
     // If orderline exists, increment the quantity
     ProductScreen.do.clickDisplayedProduct('Letter Tray');
-    ProductScreen.check.selectedOrderlineHas('Letter Tray', '1.0', '4.80');
+    ProductScreen.check.selectedOrderlineHas('Letter Tray', '1.0', '5.28');
     ProductScreen.do.clickDisplayedProduct('Desk Organizer');
     ProductScreen.check.selectedOrderlineHas('Desk Organizer', '3.0', '15.30');
 
@@ -68,6 +68,26 @@ odoo.define('point_of_sale.tour.ProductScreen', function (require) {
     ProductScreen.do.clickSubcategory('Chairs');
     ProductScreen.check.productIsDisplayed('Letter Tray');
     ProductScreen.do.clickHomeCategory();
+    
+    // Add two orderlines and update quantity
+    ProductScreen.do.clickDisplayedProduct('Whiteboard Pen');
+    ProductScreen.do.clickDisplayedProduct('Wall Shelf Unit');
+    ProductScreen.do.clickOrderline('Whiteboard Pen', '1.0');
+    ProductScreen.check.selectedOrderlineHas('Whiteboard Pen', '1.0');
+    ProductScreen.do.pressNumpad('2');
+    ProductScreen.check.selectedOrderlineHas('Whiteboard Pen', '2.0');
+    ProductScreen.do.clickOrderline('Wall Shelf Unit', '1.0');
+    ProductScreen.check.selectedOrderlineHas('Wall Shelf Unit', '1.0');
+    ProductScreen.do.pressNumpad('2');
+    ProductScreen.check.selectedOrderlineHas('Wall Shelf Unit', '2.0');
+    ProductScreen.do.pressNumpad('Backspace');
+    ProductScreen.check.selectedOrderlineHas('Wall Shelf Unit', '0.0');
+    ProductScreen.do.pressNumpad('Backspace');
+    ProductScreen.check.selectedOrderlineHas('Whiteboard Pen', '2.0');
+    ProductScreen.do.pressNumpad('Backspace');
+    ProductScreen.check.selectedOrderlineHas('Whiteboard Pen', '0.0');
+    ProductScreen.do.pressNumpad('Backspace');
+    ProductScreen.check.orderIsEmpty();
 
     // Add multiple orderlines then delete each of them until empty
     ProductScreen.do.clickDisplayedProduct('Whiteboard Pen');
@@ -177,6 +197,23 @@ odoo.define('point_of_sale.tour.OpenCloseCashCount', function (require) {
     Tour.register('CashClosingDetails', { test: true, url: '/pos/ui' }, getSteps());
 });
 
+odoo.define('point_of_sale.tour.RoundGloballyTax', function (require) {
+    'use strict';
+
+    const { ProductScreen } = require('point_of_sale.tour.ProductScreenTourMethods');
+    const { getSteps, startSteps } = require('point_of_sale.tour.utils');
+    var Tour = require('web_tour.tour');
+
+    startSteps();
+
+    ProductScreen.do.confirmOpeningPopup();
+    ProductScreen.do.clickHomeCategory();
+    ProductScreen.do.clickDisplayedProduct('Test Product');
+    ProductScreen.check.totalAmountIs('115.00');
+
+    Tour.register('RoundGloballyAmoundTour', { test: true, url: '/pos/ui' }, getSteps());
+});
+
 odoo.define('point_of_sale.tour.ShowTaxExcludedTour', function (require) {
     'use strict';
 
@@ -195,4 +232,27 @@ odoo.define('point_of_sale.tour.ShowTaxExcludedTour', function (require) {
     ProductScreen.check.totalAmountIs('110.0');
 
     Tour.register('ShowTaxExcludedTour', { test: true, url: '/pos/ui' }, getSteps());
+});
+
+odoo.define('point_of_sale.tour.limitedProductPricelistLoading', function (require) {
+    'use strict';
+
+    const { ProductScreen } = require('point_of_sale.tour.ProductScreenTourMethods');
+    const { getSteps, startSteps } = require('point_of_sale.tour.utils');
+    var Tour = require('web_tour.tour');
+
+    startSteps();
+
+    ProductScreen.do.confirmOpeningPopup();
+
+    ProductScreen.do.scan_barcode("0100100");
+    ProductScreen.check.selectedOrderlineHas('Test Product 1', '1.0', '80.0');
+
+    ProductScreen.do.scan_barcode("0100200");
+    ProductScreen.check.selectedOrderlineHas('Test Product 2', '1.0', '100.0');
+
+    ProductScreen.do.scan_barcode("0100300");
+    ProductScreen.check.selectedOrderlineHas('Test Product 3', '1.0', '50.0');
+
+    Tour.register('limitedProductPricelistLoading', { test: true, url: '/pos/ui' }, getSteps());
 });

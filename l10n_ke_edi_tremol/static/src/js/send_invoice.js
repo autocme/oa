@@ -24,7 +24,7 @@ odoo.define('l10n_ke_edi_tremol.action_post_send_invoice', function (require) {
                             args: [[], {'replies': res_obj.replies, 'serial_number': res_obj.serial_number, 'move_id': move_id}],
                         });
                         refresh = true;
-                    } catch (e) {
+                    } catch (_e) {
                         Dialog.alert(this, _t("Error trying to connect to Odoo. Check your internet connection"));
                         break;
                     }
@@ -32,7 +32,7 @@ odoo.define('l10n_ke_edi_tremol.action_post_send_invoice', function (require) {
                     Dialog.alert(this, _t("Posting an invoice has failed, with the message: \n") + res_obj.status);
                     break;
                 }
-            } catch(e) {
+            } catch(_e) {
                 Dialog.alert(this, _t("Error trying to connect to the middleware. Is the middleware running?"));
                 break;
             }

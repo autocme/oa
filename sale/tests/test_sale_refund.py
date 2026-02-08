@@ -1,12 +1,14 @@
 # -*- coding: utf-8 -*-
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
 
-from .common import TestSaleCommon
+from odoo.fields import Command
 from odoo.tests import Form, tagged
+
+from odoo.addons.sale.tests.common import TestSaleCommon
 
 
 @tagged('post_install', '-at_install')
-class TestSaleToInvoice(TestSaleCommon):
+class TestSaleRefund(TestSaleCommon):
 
     @classmethod
     def setUpClass(cls, chart_template_ref=None):
@@ -18,44 +20,36 @@ class TestSaleToInvoice(TestSaleCommon):
             'partner_invoice_id': cls.partner_a.id,
             'partner_shipping_id': cls.partner_a.id,
             'pricelist_id': cls.company_data['default_pricelist'].id,
+            'order_line': [
+                Command.create({
+                    'product_id': cls.company_data['product_order_no'].id,
+                    'product_uom_qty': 5,
+                    'tax_id': False,
+                }),
+                Command.create({
+                    'product_id': cls.company_data['product_service_delivery'].id,
+                    'product_uom_qty': 4,
+                    'tax_id': False,
+                }),
+                Command.create({
+                    'product_id': cls.company_data['product_service_order'].id,
+                    'product_uom_qty': 3,
+                    'tax_id': False,
+                }),
+                Command.create({
+                    'product_id': cls.company_data['product_delivery_no'].id,
+                    'product_uom_qty': 2,
+                    'tax_id': False,
+                }),
+            ]
         })
-        SaleOrderLine = cls.env['sale.order.line'].with_context(tracking_disable=True)
-        cls.sol_prod_order = SaleOrderLine.create({
-            'name': cls.company_data['product_order_no'].name,
-            'product_id': cls.company_data['product_order_no'].id,
-            'product_uom_qty': 5,
-            'product_uom': cls.company_data['product_order_no'].uom_id.id,
-            'price_unit': cls.company_data['product_order_no'].list_price,
-            'order_id': cls.sale_order.id,
-            'tax_id': False,
-        })
-        cls.sol_serv_deliver = SaleOrderLine.create({
-            'name': cls.company_data['product_service_delivery'].name,
-            'product_id': cls.company_data['product_service_delivery'].id,
-            'product_uom_qty': 4,
-            'product_uom': cls.company_data['product_service_delivery'].uom_id.id,
-            'price_unit': cls.company_data['product_service_delivery'].list_price,
-            'order_id': cls.sale_order.id,
-            'tax_id': False,
-        })
-        cls.sol_serv_order = SaleOrderLine.create({
-            'name': cls.company_data['product_service_order'].name,
-            'product_id': cls.company_data['product_service_order'].id,
-            'product_uom_qty': 3,
-            'product_uom': cls.company_data['product_service_order'].uom_id.id,
-            'price_unit': cls.company_data['product_service_order'].list_price,
-            'order_id': cls.sale_order.id,
-            'tax_id': False,
-        })
-        cls.sol_prod_deliver = SaleOrderLine.create({
-            'name': cls.company_data['product_delivery_no'].name,
-            'product_id': cls.company_data['product_delivery_no'].id,
-            'product_uom_qty': 2,
-            'product_uom': cls.company_data['product_delivery_no'].uom_id.id,
-            'price_unit': cls.company_data['product_delivery_no'].list_price,
-            'order_id': cls.sale_order.id,
-            'tax_id': False,
-        })
+
+        (
+            cls.sol_prod_order,
+            cls.sol_serv_deliver,
+            cls.sol_serv_order,
+            cls.sol_prod_deliver,
+        ) = cls.sale_order.order_line
 
         # Confirm the SO
         cls.sale_order.action_confirm()
@@ -329,16 +323,25 @@ class TestSaleToInvoice(TestSaleCommon):
             'pricelist_id': self.company_data['default_pricelist'].id,
         })
         sol_product = self.env['sale.order.line'].create({
-            'name': self.company_data['product_order_no'].name,
             'product_id': self.company_data['product_order_no'].id,
             'product_uom_qty': 5,
-            'product_uom': self.company_data['product_order_no'].uom_id.id,
-            'price_unit': self.company_data['product_order_no'].list_price,
             'order_id': sale_order_refund.id,
             'tax_id': False,
         })
 
+        self.assertRecordValues(sol_product, [{
+            'price_unit': 280.0,
+            'discount': 0.0,
+            'product_uom_qty': 5.0,
+            'qty_to_invoice': 0.0,
+            'invoice_status': 'no',
+        }])
+
         sale_order_refund.action_confirm()
+
+        self.assertEqual(sol_product.qty_to_invoice, 5.0)
+        self.assertEqual(sol_product.invoice_status, 'to invoice')
+
         so_context = {
             'active_model': 'sale.order',
             'active_ids': [sale_order_refund.id],
@@ -352,8 +355,21 @@ class TestSaleToInvoice(TestSaleCommon):
             'deposit_account_id': self.company_data['default_account_revenue'].id
         })
         downpayment.create_invoices()
-        sale_order_refund.invoice_ids[0].action_post()
-        sol_downpayment = sale_order_refund.order_line[1]
+        # order_line[1] is the down payment section
+        sol_downpayment = sale_order_refund.order_line[2]
+        dp_invoice = sale_order_refund.invoice_ids[0]
+        dp_invoice.action_post()
+
+        self.assertRecordValues(sol_downpayment, [{
+            'price_unit': 700.0,
+            'discount': 0.0,
+            'invoice_status': 'to invoice',
+            'untaxed_amount_to_invoice': -700.0,
+            'untaxed_amount_invoiced': 700.0,
+            'product_uom_qty': 0.0,
+            'qty_invoiced': 1.0,
+            'qty_to_invoice': -1.0,
+        }])
 
         payment = self.env['sale.advance.payment.inv'].with_context(so_context).create({
             'deposit_account_id': self.company_data['default_account_revenue'].id
@@ -361,7 +377,8 @@ class TestSaleToInvoice(TestSaleCommon):
         payment.create_invoices()
 
         so_invoice = max(sale_order_refund.invoice_ids)
-        self.assertEqual(len(so_invoice.invoice_line_ids.filtered(lambda l: not (l.display_type == 'line_section' and l.name == "Down Payments"))), len(sale_order_refund.order_line), 'All lines should be invoiced')
+        self.assertEqual(len(so_invoice.invoice_line_ids.filtered(lambda l: not (l.display_type == 'line_section' and l.name == "Down Payments"))),
+                         len(sale_order_refund.order_line.filtered(lambda l: not (l.display_type == 'line_section' and l.name == "Down Payments"))), 'All lines should be invoiced')
         self.assertEqual(len(so_invoice.invoice_line_ids.filtered(lambda l: l.display_type == 'line_section' and l.name == "Down Payments")), 1, 'A single section for downpayments should be present')
         self.assertEqual(so_invoice.amount_total, sale_order_refund.amount_total - sol_downpayment.price_unit, 'Downpayment should be applied')
         so_invoice.action_post()

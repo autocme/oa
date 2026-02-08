@@ -7,7 +7,7 @@
 
 import re
 
-from odoo import api, fields, models, tools
+from odoo import api, fields, models, _
 from odoo.exceptions import UserError
 from odoo.osv.expression import AND, expression
 
@@ -18,7 +18,7 @@ class PurchaseReport(models.Model):
     _auto = False
     _order = 'date_order desc, price_total desc'
 
-    date_order = fields.Datetime('Order Date', readonly=True, help="Depicts the date when the Quotation should be validated and converted into a purchase order.")
+    date_order = fields.Datetime('Order Date', readonly=True)
     state = fields.Selection([
         ('draft', 'Draft RFQ'),
         ('sent', 'RFQ Sent'),
@@ -48,7 +48,6 @@ class PurchaseReport(models.Model):
     product_tmpl_id = fields.Many2one('product.template', 'Product Template', readonly=True)
     country_id = fields.Many2one('res.country', 'Partner Country', readonly=True)
     fiscal_position_id = fields.Many2one('account.fiscal.position', string='Fiscal Position', readonly=True)
-    account_analytic_id = fields.Many2one('account.analytic.account', 'Analytic Account', readonly=True)
     commercial_partner_id = fields.Many2one('res.partner', 'Commercial Entity', readonly=True)
     weight = fields.Float('Gross Weight', readonly=True)
     volume = fields.Float('Volume', readonly=True)
@@ -89,7 +88,6 @@ class PurchaseReport(models.Model):
                     (sum(l.product_qty * l.price_unit / COALESCE(po.currency_rate, 1.0))/NULLIF(sum(l.product_qty/line_uom.factor*product_uom.factor),0.0))::decimal(16,2) * currency_table.rate as price_average,
                     partner.country_id as country_id,
                     partner.commercial_partner_id as commercial_partner_id,
-                    analytic_account.id as account_analytic_id,
                     sum(p.weight * l.product_qty/line_uom.factor*product_uom.factor) as weight,
                     sum(p.volume * l.product_qty/line_uom.factor*product_uom.factor) as volume,
                     sum(l.price_subtotal / COALESCE(po.currency_rate, 1.0))::decimal(16,2) * currency_table.rate as untaxed_total,
@@ -114,7 +112,6 @@ class PurchaseReport(models.Model):
                 left join res_company C ON C.id = po.company_id
                 left join uom_uom line_uom on (line_uom.id=l.product_uom)
                 left join uom_uom product_uom on (product_uom.id=t.uom_id)
-                left join account_analytic_account analytic_account on (l.account_analytic_id = analytic_account.id)
                 left join {currency_table} ON currency_table.company_id = po.company_id
         """.format(
             currency_table=self.env['res.currency']._get_query_currency_table({'multi_company': True, 'date': {'date_to': fields.Date.today()}}),
@@ -154,7 +151,6 @@ class PurchaseReport(models.Model):
                 product_uom.factor,
                 partner.country_id,
                 partner.commercial_partner_id,
-                analytic_account.id,
                 po.id,
                 currency_table.rate
         """
@@ -173,7 +169,7 @@ class PurchaseReport(models.Model):
         if avg_days_to_purchase:
             fields.remove(avg_days_to_purchase)
             if any(field.split(':')[1].split('(')[0] != 'avg' for field in [avg_days_to_purchase] if field):
-                raise UserError("Value: 'avg_days_to_purchase' should only be used to show an average. If you are seeing this message then it is being accessed incorrectly.")
+                raise UserError(_("Value: 'avg_days_to_purchase' should only be used to show an average. If you are seeing this message then it is being accessed incorrectly."))
 
         if 'price_average:avg' in fields:
             fields.extend(['aggregated_qty_ordered:array_agg(qty_ordered)'])

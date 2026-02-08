@@ -10,7 +10,7 @@ def migrate(cr, version):
     env = api.Environment(cr, SUPERUSER_ID, {})
     country = env['res.country'].search([('code', '=', 'DE')], limit=1)
     tags_68 = env['account.account.tag']._get_tax_tags('68', country.id)
-    tags_60 = env.ref('l10n_de.tax_report_de_tag_60').tag_ids
+    tags_60 = env['account.account.tag']._get_tax_tags('60', country.id)
 
     if tags_68.filtered(lambda tag: tag.tax_negate):
         cr.execute(

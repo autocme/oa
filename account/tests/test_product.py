@@ -28,7 +28,6 @@ class AccountProductCase(AccountTestInvoicingCommon):
             | self.product_a.taxes_id.refund_repartition_line_ids
         ).filtered_domain([("repartition_type", "=", "tax")])
         repartition_lines.write({"tag_ids": [Command.link(tax_line_tag.id)]})
-        repartition_lines.invalidate_cache()
         # Check that internal user can read product_a
         with Form(
             self.product_a.with_user(self.internal_user).with_context(lang="en_US")

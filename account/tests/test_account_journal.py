@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 from unittest.mock import patch
 
-import odoo.tools
 from odoo.addons.account.tests.common import AccountTestInvoicingCommon
 from odoo.addons.account.models.account_payment_method import AccountPaymentMethod
 from odoo.tests import tagged
@@ -59,72 +58,6 @@ class TestAccountJournal(AccountTestInvoicingCommon):
 
         # Should be allowed because both accounts are accepted.
         self.company_data['default_journal_misc'].account_control_ids |= self.company_data['default_account_expense']
-        self.env['account.move'].create(move_vals)
-
-    def test_default_account_type_control_create_journal_entry(self):
-        move_vals = {
-            'line_ids': [
-                (0, 0, {
-                    'name': 'debit',
-                    'account_id': self.company_data['default_account_revenue'].id,
-                    'debit': 100.0,
-                    'credit': 0.0,
-                }),
-                (0, 0, {
-                    'name': 'credit',
-                    'account_id': self.company_data['default_account_expense'].id,
-                    'debit': 0.0,
-                    'credit': 100.0,
-                }),
-            ],
-        }
-
-        # Set the 'default_account_id' on the journal and make sure it will not raise an error,
-        # even if it is not explicitly included in the 'type_control_ids'.
-        self.company_data['default_journal_misc'].default_account_id = self.company_data['default_account_expense'].id
-
-        # Should fail because 'default_account_revenue' type is not allowed.
-        self.company_data['default_journal_misc'].type_control_ids |= self.company_data['default_account_receivable'].user_type_id
-        with self.assertRaises(UserError), self.cr.savepoint():
-            self.env['account.move'].create(move_vals)
-
-        # Should pass because both account types are allowed.
-        # 'default_account_revenue' explicitly and 'default_account_expense' implicitly.
-        self.company_data['default_journal_misc'].type_control_ids |= self.company_data['default_account_revenue'].user_type_id
-        self.env['account.move'].create(move_vals)
-
-    def test_account_and_type_control_on_journal(self):
-        move_vals = {
-            'line_ids': [
-                (0, 0, {
-                    'name': 'debit',
-                    'account_id': self.company_data['default_account_revenue'].id,
-                    'debit': 100.0,
-                    'credit': 0.0,
-                }),
-                (0, 0, {
-                    'name': 'credit',
-                    'account_id': self.company_data['default_account_expense'].id,
-                    'debit': 0.0,
-                    'credit': 100.0,
-                }),
-            ],
-        }
-        # Allow 'Payable' account type
-        self.company_data['default_journal_misc'].type_control_ids = self.company_data['default_account_payable'].user_type_id.ids
-        # Allow accounts '400000 Product Sales' (type: 'Income') and '121000 Account Receivable' (type: 'Receivable')
-        self.company_data['default_journal_misc'].account_control_ids = \
-            self.company_data['default_account_revenue'] + self.company_data['default_account_expense']
-        # Should not fail since both accounts are allowed in account_control_ids
-        self.env['account.move'].create(move_vals).unlink()  # (unlink to allow modifying the allowed accounts below)
-
-        # Opposite case
-        # Allow 'Income' and 'Receivable' account types
-        self.company_data['default_journal_misc'].type_control_ids = \
-            (self.company_data['default_account_revenue'] + self.company_data['default_account_expense']).user_type_id.ids
-        # Allow account '211000 Account Payable' (type: 'Payable')
-        self.company_data['default_journal_misc'].account_control_ids = self.company_data['default_account_payable'].ids
-        # Should not fail since both accounts are allowed in type_control_ids
         self.env['account.move'].create(move_vals)
 
     def test_account_control_existing_journal_entry(self):
@@ -203,21 +136,72 @@ class TestAccountJournal(AccountTestInvoicingCommon):
 
         self.assertFalse(second_method.exists())
 
-    @odoo.tools.mute_logger('odoo.addons.account.models.account_journal')
     def test_account_journal_alias_name(self):
-        journal = self.company_data['default_journal_misc']
-        self.assertEqual(journal._get_alias_values(journal.type)['alias_name'], 'Miscellaneous Operations-company_1_data')
-        self.assertEqual(journal._get_alias_values(journal.type, 'ぁ')['alias_name'], 'MISC-company_1_data')
+        journal = self.company_data['default_journal_purchase']
+        self.assertEqual(journal.alias_name, 'vendor-bills-company_1_data')
         journal.name = 'ぁ'
-        self.assertEqual(journal._get_alias_values(journal.type)['alias_name'], 'MISC-company_1_data')
+        journal.alias_name = False
+        self.assertEqual(journal.alias_name, 'bill-company_1_data')
         journal.code = 'ぁ'
-        self.assertEqual(journal._get_alias_values(journal.type)['alias_name'], 'general-company_1_data')
+        journal.alias_name = False
+        self.assertEqual(journal.alias_name, 'purchase-company_1_data')
 
-        self.company_data_2['company'].name = 'ぁ'
         company_2_id = str(self.company_data_2['company'].id)
         journal_2 = self.company_data_2['default_journal_sale']
-        self.assertEqual(journal_2._get_alias_values(journal_2.type)['alias_name'], 'Customer Invoices-' + company_2_id)
+        self.company_data_2['company'].name = 'ぁ'
+        journal_2.alias_name = False
+        self.assertEqual(journal_2.alias_name, 'customer-invoices-' + company_2_id)
         journal_2.name = 'ぁ'
-        self.assertEqual(journal_2._get_alias_values(journal_2.type)['alias_name'], 'INV-' + company_2_id)
+        journal_2.alias_name = False
+        self.assertEqual(journal_2.alias_name, 'inv-' + company_2_id)
         journal_2.code = 'ぁ'
-        self.assertEqual(journal_2._get_alias_values(journal_2.type)['alias_name'], 'sale-' + company_2_id)
+        journal_2.alias_name = False
+        self.assertEqual(journal_2.alias_name, 'sale-' + company_2_id)
+
+    def test_account_journal_duplicates(self):
+        new_journals = self.env["account.journal"].with_context(import_file=True).create([
+            {"name": "OD_BLABLA"},
+            {"name": "OD_BLABLU"},
+        ])
+
+        self.assertEqual(sorted(new_journals.mapped("code")), ["GEN1", "OD_BL"], "The journals should be set correctly")
+
+    def test_archive_used_journal(self):
+        journal = self.env['account.journal'].create({
+            'name': 'Test Journal',
+            'type': 'sale',
+            'code': 'A',
+        })
+        check_method = self.env['account.payment.method'].sudo().create({
+                'name': 'Test',
+                'code': 'check_printing_expense_test',
+                'payment_type': 'outbound',
+        })
+        self.env['account.payment.method.line'].create({
+            'name': 'Check',
+            'payment_method_id': check_method.id,
+            'journal_id': journal.id
+            })
+        journal.action_archive()
+        self.assertFalse(journal.active)
+
+    def test_archive_multiple_journals(self):
+        journals = self.env['account.journal'].create([{
+                'name': 'Test Journal 1',
+                'type': 'sale',
+                'code': 'A1'
+            }, {
+                'name': 'Test Journal 2',
+                'type': 'sale',
+                'code': 'A2'
+            }])
+
+        # Archive the Journals
+        journals.action_archive()
+        self.assertFalse(journals[0].active)
+        self.assertFalse(journals[1].active)
+
+        # Unarchive the Journals
+        journals.action_unarchive()
+        self.assertTrue(journals[0].active)
+        self.assertTrue(journals[1].active)

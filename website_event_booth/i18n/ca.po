@@ -3,19 +3,20 @@
 # 	* website_event_booth
 # 
 # Translators:
-# Martin Trigaux, 2021
-# Quim - eccit <quim@eccit.com>, 2021
-# Manel Fernandez Ramirez <manelfera@outlook.com>, 2021
+# Quim - eccit <quim@eccit.com>, 2022
+# Josep Anton Belchi, 2022
+# Martin Trigaux, 2022
+# Manel Fernandez Ramirez <manelfera@outlook.com>, 2022
 # marcescu, 2022
-# jabelchi, 2022
+# jabiri7, 2022
 # Ivan Espinola, 2022
 # 
 msgid ""
 msgstr ""
-"Project-Id-Version: Odoo Server saas~14.5\n"
+"Project-Id-Version: Odoo Server 16.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2021-09-14 10:29+0000\n"
-"PO-Revision-Date: 2021-09-14 12:27+0000\n"
+"POT-Creation-Date: 2024-02-06 13:32+0000\n"
+"PO-Revision-Date: 2022-09-22 05:56+0000\n"
 "Last-Translator: Ivan Espinola, 2022\n"
 "Language-Team: Catalan (https://app.transifex.com/odoo/teams/41243/ca/)\n"
 "MIME-Version: 1.0\n"
@@ -23,6 +24,15 @@ msgstr ""
 "Content-Transfer-Encoding: \n"
 "Language: ca\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+#. module: website_event_booth
+#: model_terms:ir.ui.view,arch_db:website_event_booth.event_booth_registration_details
+msgid ""
+"<i class=\"fa fa-exclamation-triangle me-2\" role=\"img\" aria-label=\"Error\" title=\"Error\"/>\n"
+"                    <span class=\"o_wbooth_registration_error_message\"/>"
+msgstr ""
+"<i class=\"fa fa-exclamation-triangle me-2\" role=\"img\" aria-label=\"Error\" title=\"Error\"/>\n"
+"                    <span class=\"o_wbooth_registration_error_message\"/>"
 
 #. module: website_event_booth
 #: model_terms:ir.ui.view,arch_db:website_event_booth.event_booth_registration
@@ -36,11 +46,20 @@ msgstr ""
 #. module: website_event_booth
 #: model_terms:ir.ui.view,arch_db:website_event_booth.event_booth_layout
 msgid ""
-"<i class=\"fa fa-gear mr-1\" role=\"img\" aria-label=\"Configure\" "
+"<i class=\"fa fa-gear me-1\" role=\"img\" aria-label=\"Configure\" "
 "title=\"Configure event booths\"/><em>Configure Booths</em>"
 msgstr ""
-"<i class=\"fa fa-gear mr-1\" role=\"img\" aria-label=\"Configure\" "
-"title=\"Configure event booths\"/><em>Configura estands</em>"
+"<i class=\"fa fa-gear me-1\" role=\"img\" aria-label=\"Configure\" "
+"title=\"Configure event booths\"/><em>Configura els booths</em>"
+
+#. module: website_event_booth
+#: model_terms:ir.ui.view,arch_db:website_event_booth.event_booth_layout
+msgid ""
+"<span class=\"alert alert-info\">This event is finished. It's no longer "
+"possible to book a booth.</span>"
+msgstr ""
+"<span class=\"alert alert-info\">Aquest esdeveniment ha finalitzat. Ja no és"
+" possible reservar una cabina.</span>"
 
 #. module: website_event_booth
 #: model_terms:ir.ui.view,arch_db:website_event_booth.event_booth_registration
@@ -71,13 +90,6 @@ msgstr ""
 "                            <span> *</span>"
 
 #. module: website_event_booth
-#: model_terms:ir.ui.view,arch_db:website_event_booth.event_booth_layout
-msgid ""
-"<span>This event is finished. It's no longer possible to book a "
-"booth.</span>"
-msgstr ""
-
-#. module: website_event_booth
 #: model_terms:ir.ui.view,arch_db:website_event_booth.event_booth_registration_details
 msgid "<strong>Contact Details</strong>"
 msgstr "<strong>Detalls del contacte</strong>"
@@ -98,15 +110,18 @@ msgid "Booth Register"
 msgstr "Registre de booth"
 
 #. module: website_event_booth
-#: model_terms:ir.ui.view,arch_db:website_event_booth.event_booth_registration_complete
+#. odoo-javascript
+#: code:addons/website_event_booth/static/src/xml/event_booth_registration_templates.xml:0
+#, python-format
 msgid "Booth Registration completed!"
 msgstr "S'ha completat el registre de l'armador!"
 
 #. module: website_event_booth
-#: code:addons/website_event_booth/controllers/event_booth.py:0
+#. odoo-javascript
+#: code:addons/website_event_booth/static/src/js/booth_register.js:0
 #, python-format
-msgid "Booth registration failed. Please try again."
-msgstr ""
+msgid "Booth registration failed."
+msgstr "Ha fallat el registre del booth."
 
 #. module: website_event_booth
 #: model_terms:ir.ui.view,arch_db:website_event_booth.event_booth_registration
@@ -117,12 +132,6 @@ msgstr "Estands"
 #: model:ir.model.fields,field_description:website_event_booth.field_event_type__booth_menu
 msgid "Booths on Website"
 msgstr "Estands al lloc web"
-
-#. module: website_event_booth
-#: code:addons/website_event_booth/controllers/event_booth.py:0
-#, python-format
-msgid "Booths should belong to the same category."
-msgstr "Cal que els estands pertanyin a la mateixa categoria"
 
 #. module: website_event_booth
 #: model_terms:ir.ui.view,arch_db:website_event_booth.event_booth_registration
@@ -155,6 +164,7 @@ msgid "Exhibition Map"
 msgstr "Mapa d'exposicions"
 
 #. module: website_event_booth
+#. odoo-python
 #: code:addons/website_event_booth/models/event_event.py:0
 #: model_terms:ir.ui.view,arch_db:website_event_booth.event_booth_layout
 #, python-format
@@ -177,9 +187,23 @@ msgid "Phone"
 msgstr "Telèfon"
 
 #. module: website_event_booth
+#. odoo-javascript
+#: code:addons/website_event_booth/static/src/js/booth_register.js:0
+#, python-format
+msgid "Please fill out the form correctly."
+msgstr "Ompliu el formulari correctament."
+
+#. module: website_event_booth
 #: model_terms:ir.ui.view,arch_db:website_event_booth.event_booth_registration
 msgid "Sorry, all the booths are sold out."
 msgstr "Disculpeu, s'han esgotat els estands"
+
+#. module: website_event_booth
+#. odoo-javascript
+#: code:addons/website_event_booth/static/src/js/booth_register.js:0
+#, python-format
+msgid "The booth category doesn't exist."
+msgstr "La categoria de la cabina no existeix."
 
 #. module: website_event_booth
 #: model_terms:ir.ui.view,arch_db:website_event_booth.event_booth_layout

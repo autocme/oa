@@ -1,8 +1,13 @@
 # -*- coding: utf-8 -*-
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
 
+import re
+from collections import defaultdict
+import itertools
+
 from odoo import api, fields, models
 from odoo.http import request
+from odoo.osv import expression
 
 
 class UtmMixin(models.AbstractModel):
@@ -34,14 +39,8 @@ class UtmMixin(models.AbstractModel):
                     value = request.httprequest.cookies.get(cookie_name)
                 # if we receive a string for a many2one, we search/create the id
                 if field.type == 'many2one' and isinstance(value, str) and value:
-                    Model = self.env[field.comodel_name]
-                    records = Model.search([('name', '=', value)], limit=1)
-                    if not records:
-                        if 'is_auto_campaign' in records._fields:
-                            records = Model.create({'name': value, 'is_auto_campaign': True})
-                        else:
-                            records = Model.create({'name': value})
-                    value = records.id
+                    record = self._find_or_create_record(field.comodel_name, value)
+                    value = record.id
                 if value:
                     values[field_name] = value
         return values
@@ -59,3 +58,98 @@ class UtmMixin(models.AbstractModel):
             ('utm_source', 'source_id', 'odoo_utm_source'),
             ('utm_medium', 'medium_id', 'odoo_utm_medium'),
         ]
+
+    def _find_or_create_record(self, model_name, name):
+        """Based on the model name and on the name of the record, retrieve the corresponding record or create it."""
+        Model = self.env[model_name]
+
+        record = Model.search([('name', '=', name)], limit=1)
+
+        if not record:
+            # No record found, create a new one
+            record_values = {'name': name}
+            if 'is_auto_campaign' in record._fields:
+                record_values['is_auto_campaign'] = True
+            record = Model.create(record_values)
+
+        return record
+
+    @api.model
+    def _get_unique_names(self, model_name, names):
+        """Generate unique names for the given model.
+
+        Take a list of names and return for each names, the new names to set
+        in the same order (with a counter added if needed).
+
+        E.G.
+            The name "test" already exists in database
+            Input: ['test', 'test [3]', 'bob', 'test', 'test']
+            Output: ['test [2]', 'test [3]', 'bob', 'test [4]', 'test [5]']
+
+        :param model_name: name of the model for which we will generate unique names
+        :param names: list of names, we will ensure that each name will be unique
+        :return: a list of new values for each name, in the same order
+        """
+        # Avoid conflicting with itself, otherwise each check at update automatically
+        # increments counters
+        skip_record_ids = self.env.context.get("utm_check_skip_record_ids") or []
+        # Remove potential counter part in each names
+        names_without_counter = {self._split_name_and_count(name)[0] for name in names}
+
+        # Retrieve existing similar names
+        search_domain = expression.OR([[('name', 'ilike', name)] for name in names_without_counter])
+        if skip_record_ids:
+            search_domain = expression.AND([
+                [('id', 'not in', skip_record_ids)],
+                search_domain
+            ])
+        existing_names = {vals['name'] for vals in self.env[model_name].search_read(search_domain, ['name'])}
+
+        # Counter for each names, based on the names list given in argument
+        # and the record names in database
+        used_counters_per_name = {
+            name: {
+                self._split_name_and_count(existing_name)[1]
+                for existing_name in existing_names
+                if existing_name == name or existing_name.startswith(f'{name} [')
+            } for name in names_without_counter
+        }
+        # Automatically incrementing counters for each name, will be used
+        # to fill holes in used_counters_per_name
+        current_counter_per_name = defaultdict(lambda: itertools.count(1))
+
+        result = []
+        for name in names:
+            if not name:
+                result.append(False)
+                continue
+
+            name_without_counter, asked_counter = self._split_name_and_count(name)
+            existing = used_counters_per_name.get(name_without_counter, set())
+            if asked_counter and asked_counter not in existing:
+                count = asked_counter
+            else:
+                # keep going until the count is not already used
+                for count in current_counter_per_name[name_without_counter]:
+                    if count not in existing:
+                        break
+            existing.add(count)
+            result.append(f'{name_without_counter} [{count}]' if count > 1 else name_without_counter)
+
+        return result
+
+    @staticmethod
+    def _split_name_and_count(name):
+        """
+        Return the name part and the counter based on the given name.
+
+        e.g.
+            "Medium" -> "Medium", 1
+            "Medium [1234]" -> "Medium", 1234
+        """
+        name = name or ''
+        name_counter_re = r'(.*)\s+\[([0-9]+)\]'
+        match = re.match(name_counter_re, name)
+        if match:
+            return match.group(1), int(match.group(2) or '1')
+        return name, 1

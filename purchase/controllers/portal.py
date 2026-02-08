@@ -29,6 +29,13 @@ class CustomerPortal(portal.CustomerPortal):
             ]) if PurchaseOrder.check_access_rights('read', raise_exception=False) else 0
         return values
 
+    def _get_purchase_searchbar_sortings(self):
+        return {
+            'date': {'label': _('Newest'), 'order': 'create_date desc, id desc'},
+            'name': {'label': _('Name'), 'order': 'name asc, id asc'},
+            'amount_total': {'label': _('Total'), 'order': 'amount_total desc, id desc'},
+        }
+
     def _render_portal(self, template, page, date_begin, date_end, sortby, filterby, domain, searchbar_filters, default_filter, url, history, page_name, key):
         values = self._prepare_portal_layout_values()
         PurchaseOrder = request.env['purchase.order']
@@ -36,11 +43,7 @@ class CustomerPortal(portal.CustomerPortal):
         if date_begin and date_end:
             domain += [('create_date', '>', date_begin), ('create_date', '<=', date_end)]
 
-        searchbar_sortings = {
-            'date': {'label': _('Newest'), 'order': 'create_date desc, id desc'},
-            'name': {'label': _('Name'), 'order': 'name asc, id asc'},
-            'amount_total': {'label': _('Total'), 'order': 'amount_total desc, id desc'},
-        }
+        searchbar_sortings = self._get_purchase_searchbar_sortings()
         # default sort
         if not sortby:
             sortby = 'date'
@@ -88,10 +91,12 @@ class CustomerPortal(portal.CustomerPortal):
 
     def _purchase_order_get_page_view_values(self, order, access_token, **kwargs):
         #
-        def resize_to_48(b64source):
-            if not b64source:
-                b64source = base64.b64encode(request.env['ir.http']._placeholder())
-            return image_process(b64source, size=(48, 48))
+        def resize_to_48(source):
+            if not source:
+                source = request.env['ir.binary']._placeholder()
+            else:
+                source = base64.b64decode(source)
+            return base64.b64encode(image_process(source, size=(48, 48)))
 
         values = {
             'order': order,

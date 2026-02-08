@@ -23,7 +23,6 @@ class ProductTemplate(models.Model):
 class ProductProduct(models.Model):
     _name = 'product.product'
     _inherit = 'product.product'
-    _description = 'Product'
 
     def button_bom_cost(self):
         self.ensure_one()
@@ -46,24 +45,28 @@ class ProductProduct(models.Model):
                 if price:
                     self.standard_price = price
 
-    def _compute_average_price(self, qty_invoiced, qty_to_invoice, stock_moves):
+    def _compute_average_price(self, qty_invoiced, qty_to_invoice, stock_moves, is_returned=False):
         self.ensure_one()
         if stock_moves.product_id == self:
-            return super()._compute_average_price(qty_invoiced, qty_to_invoice, stock_moves)
+            return super()._compute_average_price(qty_invoiced, qty_to_invoice, stock_moves, is_returned=is_returned)
         bom = self.env['mrp.bom']._bom_find(self, company_id=stock_moves.company_id.id, bom_type='phantom')[self]
         if not bom:
-            return super()._compute_average_price(qty_invoiced, qty_to_invoice, stock_moves)
+            return super()._compute_average_price(qty_invoiced, qty_to_invoice, stock_moves, is_returned=is_returned)
         value = 0
         dummy, bom_lines = bom.explode(self, 1)
         bom_lines = {line: data for line, data in bom_lines}
         for bom_line, moves_list in groupby(stock_moves.filtered(lambda sm: sm.state != 'cancel'), lambda sm: sm.bom_line_id):
             if bom_line not in bom_lines:
                 for move in moves_list:
-                    value += move.product_qty * move.product_id._compute_average_price(qty_invoiced * move.product_qty, qty_to_invoice * move.product_qty, move)
+                    component_quantity = next(
+                        (bml.product_qty for bml in move.product_id.bom_line_ids if bml in bom_lines),
+                        1
+                    )
+                    value += component_quantity * move.product_id._compute_average_price(qty_invoiced * move.product_qty, qty_to_invoice * move.product_qty, move, is_returned=is_returned)
                 continue
             line_qty = bom_line.product_uom_id._compute_quantity(bom_lines[bom_line]['qty'], bom_line.product_id.uom_id)
             moves = self.env['stock.move'].concat(*moves_list)
-            value += line_qty * bom_line.product_id._compute_average_price(qty_invoiced * line_qty, qty_to_invoice * line_qty, moves)
+            value += line_qty * bom_line.product_id._compute_average_price(qty_invoiced * line_qty, qty_to_invoice * line_qty, moves, is_returned=is_returned)
         return value
 
     def _compute_bom_price(self, bom, boms_to_recompute=False, byproduct_bom=False):
@@ -78,10 +81,9 @@ class ProductProduct(models.Model):
                 continue
 
             duration_expected = (
-                opt.workcenter_id.time_start +
-                opt.workcenter_id.time_stop +
+                opt.workcenter_id._get_expected_duration(self) +
                 opt.time_cycle * 100 / opt.workcenter_id.time_efficiency)
-            total += (duration_expected / 60) * opt.workcenter_id.costs_hour
+            total += (duration_expected / 60) * opt._total_cost_per_hour()
 
         for line in bom.bom_line_ids:
             if line._skip_bom_line(self):

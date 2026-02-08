@@ -1,4 +1,3 @@
-# Part of Odoo. See LICENSE file for full copyright and licensing details.
 from datetime import timedelta
 from odoo import _, api, fields, models
 from odoo.exceptions import UserError
@@ -35,8 +34,8 @@ class AccountUpdateTaxTagsWizard(models.TransientModel):
 
     # ==== Business methods ====
     def _recompute_tax_audit_string(self, aml_ids):
-        """Taken from #odoo/upgrade account/saas~12.3.1.1/end-20-recompute.py """
-        self.flush()
+        # Taken from #odoo/upgrade account/saas~12.3.1.1/end-20-recompute.py
+        self.env.flush_all()
         pos_order_condition = """
             (
                 EXISTS(SELECT id FROM pos_order WHERE pos_order.account_move = aml.move_id)
@@ -44,6 +43,10 @@ class AccountUpdateTaxTagsWizard(models.TransientModel):
                 AND debit > 0
             )
         """ if column_exists(self.env.cr, "pos_order", "account_move") else "false"
+        if self.pool['account.tax'].name.translate:  # Will be true if l10n_multilang is installed
+            acc_tag_name = "t.name->>'en_US'"
+        else:
+            acc_tag_name = 't.name'
         batch_size = 10000
         for i in range(0, len(aml_ids), batch_size):
             ids = aml_ids[i:i + batch_size]
@@ -61,7 +64,7 @@ class AccountUpdateTaxTagsWizard(models.TransientModel):
                          ) AS tag_amount,
                          cur.symbol AS currency,
                          cur.position AS cur_pos,
-                         COALESCE(trl.tag_name, t.name) AS name
+                         COALESCE(SUBSTRING(trl.code, '[0-9]+'), {acc_tag_name}) AS name
                     FROM account_move_line aml
                     INNER JOIN account_account_tag_account_move_line_rel t_rel ON t_rel.account_move_line_id = aml.id
                     INNER JOIN account_account_tag t ON t.id = t_rel.account_account_tag_id
@@ -69,8 +72,8 @@ class AccountUpdateTaxTagsWizard(models.TransientModel):
                     INNER JOIN account_move move ON move.id = aml.move_id
                     INNER JOIN res_company c ON aml.company_id = c.id
                     INNER JOIN res_currency cur ON c.currency_id = cur.id
-                    LEFT JOIN account_tax_report_line_tags_rel tr ON tr.account_account_tag_id = t.id
-                    LEFT JOIN account_tax_report_line trl ON tr.account_tax_report_line_id = trl.id
+                    LEFT JOIN account_report_expression expression ON expression.engine = 'tax_tags' AND expression.formula = SUBSTRING({acc_tag_name} from 2)
+                    LEFT JOIN account_report_line trl ON expression.report_line_id = trl.id
                     WHERE aml.id IN %s
                 ),
                 tag_values AS (
@@ -91,7 +94,7 @@ class AccountUpdateTaxTagsWizard(models.TransientModel):
                 WHERE tag_values.id = account_move_line.id
             """
             self.env.cr.execute(query, (tuple(ids),))
-        self.invalidate_cache()
+        self.env.invalidate_all()
 
     def _modify_tag_to_aml_relation(self, company_id, date_from):
         """ Update Journal Items' tax grids to match current taxes' configuration.
@@ -107,7 +110,7 @@ class AccountUpdateTaxTagsWizard(models.TransientModel):
         :param: int company_id id of company
         :return: list of impacted account.move.line ids
         """
-        self.flush()
+        self.env.flush_all()
         self.env.cr.execute("""
             -- 1.a) Handle base line: relation aml <-> tag, if no relation, tag is NULL
             WITH base_aml_id_rep_tag_to_insert AS (
@@ -219,7 +222,7 @@ class AccountUpdateTaxTagsWizard(models.TransientModel):
             'date_from': date_from,
             'company_id': company_id,
         })
-        self.invalidate_cache()
+        self.env.invalidate_all()
         return self.env.cr.fetchone()[0]
 
     def update_amls_tax_tags(self):

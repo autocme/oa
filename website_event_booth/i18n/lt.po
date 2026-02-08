@@ -3,17 +3,18 @@
 # 	* website_event_booth
 # 
 # Translators:
-# Martin Trigaux, 2022
-# Linas Versada <linaskrisiukenas@gmail.com>, 2022
 # Šarūnas Ažna <sarunas.azna@gmail.com>, 2022
+# Martin Trigaux, 2022
+# Jonas Zinkevicius <jozi@odoo.com>, 2022
+# Linas Versada <linaskrisiukenas@gmail.com>, 2022
 # Ramunė ViaLaurea <ramune.vialaurea@gmail.com>, 2023
 # 
 msgid ""
 msgstr ""
-"Project-Id-Version: Odoo Server saas~14.5\n"
+"Project-Id-Version: Odoo Server 16.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2021-09-14 10:29+0000\n"
-"PO-Revision-Date: 2021-09-14 12:27+0000\n"
+"POT-Creation-Date: 2024-02-06 13:32+0000\n"
+"PO-Revision-Date: 2022-09-22 05:56+0000\n"
 "Last-Translator: Ramunė ViaLaurea <ramune.vialaurea@gmail.com>, 2023\n"
 "Language-Team: Lithuanian (https://app.transifex.com/odoo/teams/41243/lt/)\n"
 "MIME-Version: 1.0\n"
@@ -21,6 +22,13 @@ msgstr ""
 "Content-Transfer-Encoding: \n"
 "Language: lt\n"
 "Plural-Forms: nplurals=4; plural=(n % 10 == 1 && (n % 100 > 19 || n % 100 < 11) ? 0 : (n % 10 >= 2 && n % 10 <=9) && (n % 100 > 19 || n % 100 < 11) ? 1 : n % 1 != 0 ? 2: 3);\n"
+
+#. module: website_event_booth
+#: model_terms:ir.ui.view,arch_db:website_event_booth.event_booth_registration_details
+msgid ""
+"<i class=\"fa fa-exclamation-triangle me-2\" role=\"img\" aria-label=\"Error\" title=\"Error\"/>\n"
+"                    <span class=\"o_wbooth_registration_error_message\"/>"
+msgstr ""
 
 #. module: website_event_booth
 #: model_terms:ir.ui.view,arch_db:website_event_booth.event_booth_registration
@@ -32,8 +40,15 @@ msgstr ""
 #. module: website_event_booth
 #: model_terms:ir.ui.view,arch_db:website_event_booth.event_booth_layout
 msgid ""
-"<i class=\"fa fa-gear mr-1\" role=\"img\" aria-label=\"Configure\" "
+"<i class=\"fa fa-gear me-1\" role=\"img\" aria-label=\"Configure\" "
 "title=\"Configure event booths\"/><em>Configure Booths</em>"
+msgstr ""
+
+#. module: website_event_booth
+#: model_terms:ir.ui.view,arch_db:website_event_booth.event_booth_layout
+msgid ""
+"<span class=\"alert alert-info\">This event is finished. It's no longer "
+"possible to book a booth.</span>"
 msgstr ""
 
 #. module: website_event_booth
@@ -61,13 +76,6 @@ msgid ""
 msgstr ""
 
 #. module: website_event_booth
-#: model_terms:ir.ui.view,arch_db:website_event_booth.event_booth_layout
-msgid ""
-"<span>This event is finished. It's no longer possible to book a "
-"booth.</span>"
-msgstr ""
-
-#. module: website_event_booth
 #: model_terms:ir.ui.view,arch_db:website_event_booth.event_booth_registration_details
 msgid "<strong>Contact Details</strong>"
 msgstr ""
@@ -88,14 +96,17 @@ msgid "Booth Register"
 msgstr ""
 
 #. module: website_event_booth
-#: model_terms:ir.ui.view,arch_db:website_event_booth.event_booth_registration_complete
+#. odoo-javascript
+#: code:addons/website_event_booth/static/src/xml/event_booth_registration_templates.xml:0
+#, python-format
 msgid "Booth Registration completed!"
 msgstr ""
 
 #. module: website_event_booth
-#: code:addons/website_event_booth/controllers/event_booth.py:0
+#. odoo-javascript
+#: code:addons/website_event_booth/static/src/js/booth_register.js:0
 #, python-format
-msgid "Booth registration failed. Please try again."
+msgid "Booth registration failed."
 msgstr ""
 
 #. module: website_event_booth
@@ -106,12 +117,6 @@ msgstr ""
 #. module: website_event_booth
 #: model:ir.model.fields,field_description:website_event_booth.field_event_type__booth_menu
 msgid "Booths on Website"
-msgstr ""
-
-#. module: website_event_booth
-#: code:addons/website_event_booth/controllers/event_booth.py:0
-#, python-format
-msgid "Booths should belong to the same category."
 msgstr ""
 
 #. module: website_event_booth
@@ -145,6 +150,7 @@ msgid "Exhibition Map"
 msgstr ""
 
 #. module: website_event_booth
+#. odoo-python
 #: code:addons/website_event_booth/models/event_event.py:0
 #: model_terms:ir.ui.view,arch_db:website_event_booth.event_booth_layout
 #, python-format
@@ -167,8 +173,22 @@ msgid "Phone"
 msgstr "Telefonas"
 
 #. module: website_event_booth
+#. odoo-javascript
+#: code:addons/website_event_booth/static/src/js/booth_register.js:0
+#, python-format
+msgid "Please fill out the form correctly."
+msgstr "Prašome užpildyti šią formą teisingai."
+
+#. module: website_event_booth
 #: model_terms:ir.ui.view,arch_db:website_event_booth.event_booth_registration
 msgid "Sorry, all the booths are sold out."
+msgstr ""
+
+#. module: website_event_booth
+#. odoo-javascript
+#: code:addons/website_event_booth/static/src/js/booth_register.js:0
+#, python-format
+msgid "The booth category doesn't exist."
 msgstr ""
 
 #. module: website_event_booth

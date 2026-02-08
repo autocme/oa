@@ -3,16 +3,15 @@
 # 	* stock_sms
 # 
 # Translators:
-# Martin Trigaux, 2021
-# Friederike Fasterling-Nesselbosch, 2022
+# Martin Trigaux, 2022
 # Sergio Zanchetta <primes2h@gmail.com>, 2023
 # 
 msgid ""
 msgstr ""
-"Project-Id-Version: Odoo Server 15.0\n"
+"Project-Id-Version: Odoo Server 15.5alpha1\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2021-10-05 10:54+0000\n"
-"PO-Revision-Date: 2021-09-14 12:26+0000\n"
+"POT-Creation-Date: 2022-09-20 09:02+0000\n"
+"PO-Revision-Date: 2022-09-22 05:55+0000\n"
 "Last-Translator: Sergio Zanchetta <primes2h@gmail.com>, 2023\n"
 "Language-Team: Italian (https://app.transifex.com/odoo/teams/41243/it/)\n"
 "MIME-Version: 1.0\n"
@@ -29,7 +28,7 @@ msgid ""
 "            "
 msgstr ""
 "\n"
-"                {{ (object.company_id.name + ': Siamo lieti di informarti che il tuo ordine n° ' + object.origin + ' e stato spedito.' if object.origin else object.company_id.name + ': Siamo lieti di informarti che il tuo ordine è stato spedito.') + (' Il tuo tracking code è ' + (object.carrier_tracking_ref) + '.' if hasattr(object, 'carrier_tracking_ref') and object.carrier_tracking_ref else '') }}\n"
+"                {{ (object.company_id.name + ': siamo lieti di informarLa che l'ordine n° ' + object.origin + ' è stato spedito.' if object.origin else object.company_id.name + ': siamo lieti di informarLa che l'ordine è stato spedito.') + (' Il codice di rintracciabilità è ' + (object.carrier_tracking_ref) + '.' if hasattr(object, 'carrier_tracking_ref') and object.carrier_tracking_ref else '') }}\n"
 "            "
 
 #. module: stock_sms
@@ -140,8 +139,8 @@ msgstr "Conferma via SMS dal movimento di magazzino "
 #. module: stock_sms
 #: model:ir.model.fields,help:stock_sms.field_res_company__stock_sms_confirmation_template_id
 #: model:ir.model.fields,help:stock_sms.field_res_config_settings__stock_sms_confirmation_template_id
-msgid "SMS sent to the customer once the order is done."
-msgstr "SMS inviato al cliente dopo il completamento dell'ordine"
+msgid "SMS sent to the customer once the order is delivered."
+msgstr "SMS inviato al cliente dopo la consegna dell'ordine."
 
 #. module: stock_sms
 #: model:ir.model,name:stock_sms.model_stock_picking

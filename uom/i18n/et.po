@@ -3,26 +3,27 @@
 # 	* uom
 # 
 # Translators:
-# Triine Aavik <triine@avalah.ee>, 2022
-# Rivo Zängov <eraser@eraser.ee>, 2022
-# Martin Trigaux, 2022
-# Piia Paurson <piia@avalah.ee>, 2022
 # Andre Roomet <andreroomet@gmail.com>, 2022
 # Arma Gedonsky <armagedonsky@hot.ee>, 2022
+# Piia Paurson <piia@avalah.ee>, 2022
+# Triine Aavik <triine@avalah.ee>, 2022
 # Eneli Õigus <enelioigus@gmail.com>, 2022
+# Martin Trigaux, 2022
 # Martin Aavastik <martin@avalah.ee>, 2022
+# Rivo Zängov <eraser@eraser.ee>, 2022
 # Leaanika Randmets, 2023
 # Katrin Kampura, 2023
+# Marten, 2023
 # Stevin Lilla, 2024
 # Anna, 2024
 # Siim Raasuke, 2024
 # 
 msgid ""
 msgstr ""
-"Project-Id-Version: Odoo Server saas~14.4\n"
+"Project-Id-Version: Odoo Server 16.0beta\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2021-07-12 07:50+0000\n"
-"PO-Revision-Date: 2021-09-14 12:27+0000\n"
+"POT-Creation-Date: 2022-09-23 08:03+0000\n"
+"PO-Revision-Date: 2022-09-22 05:55+0000\n"
 "Last-Translator: Siim Raasuke, 2024\n"
 "Language-Team: Estonian (https://app.transifex.com/odoo/teams/41243/et/)\n"
 "MIME-Version: 1.0\n"
@@ -137,11 +138,6 @@ msgid "Dozens"
 msgstr "tosin"
 
 #. module: uom
-#: model:ir.model.fields,help:uom.field_uom_category__reference_uom_id
-msgid "Dummy field to keep track of reference uom change"
-msgstr ""
-
-#. module: uom
 #: model_terms:ir.ui.view,arch_db:uom.uom_uom_view_search
 msgid "Group By"
 msgstr "Grupeeri"
@@ -201,7 +197,7 @@ msgstr "Pikkus / vahemaa"
 #. module: uom
 #: model:res.groups,name:uom.group_uom
 msgid "Manage Multiple Units of Measure"
-msgstr "Manage Multiple Units of Measure"
+msgstr "Halda mitut mõõtühikut"
 
 #. module: uom
 #: model:ir.model,name:uom.model_uom_uom
@@ -393,7 +389,13 @@ msgstr ""
 "            Hours, Days."
 
 #. module: uom
-#: code:addons/uom/models/uom_uom.py:0 code:addons/uom/models/uom_uom.py:0
+#: code:addons/uom/models/uom_uom.py:0
+#, python-format
+msgid "UoM category %s must have at least one reference unit of measure."
+msgstr "Mõõtühikute kategoorial %s peab olema vähemalt üks viidatud mõõtühik."
+
+#. module: uom
+#: code:addons/uom/models/uom_uom.py:0
 #, python-format
 msgid "UoM category %s should have a reference unit of measure."
 msgstr "Mõõtühikute kategoorial %s peaks olema viidatud mõõtühik."
@@ -419,12 +421,6 @@ msgstr "Ruumala"
 #, python-format
 msgid "Warning for %s"
 msgstr "Hoiatus %s"
-
-#. module: uom
-#: code:addons/uom/models/uom_uom.py:0
-#, python-format
-msgid "Warning!"
-msgstr "Hoiatus!"
 
 #. module: uom
 #: model:uom.category,name:uom.product_uom_categ_kgm
@@ -478,7 +474,7 @@ msgstr "gal (US)"
 #. module: uom
 #: model:uom.uom,name:uom.product_uom_inch
 msgid "in"
-msgstr "puhkused"
+msgstr "tollid"
 
 #. module: uom
 #: model:uom.uom,name:uom.product_uom_cubic_inch
@@ -529,3 +525,8 @@ msgstr "oz"
 #: model:uom.uom,name:uom.product_uom_qt
 msgid "qt (US)"
 msgstr "qt (US)"
+
+#. module: uom
+#: model:uom.uom,name:uom.product_uom_yard
+msgid "yd"
+msgstr "yd"

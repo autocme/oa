@@ -3,7 +3,7 @@ odoo.define('point_of_sale.ProductItem', function(require) {
 
     const PosComponent = require('point_of_sale.PosComponent');
     const Registries = require('point_of_sale.Registries');
-    const models = require('point_of_sale.models');
+    const { isConnectionError } = require('point_of_sale.utils');
 
     class ProductItem extends PosComponent {
         /**
@@ -19,7 +19,7 @@ odoo.define('point_of_sale.ProductItem', function(require) {
         }
         get imageUrl() {
             const product = this.props.product;
-            return `/web/image?model=product.product&field=image_128&id=${product.id}&write_date=${product.write_date}&unique=1`;
+            return `/web/image?model=product.product&field=image_128&id=${product.id}&unique=${product.__last_update}`;
         }
         get pricelist() {
             const current_order = this.env.pos.get_order();
@@ -42,8 +42,22 @@ odoo.define('point_of_sale.ProductItem', function(require) {
             }
         }
         async onProductInfoClick() {
-            const info = await this.env.pos.getProductInfo(this.props.product, 1);
-            this.showPopup('ProductInfoPopup', { info: info , product: this.props.product });
+            try {
+                const info = await this.env.pos.getProductInfo(this.props.product, 1);
+                this.showPopup('ProductInfoPopup', { info: info , product: this.props.product });
+            } catch (e) {
+                if (isConnectionError(e)) {
+                    this.showPopup('ErrorPopup', {
+                        title: this.env._t('OfflineErrorPopup'),
+                        body: this.env._t('Cannot access product information screen if offline.'),
+                    });
+                } else {
+                    this.showPopup('ErrorPopup', {
+                        title: this.env._t('Unknown error'),
+                        body: this.env._t('An unknown error prevents us from loading product information.'),
+                    });
+                }
+            }
         }
     }
     ProductItem.template = 'ProductItem';

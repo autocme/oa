@@ -3,6 +3,38 @@ odoo.define('web_editor.utils', function (require) {
 
 const {ColorpickerWidget} = require('web.Colorpicker');
 
+let editableWindow = window;
+const _setEditableWindow = (ew) => editableWindow = ew;
+
+const COLOR_PALETTE_COMPATIBILITY_COLOR_NAMES = ['primary', 'secondary', 'alpha', 'beta', 'gamma', 'delta', 'epsilon', 'success', 'info', 'warning', 'danger'];
+
+/**
+ * These constants are colors that can be edited by the user when using
+ * web_editor in a website context. We keep track of them so that color
+ * palettes and their preview elements can always have the right colors
+ * displayed even if website has redefined the colors during an editing
+ * session.
+ *
+ * @type {string[]}
+ */
+const EDITOR_COLOR_CSS_VARIABLES = [...COLOR_PALETTE_COMPATIBILITY_COLOR_NAMES];
+// o-cc and o-colors
+for (let i = 1; i <= 5; i++) {
+    EDITOR_COLOR_CSS_VARIABLES.push(`o-color-${i}`);
+    EDITOR_COLOR_CSS_VARIABLES.push(`o-cc${i}-bg`);
+    EDITOR_COLOR_CSS_VARIABLES.push(`o-cc${i}-headings`);
+    EDITOR_COLOR_CSS_VARIABLES.push(`o-cc${i}-text`);
+    EDITOR_COLOR_CSS_VARIABLES.push(`o-cc${i}-btn-primary`);
+    EDITOR_COLOR_CSS_VARIABLES.push(`o-cc${i}-btn-primary-text`);
+    EDITOR_COLOR_CSS_VARIABLES.push(`o-cc${i}-btn-secondary`);
+    EDITOR_COLOR_CSS_VARIABLES.push(`o-cc${i}-btn-secondary-text`);
+    EDITOR_COLOR_CSS_VARIABLES.push(`o-cc${i}-btn-primary-border`);
+    EDITOR_COLOR_CSS_VARIABLES.push(`o-cc${i}-btn-secondary-border`);
+}
+// Grays
+for (let i = 100; i <= 900; i += 100) {
+    EDITOR_COLOR_CSS_VARIABLES.push(`${i}`);
+}
 /**
  * window.getComputedStyle cannot work properly with CSS shortcuts (like
  * 'border-width' which is a shortcut for the top + right + bottom + left border
@@ -65,7 +97,7 @@ const BACKGROUND_IMAGE_ATTRIBUTES = new Set([
  */
 function _computePxByRem(toRem) {
     if (_computePxByRem.PX_BY_REM === undefined) {
-        const htmlStyle = window.getComputedStyle(document.documentElement);
+        const htmlStyle = editableWindow.getComputedStyle(editableWindow.document.documentElement);
         _computePxByRem.PX_BY_REM = parseFloat(htmlStyle['font-size']);
     }
     return toRem ? (1 / _computePxByRem.PX_BY_REM) : _computePxByRem.PX_BY_REM;
@@ -125,7 +157,7 @@ function _convertNumericToUnit(value, unitFrom, unitTo, cssProp, $target) {
  * @returns {Array|null}
  */
 function _getNumericAndUnit(value) {
-    const m = value.trim().match(/^(-?[0-9.]+)([A-Za-z% -]*)$/);
+    const m = value.trim().match(/^(-?[0-9.]+(?:e[+|-]?[0-9]+)?)\s*([^\s]*)$/);
     if (!m) {
         return null;
     }
@@ -144,6 +176,23 @@ function _getNumericAndUnit(value) {
 function _areCssValuesEqual(value1, value2, cssProp, $target) {
     // String comparison first
     if (value1 === value2) {
+        return true;
+    }
+
+    // In case the values are a size, they might be made of two parts.
+    if (cssProp && cssProp.endsWith('-size')) {
+        // Avoid re-splitting each part during their individual comparison.
+        const pseudoPartProp = cssProp + '-part';
+        const re = /-?[0-9.]+(?:e[+|-]?[0-9]+)?\s*[A-Za-z%-]+|auto/g;
+        const parts1 = value1.match(re);
+        const parts2 = value2.match(re);
+        for (const index of [0, 1]) {
+            const part1 = parts1 && parts1.length > index ? parts1[index] : 'auto';
+            const part2 = parts2 && parts2.length > index ? parts2[index] : 'auto';
+            if (!_areCssValuesEqual(part1, part2, pseudoPartProp, $target)) {
+                return false;
+            }
+        }
         return true;
     }
 
@@ -256,7 +305,7 @@ function _computeColorClasses(colorNames, prefix = 'bg-') {
  */
 function _getCSSVariableValue(key, htmlStyle) {
     if (htmlStyle === undefined) {
-        htmlStyle = window.getComputedStyle(document.documentElement);
+        htmlStyle = editableWindow.getComputedStyle(editableWindow.document.documentElement);
     }
     // Get trimmed value from the HTML element
     let value = htmlStyle.getPropertyValue(`--${key}`).trim();
@@ -345,6 +394,15 @@ function _isColorGradient(value) {
     return value && value.includes('-gradient(');
 }
 /**
+ * Generates a string ID.
+ *
+ * @private
+ * @returns {string}
+ */
+function _generateHTMLId() {
+    return `o${Math.random().toString(36).substring(2, 15)}`;
+}
+/**
  * Returns the class of the element that matches the specified prefix.
  *
  * @private
@@ -403,9 +461,11 @@ function _shouldEditableMediaBeEditable(mediaEl) {
 }
 
 return {
+    COLOR_PALETTE_COMPATIBILITY_COLOR_NAMES: COLOR_PALETTE_COMPATIBILITY_COLOR_NAMES,
     CSS_SHORTHANDS: CSS_SHORTHANDS,
     CSS_UNITS_CONVERSION: CSS_UNITS_CONVERSION,
     DEFAULT_PALETTE: DEFAULT_PALETTE,
+    EDITOR_COLOR_CSS_VARIABLES: EDITOR_COLOR_CSS_VARIABLES,
     computePxByRem: _computePxByRem,
     convertValueToUnit: _convertValueToUnit,
     convertNumericToUnit: _convertNumericToUnit,
@@ -419,7 +479,9 @@ return {
     getBgImageURL: _getBgImageURL,
     backgroundImageCssToParts: _backgroundImageCssToParts,
     backgroundImagePartsToCss: _backgroundImagePartsToCss,
+    generateHTMLId: _generateHTMLId,
     getColorClass: _getColorClass,
+    setEditableWindow: _setEditableWindow,
     addBackgroundImageAttributes: _addBackgroundImageAttributes,
     isBackgroundImageAttribute: _isBackgroundImageAttribute,
     shouldEditableMediaBeEditable: _shouldEditableMediaBeEditable,

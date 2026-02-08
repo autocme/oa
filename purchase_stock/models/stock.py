@@ -2,154 +2,15 @@
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
 
 from odoo import api, fields, models, _
-from odoo.tools.float_utils import float_round, float_is_zero
-from odoo.exceptions import UserError
 from odoo.osv.expression import AND
-from dateutil.relativedelta import relativedelta
 
 
 class StockPicking(models.Model):
     _inherit = 'stock.picking'
 
-    purchase_id = fields.Many2one('purchase.order', related='move_lines.purchase_line_id.order_id',
+    purchase_id = fields.Many2one(
+        'purchase.order', related='move_ids.purchase_line_id.order_id',
         string="Purchase Orders", readonly=True)
-
-
-class StockMove(models.Model):
-    _inherit = 'stock.move'
-
-    purchase_line_id = fields.Many2one('purchase.order.line',
-        'Purchase Order Line', ondelete='set null', index=True, readonly=True)
-    created_purchase_line_id = fields.Many2one('purchase.order.line',
-        'Created Purchase Order Line', ondelete='set null', readonly=True, copy=False, index=True)
-
-    @api.model
-    def _prepare_merge_moves_distinct_fields(self):
-        distinct_fields = super(StockMove, self)._prepare_merge_moves_distinct_fields()
-        distinct_fields += ['purchase_line_id', 'created_purchase_line_id']
-        return distinct_fields
-
-    @api.model
-    def _prepare_merge_negative_moves_excluded_distinct_fields(self):
-        excluded_fields = super()._prepare_merge_negative_moves_excluded_distinct_fields() + ['created_purchase_line_id']
-        if self.env['ir.config_parameter'].sudo().get_param('purchase_stock.merge_different_procurement'):
-            excluded_fields += ['procure_method']
-        return excluded_fields
-
-    def _get_price_unit(self):
-        """ Returns the unit price for the move"""
-        self.ensure_one()
-        if not self.origin_returned_move_id and self.purchase_line_id and self.product_id.id == self.purchase_line_id.product_id.id:
-            price_unit_prec = self.env['decimal.precision'].precision_get('Product Price')
-            line = self.purchase_line_id
-            order = line.order_id
-            price_unit = line._prepare_compute_all_values()['price_unit']
-            if line.taxes_id:
-                qty = line.product_qty or 1
-                price_unit = line.taxes_id.with_context(round=False).compute_all(price_unit, currency=line.order_id.currency_id, quantity=qty, product=self.product_id)['total_void']
-                price_unit = float_round(price_unit / qty, precision_digits=price_unit_prec)
-            if line.product_uom.id != line.product_id.uom_id.id:
-                price_unit *= line.product_uom.factor / line.product_id.uom_id.factor
-            if order.currency_id != order.company_id.currency_id:
-                # The date must be today, and not the date of the move since the move move is still
-                # in assigned state. However, the move date is the scheduled date until move is
-                # done, then date of actual move processing. See:
-                # https://github.com/odoo/odoo/blob/2f789b6863407e63f90b3a2d4cc3be09815f7002/addons/stock/models/stock_move.py#L36
-                price_unit = order.currency_id._convert(
-                    price_unit, order.company_id.currency_id, order.company_id, fields.Date.context_today(self), round=False)
-            return price_unit
-        return super(StockMove, self)._get_price_unit()
-
-    def _generate_valuation_lines_data(self, partner_id, qty, debit_value, credit_value, debit_account_id, credit_account_id, description):
-        """ Overridden from stock_account to support amount_currency on valuation lines generated from po
-        """
-        self.ensure_one()
-
-        rslt = super(StockMove, self)._generate_valuation_lines_data(partner_id, qty, debit_value, credit_value, debit_account_id, credit_account_id, description)
-        if self.purchase_line_id:
-            purchase_currency = self.purchase_line_id.currency_id
-            if purchase_currency != self.company_id.currency_id:
-                if(self.purchase_line_id.product_id.cost_method == 'standard'):
-                    purchase_price_unit = self.purchase_line_id.product_id.cost_currency_id._convert(
-                        self.purchase_line_id.product_id.standard_price,
-                        purchase_currency,
-                        self.company_id,
-                        self.date,
-                        round=False,
-                    )
-                else:
-                    # Do not use price_unit since we want the price tax excluded. And by the way, qty
-                    # is in the UOM of the product, not the UOM of the PO line.
-                    purchase_price_unit = (
-                        self.purchase_line_id.price_subtotal / self.purchase_line_id.product_uom_qty
-                        if self.purchase_line_id.product_uom_qty
-                        else self.purchase_line_id.price_unit
-                    )
-                currency_move_valuation = purchase_currency.round(purchase_price_unit * abs(qty))
-                rslt['credit_line_vals']['amount_currency'] = rslt['credit_line_vals']['credit'] and -currency_move_valuation or currency_move_valuation
-                rslt['credit_line_vals']['currency_id'] = purchase_currency.id
-                rslt['debit_line_vals']['amount_currency'] = rslt['debit_line_vals']['credit'] and -currency_move_valuation or currency_move_valuation
-                rslt['debit_line_vals']['currency_id'] = purchase_currency.id
-        return rslt
-
-    def _prepare_extra_move_vals(self, qty):
-        vals = super(StockMove, self)._prepare_extra_move_vals(qty)
-        vals['purchase_line_id'] = self.purchase_line_id.id
-        return vals
-
-    def _prepare_move_split_vals(self, uom_qty):
-        vals = super(StockMove, self)._prepare_move_split_vals(uom_qty)
-        vals['purchase_line_id'] = self.purchase_line_id.id
-        return vals
-
-    def _clean_merged(self):
-        super(StockMove, self)._clean_merged()
-        self.write({'created_purchase_line_id': False})
-
-    def _get_upstream_documents_and_responsibles(self, visited):
-        if self.created_purchase_line_id and self.created_purchase_line_id.state not in ('done', 'cancel') \
-                and (self.created_purchase_line_id.state != 'draft' or self._context.get('include_draft_documents')):
-            return [(self.created_purchase_line_id.order_id, self.created_purchase_line_id.order_id.user_id, visited)]
-        elif self.purchase_line_id and self.purchase_line_id.state not in ('done', 'cancel'):
-            return[(self.purchase_line_id.order_id, self.purchase_line_id.order_id.user_id, visited)]
-        else:
-            return super(StockMove, self)._get_upstream_documents_and_responsibles(visited)
-
-    def _get_related_invoices(self):
-        """ Overridden to return the vendor bills related to this stock move.
-        """
-        rslt = super(StockMove, self)._get_related_invoices()
-        rslt += self.mapped('picking_id.purchase_id.invoice_ids').filtered(lambda x: x.state == 'posted')
-        return rslt
-
-
-    def _get_source_document(self):
-        res = super()._get_source_document()
-        return self.purchase_line_id.order_id or res
-
-    def _get_valuation_price_and_qty(self, related_aml, to_curr):
-        valuation_price_unit_total = 0
-        valuation_total_qty = 0
-        for val_stock_move in self:
-            # In case val_stock_move is a return move, its valuation entries have been made with the
-            # currency rate corresponding to the original stock move
-            valuation_date = val_stock_move.origin_returned_move_id.date or val_stock_move.date
-            svl = val_stock_move.with_context(active_test=False).mapped('stock_valuation_layer_ids').filtered(
-                lambda l: l.quantity)
-            layers_qty = sum(svl.mapped('quantity'))
-            layers_values = sum(svl.mapped('value'))
-            valuation_price_unit_total += related_aml.company_currency_id._convert(
-                layers_values, to_curr, related_aml.company_id, valuation_date, round=False,
-            )
-            valuation_total_qty += layers_qty
-        if float_is_zero(valuation_total_qty, precision_rounding=related_aml.product_uom_id.rounding or related_aml.product_id.uom_id.rounding):
-            raise UserError(
-                _('Odoo is not able to generate the anglo saxon entries. The total valuation of %s is zero.') % related_aml.product_id.display_name)
-        return valuation_price_unit_total, valuation_total_qty
-
-    def _is_purchase_return(self):
-        self.ensure_one()
-        return self.location_dest_id.usage == "supplier"
 
 
 class StockWarehouse(models.Model):
@@ -170,13 +31,13 @@ class StockWarehouse(models.Model):
                     'picking_type_id': self.in_type_id.id,
                     'group_propagation_option': 'none',
                     'company_id': self.company_id.id,
-                    'route_id': self._find_global_route('purchase_stock.route_warehouse0_buy', _('Buy')).id,
+                    'route_id': self._find_or_create_global_route('purchase_stock.route_warehouse0_buy', _('Buy')).id,
                     'propagate_cancel': self.reception_steps != 'one_step',
                 },
                 'update_values': {
                     'active': self.buy_to_resupply,
                     'name': self._format_rulename(location_id, False, 'Buy'),
-                    'location_id': location_id.id,
+                    'location_dest_id': location_id.id,
                     'propagate_cancel': self.reception_steps != 'one_step',
                 }
             }
@@ -224,7 +85,8 @@ class Orderpoint(models.Model):
     supplier_id = fields.Many2one(
         'product.supplierinfo', string='Product Supplier', check_company=True,
         domain="['|', ('product_id', '=', product_id), '&', ('product_id', '=', False), ('product_tmpl_id', '=', product_tmpl_id)]")
-    vendor_id = fields.Many2one(related='supplier_id.name', string="Vendor", store=True)
+    vendor_id = fields.Many2one(related='supplier_id.partner_id', string="Vendor", store=True)
+    purchase_visibility_days = fields.Float(default=0.0, help="Visibility Days applied on the purchase routes.")
 
     @api.depends('product_id.purchase_order_line_ids.product_qty', 'product_id.purchase_order_line_ids.state')
     def _compute_qty(self):
@@ -239,6 +101,27 @@ class Orderpoint(models.Model):
     @api.depends('supplier_id')
     def _compute_lead_days(self):
         return super()._compute_lead_days()
+
+    def _compute_visibility_days(self):
+        res = super()._compute_visibility_days()
+        for orderpoint in self:
+            if 'buy' in orderpoint.rule_ids.mapped('action'):
+                orderpoint.visibility_days = orderpoint.purchase_visibility_days
+        return res
+
+    def _set_visibility_days(self):
+        res = super()._set_visibility_days()
+        for orderpoint in self:
+            if 'buy' in orderpoint.rule_ids.mapped('action'):
+                orderpoint.purchase_visibility_days = orderpoint.visibility_days
+        return res
+
+    def _compute_days_to_order(self):
+        res = super()._compute_days_to_order()
+        for orderpoint in self:
+            if 'buy' in orderpoint.rule_ids.mapped('action'):
+                orderpoint.days_to_order = orderpoint.company_id.days_to_purchase
+        return res
 
     @api.depends('route_id')
     def _compute_show_suppplier(self):
@@ -288,6 +171,7 @@ class Orderpoint(models.Model):
                         'url': f'#action={action.id}&id={order.id}&model=purchase.order',
                     }],
                     'sticky': False,
+                    'next': {'type': 'ir.actions.act_window_close'},
                 }
             }
         return super()._get_replenishment_order_notification()
@@ -307,23 +191,21 @@ class Orderpoint(models.Model):
         return res
 
     def _set_default_route_id(self):
-        route_id = self.env['stock.rule'].search([
+        route_ids = self.env['stock.rule'].search([
             ('action', '=', 'buy')
         ]).route_id
-        orderpoint_wh_supplier = self.filtered(lambda o: o.product_id.seller_ids)
-        if route_id and orderpoint_wh_supplier:
-            orderpoint_wh_supplier.route_id = route_id[0].id
+        for orderpoint in self:
+            route_id = orderpoint.rule_ids.route_id & route_ids
+            if not orderpoint.product_id.seller_ids:
+                continue
+            if not route_id:
+                continue
+            orderpoint.route_id = route_id[0].id
         return super()._set_default_route_id()
 
-    def _get_orderpoint_procurement_date(self):
-        date = super()._get_orderpoint_procurement_date()
-        if any(rule.action == 'buy' for rule in self.rule_ids):
-            date -= relativedelta(days=self.company_id.po_lead)
-        return date
 
-
-class ProductionLot(models.Model):
-    _inherit = 'stock.production.lot'
+class StockLot(models.Model):
+    _inherit = 'stock.lot'
 
     purchase_order_ids = fields.Many2many('purchase.order', string="Purchase Orders", compute='_compute_purchase_order_ids', readonly=True, store=False)
     purchase_order_count = fields.Integer('Purchase order count', compute='_compute_purchase_order_ids')

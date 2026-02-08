@@ -19,7 +19,6 @@ var _t = core._t;
  **/
 var Dialog = Widget.extend({
     tagName: 'main',
-    xmlDependencies: ['/web/static/src/legacy/xml/dialog.xml'],
     custom_events: _.extend({}, Widget.prototype.custom_events, {
         focus_control_button: '_onFocusControlButton',
         close_dialog: '_onCloseDialog',
@@ -116,7 +115,7 @@ var Dialog = Widget.extend({
         var self = this;
         return this._super.apply(this, arguments).then(function () {
             // Render modal once xml dependencies are loaded
-            self.$modal = $(QWeb.render('Dialog', {
+            self.$modal = $(QWeb.render('web.DialogWidget', {
                 fullscreen: self.fullscreen,
                 title: self.title,
                 subtitle: self.subtitle,
@@ -203,11 +202,12 @@ var Dialog = Widget.extend({
             if (self.$parentNode) {
                 self.$modal.appendTo(self.$parentNode);
             }
-            self.$modal.modal({
-                show: true,
+            const modalNode = self.$modal[0];
+            const modal = new Modal(modalNode, {
                 backdrop: self.backdrop,
                 keyboard: false,
             });
+            modal.show();
             self._openedResolver();
             if (options && options.shouldFocusButtons) {
                 self._onFocusControlButton();
@@ -318,6 +318,7 @@ var Dialog = Widget.extend({
                 attrs: {
                     class: buttonData.classes || (buttons.length > 1 ? 'btn-secondary' : 'btn-primary'),
                     disabled: buttonData.disabled,
+                    'data-hotkey': buttonData.hotkey,
                 },
                 icon: buttonData.icon,
                 text: buttonData.text,

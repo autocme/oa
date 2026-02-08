@@ -44,10 +44,8 @@ class Menu(models.Model):
     website_id = fields.Many2one('website', 'Website', ondelete='cascade')
     parent_id = fields.Many2one('website.menu', 'Parent Menu', index=True, ondelete="cascade")
     child_id = fields.One2many('website.menu', 'parent_id', string='Child Menus')
-    parent_path = fields.Char(index=True)
+    parent_path = fields.Char(index=True, unaccent=False)
     is_visible = fields.Boolean(compute='_compute_visible', string='Is Visible')
-    group_ids = fields.Many2many('res.groups', string='Visible Groups',
-                                 help="User need to be at least in one of these groups to see the menu")
     is_mega_menu = fields.Boolean(compute=_compute_field_is_mega_menu, inverse=_set_field_is_mega_menu)
     mega_menu_content = fields.Html(translate=html_translate, sanitize=False, prefetch=True)
     mega_menu_classes = fields.Char()
@@ -64,8 +62,8 @@ class Menu(models.Model):
             res.append((menu.id, menu_name))
         return res
 
-    @api.model
-    def create(self, vals):
+    @api.model_create_multi
+    def create(self, vals_list):
         ''' In case a menu without a website_id is trying to be created, we duplicate
             it for every website.
             Note: Particulary useful when installing a module that adds a menu like
@@ -75,33 +73,36 @@ class Menu(models.Model):
         '''
         self.clear_caches()
         # Only used when creating website_data.xml default menu
-        if vals.get('url') == '/default-main-menu':
-            return super(Menu, self).create(vals)
-
-        if 'website_id' in vals:
-            return super(Menu, self).create(vals)
-        elif self._context.get('website_id'):
-            vals['website_id'] = self._context.get('website_id')
-            return super(Menu, self).create(vals)
-        else:
-            # create for every site
-            for website in self.env['website'].search([]):
-                w_vals = dict(vals, **{
+        menus = self.env['website.menu']
+        for vals in vals_list:
+            if vals.get('url') == '/default-main-menu':
+                menus |= super().create(vals)
+                continue
+            if 'website_id' in vals:
+                menus |= super().create(vals)
+                continue
+            elif self._context.get('website_id'):
+                vals['website_id'] = self._context.get('website_id')
+                menus |= super().create(vals)
+                continue
+            else:
+                # create for every site
+                w_vals = [dict(vals, **{
                     'website_id': website.id,
                     'parent_id': website.menu_id.id,
-                })
-                res = super(Menu, self).create(w_vals)
-            # if creating a default menu, we should also save it as such
-            default_menu = self.env.ref('website.main_menu', raise_if_not_found=False)
-            if default_menu and vals.get('parent_id') == default_menu.id:
-                res = super(Menu, self).create(vals)
-        return res  # Only one record is returned but multiple could have been created
+                }) for website in self.env['website'].search([])]
+                new_menu = super().create(w_vals)[-1:]  # take the last one
+                # if creating a default menu, we should also save it as such
+                default_menu = self.env.ref('website.main_menu', raise_if_not_found=False)
+                if default_menu and vals.get('parent_id') == default_menu.id:
+                    new_menu = super().create(vals)
+                menus |= new_menu
+        # Only one record per vals is returned but multiple could have been created
+        return menus
 
     def write(self, values):
-        res = super().write(values)
-        if 'website_id' in values or 'group_ids' in values or 'sequence' in values or 'page_id' in values:
-            self.clear_caches()
-        return res
+        self.clear_caches()
+        return super().write(values)
 
     def unlink(self):
         self.clear_caches()
@@ -126,7 +127,7 @@ class Menu(models.Model):
                 page_sudo = menu.page_id.sudo()
                 if (not page_sudo.is_visible
                     or (not page_sudo.view_id._handle_visibility(do_raise=False)
-                        and page_sudo.view_id.visibility != "password")):
+                        and page_sudo.view_id._get_cached_visibility() != "password")):
                     visible = False
             menu.is_visible = visible
 
@@ -148,26 +149,28 @@ class Menu(models.Model):
     # would be better to take a menu_id as argument
     @api.model
     def get_tree(self, website_id, menu_id=None):
+        website = self.env['website'].browse(website_id)
+
         def make_tree(node):
-            is_homepage = bool(node.page_id and self.env['website'].browse(website_id).homepage_id.id == node.page_id.id)
+            menu_url = node.page_id.url if node.page_id else node.url
             menu_node = {
                 'fields': {
                     'id': node.id,
                     'name': node.name,
-                    'url': node.page_id.url if node.page_id else node.url,
+                    'url': menu_url,
                     'new_window': node.new_window,
                     'is_mega_menu': node.is_mega_menu,
                     'sequence': node.sequence,
                     'parent_id': node.parent_id.id,
                 },
                 'children': [],
-                'is_homepage': is_homepage,
+                'is_homepage': menu_url == (website.homepage_url or '/'),
             }
             for child in node.child_id:
                 menu_node['children'].append(make_tree(child))
             return menu_node
 
-        menu = menu_id and self.browse(menu_id) or self.env['website'].browse(website_id).menu_id
+        menu = menu_id and self.browse(menu_id) or website.menu_id
         return make_tree(menu)
 
     @api.model
@@ -191,7 +194,7 @@ class Menu(models.Model):
             menu_id = self.browse(menu['id'])
             # Check if the url match a website.page (to set the m2o relation),
             # except if the menu url contains '#', we then unset the page_id
-            if '#' in menu['url']:
+            if not menu['url'] or '#' in menu['url']:
                 # Multiple case possible
                 # 1. `#` => menu container (dropdown, ..)
                 # 2. `#anchor` => anchor on current page
@@ -199,7 +202,7 @@ class Menu(models.Model):
                 # 4. https://google.com#smth => valid external URL
                 if menu_id.page_id:
                     menu_id.page_id = None
-                if request and menu['url'].startswith('#') and len(menu['url']) > 1:
+                if request and menu['url'] and menu['url'].startswith('#') and len(menu['url']) > 1:
                     # Working on case 2.: prefix anchor with referer URL
                     referer_url = werkzeug.urls.url_parse(request.httprequest.headers.get('Referer', '')).path
                     menu['url'] = referer_url + menu['url']
@@ -213,6 +216,9 @@ class Menu(models.Model):
                 if page:
                     menu['page_id'] = page.id
                     menu['url'] = page.url
+                    if isinstance(menu.get('parent_id'), str):
+                        # Avoid failure if parent_id is sent as a string from a customization.
+                        menu['parent_id'] = int(menu['parent_id'])
                 elif menu_id.page_id:
                     try:
                         # a page shouldn't have the same url as a controller

@@ -3,7 +3,7 @@ odoo.define('web.mockserver_tests', function (require) {
 
 const MockServer = require("web.MockServer");
 
-QUnit.module("MockServer", {
+QUnit.module("Legacy MockServer", {
     beforeEach() {
         this.data = {
             "res.partner": {
@@ -114,7 +114,7 @@ QUnit.module("MockServer", {
                 args: [],
                 kwargs: {},
             });
-        } catch (error) {
+        } catch (_error) {
             assert.step("name_get failed")
         }
         assert.verifySteps(["name_get failed"])
@@ -166,7 +166,7 @@ QUnit.module("MockServer", {
                 args: [11111],
                 kwargs: {},
             });
-        } catch (error) {
+        } catch (_error) {
             assert.step("name_get failed")
         }
         assert.verifySteps(["name_get failed"])
@@ -181,7 +181,31 @@ QUnit.module("MockServer", {
             args: [[undefined, 1]],
             kwargs: {},
         });
-        assert.deepEqual(result, [[null, "False"], [1, "Jean-Michel"]]);
+        assert.deepEqual(result, [[null, ""], [1, "Jean-Michel"]]);
+    });
+
+    QUnit.test("performRpc: name_get with single id 0", async function (assert) {
+        assert.expect(1);
+        const server = new MockServer(this.data, {});
+        const result = await server.performRpc("", {
+            model: "res.partner",
+            method: "name_get",
+            args: [0],
+            kwargs: {},
+        });
+        assert.deepEqual(result, []);
+    });
+
+    QUnit.test("performRpc: name_get with array of id 0", async function (assert) {
+        assert.expect(1);
+        const server = new MockServer(this.data, {});
+        const result = await server.performRpc("", {
+            model: "res.partner",
+            method: "name_get",
+            args: [[0]],
+            kwargs: {},
+        });
+        assert.deepEqual(result, [[null, ""]]);
     });
 
     QUnit.test("performRpc: search with active_test=false", async function (assert) {

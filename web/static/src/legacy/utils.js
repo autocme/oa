@@ -9,6 +9,11 @@ import {
     ConnectionLostError,
 } from "../core/network/rpc_service";
 import { ErrorDialog } from "../core/errors/error_dialogs";
+import { useService } from "@web/core/utils/hooks";
+
+import { useComponent } from "@odoo/owl";
+
+export const wowlServicesSymbol = Symbol("wowlServices");
 
 export function makeLegacyRpcService(legacyEnv) {
     return {
@@ -100,9 +105,13 @@ export function makeLegacyCommandService(legacyEnv) {
                     commandRemoveMap.delete(uniqueId);
                 }
             }
+            function openMainPalette(config = {}) {
+                command.openMainPalette(config);
+            }
 
             legacyEnv.bus.on("set_legacy_command", null, setLegacyCommand);
             legacyEnv.bus.on("remove_legacy_command", null, removeLegacyCommand);
+            legacyEnv.bus.on("openMainPalette", null, openMainPalette);
         },
     };
 }
@@ -145,6 +154,9 @@ export function makeLegacySessionService(legacyEnv, session) {
 }
 
 export function mapLegacyEnvToWowlEnv(legacyEnv, wowlEnv) {
+    // store wowl services on the legacy env (used by the 'useWowlService' hook)
+    legacyEnv[wowlServicesSymbol] = wowlEnv.services;
+
     // rpc
     legacyEnv.session.rpc = (...args) => {
         let rejection;
@@ -157,6 +169,16 @@ export function mapLegacyEnvToWowlEnv(legacyEnv, wowlEnv) {
                     legacyEnv.session.user_context,
                     params.kwargs.context,
                 );
+                if (settings.noContextKeys) {
+                    const keys = settings.noContextKeys;
+                    if (typeof(keys) === 'string') {
+                        delete params.kwargs.context[keys];
+                    } else {
+                        for (const key of keys) {
+                            delete params.kwargs.context[key];
+                        }
+                    }
+                }
             }
             const jsonrpc = wowlEnv.services.rpc(route, params, {
                 silent: settings.shadow,
@@ -188,13 +210,14 @@ export function mapLegacyEnvToWowlEnv(legacyEnv, wowlEnv) {
 
     legacyEnv.services.local_storage = mapStorage(browser.localStorage);
     legacyEnv.services.session_storage = mapStorage(browser.sessionStorage);
+    legacyEnv.services.dialog = wowlEnv.services.dialog;
     // map WebClientReady
-    wowlEnv.bus.on("WEB_CLIENT_READY", null, () => {
+    wowlEnv.bus.addEventListener("WEB_CLIENT_READY", () => {
         legacyEnv.bus.trigger("web_client_ready");
     });
 
-    wowlEnv.bus.on("SCROLLER:ANCHOR_LINK_CLICKED", null, (payload) => {
-        legacyEnv.bus.trigger("SCROLLER:ANCHOR_LINK_CLICKED", payload);
+    wowlEnv.bus.addEventListener("SCROLLER:ANCHOR_LINK_CLICKED", (ev) => {
+        legacyEnv.bus.trigger("SCROLLER:ANCHOR_LINK_CLICKED", ev.detail);
     });
 
     legacyEnv.bus.on("clear_cache", null, () => {
@@ -219,7 +242,7 @@ export function cleanDomFromBootstrap() {
 export function makeLegacyNotificationService(legacyEnv) {
     return {
         dependencies: ["notification"],
-        start(env) {
+        start(env, { notification }) {
             let notifId = 0;
             const idsToRemoveFn = {};
 
@@ -250,14 +273,13 @@ export function makeLegacyNotificationService(legacyEnv) {
                     };
                 });
 
-                const removeFn = env.services.notification.add(_.escape(message), {
+                const removeFn = notification.add(message, {
                     sticky,
                     title,
                     type,
                     className,
                     onClose,
                     buttons,
-                    messageIsHtml: true,
                 });
                 const id = ++notifId;
                 idsToRemoveFn[id] = removeFn;
@@ -306,7 +328,8 @@ export function wrapSuccessOrFail(promise, { on_success, on_fail } = {}) {
         if (on_fail) {
             alreadyThrown = on_fail(reason) === "alreadyThrown";
         }
-        if (reason instanceof Error && !alreadyThrown) {
+        const error = reason instanceof Error && "cause" in reason ? reason.cause : reason;
+        if (error instanceof Error && !alreadyThrown) {
             throw reason;
         }
     });
@@ -321,4 +344,38 @@ export function makeLegacyRainbowManService(legacyEnv) {
             });
         },
     };
+}
+
+export function useLegacyRefs() {
+    const env = owl.useEnv();
+
+    let legacyRefs;
+    if (env.legacyRefs) {
+        legacyRefs = env.legacyRefs;
+    } else {
+        legacyRefs = {
+            component: null,
+            widget: null,
+        };
+    }
+
+    owl.useChildSubEnv({
+        legacyRefs,
+    });
+
+    return legacyRefs;
+}
+
+/**
+ * This hook allows legacy owl Components to use services coming from the wowl env.
+ * @param {string} serviceName
+ * @returns {any}
+ */
+export function useWowlService(serviceName) {
+    const component = useComponent();
+    const env = component.env;
+    component.env = { services: env[wowlServicesSymbol] };
+    const service = useService(serviceName);
+    component.env = env;
+    return service;
 }

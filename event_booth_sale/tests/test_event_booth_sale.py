@@ -1,18 +1,29 @@
 # -*- coding: utf-8 -*-
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
 
-from odoo import Command
+from datetime import datetime, timedelta
+
+from odoo import Command, fields
 from odoo.addons.event_booth_sale.tests.common import TestEventBoothSaleCommon
-from odoo.addons.sale.tests.common import TestSaleCommon
+from odoo.addons.sales_team.tests.common import TestSalesCommon
+from odoo.addons.account.tests.common import AccountTestInvoicingCommon
 from odoo.tests.common import tagged, users
 from odoo.tools import float_compare
 
 
-class TestEventBoothSaleWData(TestEventBoothSaleCommon):
+class TestEventBoothSaleWData(TestEventBoothSaleCommon, TestSalesCommon):
 
     @classmethod
     def setUpClass(cls):
         super(TestEventBoothSaleWData, cls).setUpClass()
+
+        cls.event_0 = cls.env['event.event'].create({
+            'name': 'TestEvent',
+            'auto_confirm': True,
+            'date_begin': fields.Datetime.to_string(datetime.today() + timedelta(days=1)),
+            'date_end': fields.Datetime.to_string(datetime.today() + timedelta(days=15)),
+            'date_tz': 'Europe/Brussels',
+        })
 
         cls.booth_1, cls.booth_2, cls.booth_3 = cls.env['event.booth'].create([
             {
@@ -61,7 +72,7 @@ class TestEventBoothSale(TestEventBoothSaleWData):
                          "Total amount should be the sum of the booths prices with 10% taxes ($40.0 + $4.0)")
 
         self.event_booth_category_1.write({'price': 100.0})
-        sale_order.update_prices()
+        sale_order._recompute_prices()
 
         self.assertNotEqual(self.booth_1.price, self.event_booth_product.list_price,
                             "Booth price should be different from product price.")
@@ -72,6 +83,14 @@ class TestEventBoothSale(TestEventBoothSaleWData):
                          "Untaxed amount should be the sum of the booths prices ($200.0).")
         self.assertEqual(float_compare(sale_order.amount_total, 220.0, precision_rounding=0.1), 0,
                          "Total amount should be the sum of the booths prices with 10% taxes ($200.0 + $20.0).")
+
+        sale_order.pricelist_id = self.test_pricelist_with_discount_included
+        sale_order._recompute_prices()
+
+        self.assertEqual(float_compare(sale_order.amount_untaxed, 180.0, precision_rounding=0.1), 0,
+                         "Untaxed amount should be the sum of the booths prices with discount 10% ($180.0).")
+        self.assertEqual(float_compare(sale_order.amount_total, 198.0, precision_rounding=0.1), 0,
+                         "Total amount should be the sum of the booths prices with 10% taxes ($180.0 + $18.0).")
 
         # Confirm the SO.
         sale_order.action_confirm()
@@ -144,11 +163,11 @@ class TestEventBoothSale(TestEventBoothSaleWData):
                          "Booths not correctly linked with event_booth_registration.")
 
 @tagged('post_install', '-at_install')
-class TestEventBoothSaleInvoice(TestSaleCommon, TestEventBoothSaleWData):
+class TestEventBoothSaleInvoice(AccountTestInvoicingCommon, TestEventBoothSaleWData):
 
     @classmethod
-    def setUpClass(cls):
-        super(TestEventBoothSaleInvoice, cls).setUpClass()
+    def setUpClass(cls, chart_template_ref=None):
+        super().setUpClass(chart_template_ref=chart_template_ref)
 
         # Add group `group_account_invoice` to user_sales_salesman to allow to pay the invoice
         cls.user_sales_salesman.groups_id += cls.env.ref('account.group_account_invoice')

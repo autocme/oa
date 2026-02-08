@@ -4,7 +4,7 @@ odoo.define('point_of_sale.tour.TicketScreen', function (require) {
     const { ProductScreen } = require('point_of_sale.tour.ProductScreenTourMethods');
     const { ReceiptScreen } = require('point_of_sale.tour.ReceiptScreenTourMethods');
     const { PaymentScreen } = require('point_of_sale.tour.PaymentScreenTourMethods');
-    const { ClientListScreen } = require('point_of_sale.tour.ClientListScreenTourMethods');
+    const { PartnerListScreen } = require('point_of_sale.tour.PartnerListScreenTourMethods');
     const { TicketScreen } = require('point_of_sale.tour.TicketScreenTourMethods');
     const { ErrorPopup } = require('point_of_sale.tour.ErrorPopupTourMethods');
     const { Chrome } = require('point_of_sale.tour.ChromeTourMethods');
@@ -16,16 +16,14 @@ odoo.define('point_of_sale.tour.TicketScreen', function (require) {
     ProductScreen.do.confirmOpeningPopup();
     ProductScreen.do.clickHomeCategory();
     ProductScreen.exec.addOrderline('Desk Pad', '1', '2');
-    ProductScreen.do.clickCustomerButton();
+    ProductScreen.do.clickPartnerButton();
     ProductScreen.do.clickCustomer('Nicole Ford');
-    ProductScreen.do.clickSetCustomer();
     Chrome.do.clickTicketButton();
     TicketScreen.check.nthRowContains(2, 'Nicole Ford');
     TicketScreen.do.clickNewTicket();
     ProductScreen.exec.addOrderline('Desk Pad', '1', '3');
-    ProductScreen.do.clickCustomerButton();
+    ProductScreen.do.clickPartnerButton();
     ProductScreen.do.clickCustomer('Brandon Freeman');
-    ProductScreen.do.clickSetCustomer();
     ProductScreen.do.clickPayButton();
     PaymentScreen.check.isShown();
     Chrome.do.clickTicketButton();
@@ -78,9 +76,9 @@ odoo.define('point_of_sale.tour.TicketScreen', function (require) {
     TicketScreen.check.orderWidgetIsNotEmpty();
     TicketScreen.do.clickControlButton('Invoice');
     Chrome.do.confirmPopup();
-    ClientListScreen.check.isShown();
-    ClientListScreen.exec.setClient('Colleen Diaz');
-    TicketScreen.check.customerIs('Colleen Diaz');
+    PartnerListScreen.check.isShown();
+    PartnerListScreen.do.clickPartner('Colleen Diaz');
+    TicketScreen.check.partnerIs('Colleen Diaz');
     // Reprint receipt
     TicketScreen.do.clickControlButton('Print Receipt');
     ReceiptScreen.check.isShown();
@@ -96,7 +94,7 @@ odoo.define('point_of_sale.tour.TicketScreen', function (require) {
     // Filter should be automatically 'Paid'.
     TicketScreen.check.filterIs('Paid');
     TicketScreen.do.selectOrder('-0003');
-    TicketScreen.check.customerIs('Colleen Diaz');
+    TicketScreen.check.partnerIs('Colleen Diaz');
     TicketScreen.do.clickOrderline('Desk Pad');
     TicketScreen.do.pressNumpad('3');
     // Error should show because 2 is more than the number
@@ -191,4 +189,16 @@ odoo.define('point_of_sale.tour.TicketScreen', function (require) {
 
     Tour.register('LotRefundTour', { test: true, url: '/pos/ui' }, getSteps());
 
+    startSteps();
+
+    ProductScreen.do.confirmOpeningPopup();
+    ProductScreen.do.clickHomeCategory();
+    ProductScreen.do.clickDisplayedProduct("Test Product");
+    ProductScreen.check.checkTaxAmount("9.09");
+    ProductScreen.check.totalAmountIs("100.00");
+    ProductScreen.do.changeFiscalPosition("test fp");
+    ProductScreen.check.totalAmountIs("100.00");
+    ProductScreen.check.checkTaxAmount("4.76");
+
+    Tour.register("FiscalPositionTwoTaxIncluded", { test: true, url: "/pos/ui" }, getSteps());
 });

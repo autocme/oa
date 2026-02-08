@@ -221,7 +221,7 @@ var AbstractField = Widget.extend({
         var self = this;
         return this._super.apply(this, arguments).then(function () {
             self.$el.attr('name', self.name);
-            self.$el.addClass('o_field_widget');
+            self.$el.addClass('o_field_widget').addClass("o_legacy_field_widget");
             self.$el.toggleClass('o_quick_editable', self._canQuickEdit);
             if (self.viewType === 'form') {
                 self.$el.on('click', self._onClick.bind(self));
@@ -572,7 +572,7 @@ var AbstractField = Widget.extend({
         try {
             value = this._parseValue(value);
             this._isValid = true;
-        } catch (e) {
+        } catch (_e) {
             this._isValid = false;
             this.trigger_up('set_dirty', {dataPointID: this.dataPointID});
             return Promise.reject({message: "Value set is not valid"});

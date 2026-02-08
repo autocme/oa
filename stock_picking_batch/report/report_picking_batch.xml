@@ -13,7 +13,7 @@
                         <div class="page">
                             <div class="d-flex">
                                 <div><h3>Summary: <span t-field="o.name"/></h3></div>
-                                <div class="mr-auto">
+                                <div class="me-auto">
                                     <div t-field="o.name" t-options="{'widget': 'barcode', 'width': 600, 'height': 150, 'img_style': 'width:300px;height:50px;'}"/>
                                 </div>
                             </div>
@@ -91,8 +91,8 @@
                                                 <td>
                                                     <span t-if="has_package or move_operation.state == 'done'"
                                                           t-esc="sum(move_operation.mapped('qty_done'))"/>
-                                                    <span t-else="" t-esc="sum(move_operation.mapped('product_uom_qty'))"/>
-                                                    <span t-field="move_operation.uom_id" groups="move_operation.group_uom"/>
+                                                    <span t-else="" t-esc="sum(move_operation.mapped('reserved_uom_qty'))"/>
+                                                    <span t-field="move_operation.product_uom_id" groups="uom.group_uom"/>
                                                 </td>
                                                 <td>
                                                     <span t-esc="move_operation.picking_id.display_name"/>
@@ -116,9 +116,9 @@
                                     </t>
                                 </t>
                             </table>
-                         </div>
-                     </t>
-                 </t>
+                        </div>
+                    </t>
+                </t>
             </t>
         </template>
     </data>

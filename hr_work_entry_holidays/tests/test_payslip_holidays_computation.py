@@ -8,14 +8,15 @@ from odoo.addons.hr_work_entry_holidays.tests.common import TestWorkEntryHoliday
 
 class TestPayslipHolidaysComputation(TestWorkEntryHolidaysBase):
 
-    def setUp(self):
-        super().setUp()
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
 
-        self.leave_type = self.env['hr.leave.type'].create({
+        cls.leave_type = cls.env['hr.leave.type'].create({
             'name': 'Legal Leaves',
             'time_type': 'leave',
             'requires_allocation': 'no',
-            'work_entry_type_id': self.work_entry_type_leave.id
+            'work_entry_type_id': cls.work_entry_type_leave.id
         })
 
     def test_work_data(self):
@@ -32,7 +33,7 @@ class TestPayslipHolidaysComputation(TestWorkEntryHolidaysBase):
         })
         leave.action_approve()
 
-        work_entries = self.jules_emp.contract_ids._generate_work_entries(date(2015, 11, 10), date(2015, 11, 21))
+        work_entries = self.jules_emp.contract_ids.generate_work_entries(date(2015, 11, 10), date(2015, 11, 21))
         work_entries.action_validate()
         work_entries = work_entries.filtered(lambda we: we.work_entry_type_id in self.env.ref('hr_work_entry.work_entry_type_attendance'))
         sum_hours = sum(work_entries.mapped('duration'))

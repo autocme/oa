@@ -8,12 +8,10 @@ import pytz
 import babel.dates
 from collections import OrderedDict
 
-from odoo import http, fields
+from odoo import http, fields, tools
 from odoo.addons.http_routing.models.ir_http import slug, unslug
 from odoo.addons.website.controllers.main import QueryURL
-from odoo.addons.portal.controllers.portal import _build_url_w_params
 from odoo.http import request
-from odoo.osv import expression
 from odoo.tools import html2plaintext
 from odoo.tools.misc import get_lang
 from odoo.tools import sql
@@ -131,21 +129,21 @@ class WebsiteBlog(http.Controller):
             url_args["date_begin"] = date_begin
             url_args["date_end"] = date_end
 
-        pager = request.website.pager(
+        pager = tools.lazy(lambda: request.website.pager(
             url=request.httprequest.path.partition('/page/')[0],
             total=total,
             page=page,
             step=self._blog_post_per_page,
             url_args=url_args,
-        )
+        ))
 
         if not blogs:
             all_tags = request.env['blog.tag']
         else:
-            all_tags = blogs.all_tags(join=True) if not blog else blogs.all_tags().get(blog.id, request.env['blog.tag'])
-        tag_category = sorted(all_tags.mapped('category_id'), key=lambda category: category.name.upper())
-        other_tags = sorted(all_tags.filtered(lambda x: not x.category_id), key=lambda tag: tag.name.upper())
-
+            all_tags = tools.lazy(lambda: blogs.all_tags(join=True) if not blog else blogs.all_tags().get(blog.id, request.env['blog.tag']))
+        tag_category = tools.lazy(lambda: sorted(all_tags.mapped('category_id'), key=lambda category: category.name.upper()))
+        other_tags = tools.lazy(lambda: sorted(all_tags.filtered(lambda x: not x.category_id), key=lambda tag: tag.name.upper()))
+        nav_list = tools.lazy(self.nav_list)
         # for performance prefetch the first post with the others
         post_ids = (first_post | posts).ids
         # and avoid accessing related blogs one by one
@@ -157,7 +155,7 @@ class WebsiteBlog(http.Controller):
             'first_post': first_post.with_prefetch(post_ids),
             'other_tags': other_tags,
             'tag_category': tag_category,
-            'nav_list': self.nav_list(),
+            'nav_list': nav_list,
             'tags_list': self.tags_list,
             'pager': pager,
             'posts': posts.with_prefetch(post_ids),
@@ -203,7 +201,7 @@ class WebsiteBlog(http.Controller):
             if not blog.exists():
                 raise werkzeug.exceptions.NotFound()
 
-        blogs = Blog.search(request.website.website_domain(), order="create_date asc, id asc")
+        blogs = tools.lazy(lambda: Blog.search(request.website.website_domain(), order="create_date asc, id asc"))
 
         if not blog and len(blogs) == 1:
             url = QueryURL('/blog/%s' % slug(blogs[0]), search=search, **opt)()
@@ -226,7 +224,6 @@ class WebsiteBlog(http.Controller):
 
         if blog:
             values['main_object'] = blog
-            values['edit_in_backend'] = True
             values['blog_url'] = QueryURL('', ['blog', 'tag'], blog=blog, tag=tag, date_begin=date_begin, date_end=date_end, search=search)
         else:
             values['blog_url'] = QueryURL('/blog', ['tag'], date_begin=date_begin, date_end=date_end, search=search)
@@ -316,34 +313,9 @@ class WebsiteBlog(http.Controller):
         response = request.render("website_blog.blog_post_complete", values)
 
         if blog_post.id not in request.session.get('posts_viewed', []):
-            if sql.increment_field_skiplock(blog_post, 'visits'):
+            if sql.increment_fields_skiplock(blog_post, 'visits'):
                 if not request.session.get('posts_viewed'):
                     request.session['posts_viewed'] = []
                 request.session['posts_viewed'].append(blog_post.id)
-                request.session.modified = True
+                request.session.touch()
         return response
-
-    @http.route('/blog/<int:blog_id>/post/new', type='http', auth="user", website=True)
-    def blog_post_create(self, blog_id, **post):
-        # Use sudo so this line prevents both editor and admin to access blog from another website
-        # as browse() will return the record even if forbidden by security rules but editor won't
-        # be able to access it
-        if not request.env['blog.blog'].browse(blog_id).sudo().can_access_from_current_website():
-            raise werkzeug.exceptions.NotFound()
-
-        new_blog_post = request.env['blog.post'].create({
-            'blog_id': blog_id,
-            'is_published': False,
-        })
-        return request.redirect("/blog/%s/%s?enable_editor=1" % (slug(new_blog_post.blog_id), slug(new_blog_post)))
-
-    @http.route('/blog/post_duplicate', type='http', auth="user", website=True, methods=['POST'])
-    def blog_post_copy(self, blog_post_id, **post):
-        """ Duplicate a blog.
-
-        :param blog_post_id: id of the blog post currently browsed.
-
-        :return redirect to the new blog created
-        """
-        new_blog_post = request.env['blog.post'].with_context(mail_create_nosubscribe=True).browse(int(blog_post_id)).copy()
-        return request.redirect("/blog/%s/%s?enable_editor=1" % (slug(new_blog_post.blog_id), slug(new_blog_post)))

@@ -3,17 +3,17 @@
 # 	* event_crm
 # 
 # Translators:
-# Andreas Schmidt <schmigo@gmail.com>, 2021
+# Friederike Fasterling-Nesselbosch, 2022
 # Martin Trigaux, 2023
-# Larissa Manderfeld, 2023
+# Larissa Manderfeld, 2025
 # 
 msgid ""
 msgstr ""
-"Project-Id-Version: Odoo Server saas~14.5\n"
+"Project-Id-Version: Odoo Server 16.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2021-09-14 10:28+0000\n"
-"PO-Revision-Date: 2021-09-14 12:21+0000\n"
-"Last-Translator: Larissa Manderfeld, 2023\n"
+"POT-Creation-Date: 2025-02-10 08:27+0000\n"
+"PO-Revision-Date: 2022-09-22 05:45+0000\n"
+"Last-Translator: Larissa Manderfeld, 2025\n"
 "Language-Team: German (https://app.transifex.com/odoo/teams/41243/de/)\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
@@ -33,6 +33,7 @@ msgid "# Registrations"
 msgstr "# Anmeldungen"
 
 #. module: event_crm
+#. odoo-python
 #: code:addons/event_crm/models/event_registration.py:0
 #, python-format
 msgid "(updated)"
@@ -96,16 +97,6 @@ msgstr ""
 #: model:ir.model.fields,field_description:event_crm.field_event_lead_rule__company_id
 msgid "Company"
 msgstr "Unternehmen"
-
-#. module: event_crm
-#: model:ir.model.fields,help:event_crm.field_event_event__lead_count
-msgid "Counter for the leads linked to this event"
-msgstr "Zähler für die mit diesem Ereignis verknüpften Leads"
-
-#. module: event_crm
-#: model:ir.model.fields,help:event_crm.field_event_registration__lead_count
-msgid "Counter for the leads linked to this registration"
-msgstr "Zähler für die mit dieser Registrierung verknüpften Leads"
 
 #. module: event_crm
 #: model:ir.model.fields,help:event_crm.field_crm_lead__registration_count
@@ -195,6 +186,11 @@ msgid "Event triggering the rule that created this lead"
 msgstr "Veranstaltung, die die Regel auslöst, die diesen Lead erzeugt hat"
 
 #. module: event_crm
+#: model_terms:ir.ui.view,arch_db:event_crm.crm_lead_merge_summary_inherit_event_crm
+msgid "Event:"
+msgstr "Veranstaltung:"
+
+#. module: event_crm
 #: model:ir.model.fields,help:event_crm.field_event_lead_rule__event_registration_filter
 msgid "Filter the attendees that will or not generate leads."
 msgstr "Filtern Sie die Teilnehmer, die Leads generieren werden oder nicht."
@@ -237,7 +233,7 @@ msgstr "Wenn die Teilnehmer diese Bedingungen erfüllen"
 #. module: event_crm
 #: model:ir.model.fields,field_description:event_crm.field_event_lead_rule____last_update
 msgid "Last Modified on"
-msgstr "Zuletzt geändert am"
+msgstr "Letzte Änderung am"
 
 #. module: event_crm
 #: model:ir.model.fields,field_description:event_crm.field_event_lead_rule__write_uid
@@ -299,11 +295,6 @@ msgid "Leads"
 msgstr "Leads"
 
 #. module: event_crm
-#: model:ir.model.fields,help:event_crm.field_event_registration__lead_ids
-msgid "Leads generated from the registration."
-msgstr "Aus der Registrierung generierte Leads."
-
-#. module: event_crm
 #: model:ir.model.fields,help:event_crm.field_event_event__lead_ids
 msgid "Leads generated from this event"
 msgstr "Von dieser Veranstaltung generierte Leads"
@@ -314,6 +305,7 @@ msgid "Name"
 msgstr "Name"
 
 #. module: event_crm
+#. odoo-python
 #: code:addons/event_crm/models/event_lead_rule.py:0
 #, python-format
 msgid "New registrations"
@@ -336,6 +328,7 @@ msgid "Opportunity"
 msgstr "Verkaufschance"
 
 #. module: event_crm
+#. odoo-python
 #: code:addons/event_crm/models/event_registration.py:0
 #: code:addons/event_crm/models/event_registration.py:0
 #, python-format
@@ -354,7 +347,7 @@ msgid ""
 "Per Order : A single Lead is created per Ticket Batch/Sale Order (B2B)"
 msgstr ""
 "Pro Teilnehmer: Für jeden Teilnehmer wird ein Lead erstellt (B2C).\n"
-"Pro Auftrag: Es wird ein einzelner Lead pro Ticketstapel/Verkaufsauftrag erstellt (B2B)"
+"Pro Auftrag : Es wird ein einzelner Lead pro Ticketstapel/Verkaufsauftrag erstellt (B2B)"
 
 #. module: event_crm
 #: model:ir.model.fields.selection,name:event_crm.selection__event_lead_rule__lead_creation_basis__order
@@ -365,6 +358,11 @@ msgstr "Pro Auftrag"
 #: model:ir.model.fields,field_description:event_crm.field_crm_lead__event_lead_rule_id
 msgid "Registration Rule"
 msgstr "Regel für Anmeldung"
+
+#. module: event_crm
+#: model_terms:ir.ui.view,arch_db:event_crm.crm_lead_merge_summary_inherit_event_crm
+msgid "Registration Rule:"
+msgstr "Regel für Anmeldung:"
 
 #. module: event_crm
 #: model:ir.model.fields,field_description:event_crm.field_event_lead_rule__event_registration_filter
@@ -393,7 +391,7 @@ msgstr "Regelbezeichnung"
 #. module: event_crm
 #: model:event.lead.rule,name:event_crm.event_lead_rule_0
 msgid "Rule on @example.com"
-msgstr "Regel auf @example.com"
+msgstr "Regel auf @beispiel.com"
 
 #. module: event_crm
 #: model:ir.model.fields,help:event_crm.field_crm_lead__event_lead_rule_id
@@ -442,6 +440,7 @@ msgid "Trigger Type"
 msgstr "Auslösertyp"
 
 #. module: event_crm
+#. odoo-python
 #: code:addons/event_crm/models/event_registration.py:0
 #: code:addons/event_crm/models/event_registration.py:0
 #, python-format

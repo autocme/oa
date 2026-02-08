@@ -1,28 +1,27 @@
-.o_MessageInReplyToView {
-    display: block;
-    overflow: hidden;
-    white-space: nowrap;
-    text-overflow: ellipsis;
-    padding-left: $o-mail-message-sidebar-width;
+.o_MessageInReplyToView_corner {
+    &.o-isLeftAlign {
+        left: $o-mail-message-sidebar-width / 2;
+        border-radius: $o-mail-rounded-rectangle-border-radius-sm 0 0 0;
+    }
+    
+    &.o-isRightAlign {
+        right: $o-mail-message-sidebar-width / 2;
+        border-radius: 0 $o-mail-rounded-rectangle-border-radius-sm 0 0;
+    }
 }
 
-.o_MessageInReplyToView::before {
-    @include o-position-absolute($left: $o-mail-message-sidebar-width / 2, $bottom: 0);
-    content: "";
-    display: inline-block;
-    border-left: $border-width solid currentColor;
-    border-top: $border-width solid currentColor;
-    border-radius: $o-mail-rounded-rectangle-border-radius-sm 0 0 0;
-    height: .75em;
-    width: 2em;
-    margin-bottom: .25em;
-    opacity: .5;
+.o_MessageInReplyToView_avatar {
+    width: $o-mail-thread-avatar-size / 2;
+    height: $o-mail-thread-avatar-size / 2;
+}
+
+.o_MessageInReplyToView_wrapInner {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
 }
 
 .o_MessageInReplyToView_body {
-    cursor: pointer;
-    @include o-hover-text-color($o-main-color-muted, inherit);
-
     // Make the body single line when possible
     p, div {
         display: inline;

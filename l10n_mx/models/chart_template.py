@@ -8,8 +8,8 @@ from odoo import models, api, _
 class AccountChartTemplate(models.Model):
     _inherit = "account.chart.template"
 
-    def _load(self, sale_tax_rate, purchase_tax_rate, company):
-        res = super()._load(sale_tax_rate, purchase_tax_rate, company)
+    def _load(self, company):
+        res = super()._load(company)
         if company.chart_template_id == self.env.ref('l10n_mx.mx_coa'):
             company.write({
                 'account_sale_tax_id': self.env.ref(f'l10n_mx.{company.id}_tax12'),
@@ -46,13 +46,4 @@ class AccountChartTemplate(models.Model):
             'default_account_id': account,
             'show_on_dashboard': True,
         })
-        return res
-
-    @api.model
-    def _prepare_transfer_account_for_direct_creation(self, name, company):
-        res = super(AccountChartTemplate, self)._prepare_transfer_account_for_direct_creation(name, company)
-        if company.account_fiscal_country_id.code == 'MX':
-            xml_id = self.env.ref('l10n_mx.account_tag_102_01').id
-            res.setdefault('tag_ids', [])
-            res['tag_ids'].append((4, xml_id))
         return res

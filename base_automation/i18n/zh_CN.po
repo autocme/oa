@@ -3,17 +3,16 @@
 # 	* base_automation
 # 
 # Translators:
-# Martin Trigaux, 2021
-# 黎伟杰 <674416404@qq.com>, 2021
-# 山西清水欧度(QQ:54773801) <54773801@qq.com>, 2022
+# Martin Trigaux, 2022
+# Raymond Yu <cl_yu@hotmail.com>, 2022
 # Jeffery CHEN <jeffery9@gmail.com>, 2022
 # 
 msgid ""
 msgstr ""
-"Project-Id-Version: Odoo Server saas~14.5\n"
+"Project-Id-Version: Odoo Server 16.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2021-09-14 10:28+0000\n"
-"PO-Revision-Date: 2021-09-14 12:20+0000\n"
+"POT-Creation-Date: 2024-02-06 13:31+0000\n"
+"PO-Revision-Date: 2022-09-22 05:45+0000\n"
 "Last-Translator: Jeffery CHEN <jeffery9@gmail.com>, 2022\n"
 "Language-Team: Chinese (China) (https://app.transifex.com/odoo/teams/41243/zh_CN/)\n"
 "MIME-Version: 1.0\n"
@@ -23,7 +22,7 @@ msgstr ""
 "Plural-Forms: nplurals=1; plural=0;\n"
 
 #. module: base_automation
-#. openerp-web
+#. odoo-javascript
 #: code:addons/base_automation/static/src/xml/base_automation_error_dialog.xml:0
 #, python-format
 msgid ""
@@ -46,7 +45,7 @@ msgstr "动作名称"
 #. module: base_automation
 #: model:ir.model.fields,field_description:base_automation.field_base_automation__state
 msgid "Action To Do"
-msgstr "后置操作"
+msgstr "待办的动作"
 
 #. module: base_automation
 #: model:ir.model.fields,field_description:base_automation.field_base_automation__type
@@ -81,7 +80,7 @@ msgstr "应用于"
 #. module: base_automation
 #: model_terms:ir.ui.view,arch_db:base_automation.view_base_automation_search
 msgid "Archived"
-msgstr "已存档"
+msgstr "已归档"
 
 #. module: base_automation
 #: model:ir.model,name:base_automation.model_base_automation
@@ -103,7 +102,6 @@ msgstr "自动化"
 #. module: base_automation
 #: model:ir.actions.server,name:base_automation.ir_cron_data_base_automation_check_ir_actions_server
 #: model:ir.cron,cron_name:base_automation.ir_cron_data_base_automation_check
-#: model:ir.cron,name:base_automation.ir_cron_data_base_automation_check
 msgid "Base Action Rule: check and execute"
 msgstr "基本动作规则:检查并执行"
 
@@ -150,6 +148,19 @@ msgid ""
 msgstr "子服务器将被被激活。注意最后返回动作的值将做用做全局变量。"
 
 #. module: base_automation
+#: model:ir.model.fields,help:base_automation.field_base_automation__mail_post_method
+msgid ""
+"Choose method for email sending:\n"
+"EMail: send directly emails\n"
+"Post as Message: post on document and notify followers\n"
+"Post as Note: log a note on document"
+msgstr ""
+"选择发送电子邮件的方法：\n"
+"电子邮件：直接发送电子邮件\n"
+"作为信息发布：在文档上发布并通知关注者\n"
+"发布为注释：在文档上记录注释"
+
+#. module: base_automation
 #: model:ir.model.fields,field_description:base_automation.field_base_automation__create_uid
 msgid "Created by"
 msgstr "创建人"
@@ -168,12 +179,11 @@ msgstr "天"
 #: model:ir.model.fields,help:base_automation.field_base_automation__trg_date_range
 msgid ""
 "Delay after the trigger date.\n"
-"                                    You can put a negative number if you need a delay before the\n"
-"                                    trigger date, like sending a reminder 15 minutes before a meeting."
+"        You can put a negative number if you need a delay before the\n"
+"        trigger date, like sending a reminder 15 minutes before a meeting."
 msgstr ""
-"延迟触发日期。\n"
-"如果在触发日期您需要一个延迟，\n"
-"您可以输入一个负数，如在会议前15分钟发送提醒。"
+"触发器日期之后的延迟。\n"
+"    如果您需要在触发器日期之前延迟，您可以输入负数，例如在会议前15分钟发送提醒。"
 
 #. module: base_automation
 #: model:ir.model.fields,field_description:base_automation.field_base_automation__trg_date_range
@@ -186,14 +196,14 @@ msgid "Delay type"
 msgstr "延迟类型"
 
 #. module: base_automation
-#. openerp-web
+#. odoo-javascript
 #: code:addons/base_automation/static/src/xml/base_automation_error_dialog.xml:0
 #, python-format
 msgid "Disable Action"
 msgstr "禁用操作"
 
 #. module: base_automation
-#. openerp-web
+#. odoo-javascript
 #: code:addons/base_automation/static/src/xml/base_automation_error_dialog.xml:0
 #, python-format
 msgid ""
@@ -223,7 +233,7 @@ msgid "Due type"
 msgstr "到期类型"
 
 #. module: base_automation
-#. openerp-web
+#. odoo-javascript
 #: code:addons/base_automation/static/src/xml/base_automation_error_dialog.xml:0
 #, python-format
 msgid "Edit action"
@@ -235,14 +245,31 @@ msgid "Email Template"
 msgstr "EMail模板"
 
 #. module: base_automation
+#. odoo-python
+#: code:addons/base_automation/models/base_automation.py:0
+#, python-format
+msgid ""
+"Email, followers or activities action types cannot be used when deleting "
+"records."
+msgstr "删除记录时，不能使用电子邮件、关注者或活动动作类型"
+
+#. module: base_automation
 #: model:ir.model.fields,field_description:base_automation.field_base_automation__xml_id
 msgid "External ID"
-msgstr "外部 ID"
+msgstr "外部ID"
 
 #. module: base_automation
 #: model:ir.model.fields,help:base_automation.field_base_automation__on_change_field_ids
 msgid "Fields that trigger the onchange."
 msgstr "触发一次更改的字段。"
+
+#. module: base_automation
+#. odoo-python
+#: code:addons/base_automation/models/base_automation.py:0
+#, python-format
+msgid ""
+"Form Modification based actions can only be used with code action type."
+msgstr "基于表单修改的动作只能与代码动作类型一起使用。"
 
 #. module: base_automation
 #: model:ir.model.fields,field_description:base_automation.field_base_automation__groups_id
@@ -343,14 +370,15 @@ msgstr "月"
 #. module: base_automation
 #: model:ir.model.fields,field_description:base_automation.field_base_automation__activity_note
 msgid "Note"
-msgstr "备注"
+msgstr "笔记"
 
 #. module: base_automation
+#. odoo-python
 #: code:addons/base_automation/models/base_automation.py:0
 #, python-format
 msgid ""
-"Note that this action can be trigged up to %d minutes after its schedule."
-msgstr "请注意，此操作最多可在计划后%d分钟触发。"
+"Note that this action can be triggered up to %d minutes after its schedule."
+msgstr "请注意，此动作最多可在其计划安排后%d分钟触发。"
 
 #. module: base_automation
 #: model:ir.model.fields,field_description:base_automation.field_base_automation__on_change_field_ids
@@ -365,7 +393,7 @@ msgstr "创建时"
 #. module: base_automation
 #: model:ir.model.fields.selection,name:base_automation.selection__base_automation__trigger__on_create_or_write
 msgid "On Creation & Update"
-msgstr "创建以及更新时"
+msgstr "创建以和更新时"
 
 #. module: base_automation
 #: model:ir.model.fields.selection,name:base_automation.selection__base_automation__trigger__on_unlink
@@ -402,6 +430,11 @@ msgid "Responsible"
 msgstr "负责人"
 
 #. module: base_automation
+#: model:ir.model.fields,field_description:base_automation.field_base_automation__mail_post_method
+msgid "Send as"
+msgstr "发送为"
+
+#. module: base_automation
 #: model:ir.model.fields,field_description:base_automation.field_base_automation__sequence
 msgid "Sequence"
 msgstr "序号"
@@ -429,6 +462,11 @@ msgid "Setup a new automated automation"
 msgstr "建立一个新的自动化系统"
 
 #. module: base_automation
+#: model:ir.model.fields,field_description:base_automation.field_base_automation__mail_post_autofollow
+msgid "Subscribe Recipients"
+msgstr "订阅收件人"
+
+#. module: base_automation
 #: model:ir.model.fields,field_description:base_automation.field_base_automation__activity_summary
 msgid "Summary"
 msgstr "摘要"
@@ -444,11 +482,7 @@ msgid "Target Model Name"
 msgstr "目标模型名称"
 
 #. module: base_automation
-#: model:ir.model.fields,help:base_automation.field_base_automation__activity_user_field_name
-msgid "Technical name of the user on the record"
-msgstr "记录上用户的技术名称"
-
-#. module: base_automation
+#. odoo-python
 #: code:addons/base_automation/models/base_automation.py:0
 #, python-format
 msgid ""
@@ -459,12 +493,12 @@ msgstr "这个 \"%(trigger_value)s\" %(trigger_label)s 只能与 \"%(state_value
 #. module: base_automation
 #: model:ir.model.fields,help:base_automation.field_base_automation__trigger_field_ids
 msgid ""
-"The action will be triggered if and only if one of these fields is "
-"updated.If empty, all fields are watched."
-msgstr "如果 并且仅在更新这些字段之一时，将触发该操作。如果为空，则监视所有字段。"
+"The action will be triggered if and only if one of these fields is updated. "
+"If empty, all fields are watched."
+msgstr "当且仅当这些字段之一被更新时，该动作将被触发。如果是空的，所有字段都会被关注"
 
 #. module: base_automation
-#. openerp-web
+#. odoo-javascript
 #: code:addons/base_automation/static/src/xml/base_automation_error_dialog.xml:0
 #, python-format
 msgid ""
@@ -477,7 +511,7 @@ msgstr ""
 #. module: base_automation
 #: model:ir.model.fields,field_description:base_automation.field_base_automation__trigger
 msgid "Trigger"
-msgstr "触发"
+msgstr "触发器"
 
 #. module: base_automation
 #: model:ir.model.fields,field_description:base_automation.field_base_automation__trg_date_id
@@ -495,21 +529,23 @@ msgstr "触发字段"
 msgid ""
 "Type of server action. The following values are available:\n"
 "- 'Execute Python Code': a block of python code that will be executed\n"
-"- 'Create': create a new record with new values\n"
+"- 'Create a new Record': create a new record with new values\n"
 "- 'Update a Record': update the values of a record\n"
 "- 'Execute several actions': define an action that triggers several other server actions\n"
-"- 'Send Email': automatically send an email (Discuss)\n"
+"- 'Send Email': post a message, a note or send an email (Discuss)\n"
 "- 'Add Followers': add followers to a record (Discuss)\n"
-"- 'Create Next Activity': create an activity (Discuss)"
+"- 'Create Next Activity': create an activity (Discuss)\n"
+"- 'Send SMS Text Message': send SMS, log them on documents (SMS)"
 msgstr ""
-"服务器操作的类型。以下值可用：\n"
-"- 'Execute Python Code':将执行的 python 代码块\n"
-"- 'Create': 使用新值创建新记录\n"
-"- 'Update a Record': 更新记录的值\n"
-"- 'Execute several actions': 定义触发其他几个服务器操作的操作\n"
-"- 'Send Email': 自动发送电子邮件（讨论）\n"
-"- 'Add Followers': 将关注者添加到记录（讨论）\n"
-"- 'Create Next Activity': 创建活动（讨论）"
+"服务器操作的类型。 可以使用以下值：\n"
+"- “执行 Python 代码”：将执行的 Python 代码块\n"
+"- “创建新记录”：使用新值创建新记录\n"
+"- '更新记录'：更新记录的值\n"
+"- '执行几个动作'：定义一个触发其他几个服务器动作的动作\n"
+"- “发送电子邮件”：发布消息、注释或发送电子邮件（讨论）\n"
+"- “添加关注者”：将关注者添加到记录（讨论）\n"
+"- “创建下一个活动”：创建一个活动（讨论）\n"
+"- '发送 SMS 文本消息'：发送 SMS，将它们记录在文件（SMS）上"
 
 #. module: base_automation
 #: model:ir.model.fields,field_description:base_automation.field_base_automation__usage
@@ -524,7 +560,7 @@ msgid ""
 "Use 'Specific User' to always assign the same user on the next activity. Use"
 " 'Generic User From Record' to specify the field name of the user to choose "
 "on the record."
-msgstr "使用 '特定用户' 总是在下一个活动中分配相同的用户。使用 '记录中的通用用户' 指定在记录上选择的用户的字段名。"
+msgstr "使用 '特定用户' 总是在下一个活动中分配相同的用户。使用 '记录中的通用用户' 指定在记录上选择的用户的字段名."
 
 #. module: base_automation
 #: model:ir.model.fields,field_description:base_automation.field_base_automation__trg_date_calendar_id
@@ -557,6 +593,7 @@ msgid "Value Mapping"
 msgstr "映射的值"
 
 #. module: base_automation
+#. odoo-python
 #: code:addons/base_automation/models/base_automation.py:0
 #: code:addons/base_automation/models/base_automation.py:0
 #, python-format
@@ -581,10 +618,10 @@ msgstr "在处理多个操作时，执行顺序是基于序列。小的数字具
 #: model:ir.model.fields,help:base_automation.field_base_automation__trg_date_id
 msgid ""
 "When should the condition be triggered.\n"
-"                                  If present, will be checked by the scheduler. If empty, will be checked at creation and update."
+"                If present, will be checked by the scheduler. If empty, will be checked at creation and update."
 msgstr ""
-"何时触发该条件。\n"
-"                                  如果存在,将由调度程序检查。如果为空，将在创建和更新时检查。"
+"该条件应该在什么时候被触发。\n"
+"                如果存在，将由调度器检查。如果是空的，将在创建和更新时被检查"
 
 #. module: base_automation
 #: model:ir.model.fields,help:base_automation.field_base_automation__active
@@ -599,7 +636,7 @@ msgid ""
 msgstr "编写动作将执行的Python代码。一些变量可供使用;有关python表达式的帮助在帮助页卡中给出。"
 
 #. module: base_automation
-#. openerp-web
+#. odoo-javascript
 #: code:addons/base_automation/static/src/xml/base_automation_error_dialog.xml:0
 #, python-format
 msgid ""
@@ -607,13 +644,14 @@ msgid ""
 msgstr "您可以要求管理员禁用或更正此自动操作。"
 
 #. module: base_automation
-#. openerp-web
+#. odoo-javascript
 #: code:addons/base_automation/static/src/xml/base_automation_error_dialog.xml:0
 #, python-format
 msgid "You can disable this automated action or edit it to solve the issue."
 msgstr "您可以禁用此自动操作或编辑它以解决此问题。"
 
 #. module: base_automation
+#. odoo-python
 #: code:addons/base_automation/models/base_automation.py:0
 #, python-format
 msgid ""

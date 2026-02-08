@@ -1,23 +1,18 @@
 odoo.define('web_editor.ColorPalette', function (require) {
 'use strict';
 
-const ajax = require('web.ajax');
-const core = require('web.core');
 const session = require('web.session');
 const {ColorpickerWidget} = require('web.Colorpicker');
 const Widget = require('web.Widget');
 const customColors = require('web_editor.custom_colors');
 const weUtils = require('web_editor.utils');
 
-const qweb = core.qweb;
-
 let colorpickerArch;
 
 const ColorPaletteWidget = Widget.extend({
-    // ! for xmlDependencies, see loadDependencies function
     template: 'web_editor.snippet.option.colorpicker',
     events: {
-        'click .o_we_color_btn': '_onColorButtonClick',
+        'click .o_we_color_btn:not(.o_custom_gradient_btn)': '_onColorButtonClick',
         'mouseenter .o_we_color_btn': '_onColorButtonEnter',
         'mouseleave .o_we_color_btn': '_onColorButtonLeave',
         'click .o_we_colorpicker_switch_pane_btn': '_onSwitchPaneButtonClick',
@@ -53,7 +48,7 @@ const ColorPaletteWidget = Widget.extend({
      */
     init: function (parent, options) {
         this._super.apply(this, arguments);
-        this.style = window.getComputedStyle(document.documentElement);
+
         this.options = _.extend({
             selectedColor: false,
             resetButton: true,
@@ -65,12 +60,27 @@ const ColorPaletteWidget = Widget.extend({
             opacity: 1,
             selectedTab: 'theme-colors',
             withGradients: false,
+
+            // TODO adapt in master: notice that `options` may contain `editable`
+            // and `ownerDocument` values. Those are duplicates of `$editable` which
+            // can be received or is even computed from the instance here itself.
+            // Ideally those should not be used, they will be removed in master and
+            // the way $editable is received/computed will be reviewed.
+            editable: null,
+            ownerDocument: null,
         }, options || {});
         this.selectedColor = '';
         this.resetButton = this.options.resetButton;
         this.withCombinations = this.options.withCombinations;
 
+        // TODO review in master: do we really need a colorpalette in the editor
+        // working relying on the fact the editable is received from the caller
+        // and other ones that rely on the fact it is asked to the snippet menu?
         this.trigger_up('request_editable', {callback: val => this.options.$editable = val});
+        this.options.editable = this.options.$editable[0];
+        this.options.ownerDocument = this.options.editable && this.options.editable.ownerDocument;
+        const editableDocument = this.options.editable ? this.options.ownerDocument : document;
+        this.style = editableDocument.defaultView.getComputedStyle(editableDocument.documentElement);
 
         this.tabs = [{
             id: 'theme-colors',
@@ -245,8 +255,8 @@ const ColorPaletteWidget = Widget.extend({
         }
 
         // Compute class colors
-        const compatibilityColorNames = ['primary', 'secondary', 'alpha', 'beta', 'gamma', 'delta', 'epsilon', 'success', 'info', 'warning', 'danger'];
-        this.colorNames = [...compatibilityColorNames];
+
+        this.colorNames = [...weUtils.COLOR_PALETTE_COMPATIBILITY_COLOR_NAMES];
         this.colorToColorNames = {};
         this.el.querySelectorAll('button[data-color]:not(.o_custom_gradient_btn)').forEach(elem => {
             const colorName = elem.dataset.color;
@@ -257,8 +267,10 @@ const ColorPaletteWidget = Widget.extend({
             const isCCName = weUtils.isColorCombinationName(colorName);
             if (isCCName) {
                 $color.find('.o_we_cc_preview_wrapper').addClass(`o_cc o_cc${colorName}`);
+            } else if (weUtils.EDITOR_COLOR_CSS_VARIABLES.includes(colorName)) {
+                elem.style.backgroundColor = `var(--we-cp-${colorName})`;
             } else {
-                $color.addClass(`bg-${colorName}`);
+                elem.classList.add(`bg-${colorName}`);
             }
             this.colorNames.push(colorName);
             if (!isCCName && !elem.classList.contains('d-none')) {
@@ -274,7 +286,7 @@ const ColorPaletteWidget = Widget.extend({
         }
         if (this.options.selectedColor) {
             let selectedColor = this.options.selectedColor;
-            if (compatibilityColorNames.includes(selectedColor)) {
+            if (weUtils.COLOR_PALETTE_COMPATIBILITY_COLOR_NAMES.includes(selectedColor)) {
                 selectedColor = weUtils.getCSSVariableValue(selectedColor, this.style) || selectedColor;
             }
             selectedColor = ColorpickerWidget.normalizeCSSColor(selectedColor);
@@ -722,8 +734,14 @@ const ColorPaletteWidget = Widget.extend({
             // instead of style but seems necessary for custom colors right
             // now...
             const value = buttonEl.dataset.color || buttonEl.style.backgroundColor;
+            // Buttons in the theme-colors tab of the palette have
+            // no opacity, hence they should be searched by removing
+            // opacity of 0.6 (which was applied by default) from
+            // the selected color.
+            const isCommonColor = buttonEl.classList.contains('o_common_color');
+            const selectedColor = isCommonColor ? this._opacifyColor(this.selectedColor) : this.selectedColor;
             buttonEl.classList.toggle('selected', value
-                && (this.selectedCC === value || weUtils.areCssValuesEqual(this.selectedColor, value)));
+                && (this.selectedCC === value || weUtils.areCssValuesEqual(selectedColor, value)));
         }
     },
     /**
@@ -996,8 +1014,6 @@ const ColorPaletteWidget = Widget.extend({
  */
 let colorpickerTemplateProm;
 ColorPaletteWidget.loadDependencies = async function (rpcCapableObj) {
-    const proms = [ajax.loadXML('/web_editor/static/src/xml/snippets.xml', qweb)];
-
     // Public user using the editor may have a colorpalette but with
     // the default wysiwyg ones.
     if (!session.is_website_user) {
@@ -1009,10 +1025,8 @@ ColorPaletteWidget.loadDependencies = async function (rpcCapableObj) {
                 args: ['web_editor.colorpicker', {}],
             }).then(arch => colorpickerArch = arch);
         }
-        proms.push(colorpickerTemplateProm);
+        return colorpickerTemplateProm;
     }
-
-    return Promise.all(proms);
 };
 
 return {

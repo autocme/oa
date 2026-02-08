@@ -29,7 +29,7 @@ class Digest(models.Model):
                                     ('monthly', 'Monthly'),
                                     ('quarterly', 'Quarterly')],
                                    string='Periodicity', default='daily', required=True)
-    next_run_date = fields.Date(string='Next Send Date')
+    next_run_date = fields.Date(string='Next Mailing Date')
     currency_id = fields.Many2one(related="company_id.currency_id", string='Currency', readonly=False)
     company_id = fields.Many2one('res.company', string='Company', default=lambda self: self.env.company.id)
     available_fields = fields.Char(compute='_compute_available_fields')
@@ -38,7 +38,7 @@ class Digest(models.Model):
     # First base-related KPIs
     kpi_res_users_connected = fields.Boolean('Connected Users')
     kpi_res_users_connected_value = fields.Integer(compute='_compute_kpi_res_users_connected_value')
-    kpi_mail_message_total = fields.Boolean('Messages')
+    kpi_mail_message_total = fields.Boolean('Messages Sent')
     kpi_mail_message_total_value = fields.Integer(compute='_compute_kpi_mail_message_total_value')
 
     @api.depends('user_ids')
@@ -87,7 +87,7 @@ class Digest(models.Model):
     # ------------------------------------------------------------
 
     def action_subscribe(self):
-        if self.env.user.has_group('base.group_user') and self.env.user not in self.user_ids:
+        if self.env.user._is_internal() and self.env.user not in self.user_ids:
             self._action_subscribe_users(self.env.user)
 
     def _action_subscribe_users(self, users):
@@ -95,8 +95,8 @@ class Digest(models.Model):
         computation and avoid ACLs issues. """
         self.sudo().user_ids |= users
 
-    def action_unsubcribe(self):
-        if self.env.user.has_group('base.group_user') and self.env.user in self.user_ids:
+    def action_unsubscribe(self):
+        if self.env.user._is_internal() and self.env.user in self.user_ids:
             self._action_unsubscribe_users(self.env.user)
 
     def _action_unsubscribe_users(self, users):
@@ -114,7 +114,23 @@ class Digest(models.Model):
         self.periodicity = periodicity
 
     def action_send(self):
-        to_slowdown = self._check_daily_logs()
+        """ Send digests emails to all the registered users. """
+        return self._action_send(update_periodicity=True)
+
+    def action_send_manual(self):
+        """ Manually send digests emails to all registered users. In that case
+        do not update periodicity as this is not an automated action that could
+        be considered as unwanted spam. """
+        return self._action_send(update_periodicity=False)
+
+    def _action_send(self, update_periodicity=True):
+        """ Send digests email to all the registered users.
+
+        :param bool update_periodicity: if True, check user logs to update
+          periodicity of digests. Purpose is to slow down digest whose users
+          do not connect to avoid spam;
+        """
+        to_slowdown = self._check_daily_logs() if update_periodicity else self.env['digest.digest']
 
         for digest in self:
             for user in digest.user_ids:
@@ -123,13 +139,13 @@ class Digest(models.Model):
                     lang=user.lang
                 )._action_send_to_user(user, tips_count=1)
             if digest in to_slowdown:
-                digest.write({'periodicity': digest._get_next_periodicity()[0]})
+                digest.periodicity = digest._get_next_periodicity()[0]
             digest.next_run_date = digest._get_next_run_date()
 
-    def _action_send_to_user(self, user, tips_count=1, consum_tips=True):
+    def _action_send_to_user(self, user, tips_count=1, consume_tips=True):
         unsubscribe_token = self._get_unsubscribe_token(user.id)
 
-        rendered_body = self.env['mail.render.mixin'].with_context(preserve_comments=True)._render_template(
+        rendered_body = self.env['mail.render.mixin']._render_template(
             'digest.digest_mail_main',
             'digest.digest',
             self.ids,
@@ -145,10 +161,11 @@ class Digest(models.Model):
                 'formatted_date': datetime.today().strftime('%B %d, %Y'),
                 'display_mobile_banner': True,
                 'kpi_data': self._compute_kpis(user.company_id, user),
-                'tips': self._compute_tips(user.company_id, user, tips_count=tips_count, consumed=consum_tips),
+                'tips': self._compute_tips(user.company_id, user, tips_count=tips_count, consumed=consume_tips),
                 'preferences': self._compute_preferences(user.company_id, user),
             },
-            post_process=True
+            post_process=True,
+            options={'preserve_comments': True}
         )[self.id]
         full_mail = self.env['mail.render.mixin']._render_encapsulate(
             'digest.digest_mail_layout',
@@ -250,10 +267,10 @@ class Digest(models.Model):
                 try:
                     compute_value = digest[field_name + '_value']
                     # Context start and end date is different each time so invalidate to recompute.
-                    digest.invalidate_cache([field_name + '_value'])
+                    digest.invalidate_model([field_name + '_value'])
                     previous_value = previous_digest[field_name + '_value']
                     # Context start and end date is different each time so invalidate to recompute.
-                    previous_digest.invalidate_cache([field_name + '_value'])
+                    previous_digest.invalidate_model([field_name + '_value'])
                 except AccessError:  # no access rights -> just skip that digest details from that user's digest email
                     invalid_fields.append(field_name)
                     continue

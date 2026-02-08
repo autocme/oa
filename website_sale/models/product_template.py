@@ -4,12 +4,12 @@ import logging
 
 from odoo import api, fields, models, _
 from odoo.addons.http_routing.models.ir_http import slug, unslug
+from odoo.addons.website.models import ir_http
 from odoo.tools.translate import html_translate
 from odoo.osv import expression
 from psycopg2.extras import execute_values
 
 _logger = logging.getLogger(__name__)
-
 
 class ProductTemplate(models.Model):
     _inherit = [
@@ -23,7 +23,10 @@ class ProductTemplate(models.Model):
     _mail_post_access = 'read'
     _check_company_auto = True
 
-    website_description = fields.Html('Description for the website', sanitize_attributes=False, translate=html_translate, sanitize_form=False)
+    website_description = fields.Html(
+        'Description for the website', translate=html_translate,
+        sanitize_overridable=True,
+        sanitize_attributes=False, sanitize_form=False)
     alternative_product_ids = fields.Many2many(
         'product.template', 'product_alternative_rel', 'src_id', 'dest_id', check_company=True,
         string='Alternative Products', help='Suggest alternatives to your customer (upsell strategy). '
@@ -35,12 +38,12 @@ class ProductTemplate(models.Model):
     website_size_y = fields.Integer('Size Y', default=1)
     website_ribbon_id = fields.Many2one('product.ribbon', string='Ribbon')
     website_sequence = fields.Integer('Website Sequence', help="Determine the display order in the Website E-commerce",
-                                      default=lambda self: self._default_website_sequence(), copy=False)
+                                      default=lambda self: self._default_website_sequence(), copy=False, index=True)
     public_categ_ids = fields.Many2many(
         'product.public.category', relation='product_public_category_product_template_rel',
         string='Website Product Category',
-        help="The product will be available in each mentioned eCommerce category. Go to Shop > "
-             "Customize and enable 'eCommerce categories' to view all eCommerce categories.")
+        help="The product will be available in each mentioned eCommerce category. Go to Shop > Edit "
+             "Click on the page and enable 'Categories' to view all eCommerce categories.")
 
     product_template_image_ids = fields.One2many('product.image', 'product_tmpl_id', string="Extra Product Media", copy=True)
 
@@ -52,6 +55,11 @@ class ProductTemplate(models.Model):
                                    help="Define a custom unit to display in the price per unit of measure field.")
     base_unit_price = fields.Monetary("Price Per Unit", currency_field="currency_id", compute="_compute_base_unit_price")
     base_unit_name = fields.Char(compute='_compute_base_unit_name', help='Displays the custom unit for the products if defined or the selected unit of measure otherwise.')
+
+    compare_list_price = fields.Float(
+        'Compare to Price',
+        digits='Product Price',
+        help="The amount will be displayed strikethroughed on the eCommerce product page")
 
     @api.depends('product_variant_ids', 'product_variant_ids.base_unit_count')
     def _compute_base_unit_count(self):
@@ -75,11 +83,14 @@ class ProductTemplate(models.Model):
             if len(template.product_variant_ids) == 1:
                 template.product_variant_ids.base_unit_id = template.base_unit_id
 
-    @api.depends('price', 'list_price', 'base_unit_count')
+    def _get_base_unit_price(self, price):
+        self.ensure_one()
+        return self.base_unit_count and price / self.base_unit_count
+
+    @api.depends('list_price', 'base_unit_count')
     def _compute_base_unit_price(self):
         for template in self:
-            template_price = (template.price or template.list_price) if template.id else template.list_price
-            template.base_unit_price = template.base_unit_count and template_price / template.base_unit_count
+            template.base_unit_price = template._get_base_unit_price(template.list_price)
 
     @api.depends('uom_name', 'base_unit_id.name')
     def _compute_base_unit_name(self):
@@ -158,6 +169,67 @@ class ProductTemplate(models.Model):
 
         return self._get_possible_variants(parent_combination).sorted(_sort_key_variant)
 
+    def _get_sales_prices(self, pricelist):
+        pricelist.ensure_one()
+        partner_sudo = self.env.user.partner_id
+
+        # Try to fetch geoip based fpos or fallback on partner one
+        fpos_id = self.env['website']._get_current_fiscal_position_id(partner_sudo)
+        fiscal_position = self.env['account.fiscal.position'].sudo().browse(fpos_id)
+
+        sales_prices = pricelist._get_products_price(self, 1.0)
+        show_discount = pricelist.discount_policy == 'without_discount'
+        show_strike_price = self.env.user.has_group('website_sale.group_product_price_comparison')
+
+        base_sales_prices = self.price_compute('list_price', currency=pricelist.currency_id)
+
+        res = {}
+        for template in self:
+            price_reduce = sales_prices[template.id]
+
+            product_taxes = template.sudo().taxes_id.filtered(lambda t: t.company_id == t.env.company)
+            taxes = fiscal_position.map_tax(product_taxes)
+
+            template_price_vals = {
+                'price_reduce': price_reduce
+            }
+            base_price = None
+            price_list_contains_template = pricelist.currency_id.compare_amounts(price_reduce, base_sales_prices[template.id]) != 0
+
+            if template.compare_list_price and show_strike_price:
+                # The base_price becomes the compare list price and the price_reduce becomes the price
+                base_price = template.compare_list_price
+                if not price_list_contains_template:
+                    price_reduce = base_sales_prices[template.id]
+                    template_price_vals.update(price_reduce=price_reduce)
+                if template.currency_id != pricelist.currency_id:
+                    base_price = template.currency_id._convert(
+                        base_price,
+                        pricelist.currency_id,
+                        self.env.company,
+                        fields.Datetime.now(),
+                        round=False
+                    )
+            elif show_discount and price_list_contains_template:
+                base_price = base_sales_prices[template.id]
+
+            if base_price and base_price != price_reduce:
+                if not template.compare_list_price:
+                    # Compare_list_price are never tax included
+                    base_price = self._price_with_tax_computed(
+                        base_price, product_taxes, taxes, self.env.company.id,
+                        pricelist, template, partner_sudo,
+                    )
+                template_price_vals['base_price'] = base_price
+            template_price_vals['price_reduce'] = self._price_with_tax_computed(
+                template_price_vals['price_reduce'], product_taxes, taxes, self.env.company.id,
+                pricelist, template, partner_sudo,
+            )
+
+            res[template.id] = template_price_vals
+
+        return res
+
     def _get_combination_info(self, combination=False, product_id=False, add_qty=1, pricelist=False, parent_combination=False, only_template=False):
         """Override for website, where we want to:
             - take the website pricelist if no pricelist is set
@@ -180,45 +252,70 @@ class ProductTemplate(models.Model):
             parent_combination=parent_combination, only_template=only_template)
 
         if self.env.context.get('website_id'):
-            context = dict(self.env.context, ** {
-                'quantity': self.env.context.get('quantity', add_qty),
-                'pricelist': pricelist and pricelist.id
-            })
-
-            product = (self.env['product.product'].browse(combination_info['product_id']) or self).with_context(context)
+            product = self.env['product.product'].browse(combination_info['product_id']) or self
             partner = self.env.user.partner_id
             company_id = current_website.company_id
 
-            tax_display = self.user_has_groups('account.group_show_line_subtotals_tax_excluded') and 'total_excluded' or 'total_included'
-            fpos = self.env['account.fiscal.position'].sudo().get_fiscal_position(partner.id)
+            fpos_id = self.env['website'].sudo()._get_current_fiscal_position_id(partner)
+            fiscal_position = self.env['account.fiscal.position'].sudo().browse(fpos_id)
             product_taxes = product.sudo().taxes_id.filtered(lambda x: x.company_id == company_id)
-            taxes = fpos.map_tax(product_taxes)
+            taxes = fiscal_position.map_tax(product_taxes)
 
-            # The list_price is always the price of one.
-            quantity_1 = 1
-            combination_info['price'] = self.env['account.tax']._fix_tax_included_price_company(
-                combination_info['price'], product_taxes, taxes, company_id)
-            price = taxes.compute_all(combination_info['price'], pricelist.currency_id, quantity_1, product, partner)[tax_display]
+            price = self._price_with_tax_computed(
+                combination_info['price'], product_taxes, taxes, company_id, pricelist, product,
+                partner
+            )
             if pricelist.discount_policy == 'without_discount':
-                combination_info['list_price'] = self.env['account.tax']._fix_tax_included_price_company(
-                    combination_info['list_price'], product_taxes, taxes, company_id)
-                list_price = taxes.compute_all(combination_info['list_price'], pricelist.currency_id, quantity_1, product, partner)[tax_display]
+                list_price = self._price_with_tax_computed(
+                    combination_info['list_price'], product_taxes, taxes, company_id, pricelist,
+                    product, partner
+                )
             else:
                 list_price = price
-            combination_info['price_extra'] = self.env['account.tax']._fix_tax_included_price_company(combination_info['price_extra'], product_taxes, taxes, company_id)
-            price_extra = taxes.compute_all(combination_info['price_extra'], pricelist.currency_id, quantity_1, product, partner)[tax_display]
+            price_extra = self._price_with_tax_computed(
+                combination_info['price_extra'], product_taxes, taxes, company_id, pricelist,
+                product, partner
+            )
             has_discounted_price = pricelist.currency_id.compare_amounts(list_price, price) == 1
+            prevent_zero_price_sale = not price and current_website.prevent_zero_price_sale
+
+            compare_list_price = self.compare_list_price
+            if pricelist and pricelist.currency_id != product.currency_id:
+                compare_list_price = self.currency_id._convert(self.compare_list_price, pricelist.currency_id, self.env.company,
+                                                  fields.Datetime.now(), round=False)
 
             combination_info.update(
                 base_unit_name=product.base_unit_name,
-                base_unit_price=product.base_unit_count and list_price / product.base_unit_count,
+                base_unit_price=product._get_base_unit_price(list_price),
                 price=price,
                 list_price=list_price,
                 price_extra=price_extra,
                 has_discounted_price=has_discounted_price,
+                prevent_zero_price_sale=prevent_zero_price_sale,
+                compare_list_price=compare_list_price
             )
 
         return combination_info
+
+    @api.model
+    def _price_with_tax_computed(
+        self, price, product_taxes, taxes, company_id, pricelist, product, partner
+    ):
+        price = self.env['product.product']._get_tax_included_unit_price_from_price(
+            price,
+            pricelist.currency_id,
+            product_taxes,
+            product_taxes_after_fp=taxes,
+        )
+        show_tax_excluded = self.user_has_groups('account.group_show_line_subtotals_tax_excluded')
+        tax_display = 'total_excluded' if show_tax_excluded else 'total_included'
+        return taxes.compute_all(
+            price_unit=price,
+            currency=pricelist.currency_id,
+            quantity=1,  # `list_price` is always the price of one
+            product=product.sudo(),  # tax computation may require access to restricted fields
+            partner=partner,
+        )[tax_display]
 
     def _get_image_holder(self):
         """Returns the holder of the image to use as default representation.
@@ -234,6 +331,12 @@ class ProductTemplate(models.Model):
         variant = self.env['product.product'].browse(self._get_first_possible_variant_id())
         # if the variant has no image anyway, spare some queries by using template
         return variant if variant.image_variant_128 else self
+
+    def _get_suitable_image_size(self, columns, x_size, y_size):
+        if x_size == 1 and y_size == 1 and columns >= 3:
+            return 'image_512'
+        return 'image_1024'
+
 
     def _get_current_company_fallback(self, **kwargs):
         """Override: if a website is set on the product or given, fallback to
@@ -316,11 +419,23 @@ class ProductTemplate(models.Model):
             if product.id:
                 product.website_url = "/shop/%s" % slug(product)
 
-    def _is_sold_out(self):
-        return self.product_variant_id._is_sold_out()
 
     def _get_website_ribbon(self):
-        return self.website_ribbon_id
+        if self.website_ribbon_id:
+            return self.website_ribbon_id
+        return self.product_tag_ids.ribbon_id[:1] or self.product_variant_ids.additional_product_tag_ids.ribbon_id[:1]
+
+    @api.model
+    def _get_alternative_product_filter(self):
+        return self.env.ref('website_sale.dynamic_filter_cross_selling_alternative_products').id
+
+    @api.model
+    def _get_product_types_allow_zero_price(self):
+        """
+        Returns a list of detailed types (`product.template.detailed_type`) that can ignore the
+        `prevent_zero_price_sale` rule when buying products on a website.
+        """
+        return []
 
     # ---------------------------------------------------------
     # Rating Mixin API
@@ -397,8 +512,7 @@ class ProductTemplate(models.Model):
             mapping['detail'] = {'name': 'price', 'type': 'html', 'display_currency': options['display_currency']}
             mapping['detail_strike'] = {'name': 'list_price', 'type': 'html', 'display_currency': options['display_currency']}
         if with_category:
-            mapping['extra_link'] = {'name': 'category', 'type': 'dict', 'item_type': 'text'}
-            mapping['extra_link_url'] = {'name': 'category_url', 'type': 'dict', 'item_type': 'text'}
+            mapping['extra_link'] = {'name': 'category', 'type': 'html'}
         return {
             'model': 'product.template',
             'base_domain': domains,
@@ -418,20 +532,39 @@ class ProductTemplate(models.Model):
             categ_ids = product.public_categ_ids.filtered(lambda c: not c.website_id or c.website_id == current_website)
             if with_price:
                 combination_info = product._get_combination_info(only_template=True)
-                monetary_options = {'display_currency': mapping['detail']['display_currency']}
-                data['price'] = self.env['ir.qweb.field.monetary'].value_to_html(combination_info['price'], monetary_options)
-                if combination_info['has_discounted_price']:
-                    data['list_price'] = self.env['ir.qweb.field.monetary'].value_to_html(combination_info['list_price'], monetary_options)
+                data['price'], list_price = self._search_render_results_prices(
+                    mapping, combination_info
+                )
+                if list_price:
+                    data['list_price'] = list_price
             if with_image:
                 data['image_url'] = '/web/image/product.template/%s/image_128' % data['id']
             if with_category and categ_ids:
-                data['category'] = {'extra_link_title': _('Categories:') if len(categ_ids) > 1 else _('Category:')}
-                data['category_url'] = dict()
-                for categ in categ_ids:
-                    slug_categ = slug(categ)
-                    data['category'][slug_categ] = categ.name
-                    data['category_url'][slug_categ] = '/shop/category/%s' % slug_categ
+                data['category'] = self.env['ir.ui.view'].sudo()._render_template(
+                    "website_sale.product_category_extra_link",
+                    {'categories': categ_ids, 'slug': slug}
+                )
         return results_data
+
+    def _search_render_results_prices(self, mapping, combination_info):
+        monetary_options = {'display_currency': mapping['detail']['display_currency']}
+        if combination_info['prevent_zero_price_sale']:
+            website = self.env['website'].get_current_website()
+            return website.prevent_zero_price_sale_text, None
+
+        price = self.env['ir.qweb.field.monetary'].value_to_html(
+            combination_info['price'], monetary_options
+        )
+        if combination_info['has_discounted_price']:
+            list_price = self.env['ir.qweb.field.monetary'].value_to_html(
+                combination_info['list_price'], monetary_options
+            )
+        if combination_info['compare_list_price']:
+            list_price = self.env['ir.qweb.field.monetary'].value_to_html(
+                combination_info['compare_list_price'], monetary_options
+            )
+
+        return price, list_price if combination_info['has_discounted_price'] else None
 
     @api.model
     def get_google_analytics_data(self, combination):
@@ -443,3 +576,18 @@ class ProductTemplate(models.Model):
             'currency': product.currency_id.name,
             'price': combination['list_price'],
         }
+
+    def _get_contextual_pricelist(self):
+        """ Override to fallback on website current pricelist
+        """
+        pricelist = super()._get_contextual_pricelist()
+        if pricelist:
+            return pricelist
+        website = ir_http.get_request_website()
+        if website:
+            return website.get_current_pricelist()
+        return pricelist
+
+    def _website_show_quick_add(self):
+        website = self.env['website'].get_current_website()
+        return self.sale_ok and (not website.prevent_zero_price_sale or self._get_contextual_price())

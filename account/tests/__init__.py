@@ -23,7 +23,7 @@ from . import test_account_move_line_tax_details
 from . import test_account_journal_dashboard
 from . import test_chart_template
 from . import test_fiscal_position
-from . import test_reconciliation
+from . import test_kpi_provider
 from . import test_sequence_mixin
 from . import test_settings
 from . import test_tax
@@ -40,5 +40,7 @@ from . import test_account_incoming_supplier_invoice
 from . import test_payment_term
 from . import test_account_payment_register
 from . import test_tour
+from . import test_early_payment_discount
 from . import test_ir_actions_report
+from . import test_download_xsds
 from . import test_mail_tracking_value

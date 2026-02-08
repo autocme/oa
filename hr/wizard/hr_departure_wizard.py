@@ -8,10 +8,13 @@ class HrDepartureWizard(models.TransientModel):
     _name = 'hr.departure.wizard'
     _description = 'Departure Wizard'
 
+    def _get_employee_departure_date(self):
+        return self.env['hr.employee'].browse(self.env.context['active_id']).departure_date
+
     def _get_default_departure_date(self):
         departure_date = False
         if self.env.context.get('active_id'):
-            departure_date = self.env['hr.employee'].browse(self.env.context['active_id']).departure_date
+            departure_date = self._get_employee_departure_date()
         return departure_date or fields.Date.today()
 
     departure_reason_id = fields.Many2one("hr.departure.reason", default=lambda self: self.env['hr.departure.reason'].search([], limit=1), required=True)
@@ -35,4 +38,4 @@ class HrDepartureWizard(models.TransientModel):
             # ignore contact links to internal users
             private_address = employee.address_home_id
             if private_address and private_address.active and not self.env['res.users'].search([('partner_id', '=', private_address.id)]):
-                private_address.toggle_active()
+                private_address.sudo().toggle_active()

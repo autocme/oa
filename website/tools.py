@@ -1,75 +1,83 @@
-# -*- encoding: utf-8 -*-
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
 import contextlib
 import re
+import werkzeug.urls
 from lxml import etree
-from psycopg2 import sql
 from unittest.mock import Mock, MagicMock, patch
 
-import werkzeug
+from werkzeug.exceptions import NotFound
+from werkzeug.test import EnvironBuilder
 
 import odoo
-from odoo.tools.misc import hmac, DotDict
-
-
-def get_video_embed_code(video_url):
-    ''' Computes the valid iframe from given URL that can be embedded
-        (or False in case of invalid URL).
-    '''
-
-    if not video_url:
-        return False
-
-    # To detect if we have a valid URL or not
-    validURLRegex = r'^(http:\/\/|https:\/\/|\/\/)[a-z0-9]+([\-\.]{1}[a-z0-9]+)*\.[a-z]{2,5}(:[0-9]{1,5})?(\/.*)?$'
-
-    # Regex for few of the widely used video hosting services
-    ytRegex = r'^(?:(?:https?:)?\/\/)?(?:www\.)?(?:youtu\.be\/|youtube(-nocookie)?\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))((?:\w|-){11})(?:\S+)?$'
-    vimeoRegex = r'\/\/(player.)?vimeo.com\/([a-z]*\/)*([0-9]{6,11})[?]?.*'
-    dmRegex = r'.+dailymotion.com\/(video|hub|embed)\/([^_?]+)[^#]*(#video=([^_&]+))?'
-    igRegex = r'(.*)instagram.com\/p\/(.[a-zA-Z0-9]*)'
-    ykuRegex = r'(.*).youku\.com\/(v_show\/id_|embed\/)(.+)'
-
-    if not re.search(validURLRegex, video_url):
-        return False
-    else:
-        embedUrl = False
-        ytMatch = re.search(ytRegex, video_url)
-        vimeoMatch = re.search(vimeoRegex, video_url)
-        dmMatch = re.search(dmRegex, video_url)
-        igMatch = re.search(igRegex, video_url)
-        ykuMatch = re.search(ykuRegex, video_url)
-
-        if ytMatch and len(ytMatch.groups()[1]) == 11:
-            embedUrl = '//www.youtube%s.com/embed/%s?rel=0' % (ytMatch.groups()[0] or '', ytMatch.groups()[1])
-        elif vimeoMatch:
-            embedUrl = '//player.vimeo.com/video/%s' % (vimeoMatch.groups()[2])
-        elif dmMatch:
-            embedUrl = '//www.dailymotion.com/embed/video/%s' % (dmMatch.groups()[1])
-        elif igMatch:
-            embedUrl = '//www.instagram.com/p/%s/embed/' % (igMatch.groups()[1])
-        elif ykuMatch:
-            ykuLink = ykuMatch.groups()[2]
-            if '.html?' in ykuLink:
-                ykuLink = ykuLink.split('.html?')[0]
-            embedUrl = '//player.youku.com/embed/%s' % (ykuLink)
-        else:
-            # We directly use the provided URL as it is
-            embedUrl = video_url
-        return '<iframe class="embed-responsive-item" src="%s" allowFullScreen="true" frameborder="0"></iframe>' % embedUrl
-
-
-def werkzeugRaiseNotFound(*args, **kwargs):
-    raise werkzeug.exceptions.NotFound()
+from odoo.tests.common import HttpCase, HOST
+from odoo.tools.misc import hmac, DotDict, frozendict
 
 
 @contextlib.contextmanager
 def MockRequest(
-        env, *, routing=True, multilang=True,
-        context=None,
-        cookies=None, country_code=None, website=None, sale_order_id=None,
-        website_sale_current_pl=None,
+        env, *, path='/mockrequest', routing=True, multilang=True,
+        context=frozendict(), cookies=frozendict(), country_code=None,
+        website=None, remote_addr=HOST, environ_base=None, url_root=None,
+        # website_sale
+        sale_order_id=None, website_sale_current_pl=None,
 ):
+
+    lang_code = context.get('lang', env.context.get('lang', 'en_US'))
+    env = env(context=dict(context, lang=lang_code))
+    request = Mock(
+        # request
+        httprequest=Mock(
+            host='localhost',
+            path=path,
+            app=odoo.http.root,
+            environ=dict(
+                EnvironBuilder(
+                    path=path,
+                    base_url=HttpCase.base_url(),
+                    environ_base=environ_base,
+                ).get_environ(),
+                REMOTE_ADDR=remote_addr,
+            ),
+            cookies=cookies,
+            referrer='',
+            remote_addr=remote_addr,
+            url_root=url_root,
+            args=[],
+        ),
+        type='http',
+        future_response=odoo.http.FutureResponse(),
+        params={},
+        redirect=env['ir.http']._redirect,
+        session=DotDict(
+            odoo.http.get_default_session(),
+            geoip={'country_code': country_code},
+            sale_order_id=sale_order_id,
+            website_sale_current_pl=website_sale_current_pl,
+            force_website_id=website and website.id,
+            context={'lang': ''},
+        ),
+        geoip={},
+        db=env.registry.db_name,
+        env=env,
+        registry=env.registry,
+        cr=env.cr,
+        uid=env.uid,
+        context=env.context,
+        lang=env['res.lang']._lang_get(lang_code),
+        website=website,
+        render=lambda *a, **kw: '<MockResponse>',
+    )
+    if website:
+        request.website_routing = website.id
+
+    # The following code mocks match() to return a fake rule with a fake
+    # 'routing' attribute (routing=True) or to raise a NotFound
+    # exception (routing=False).
+    #
+    #   router = odoo.http.root.get_db_router()
+    #   rule, args = router.bind(...).match(path)
+    #   # arg routing is True => rule.endpoint.routing == {...}
+    #   # arg routing is False => NotFound exception
     router = MagicMock()
     match = router.return_value.bind.return_value.match
     if routing:
@@ -79,37 +87,13 @@ def MockRequest(
             'multilang': multilang
         }
     else:
-        match.side_effect = werkzeugRaiseNotFound
+        match.side_effect = NotFound
 
-    if context is None:
-        context = {}
-    lang_code = context.get('lang', env.context.get('lang', 'en_US'))
-    context.setdefault('lang', lang_code)
+    def update_context(**overrides):
+        request.env = request.env(context=dict(request.context, **overrides))
+        request.context = request.env.context
 
-    request = Mock(
-        context=context,
-        db=None,
-        endpoint=match.return_value[0] if routing else None,
-        env=env,
-        httprequest=Mock(
-            host='localhost',
-            path='/hello',
-            app=odoo.http.root,
-            environ={'REMOTE_ADDR': '127.0.0.1'},
-            cookies=cookies or {},
-            referrer='',
-        ),
-        lang=env['res.lang']._lang_get(lang_code),
-        redirect=env['ir.http']._redirect,
-        session=DotDict(
-            geoip={'country_code': country_code},
-            debug=False,
-            sale_order_id=sale_order_id,
-            website_sale_current_pl=website_sale_current_pl,
-        ),
-        website=website,
-        render=lambda *a, **kw: '<MockResponse>',
-    )
+    request.update_context = update_context
 
     with contextlib.ExitStack() as s:
         odoo.http._request_stack.push(request)
@@ -132,7 +116,7 @@ def distance(s1="", s2="", limit=4):
 
     :return: number of character changes needed to transform s1 into s2 or -1 if this exceeds the limit
     """
-    BIG = 100000 # never reached integer
+    BIG = 100000  # never reached integer
     if len(s1) > len(s2):
         s1, s2 = s2, s1
     l1 = len(s1)
@@ -143,12 +127,12 @@ def distance(s1="", s2="", limit=4):
     p = [i if i < boundary else BIG for i in range(0, l1 + 1)]
     d = [BIG for _ in range(0, l1 + 1)]
     for j in range(1, l2 + 1):
-        j2 = s2[j -1]
+        j2 = s2[j - 1]
         d[0] = j
         range_min = max(1, j - limit)
         range_max = min(l1, j + limit)
         if range_min > 1:
-            d[range_min -1] = BIG
+            d[range_min - 1] = BIG
         for i in range(range_min, range_max + 1):
             if s1[i - 1] == j2:
                 d[i] = p[i - 1]
@@ -176,7 +160,7 @@ def similarity_score(s1, s2):
     score -= len(set1.symmetric_difference(s2)) / (len(s1) + len(s2))
     return score
 
-def text_from_html(html_fragment):
+def text_from_html(html_fragment, collapse_whitespace=False):
     """
     Returns the plain non-tag text from an html
 
@@ -186,20 +170,40 @@ def text_from_html(html_fragment):
     """
     # lxml requires one single root element
     tree = etree.fromstring('<p>%s</p>' % html_fragment, etree.XMLParser(recover=True))
-    return ' '.join(tree.itertext())
 
-def get_unaccent_sql_wrapper(cr):
+    # Remove scripts or other technical elements that should not be converted
+    # into text.
+    xpath_filters = [
+        '//script',
+        '//style',
+        '//svg',
+        '//*[@class="css_non_editable_mode_hidden"]',
+    ]
+    for xpath_filter in xpath_filters:
+        for element in tree.xpath(xpath_filter): element.getparent().remove(element)
+
+    content = ' '.join(tree.itertext())
+    if collapse_whitespace:
+        content = re.sub('\\s+', ' ', content).strip()
+    return content
+
+def get_base_domain(url, strip_www=False):
     """
-    Returns a function that wraps SQL within unaccent if available
-    TODO remove when this tool becomes globally available
+    Returns the domain of a given url without the scheme and the www. and the
+    final '/' if any.
 
-    :param cr: cursor on which the wrapping is done
+    :param url: url from which the domain must be extracted
+    :param strip_www: if True, strip the www. from the domain
 
-    :return: function that wraps SQL with unaccent if available
+    :return: domain of the url
     """
-    if odoo.registry(cr.dbname).has_unaccent:
-        return lambda x: sql.SQL("unaccent({wrapped_sql})").format(wrapped_sql=x)
-    return lambda x: x
+    if not url:
+        return ''
+
+    url = werkzeug.urls.url_parse(url).netloc
+    if strip_www and url.startswith('www.'):
+        url = url[4:]
+    return url
 
 
 def add_form_signature(html_fragment, env_sudo):

@@ -61,8 +61,7 @@ class CRMLeadMiningRequest(models.Model):
     company_size_max = fields.Integer(default=1000)
     country_ids = fields.Many2many('res.country', string='Countries', default=_default_country_ids)
     state_ids = fields.Many2many('res.country.state', string='States')
-    available_state_ids = fields.One2many('res.country.state', compute='_compute_available_state_ids',
-        help="List of available states based on selected countries")
+    available_state_ids = fields.One2many('res.country.state', compute='_compute_available_state_ids')
     industry_ids = fields.Many2many('crm.iap.lead.industry', string='Industries')
 
     # Contact Generation Filter
@@ -99,7 +98,7 @@ class CRMLeadMiningRequest(models.Model):
     @api.depends('lead_ids.lead_mining_request_id')
     def _compute_lead_count(self):
         if self.ids:
-            leads_data = self.env['crm.lead'].read_group(
+            leads_data = self.env['crm.lead']._read_group(
                 [('lead_mining_request_id', 'in', self.ids)],
                 ['lead_mining_request_id'], ['lead_mining_request_id'])
         else:
@@ -227,7 +226,7 @@ class CRMLeadMiningRequest(models.Model):
     def _perform_request(self):
         """
         This will perform the request and create the corresponding leads.
-        The user will be notified if he hasn't enough credits.
+        The user will be notified if they don't have enough credits.
         """
         self.error_type = False
         server_payload = self._prepare_iap_payload()

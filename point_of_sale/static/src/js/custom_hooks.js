@@ -1,8 +1,7 @@
 odoo.define('point_of_sale.custom_hooks', function (require) {
     'use strict';
 
-    const { Component } = owl;
-    const { onMounted, onPatched, onWillUnmount, useRef} = owl.hooks;
+    const { onMounted, onPatched, onWillUnmount, useComponent, useRef } = owl;
     const { escapeRegExp } = require('@web/core/utils/strings');
 
     /**
@@ -12,7 +11,7 @@ odoo.define('point_of_sale.custom_hooks', function (require) {
      * the error when the order failed to sync.
      */
     function useErrorHandlers() {
-        const component = Component.current;
+        const component = useComponent();
 
         component._handlePushOrderError = async function (error) {
             // This error handler receives `error` equivalent to `error.message` of the rpc error.
@@ -71,7 +70,7 @@ odoo.define('point_of_sale.custom_hooks', function (require) {
     }
 
     function useAutoFocusToLast() {
-        const current = Component.current;
+        const current = useComponent();
         let target = null;
         function autofocus() {
             const prevTarget = target;
@@ -86,50 +85,9 @@ odoo.define('point_of_sale.custom_hooks', function (require) {
         onPatched(autofocus);
     }
 
-    /**
-     * Use this hook when you want to do something on previously selected and
-     * newly selected order when the order changes.
-     *
-     * Normally, a component is rendered then the current order is changed. When
-     * this happens, we want to rerender the component because the new information
-     * should be reflected in the screen. Additionally, we might want to remove listeners
-     * to the previous order and attach listeners to the new one. This hook is
-     * perfect for the described situation.
-     *
-     * Internally, this hook performs the following:
-     * 1. call newOrderCB on mounted
-     * 2. listen to order changes and perform the following sequence:
-     *    - call prevOrderCB(prevOrder)
-     *    - call newOrderCB(newOrder)
-     * 3. call prevOrderCB on willUnmount
-     *
-     * @param {Function} prevOrderCB apply this callback on the previous order
-     * @param {Function} newOrderCB apply this callback on the new order
-     */
-    function onChangeOrder(prevOrderCB, newOrderCB) {
-        const current = Component.current;
-        prevOrderCB = prevOrderCB ? prevOrderCB.bind(current) : () => {};
-        newOrderCB = newOrderCB ? newOrderCB.bind(current) : () => {};
-        onMounted(() => {
-            current.env.pos.on(
-                'change:selectedOrder',
-                async (pos, newOrder) => {
-                    await prevOrderCB(pos.previous('selectedOrder'));
-                    await newOrderCB(newOrder);
-                },
-                current
-            );
-            newOrderCB(current.env.pos.get_order());
-        });
-        onWillUnmount(() => {
-            current.env.pos.off('change:selectedOrder', null, current);
-            prevOrderCB(current.env.pos.get_order());
-        });
-    }
-
     function useBarcodeReader(callbackMap, exclusive = false) {
-        const current = Component.current;
-        const barcodeReader = current.env.pos.barcode_reader;
+        const current = useComponent();
+        const barcodeReader = current.env.barcode_reader;
         for (let [key, callback] of Object.entries(callbackMap)) {
             callbackMap[key] = callback.bind(current);
         }
@@ -157,25 +115,9 @@ odoo.define('point_of_sale.custom_hooks', function (require) {
         });
     }
 
-    function useAsyncLockedMethod(method) {
-        const component = Component.current;
-        let called = false;
-        return async (...args) => {
-            if (called) {
-                return;
-            }
-            try {
-                called = true;
-                await method.call(component, ...args);
-            } finally {
-                called = false;
-            }
-        };
-    }
-
     function useValidateCashInput(inputRef, startingValue) {
         const cashInput = useRef(inputRef);
-        const current = Component.current;
+        const current = useComponent();
         const decimalPoint = current.env._t.database.parameters.decimal_point;
         const thousandsSep = current.env._t.database.parameters.thousands_sep;
         // Replace the thousands separator and decimal point with regex-escaped versions
@@ -200,7 +142,6 @@ odoo.define('point_of_sale.custom_hooks', function (require) {
                 event.target.classList.remove('invalid-cash-input');
             }
         }
-        
 
         onMounted(() => {
             if (cashInput.el) {
@@ -216,5 +157,21 @@ odoo.define('point_of_sale.custom_hooks', function (require) {
         })
     }
 
-    return { useErrorHandlers, useAutoFocusToLast, onChangeOrder, useBarcodeReader, useAsyncLockedMethod, useValidateCashInput };
+    function useAsyncLockedMethod(method) {
+        const component = useComponent();
+        let called = false;
+        return async (...args) => {
+            if (called) {
+                return;
+            }
+            try {
+                called = true;
+                await method.call(component, ...args);
+            } finally {
+                called = false;
+            }
+        };
+    }
+
+    return { useErrorHandlers, useAutoFocusToLast, useBarcodeReader, useValidateCashInput, useAsyncLockedMethod };
 });

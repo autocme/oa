@@ -1,15 +1,13 @@
 /** @odoo-module alias=web.public.root */
 
-import ajax from 'web.ajax';
 import dom from 'web.dom';
-import env from 'web.public_env';
+import legacyEnv from 'web.public_env';
 import session from 'web.session';
-import utils from 'web.utils';
+import {getCookie} from 'web.utils.cookies';
 import publicWidget from 'web.public.widget';
 import { registry } from '@web/core/registry';
 
 import AbstractService from "web.AbstractService";
-import legacyEnv from "web.public_env";
 import lazyloader from "web.public.lazyloader";
 
 import {
@@ -20,14 +18,18 @@ import {
     mapLegacyEnvToWowlEnv,
     makeLegacyRainbowManService,
 } from "../../utils";
-import { ComponentAdapter } from "web.OwlCompatibility";
+import { standaloneAdapter } from "web.OwlCompatibility";
 
-import { loadBundleTemplates } from "@web/core/assets";
 import { makeEnv, startServices } from "@web/env";
+import { setLoadXmlDefaultApp, loadJS, templates } from '@web/core/assets';
 import { MainComponentsContainer } from "@web/core/main_components_container";
 import { browser } from '@web/core/browser/browser';
 import { jsonrpc } from '@web/core/network/rpc_service';
+import { _t } from "@web/core/l10n/translation";
+
+
 const serviceRegistry = registry.category("services");
+import { Component, App, whenReady } from "@odoo/owl";
 
 // Load localizations outside the PublicRoot to not wait for DOM ready (but
 // wait for them in PublicRoot)
@@ -35,9 +37,9 @@ function getLang() {
     var html = document.documentElement;
     return (html.getAttribute('lang') || 'en_US').replace('-', '_');
 }
-var lang = utils.get_cookie('frontend_lang') || getLang(); // FIXME the cookie value should maybe be in the ctx?
+const lang = getCookie('frontend_lang') || getLang(); // FIXME the cookie value should maybe be in the ctx?
 // momentjs don't have config for en_US, so avoid useless RPC
-var localeDef = lang !== 'en_US' ? ajax.loadJS('/web/webclient/locale/' + lang.replace('-', '_')) : Promise.resolve();
+var localeDef = lang !== 'en_US' ? loadJS('/web/webclient/locale/' + lang.replace('-', '_')) : Promise.resolve();
 
 
 /**
@@ -64,7 +66,7 @@ export const PublicRoot = publicWidget.RootWidget.extend({
      */
     init: function () {
         this._super.apply(this, arguments);
-        this.env = env;
+        this.env = legacyEnv;
         this.publicWidgets = [];
     },
     /**
@@ -182,7 +184,6 @@ export const PublicRoot = publicWidget.RootWidget.extend({
                 $from = this.$el;
             }
         }
-
         options = Object.assign({}, options, {
             wysiwyg: $('#wrapwrap').data('wysiwyg'),
         });
@@ -261,8 +262,6 @@ export const PublicRoot = publicWidget.RootWidget.extend({
                 }
                 params.kwargs.context = _computeContext.call(this, params.kwargs.context, noContextKeys);
             }
-        } else if (payload.service === 'ajax' && payload.method === 'loadLibs') {
-            args[1] = _computeContext.call(this, args[1]);
         } else {
             return;
         }
@@ -293,11 +292,10 @@ export const PublicRoot = publicWidget.RootWidget.extend({
      */
     _onMainObjectRequest: function (ev) {
         var repr = $('html').data('main-object');
-        var m = repr.match(/(.+)\((\d+),(.*)\)/);
+        var m = repr.match(/(.+)\((-?\d+),(.*)\)/);
         ev.data.callback({
             model: m[1],
             id: m[2] | 0,
-            viewid: parseInt(document.documentElement.dataset.viewid),
         });
     },
     /**
@@ -355,12 +353,9 @@ export const PublicRoot = publicWidget.RootWidget.extend({
     },
 });
 
-const { Component, mount } = owl;
-
 /**
  * Configure Owl with the public env
  */
-owl.config.mode = legacyEnv.isDebug() ? "dev" : "prod";
 owl.Component.env = legacyEnv;
 
 /**
@@ -379,7 +374,11 @@ export async function createPublicRoot(RootWidget) {
     serviceRegistry.add("legacy_notification", makeLegacyNotificationService(legacyEnv));
     serviceRegistry.add("legacy_dialog_mapping", makeLegacyDialogMappingService(legacyEnv));
     serviceRegistry.add("legacy_rainbowman_service", makeLegacyRainbowManService(legacyEnv));
-    await Promise.all([owl.utils.whenReady(), session.is_bound]);
+    const wowlToLegacyServiceMappers = registry.category('wowlToLegacyServiceMappers').getEntries();
+    for (const [legacyServiceName, wowlToLegacyServiceMapper] of wowlToLegacyServiceMappers) {
+        serviceRegistry.add(legacyServiceName, wowlToLegacyServiceMapper(legacyEnv));
+    }
+    await Promise.all([whenReady(), session.is_bound]);
 
     // Patch browser.fetch and the rpc service to use the correct base url when
     // embeded in an external page
@@ -405,17 +404,21 @@ export async function createPublicRoot(RootWidget) {
     }, { force: true });
 
     const wowlEnv = makeEnv();
-    wowlEnv.qweb.addTemplates(await loadBundleTemplates("web.assets_frontend"));
+
     await startServices(wowlEnv);
     mapLegacyEnvToWowlEnv(legacyEnv, wowlEnv);
-
-    const adapter = new ComponentAdapter(null, { Component }); // Used for _trigger_up compat layer
-    const publicRoot = new RootWidget(adapter);
+    // The root widget's parent is a standalone adapter so that it has _trigger_up
+    const publicRoot = new RootWidget(standaloneAdapter({ Component }));
+    const app = new App(MainComponentsContainer, {
+        templates,
+        env: wowlEnv,
+        dev: wowlEnv.debug,
+        translateFn: _t,
+        translatableAttributes: ["data-tooltip"],
+    });
+    setLoadXmlDefaultApp(app);
     await Promise.all([
-        mount(MainComponentsContainer, {
-            target: document.body,
-            env: wowlEnv,
-        }),
+        app.mount(document.body),
         publicRoot.attachTo(document.body),
     ]);
     return publicRoot;

@@ -23,6 +23,7 @@ class TestSurveyFlowWithConditions(common.TestSurveyCommon, HttpCase):
                 'survey_id': survey.id,
                 'sequence': 1,
                 'is_page': True,
+                'question_type': False,
             })
 
             q01 = self._add_question(
@@ -120,6 +121,6 @@ class TestSurveyFlowWithConditions(common.TestSurveyCommon, HttpCase):
 
         self._answer_page(page_0, answers, answer_token, csrf_token)
 
-        user_inputs.invalidate_cache()
+        user_inputs.invalidate_recordset()
         self.assertEqual(round(user_inputs.scoring_percentage), 60, "Three right answers out of five (the fourth one is still hidden)")
         self.assertFalse(user_inputs.scoring_success)

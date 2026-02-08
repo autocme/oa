@@ -5,16 +5,17 @@ import { registerMessagingComponent } from '@mail/utils/messaging_component';
 const { Component } = owl;
 
 export class MessageInReplyToView extends Component {
+
     /**
-     * @returns {mail.message_in_reply_to_view}
+     * @returns {MessageInReplyToView}
      */
     get messageInReplyToView() {
-        return this.messaging && this.messaging.models['mail.message_in_reply_to_view'].get(this.props.messageInReplyToViewLocalId);
+        return this.props.record;
     }
 }
 
 Object.assign(MessageInReplyToView, {
-    props: { messageInReplyToViewLocalId: String },
+    props: { record: Object },
     template: "mail.MessageInReplyToView",
 });
 

@@ -22,7 +22,7 @@ class TestAuthSignupFlow(HttpCaseWithUserPortal, HttpCaseWithUserDemo):
     def _get_free_signup_url(self):
         return '/web/signup'
 
-    def test_confirmation_mail_free_signup2(self):
+    def test_confirmation_mail_free_signup(self):
         """
         Check if a new user is informed by email when he is registered
         """
@@ -32,7 +32,7 @@ class TestAuthSignupFlow(HttpCaseWithUserPortal, HttpCaseWithUserDemo):
 
         # Get csrf_token
         self.authenticate(None, None)
-        csrf_token = http.WebRequest.csrf_token(self)
+        csrf_token = http.Request.csrf_token(self)
 
         # Values from login form
         name = 'toto'

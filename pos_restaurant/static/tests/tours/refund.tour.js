@@ -2,7 +2,6 @@ odoo.define('pos_restaurant.tour.Refund', function (require) {
     'use strict';
 
     const { PaymentScreen } = require('point_of_sale.tour.PaymentScreenTourMethods');
-    const { Chrome } = require('pos_restaurant.tour.ChromeTourMethods');
     const { FloorScreen } = require('pos_restaurant.tour.FloorScreenTourMethods');
     const { ProductScreen } = require('pos_restaurant.tour.ProductScreenTourMethods');
     const { TicketScreen } = require('point_of_sale.tour.TicketScreenTourMethods');

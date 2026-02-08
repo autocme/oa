@@ -84,7 +84,7 @@ class ResUsers(models.Model):
                 partner_user.write(values)
                 if not partner_user.login_date:
                     partner_user._notify_inviter()
-                return (self.env.cr.dbname, partner_user.login, values.get('password'))
+                return (partner_user.login, values.get('password'))
             else:
                 # user does not exist: sign up invited user
                 values.update({
@@ -102,7 +102,7 @@ class ResUsers(models.Model):
             values['email'] = values.get('email') or values.get('login')
             self._signup_create_user(values)
 
-        return (self.env.cr.dbname, values.get('login'), values.get('password'))
+        return (values.get('login'), values.get('password'))
 
     @api.model
     def _get_signup_invitation_scope(self):
@@ -155,11 +155,10 @@ class ResUsers(models.Model):
         users = self.search(self._get_login_domain(login))
         if not users:
             users = self.search(self._get_email_domain(login))
-
         if not users:
-            raise Exception(_('Reset password: invalid username or email'))
+            raise Exception(_('No account found for this login'))
         if len(users) > 1:
-            raise Exception(_('Multiple accounts found for this email'))
+            raise Exception(_('Multiple accounts found for this login'))
         return users.action_reset_password()
 
     def action_reset_password(self):
@@ -190,6 +189,7 @@ class ResUsers(models.Model):
         email_values = {
             'email_cc': False,
             'auto_delete': True,
+            'message_type': 'user_notification',
             'recipient_ids': [],
             'partner_ids': [],
             'scheduled_date': False,
@@ -206,6 +206,10 @@ class ResUsers(models.Model):
             _logger.info("Password reset email sent for user <%s> to <%s>", user.login, user.email)
 
     def send_unregistered_user_reminder(self, after_days=5):
+        email_template = self.env.ref('auth_signup.mail_template_data_unregistered_users', raise_if_not_found=False)
+        if not email_template:
+            _logger.warning("Template 'auth_signup.mail_template_data_unregistered_users' was not found. Cannot send reminder notifications.")
+            return
         datetime_min = fields.Datetime.today() - relativedelta(days=after_days)
         datetime_max = datetime_min + relativedelta(hours=23, minutes=59, seconds=59)
 
@@ -223,8 +227,8 @@ class ResUsers(models.Model):
 
         # For sending mail to all the invitors about their invited users
         for user in invited_users:
-            template = self.env.ref('auth_signup.mail_template_data_unregistered_users').with_context(dbname=self._cr.dbname, invited_users=invited_users[user])
-            template.send_mail(user, notif_layout='mail.mail_notification_light', force_send=False)
+            template = email_template.with_context(dbname=self._cr.dbname, invited_users=invited_users[user])
+            template.send_mail(user, email_layout_xmlid='mail.mail_notification_light', force_send=False)
 
     @api.model
     def web_create_users(self, emails):
@@ -247,6 +251,18 @@ class ResUsers(models.Model):
                 except MailDeliveryException:
                     users_with_email.partner_id.with_context(create_user=True).signup_cancel()
         return users
+
+    def write(self, vals):
+        if 'active' in vals and not vals['active']:
+            self.partner_id.sudo().signup_cancel()
+        return super().write(vals)
+
+    @api.ondelete(at_uninstall=False)
+    def _ondelete_signup_cancel(self):
+        # Cancel pending partner signup when the user is deleted.
+        for user in self:
+            if user.partner_id:
+                user.partner_id.signup_cancel()
 
     @api.returns('self', lambda value: value.id)
     def copy(self, default=None):

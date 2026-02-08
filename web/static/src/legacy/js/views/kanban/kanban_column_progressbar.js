@@ -32,7 +32,7 @@ var KanbanColumnProgressBar = Widget.extend({
         // <progressbar/> attributes
         this.fieldName = columnState.progressBarValues.field;
         this.colors = _.extend({}, columnState.progressBarValues.colors, {
-            __false: 'muted', // color to use for false value
+            __false: '200', // color to use for false value
         });
         this.sumField = columnState.progressBarValues.sum_field;
         this.sumFieldLabel = this.sumField ? columnState.fields[this.sumField].string : false;
@@ -162,7 +162,7 @@ var KanbanColumnProgressBar = Widget.extend({
             } else {
                 value = key;
             }
-            $bar.attr('data-original-title', count + ' ' + value);
+            $bar.attr('data-bs-original-title', count + ' ' + value);
             $bar.tooltip({
                 delay: 0,
                 trigger: 'hover',
@@ -236,6 +236,17 @@ var KanbanColumnProgressBar = Widget.extend({
         }
     },
     /**
+     * @private
+     */
+    _getNotifyStateValues: function() {
+        return {
+            groupCount: this.groupCount,
+            subgroupCounts: this.subgroupCounts,
+            totalCounterValue: this.totalCounterValue,
+            activeFilter: this.activeFilter,
+        };
+    },
+    /**
      * Notifies the new progressBar state so that if a full rerender occurs, the
      * new progressBar that would replace this one will be initialized with
      * current state, so that animations are correct.
@@ -245,12 +256,7 @@ var KanbanColumnProgressBar = Widget.extend({
     _notifyState: function () {
         this.trigger_up('set_progress_bar_state', {
             columnID: this.columnID,
-            values: {
-                groupCount: this.groupCount,
-                subgroupCounts: this.subgroupCounts,
-                totalCounterValue: this.totalCounterValue,
-                activeFilter: this.activeFilter,
-            },
+            values: this._getNotifyStateValues(),
         });
     },
     /**

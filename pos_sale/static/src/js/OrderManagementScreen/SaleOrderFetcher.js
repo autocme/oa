@@ -1,10 +1,10 @@
 odoo.define('pos_sale.SaleOrderFetcher', function (require) {
     'use strict';
 
-    const { EventBus } = owl.core;
     const { Gui } = require('point_of_sale.Gui');
     const { isConnectionError } = require('point_of_sale.utils');
-    const models = require('point_of_sale.models');
+
+    const { EventBus } = owl;
 
     class SaleOrderFetcher extends EventBus {
         constructor() {
@@ -31,6 +31,9 @@ odoo.define('pos_sale.SaleOrderFetcher', function (require) {
             const nItems = this.totalCount;
             return Math.trunc(nItems / (this.nPerPage + 1)) + 1;
         }
+        get orderFields(){
+          return ['name', 'partner_id', 'amount_total', 'date_order', 'state', 'user_id', 'amount_unpaid'] 
+        }
         /**
          * Calling this methods populates the `ordersToShow` then trigger `update` event.
          * @related get
@@ -42,7 +45,6 @@ odoo.define('pos_sale.SaleOrderFetcher', function (require) {
         async fetch() {
             try {
                 let limit, offset;
-                let start, end;
                 // Show orders from the backend.
                 offset =
                     this.nPerPage +
@@ -83,20 +85,9 @@ odoo.define('pos_sale.SaleOrderFetcher', function (require) {
             const saleOrders = await this.rpc({
                 model: 'sale.order',
                 method: 'search_read',
-                args: [domain, ['name', 'partner_id', 'amount_total', 'date_order', 'state', 'user_id'], offset, limit],
+                args: [domain, this.orderFields, offset, limit],
                 context: this.comp.env.session.user_context,
             });
-
-            const saleOrderIds = saleOrders.flatMap((saleOrder) => saleOrder.id);
-            const saleOrdersAmountUnpaid = await this.rpc({
-                model: 'sale.order',
-                method: 'get_order_amount_unpaid',
-                args: [saleOrderIds],
-                context: this.comp.env.session.user_context,
-            });
-            for (const saleOrder of saleOrders) {
-                saleOrder.amount_unpaid = saleOrdersAmountUnpaid[saleOrder.id];
-            }
 
             return saleOrders;
         }

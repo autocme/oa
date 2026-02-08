@@ -6,14 +6,28 @@ import { ComponentAdapter } from "web.OwlCompatibility";
 import { objectToQuery } from "../core/browser/router_service";
 import { useDebugCategory } from "../core/debug/debug_context";
 import { Dialog } from "../core/dialog/dialog";
-import { useEffect, useService } from "@web/core/utils/hooks";
-import { ViewNotFoundError } from "../webclient/actions/action_service";
-import { cleanDomFromBootstrap, wrapSuccessOrFail } from "./utils";
+import { useService } from "@web/core/utils/hooks";
+import { ViewNotFoundError } from "@web/views/view";
+import { cleanDomFromBootstrap, wrapSuccessOrFail, useLegacyRefs } from "./utils";
 import { mapDoActionOptionAPI } from "./backend_utils";
 
-const { Component, tags, hooks } = owl;
+import {
+    Component,
+    onMounted,
+    onWillUnmount,
+    onWillUpdateProps,
+    status,
+    useEffect,
+    useExternalListener,
+    useComponent,
+    xml,
+} from "@odoo/owl";
 
-const warningDialogBodyTemplate = tags.xml`<p style="white-space:pre-wrap" t-esc="props.message"/>`;
+class WarningDialog extends Component {}
+WarningDialog.template = xml`<Dialog title="props.title">
+    <p style="white-space:pre-wrap" t-esc="props.message"/>
+</Dialog>`;
+WarningDialog.components = { Dialog };
 
 class ActionAdapter extends ComponentAdapter {
     setup() {
@@ -24,6 +38,8 @@ class ActionAdapter extends ComponentAdapter {
         this.notifications = useService("notification");
         this.dialogs = useService("dialog");
         this.wowlEnv = this.env;
+        const legacyRefs = useLegacyRefs();
+        legacyRefs.component = this;
         // a legacy widget widget can push_state anytime including during its async rendering
         // In Wowl, we want to have all states pushed during the same setTimeout.
         // This is protected in legacy (backward compatibility) but should not e supported in Wowl
@@ -31,6 +47,7 @@ class ActionAdapter extends ComponentAdapter {
         let originalUpdateControlPanel;
         useEffect(
             () => {
+                legacyRefs.widget = this.widget;
                 const query = this.widget.getState();
                 Object.assign(query, this.tempQuery);
                 this.tempQuery = null;
@@ -38,27 +55,50 @@ class ActionAdapter extends ComponentAdapter {
                 if (!this.wowlEnv.inDialog) {
                     this.pushState(query);
                 }
-                this.wowlEnv.bus.on("ACTION_MANAGER:UPDATE", this, () => {
+                const onActionManagerUpdate = () => {
                     this.env.bus.trigger("close_dialogs");
                     cleanDomFromBootstrap();
-                });
+                };
+                this.wowlEnv.bus.addEventListener("ACTION_MANAGER:UPDATE", onActionManagerUpdate);
                 originalUpdateControlPanel = this.__widget.updateControlPanel.bind(this.__widget);
                 this.__widget.updateControlPanel = (newProps) => {
-                    this.trigger("controller-title-updated", this.__widget.getTitle());
+                    this.wowlEnv.config.setDisplayName(this.__widget.getTitle());
                     return originalUpdateControlPanel(newProps);
                 };
                 core.bus.trigger("DOM_updated");
 
                 return () => {
                     this.__widget.updateControlPanel = originalUpdateControlPanel;
-                    this.wowlEnv.bus.off("ACTION_MANAGER:UPDATE", this);
+                    this.wowlEnv.bus.removeEventListener(
+                        "ACTION_MANAGER:UPDATE",
+                        onActionManagerUpdate
+                    );
                 };
             },
             () => []
         );
-        hooks.useExternalListener(window, "click", () => {
+        useExternalListener(window, "click", () => {
             cleanDomFromBootstrap();
         });
+
+        onWillUpdateProps(() => {
+            if (this.widget === null) {
+                this.widget = this.__widget;
+            }
+        });
+        onWillUnmount(() => {
+            if (this.__widget && this.__widget.on_detach_callback) {
+                this.__widget.on_detach_callback();
+            }
+        });
+
+        this.onScrollTo = (payload) => {
+            const contentEl = this.el.querySelector(".o_content");
+            if (contentEl) {
+                contentEl.scrollLeft = payload.left || 0;
+                contentEl.scrollTop = payload.top || 0;
+            }
+        };
     }
 
     get actionId() {
@@ -77,10 +117,14 @@ class ActionAdapter extends ComponentAdapter {
         if (this.widget) {
             const actionTitle = this.widget.getTitle();
             if (actionTitle) {
-                this.trigger("controller-title-updated", actionTitle);
+                this.wowlEnv.config.setDisplayName(actionTitle);
             }
         }
-        this.router.pushState(query);
+        if (this.props.onPushState) {
+            this.props.onPushState(query);
+        } else {
+            this.router.pushState(query);
+        }
     }
 
     _trigger_up(ev) {
@@ -101,13 +145,6 @@ class ActionAdapter extends ComponentAdapter {
             this.title.setParts({ [part]: title || null });
         } else if (ev.name === "warning") {
             if (payload.type === "dialog") {
-                class WarningDialog extends Dialog {
-                    setup() {
-                        super.setup();
-                        this.title = this.props.title;
-                    }
-                }
-                WarningDialog.bodyTemplate = warningDialogBodyTemplate;
                 this.dialogs.add(WarningDialog, {
                     title: payload.title,
                     message: payload.message,
@@ -120,6 +157,10 @@ class ActionAdapter extends ComponentAdapter {
                     type: "warning",
                 });
             }
+        } else if (ev.name === "history_back") {
+            this.wowlEnv.config.historyBack();
+        } else if (ev.name === "scrollTo") {
+            this.onScrollTo(payload);
         } else {
             super._trigger_up(ev);
         }
@@ -147,20 +188,14 @@ class ActionAdapter extends ComponentAdapter {
         return this.__widget.canBeRemoved();
     }
 
-    /**
-     * @override
-     */
-    willUnmount() {
-        if (this.__widget && this.__widget.on_detach_callback) {
-            this.__widget.on_detach_callback();
-        }
-        super.willUnmount();
-    }
     __destroy() {
         if (this.actionService.__legacy__isActionInStack(this.actionId)) {
             this.widget = null;
         }
         super.__destroy(...arguments);
+    }
+    get el() {
+        return (this.widget || this.__widget).el;
     }
 }
 
@@ -168,7 +203,7 @@ export class ClientActionAdapter extends ActionAdapter {
     setup() {
         super.setup();
         useDebugCategory("action", { action: this.props.widgetArgs[0] });
-        owl.hooks.onMounted(() => {
+        onMounted(() => {
             const action = this.props.widgetArgs[0];
             if ("params" in action) {
                 const newState = {};
@@ -187,7 +222,7 @@ export class ClientActionAdapter extends ActionAdapter {
         return this.props.widgetArgs[0].jsId;
     }
 
-    async willStart() {
+    async onWillStart() {
         if (this.props.widget) {
             this.widget = this.props.widget;
             this.widget.setParent(this);
@@ -196,7 +231,7 @@ export class ClientActionAdapter extends ActionAdapter {
             }
             return this.updateWidget();
         }
-        return super.willStart();
+        return super.onWillStart();
     }
 
     /**
@@ -214,7 +249,7 @@ export class ClientActionAdapter extends ActionAdapter {
 const magicReloadSymbol = Symbol("magicReload");
 
 function useMagicLegacyReload() {
-    const comp = Component.current;
+    const comp = useComponent();
     if (comp.props.widget && comp.props.widget[magicReloadSymbol]) {
         return comp.props.widget[magicReloadSymbol];
     }
@@ -269,7 +304,7 @@ export class ViewAdapter extends ActionAdapter {
         useDebugCategory("action", debugContext);
         useDebugCategory("view", debugContext);
         if (this.props.viewInfo.type === "form") {
-            useDebugCategory("form", debugContext);
+            useDebugCategory("form_legacy", debugContext);
         }
         this.env = Component.env;
     }
@@ -278,7 +313,7 @@ export class ViewAdapter extends ActionAdapter {
         return this.props.viewParams.action.jsId;
     }
 
-    async willStart() {
+    async onWillStart() {
         if (this.props.widget) {
             this.widget = this.props.widget;
             this.widget.setParent(this);
@@ -289,7 +324,7 @@ export class ViewAdapter extends ActionAdapter {
         } else {
             const view = new this.props.View(this.props.viewInfo, this.props.viewParams);
             this.widget = await view.getController(this);
-            if (this.__owl__.status === 5 /* DESTROYED */) {
+            if (status(this) === "destroyed") {
                 // the component might have been destroyed meanwhile, but if so, `this.widget` wasn't
                 // destroyed by OwlCompatibility layer as it wasn't set yet, so destroy it now
                 if (!this.actionService.__legacy__isActionInStack(this.actionId)) {
@@ -304,21 +339,25 @@ export class ViewAdapter extends ActionAdapter {
     /**
      * @override
      */
-    async updateWidget() {
+    async updateWidget(nextProps) {
         const shouldUpdateWidget = this.shouldUpdateWidget;
         this.shouldUpdateWidget = true;
         if (!shouldUpdateWidget) {
             return this.magicReload();
         }
         await this.widget.willRestore();
-        const options = Object.assign({}, this.props.viewParams, {
+        const options = {
+            ...this.props.viewParams,
+            ...nextProps.viewParams,
             shouldUpdateSearchComponents: true,
-        });
+        };
         if (!this.magicReload()) {
             this.widget.reload(options);
         }
         return this.magicReload();
     }
+
+    async renderWidget() {}
 
     /**
      * Override to add the state of the legacy controller in the exported state.
@@ -340,21 +379,25 @@ export class ViewAdapter extends ActionAdapter {
     async _trigger_up(ev) {
         const payload = ev.data;
         if (ev.name === "switch_view") {
-            try {
-                const props = {};
-                if (payload.mode) {
-                    props.mode = payload.mode;
+            if (payload.view_type === "form") {
+                if (payload.res_id) {
+                    const activeIds = this.__widget.model.get(this.__widget.handle).res_ids;
+                    return this.props.selectRecord(payload.res_id, {
+                        mode: payload.mode,
+                        activeIds,
+                    });
+                } else {
+                    return this.props.createRecord();
                 }
-                // if (payload.res_id) {
-                // if make 'open a record, come back, and create a new record' crash
-                props.resId = payload.res_id;
-                // }
-                await this.actionService.switchView(payload.view_type, props);
-            } catch (e) {
-                if (e instanceof ViewNotFoundError) {
-                    return;
+            } else {
+                try {
+                    await this.actionService.switchView(payload.view_type);
+                } catch (e) {
+                    if (typeof e === "object" && e instanceof ViewNotFoundError) {
+                        return;
+                    }
+                    throw e;
                 }
-                throw e;
             }
         } else if (ev.name === "execute_action") {
             const buttonContext = new Context(payload.action_data.context).eval();

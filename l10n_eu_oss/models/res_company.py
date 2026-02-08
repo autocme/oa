@@ -113,7 +113,7 @@ class Company(models.Model):
             oss_account = self.env['account.account'].create({
                 'name': f'{sales_tax_accounts[0].name} OSS',
                 'code': new_code,
-                'user_type_id': sales_tax_accounts[0].user_type_id.id,
+                'account_type': sales_tax_accounts[0].account_type,
                 'company_id': self.id,
                 'tag_ids': [(4, tag.id, 0) for tag in sales_tax_accounts[0].tag_ids],
                 })
@@ -141,8 +141,8 @@ class Company(models.Model):
         mapping = {}
         for repartition_line_key, tag_xml_id in tag_for_country.items():
             tag = self.env.ref(tag_xml_id) if tag_xml_id else self.env['account.account.tag']
-            if tag and tag._name == "account.tax.report.line":
-                tag = tag.tag_ids.filtered(lambda t: not t.tax_negate)
+            if tag and tag._name == "account.report.expression":
+                tag = tag._get_matching_tags("+")
             mapping[repartition_line_key] = tag + oss_tag
 
         return mapping

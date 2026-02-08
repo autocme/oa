@@ -3,6 +3,7 @@
 import Dialog from 'web.Dialog';
 import core from 'web.core';
 import options from 'web_editor.snippets.options';
+import { loadBundle } from "@web/core/assets";
 import { cloneContentEls } from "website.utils";
 
 const _t = core._t;
@@ -17,7 +18,7 @@ options.registry.EmbedCode = options.Class.extend({
         const templateEl = this.$target[0].querySelector("template.s_embed_code_saved");
         let embedContent = templateEl.innerHTML.trim();
 
-        await this._loadLibs({
+        await loadBundle({
             jsLibs: [
                 '/web/static/lib/ace/ace.js',
                 '/web/static/lib/ace/mode-xml.js',

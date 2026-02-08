@@ -5,8 +5,8 @@ import { cartesian, sections, sortBy, symmetricalDifference } from "@web/core/ut
 import { KeepLast, Race } from "@web/core/utils/concurrency";
 import { computeVariation } from "@web/core/utils/numbers";
 import { DEFAULT_INTERVAL } from "@web/search/utils/dates";
-import { Model } from "@web/views/helpers/model";
-import { computeReportMeasures, processMeasure } from "@web/views/helpers/utils";
+import { Model } from "@web/views/model";
+import { computeReportMeasures, processMeasure } from "@web/views/utils";
 
 /**
  * Pivot Model
@@ -681,9 +681,8 @@ export class PivotModel extends Model {
      */
     async load(searchParams) {
         this.searchParams = searchParams;
-
-        const activeMeasures =
-            processMeasure(searchParams.context.pivot_measures) || this.metaData.activeMeasures;
+        const processedMeasures = processMeasure(searchParams.context.pivot_measures);
+        const activeMeasures = processedMeasures || this.metaData.activeMeasures;
         const metaData = this._buildMetaData({ activeMeasures });
         if (!this.reload) {
             metaData.rowGroupBys =
@@ -705,12 +704,14 @@ export class PivotModel extends Model {
             metaData.expandedColGroupBys = [];
         }
 
-        metaData.measures = computeReportMeasures(
-            metaData.fields,
-            metaData.fieldAttrs,
-            metaData.activeMeasures,
-            metaData.additionalMeasures
-        );
+        const allActivesMeasures = new Set(this.metaData.activeMeasures);
+        if (processedMeasures) {
+            processedMeasures.forEach((e) => allActivesMeasures.add(e));
+        }
+
+        metaData.measures = computeReportMeasures(metaData.fields, metaData.fieldAttrs, [
+            ...allActivesMeasures,
+        ]);
         const config = { metaData, data: this.data };
         return this._loadData(config);
     }
@@ -752,8 +753,9 @@ export class PivotModel extends Model {
             this.metaData = metaData;
         } else {
             metaData.activeMeasures.push(fieldName);
-            let config = { metaData, data: this.data };
+            const config = { metaData, data: this.data };
             await this._loadData(config);
+            this.useSampleModel = false;
         }
         this.nextActiveMeasures = null;
         this.notify();
@@ -955,14 +957,13 @@ export class PivotModel extends Model {
         const groupDomain = this._getGroupDomain(group, config);
         const measureSpecs = this._getMeasureSpecs(config);
         const groupBy = rowGroupBy.concat(colGroupBy);
-        const options = { lazy: false };
+        const kwargs = { lazy: false, context: this.searchParams.context };
         const subGroups = await this.orm.readGroup(
             config.metaData.resModel,
             groupDomain,
             measureSpecs,
             groupBy,
-            options,
-            this.searchParams.context
+            kwargs
         );
         return {
             group: group,
@@ -1222,7 +1223,10 @@ export class PivotModel extends Model {
                     rowIndex === 0
                         ? undefined
                         : fields[colGroupBys[rowIndex - 1].split(":")[0]].string,
-                title: group.labels[group.labels.length - 1] || _t("Total"),
+                title:
+                    group.labels.length
+                        ? group.labels[group.labels.length - 1]
+                        : _t("Total"),
                 width: leafCount * measureCount * (2 * originCount - 1),
             };
             row.push(cell);
@@ -1273,7 +1277,10 @@ export class PivotModel extends Model {
         let rows = [];
         const group = tree.root;
         const rowGroupId = [group.values, []];
-        const title = group.labels[group.labels.length - 1] || this.env._t("Total");
+        const title =
+            group.labels.length
+                ? group.labels[group.labels.length - 1]
+                : this.env._t("Total");
         const indent = group.labels.length;
         const isLeaf = !tree.directSubTrees.size;
         const rowGroupBys = this.metaData.fullRowGroupBys;
@@ -1516,8 +1523,19 @@ export class PivotModel extends Model {
     _sanitizeLabel(value, groupBy, config) {
         const { metaData } = config;
         const fieldName = groupBy.split(":")[0];
+        if (
+            fieldName &&
+            metaData.fields[fieldName] &&
+            metaData.fields[fieldName].type === "boolean"
+        ) {
+            return value === undefined
+                ? this.env._t("None")
+                : value
+                ? this.env._t("Yes")
+                : this.env._t("No");
+        }
         if (value === false) {
-            return this.env._t("Undefined");
+            return this.env._t("None");
         }
         if (value instanceof Array) {
             return this._getNumberedLabel(value, fieldName, config);

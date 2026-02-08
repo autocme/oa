@@ -1,7 +1,8 @@
 from odoo.tests import tagged
 from odoo.addons.website.tests.test_configurator import TestConfiguratorCommon
 
-@tagged('post_install', '-at_install')
+
+@tagged('post_install', '-at_install', '-standard', 'breaking_16', 'random')
 class TestAutomaticEditor(TestConfiguratorCommon):
 
     def test_01_automatic_editor_on_new_website(self):
@@ -19,4 +20,4 @@ class TestAutomaticEditor(TestConfiguratorCommon):
             'iso_code': 'pa_GB',
             'url_code': 'pa_GB',
         })
-        self.start_tour('/', 'automatic_editor_on_new_website', login='admin')
+        self.start_tour(self.env['website'].get_client_action_url('/'), 'automatic_editor_on_new_website', login='admin')

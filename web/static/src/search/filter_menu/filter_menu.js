@@ -1,11 +1,12 @@
 /** @odoo-module **/
 
+import { Dropdown } from "@web/core/dropdown/dropdown";
+import { SearchDropdownItem } from "@web/search/search_dropdown_item/search_dropdown_item";
 import { CustomFilterItem } from "./custom_filter_item";
 import { FACET_ICONS } from "../utils/misc";
 import { useBus } from "@web/core/utils/hooks";
-import { SearchDropdownItem } from "@web/search/search_dropdown_item/search_dropdown_item";
 
-const { Component } = owl;
+import { Component } from "@odoo/owl";
 
 export class FilterMenu extends Component {
     setup() {
@@ -24,10 +25,11 @@ export class FilterMenu extends Component {
     }
 
     /**
-     * @param {CustomEvent} ev
+     * @param {Object} param0
+     * @param {number} param0.itemId
+     * @param {number} [param0.optionId]
      */
-    onFilterSelected(ev) {
-        const { itemId, optionId } = ev.detail.payload;
+    onFilterSelected({ itemId, optionId }) {
         if (optionId) {
             this.env.searchModel.toggleDateFilter(itemId, optionId);
         } else {
@@ -36,5 +38,5 @@ export class FilterMenu extends Component {
     }
 }
 
-FilterMenu.components = { CustomFilterItem, DropdownItem: SearchDropdownItem };
+FilterMenu.components = { CustomFilterItem, Dropdown, DropdownItem: SearchDropdownItem };
 FilterMenu.template = "web.FilterMenu";

@@ -50,7 +50,7 @@ env['lunch.supplier'].browse([{self.supplier_kothai.id}])._send_auto_email()""")
                 assert self.supplier_pizza_inn.available_today == result,\
                     'supplier pizza inn should %s considered available on %s' % ('be' if result else 'not be', value)
 
-            self.env['lunch.supplier'].invalidate_cache(['available_today'], [self.supplier_pizza_inn.id])
+            self.supplier_pizza_inn.invalidate_recordset(['available_today'])
 
     @common.users('cle-lunch-manager')
     def test_search_available_today(self):
@@ -95,7 +95,7 @@ env['lunch.supplier'].browse([{self.supplier_kothai.id}])._send_auto_email()""")
 
                     self.supplier_pizza_inn._send_auto_email()
 
-                    assert line.state == 'confirmed'
+                    assert line.state == 'sent'
 
                     line = self.env['lunch.order'].create({
                         'product_id': self.product_pizza.id,
@@ -115,21 +115,21 @@ env['lunch.supplier'].browse([{self.supplier_kothai.id}])._send_auto_email()""")
 
                     self.supplier_pizza_inn._send_auto_email()
 
-                    assert line.state == 'confirmed'
+                    assert line.state == 'sent'
                     assert line2.state == 'ordered'
 
                     line_1 = self.env['lunch.order'].create({
                         'product_id': self.product_pizza.id,
                         'quantity': 2,
                         'date': self.monday_1pm.date(),
-                        'supplier_id': self.product_pizza.id,
+                        'supplier_id': self.supplier_pizza_inn.id,
                     })
 
                     line_2 = self.env['lunch.order'].create({
                         'product_id': self.product_pizza.id,
                         'topping_ids_1': [(6, 0, [self.topping_olives.id])],
                         'date': self.monday_1pm.date(),
-                        'supplier_id': self.product_pizza.id,
+                        'supplier_id': self.supplier_pizza_inn.id,
                     })
 
                     line_3 = self.env['lunch.order'].create({

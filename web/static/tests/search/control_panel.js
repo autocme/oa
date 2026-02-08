@@ -1,9 +1,10 @@
 /** @odoo-module **/
 
-import { click } from "@web/../tests/helpers/utils";
+import { click, getFixture, nextTick } from "@web/../tests/helpers/utils";
 import { ControlPanel } from "@web/search/control_panel/control_panel";
 import { makeWithSearch, setupControlPanelServiceRegistry } from "./helpers";
 
+let target;
 let serverData;
 QUnit.module("Search", (hooks) => {
     hooks.beforeEach(async () => {
@@ -18,12 +19,13 @@ QUnit.module("Search", (hooks) => {
             },
         };
         setupControlPanelServiceRegistry();
+        target = getFixture();
     });
 
     QUnit.module("ControlPanel");
 
     QUnit.test("simple rendering", async (assert) => {
-        const controlPanel = await makeWithSearch({
+        await makeWithSearch({
             serverData,
             resModel: "foo",
             Component: ControlPanel,
@@ -35,37 +37,34 @@ QUnit.module("Search", (hooks) => {
             searchMenuTypes: [],
         });
 
-        assert.containsOnce(controlPanel, ".o_cp_top");
-        assert.containsOnce(controlPanel, ".o_cp_top_left");
-        assert.containsNone(controlPanel, ".o_cp_top_right");
-        assert.containsOnce(controlPanel, ".o_cp_bottom");
-        assert.containsOnce(controlPanel, ".o_cp_bottom_left");
-        assert.containsOnce(controlPanel, ".o_cp_bottom_right");
+        assert.containsOnce(target, ".o_cp_top");
+        assert.containsOnce(target, ".o_cp_top_left");
+        assert.strictEqual(target.querySelector(".o_cp_top_right").innerHTML, "");
+        assert.containsOnce(target, ".o_cp_bottom");
+        assert.containsOnce(target, ".o_cp_bottom_left");
+        assert.containsOnce(target, ".o_cp_bottom_right");
 
-        assert.containsNone(controlPanel, ".o_cp_switch_buttons");
+        assert.containsNone(target, ".o_cp_switch_buttons");
 
-        assert.containsOnce(controlPanel, ".breadcrumb");
-        assert.containsOnce(controlPanel, ".breadcrumb li.breadcrumb-item");
-        assert.strictEqual(
-            controlPanel.el.querySelector("li.breadcrumb-item").innerText,
-            "Unnamed"
-        );
+        assert.containsOnce(target, ".breadcrumb");
     });
 
-    QUnit.test("breadcrumbs prop", async (assert) => {
+    QUnit.test("breadcrumbs", async (assert) => {
         const controlPanel = await makeWithSearch({
             serverData,
             resModel: "foo",
             Component: ControlPanel,
             config: {
-                breadcrumbs: [{ jsId: "controller_7", name: "Previous" }],
-                displayName: "Current",
+                breadcrumbs: [
+                    { jsId: "controller_7", name: "Previous" },
+                    { jsId: "controller_9", name: "Current" },
+                ],
             },
             searchMenuTypes: [],
         });
 
-        assert.containsN(controlPanel, ".breadcrumb li.breadcrumb-item", 2);
-        const breadcrumbItems = controlPanel.el.querySelectorAll("li.breadcrumb-item");
+        assert.containsN(target, ".breadcrumb li.breadcrumb-item", 2);
+        const breadcrumbItems = target.querySelectorAll("li.breadcrumb-item");
         assert.strictEqual(breadcrumbItems[0].innerText, "Previous");
         assert.hasClass(breadcrumbItems[1], "active");
         assert.strictEqual(breadcrumbItems[1].innerText, "Current");
@@ -78,7 +77,7 @@ QUnit.module("Search", (hooks) => {
         assert.verifySteps(["controller_7"]);
     });
 
-    QUnit.test("viewSwitcherEntries prop", async (assert) => {
+    QUnit.test("view switcher", async (assert) => {
         const controlPanel = await makeWithSearch({
             serverData,
             resModel: "foo",
@@ -88,26 +87,26 @@ QUnit.module("Search", (hooks) => {
                     {
                         type: "list",
                         active: true,
-                        icon: "fa-list-ul",
+                        icon: "oi-view-list",
                         name: "List",
                         accessKey: "l",
                     },
-                    { type: "kanban", icon: "fa-th-large", name: "Kanban", accessKey: "k" },
+                    { type: "kanban", icon: "oi-view-kanban", name: "Kanban", accessKey: "k" },
                 ],
             },
             searchMenuTypes: [],
         });
 
-        assert.containsOnce(controlPanel, ".o_cp_switch_buttons");
-        assert.containsN(controlPanel, ".o_switch_view", 2);
-        const views = controlPanel.el.querySelectorAll(".o_switch_view");
+        assert.containsOnce(target, ".o_cp_switch_buttons");
+        assert.containsN(target, ".o_switch_view", 2);
+        const views = target.querySelectorAll(".o_switch_view");
 
         assert.strictEqual(views[0].getAttribute("data-tooltip"), "List");
         assert.strictEqual(views[0].getAttribute("data-hotkey"), "l");
         assert.hasClass(views[0], "active");
         assert.strictEqual(views[1].getAttribute("data-tooltip"), "Kanban");
         assert.strictEqual(views[1].getAttribute("data-hotkey"), "k");
-        assert.hasClass(views[1], "fa-th-large");
+        assert.hasClass(views[1], "oi-view-kanban");
 
         controlPanel.env.services.action.switchView = (viewType) => {
             assert.step(viewType);
@@ -115,5 +114,30 @@ QUnit.module("Search", (hooks) => {
 
         await click(views[1]);
         assert.verifySteps(["kanban"]);
+    });
+
+    QUnit.test("pager", async (assert) => {
+        const pagerProps = {
+            offset: 0,
+            limit: 10,
+            total: 50,
+            onUpdate: () => {},
+        };
+
+        const controlPanel = await makeWithSearch({
+            serverData,
+            resModel: "foo",
+            Component: ControlPanel,
+            config: {
+                pagerProps: pagerProps,
+            },
+            searchMenuTypes: [],
+        });
+        assert.containsOnce(target, ".o_pager");
+
+        pagerProps.total = 0;
+        controlPanel.render();
+        await nextTick();
+        assert.containsNone(target, ".o_pager");
     });
 });

@@ -1,14 +1,14 @@
 /** @odoo-module **/
 
-import { useEffect, useService } from "@web/core/utils/hooks";
+import { useService } from "@web/core/utils/hooks";
 import { registry } from "@web/core/registry";
 import { debounce } from "@web/core/utils/timing";
 import { BlockUI } from "./block_ui";
 import { browser } from "@web/core/browser/browser";
+import { getTabableElements } from "@web/core/utils/ui";
+import { getActiveHotkey } from "../hotkeys/hotkey_service";
 
-const { Component, core, hooks } = owl;
-const { EventBus } = core;
-const { useRef } = hooks;
+import { EventBus, useEffect, useRef } from "@odoo/owl";
 
 export const SIZES = { XS: 0, VSM: 1, SM: 2, MD: 3, LG: 4, XL: 5, XXL: 6 };
 
@@ -23,22 +23,112 @@ export const SIZES = { XS: 0, VSM: 1, SM: 2, MD: 3, LG: 4, XL: 5, XXL: 6 };
  *
  * @param {string} refName
  */
-export function useActiveElement(refName = null) {
+export function useActiveElement(refName) {
+    if (!refName) {
+        throw new Error("refName not given to useActiveElement");
+    }
     const uiService = useService("ui");
-    const owner = refName ? useRef(refName) : Component.current;
+    const owner = useRef(refName);
+
+    function trapFocus(e) {
+        const hotkey = getActiveHotkey(e);
+        if (!["tab", "shift+tab"].includes(hotkey)) {
+            return;
+        }
+        const el = e.currentTarget;
+        const tabableEls = getTabableElements(el);
+        const firstTabableEl = tabableEls[0] || el;
+        const lastTabableEl = tabableEls[tabableEls.length - 1] || el;
+        switch (hotkey) {
+            case "tab":
+                if (document.activeElement === lastTabableEl) {
+                    firstTabableEl.focus();
+                    e.preventDefault();
+                    e.stopPropagation();
+                }
+                break;
+            case "shift+tab":
+                if (document.activeElement === firstTabableEl) {
+                    lastTabableEl.focus();
+                    e.preventDefault();
+                    e.stopPropagation();
+                }
+                break;
+        }
+    }
+
     useEffect(
-        () => {
-            uiService.activateElement(owner.el);
-            return () => uiService.deactivateElement(owner.el);
+        (el) => {
+            if (el) {
+                const oldActiveElement = document.activeElement;
+                uiService.activateElement(el);
+                const tabableEls = getTabableElements(el);
+                if (tabableEls.length === 0 && el.tabIndex < 0) {
+                    /**
+                     * It's possible that the active element is not a focusable element,
+                     * adding tabindex="-1" will allow the element to be focusable.
+                     * Note that, even if the default of tabIndex is -1, for the element to be
+                     * focusable it should be explicitly set.
+                     */
+                    el.tabIndex = -1;
+                }
+                const firstTabableEl = tabableEls[0] || el;
+
+                el.addEventListener("keydown", trapFocus);
+
+                if (!el.contains(document.activeElement)) {
+                    firstTabableEl.focus();
+                }
+                return () => {
+                    uiService.deactivateElement(el);
+                    el.removeEventListener("keydown", trapFocus);
+                    if (el.contains(document.activeElement)) {
+                        oldActiveElement.focus();
+                    }
+                };
+            }
         },
-        () => []
+        () => [owner.el]
     );
 }
 
-export const uiService = {
-    start(env) {
-        let ui = {};
+// window size handling
+export const MEDIAS_BREAKPOINTS = [
+    { maxWidth: 474 },
+    { minWidth: 475, maxWidth: 575 },
+    { minWidth: 576, maxWidth: 767 },
+    { minWidth: 768, maxWidth: 991 },
+    { minWidth: 992, maxWidth: 1199 },
+    { minWidth: 1200, maxWidth: 1533 },
+    { minWidth: 1534 },
+];
 
+/**
+ * Create the MediaQueryList used both by the uiService and config from
+ * `MEDIA_BREAKPOINTS`.
+ *
+ * @returns {MediaQueryList[]}
+ */
+export function getMediaQueryLists() {
+    return MEDIAS_BREAKPOINTS.map(({ minWidth, maxWidth }) => {
+        if (!maxWidth) {
+            return window.matchMedia(`(min-width: ${minWidth}px)`);
+        }
+        if (!minWidth) {
+            return window.matchMedia(`(max-width: ${maxWidth}px)`);
+        }
+        return window.matchMedia(`(min-width: ${minWidth}px) and (max-width: ${maxWidth}px)`);
+    });
+}
+
+// window size handling.
+const MEDIAS = getMediaQueryLists();
+
+export const uiService = {
+    getSize() {
+        return MEDIAS.findIndex((media) => media.matches);
+    },
+    start(env) {
         // block/unblock code
         const bus = new EventBus();
         registry.category("main_components").add("BlockUI", { Component: BlockUI, props: { bus } });
@@ -63,18 +153,6 @@ export const uiService = {
             }
         }
 
-        Object.assign(ui, {
-            bus,
-            block,
-            unblock,
-        });
-
-        Object.defineProperty(ui, "isBlocked", {
-            get() {
-                return blockCount > 0;
-            },
-        });
-
         // UI active element code
         let activeElems = [document];
 
@@ -94,48 +172,38 @@ export const uiService = {
             }
         }
 
-        Object.assign(ui, {
+        const ui = {
+            bus,
+            size: this.getSize(),
+            get activeElement() {
+                return activeElems[activeElems.length - 1];
+            },
+            get isBlocked() {
+                return blockCount > 0;
+            },
+            get isSmall() {
+                return ui.size <= SIZES.SM;
+            },
+            block,
+            unblock,
             activateElement,
             deactivateElement,
             getActiveElementOf,
-        });
-        Object.defineProperty(ui, "activeElement", {
-            get() {
-                return activeElems[activeElems.length - 1];
-            },
-        });
-
-        // window size handling
-        const MEDIAS = [
-            window.matchMedia("(max-width: 474px)"),
-            window.matchMedia("(min-width: 475px) and (max-width: 575px)"),
-            window.matchMedia("(min-width: 576px) and (max-width: 767px)"),
-            window.matchMedia("(min-width: 768px) and (max-width: 991px)"),
-            window.matchMedia("(min-width: 992px) and (max-width: 1199px)"),
-            window.matchMedia("(min-width: 1200px) and (max-width: 1533px)"),
-            window.matchMedia("(min-width: 1534px)"),
-        ];
-        function getSize() {
-            return MEDIAS.findIndex((media) => media.matches);
-        }
+        };
 
         // listen to media query status changes
-        function updateSize() {
-            ui.size = getSize();
-        }
+        const updateSize = () => {
+            const prevSize = ui.size;
+            ui.size = this.getSize();
+            if (ui.size !== prevSize) {
+                bus.trigger("resize");
+            }
+        };
         browser.addEventListener("resize", debounce(updateSize, 100));
 
-        Object.assign(ui, {
-            size: getSize(),
-        });
-        Object.defineProperty(ui, "isSmall", {
-            get() {
-                return ui.size <= SIZES.SM;
-            },
-        });
         Object.defineProperty(env, "isSmall", {
             get() {
-                return ui.size <= SIZES.SM;
+                return ui.isSmall;
             },
         });
 

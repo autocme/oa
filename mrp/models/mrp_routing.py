@@ -2,6 +2,7 @@
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
 
 from odoo import api, fields, models, _, tools
+from odoo.exceptions import ValidationError
 
 
 class MrpRoutingWorkcenter(models.Model):
@@ -18,15 +19,13 @@ class MrpRoutingWorkcenter(models.Model):
         help="Gives the sequence order when displaying a list of routing Work Centers.")
     bom_id = fields.Many2one(
         'mrp.bom', 'Bill of Material',
-        index=True, ondelete='cascade', required=True, check_company=True,
-        help="The Bill of Material this operation is linked to")
+        index=True, ondelete='cascade', required=True, check_company=True)
     company_id = fields.Many2one('res.company', 'Company', related='bom_id.company_id')
     worksheet_type = fields.Selection([
         ('pdf', 'PDF'), ('google_slide', 'Google Slide'), ('text', 'Text')],
-        string="Work Sheet", default="text",
-        help="Defines if you want to use a PDF or a Google Slide as work sheet."
+        string="Worksheet", default="text"
     )
-    note = fields.Html('Description', help="Text worksheet description")
+    note = fields.Html('Description')
     worksheet = fields.Binary('PDF')
     worksheet_google_slide = fields.Char('Google Slide', help="Paste the url of your Google Slide. Make sure the access to the document is public.")
     time_mode = fields.Selection([
@@ -48,6 +47,17 @@ class MrpRoutingWorkcenter(models.Model):
         'product.template.attribute.value', string="Apply on Variants", ondelete='restrict',
         domain="[('id', 'in', possible_bom_product_template_attribute_value_ids)]",
         help="BOM Product Variants needed to apply this line.")
+    allow_operation_dependencies = fields.Boolean(related='bom_id.allow_operation_dependencies')
+    blocked_by_operation_ids = fields.Many2many('mrp.routing.workcenter', relation="mrp_routing_workcenter_dependencies_rel",
+                                     column1="operation_id", column2="blocked_by_id",
+                                     string="Blocked By", help="Operations that need to be completed before this operation can start.",
+                                     domain="[('allow_operation_dependencies', '=', True), ('id', '!=', id), ('bom_id', '=', bom_id)]",
+                                     copy=False)
+    needed_by_operation_ids = fields.Many2many('mrp.routing.workcenter', relation="mrp_routing_workcenter_dependencies_rel",
+                                     column1="blocked_by_id", column2="operation_id",
+                                     string="Blocks", help="Operations that cannot start before this operation is completed.",
+                                     domain="[('allow_operation_dependencies', '=', True), ('id', '!=', id), ('bom_id', '=', bom_id)]",
+                                     copy=False)
 
     @api.depends('time_mode', 'time_mode_batch')
     def _compute_time_computed_on(self):
@@ -75,19 +85,34 @@ class MrpRoutingWorkcenter(models.Model):
             cycle_number = 0  # Never 0 unless infinite item['workcenter_id'].capacity
             for item in data:
                 total_duration += item['duration']
-                cycle_number += tools.float_round((item['qty_produced'] / item['workcenter_id'].capacity or 1.0), precision_digits=0, rounding_method='UP')
+                capacity = item['workcenter_id']._get_capacity(item.product_id)
+                qty_produced = item.product_uom_id._compute_quantity(item['qty_produced'], item.product_id.uom_id)
+                cycle_number += tools.float_round((qty_produced / capacity or 1.0), precision_digits=0, rounding_method='UP')
             if cycle_number:
                 operation.time_cycle = total_duration / cycle_number
             else:
                 operation.time_cycle = operation.time_cycle_manual
 
     def _compute_workorder_count(self):
-        data = self.env['mrp.workorder'].read_group([
+        data = self.env['mrp.workorder']._read_group([
             ('operation_id', 'in', self.ids),
             ('state', '=', 'done')], ['operation_id'], ['operation_id'])
         count_data = dict((item['operation_id'][0], item['operation_id_count']) for item in data)
         for operation in self:
             operation.workorder_count = count_data.get(operation.id, 0)
+
+    @api.constrains('blocked_by_operation_ids')
+    def _check_no_cyclic_dependencies(self):
+        if not self._check_m2m_recursion('blocked_by_operation_ids'):
+            raise ValidationError(_("You cannot create cyclic dependency."))
+
+    def action_archive(self):
+        res = super().action_archive()
+        bom_lines = self.env['mrp.bom.line'].search([('operation_id', 'in', self.ids)])
+        bom_lines.write({'operation_id': False})
+        byproduct_lines = self.env['mrp.bom.byproduct'].search([('operation_id', 'in', self.ids)])
+        byproduct_lines.write({'operation_id': False})
+        return res
 
     def copy_to_bom(self):
         if 'bom_id' in self.env.context:
@@ -102,11 +127,27 @@ class MrpRoutingWorkcenter(models.Model):
                 'res_id': bom_id,
             }
 
+    def copy_existing_operations(self):
+        return {
+            'type': 'ir.actions.act_window',
+            'name': _('Select Operations to Copy'),
+            'res_model': 'mrp.routing.workcenter',
+            'view_mode': 'tree,form',
+            'domain': ['|', ('bom_id', '=', False), ('bom_id.active', '=', True)],
+            'context' : {
+                'bom_id': self.env.context["bom_id"],
+                'tree_view_ref': 'mrp.mrp_routing_workcenter_copy_to_bom_tree_view',
+            }
+        }
+
     def _skip_operation_line(self, product):
         """ Control if a operation should be processed, can be inherited to add
         custom control.
         """
         self.ensure_one()
+        # skip operation line if archived
+        if not self.active:
+            return True
         if product._name == 'product.template':
             return False
         return not product._match_all_variant_values(self.bom_product_template_attribute_value_ids)
@@ -122,4 +163,5 @@ class MrpRoutingWorkcenter(models.Model):
             for op in self:
                 op.bom_id.bom_line_ids.filtered(lambda line: line.operation_id == op).operation_id = False
                 op.bom_id.byproduct_ids.filtered(lambda byproduct: byproduct.operation_id == op).operation_id = False
+                op.bom_id.operation_ids.filtered(lambda operation: operation.blocked_by_operation_ids == op).blocked_by_operation_ids = False
         return super().write(values)

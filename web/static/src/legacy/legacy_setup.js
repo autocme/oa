@@ -12,22 +12,21 @@ import {
 } from "./utils";
 import { makeLegacyActionManagerService } from "./backend_utils";
 import * as AbstractService from "web.AbstractService";
-import * as legacyEnv from "web.env";
+import legacyEnv from "web.env";
 import * as session from "web.session";
 import * as makeLegacyWebClientService from "web.pseudo_web_client";
+import { templates } from "@web/core/assets";
 
-const { Component, config, utils } = owl;
-const { whenReady } = utils;
+import { Component, whenReady } from "@odoo/owl";
 
 let legacySetupResolver;
 export const legacySetupProm = new Promise((resolve) => {
     legacySetupResolver = resolve;
 });
 
-// build the legacy env and set it on owl.Component (this was done in main.js,
+// build the legacy env and set it on Component (this was done in main.js,
 // with the starting of the webclient)
 (async () => {
-    config.mode = legacyEnv.isDebug() ? "dev" : "prod";
     AbstractService.prototype.deployServices(legacyEnv);
     Component.env = legacyEnv;
     const legacyActionManagerService = makeLegacyActionManagerService(legacyEnv);
@@ -48,7 +47,11 @@ export const legacySetupProm = new Promise((resolve) => {
     const legacyCommandService = makeLegacyCommandService(legacyEnv);
     serviceRegistry.add("legacy_command", legacyCommandService);
     serviceRegistry.add("legacy_dropdown", makeLegacyDropdownService(legacyEnv));
+    const wowlToLegacyServiceMappers = registry.category("wowlToLegacyServiceMappers").getEntries();
+    for (const [legacyServiceName, wowlToLegacyServiceMapper] of wowlToLegacyServiceMappers) {
+        serviceRegistry.add(legacyServiceName, wowlToLegacyServiceMapper(legacyEnv));
+    }
     await Promise.all([whenReady(), session.is_bound]);
-    legacyEnv.qweb.addTemplates(session.owlTemplates);
+    legacyEnv.templates = templates;
     legacySetupResolver(legacyEnv);
 })();

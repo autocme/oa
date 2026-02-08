@@ -322,6 +322,63 @@ class TestRepair(AccountTestInvoicingCommon):
         self.assertEqual(repair_order.operations.tax_id, tax01)
         self.assertEqual(repair_order.fees_lines.tax_id, tax01)
 
+    def test_repair_return(self):
+        """Tests functionality of creating a repair directly from a return picking,
+        i.e. repair can be made and defaults to appropriate return values. """
+        # test return
+        # Required for `location_dest_id` to be visible in the view
+        self.env.user.groups_id += self.env.ref('stock.group_stock_multi_locations')
+        picking_form = Form(self.env['stock.picking'])
+        picking_form.picking_type_id = self.stock_warehouse.return_type_id
+        picking_form.partner_id = self.res_partner_1
+        picking_form.location_dest_id = self.stock_location_14
+        return_picking = picking_form.save()
+
+        # create repair
+        res_dict = return_picking.action_repair_return()
+        repair_form = Form(self.env[(res_dict.get('res_model'))].with_context(res_dict['context']))
+        repair_form.product_id = self.product_product_3
+        repair = repair_form.save()
+
+        # test that the resulting repairs are correctly created
+        self.assertEqual(len(return_picking.repair_ids), 1, "A repair order should have been created and linked to original return.")
+        for repair in return_picking.repair_ids:
+            self.assertEqual(repair.location_id, return_picking.location_dest_id, "Repair location should have defaulted to return destination location")
+            self.assertEqual(repair.partner_id, return_picking.partner_id, "Repair customer should have defaulted to return customer")
+
+    def test_repair_compute_product_uom(self):
+        repair = self.env['repair.order'].create({
+            'product_id': self.product_product_3.id,
+            'operations': [
+                (0, 0, {
+                    'name': 'foo',
+                    'product_id': self.product_product_11.id,
+                    'price_unit': 50.0,
+                })
+            ],
+        })
+        self.assertEqual(repair.product_uom, self.product_product_3.uom_id)
+        self.assertEqual(repair.operations[0].product_uom, self.product_product_11.uom_id)
+
+    def test_repair_compute_location(self):
+        repair = self.env['repair.order'].create({
+            'product_id': self.product_product_3.id,
+            'operations': [
+                (0, 0, {
+                    'name': 'foo',
+                    'product_id': self.product_product_11.id,
+                    'price_unit': 50.0,
+                })
+            ],
+        })
+        self.assertEqual(repair.location_id, self.stock_warehouse.lot_stock_id)
+        self.assertEqual(repair.operations[0].location_id, self.stock_warehouse.lot_stock_id)
+        location_dest_id = self.env['stock.location'].search([
+            ('usage', '=', 'production'),
+            ('company_id', '=', repair.company_id.id),
+        ], limit=1)
+        self.assertEqual(repair.operations[0].location_dest_id, location_dest_id)
+
     def test_repair_order_send_to_self(self):
         # when sender(logged in user) is also present in recipients of the mail composer,
         # user should receive mail.
@@ -347,6 +404,50 @@ class TestRepair(AccountTestInvoicingCommon):
         self.assertEqual(mail_message.author_id, mail_message.partner_ids, 'Repair: author should be in composer recipients thanks to "partner_to" field set on template')
         self.assertEqual(mail_message.partner_ids, mail_message.sudo().mail_ids.recipient_ids, 'Repair: author should receive mail due to presence in composer recipients')
 
+    def test_repair_from_return(self):
+        """
+        create a repair order from a return delivery and ensure that the stock.move
+        resulting from the repair is not associated with the return picking.
+        """
+
+        product = self.env['product.product'].create({
+            'name': 'Test Product',
+            'type': 'product',
+        })
+        self.env['stock.quant']._update_available_quantity(product, self.stock_location_14, 1)
+        picking_form = Form(self.env['stock.picking'])
+        #create a delivery order
+        picking_form.picking_type_id = self.stock_warehouse.out_type_id
+        picking_form.partner_id = self.res_partner_1
+        with picking_form.move_ids_without_package.new() as move:
+            move.product_id = product
+            move.product_uom_qty = 1.0
+        picking = picking_form.save()
+        picking.action_confirm()
+        picking.action_assign()
+        res_dict = picking.button_validate()
+        wizard = Form(self.env[res_dict['res_model']].with_context(res_dict['context'])).save()
+        wizard.process()
+        self.assertEqual(picking.state, 'done')
+        # Create a return
+        stock_return_picking_form = Form(self.env['stock.return.picking']
+            .with_context(active_ids=picking.ids, active_id=picking.ids[0],
+            active_model='stock.picking'))
+        stock_return_picking = stock_return_picking_form.save()
+        stock_return_picking.product_return_moves.quantity = 1.0
+        stock_return_picking_action = stock_return_picking.create_returns()
+        return_picking = self.env['stock.picking'].browse(stock_return_picking_action['res_id'])
+
+        res_dict = return_picking.action_repair_return()
+        repair_form = Form(self.env[(res_dict.get('res_model'))].with_context(res_dict['context']))
+        repair_form.product_id = product
+        repair = repair_form.save()
+        repair.action_repair_confirm()
+        repair.action_repair_start()
+        repair.action_repair_end()
+        self.assertEqual(repair.state, 'done')
+        self.assertFalse(repair.move_id.picking_id)
+
     def test_repair_with_product_in_package(self):
         """
         Test That a repair order can be validated when the repaired product is tracked and in a package
@@ -354,8 +455,8 @@ class TestRepair(AccountTestInvoicingCommon):
         self.product_a.tracking = 'serial'
         self.product_a.type = 'product'
         # Create two serial numbers
-        sn_1 = self.env['stock.production.lot'].create({'name': 'sn_1', 'product_id': self.product_a.id})
-        sn_2 = self.env['stock.production.lot'].create({'name': 'sn_2', 'product_id': self.product_a.id})
+        sn_1 = self.env['stock.lot'].create({'name': 'sn_1', 'product_id': self.product_a.id})
+        sn_2 = self.env['stock.lot'].create({'name': 'sn_2', 'product_id': self.product_a.id})
 
         # Create two packages
         package_1 = self.env['stock.quant.package'].create({'name': 'Package-test-1'})
@@ -389,3 +490,21 @@ class TestRepair(AccountTestInvoicingCommon):
         repair_order.action_repair_start()
         repair_order.action_repair_end()
         self.assertEqual(repair_order.state, 'done')
+
+    def test_sn_with_no_tracked_product(self):
+        """
+        Check that the lot_id field is cleared after updating the product in the repair order.
+        """
+        self.env.ref('base.group_user').implied_ids += (
+            self.env.ref('stock.group_production_lot')
+        )
+        self.product_a.tracking = 'serial'
+        sn_1 = self.env['stock.lot'].create({'name': 'sn_1', 'product_id': self.product_a.id})
+        ro_form = Form(self.env['repair.order'])
+        ro_form.product_id = self.product_a
+        ro_form.lot_id = sn_1
+        repair_order = ro_form.save()
+        ro_form = Form(repair_order)
+        ro_form.product_id = self.product_b
+        repair_order = ro_form.save()
+        self.assertFalse(repair_order.lot_id)

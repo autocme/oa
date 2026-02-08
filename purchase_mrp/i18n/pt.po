@@ -3,18 +3,18 @@
 # 	* purchase_mrp
 # 
 # Translators:
-# Martin Trigaux, 2021
-# Manuela Silva <mmsrs@sky.com>, 2021
-# Pedro Castro Silva <pedrocs@exo.pt>, 2021
 # Marcelo Pereira <marcelo.pereira@arxi.pt>, 2022
+# Nuno Silva <nuno.silva@arxi.pt>, 2022
+# Martin Trigaux, 2022
+# Manuela Silva <mmsrs@sky.com>, 2022
 # Peter Lawrence Romão <peterromao@yahoo.co.uk>, 2024
 # 
 msgid ""
 msgstr ""
-"Project-Id-Version: Odoo Server saas~14.4\n"
+"Project-Id-Version: Odoo Server 15.5alpha1\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2021-07-12 07:50+0000\n"
-"PO-Revision-Date: 2021-09-14 12:25+0000\n"
+"POT-Creation-Date: 2022-09-20 09:02+0000\n"
+"PO-Revision-Date: 2022-09-22 05:54+0000\n"
 "Last-Translator: Peter Lawrence Romão <peterromao@yahoo.co.uk>, 2024\n"
 "Language-Team: Portuguese (https://app.transifex.com/odoo/teams/41243/pt/)\n"
 "MIME-Version: 1.0\n"
@@ -34,6 +34,33 @@ msgid "<span class=\"o_stat_text\">Purchases</span>"
 msgstr "<span class=\"o_stat_text\">Compras</span>"
 
 #. module: purchase_mrp
+#: model:ir.model,name:purchase_mrp.model_report_mrp_report_bom_structure
+msgid "BOM Overview Report"
+msgstr "Relatório de Revisão da BOM"
+
+#. module: purchase_mrp
+#: model:ir.model,name:purchase_mrp.model_mrp_bom
+msgid "Bill of Material"
+msgstr "Lista de Material"
+
+#. module: purchase_mrp
+#: model:ir.model,name:purchase_mrp.model_mrp_bom_line
+msgid "Bill of Material Line"
+msgstr "Linha da Lista de Material"
+
+#. module: purchase_mrp
+#: code:addons/purchase_mrp/models/mrp_bom.py:0
+#, python-format
+msgid "Components cost share have to be positive or equals to zero."
+msgstr ""
+"A participação nos custos dos componentes deve ser positiva ou igual a zero."
+
+#. module: purchase_mrp
+#: model:ir.model.fields,field_description:purchase_mrp.field_mrp_bom_line__cost_share
+msgid "Cost Share (%)"
+msgstr "Participação nos Custos (%)"
+
+#. module: purchase_mrp
 #: model:ir.model.fields,field_description:purchase_mrp.field_purchase_order__mrp_production_count
 msgid "Count of MO Source"
 msgstr "Contagem de Origem de OM"
@@ -42,6 +69,11 @@ msgstr "Contagem de Origem de OM"
 #: model:ir.model.fields,field_description:purchase_mrp.field_mrp_production__purchase_order_count
 msgid "Count of generated PO"
 msgstr "Contagem de EF geradas"
+
+#. module: purchase_mrp
+#: model:ir.model,name:purchase_mrp.model_account_move_line
+msgid "Journal Item"
+msgstr "Item do Diário"
 
 #. module: purchase_mrp
 #: code:addons/purchase_mrp/models/purchase.py:0
@@ -67,7 +99,7 @@ msgstr "Ordem de Produção"
 #. module: purchase_mrp
 #: model:ir.model,name:purchase_mrp.model_purchase_order
 msgid "Purchase Order"
-msgstr "Ordem de Compra"
+msgstr "Encomenda"
 
 #. module: purchase_mrp
 #: model:ir.model,name:purchase_mrp.model_purchase_order_line
@@ -83,4 +115,20 @@ msgstr "Encomenda gerada a partir de %s"
 #. module: purchase_mrp
 #: model:ir.model,name:purchase_mrp.model_stock_move
 msgid "Stock Move"
-msgstr "Movimento do Stock"
+msgstr "Movimento de Inventário"
+
+#. module: purchase_mrp
+#: model:ir.model.fields,help:purchase_mrp.field_mrp_bom_line__cost_share
+msgid ""
+"The percentage of the component repartition cost when purchasing a kit.The "
+"total of all components' cost have to be equal to 100."
+msgstr ""
+"A percentagem do custo proporcional distribuído do componente ao comprar um "
+"kit. O custo total de todos os componentes tem de ser igual a 100."
+
+#. module: purchase_mrp
+#: code:addons/purchase_mrp/models/mrp_bom.py:0
+#, python-format
+msgid "The total cost share for a BoM's component have to be 100"
+msgstr ""
+"A participação total de custo para um componente de BoM deve ser de 100"

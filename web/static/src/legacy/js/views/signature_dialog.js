@@ -10,9 +10,6 @@ var _t = core._t;
 // It uses @see SignNameAndSignature for the name and signature fields.
 var SignatureDialog = Dialog.extend({
     template: 'web.signature_dialog',
-    xmlDependencies: Dialog.prototype.xmlDependencies.concat(
-        ['/web/static/src/legacy/xml/name_and_signature.xml']
-    ),
     custom_events: {
         'signature_changed': '_onChangeSignature',
     },
@@ -36,7 +33,7 @@ var SignatureDialog = Dialog.extend({
 
         if (!options.buttons) {
             options.buttons = [];
-            options.buttons.push({text: _t("Adopt and Sign"), classes: "btn-primary", disabled: true, click: function (e) {
+            options.buttons.push({text: _t("Adopt & Sign"), classes: "btn-primary", disabled: true, click: function (e) {
                 self._onConfirm();
             }});
             options.buttons.push({text: _t("Cancel"), close: true});

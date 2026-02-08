@@ -7,8 +7,7 @@ var core = require('web.core');
 var config = require('web.config');
 
 var qweb = core.qweb;
-var promiseCommon;
-var promiseWysiwyg;
+var promiseJsAssets;
 
 
 /**
@@ -37,22 +36,14 @@ Wysiwyg.include({
             return this._super();
         }
 
-        var defAsset;
+        promiseJsAssets = promiseJsAssets || ajax.loadAsset('web_editor.wysiwyg_iframe_editor_assets');
+        const assetsPromises = [promiseJsAssets];
         if (this.options.iframeCssAssets) {
-            defAsset = ajax.loadAsset(this.options.iframeCssAssets);
-        } else {
-            defAsset = Promise.resolve({
-                cssLibs: [],
-                cssContents: []
-            });
+            assetsPromises.push(ajax.loadAsset(this.options.iframeCssAssets));
         }
+        this.defAsset = Promise.all(assetsPromises);
 
-        promiseWysiwyg = promiseWysiwyg || ajax.loadAsset('web_editor.wysiwyg_iframe_editor_assets');
-        this.defAsset = Promise.all([promiseWysiwyg, defAsset]);
-
-        this.$target = this.$el;
         const _super = this._super.bind(this);
-
         await this.defAsset;
         await _super();
     },
@@ -60,7 +51,7 @@ Wysiwyg.include({
     /**
      * @override
      **/
-    start: async function () {
+    startEdition: async function () {
         const _super = this._super.bind(this);
         if (!this.options.inIframe) {
             return _super();
@@ -87,8 +78,8 @@ Wysiwyg.include({
     /**
      * @override
      **/
-    _editorOptions: function () {
-        let options = this._super.apply(this, arguments);
+    _getEditorOptions: function () {
+        const options = this._super.apply(this, arguments);
         options.getContextFromParentRect = () => {
             return this.$iframe && this.$iframe.length ? this.$iframe[0].getBoundingClientRect() : { top: 0, left: 0 };
         };
@@ -103,7 +94,13 @@ Wysiwyg.include({
      */
     _loadIframe: function () {
         var self = this;
-        this.$iframe = $('<iframe class="wysiwyg_iframe">').css({
+        const isEditableRoot = this.$editable === this.$root;
+        this.$editable = $('<div class="note-editable oe_structure odoo-editor-editable"></div>');
+        this.$el.removeClass('note-editable oe_structure odoo-editor-editable');
+        if (isEditableRoot) {
+            this.$root = this.$editable;
+        }
+        this.$iframe = $('<iframe class="wysiwyg_iframe o_iframe">').css({
             'min-height': '55vh',
             width: '100%'
         });
@@ -166,14 +163,21 @@ Wysiwyg.include({
                 });
                 self.$iframe[0].contentWindow.document
                     .open("text/html", "replace")
-                    .write(`<!DOCTYPE html><html>${iframeContent}</html>`);
+                    .write(`<!DOCTYPE html><html${
+                        self.options.iframeHtmlClass ? ' class="' + self.options.iframeHtmlClass +'"' : ''
+                    }>${iframeContent}</html>`);
+                // Closing the document might trigger a new 'load' event.
+                self.$iframe.off('load', onLoad);
+                self.$iframe[0].contentWindow.document.close();
             });
             self.options.document = self.$iframe[0].contentWindow.document;
         });
 
-        this.$iframe.insertAfter(this.$editable);
+        this.$el.append(this.$iframe);
 
-        return def;
+        return def.then(() => {
+            this.options.onIframeUpdated();
+        });
     },
 
     _insertSnippetMenu: function () {
@@ -185,6 +189,20 @@ Wysiwyg.include({
     },
 
     /**
+     * Bind the blur event on the iframe so that it would not blur when using
+     * the sidebar.
+     *
+     * @override
+     */
+    _bindOnBlur: function () {
+        if (!this.options.inIframe) {
+            this._super.apply(this, arguments);
+        } else {
+            this.$iframe[0].contentWindow.addEventListener('blur', this._onBlur);
+        }
+    },
+
+    /**
      * When the editable is inside an iframe, we want to update the toolbar
      * position in 2 scenarios:
      * 1. scroll event in the top document, if the iframe is a descendant of
@@ -192,7 +210,7 @@ Wysiwyg.include({
      * 2. scroll event in the iframe's document.
      * 
      * @override
-     **/
+     */
     _onScroll: function(ev) {
         if (this.options.inIframe) {
             const iframeDocument = this.$iframe[0].contentDocument;
@@ -212,10 +230,10 @@ Wysiwyg.include({
 
     /**
      * @override
-     **/
-    _configureToolbar: function () {
+     */
+    _configureToolbar: function (options) {
         this._super.apply(this, arguments);
-        if (this.options.inIframe && !this.options.snippets) {
+        if (this.options.inIframe && !options.snippets) {
             this.options.document.addEventListener('scroll', this._onScroll, true);
         }
     },

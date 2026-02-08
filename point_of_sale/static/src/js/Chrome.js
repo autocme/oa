@@ -1,34 +1,37 @@
 odoo.define('point_of_sale.Chrome', function(require) {
     'use strict';
 
-    const { useState, useRef, useContext, useExternalListener } = owl.hooks;
-    const { debounce } = owl.utils;
-    const { loadCSS } = require('web.ajax');
-    const { useListener } = require('web.custom_hooks');
-    const { BarcodeEvents } = require('barcodes.BarcodeEvents');
+    const { loadCSS } = require('@web/core/assets');
+    const { useListener } = require("@web/core/utils/hooks");
+    const BarcodeParser = require('barcodes.BarcodeParser');
     const PosComponent = require('point_of_sale.PosComponent');
     const NumberBuffer = require('point_of_sale.NumberBuffer');
-    const PopupControllerMixin = require('point_of_sale.PopupControllerMixin');
     const Registries = require('point_of_sale.Registries');
     const IndependentToOrderScreen = require('point_of_sale.IndependentToOrderScreen');
-    const contexts = require('point_of_sale.PosContext');
-    const { identifyError, posbus } = require('point_of_sale.utils');
+    const { identifyError, batched } = require('point_of_sale.utils');
     const { odooExceptionTitleMap } = require("@web/core/errors/error_dialogs");
     const { ConnectionLostError, ConnectionAbortedError, RPCError } = require('@web/core/network/rpc_service');
     const { useBus } = require("@web/core/utils/hooks");
+    const { debounce } = require("@web/core/utils/timing");
+    const { Transition } = require("@web/core/transition");
 
-    // This is kind of a trick.
-    // We get a reference to the whole exports so that
-    // when we create an instance of one of the classes,
-    // we instantiate the extended one.
-    const models = require('point_of_sale.models');
+    const {
+        onError,
+        onMounted,
+        onWillDestroy,
+        useExternalListener,
+        useRef,
+        useState,
+        useSubEnv,
+        reactive,
+    } = owl;
 
     /**
      * Chrome is the root component of the PoS App.
      */
-    class Chrome extends PopupControllerMixin(PosComponent) {
-        constructor() {
-            super(...arguments);
+    class Chrome extends PosComponent {
+        setup() {
+            super.setup();
             useExternalListener(window, 'beforeunload', this._onBeforeUnload);
             useListener('show-main-screen', this.__showScreen);
             useListener('toggle-debug-widget', debounce(this._toggleDebugWidget, 100));
@@ -36,15 +39,14 @@ odoo.define('point_of_sale.Chrome', function(require) {
             useListener('show-temp-screen', this.__showTempScreen);
             useListener('close-temp-screen', this.__closeTempScreen);
             useListener('close-pos', this._closePos);
-            useListener('loading-skip-callback', () => this._loadingSkipCallback());
+            useListener('loading-skip-callback', () => this.env.proxy.stop_searching());
             useListener('play-sound', this._onPlaySound);
             useListener('set-sync-status', this._onSetSyncStatus);
             useListener('show-notification', this._onShowNotification);
             useListener('close-notification', this._onCloseNotification);
-            useBus(posbus, 'start-cash-control', this.openCashControl);
+            useListener('connect-to-proxy', this.connect_to_proxy);
+            useBus(this.env.posbus, 'start-cash-control', this.openCashControl);
             NumberBuffer.activate();
-
-            this.chromeContext = useContext(contexts.chrome);
 
             this.state = useState({
                 uiState: 'LOADING', // 'LOADING' | 'READY' | 'CLOSING'
@@ -56,12 +58,8 @@ odoo.define('point_of_sale.Chrome', function(require) {
                     isShown: false,
                     message: '',
                     duration: 2000,
-                }
-            });
-
-            this.loading = useState({
-                message: 'Loading',
-                skipButtonIsShown: false,
+                },
+                loadingSkipButtonIsShown: false,
             });
 
             this.mainScreen = useState({ name: null, component: null });
@@ -73,33 +71,35 @@ odoo.define('point_of_sale.Chrome', function(require) {
             this.progressbar = useRef('progressbar');
 
             this.previous_touch_y_coordinate = -1;
-        }
 
-        // OVERLOADED METHODS //
+            const pos = reactive(this.env.pos, batched(() => this.render(true)))
+            useSubEnv({ pos });
 
-        mounted() {
-            // remove default webclient handlers that induce click delay
-            $(document).off();
-            $(window).off();
-            $('html').off();
-            $('body').off();
-            // The above lines removed the bindings, but we really need them for the barcode
-            BarcodeEvents.start();
-        }
-        willUnmount() {
-            BarcodeEvents.stop();
-        }
-        destroy() {
-            super.destroy(...arguments);
-            this.env.pos.destroy();
-        }
-        catchError(error) {
-            console.error(error);
+            onMounted(() => {
+                // remove default webclient handlers that induce click delay
+                $(document).off();
+                $(window).off();
+                $('html').off();
+                $('body').off();
+            });
+
+            onWillDestroy(() => {
+                this.env.pos.destroy();
+            });
+
+            onError((error) => {
+                // error is an OwlError object.
+                console.error(error.cause);
+            });
+
+            onMounted(() => {
+                this.props.setupIsDone(this);
+            });
         }
 
         // GETTERS //
 
-        get clientScreenButtonIsShown() {
+        get customerFacingDisplayButtonIsShown() {
             return this.env.pos.config.iface_customer_facing_display;
         }
 
@@ -135,46 +135,22 @@ odoo.define('point_of_sale.Chrome', function(require) {
          */
         async start() {
             try {
-                // Instead of passing chrome to the instantiation the PosModel,
-                // we inject functions needed by pos.
-                // This way, we somehow decoupled Chrome from PosModel.
-                // We can then test PosModel independently from Chrome by supplying
-                // mocked version of these default attributes.
-                const posModelDefaultAttributes = {
-                    env: this.env,
-                    rpc: this.rpc.bind(this),
-                    session: this.env.session,
-                    do_action: this.props.webClient.do_action.bind(this.props.webClient),
-                    setLoadingMessage: this.setLoadingMessage.bind(this),
-                    showLoadingSkip: this.showLoadingSkip.bind(this),
-                    setLoadingProgress: this.setLoadingProgress.bind(this),
-                };
-                this.env.pos = new models.PosModel(posModelDefaultAttributes);
-                await this.env.pos.ready;
+                await this.env.pos.load_server_data();
+                await this.setupBarcodeParser();
+                if(this.env.pos.config.use_proxy){
+                    await this.connect_to_proxy();
+                }
                 // Load the saved `env.pos.toRefundLines` from localStorage when
-                // the PosModel is ready.
+                // the PosGlobalState is ready.
                 Object.assign(this.env.pos.toRefundLines, this.env.pos.db.load('TO_REFUND_LINES') || {});
                 this._buildChrome();
                 this._closeOtherTabs();
-                this.env.pos.set(
-                    'selectedCategoryId',
-                    this.env.pos.config.iface_start_categ_id
-                        ? this.env.pos.config.iface_start_categ_id[0]
-                        : 0
-                );
+                this.env.pos.selectedCategoryId = this.env.pos.config.start_category && this.env.pos.config.iface_start_categ_id
+                    ? this.env.pos.config.iface_start_categ_id[0]
+                    : 0;
                 this.state.uiState = 'READY';
-                this.env.pos.on('change:selectedOrder', this._showSavedScreen, this);
                 this._showStartScreen();
-                if (_.isEmpty(this.env.pos.db.product_by_category_id)) {
-                    this._loadDemoData();
-                }
-                setTimeout(() => {
-                    // push order in the background, no need to await
-                    this.env.pos.push_orders();
-                    // Allow using the app even if not all the images are loaded.
-                    // Basically, preload the images in the background.
-                    this._preloadImages();
-                });
+                setTimeout(() => this._runBackgroundTasks());
             } catch (error) {
                 let title = 'Unknown Error',
                     body;
@@ -196,7 +172,11 @@ odoo.define('point_of_sale.Chrome', function(require) {
                     }
                 } else if (error instanceof Error) {
                     title = error.message;
-                    body = error.stack;
+                    if (error.cause) {
+                        body = error.cause.message;
+                    } else {
+                        body = error.stack;
+                    }
                 }
 
                 await this.showPopup('ErrorTracebackPopup', {
@@ -207,9 +187,79 @@ odoo.define('point_of_sale.Chrome', function(require) {
             }
         }
 
+        _runBackgroundTasks() {
+            // push order in the background, no need to await
+            this.env.pos.push_orders();
+            // Allow using the app even if not all the images are loaded.
+            // Basically, preload the images in the background.
+            this._preloadImages();
+            if (this.env.pos.config.limited_partners_loading && this.env.pos.config.partner_load_background) {
+                // Wrap in fresh reactive: none of the reads during loading should subscribe to anything
+                reactive(this.env.pos).loadPartnersBackground();
+            }
+            if (this.env.pos.config.limited_products_loading && this.env.pos.config.product_load_background) {
+                // Wrap in fresh reactive: none of the reads during loading should subscribe to anything
+                reactive(this.env.pos).loadProductsBackground().then(() => {
+                    this.render(true);
+                });
+            }
+        }
+
+        setupBarcodeParser() {
+            if (!this.env.pos.company.nomenclature_id) {
+                const errorMessage = this.env._t("The barcode nomenclature setting is not configured. " +
+                    "Make sure to configure it on your Point of Sale configuration settings");
+                throw new Error(this.env._t("Missing barcode nomenclature"), { cause: { message: errorMessage } });
+
+            }
+            const barcode_parser = new BarcodeParser({ nomenclature_id: this.env.pos.company.nomenclature_id });
+            this.env.barcode_reader.set_barcode_parser(barcode_parser);
+            const fallbackNomenclature = this.env.pos.company.fallback_nomenclature_id;
+            if (fallbackNomenclature) {
+                const fallbackBarcodeParser = new BarcodeParser({ nomenclature_id: fallbackNomenclature });
+                this.env.barcode_reader.setFallbackBarcodeParser(fallbackBarcodeParser);
+            }
+            return barcode_parser.is_loaded();
+        }
+
+        connect_to_proxy() {
+            return new Promise((resolve, reject) => {
+                this.env.barcode_reader.disconnect_from_proxy();
+                this.state.loadingSkipButtonIsShown = true;
+                this.env.proxy.autoconnect({
+                    force_ip: this.env.pos.config.proxy_ip || undefined,
+                    progress: function(prog){},
+                }).then(
+                    () => {
+                        if (this.env.pos.config.iface_scan_via_proxy) {
+                            this.env.barcode_reader.connect_to_proxy();
+                        }
+                        resolve();
+                    },
+                    (statusText, url) => {
+                        // this should reject so that it can be captured when we wait for pos.ready
+                        // in the chrome component.
+                        // then, if it got really rejected, we can show the error.
+                        if (statusText == 'error' && window.location.protocol == 'https:') {
+                            reject({
+                                title: this.env._t('HTTPS connection to IoT Box failed'),
+                                body: _.str.sprintf(
+                                    this.env._t('Make sure you are using IoT Box v18.12 or higher. Navigate to %s to accept the certificate of your IoT Box.'),
+                                    url
+                                ),
+                                popup: 'alert',
+                            });
+                        } else {
+                            resolve();
+                        }
+                    }
+                );
+            });
+        }
+
         openCashControl() {
             if (this.shouldShowCashControl()) {
-                this.showPopup('CashOpeningPopup', { notEscapable: true });
+                this.showPopup('CashOpeningPopup');
             }
         }
 
@@ -223,15 +273,6 @@ odoo.define('point_of_sale.Chrome', function(require) {
             const { name, props } = this.startScreen;
             this.showScreen(name, props);
         }
-        /**
-         * Show the screen saved in the order when the `selectedOrder` of pos is changed.
-         * @param {models.PosModel} pos
-         * @param {models.Order} newSelectedOrder
-         */
-        _showSavedScreen(pos, newSelectedOrder) {
-            const { name, props } = this._getSavedScreen(newSelectedOrder);
-            this.showScreen(name, props);
-        }
         _getSavedScreen(order) {
             return order.get_screen_data();
         }
@@ -241,9 +282,11 @@ odoo.define('point_of_sale.Chrome', function(require) {
             this.tempScreen.name = name;
             this.tempScreen.component = this.constructor.components[name];
             this.tempScreenProps = Object.assign({}, props, { resolve });
+            this.env.pos.tempScreenIsShown = true;
         }
         __closeTempScreen() {
             this.tempScreen.isShown = false;
+            this.env.pos.tempScreenIsShown = false;
             this.tempScreen.name = null;
         }
         __showScreen({ detail: { name, props = {} } }) {
@@ -253,10 +296,7 @@ odoo.define('point_of_sale.Chrome', function(require) {
             this.mainScreen.component = component;
             this.mainScreenProps = props;
 
-            // 2. Set some options
-            this.chromeContext.showOrderSelector = !component.hideOrderSelector;
-
-            // 3. Save the screen to the order.
+            // 2. Save the screen to the order.
             //  - This screen is shown when the order is selected.
             if (!(component.prototype instanceof IndependentToOrderScreen) && name !== "ReprintReceiptScreen") {
                 this._setScreenData(name, props);
@@ -307,7 +347,8 @@ odoo.define('point_of_sale.Chrome', function(require) {
             this.state.sound.src = src;
         }
         _onSetSyncStatus({ detail: { status, pending }}) {
-            this.env.pos.set('synch', { status, pending });
+            this.env.pos.synch.status = status;
+            this.env.pos.synch.pending = pending;
         }
         _onShowNotification({ detail: { message, duration } }) {
             this.state.notification.isShown = true;
@@ -316,7 +357,6 @@ odoo.define('point_of_sale.Chrome', function(require) {
         }
         _onCloseNotification() {
             this.state.notification.isShown = false;
-            this.state.notification.message = '';
         }
         /**
          * Save `env.pos.toRefundLines` in localStorage on beforeunload - closing the
@@ -326,64 +366,20 @@ odoo.define('point_of_sale.Chrome', function(require) {
             this.env.pos.db.save('TO_REFUND_LINES', this.env.pos.toRefundLines);
         }
 
-        // TO PASS AS PARAMETERS //
-
-        setLoadingProgress(fac) {
-            if (this.progressbar.el) {
-                this.progressbar.el.style.width = `${Math.floor(fac * 100)}%`;
-            }
-        }
-        setLoadingMessage(msg, progress) {
-            this.loading.message = msg;
-            if (typeof progress !== 'undefined') {
-                this.setLoadingProgress(progress);
-            }
-        }
-        /**
-         * Show Skip button in the loading screen and allow to assign callback
-         * when the button is pressed.
-         *
-         * @param {Function} callback function to call when Skip button is pressed.
-         */
-        showLoadingSkip(callback) {
-            if (callback) {
-                this.loading.skipButtonIsShown = true;
-                this._loadingSkipCallback = callback;
-            }
-        }
-
         get isTicketScreenShown() {
             return this.mainScreen.name === 'TicketScreen';
         }
 
         // MISC METHODS //
-
-        async _loadDemoData() {
-            const { confirmed } = await this.showPopup('ConfirmPopup', {
-                title: this.env._t('You do not have any products'),
-                body: this.env._t(
-                    'Would you like to load demo data?'
-                ),
-                confirmText: this.env._t('Yes'),
-                cancelText: this.env._t('No')
-            });
-            if (confirmed) {
-                await this.rpc({
-                    'route': '/pos/load_onboarding_data',
-                });
-                this.env.pos.load_server_data();
-            }
-        }
-
         _preloadImages() {
             for (let product of this.env.pos.db.get_product_by_category(0)) {
                 const image = new Image();
-                image.src = `/web/image?model=product.product&field=image_128&id=${product.id}&write_date=${product.write_date}&unique=1`;
+                image.src = `/web/image?model=product.product&field=image_128&id=${product.id}&unique=${product.__last_update}`;
             }
             for (let category of Object.values(this.env.pos.db.category_by_id)) {
                 if (category.id == 0) continue;
                 const image = new Image();
-                image.src = `/web/image?model=pos.category&field=image_128&id=${category.id}&write_date=${category.write_date}&unique=1`;
+                image.src = `/web/image?model=pos.category&field=image_128&id=${category.id}&unique=${category.write_date}`;
             }
             const staticImages = ['backspace.png', 'bc-arrow-big.png'];
             for (let imageName of staticImages) {
@@ -507,11 +503,13 @@ odoo.define('point_of_sale.Chrome', function(require) {
                 console.error('Unknown error. Unable to show information about this error.', errorToHandle);
             }
         }
-        _shouldResetIdleTimer() {
-            return true;
-        }
     }
     Chrome.template = 'Chrome';
+    Object.defineProperty(Chrome, "components", {
+        get () {
+            return Object.assign({ Transition }, PosComponent.components);
+        }
+    })
 
     Registries.Component.add(Chrome);
 

@@ -53,7 +53,7 @@ class ReturnPicking(models.TransientModel):
         # default values for creation.
         line_fields = [f for f in self.env['stock.return.picking.line']._fields.keys()]
         product_return_moves_data_tmpl = self.env['stock.return.picking.line'].default_get(line_fields)
-        for move in self.picking_id.move_lines:
+        for move in self.picking_id.move_ids:
             if move.state == 'cancel':
                 continue
             if move.scrapped:
@@ -82,7 +82,7 @@ class ReturnPicking(models.TransientModel):
             if not move.origin_returned_move_id or move.origin_returned_move_id != stock_move:
                 continue
             if move.state in ('partially_available', 'assigned'):
-                quantity -= sum(move.move_line_ids.mapped('product_qty'))
+                quantity -= sum(move.move_line_ids.mapped('reserved_qty'))
             elif move.state in ('done'):
                 quantity -= move.product_qty
         quantity = float_round(quantity, precision_rounding=stock_move.product_id.uom_id.rounding)
@@ -113,14 +113,19 @@ class ReturnPicking(models.TransientModel):
         return vals
 
     def _prepare_picking_default_values(self):
-        return {
-            'move_lines': [],
+        vals = {
+            'move_ids': [],
             'picking_type_id': self.picking_id.picking_type_id.return_picking_type_id.id or self.picking_id.picking_type_id.id,
             'state': 'draft',
             'origin': _("Return of %s") % self.picking_id.name,
-            'location_id': self.picking_id.location_dest_id.id,
-            'location_dest_id': self.location_id.id
         }
+        # TestPickShip.test_mto_moves_return, TestPickShip.test_mto_moves_return_extra,
+        # TestPickShip.test_pick_pack_ship_return, TestPickShip.test_pick_ship_return, TestPickShip.test_return_lot
+        if self.picking_id.location_dest_id:
+            vals['location_id'] = self.picking_id.location_dest_id.id
+        if self.location_id:
+            vals['location_dest_id'] = self.location_id.id
+        return vals
 
     def _create_returns(self):
         # TODO sle: the unreserve of the next moves could be less brutal

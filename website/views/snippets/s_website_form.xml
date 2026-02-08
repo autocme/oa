@@ -6,7 +6,7 @@
         <div class="container">
             <form action="/website/form/" method="post" enctype="multipart/form-data" class="o_mark_required" data-mark="*" data-pre-fill="true">
                 <div class="s_website_form_rows row s_col_no_bgcolor">
-                    <div class="form-group col-12 s_website_form_submit" data-name="Submit Button">
+                    <div class="mb-0 py-2 col-12 s_website_form_submit" data-name="Submit Button">
                         <div style="width: 200px;" class="s_website_form_label"/>
                         <a href="#" role="button" class="btn btn-primary btn-lg s_website_form_send">Submit</a>
                         <span id="s_website_form_result"></span>
@@ -19,7 +19,7 @@
 
 <template id="s_website_form_options" inherit_id="website.snippet_options">
     <!-- Extend drop locations to columns -->
-    <xpath expr="//t[@t-set='so_content_addition_selector']" position="inside">, .s_website_form</xpath>
+    <xpath expr="//t[@t-set='so_content_addition_selector']" position="inside" t-translation="off">, .s_website_form</xpath>
 
     <xpath expr="//div" position="after">
         <!-- Form -->
@@ -92,15 +92,19 @@
                 <we-button data-select-type="tel">Telephone</we-button>
                 <we-button data-select-type="url">Url</we-button>
             </we-select>
-            <we-select string="⌙ Display" data-name="multi_check_display_opt" data-no-preview="true">
+            <we-select string="Display" class="o_we_sublevel_1" data-name="multi_check_display_opt" data-no-preview="true">
                 <we-button data-multi-checkbox-display="horizontal">Horizontal</we-button>
                 <we-button data-multi-checkbox-display="vertical">Vertical</we-button>
             </we-select>
             <t t-set="unit_textarea_height">rows</t>
-            <we-input string="⌙ Height" data-step="1" t-attf-data-select-attribute="3#{unit_textarea_height}" t-att-data-unit="unit_textarea_height"
-                data-attribute-name="rows" data-apply-to="textarea"/>
+            <we-input string="Height"
+                class="o_we_sublevel_1"
+                data-apply-to="textarea"
+                t-att-data-unit="unit_textarea_height" data-step="1"
+                t-attf-data-select-attribute="3#{unit_textarea_height}"
+                data-attribute-name="rows"/>
             <we-input string="Label" class="o_we_large" data-set-label-text=""/>
-            <we-button-group string="⌙ Position">
+            <we-button-group string="Position" class="o_we_sublevel_1">
                 <we-button title="Hide"
                            data-select-label-position="none">
                     <i class="fa fa-eye-slash"/>
@@ -181,6 +185,11 @@
                     <we-button data-select-data-attribute='between'>Is between (included)</we-button>
                     <we-button data-select-data-attribute='!between'>Is not between (excluded)</we-button>
                 </we-select>
+                <we-select data-name="hidden_condition_file_opt" data-attribute-name="visibilityComparator" data-no-preview="true">
+                    <!-- file comparator possibilities -->
+                    <we-button data-select-data-attribute="fileSet">Is set</we-button>
+                    <we-button data-select-data-attribute="!fileSet">Is not set</we-button>
+                </we-select>
             </we-row>
             <we-select class="o_we_large" data-name="hidden_condition_no_text_opt" data-attribute-name="visibilityCondition" data-no-preview="true">
                 <!-- checkbox, select, radio possible values -->
@@ -194,9 +203,9 @@
 
         <div data-js="WebsiteFormSubmit" data-selector=".s_website_form_submit" data-exclude=".s_website_form_no_submit_options">
             <we-select string="Button Position">
-                <we-button data-select-class="text-left s_website_form_no_submit_label">Left</we-button>
+                <we-button data-select-class="text-start s_website_form_no_submit_label">Left</we-button>
                 <we-button data-select-class="text-center s_website_form_no_submit_label">Center</we-button>
-                <we-button data-select-class="text-right s_website_form_no_submit_label">Right</we-button>
+                <we-button data-select-class="text-end s_website_form_no_submit_label">Right</we-button>
                 <we-button data-select-class="">Input Aligned</we-button>
             </we-select>
         </div>
@@ -230,6 +239,12 @@
     <field name="name">Website form 000 JS</field>
     <field name="bundle">web.assets_frontend</field>
     <field name="path">website/static/src/snippets/s_website_form/000.js</field>
+</record>
+
+<record id="website.s_website_form_xml" model="ir.asset">
+    <field name="name">Website form XML</field>
+    <field name="bundle">web.assets_frontend</field>
+    <field name="path">website/static/src/xml/website_form.xml</field>
 </record>
 
 </odoo>

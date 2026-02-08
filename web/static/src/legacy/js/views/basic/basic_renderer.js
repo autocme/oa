@@ -20,8 +20,12 @@ const { WidgetAdapterMixin } = require('web.OwlCompatibility');
 const FieldWrapper = require('web.FieldWrapper');
 const WidgetWrapper = require("web.WidgetWrapper");
 
+const { Component } = require("@odoo/owl");
+
 var qweb = core.qweb;
 const _t = core._t;
+
+const { status } = require("@odoo/owl");
 
 var BasicRenderer = AbstractRenderer.extend(WidgetAdapterMixin, {
     custom_events: {
@@ -43,11 +47,19 @@ var BasicRenderer = AbstractRenderer.extend(WidgetAdapterMixin, {
         // and on which field it is set.
         this.handleField = null;
         this.viewEditable = params.viewEditable;
+
+        // There an issue with bootstrap 5.1 (probably fixed in 5.2). A reference
+        // to some nodes with attached tooltips are kept and can never be garbage collected.
+        // We thus manually dispose them at destroy.
+        this.jQueryNodesWithTooltip = [];
     },
     /**
      * @override
      */
     destroy: function () {
+        for (const $node of this.jQueryNodesWithTooltip) {
+            $node.tooltip("dispose");
+        }
         this._super.apply(this, arguments);
         WidgetAdapterMixin.destroy.call(this);
     },
@@ -159,7 +171,7 @@ var BasicRenderer = AbstractRenderer.extend(WidgetAdapterMixin, {
      * @returns {Promise<AbstractField[]>} resolved with the list of widgets
      *                                      that have been reset
      */
-    confirmChange: function (state, id, fields, ev) {
+    confirmChange: async function (state, id, fields, ev) {
         var self = this;
         this._setState(state);
         var record = this._getRecord(id);
@@ -170,21 +182,30 @@ var BasicRenderer = AbstractRenderer.extend(WidgetAdapterMixin, {
         // reset all widgets (from the <widget> tag) if any:
         _.invoke(this.widgets, 'updateState', state);
 
-        var defs = [];
-
+        const fieldWidgets = (this.allFieldWidgets[id] || []).slice();
         // Reset all the field widgets that are marked as changed and the ones
         // which are configured to always be reset on any change
-        _.each(this.allFieldWidgets[id], function (widget) {
+        let defs = fieldWidgets.map(async (widget) => {
             var fieldChanged = _.contains(fields, widget.name);
             if (fieldChanged || widget.resetOnAnyFieldChange) {
-                defs.push(widget.reset(record, ev, fieldChanged));
+                return widget.reset(record, ev, fieldChanged);
             }
         });
 
         // The modifiers update is done after widget resets as modifiers
         // associated callbacks need to have all the widgets with the proper
         // state before evaluation
-        defs.push(this._updateAllModifiers(record));
+        await this._updateAllModifiers(record);
+
+        // Remove defs of destroyed widget (by the call to updateAllModifiers), as
+        // those defs will never resolve
+        defs = defs.filter((def, index) => {
+            if (fieldWidgets[index] instanceof FieldWrapper) {
+                return status(fieldWidgets[index]) !== "destroyed";
+            } else {
+                return !fieldWidgets[index].isDestroyed();
+            }
+        });
 
         return Promise.all(defs).then(function () {
             return _.filter(self.allFieldWidgets[id], function (widget) {
@@ -302,6 +323,8 @@ var BasicRenderer = AbstractRenderer.extend(WidgetAdapterMixin, {
         // widget's $el
         $node = $node.length ? $node : widget.$el;
         $node.tooltip(this._getTooltipOptions(widget));
+
+        this.jQueryNodesWithTooltip.push($node);
     },
     /**
      * Does the necessary DOM updates to match the given modifiers data. The
@@ -435,7 +458,7 @@ var BasicRenderer = AbstractRenderer.extend(WidgetAdapterMixin, {
      */
     _getTooltipOptions: function (widget) {
         return {
-            template: '<div class="tooltip tooltip-field-info" role="tooltip"><div class="arrow"></div><div class="tooltip-inner"></div></div>',
+            template: '<div class="tooltip tooltip-field-info" role="tooltip"><div class="tooltip-arrow"></div><div class="tooltip-inner"></div></div>',
             title: function () {
                 let help = widget.attrs.help || widget.field.help || '';
                 if (session.display_switch_company_menu && widget.field.company_dependent) {
@@ -732,7 +755,7 @@ var BasicRenderer = AbstractRenderer.extend(WidgetAdapterMixin, {
         // Initialize and register the widget
         // Readonly status is known as the modifiers have just been registered
         var Widget = record.fieldsInfo[this.viewType][fieldName].Widget;
-        const legacy = !(Widget.prototype instanceof owl.Component);
+        const legacy = !(Widget.prototype instanceof Component);
         const widgetOptions = {
             // Distinct readonly from renderer and readonly from modifier,
             // renderer can be readonly while modifier not.
@@ -814,7 +837,7 @@ var BasicRenderer = AbstractRenderer.extend(WidgetAdapterMixin, {
     _renderWidget: function (record, node) {
         const name = node.attrs.name;
         const Widget = widgetRegistryOwl.get(name) || widgetRegistry.get(name);
-        const legacy = !(Widget.prototype instanceof owl.Component);
+        const legacy = !(Widget.prototype instanceof Component);
         let widget;
         if (legacy) {
             widget = new Widget(this, record, node, { mode: this.mode });

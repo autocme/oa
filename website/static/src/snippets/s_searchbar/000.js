@@ -8,11 +8,10 @@ import {Markup} from 'web.utils';
 
 publicWidget.registry.searchBar = publicWidget.Widget.extend({
     selector: '.o_searchbar_form',
-    xmlDependencies: ['/website/static/src/snippets/s_searchbar/000.xml'],
     events: {
         'input .search-query': '_onInput',
         'focusout': '_onFocusOut',
-        'keydown .search-query': '_onKeydown',
+        'keydown .search-query, .dropdown-item': '_onKeydown',
         'search .search-query': '_onSearch',
     },
     autocompleteMinWidth: 300,
@@ -132,13 +131,7 @@ publicWidget.registry.searchBar = publicWidget.Widget.extend({
         res.results.forEach(record => {
             for (const fieldName of fieldNames) {
                 if (record[fieldName]) {
-                    if (typeof record[fieldName] === "object") {
-                        for (const fieldKey of Object.keys(record[fieldName])) {
-                            record[fieldName][fieldKey] = Markup(record[fieldName][fieldKey]);
-                        }
-                    } else {
-                        record[fieldName] = Markup(record[fieldName]);
-                    }
+                    record[fieldName] = Markup(record[fieldName]);
                 }
             }
         });
@@ -157,7 +150,6 @@ publicWidget.registry.searchBar = publicWidget.Widget.extend({
 
         let pageScrollHeight = null;
         const $prevMenu = this.$menu;
-        this.$el.toggleClass('dropdown show', !!res);
         if (res && this.limit) {
             const results = res['results'];
             let template = 'website.s_searchbar.autocomplete';
@@ -173,17 +165,6 @@ publicWidget.registry.searchBar = publicWidget.Widget.extend({
                 fuzzySearch: res['fuzzy_search'],
                 widget: this,
             }));
-
-            // TODO adapt directly in the template in master
-            const mutedItemTextEl = this.$menu.find('span.dropdown-item-text.text-muted')[0];
-            if (mutedItemTextEl) {
-                const newItemTextEl = document.createElement('span');
-                newItemTextEl.classList.add('dropdown-item-text');
-                mutedItemTextEl.after(newItemTextEl);
-                mutedItemTextEl.classList.remove('dropdown-item-text');
-                newItemTextEl.appendChild(mutedItemTextEl);
-            }
-
             this.$menu.css('min-width', this.autocompleteMinWidth);
 
             // Handle the case where the searchbar is in a mega menu by making
@@ -221,12 +202,14 @@ publicWidget.registry.searchBar = publicWidget.Widget.extend({
             });
         }
 
+        this.$el.toggleClass('dropdown show', !!res);
         if ($prevMenu) {
             $prevMenu.remove();
         }
         // Adjust the menu's position based on the scroll height.
         if (res && this.limit) {
             this.el.classList.remove("dropup");
+            delete this.$menu[0].dataset.bsPopper;
             const wrapwrapEl = document.querySelector("#wrapwrap");
             if (wrapwrapEl.scrollHeight > pageScrollHeight) {
                 // If the menu overflows below the page, we reduce its height.
@@ -237,6 +220,7 @@ publicWidget.registry.searchBar = publicWidget.Widget.extend({
                     // If the menu still overflows below the page after its height
                     // has been reduced, we position it above the input.
                     this.el.classList.add("dropup");
+                    this.$menu[0].dataset.bsPopper = "";
                 }
             }
         }
@@ -279,8 +263,13 @@ publicWidget.registry.searchBar = publicWidget.Widget.extend({
             case $.ui.keyCode.DOWN:
                 ev.preventDefault();
                 if (this.$menu) {
-                    let $element = ev.which === $.ui.keyCode.UP ? this.$menu.children().last() : this.$menu.children().first();
-                    $element.focus();
+                    const focusableEls = [this.$input[0], ...this.$menu[0].children];
+                    const focusedEl = document.activeElement;
+                    const currentIndex = focusableEls.indexOf(focusedEl) || 0;
+                    const delta = ev.which === $.ui.keyCode.UP ? focusableEls.length - 1 : 1;
+                    const nextIndex = (currentIndex + delta) % focusableEls.length;
+                    const nextFocusedEl = focusableEls[nextIndex];
+                    nextFocusedEl.focus();
                 }
                 break;
             case $.ui.keyCode.ENTER:

@@ -19,17 +19,21 @@ class AccountInvoiceSend(models.TransientModel):
     invoice_ids = fields.Many2many('account.move', 'account_move_account_invoice_send_rel', string='Invoices')
     composer_id = fields.Many2one('mail.compose.message', string='Composer', required=True, ondelete='cascade')
     template_id = fields.Many2one(
-        'mail.template', 'Use template', index=True,
+        'mail.template', 'Use template',
         domain="[('model', '=', 'account.move')]"
         )
 
-    # View fields
+    # Technical field containing a textual representation of the selected move types,
+    # if multiple. It is used to inform the user in the window in such case.
     move_types = fields.Char(
         string='Move types',
         compute='_compute_move_types',
-        readonly=True,
-        help='Technical field containing a textual representation of the selected move types, '
-             'if multiple. It is used to inform the user in the window in such case.')
+        readonly=True)
+
+    # Technical field to display or not the attachment button
+    display_attachment_fields = fields.Boolean(compute='_compute_display_attachment_fields')
+    # Technical field to display or not a warning icon besides attachments not supported
+    attachments_not_supported = fields.Json(compute='_compute_attachments_not_supported')
 
     @api.model
     def default_get(self, fields):
@@ -113,6 +117,16 @@ class AccountInvoiceSend(models.TransientModel):
             else:
                 wizard.invoice_without_email = False
 
+    @api.depends('is_email', 'composition_mode')
+    def _compute_display_attachment_fields(self):
+        for wizard in self:
+            wizard.display_attachment_fields = wizard.is_email and wizard.composition_mode != 'mass_mail'
+
+    @api.depends('display_attachment_fields', 'attachment_ids')
+    def _compute_attachments_not_supported(self):
+        for wizard in self:
+            wizard.attachments_not_supported = {}
+
     def _send_email(self):
         if self.is_email:
             # with_context : we don't want to reimport the file we just exported.
@@ -124,6 +138,18 @@ class AccountInvoiceSend(models.TransientModel):
                 #Salesman send posted invoice, without the right to write
                 #but they should have the right to change this flag
                 self.mapped('invoice_ids').sudo().write({'is_move_sent': True})
+            for invoice in self.invoice_ids:
+                prioritary_attachments = False
+                if self.composition_mode == 'comment':
+                    # With a single invoice we take the attachment directly from the composer
+                    prioritary_attachments = self.attachment_ids.filtered(lambda x: x.mimetype.endswith('pdf')).sorted('id')
+                elif self.composition_mode == 'mass_mail':
+                    # In mass mail mode we need to look for attachment in the invoice record
+                    prioritary_attachments = invoice.attachment_ids.filtered(lambda x: x.mimetype.endswith('pdf'))
+                if prioritary_attachments:
+                    main_attachment = prioritary_attachments[0]
+                    invoice.with_context(tracking_disable=True).sudo().write({'message_main_attachment_id': main_attachment.id})
+
 
     def _print_document(self):
         """ to override for each type of models that will use this composer."""
@@ -141,15 +167,16 @@ class AccountInvoiceSend(models.TransientModel):
         if self.composition_mode == 'mass_mail' and self.template_id:
             active_ids = self.env.context.get('active_ids', self.res_id)
             active_records = self.env[self.model].browse(active_ids)
-            langs = active_records.mapped('partner_id.lang')
-            default_lang = get_lang(self.env)
-            for lang in (set(langs) or [default_lang]):
+            langs = set(active_records.mapped('partner_id.lang'))
+            for lang in langs:
                 active_ids_lang = active_records.filtered(lambda r: r.partner_id.lang == lang).ids
-                self_lang = self.with_context(active_ids=active_ids_lang, lang=lang)
+                self_lang = self.with_context(active_ids=active_ids_lang, lang=get_lang(self.env, lang).code)
                 self_lang.onchange_template_id()
                 self_lang._send_email()
         else:
-            self._send_email()
+            active_record = self.env[self.model].browse(self.res_id)
+            lang = get_lang(self.env, active_record.partner_id.lang).code
+            self.with_context(lang=lang)._send_email()
         if self.is_print:
             return self._print_document()
         return {'type': 'ir.actions.act_window_close'}

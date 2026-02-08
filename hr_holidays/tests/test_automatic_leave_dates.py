@@ -8,13 +8,15 @@ from odoo.exceptions import ValidationError
 
 
 class TestAutomaticLeaveDates(TestHrHolidaysCommon):
-    def setUp(self):
-        super(TestAutomaticLeaveDates, self).setUp()
-
-        self.leave_type = self.env['hr.leave.type'].create({
+    @classmethod
+    def setUpClass(cls):
+        super(TestAutomaticLeaveDates, cls).setUpClass()
+        cls.leave_type = cls.env['hr.leave.type'].create({
             'name': 'Automatic Test',
             'time_type': 'leave',
             'requires_allocation': 'no',
+            # Required for `request_unit_half` to be visible in the view
+            'request_unit': 'half_day',
         })
 
     def test_no_attendances(self):

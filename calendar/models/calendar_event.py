@@ -1,12 +1,15 @@
 # -*- coding: utf-8 -*-
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
 
-import math
 import logging
+import math
+from collections import defaultdict
 from datetime import timedelta
 from itertools import repeat
+from werkzeug.urls import url_parse
 
 import pytz
+import uuid
 
 from odoo import api, fields, models, Command
 from odoo.osv.expression import AND
@@ -22,7 +25,7 @@ from odoo.addons.calendar.models.calendar_recurrence import (
 )
 from odoo.tools.translate import _
 from odoo.tools.misc import get_lang
-from odoo.tools import pycompat, html2plaintext, is_html_empty
+from odoo.tools import pycompat, html2plaintext, is_html_empty, single_email_re
 from odoo.exceptions import UserError, ValidationError
 
 _logger = logging.getLogger(__name__)
@@ -37,6 +40,7 @@ SORT_ALIASES = {
     'start': 'sort_start',
     'start_date': 'sort_start',
 }
+
 
 def get_weekday_occurence(date):
     """
@@ -59,6 +63,8 @@ class Meeting(models.Model):
     _description = "Calendar Event"
     _order = "start desc"
     _inherit = ["mail.thread"]
+
+    DISCUSS_ROUTE = 'calendar/join_videocall'
 
     @api.model
     def default_get(self, fields):
@@ -96,8 +102,11 @@ class Meeting(models.Model):
     user_id = fields.Many2one('res.users', 'Organizer', default=lambda self: self.env.user)
     partner_id = fields.Many2one(
         'res.partner', string='Scheduled by', related='user_id.partner_id', readonly=True)
-    location = fields.Char('Location', tracking=True, help="Location of Event")
-    videocall_location = fields.Char('Meeting URL')
+    location = fields.Char('Location', tracking=True)
+    videocall_location = fields.Char('Meeting URL', compute='_compute_videocall_location', store=True, copy=True)
+    access_token = fields.Char('Invitation Token', store=True, copy=False, index=True)
+    videocall_source = fields.Selection([('discuss', 'Discuss'), ('custom', 'Custom')], compute='_compute_videocall_source')
+    videocall_channel_id = fields.Many2one('mail.channel', 'Discuss Channel')
     # visibility
     privacy = fields.Selection(
         [('public', 'Public'),
@@ -142,8 +151,7 @@ class Meeting(models.Model):
         compute='_compute_dates', inverse='_inverse_dates')
     duration = fields.Float('Duration', compute='_compute_duration', store=True, readonly=False)
     # linked document
-    # LUL TODO use fields.Reference ?
-    res_id = fields.Integer('Document ID')
+    res_id = fields.Many2oneReference('Document ID', model_field='res_model')
     res_model_id = fields.Many2one('ir.model', 'Document Model', ondelete='cascade')
     res_model = fields.Char(
         'Document Model Name', related='res_model_id.model', readonly=True, store=True)
@@ -157,6 +165,7 @@ class Meeting(models.Model):
     partner_ids = fields.Many2many(
         'res.partner', 'calendar_event_res_partner_rel',
         string='Attendees', default=_default_partners)
+    invalid_email_partner_ids = fields.Many2many('res.partner', compute='_compute_invalid_email_partner_ids')
     # alarms
     alarm_ids = fields.Many2many(
         'calendar.alarm', 'calendar_alarm_calendar_event_rel',
@@ -165,7 +174,7 @@ class Meeting(models.Model):
     # RECURRENCE FIELD
     recurrency = fields.Boolean('Recurrent')
     recurrence_id = fields.Many2one(
-        'calendar.recurrence', string="Recurrence Rule", index=True)
+        'calendar.recurrence', string="Recurrence Rule")
     follow_recurrence = fields.Boolean(default=False) # Indicates if an event follows the recurrence, i.e. is not an exception
     recurrence_update = fields.Selection([
         ('self_only', "This event"),
@@ -203,10 +212,17 @@ class Meeting(models.Model):
         MONTH_BY_SELECTION, string='Option', compute='_compute_recurrence', readonly=False)
     day = fields.Integer('Date of month', compute='_compute_recurrence', readonly=False)
     weekday = fields.Selection(WEEKDAY_SELECTION, compute='_compute_recurrence', readonly=False)
-    byday = fields.Selection(BYDAY_SELECTION, compute='_compute_recurrence', readonly=False)
+    byday = fields.Selection(BYDAY_SELECTION, string="By day", compute='_compute_recurrence', readonly=False)
     until = fields.Date(compute='_compute_recurrence', readonly=False)
     # UI Fields.
     display_description = fields.Boolean(compute='_compute_display_description')
+
+    @api.depends('attendee_ids')
+    def _compute_invalid_email_partner_ids(self):
+        for event in self:
+            event.invalid_email_partner_ids = event.partner_ids.filtered(
+                lambda a: not (a.email and single_email_re.match(a.email))
+            )
 
     def _compute_is_highlighted(self):
         if self.env.context.get('active_model') == 'res.partner':
@@ -316,8 +332,9 @@ class Meeting(models.Model):
                 })
 
     def _compute_attendee(self):
+        mapped_attendees = self._find_attendee_batch()
         for meeting in self:
-            attendee = meeting._find_attendee()
+            attendee = mapped_attendees[meeting.id]
             meeting.attendee_status = attendee.state if attendee else 'needsAction'
 
     @api.constrains('start', 'stop', 'start_date', 'stop_date')
@@ -358,7 +375,7 @@ class Meeting(models.Model):
                     if event.recurrence_id[field]
                 }
                 rrule_values = rrule_values or default_rrule_values
-                event.update({**false_values, **event_values, **rrule_values})
+                event.update({**false_values, **defaults, **event_values, **rrule_values})
             else:
                 event.update(false_values)
 
@@ -366,6 +383,48 @@ class Meeting(models.Model):
     def _compute_display_description(self):
         for event in self:
             event.display_description = not is_html_empty(event.description)
+
+    @api.depends('videocall_source', 'access_token')
+    def _compute_videocall_location(self):
+        for event in self:
+            if event.videocall_source == 'discuss':
+                event._set_discuss_videocall_location()
+
+    @api.model
+    def _set_videocall_location(self, vals_list):
+        for vals in vals_list:
+            if not vals.get('videocall_location'):
+                continue
+            url = url_parse(vals['videocall_location'])
+            if url.scheme in ('http', 'https'):
+                continue
+            # relative url to convert to absolute
+            base = url_parse(self.get_base_url())
+            vals['videocall_location'] = url.replace(scheme=base.scheme, netloc=base.netloc).to_url()
+
+    @api.depends('videocall_location')
+    def _compute_videocall_source(self):
+        for event in self:
+            if event.videocall_location and self.DISCUSS_ROUTE in event.videocall_location:
+                event.videocall_source = 'discuss'
+            else:
+                event.videocall_source = 'custom'
+
+    def _set_discuss_videocall_location(self):
+        """
+        This method sets the videocall_location to a discuss route.
+        If no access_token exists for this event, we create one.
+        Note that recurring events will have different access_tokens.
+        This is done by design to prevent users not being able to join a discuss meeting because the base event of the recurrency was deleted.
+        """
+        if not self.access_token:
+            self.access_token = uuid.uuid4().hex
+        self.videocall_location = f"{self.get_base_url()}/{self.DISCUSS_ROUTE}/{self.access_token}"
+
+    @api.model
+    def get_discuss_videocall_location(self):
+        access_token = uuid.uuid4().hex
+        return f"{self.get_base_url()}/{self.DISCUSS_ROUTE}/{access_token}"
 
     # ------------------------------------------------------------
     # CRUD
@@ -387,7 +446,16 @@ class Meeting(models.Model):
         model_ids = list(filter(None, {values.get('res_model_id', defaults.get('res_model_id')) for values in vals_list}))
         model_name = defaults.get('res_model')
         valid_activity_model_ids = model_name and self.env[model_name].sudo().browse(model_ids).filtered(lambda m: 'activity_ids' in m).ids or []
-        if meeting_activity_type and not defaults.get('activity_ids'):
+
+        # if user is creating an event for an activity that already has one, create a second activity
+        existing_event = False
+        orig_activity_ids = self._context.get('orig_activity_ids', self.env['mail.activity'])
+        if len(orig_activity_ids) == 1:
+            existing_event = orig_activity_ids.calendar_event_id
+            if existing_event and orig_activity_ids.activity_type_id.category == 'meeting':
+                meeting_activity_type = orig_activity_ids.activity_type_id
+
+        if meeting_activity_type and (not defaults.get('activity_ids') or existing_event):
             for values in vals_list:
                 # created from calendar: try to create an activity on the related record
                 if values.get('activity_ids'):
@@ -407,6 +475,7 @@ class Meeting(models.Model):
                 if user_id:
                     activity_vals['user_id'] = user_id
                 values['activity_ids'] = [(0, 0, activity_vals)]
+        self._set_videocall_location(vals_list)
 
         # Add commands to create attendees from partners (if present) if no attendee command
         # is already given (coming from Google event for example).
@@ -485,9 +554,18 @@ class Meeting(models.Model):
 
         update_alarms = False
         update_time = False
+        self._set_videocall_location([values])
         if 'partner_ids' in values:
             values['attendee_ids'] = self._attendees_values(values['partner_ids'])
             update_alarms = True
+            if self.videocall_channel_id:
+                new_partner_ids = []
+                for command in values['partner_ids']:
+                    if command[0] == Command.LINK:
+                        new_partner_ids.append(command[1])
+                    elif command[0] == Command.SET:
+                        new_partner_ids.extend(command[2])
+                self.videocall_channel_id.add_members(new_partner_ids)
 
         time_fields = self.env['calendar.event']._get_time_fields()
         if any([values.get(key) for key in time_fields]):
@@ -503,26 +581,28 @@ class Meeting(models.Model):
         previous_attendees = self.attendee_ids
 
         recurrence_values = {field: values.pop(field) for field in self._get_recurrent_fields() if field in values}
+        future_edge_case = recurrence_update_setting == 'future_events' and self == self.recurrence_id.base_event_id
         if update_recurrence:
             if break_recurrence:
                 # Update this event
                 detached_events |= self._break_recurrence(future=recurrence_update_setting == 'future_events')
             else:
-                future_update_start = self.start if recurrence_update_setting == 'future_events' else None
                 time_values = {field: values.pop(field) for field in time_fields if field in values}
-                if recurrence_update_setting == 'all_events':
+                if 'access_token' in values:
+                    values.pop('access_token')  # prevents copying access_token to other events in recurrency
+                if recurrence_update_setting == 'all_events' or future_edge_case:
                     # Update all events: we create a new reccurrence and dismiss the existing events
                     self._rewrite_recurrence(values, time_values, recurrence_values)
                 else:
-                    # Update future events
-                    detached_events |= self._split_recurrence(time_values)
-                    self.recurrence_id._write_events(values, dtstart=future_update_start)
+                    # Update future events: trim recurrence, delete remaining events except base event and recreate it
+                    # All the recurrent events processing is done within the following method
+                    self._update_future_events(values, time_values, recurrence_values)
         else:
             super().write(values)
             self._sync_activities(fields=values.keys())
 
         # We reapply recurrence for future events and when we add a rrule and 'recurrency' == True on the event
-        if recurrence_update_setting not in ['self_only', 'all_events'] and not break_recurrence:
+        if recurrence_update_setting not in ['self_only', 'all_events'] and not future_edge_case and not break_recurrence:
             detached_events |= self._apply_recurrence_values(recurrence_values, future=recurrence_update_setting == 'future_events')
 
         (detached_events & self).active = False
@@ -532,7 +612,7 @@ class Meeting(models.Model):
         # that has just been removed, as it might have changed their next event notification
         if not self.env.context.get('dont_notify') and update_alarms:
             self._setup_alarms()
-        attendee_update_events = self.filtered(lambda ev: ev.user_id != self.env.user)
+        attendee_update_events = self.filtered(lambda ev: ev.user_id and ev.user_id != self.env.user)
         if update_time and attendee_update_events:
             # Another user update the event time fields. It should not be auto accepted for the organizer.
             # This prevent weird behavior when a user modified future events time fields and
@@ -581,17 +661,15 @@ class Meeting(models.Model):
         obfuscated_names = [(eid, _('Busy')) for eid in hidden.ids]
         return shown_names + obfuscated_names
 
-    def read(self, fields):
+    def read(self, fields=None, load='_classic_read'):
         """
         Return the events information to be shown on calendar/tree/form views.
         Private events will have their sensitive fields hidden by default.
         """
-        records = super().read(fields)
+        records = super().read(fields=fields, load=load)
         if fields:
             # Define the private fields and filter the private events from self.
-            # Since 'partner_ids' is extensively used for rendering, it can't be hidden.
-            private_fields = set(fields) - self._get_public_fields()
-            private_fields.discard('partner_ids')
+            private_fields = ['name', 'location', 'attendee_ids', 'description', 'videocall_location', 'message_ids']
             private_events = self.filtered(lambda ev: ev._check_private_event_conditions())
 
             # Hide the private information of the event by changing their values to 'Busy' and False.
@@ -605,15 +683,16 @@ class Meeting(models.Model):
 
             # Update the cache with the new hidden values.
             for field_name in private_fields:
-                field = self._fields[field_name]
-                value = False
-                if field.type in ('one2many', 'many2many'):
-                    value = []
-                elif field_name in ('name', 'display_name'):
-                    value = _('Busy')
-                for private_event in private_events:
-                    replacement = field.convert_to_cache(value, private_event)
-                    self.env.cache.update(private_event, field, repeat(replacement))
+                if field_name in self._fields:
+                    field = self._fields[field_name]
+                    value = False
+                    if field.type in ('one2many', 'many2many'):
+                        value = []
+                    elif field_name in ('name', 'display_name'):
+                        value = _('Busy')
+                    for private_event in private_events:
+                        replacement = field.convert_to_cache(value, private_event)
+                        self.env.cache.update(private_event, field, repeat(replacement))
         return records
 
     @api.model
@@ -624,14 +703,13 @@ class Meeting(models.Model):
         if not self.env.su and private_fields:
             # display public and confidential events
             domain = AND([domain, ['|', ('privacy', '!=', 'private'), ('user_id', '=', self.env.user.id)]])
-            self.env['bus.bus']._sendone(self.env.user.partner_id, 'simple_notification', {
-                'title': _('Private Event Excluded'),
-                'message': _('Grouping by %s is not allowed on private events.', ', '.join([self._fields[field_name].string for field_name in private_fields]))
-            })
             return super(Meeting, self).read_group(domain, fields, groupby, offset=offset, limit=limit, orderby=orderby, lazy=lazy)
         return super(Meeting, self).read_group(domain, fields, groupby, offset=offset, limit=limit, orderby=orderby, lazy=lazy)
 
     def unlink(self):
+        if not self:
+            return super().unlink()
+
         # Get concerned attendees to notify them if there is an alarm on the unlinked events,
         # as it might have changed their next event notification
         events = self.filtered_domain([('alarm_ids', '!=', False)])
@@ -682,12 +760,12 @@ class Meeting(models.Model):
 
         for command in partner_commands:
             op = command[0]
-            if op in (2, 3):  # Remove partner
+            if op in (2, 3, Command.delete, Command.unlink):  # Remove partner
                 removed_partner_ids += [command[1]]
-            elif op == 6:  # Replace all
+            elif op in (6, Command.set):  # Replace all
                 removed_partner_ids += set(self.partner_ids.ids) - set(command[2])  # Don't recreate attendee if partner already attend the event
                 added_partner_ids += set(command[2]) - set(self.partner_ids.ids)
-            elif op == 4:
+            elif op in (4, Command.link):
                 added_partner_ids += [command[1]] if command[1] not in self.partner_ids.ids else []
             # commands 0 and 1 not supported
 
@@ -706,9 +784,40 @@ class Meeting(models.Model):
         ]
         return attendee_commands
 
+    def _create_videocall_channel(self):
+        if self.recurrency:
+            # check if any of the events have videocall_channel_id, if not create one
+            event_with_channel = self.env['calendar.event'].search([
+                ('recurrence_id', '=', self.recurrence_id.id),
+                ('videocall_channel_id', '!=', False)
+            ], limit=1)
+            if event_with_channel:
+                self.videocall_channel_id = event_with_channel.videocall_channel_id
+                return
+        self.videocall_channel_id = self._create_videocall_channel_id(self.name, self.partner_ids.ids)
+        self.videocall_channel_id.channel_change_description(self.recurrence_id.name if self.recurrency else self.display_time)
+
+    def _create_videocall_channel_id(self, name, partner_ids):
+        videocall_channel_id = self.env['mail.channel'].create_group(partner_ids, default_display_mode='video_full_screen', name=name)
+        # if recurrent event, set channel to all other records of the same recurrency
+        if self.recurrency:
+            recurrent_events_without_channel = self.env['calendar.event'].search([
+                ('recurrence_id', '=', self.recurrence_id.id), ('videocall_channel_id', '=', False)
+            ])
+            recurrent_events_without_channel.videocall_channel_id = videocall_channel_id['id']
+        return videocall_channel_id['id']
+
     # ------------------------------------------------------------
     # ACTIONS
     # ------------------------------------------------------------
+
+    # dummy method. this method is intercepted in the frontend and the value is set locally
+    def set_discuss_videocall_location(self):
+        return True
+
+    # dummy method. this method is intercepted in the frontend and the value is set locally
+    def clear_videocall_location(self):
+        return True
 
     def action_open_calendar_event(self):
         if self.res_model and self.res_id:
@@ -750,6 +859,13 @@ class Meeting(models.Model):
             'context': compose_ctx,
         }
 
+    def action_join_video_call(self):
+        return {
+            'type': 'ir.actions.act_url',
+            'url': self.videocall_location,
+            'target': 'self' if self.videocall_source == 'discuss' else 'new'
+        }
+
     def action_join_meeting(self, partner_id):
         """ Method used when an existing user wants to join
         """
@@ -774,10 +890,19 @@ class Meeting(models.Model):
         """
         self.ensure_one()
         if recurrence_update_setting == 'all_events':
-            self.recurrence_id.calendar_event_ids.write({'active': False})
-        elif recurrence_update_setting == 'future_events' and self.recurrence_id:
+            self.recurrence_id.calendar_event_ids.write(self._get_archive_values())
+        elif recurrence_update_setting == 'future_events':
             detached_events = self.recurrence_id._stop_at(self)
-            detached_events.write({'active': False})
+            detached_events.write(self._get_archive_values())
+        elif recurrence_update_setting == 'self_only':
+            self.write({
+                'active': False,
+                'recurrence_update': 'self_only'
+            })
+            if len(self.recurrence_id.calendar_event_ids) == 0:
+                self.recurrence_id.unlink()
+            elif self == self.recurrence_id.base_event_id:
+                self.recurrence_id._select_new_base_event()
 
     # ------------------------------------------------------------
     # MAILING
@@ -882,6 +1007,17 @@ class Meeting(models.Model):
             'day': event_date.day,
         }
 
+    @api.model
+    def _get_recurrence_params_by_date(self, event_date):
+        """ Return the recurrence parameters from a date object. """
+        weekday_field_name = weekday_to_field(event_date.weekday())
+        return {
+            weekday_field_name: True,
+            'weekday': weekday_field_name.upper(),
+            'byday': str(get_weekday_occurence(event_date)),
+            'day': event_date.day,
+        }
+
     def _split_recurrence(self, time_values):
         """Apply time changes to events and update the recurrence accordingly.
 
@@ -921,16 +1057,11 @@ class Meeting(models.Model):
         recurrences_to_unlink.with_context(archive_on_error=True).unlink()
         return detached_events - self
 
-    def _rewrite_recurrence(self, values, time_values, recurrence_values):
-        """ Recreate the whole recurrence when all recurrent events must be moved
-        time_values corresponds to date times for one specific event. We need to update the base_event of the recurrence
-        and reapply the recurrence later. All exceptions are lost.
-        """
-        self.ensure_one()
-        base_event = self.recurrence_id.base_event_id
+    def _get_time_update_dict(self, base_event, time_values):
+        """ Return the update dictionary for shifting the base_event's time to the new date. """
         if not base_event:
             raise UserError(_("You can't update a recurrence without base event."))
-        [base_time_values] = self.recurrence_id.base_event_id.read(['start', 'stop', 'allday'])
+        [base_time_values] = base_event.read(['start', 'stop', 'allday'])
         update_dict = {}
         start_update = fields.Datetime.to_datetime(time_values.get('start'))
         stop_update = fields.Datetime.to_datetime(time_values.get('stop'))
@@ -951,32 +1082,103 @@ class Meeting(models.Model):
                 stop = base_time_values['stop'] + (stop_update - self.stop)
                 stop_date = base_time_values['stop'].date() + (stop_update.date() - self.stop.date())
                 update_dict.update({'stop': stop, 'stop_date': stop_date})
+        return update_dict
 
+    @api.model
+    def _get_archive_values(self):
+        """ Return parameters for archiving events in calendar module. """
+        return {'active': False}
+
+    @api.model
+    def _check_values_to_sync(self, values):
+        """ Method to be overriden: return candidate values to be synced within rewrite_recurrence function scope. """
+        return False
+
+    @api.model
+    def _get_update_future_events_values(self):
+        """ Return parameters for updating future events within _update_future_events function scope. """
+        return {}
+
+    @api.model
+    def _get_remove_sync_id_values(self):
+        """ Return parameters for removing event synchronization id within _update_future_events function scope. """
+        return {}
+
+    def _get_updated_recurrence_values(self, new_start_date):
+        """ Copy values from current recurrence and update the start date weekday. """
+        [previous_recurrence_values] = self.recurrence_id.copy_data()
+        if self.start.weekday() != new_start_date.weekday():
+            previous_recurrence_values.pop(weekday_to_field(self.start.weekday()), None)
+        return previous_recurrence_values
+
+    def _update_future_events(self, values, time_values, recurrence_values):
+        """
+            Trim the current recurrence detaching the occurrences after current event,
+            deactivate the detached events except for the updated event and apply recurrence values.
+        """
+        self.ensure_one()
+        update_dict = self._get_time_update_dict(self, time_values)
         time_values.update(update_dict)
-        if time_values or recurrence_values:
-            rec_fields = list(self._get_recurrent_fields())
-            [rec_vals] = base_event.read(rec_fields)
-            old_recurrence_values = {field: rec_vals.pop(field) for field in rec_fields if
-                                     field in rec_vals}
-            base_event.write({**values, **time_values})
-            # Delete all events except the base event and the currently modified
-            expandable_events = self.recurrence_id.calendar_event_ids - (self.recurrence_id.base_event_id + self)
-            self.recurrence_id.with_context(archive_on_error=True).unlink()
-            expandable_events.with_context(archive_on_error=True).unlink()
-            # Make sure to recreate a new recurrence. Needed to prevent sync issues
-            base_event.recurrence_id = False
-            # Recreate all events and the recurrence: override updated values
+        # Get base values from the previous recurrence and update the start date weekday field.
+        start_date = time_values['start'].date() if 'start' in time_values else self.start.date()
+        previous_recurrence_values = self._get_updated_recurrence_values(start_date)
+
+        # Trim previous recurrence at current event, deleting following events except for the updated event.
+        detached_events_split = self.recurrence_id._stop_at(self)
+        (detached_events_split - self).write({'active': False, **self._get_remove_sync_id_values()})
+
+        # Update the current event with the new recurrence information.
+        if values or time_values:
+            self.write({
+                **time_values, **values,
+                **self._get_remove_sync_id_values(),
+                **self._get_update_future_events_values()
+            })
+
+        # Combine parameters from previous recurrence with the new recurrence parameters.
+        new_values = {
+            **previous_recurrence_values,
+            **self._get_recurrence_params_by_date(start_date),
+            **recurrence_values,
+            'count': recurrence_values.get('count', 0) or len(detached_events_split)
+        }
+        new_values.pop('rrule', None)
+
+        # Generate the new recurrence by patching the updated event and return an empty list.
+        self._apply_recurrence_values(new_values)
+
+    def _rewrite_recurrence(self, values, time_values, recurrence_values):
+        """ Delete the current recurrence, reactivate base event and apply updated recurrence values. """
+        self.ensure_one()
+        base_event = self.recurrence_id.base_event_id
+        update_dict = self._get_time_update_dict(base_event, time_values)
+        time_values.update(update_dict)
+
+        if self._check_values_to_sync(values) or time_values or recurrence_values:
+            # Get base values from the previous recurrence and update the start date weekday field.
+            start_date = time_values['start'].date() if 'start' in time_values else self.start.date()
+            old_recurrence_values = self._get_updated_recurrence_values(start_date)
+
+            # Archive all events and delete recurrence, reactivate base event and apply updated values.
+            base_event.action_mass_archive("all_events")
+            base_event.recurrence_id.unlink()
+            base_event.write({
+                'active': True,
+                'recurrence_id': False,
+                **values, **time_values
+            })
+
+            # Combine parameters from previous recurrence with the new recurrence parameters.
             new_values = {
                 **old_recurrence_values,
                 **base_event._get_recurrence_params(),
                 **recurrence_values,
             }
-            new_values.pop('rrule')
+            new_values.pop('rrule', None)
+
+            # Patch base event with updated recurrence parameters: this will recreate the recurrence.
             detached_events = base_event._apply_recurrence_values(new_values)
             detached_events.write({'active': False})
-            # archive the current event if all the events were recreated
-            if self != self.recurrence_id.base_event_id and time_values:
-                self.active = False
         else:
             # Write on all events. Carefull, it could trigger a lot of noise to Google/Microsoft...
             self.recurrence_id._write_events(values)
@@ -1013,27 +1215,46 @@ class Meeting(models.Model):
     # TOOLS
     # ------------------------------------------------------------
 
+    def _find_attendee_batch(self):
+        """ Return the first attendee where the user connected has been invited
+            or the attendee selected in the filter that is the owner
+            from all the meeting_ids in parameters.
+        """
+        result = defaultdict(lambda: self.env['calendar.attendee'])
+        self_attendees = self.attendee_ids.filtered(lambda a: a.partner_id == self.env.user.partner_id)
+        for attendee in self_attendees:
+            result[attendee.event_id.id] = attendee
+        remaining_events = self - self_attendees.event_id
+
+        events_checked_partners = self.env['calendar.filters'].search([
+            ('user_id', '=', self.env.user.id),
+            ('partner_id', 'in', remaining_events.attendee_ids.partner_id.ids),
+            ('partner_checked', '=', True)
+        ]).partner_id
+        filter_events = self.env['calendar.event']
+        for event in remaining_events:
+            event_partners = event.attendee_ids.partner_id
+            event_checked_partners = events_checked_partners & event_partners
+            if event.partner_id in event_checked_partners and event.partner_id in event_partners:
+                filter_events |= event
+                result[event.id] = event.attendee_ids.filtered(lambda attendee: attendee.partner_id == event.partner_id)[:1]
+        remaining_events -= filter_events
+
+        for event in remaining_events:
+            event_checked_partners = events_checked_partners & event_partners
+            attendee = event.attendee_ids.filtered(
+                lambda a: a.partner_id in event_checked_partners and a.state != "needsAction")
+            result[event.id] = attendee[:1]
+        return result
+
+    # YTI TODO MASTER: Remove deprecated method
     def _find_attendee(self):
         """ Return the first attendee where the user connected has been invited
             or the attendee selected in the filter that is the owner
             from all the meeting_ids in parameters.
         """
         self.ensure_one()
-
-        my_attendee = self.attendee_ids.filtered(lambda att: att.partner_id == self.env.user.partner_id)
-        if my_attendee:
-            return my_attendee[:1]
-
-        event_checked_attendees = self.env['calendar.filters'].search([
-            ('user_id', '=', self.env.user.id),
-            ('partner_id', 'in', self.attendee_ids.partner_id.ids),
-            ('partner_checked', '=', True)
-        ]).mapped('partner_id')
-        if self.partner_id in event_checked_attendees and self.partner_id in self.attendee_ids.partner_id:
-            return self.attendee_ids.filtered(lambda attendee: attendee.partner_id == self.partner_id)[:1]
-
-        attendee = self.attendee_ids.filtered(lambda att: att.partner_id in event_checked_attendees and att.state != "needsAction")
-        return attendee[:1]
+        return self._find_attendee_batch()[self.id]
 
     def _get_start_date(self):
         """Return the event starting date in the event's timezone.
@@ -1115,7 +1336,14 @@ class Meeting(models.Model):
             for attendee in meeting.attendee_ids:
                 attendee_add = event.add('attendee')
                 attendee_add.value = u'MAILTO:' + (attendee.email or u'')
-            event.add('organizer').value = u'MAILTO:' + (meeting.user_id.email or u'')
+
+            # Add "organizer" field if email available
+            if meeting.partner_id.email:
+                organizer = event.add('organizer')
+                organizer.value = u'MAILTO:' + meeting.partner_id.email
+                if meeting.partner_id.name:
+                    organizer.params['CN'] = [meeting.partner_id.display_name.replace('\"', '\'')]
+
             result[meeting.id] = cal.serialize().encode('utf-8')
 
         return result

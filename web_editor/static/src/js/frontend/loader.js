@@ -1,14 +1,16 @@
 odoo.define('web_editor.loader', function (require) {
 'use strict';
 
-var ajax = require('web.ajax');
-
-let wysiwygPromise;
+const { getBundle, loadBundle } = require('@web/core/assets');
 
 const exports = {};
 
-function loadWysiwyg(additionnalAssets=[]) {
-    return ajax.loadLibs({assetLibs: ['web_editor.compiled_assets_wysiwyg', ...additionnalAssets]}, undefined, '/web_editor/public_render_template');
+async function loadWysiwyg(additionnalAssets=[]) {
+    const xmlids = ['web_editor.assets_wysiwyg', ...additionnalAssets];
+    for (const xmlid of xmlids) {
+        const assets = await getBundle(xmlid);
+        await loadBundle(assets);
+    }
 }
 exports.loadWysiwyg = loadWysiwyg;
 
@@ -16,29 +18,24 @@ exports.loadWysiwyg = loadWysiwyg;
  * Load the assets and create a wysiwyg.
  *
  * @param {Widget} parent The wysiwyg parent
- * @param {object} options The wysiwyg options
+ * @param {object} options
+ * @param {object} options.wysiwygOptions The wysiwyg options
+ * @param {string} options.moduleName The wysiwyg module name
+ * @param {object} options.additionnalAssets The additional assets
  */
-exports.createWysiwyg = async (parent, options, additionnalAssets = []) => {
-    const wysiwygAlias = options.wysiwygAlias || 'web_editor.wysiwyg';
-    if (!wysiwygPromise) {
-        wysiwygPromise = new Promise(async (resolve) => {
-            await loadWysiwyg(additionnalAssets);
-            // Wait the loading of the service and his dependencies (use string to
-            // avoid parsing of require function).
-            const stringFunction = `return new Promise(resolve => {
-                odoo.define('${wysiwygAlias}.loaded', require => {
-                    ` + 'require' + `('${wysiwygAlias}');
-                    resolve();
-                });
-            });`;
-            await new Function(stringFunction)();
-            resolve();
-        });
-    }
-    await wysiwygPromise;
-    const Wysiwyg = odoo.__DEBUG__.services[wysiwygAlias];
-    return new Wysiwyg(parent, options);
+exports.createWysiwyg = async (parent, options = {}) => {
+    const Wysiwyg = await getWysiwygClass(options);
+    return new Wysiwyg(parent, options.wysiwygOptions);
 };
+
+async function getWysiwygClass({moduleName = 'web_editor.wysiwyg', additionnalAssets = []} = {}) {
+    if (!(await odoo.ready(moduleName))) {
+        await loadWysiwyg(additionnalAssets);
+        await odoo.ready(moduleName);
+    }
+    return odoo.__DEBUG__.services[moduleName];
+}
+exports.getWysiwygClass = getWysiwygClass;
 
 exports.loadFromTextarea = async (parent, textarea, options) => {
     var loading = textarea.nextElementSibling;
@@ -51,7 +48,9 @@ exports.loadFromTextarea = async (parent, textarea, options) => {
     if (!currentOptions.value.trim()) {
         currentOptions.value = '<p><br></p>';
     }
-    const wysiwyg = await exports.createWysiwyg(parent, currentOptions);
+
+    const Wysiwyg = await getWysiwygClass();
+    const wysiwyg = new Wysiwyg(parent, currentOptions);
 
     const $wysiwygWrapper = $textarea.closest('.o_wysiwyg_textarea_wrapper');
     const $form = $textarea.closest('form');
@@ -70,9 +69,9 @@ exports.loadFromTextarea = async (parent, textarea, options) => {
     $form.find('.note-editable').find('img.o_we_selected_image').removeClass('o_we_selected_image');
     $form.on('click', 'button[type=submit]', (e) => {
         $form.find('.note-editable').find('img.o_we_selected_image').removeClass('o_we_selected_image');
-        // float-left class messes up the post layout OPW 769721
-        $form.find('.note-editable').find('img.float-left').removeClass('float-left');
-        $textarea.html(wysiwyg.getValue());
+        // float-start class messes up the post layout OPW 769721
+        $form.find('.note-editable').find('img.float-start').removeClass('float-start');
+        $textarea.val(wysiwyg.getValue());
     });
 
     return wysiwyg;

@@ -9,11 +9,11 @@ from datetime import datetime, timedelta
 from dateutil.relativedelta import relativedelta
 
 from odoo import fields, http, SUPERUSER_ID, _
-from odoo.addons.base.models.ir_ui_view import keep_query
 from odoo.exceptions import UserError
 from odoo.http import request, content_disposition
 from odoo.osv import expression
 from odoo.tools import format_datetime, format_date, is_html_empty
+from odoo.addons.base.models.ir_qweb import keep_query
 
 _logger = logging.getLogger(__name__)
 
@@ -67,9 +67,9 @@ class Survey(http.Controller):
         if answer_token and not answer_sudo:
             return 'token_wrong'
 
-        if not answer_sudo and ensure_token:
+        if not answer_sudo and ensure_token is True:
             return 'token_required'
-        if not answer_sudo and survey_sudo.access_mode == 'token':
+        if not answer_sudo and ensure_token != 'survey_only' and survey_sudo.access_mode == 'token':
             return 'token_required'
 
         if survey_sudo.users_login_required and request.env.user._is_public():
@@ -117,7 +117,8 @@ class Survey(http.Controller):
                 has_survey_access = True
             can_answer = bool(answer_sudo)
             if not can_answer:
-                can_answer = survey_sudo.access_mode == 'public'
+                can_answer = survey_sudo.access_mode == 'public' or (
+                    has_survey_access and ensure_token == 'survey_only')
 
         return {
             'survey_sudo': survey_sudo,
@@ -203,7 +204,7 @@ class Survey(http.Controller):
         values = {'survey': survey, 'answer': answer}
         if token:
             values['token'] = token
-        if survey.scoring_type != 'no_scoring' and survey.certification:
+        if survey.scoring_type != 'no_scoring':
             values['graph_data'] = json.dumps(answer._prepare_statistics()[answer])
         return values
 
@@ -340,20 +341,21 @@ class Survey(http.Controller):
 
     def _prepare_question_html(self, survey_sudo, answer_sudo, **post):
         """ Survey page navigation is done in AJAX. This function prepare the 'next page' to display in html
-        and send back this html to the survey_form widget that will inject it into the page."""
+        and send back this html to the survey_form widget that will inject it into the page.
+        Background url must be given to the caller in order to process its refresh as we don't have the next question
+        object at frontend side."""
         survey_data = self._prepare_survey_data(survey_sudo, answer_sudo, **post)
 
-        survey_content = False
         if answer_sudo.state == 'done':
-            survey_content = request.env.ref('survey.survey_fill_form_done')._render(survey_data)
+            survey_content = request.env['ir.qweb']._render('survey.survey_fill_form_done', survey_data)
         else:
-            survey_content = request.env.ref('survey.survey_fill_form_in_progress')._render(survey_data)
+            survey_content = request.env['ir.qweb']._render('survey.survey_fill_form_in_progress', survey_data)
 
         survey_progress = False
         if answer_sudo.state == 'in_progress' and not survey_data.get('question', request.env['survey.question']).is_page:
             if survey_sudo.questions_layout == 'page_per_section':
                 page_ids = survey_sudo.page_ids.ids
-                survey_progress = request.env.ref('survey.survey_progression')._render({
+                survey_progress = request.env['ir.qweb']._render('survey.survey_progression', {
                     'survey': survey_sudo,
                     'page_ids': page_ids,
                     'page_number': page_ids.index(survey_data['page'].id) + (1 if survey_sudo.progression_mode == 'number' else 0)
@@ -362,16 +364,23 @@ class Survey(http.Controller):
                 page_ids = (answer_sudo.predefined_question_ids.ids
                             if not answer_sudo.is_session_answer and survey_sudo.questions_selection == 'random'
                             else survey_sudo.question_ids.ids)
-                survey_progress = request.env.ref('survey.survey_progression')._render({
+                survey_progress = request.env['ir.qweb']._render('survey.survey_progression', {
                     'survey': survey_sudo,
                     'page_ids': page_ids,
                     'page_number': page_ids.index(survey_data['question'].id)
                 })
 
+        background_image_url = survey_sudo.background_image_url
+        if 'question' in survey_data:
+            background_image_url = survey_data['question'].background_image_url
+        elif 'page' in survey_data:
+            background_image_url = survey_data['page'].background_image_url
+
         return {
             'survey_content': survey_content,
             'survey_progress': survey_progress,
-            'survey_navigation': request.env.ref('survey.survey_navigation')._render(survey_data),
+            'survey_navigation': request.env['ir.qweb']._render('survey.survey_navigation', survey_data),
+            'background_image_url': background_image_url
         }
 
     @http.route('/survey/<string:survey_token>/<string:answer_token>', type='http', auth='public', website=True)
@@ -387,19 +396,31 @@ class Survey(http.Controller):
         return request.render('survey.survey_page_fill',
             self._prepare_survey_data(access_data['survey_sudo'], answer_sudo, **post))
 
-    @http.route('/survey/get_background_image/<string:survey_token>/<string:answer_token>', type='http', auth="public", website=True, sitemap=False)
-    def survey_get_background(self, survey_token, answer_token):
-        access_data = self._get_access_data(survey_token, answer_token, ensure_token=True)
-        if access_data['validity_code'] is not True:
-            return werkzeug.exceptions.Forbidden()
+    # --------------------------------------------------------------------------
+    # ROUTES to handle question images + survey background transitions + Tool
+    # --------------------------------------------------------------------------
 
-        survey_sudo, answer_sudo = access_data['survey_sudo'], access_data['answer_sudo']
+    @http.route('/survey/<string:survey_token>/get_background_image',
+                type='http', auth="public", website=True, sitemap=False)
+    def survey_get_background(self, survey_token):
+        survey_sudo, dummy = self._fetch_from_access_token(survey_token, False)
+        return request.env['ir.binary']._get_image_stream_from(
+            survey_sudo, 'background_image'
+        ).get_response()
 
-        status, headers, image_base64 = request.env['ir.http'].sudo().binary_content(
-            model='survey.survey', id=survey_sudo.id, field='background_image',
-            default_mimetype='image/png')
+    @http.route('/survey/<string:survey_token>/<int:section_id>/get_background_image',
+                type='http', auth="public", website=True, sitemap=False)
+    def survey_section_get_background(self, survey_token, section_id):
+        survey_sudo, dummy = self._fetch_from_access_token(survey_token, False)
 
-        return request.env['ir.http']._content_image_get_response(status, headers, image_base64)
+        section = survey_sudo.page_ids.filtered(lambda q: q.id == section_id)
+        if not section:
+            # trying to access a question that is not in this survey
+            raise werkzeug.exceptions.Forbidden()
+
+        return request.env['ir.binary']._get_image_stream_from(
+            section, 'background_image'
+        ).get_response()
 
     @http.route('/survey/get_question_image/<string:survey_token>/<string:answer_token>/<int:question_id>/<int:suggested_answer_id>', type='http', auth="public", website=True, sitemap=False)
     def survey_get_question_image(self, survey_token, answer_token, question_id, suggested_answer_id):
@@ -409,15 +430,20 @@ class Survey(http.Controller):
 
         survey_sudo, answer_sudo = access_data['survey_sudo'], access_data['answer_sudo']
 
-        if not survey_sudo.question_ids.filtered(lambda q: q.id == question_id)\
-                          .suggested_answer_ids.filtered(lambda a: a.id == suggested_answer_id):
+        suggested_answer = False
+        if int(question_id) in survey_sudo.question_ids.ids:
+            suggested_answer = request.env['survey.question.answer'].sudo().search([
+                ('id', '=', int(suggested_answer_id)),
+                ('question_id', '=', int(question_id)),
+                ('question_id.survey_id', '=', survey_sudo.id),
+            ])
+
+        if not suggested_answer:
             return werkzeug.exceptions.NotFound()
 
-        status, headers, image_base64 = request.env['ir.http'].sudo().binary_content(
-            model='survey.question.answer', id=suggested_answer_id, field='value_image',
-            default_mimetype='image/png')
-
-        return request.env['ir.http']._content_image_get_response(status, headers, image_base64)
+        return request.env['ir.binary']._get_image_stream_from(
+            suggested_answer, 'value_image'
+        ).get_response()
 
     # ----------------------------------------------------------------
     # JSON ROUTES to begin / continue survey (ajax navigation) + Tools
@@ -507,16 +533,17 @@ class Survey(http.Controller):
         if answer_sudo.survey_time_limit_reached or survey_sudo.questions_layout == 'one_page':
             answer_sudo._mark_done()
         elif 'previous_page_id' in post:
+            # when going back, save the last displayed to reload the survey where the user left it.
+            answer_sudo.write({'last_displayed_page_id': post['previous_page_id']})
             # Go back to specific page using the breadcrumb. Lines are saved and survey continues
             return self._prepare_question_html(survey_sudo, answer_sudo, **post)
         else:
-            vals = {'last_displayed_page_id': page_or_question_id}
             if not answer_sudo.is_session_answer:
                 next_page = survey_sudo._get_next_page_or_question(answer_sudo, page_or_question_id)
                 if not next_page:
                     answer_sudo._mark_done()
 
-            answer_sudo.write(vals)
+            answer_sudo.write({'last_displayed_page_id': page_or_question_id})
 
         return self._prepare_question_html(survey_sudo, answer_sudo)
 
@@ -573,7 +600,7 @@ class Survey(http.Controller):
     def survey_print(self, survey_token, review=False, answer_token=None, **post):
         '''Display an survey in printable view; if <answer_token> is set, it will
         grab the answers of the user_input_id that has <answer_token>.'''
-        access_data = self._get_access_data(survey_token, answer_token, ensure_token=False, check_partner=False)
+        access_data = self._get_access_data(survey_token, answer_token, ensure_token='survey_only', check_partner=False)
         if access_data['validity_code'] is not True and (
                 access_data['has_survey_access'] or
                 access_data['validity_code'] not in ['token_required', 'survey_closed', 'survey_void', 'answer_deadline']):
@@ -646,6 +673,8 @@ class Survey(http.Controller):
             'survey_data'= see ``SurveySurvey._prepare_statistics()``
             'search_filters': [],
             'search_finished': either filter on finished inputs only or not,
+            'search_passed': either filter on passed inputs only or not,
+            'search_failed': either filter on failed inputs only or not,
         }
         """
         user_input_lines, search_filters = self._extract_filters_data(survey, post)
@@ -660,6 +689,8 @@ class Survey(http.Controller):
             # search
             'search_filters': search_filters,
             'search_finished': post.get('finished') == 'true',
+            'search_failed': post.get('failed') == 'true',
+            'search_passed': post.get('passed') == 'true',
         }
 
         if survey.session_show_leaderboard:
@@ -668,7 +699,7 @@ class Survey(http.Controller):
         return request.render('survey.survey_page_statistics', template_values)
 
     def _generate_report(self, user_input, download=True):
-        report = request.env.ref('survey.certification_report').with_user(SUPERUSER_ID)._render_qweb_pdf([user_input.id], data={'report_type': 'pdf'})[0]
+        report = request.env["ir.actions.report"].sudo()._render_qweb_pdf('survey.certification_report', [user_input.id], data={'report_type': 'pdf'})[0]
 
         report_content_disposition = content_disposition('Certification.pdf')
         if not download:
@@ -694,6 +725,11 @@ class Survey(http.Controller):
             user_input_domain = expression.AND([[('state', '=', 'done')], user_input_domain])
         else:
             user_input_domain = expression.AND([[('state', '!=', 'new')], user_input_domain])
+        if post.get('failed'):
+            user_input_domain = expression.AND([[('scoring_success', '=', False)], user_input_domain])
+        elif post.get('passed'):
+            user_input_domain = expression.AND([[('scoring_success', '=', True)], user_input_domain])
+
         return user_input_domain
 
     def _extract_filters_data(self, survey, post):
@@ -717,6 +753,8 @@ class Survey(http.Controller):
                 if answer_id:
                     question_id = answers[0].matrix_question_id or answers[0].question_id
                     search_filters.append({
+                        'row_id': row_id,
+                        'answer_id': answer_id,
                         'question': question_id.title,
                         'answers': '%s%s' % (answers[0].value, ': %s' % answers[1].value if len(answers) > 1 else '')
                     })

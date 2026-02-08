@@ -14,7 +14,7 @@ var _lt = core._lt;
 var KanbanView = BasicView.extend({
     accesskey: "k",
     display_name: _lt("Kanban"),
-    icon: 'fa-th-large',
+    icon: 'oi oi-view-kanban',
     mobile_friendly: true,
     config: _.extend({}, BasicView.prototype.config, {
         Model: KanbanModel,
@@ -71,6 +71,12 @@ var KanbanView = BasicView.extend({
             read_only_mode: params.readOnlyMode,
             selectionMode: params.selectionMode,
         };
+        if (('action' in archAttrs) && ('type' in archAttrs)) {
+            this.rendererParams.record_options.openAction = {
+                action: archAttrs.action,
+                type: archAttrs.type
+            };
+        }
         this.rendererParams.quickCreateEnabled = this._isQuickCreateEnabled();
         this.rendererParams.readOnlyMode = params.readOnlyMode;
         var examples = archAttrs.examples;

@@ -4,33 +4,6 @@ odoo.define('point_of_sale.tour.PaymentScreenTourMethods', function (require) {
     const { createTourMethods } = require('point_of_sale.tour.utils');
 
     class Do {
-        clickCustomerButton() {
-            return [
-                {
-                    content: 'click customer button',
-                    trigger: '.customer-button .button',
-                },
-            ];
-        }
-
-        clickCustomer(name) {
-            return [
-                {
-                    content: `select customer ${name}`,
-                    trigger: `.client-line:contains("${name}")`,
-                },
-            ];
-        }
-
-        clickValidateCustomer() {
-            return [
-                {
-                    content: 'validate customer',
-                    trigger: '.clientlist-screen .button.next.highlight',
-                },
-            ];
-        }
-
         clickPaymentMethod(name) {
             return [
                 {
@@ -119,20 +92,17 @@ odoo.define('point_of_sale.tour.PaymentScreenTourMethods', function (require) {
                 },
             ]
         }
+        clickShipLaterButton() {
+            return [
+                {
+                    content: 'click ship later button',
+                    trigger: '.button:contains("Ship Later")',
+                },
+            ]
+        }
     }
 
     class Check {
-
-        dueIs(amount) {
-            return [
-                {
-                    content: `due is ${amount}`,
-                    trigger: `.total:contains("${amount}")`,
-                    run: () => {},
-                },
-            ];
-        }
-
         isShown() {
             return [
                 {
@@ -226,14 +196,38 @@ odoo.define('point_of_sale.tour.PaymentScreenTourMethods', function (require) {
                 },
             ];
         }
-        /**
-         * Check if en error popup is shown
-         */
-        errorPopupIsShown() {
+        totalIs(amount) {
             return [
                 {
-                    content: 'error popup is shown',
-                    trigger: '.popup.popup-error',
+                    content: `total is ${amount}`,
+                    trigger: `.total:contains("${amount}")`,
+                    run: () => {},
+                },
+            ];
+        }
+        totalDueIs(amount) {
+            return [
+                {
+                    content: `total due is ${amount}`,
+                    trigger: `.payment-status-total-due:contains("${amount}")`,
+                    run: () => {},
+                },
+            ];
+        }
+        isInvoiceButtonChecked() {
+            return [
+                {
+                    content: 'check invoice button is checked',
+                    trigger: '.js_invoice.highlight',
+                    run: () => {},
+                }
+            ]
+        }
+        isInvoiceButtonNotChecked() {
+            return [
+                {
+                    content: "check invoice button is checked",
+                    trigger: ".js_invoice:not(.highlight)",
                     run: () => {},
                 },
             ];

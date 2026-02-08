@@ -5,10 +5,11 @@ const core = require('web.core');
 const config = require('web.config');
 const publicWidget = require('web.public.widget');
 const {Markup} = require('web.utils');
+const DEFAULT_NUMBER_OF_ELEMENTS = 4;
+const DEFAULT_NUMBER_OF_ELEMENTS_SM = 1;
 
 const DynamicSnippet = publicWidget.Widget.extend({
     selector: '.s_dynamic_snippet',
-    xmlDependencies: ['/website/static/src/snippets/s_dynamic_snippet/000.xml'],
     read_events: {
         'click [data-url]': '_onCallToAction',
     },
@@ -142,28 +143,31 @@ const DynamicSnippet = publicWidget.Widget.extend({
      * @private
      */
     _prepareContent: function () {
-        if (this.$target[0].dataset.numberOfElements && this.$target[0].dataset.numberOfElementsSmallDevices) {
-            this.renderedContent = core.qweb.render(
-                this.template_key,
-                this._getQWebRenderOptions());
-        } else {
-            this.renderedContent = '';
-        }
+        this.renderedContent = core.qweb.render(
+            this.template_key,
+            this._getQWebRenderOptions()
+        );
     },
     /**
      * Method to be overridden in child components in order to prepare QWeb
      * options.
      * @private
      */
-    _getQWebRenderOptions: function () {
+     _getQWebRenderOptions: function () {
+        const dataset = this.$target[0].dataset;
+        const numberOfRecords = parseInt(dataset.numberOfRecords);
+        let numberOfElements;
+        if (config.device.isMobile) {
+            numberOfElements = parseInt(dataset.numberOfElementsSmallDevices) || DEFAULT_NUMBER_OF_ELEMENTS_SM;
+        } else {
+            numberOfElements = parseInt(dataset.numberOfElements) || DEFAULT_NUMBER_OF_ELEMENTS;
+        }
+        const chunkSize = numberOfRecords < numberOfElements ? numberOfRecords : numberOfElements;
         return {
-            chunkSize: parseInt(
-                config.device.isMobile
-                    ? this.$target[0].dataset.numberOfElementsSmallDevices
-                    : this.$target[0].dataset.numberOfElements
-            ),
+            chunkSize: chunkSize,
             data: this.data,
-            uniqueId: this.uniqueId
+            uniqueId: this.uniqueId,
+            extraClasses: dataset.extraClasses || '',
         };
     },
     /**
@@ -180,12 +184,17 @@ const DynamicSnippet = publicWidget.Widget.extend({
         }
         // TODO Remove in master: adapt already existing snippet from former version.
         const classList = [...this.$el[0].classList];
-        if (classList.includes('d-none') && !classList.some(className => className.match(/^d-(md|lg)-/))) {
+        if (classList.includes('d-none') && !classList.some(className => className.match(/^d-(md|lg)-(?!none)/))) {
             // Remove the 'd-none' of the old template if it is not related to
             // the visible on mobile option.
             this.$el[0].classList.remove('d-none');
         }
         this._renderContent();
+        this.trigger_up('widgets_start_request', {
+            $target: this.$el.children(),
+            options: {parent: this},
+            editableMode: this.editableMode,
+        });
     },
     /**
      * @private

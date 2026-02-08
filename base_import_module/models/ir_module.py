@@ -42,7 +42,7 @@ class IrModule(models.Model):
         # Do not create a bridge module for these neutralizations.
         # Do not involve specific website during import by resetting
         # information used by website's get_current_website.
-        self = self.with_context(website_id=None)
+        self = self.with_context(website_id=None)  # noqa: PLW0642
         force_website_id = None
         if request and request.session.get('force_website_id'):
             force_website_id = request.session.pop('force_website_id')

@@ -3,6 +3,7 @@
 
 from odoo import api, models
 from odoo.tools import float_utils, format_amount, formatLang
+from odoo.tools.misc import format_duration
 
 
 class ProjectUpdate(models.Model):
@@ -21,47 +22,54 @@ class ProjectUpdate(models.Model):
             'show_activities': template_values['show_activities'] or show_sold or bool(profitability),
             'services': services,
             'profitability': profitability,
+            'format_value': lambda value, is_hour: str(round(value, 2)) if not is_hour else format_duration(value),
         }
-
-    @api.model
-    def _get_project_sols(self, project):
-        # TODO: remove me in master
-        return
 
     @api.model
     def _get_services_values(self, project):
         if not project.allow_billable:
             return {}
+
         services = []
         total_sold, total_effective, total_remaining = 0, 0, 0
-        sols = project._get_sale_order_lines()
-        name_by_sol = dict(sols.name_get())
+        sols = self.env['sale.order.line'].search(
+            project._get_sale_items_domain([
+                ('is_downpayment', '=', False),
+            ]),
+        )
+        name_by_sol = dict(sols.with_context(with_price_unit=True).name_get())
         product_uom_unit = self.env.ref('uom.product_uom_unit')
+        product_uom_hour = self.env.ref('uom.product_uom_hour')
+        company_uom = self.env.company.timesheet_encode_uom_id
         for sol in sols:
             #We only want to consider hours and days for this calculation
             is_unit = sol.product_uom == product_uom_unit
-            if sol.product_uom.category_id == self.env.company.timesheet_encode_uom_id.category_id or is_unit:
-                product_uom_qty = sol.product_uom._compute_quantity(sol.product_uom_qty, self.env.company.timesheet_encode_uom_id, raise_if_failure=False)
-                qty_delivered = sol.product_uom._compute_quantity(sol.qty_delivered, self.env.company.timesheet_encode_uom_id, raise_if_failure=False)
+            if sol.product_uom.category_id == company_uom.category_id or is_unit:
+                product_uom_qty = sol.product_uom._compute_quantity(sol.product_uom_qty, company_uom, raise_if_failure=False)
+                qty_delivered = sol.product_uom._compute_quantity(sol.qty_delivered, company_uom, raise_if_failure=False)
+                unit = sol.product_uom if is_unit else company_uom
                 services.append({
-                    'name': name_by_sol[sol.id] if len(sols.order_id) > 1 else sol.name,
+                    'name': name_by_sol[sol.id],
                     'sold_value': product_uom_qty,
                     'effective_value': qty_delivered,
                     'remaining_value': product_uom_qty - qty_delivered,
-                    'unit': sol.product_uom.name if is_unit else self.env.company.timesheet_encode_uom_id.name,
+                    'unit': unit.name,
                     'is_unit': is_unit,
+                    'is_hour': unit == product_uom_hour,
                     'sol': sol,
                 })
-                if sol.product_uom.category_id == self.env.company.timesheet_encode_uom_id.category_id:
+                if sol.product_uom.category_id == company_uom.category_id:
                     total_sold += product_uom_qty
                     total_effective += qty_delivered
         total_remaining = total_sold - total_effective
+
         return {
             'data': services,
             'total_sold': total_sold,
             'total_effective': total_effective,
             'total_remaining': total_remaining,
-            'company_unit_name': self.env.company.timesheet_encode_uom_id.name,
+            'company_unit_name': company_uom.name,
+            'is_hour': company_uom == product_uom_hour,
         }
 
     @api.model
@@ -69,14 +77,19 @@ class ProjectUpdate(models.Model):
         costs_revenues = project.analytic_account_id and project.allow_billable
         if not (self.user_has_groups('project.group_project_manager') and costs_revenues):
             return {}
-        profitability = project._get_profitability_common()
+        profitability_items = project._get_profitability_items(False)
+        costs = sum(profitability_items['costs']['total'].values())
+        revenues = sum(profitability_items['revenues']['total'].values())
+        margin = revenues + costs
         return {
             'analytic_account_id': project.analytic_account_id,
-            'costs': format_amount(self.env, -profitability['costs'], self.env.company.currency_id),
-            'revenues': format_amount(self.env, profitability['revenues'], self.env.company.currency_id),
-            'margin': profitability['margin'],
-            'margin_formatted': format_amount(self.env, profitability['margin'], self.env.company.currency_id),
+            'costs': costs,
+            'costs_formatted': format_amount(self.env, -costs, project.currency_id),
+            'revenues': revenues,
+            'revenues_formatted': format_amount(self.env, revenues, project.currency_id),
+            'margin': margin,
+            'margin_formatted': format_amount(self.env, margin, project.currency_id),
             'margin_percentage': formatLang(self.env,
-                                            not float_utils.float_is_zero(profitability['costs'], precision_digits=2) and -(profitability['margin'] / profitability['costs']) * 100 or 0.0,
+                                            not float_utils.float_is_zero(costs, precision_digits=2) and (margin / -costs) * 100 or 0.0,
                                             digits=0),
         }

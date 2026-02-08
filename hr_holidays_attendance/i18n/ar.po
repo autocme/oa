@@ -3,17 +3,17 @@
 # 	* hr_holidays_attendance
 # 
 # Translators:
-# Martin Trigaux, 2021
-# Malaz Abuidris <msea@odoo.com>, 2022
+# Martin Trigaux, 2022
 # Wil Odoo, 2024
+# Malaz Abuidris <msea@odoo.com>, 2025
 # 
 msgid ""
 msgstr ""
-"Project-Id-Version: Odoo Server 15.0\n"
+"Project-Id-Version: Odoo Server 16.0+e\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-08-14 15:43+0000\n"
-"PO-Revision-Date: 2021-09-14 12:22+0000\n"
-"Last-Translator: Wil Odoo, 2024\n"
+"POT-Creation-Date: 2025-02-03 09:16+0000\n"
+"PO-Revision-Date: 2022-09-22 05:46+0000\n"
+"Last-Translator: Malaz Abuidris <msea@odoo.com>, 2025\n"
 "Language-Team: Arabic (https://app.transifex.com/odoo/teams/41243/ar/)\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
@@ -22,16 +22,23 @@ msgstr ""
 "Plural-Forms: nplurals=6; plural=n==0 ? 0 : n==1 ? 1 : n==2 ? 2 : n%100>=3 && n%100<=10 ? 3 : n%100>=11 && n%100<=99 ? 4 : 5;\n"
 
 #. module: hr_holidays_attendance
+#. odoo-python
+#: code:addons/hr_holidays_attendance/models/hr_leave_type.py:0
+#, python-format
+msgid "%s hours available"
+msgstr "%s ساعات متاحة "
+
+#. module: hr_holidays_attendance
 #: model:ir.model,name:hr_holidays_attendance.model_hr_attendance
 msgid "Attendance"
 msgstr "الحاضرين "
 
 #. module: hr_holidays_attendance
-#. openerp-web
+#. odoo-javascript
 #: code:addons/hr_holidays_attendance/static/src/xml/time_off_calendar.xml:0
 #, python-format
 msgid "Available"
-msgstr "متوفر"
+msgstr "متاح"
 
 #. module: hr_holidays_attendance
 #: model:ir.model,name:hr_holidays_attendance.model_res_company
@@ -44,6 +51,13 @@ msgid "Count Extra Hours"
 msgstr "حساب الساعات الإضافية "
 
 #. module: hr_holidays_attendance
+#. odoo-javascript
+#: code:addons/hr_holidays_attendance/static/src/xml/time_off_calendar.xml:0
+#, python-format
+msgid "Days"
+msgstr "أيام "
+
+#. module: hr_holidays_attendance
 #: model:ir.model.fields,field_description:hr_holidays_attendance.field_hr_leave_type__overtime_deductible
 #: model_terms:ir.ui.view,arch_db:hr_holidays_attendance.hr_employee_view_form_inherit
 #: model_terms:ir.ui.view,arch_db:hr_holidays_attendance.res_users_view_form
@@ -53,7 +67,7 @@ msgstr "خصم الساعات الإضافية "
 #. module: hr_holidays_attendance
 #: model_terms:ir.ui.view,arch_db:hr_holidays_attendance.hr_leave_allocation_overtime_view_form
 msgid "Discard"
-msgstr "تجاهل"
+msgstr "إهمال "
 
 #. module: hr_holidays_attendance
 #: model:hr.leave.type,name:hr_holidays_attendance.holiday_status_extra_hours
@@ -69,18 +83,11 @@ msgid "Extra Hours Available"
 msgstr "الساعات الإضافية المتاحة "
 
 #. module: hr_holidays_attendance
-#. openerp-web
-#: code:addons/hr_holidays_attendance/static/src/xml/time_off_calendar.xml:0
-#, python-format
-msgid "HOURS AVAILABLE"
-msgstr "الساعات المتاحة "
-
-#. module: hr_holidays_attendance
-#. openerp-web
+#. odoo-javascript
 #: code:addons/hr_holidays_attendance/static/src/xml/time_off_calendar.xml:0
 #, python-format
 msgid "Hours"
-msgstr "الساعات"
+msgstr "ساعات "
 
 #. module: hr_holidays_attendance
 #: model:ir.model.fields,field_description:hr_holidays_attendance.field_hr_leave_type__hr_attendance_overtime
@@ -101,6 +108,16 @@ msgid ""
 msgstr "بمجرد الموافقة على إجازة، سوف يتم خصم الساعات الإضافية من الحضور. "
 
 #. module: hr_holidays_attendance
+#. odoo-python
+#: code:addons/hr_holidays_attendance/models/hr_leave_allocation.py:0
+#, python-format
+msgid ""
+"Only an Officer or Administrator is allowed to edit the allocation duration "
+"in this status."
+msgstr ""
+"يُسمح فقط للموظف المسؤول أو المدير بتعديل مدة المخصصات في هذه الحالة. "
+
+#. module: hr_holidays_attendance
 #: model:ir.model.fields,field_description:hr_holidays_attendance.field_hr_leave__overtime_deductible
 #: model:ir.model.fields,field_description:hr_holidays_attendance.field_hr_leave_allocation__overtime_deductible
 msgid "Overtime Deductible"
@@ -117,6 +134,7 @@ msgid "Save"
 msgstr "حفظ"
 
 #. module: hr_holidays_attendance
+#. odoo-python
 #: code:addons/hr_holidays_attendance/models/hr_leave_allocation.py:0
 #, python-format
 msgid ""
@@ -124,12 +142,14 @@ msgid ""
 msgstr "لا يملك الموظف ساعات إضافية كافية لتمديد تخصيصه. "
 
 #. module: hr_holidays_attendance
+#. odoo-python
 #: code:addons/hr_holidays_attendance/models/hr_leave.py:0
 #, python-format
 msgid "The employee does not have enough extra hours to extend this leave."
 msgstr "لا يملك الموظف ساعات إضافية كافية لتمديد إجازته. "
 
 #. module: hr_holidays_attendance
+#. odoo-python
 #: code:addons/hr_holidays_attendance/models/hr_leave_allocation.py:0
 #, python-format
 msgid ""
@@ -137,13 +157,14 @@ msgid ""
 msgstr "لا يملك الموظف ساعات إضافية كافية لطلب هذا المخصص. "
 
 #. module: hr_holidays_attendance
-#: code:addons/hr_holidays_attendance/models/hr_leave.py:0
+#. odoo-python
 #: code:addons/hr_holidays_attendance/models/hr_leave.py:0
 #, python-format
 msgid "The employee does not have enough extra hours to request this leave."
 msgstr "لا يملك الموظف ساعات إضافية كافية لطلب هذه الإجازة. "
 
 #. module: hr_holidays_attendance
+#. odoo-python
 #: code:addons/hr_holidays_attendance/models/hr_leave_allocation.py:0
 #, python-format
 msgid ""
@@ -173,20 +194,12 @@ msgstr "إجمالي ساعات العمل الإضافية "
 
 #. module: hr_holidays_attendance
 #: model:ir.model,name:hr_holidays_attendance.model_res_users
-msgid "Users"
-msgstr "المستخدمين "
+msgid "User"
+msgstr "المستخدم"
 
 #. module: hr_holidays_attendance
-#: code:addons/hr_holidays_attendance/models/hr_leave.py:0
+#. odoo-python
 #: code:addons/hr_holidays_attendance/models/hr_leave.py:0
 #, python-format
 msgid "You do not have enough extra hours to request this leave"
 msgstr "لا تملك ساعات إضافية كافية لطلب هذه الإجازة "
-
-#. module: hr_holidays_attendance
-#. openerp-web
-#: code:addons/hr_holidays_attendance/static/src/xml/time_off_calendar.xml:0
-#: code:addons/hr_holidays_attendance/static/src/xml/time_off_calendar.xml:0
-#, python-format
-msgid "requires_allocation"
-msgstr "requires_allocation"

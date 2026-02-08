@@ -23,14 +23,25 @@ class DigestController(Controller):
         self.digest_unsubscribe(digest_id, token=token, user_id=user_id)
         return Response(status=200)
 
-    @route('/digest/<int:digest_id>/unsubscribe', type='http', website=True, auth='public')
-    def digest_unsubscribe(self, digest_id, token=None, user_id=None):
+    @route('/digest/<int:digest_id>/unsubscribe', type='http', website=True, auth='public', methods=['GET', 'POST'])
+    def digest_unsubscribe(self, digest_id, token=None, user_id=None, one_click=None):
         """ Unsubscribe a given user from a given digest
 
         :param int digest_id: id of digest to unsubscribe from
         :param str token: token preventing URL forgery
         :param user_id: id of user to unsubscribe
+
+        :param int one_click: set it to 1 when using the URL in the header of
+          the email to allow mail user agent to propose a one click button to the
+          user to unsubscribe as defined in rfc8058. When set to True, only POST
+          method is allowed preventing the risk that anti-spam trigger unwanted
+          unsubscribe (scenario explained in the same rfc). Note: this method
+          must support encoding method 'multipart/form-data' and 'application/x-www-form-urlencoded'.
+          NOTE: DEPRECATED PARAMETER
         """
+        if one_click and int(one_click) and request.httprequest.method != "POST":
+            raise Forbidden()
+
         digest_sudo = request.env['digest.digest'].sudo().browse(digest_id).exists()
 
         # new route parameters
@@ -41,7 +52,7 @@ class DigestController(Controller):
             digest_sudo._action_unsubscribe_users(request.env['res.users'].sudo().browse(int(user_id)))
         # old route was given without any token or user_id but only for auth users
         elif digest_sudo and not token and not user_id and not request.env.user.share:
-            digest_sudo.action_unsubcribe()
+            digest_sudo.action_unsubscribe()
         else:
             raise NotFound()
 

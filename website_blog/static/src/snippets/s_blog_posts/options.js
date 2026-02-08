@@ -86,7 +86,6 @@ const dynamicSnippetBlogPostsOptions = dynamicSnippetOptions.extend({
      * @private
      */
     _setOptionsDefaultValues: function () {
-        this._setOptionValue('numberOfElements', 3);
         this._setOptionValue('filterByBlogId', -1);
         this._super.apply(this, arguments);
     },

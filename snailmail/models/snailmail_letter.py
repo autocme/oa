@@ -42,7 +42,7 @@ class SnailmailLetter(models.Model):
         default=lambda self: self.env.company.id)
     report_template = fields.Many2one('ir.actions.report', 'Optional report to print and attach')
 
-    attachment_id = fields.Many2one('ir.attachment', string='Attachment', ondelete='cascade')
+    attachment_id = fields.Many2one('ir.attachment', string='Attachment', ondelete='cascade', index='btree_not_null')
     attachment_datas = fields.Binary('Document', related='attachment_id.datas')
     attachment_fname = fields.Char('Attachment Filename', related='attachment_id.name')
     color = fields.Boolean(string='Color', default=lambda self: self.env.company.snailmail_color)
@@ -58,12 +58,12 @@ class SnailmailLetter(models.Model):
              "If the letter is correctly sent, the status goes in 'Sent',\n"
              "If not, it will got in state 'Error' and the error message will be displayed in the field 'Error Message'.")
     error_code = fields.Selection([(err_code, err_code) for err_code in ERROR_CODES], string="Error")
-    info_msg = fields.Char('Information')
+    info_msg = fields.Html('Information')
     display_name = fields.Char('Display Name', compute="_compute_display_name")
 
     reference = fields.Char(string='Related Record', compute='_compute_reference', readonly=True, store=False)
 
-    message_id = fields.Many2one('mail.message', string="Snailmail Status Message")
+    message_id = fields.Many2one('mail.message', string="Snailmail Status Message", index='btree_not_null')
     notification_ids = fields.One2many('mail.notification', 'letter_id', "Notifications")
 
     street = fields.Char('Street')
@@ -109,6 +109,7 @@ class SnailmailLetter(models.Model):
         notification_vals = []
         for letter in letters:
             notification_vals.append({
+                'author_id': letter.message_id.author_id.id,
                 'mail_message_id': letter.message_id.id,
                 'res_partner_id': letter.partner_id.id,
                 'notification_type': 'snail',
@@ -155,7 +156,7 @@ class SnailmailLetter(models.Model):
             paperformat = report.get_paperformat()
             if (paperformat.format == 'custom' and paperformat.page_width != 210 and paperformat.page_height != 297) or paperformat.format != 'A4':
                 raise UserError(_("Please use an A4 Paper format."))
-            pdf_bin, unused_filetype = report.with_context(snailmail_layout=not self.cover, lang='en_US')._render_qweb_pdf(self.res_id)
+            pdf_bin, unused_filetype = self.env['ir.actions.report'].with_context(snailmail_layout=not self.cover, lang='en_US')._render_qweb_pdf(report, self.res_id)
             pdf_bin = self._overwrite_margins(pdf_bin)
             if self.cover:
                 pdf_bin = self._append_cover_page(pdf_bin)
@@ -175,7 +176,7 @@ class SnailmailLetter(models.Model):
             :param bin_pdf : binary content of the pdf file
         """
         pages = 0
-        for match in re.compile(rb"/Count\s+(\d+)").finditer(bin_pdf):
+        for match in re.compile(br"/Count\s+(\d+)").finditer(bin_pdf):
             pages = int(match.group(1))
         return pages
 
@@ -381,6 +382,9 @@ class SnailmailLetter(models.Model):
             raise ae
         for doc in response['request']['documents']:
             if doc.get('sent') and response['request_code'] == 200:
+                self.env['iap.account']._send_iap_bus_notification(
+                    service_name='snailmail',
+                    title=_("Snail Mails are successfully sent"))
                 note = _('The document was correctly sent by post.<br>The tracking id is %s', doc['send_id'])
                 letter_data = {'info_msg': note, 'state': 'sent', 'error_code': False}
                 notification_data = {
@@ -391,6 +395,11 @@ class SnailmailLetter(models.Model):
             else:
                 error = doc['error'] if response['request_code'] == 200 else response['reason']
 
+                if error == 'CREDIT_ERROR':
+                    self.env['iap.account']._send_iap_bus_notification(
+                        service_name='snailmail',
+                        title=_("Not enough credits for Snail Mail"),
+                        error_type="credit")
                 note = _('An error occurred when sending the document by post.<br>Error: %s', self._get_error_message(error))
                 letter_data = {
                     'info_msg': note,

@@ -11,12 +11,12 @@ const tourUtils = require('website_sale.tour_utils');
  * -> clicks on "buy course"
  * -> is redirected to webshop on the product page
  * -> buys the course
- * -> fails 3 times, exhausting his attempts
+ * -> fails 3 times, exhausting their attempts
  * -> is removed to the members of the course
  * -> buys the course again
  * -> succeeds the certification
  * -> has the course marked as completed
- * -> has the certification in his user profile
+ * -> has the certification in their user profile
  *
  */
 
@@ -41,14 +41,14 @@ var initTourSteps = [{
 var buyCertificationSteps = [{
     content: 'eLearning: try to buy course',
     trigger: 'a:contains("Add to Cart")'
-}, 
+},
     tourUtils.goToCart(),
 {
     content: 'eCommerce: Process Checkout',
     trigger: 'a:contains("Process Checkout")'
 }, {
-    content: 'eCommerce: select Test payment acquirer',
-    trigger: '.o_payment_option_card:contains("Test")'
+    content: 'eCommerce: select Test payment provider',
+    trigger: '.o_payment_option_card:contains("Demo")'
 }, {
     content: 'eCommerce: add card number',
     trigger: 'input[name="customer_input"]',
@@ -121,6 +121,18 @@ var certificationCompletionSteps = [{
     content: 'Survey: check certification successful',
     trigger: 'div:contains("Congratulations, you have passed the test")',
     run: function () {}
+}, { // Sharing the certification
+    trigger: 'a:contains("Share your certification")'
+}, {
+    trigger: '.oe_slide_js_share_email input',
+    run: 'text friend@example.com'
+}, {
+    trigger: '.oe_slide_js_share_email button',
+}, {
+    trigger: '.oe_slide_js_share_email .alert:not(.d-none):contains("Sharing is caring")',
+    run: function () {}  // check email has been sent
+}, {
+    trigger: 'button.btn-close',  // close sharing modal
 }, {
     content: 'Survey: back to course home page',
     trigger: 'a:contains("Go back to course")'
@@ -129,7 +141,7 @@ var certificationCompletionSteps = [{
     trigger: '.nav-link:contains("Courses")'
 }, {
     content: 'eLearning: course should be completed',
-    trigger: '.o_wslides_course_card:contains("DIY Furniture") .badge-pill:contains("Completed")',
+    trigger: '.o_wslides_course_card:contains("DIY Furniture") .rounded-pill:contains("Completed")',
     run: function () {}
 }];
 

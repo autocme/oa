@@ -1,15 +1,15 @@
 # -*- coding: utf-8 -*-
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
 
-from odoo.addons.test_mail.tests.test_mail_template import TestMailTemplate
+from odoo.addons.test_mail.tests.test_mail_template import TestMailTemplateCommon
 from odoo.tests import tagged, users
 from odoo.tests.common import Form
 
-@tagged('mail_template')
-class TestMailTemplateTools(TestMailTemplate):
+@tagged('mail_template', 'multi_lang')
+class TestMailTemplateTools(TestMailTemplateCommon):
     @classmethod
     def setUpClass(cls):
-        super(TestMailTemplateTools, cls).setUpClass()
+        super().setUpClass()
         cls.test_template_preview = cls.env['mail.template.preview'].create({
             'mail_template_id': cls.test_template.id,
         })
@@ -32,10 +32,10 @@ class TestMailTemplateTools(TestMailTemplate):
             'resource_ref': test_record,
             'lang': 'es_ES',
         })
-        self.assertEqual(preview.body_html, '<p>Spanish Body for %s</p>' % test_record.name)
+        self.assertEqual(preview.body_html, '<p>SpanishBody for %s</p>' % test_record.name)
 
         preview.write({'lang': 'en_US'})
-        self.assertEqual(preview.body_html, '<p>English Body for %s</p>' % test_record.name)
+        self.assertEqual(preview.body_html, '<p>EnglishBody for %s</p>' % test_record.name)
 
     @users('employee')
     def test_mail_template_preview_recipients(self):

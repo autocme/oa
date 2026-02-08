@@ -1,12 +1,12 @@
 # -*- coding: utf-8 -*-
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
 
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from odoo.tests.common import TransactionCase, new_test_user
 from odoo.exceptions import AccessError
 from odoo.tools import mute_logger
-from odoo import Command
+
 
 class TestAccessRights(TransactionCase):
 
@@ -74,7 +74,7 @@ class TestAccessRights(TransactionCase):
             (self.raoul, 'partner_ids', self.env['res.partner'], None),
             (self.portal, 'partner_ids', None, AccessError),
         ]:
-            event.invalidate_cache()
+            self.env.invalidate_all()
             with self.subTest("private read", user=user.display_name, field=field, error=error):
                 e = event.with_user(user)
                 if error:
@@ -135,20 +135,42 @@ class TestAccessRights(TransactionCase):
         with self.assertRaises(AccessError):
             self.read_event(self.portal, event, 'location')
 
+    def test_meeting_edit_access_notification_handle_in_odoo(self):
+        # set notifications to "handle in Odoo" in Preferences for john, raoul, and george
+        (self.john | self.raoul | self.george).write({'notification_type': 'inbox'})
+
+        # raoul creates a meeting for john, excluding themselves
+        meeting = self.env['calendar.event'].with_user(self.raoul).create({
+            'name': 'Test Meeting',
+            'start': datetime.now(),
+            'stop': datetime.now() + timedelta(hours=2),
+            'user_id': self.john.id,
+            'partner_ids': [(4, self.raoul.partner_id.id)],
+        })
+
+        # george tries to modify the start date of the meeting to a future date
+        # this verifies that users with "handle in Odoo" notification setting can
+        # successfully edit meetings created by other users. If this write fails,
+        # it indicates that there might be an issue with access rights for meeting attendees.
+        meeting = meeting.with_user(self.george)
+        meeting.write({
+            'start': datetime.now() + timedelta(days=2),
+            'stop': datetime.now() + timedelta(days=2, hours=2),
+        })
+
     def test_hide_sensitive_fields_private_events_from_uninvited_admins(self):
         """
         Ensure that it is not possible fetching sensitive fields for uninvited administrators,
         i.e. admins who are not attendees of private events. Sensitive fields are fields that
-        could contain sensitive information, such as 'name', 'attendee_ids', 'location', etc.
+        could contain sensitive information, such as 'name', 'description', 'location', etc.
         """
         sensitive_fields = [
-            'location', 'attendee_ids', 'partner_ids', 'description', 
-            'videocall_location', 'categ_ids', 'alarm_ids', 'message_ids',
+            'location', 'attendee_ids', 'partner_ids', 'description',
+            'videocall_location', 'categ_ids', 'message_ids',
         ]
 
         # Create event with all sensitive fields defined on it.
         event_type = self.env['calendar.event.type'].create({'name': 'type'})
-        alarm = self.env['calendar.alarm'].create({'name': 'Alarm', 'alarm_type': 'email', 'interval': 'minutes', 'duration': 20})
         john_private_evt = self.create_event(
             self.john,
             name='private-event',
@@ -158,13 +180,12 @@ class TestAccessRights(TransactionCase):
             attendee_status='accepted',
             partner_ids=[self.john.partner_id.id, self.raoul.partner_id.id],
             categ_ids=[event_type.id],
-            alarm_ids=[alarm.id],
             videocall_location='private-url.com'
         )
         john_private_evt.message_post(body="Message to be hidden.")
 
         # Read the event as an uninvited administrator and ensure that the sensitive fields were hidden.
-        # Do the same for the search_read method: the information of sensitive fields must be hidden. 
+        # Do the same for the search_read method: the information of sensitive fields must be hidden.
         private_event_domain = ('id', '=', john_private_evt.id)
         readed_event = john_private_evt.with_user(self.admin_user).read(sensitive_fields + ['name'])
         search_readed_event = self.env['calendar.event'].with_user(self.admin_user).search_read([private_event_domain])

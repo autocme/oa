@@ -21,7 +21,7 @@ This module adds a custom Sales Team for the Point of Sale. This enables you to 
         'views/sale_order_views.xml',
         'views/pos_order_views.xml',
         'views/sales_team_views.xml',
-        'views/pos_config_views.xml',
+        'views/res_config_settings_views.xml',
         'views/stock_template.xml',
     ],
     'installable': True,
@@ -37,9 +37,6 @@ This module adds a custom Sales Team for the Point of Sale. This enables you to 
             'pos_sale/static/src/js/OrderManagementScreen/SaleOrderManagementControlPanel.js',
             'pos_sale/static/src/js/OrderManagementScreen/SaleOrderManagementScreen.js',
             'pos_sale/static/src/js/OrderManagementScreen/SaleOrderRow.js',
-            'pos_sale/static/src/js/ProductScreen.js',
-        ],
-        'web.assets_qweb': [
             'pos_sale/static/src/xml/**/*',
         ],
         'web.assets_tests': [

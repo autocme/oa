@@ -13,10 +13,10 @@ const { DateTime } = luxon;
 
 function patchTimeZone(offset) {
     const fixedZone = new luxon.FixedOffsetZone.instance(offset);
-    const originalZoneName = luxon.Settings.defaultZoneName;
-    luxon.Settings.defaultZoneName = fixedZone.name;
+    const originalZone = luxon.Settings.defaultZone;
+    luxon.Settings.defaultZone = fixedZone.name;
     registerCleanup(() => {
-        luxon.Settings.defaultZoneName = originalZoneName;
+        luxon.Settings.defaultZone = originalZone;
     });
 }
 

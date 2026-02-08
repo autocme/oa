@@ -6,6 +6,7 @@ from datetime import date, datetime, timedelta
 
 from odoo import api, fields, models, SUPERUSER_ID, _
 from odoo.exceptions import UserError
+from odoo.osv import expression
 from odoo.tools import DEFAULT_SERVER_DATE_FORMAT, DEFAULT_SERVER_DATETIME_FORMAT
 
 
@@ -52,13 +53,13 @@ class MaintenanceEquipmentCategory(models.Model):
     fold = fields.Boolean(string='Folded in Maintenance Pipe', compute='_compute_fold', store=True)
 
     def _compute_equipment_count(self):
-        equipment_data = self.env['maintenance.equipment'].read_group([('category_id', 'in', self.ids)], ['category_id'], ['category_id'])
+        equipment_data = self.env['maintenance.equipment']._read_group([('category_id', 'in', self.ids)], ['category_id'], ['category_id'])
         mapped_data = dict([(m['category_id'][0], m['category_id_count']) for m in equipment_data])
         for category in self:
             category.equipment_count = mapped_data.get(category.id, 0)
 
     def _compute_maintenance_count(self):
-        maintenance_data = self.env['maintenance.request'].read_group([('category_id', 'in', self.ids)], ['category_id'], ['category_id'])
+        maintenance_data = self.env['maintenance.request']._read_group([('category_id', 'in', self.ids)], ['category_id'], ['category_id'])
         mapped_data = dict([(m['category_id'][0], m['category_id_count']) for m in maintenance_data])
         for category in self:
             category.maintenance_count = mapped_data.get(category.id, 0)
@@ -103,11 +104,9 @@ class MaintenanceEquipment(models.Model):
     def _name_search(self, name, args=None, operator='ilike', limit=100, name_get_uid=None):
         args = args or []
         equipment_ids = []
-        if name:
+        if name and operator not in expression.NEGATIVE_TERM_OPERATORS and operator != '=':
             equipment_ids = self._search([('name', '=', name)] + args, limit=limit, access_rights_uid=name_get_uid)
-        if not equipment_ids:
-            equipment_ids = self._search([('name', operator, name)] + args, limit=limit, access_rights_uid=name_get_uid)
-        return equipment_ids
+        return equipment_ids or super()._name_search(name, args, operator, limit, name_get_uid)
 
     name = fields.Char('Equipment Name', required=True, translate=True)
     company_id = fields.Many2one('res.company', string='Company',
@@ -200,12 +199,13 @@ class MaintenanceEquipment(models.Model):
         ('serial_no', 'unique(serial_no)', "Another asset already exists with this serial number!"),
     ]
 
-    @api.model
-    def create(self, vals):
-        equipment = super(MaintenanceEquipment, self).create(vals)
-        if equipment.owner_user_id:
-            equipment.message_subscribe(partner_ids=[equipment.owner_user_id.partner_id.id])
-        return equipment
+    @api.model_create_multi
+    def create(self, vals_list):
+        equipments = super().create(vals_list)
+        for equipment in equipments:
+            if equipment.owner_user_id:
+                equipment.message_subscribe(partner_ids=[equipment.owner_user_id.partner_id.id])
+        return equipments
 
     def write(self, vals):
         if vals.get('owner_user_id'):
@@ -337,20 +337,21 @@ class MaintenanceRequest(models.Model):
         if not self.user_id or not self.equipment_id or (self.user_id and not self.equipment_id.technician_user_id):
             self.user_id = self.category_id.technician_user_id
 
-    @api.model
-    def create(self, vals):
+    @api.model_create_multi
+    def create(self, vals_list):
         # context: no_log, because subtype already handle this
-        request = super(MaintenanceRequest, self).create(vals)
-        if request.owner_user_id or request.user_id:
-            request._add_followers()
-        if request.equipment_id and not request.maintenance_team_id:
-            request.maintenance_team_id = request.equipment_id.maintenance_team_id
-        if not request.stage_id.done:
-            request.close_date = False
-        elif request.stage_id.done and not request.close_date:
-            request.close_date = fields.Date.today()
-        request.activity_update()
-        return request
+        maintenance_requests = super().create(vals_list)
+        for request in maintenance_requests:
+            if request.owner_user_id or request.user_id:
+                request._add_followers()
+            if request.equipment_id and not request.maintenance_team_id:
+                request.maintenance_team_id = request.equipment_id.maintenance_team_id
+            if request.close_date and not request.stage_id.done:
+                request.close_date = False
+            if not request.close_date and request.stage_id.done:
+                request.close_date = fields.Date.today()
+        maintenance_requests.activity_update()
+        return maintenance_requests
 
     def write(self, vals):
         # Overridden to reset the kanban_state to normal whenever
@@ -385,8 +386,10 @@ class MaintenanceRequest(models.Model):
                 new_user_id=request.user_id.id or request.owner_user_id.id or self.env.uid)
             if not updated:
                 if request.equipment_id:
-                    note = _('Request planned for <a href="#" data-oe-model="%s" data-oe-id="%s">%s</a>') % (
-                        request.equipment_id._name, request.equipment_id.id, request.equipment_id.display_name)
+                    note = _(
+                        'Request planned for %s',
+                        request.equipment_id._get_html_link()
+                    )
                 else:
                     note = False
                 request.activity_schedule(

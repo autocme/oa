@@ -4,17 +4,16 @@ odoo.define('point_of_sale.RefundButton', function (require) {
     const PosComponent = require('point_of_sale.PosComponent');
     const ProductScreen = require('point_of_sale.ProductScreen');
     const Registries = require('point_of_sale.Registries');
-    const { useListener } = require('web.custom_hooks');
+    const { useListener } = require("@web/core/utils/hooks");
 
     class RefundButton extends PosComponent {
-        constructor() {
-            super(...arguments);
+        setup() {
+            super.setup();
             useListener('click', this._onClick);
         }
         _onClick() {
-            const customer = this.env.pos.get_order().get_client();
-            const searchDetails = customer ? { fieldName: 'CUSTOMER', searchTerm: customer.name } : {};
-            this.trigger('close-popup');
+            const partner = this.env.pos.get_order().get_partner();
+            const searchDetails = partner ? { fieldName: 'PARTNER', searchTerm: partner.name } : {};
             this.showScreen('TicketScreen', {
                 ui: { filter: 'SYNCED', searchDetails },
                 destinationOrder: this.env.pos.get_order(),

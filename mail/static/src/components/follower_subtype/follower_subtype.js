@@ -11,44 +11,16 @@ export class FollowerSubtype extends Component {
     //--------------------------------------------------------------------------
 
     /**
-     * @returns {mail.follower|undefined}
+     * @returns {FollowerSubtypeView}
      */
-    get follower() {
-        return this.messaging && this.messaging.models['mail.follower'].get(this.props.followerLocalId);
-    }
-
-    /**
-     * @returns {mail.follower_subtype}
-     */
-    get followerSubtype() {
-        return this.messaging && this.messaging.models['mail.follower_subtype'].get(this.props.followerSubtypeLocalId);
-    }
-
-    //--------------------------------------------------------------------------
-    // Handlers
-    //--------------------------------------------------------------------------
-
-    /**
-     * Called when clicking on cancel button.
-     *
-     * @private
-     * @param {Event} ev
-     */
-    _onChangeCheckbox(ev) {
-        if (ev.target.checked) {
-            this.follower.selectSubtype(this.followerSubtype);
-        } else {
-            this.follower.unselectSubtype(this.followerSubtype);
-        }
+    get followerSubtypeView() {
+        return this.props.record;
     }
 
 }
 
 Object.assign(FollowerSubtype, {
-    props: {
-        followerLocalId: String,
-        followerSubtypeLocalId: String,
-    },
+    props: { record: Object },
     template: 'mail.FollowerSubtype',
 });
 

@@ -5,7 +5,7 @@ import re
 import werkzeug
 
 from odoo import models, fields, api, _
-from odoo.exceptions import AccessDenied, ValidationError
+from odoo.exceptions import ValidationError
 
 import logging
 _logger = logging.getLogger(__name__)
@@ -32,8 +32,8 @@ class WebsiteRoute(models.Model):
         ir_http = self.env['ir.http']
         tocreate = []
         paths = {rec.path: rec for rec in self.search([])}
-        for url, _, routing in ir_http._generate_routing_rules(self.pool._init_modules, converters=ir_http._get_converters()):
-            if 'GET' in (routing.get('methods') or ['GET']):
+        for url, endpoint in ir_http._generate_routing_rules(self.pool._init_modules, converters=ir_http._get_converters()):
+            if 'GET' in (endpoint.routing.get('methods') or ['GET']):
                 if paths.get(url):
                     paths.pop(url)
                 else:
@@ -112,24 +112,34 @@ class WebsiteRewrite(models.Model):
             result.append((rewrite.id, name))
         return result
 
-    @api.model
-    def create(self, vals):
-        res = super(WebsiteRewrite, self).create(vals)
-        self._invalidate_routing()
-        return res
+    @api.model_create_multi
+    def create(self, vals_list):
+        rewrites = super().create(vals_list)
+        if set(rewrites.mapped('redirect_type')) & {'308', '404'}:
+            self._invalidate_routing()
+        return rewrites
 
     def write(self, vals):
+        need_invalidate = set(self.mapped('redirect_type')) & {'308', '404'}
         res = super(WebsiteRewrite, self).write(vals)
-        self._invalidate_routing()
+        need_invalidate |= set(self.mapped('redirect_type')) & {'308', '404'}
+        if need_invalidate:
+            self._invalidate_routing()
         return res
 
     def unlink(self):
+        need_invalidate = set(self.mapped('redirect_type')) & {'308', '404'}
         res = super(WebsiteRewrite, self).unlink()
-        self._invalidate_routing()
+        if need_invalidate:
+            self._invalidate_routing()
         return res
 
     def _invalidate_routing(self):
-        # call clear_caches on this worker to reload routing table
+        # Call clear_caches on this worker to reload routing table.
+        # Note that only 404 and 308 redirection alter the routing map:
+        # - 404: remove entry from routing map
+        # - 301/302: served as fallback later if path not found in routing map
+        # - 308: add "alias" (`redirect_to`) in routing map
         self.env['ir.http'].clear_caches()
 
     def refresh_routes(self):

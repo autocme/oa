@@ -3,4 +3,4 @@ from odoo.addons.account.models.chart_template import update_taxes_from_template
 
 
 def migrate(cr, version):
-    update_taxes_from_templates(cr, 'l10n_tr.l10ntr_tek_duzen_hesap')
+    update_taxes_from_templates(cr, 'l10n_tr.chart_template_common')

@@ -24,6 +24,11 @@ is used for token payments.
 
 ## Module history
 
+- `16.0`
+  - The module is deprecated and can no longer be installed from the web client. odoo/odoo#99025
+- `15.2`
+  - Webhook notifications that cannot be processed are discarded to prevent automatic disabling of
+    the webhook. odoo/odoo#81607
 - `14.3`
   - The FlexCheckout API is removed and with it the support for payment method validations.
     odoo/odoo#72624

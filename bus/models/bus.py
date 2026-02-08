@@ -1,18 +1,19 @@
 # -*- coding: utf-8 -*-
+import contextlib
 import datetime
 import json
 import logging
 import math
 import os
 import random
-import select
+import selectors
 import threading
 import time
 from psycopg2 import InterfaceError, sql
 
 import odoo
-import odoo.service.server as servermod
-from odoo import api, fields, models, SUPERUSER_ID
+from odoo import api, fields, models
+from odoo.service.server import CommonServer
 from odoo.tools.misc import DEFAULT_SERVER_DATETIME_FORMAT
 from odoo.tools import date_utils
 
@@ -91,7 +92,10 @@ class ImBus(models.Model):
     def _gc_messages(self):
         timeout_ago = datetime.datetime.utcnow()-datetime.timedelta(seconds=TIMEOUT*2)
         domain = [('create_date', '<', timeout_ago.strftime(DEFAULT_SERVER_DATETIME_FORMAT))]
-        return self.sudo().search(domain).unlink()
+        records = self.search(domain, limit=models.GC_UNLINK_LIMIT)
+        if len(records) >= models.GC_UNLINK_LIMIT:
+            self.env.ref('base.autovacuum_job')._trigger()
+        return records.unlink()
 
     @api.model
     def _sendmany(self, notifications):
@@ -110,10 +114,9 @@ class ImBus(models.Model):
         self.sudo().create(values)
         if channels:
             # We have to wait until the notifications are commited in database.
-            # When calling `NOTIFY imbus`, some concurrent threads will be
-            # awakened and will fetch the notification in the bus table. If the
-            # transaction is not commited yet, there will be nothing to fetch,
-            # and the longpolling will return no notification.
+            # When calling `NOTIFY imbus`, notifications will be fetched in the
+            # bus table. If the transaction is not commited yet, there will be
+            # nothing to fetch, and the websocket will return no notification.
             @self.env.cr.postcommit.add
             def notify():
                 with odoo.sql_db.db_connect('postgres').cursor() as cr:
@@ -133,7 +136,7 @@ class ImBus(models.Model):
         self._sendmany([[channel, notification_type, message]])
 
     @api.model
-    def _poll(self, channels, last=0, options=None):
+    def _poll(self, channels, last=0):
         # first poll return the notification in the 'buffer'
         if last == 0:
             timeout_ago = datetime.datetime.utcnow()-datetime.timedelta(seconds=TIMEOUT)
@@ -156,93 +159,66 @@ class ImBus(models.Model):
 #----------------------------------------------------------
 # Dispatcher
 #----------------------------------------------------------
-class ImDispatch:
+
+class BusSubscription:
+    def __init__(self, channels, last):
+        self.last_notification_id = last
+        self.channels = channels
+
+
+class ImDispatch(threading.Thread):
     def __init__(self):
-        self.channels = {}
-        self.started = False
-        self.Event = None
+        super().__init__(daemon=True, name=f'{__name__}.Bus')
+        self._channels_to_ws = {}
 
-    def poll(self, dbname, channels, last, options=None, timeout=None):
-        channels = [channel_with_db(dbname, channel) for channel in channels]
-        if timeout is None:
-            timeout = TIMEOUT
-        if options is None:
-            options = {}
-        # Dont hang ctrl-c for a poll request, we need to bypass private
-        # attribute access because we dont know before starting the thread that
-        # it will handle a longpolling request
-        if not odoo.evented:
-            current = threading.current_thread()
-            current._daemonic = True
-            # rename the thread to avoid tests waiting for a longpolling
-            current.name = f"openerp.longpolling.request.{current.ident}"
-
-        registry = odoo.registry(dbname)
-
-        # immediatly returns if past notifications exist
-        with registry.cursor() as cr:
-            env = api.Environment(cr, SUPERUSER_ID, {})
-            notifications = env['bus.bus']._poll(channels, last, options)
-
-        # immediatly returns in peek mode
-        if options.get('peek'):
-            return dict(notifications=notifications, channels=channels)
-
-        # or wait for future ones
-        if not notifications:
-            if not self.started:
-                # Lazy start of events listener
+    def subscribe(self, channels, last, db, websocket):
+        """
+        Subcribe to bus notifications. Every notification related to the
+        given channels will be sent through the websocket. If a subscription
+        is already present, overwrite it.
+        """
+        channels = {hashable(channel_with_db(db, c)) for c in channels}
+        for channel in channels:
+            self._channels_to_ws.setdefault(channel, set()).add(websocket)
+        outdated_channels = websocket._channels - channels
+        self._clear_outdated_channels(websocket, outdated_channels)
+        websocket.subscribe(channels, last)
+        with contextlib.suppress(RuntimeError):
+            if not self.is_alive():
                 self.start()
 
-            event = self.Event()
-            for channel in channels:
-                self.channels.setdefault(hashable(channel), set()).add(event)
-            try:
-                event.wait(timeout=timeout)
-                with registry.cursor() as cr:
-                    env = api.Environment(cr, SUPERUSER_ID, {})
-                    notifications = env['bus.bus']._poll(channels, last, options)
-            except Exception:
-                # timeout
-                pass
-            finally:
-                # gc pointers to event
-                for channel in channels:
-                    channel_events = self.channels.get(hashable(channel))
-                    if channel_events and event in channel_events:
-                        channel_events.remove(event)
-        return notifications
+    def unsubscribe(self, websocket):
+        self._clear_outdated_channels(websocket, websocket._channels)
+
+    def _clear_outdated_channels(self, websocket, outdated_channels):
+        """ Remove channels from channel to websocket map. """
+        for channel in outdated_channels:
+            self._channels_to_ws[channel].remove(websocket)
+            if not self._channels_to_ws[channel]:
+                self._channels_to_ws.pop(channel)
 
     def loop(self):
-        """ Dispatch postgres notifications to the relevant polling threads/greenlets """
+        """ Dispatch postgres notifications to the relevant websockets """
         _logger.info("Bus.loop listen imbus on db postgres")
-        with odoo.sql_db.db_connect('postgres').cursor() as cr:
-            conn = cr._cnx
+        with odoo.sql_db.db_connect('postgres').cursor() as cr, \
+             selectors.DefaultSelector() as sel:
             cr.execute("listen imbus")
-            cr.commit();
+            cr.commit()
+            conn = cr._cnx
+            sel.register(conn, selectors.EVENT_READ)
             while not stop_event.is_set():
-                if select.select([conn], [], [], TIMEOUT) == ([], [], []):
-                    pass
-                else:
+                if sel.select(TIMEOUT):
                     conn.poll()
                     channels = []
                     while conn.notifies:
                         channels.extend(json.loads(conn.notifies.pop().payload))
-                    # dispatch to local threads/greenlets
-                    events = set()
+                    # relay notifications to websockets that have
+                    # subscribed to the corresponding channels.
+                    websockets = set()
                     for channel in channels:
-                        events.update(self.channels.pop(hashable(channel), set()))
-                    for event in events:
-                        event.set()
-
-    def wakeup_workers(self):
-        """
-        Wake up all http workers that are waiting for an event, useful
-        on server shutdown when they can't reveive anymore messages.
-        """
-        for events in self.channels.values():
-            for event in events:
-                event.set()
+                        websockets.update(self._channels_to_ws.get(hashable(channel), []))
+                    for websocket in websockets:
+                        websocket.trigger_notification_dispatching()
 
     def run(self):
         while not stop_event.is_set():
@@ -254,25 +230,9 @@ class ImDispatch:
                 _logger.exception("Bus.loop error, sleep and retry")
                 time.sleep(TIMEOUT)
 
-    def start(self):
-        if odoo.evented:
-            # gevent mode
-            import gevent.event  # pylint: disable=import-outside-toplevel
-            self.Event = gevent.event.Event
-            gevent.spawn(self.run)
-        else:
-            # threaded mode
-            self.Event = threading.Event
-            threading.Thread(name=f"{__name__}.Bus", target=self.run, daemon=True).start()
-        self.started = True
-        return self
-
-
 # Partially undo a2ed3d3d5bdb6025a1ba14ad557a115a86413e65
 # IMDispatch has a lazy start, so we could initialize it anyway
 # And this avoids the Bus unavailable error messages
 dispatch = ImDispatch()
 stop_event = threading.Event()
-if servermod.server:
-    servermod.server.on_stop(stop_event.set)
-    servermod.server.on_stop(dispatch.wakeup_workers)
+CommonServer.on_stop(stop_event.set)

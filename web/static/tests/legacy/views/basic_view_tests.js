@@ -5,11 +5,13 @@ odoo.define('web.basic_view_tests', function (require) {
     const BasicRenderer = require("web.BasicRenderer");
     const testUtils = require('web.test_utils');
     const widgetRegistryOwl = require('web.widgetRegistry');
-    const { xml } = owl.tags;
+    const { LegacyComponent } = require("@web/legacy/legacy_component");
+
+    const { xml } = owl;
 
     const createView = testUtils.createView;
 
-    QUnit.module('Views', {
+    QUnit.module('LegacyViews', {
         beforeEach: function () {
             this.data = {
                 fake_model: {
@@ -42,7 +44,7 @@ odoo.define('web.basic_view_tests', function (require) {
                 })
             });
 
-            class MyWidget extends owl.Component {}
+            class MyWidget extends LegacyComponent {}
             MyWidget.fieldDependencies = {
                 foo: { type: 'char' },
                 bar: { type: 'boolean' },

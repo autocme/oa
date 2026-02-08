@@ -2,38 +2,42 @@
 
 import { registerMessagingComponent } from '@mail/utils/messaging_component';
 
-const { Component } = owl;
-const { useRef } = owl.hooks;
+const { Component, onMounted, onPatched, onWillUnmount, useRef } = owl;
 
 export class ChatWindowHiddenMenu extends Component {
 
     /**
      * @override
      */
-    constructor(...args) {
-        super(...args);
+    setup() {
+        super.setup();
         this._onClickCaptureGlobal = this._onClickCaptureGlobal.bind(this);
         /**
          * Reference of the dropup list. Useful to auto-set max height based on
          * browser screen height.
          */
         this._listRef = useRef('list');
-        /**
-         * The intent of the toggle button depends on the last rendered state.
-         */
-        this._wasMenuOpen;
+        onMounted(() => this._mounted());
+        onPatched(() => this._patched());
+        onWillUnmount(() => this._willUnmount());
     }
 
-    mounted() {
+    _mounted() {
+        if (!this.root.el) {
+            return;
+        }
         this._apply();
         document.addEventListener('click', this._onClickCaptureGlobal, true);
     }
 
-    patched() {
+    _patched() {
+        if (!this.root.el) {
+            return;
+        }
         this._apply();
     }
 
-    willUnmount() {
+    _willUnmount() {
         document.removeEventListener('click', this._onClickCaptureGlobal, true);
     }
 
@@ -50,7 +54,6 @@ export class ChatWindowHiddenMenu extends Component {
         }
         this._applyListHeight();
         this._applyOffset();
-        this._wasMenuOpen = this.messaging.chatWindowManager.isHiddenMenuOpen;
     }
 
     /**
@@ -69,9 +72,9 @@ export class ChatWindowHiddenMenu extends Component {
         const textDirection = this.messaging.locale.textDirection;
         const offsetFrom = textDirection === 'rtl' ? 'left' : 'right';
         const oppositeFrom = offsetFrom === 'right' ? 'left' : 'right';
-        const offset = this.messaging.chatWindowManager.visual.hidden.offset;
-        this.el.style[offsetFrom] = `${offset}px`;
-        this.el.style[oppositeFrom] = 'auto';
+        const offset = this.messaging.chatWindowManager.visual.hiddenMenuOffset;
+        this.root.el.style[offsetFrom] = `${offset}px`;
+        this.root.el.style[oppositeFrom] = 'auto';
     }
 
     //--------------------------------------------------------------------------
@@ -86,33 +89,9 @@ export class ChatWindowHiddenMenu extends Component {
      * @param {MouseEvent} ev
      */
     _onClickCaptureGlobal(ev) {
-        if (!this.el || this.el.contains(ev.target)) {
+        if (!this.root.el || this.root.el.contains(ev.target)) {
             return;
         }
-        this.messaging.chatWindowManager.closeHiddenMenu();
-    }
-
-    /**
-     * @private
-     * @param {MouseEvent} ev
-     */
-    _onClickToggle(ev) {
-        if (this._wasMenuOpen) {
-            this.messaging.chatWindowManager.closeHiddenMenu();
-        } else {
-            this.messaging.chatWindowManager.openHiddenMenu();
-        }
-    }
-
-    /**
-     * @private
-     * @param {CustomEvent} ev
-     * @param {Object} ev.detail
-     * @param {mail.chat_window} ev.detail.chatWindow
-     */
-    _onClickedChatWindow(ev) {
-        const chatWindow = ev.detail.chatWindow;
-        chatWindow.makeActive();
         this.messaging.chatWindowManager.closeHiddenMenu();
     }
 

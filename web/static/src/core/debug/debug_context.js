@@ -2,9 +2,8 @@
 
 import { registry } from "../registry";
 import { memoize } from "../utils/functions";
-import { useEffect } from "@web/core/utils/hooks";
 
-const { useEnv, useSubEnv } = owl.hooks;
+import { useEffect, useEnv, useSubEnv } from "@odoo/owl";
 const debugRegistry = registry.category("debug");
 
 const getAccessRights = memoize(async function getAccessRights(orm) {

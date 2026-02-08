@@ -1,7 +1,9 @@
 # -*- coding: utf-8 -*-
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
 
+from hashlib import sha256
 import unittest
+from unittest.mock import patch
 from itertools import zip_longest
 from lxml import etree as ET, html
 from lxml.html import builder as h
@@ -211,7 +213,7 @@ class TestViewSaving(TestViewSavingCommon):
         )
         self.assertIn(
             replacement,
-            view._render(),
+            self.env['ir.qweb']._render(view.id),
             'inline script should not be escaped when rendering'
         )
         # common text nodes should be be escaped client side
@@ -220,7 +222,7 @@ class TestViewSaving(TestViewSavingCommon):
         self.assertIn(replacement, view.arch, 'common text node should not be escaped server side')
         self.assertIn(
             replacement,
-            str(view._render()).replace(u'&', u'&amp;'),
+            str(self.env['ir.qweb']._render(view.id)).replace(u'&', u'&amp;'),
             'text node characters wrongly unescaped when rendering'
         )
 
@@ -582,8 +584,8 @@ class TestCowViewSaving(TestViewSavingCommon):
         main_view.with_context(website_id=1).write({'arch': '<body>SPECIFIC<div>Z</div></body>'})
         self.assertEqual(total_views + 3 + 3, View.search_count([]), "It should have duplicated the Main View tree as a specific tree and then removed the specific view from the generic tree as no more needed")
 
-        generic_view = View.with_context(website_id=None).get_view_id('website.main_view')
-        specific_view = View.with_context(website_id=1).get_view_id('website.main_view')
+        generic_view = View.with_context(website_id=None)._get_view_id('website.main_view')
+        specific_view = View.with_context(website_id=1)._get_view_id('website.main_view')
         generic_view_arch = View.browse(generic_view).with_context(load_all_views=True).get_combined_arch()
         specific_view_arch = View.browse(specific_view).with_context(load_all_views=True, website_id=1).get_combined_arch()
         self.assertEqual(generic_view_arch, '<body>GENERIC<div>VIEW<span>C</span></div></body>')
@@ -802,7 +804,7 @@ class TestCowViewSaving(TestViewSavingCommon):
             'arch': '<div position="replace"><p>COMPARE</p></div>',
             'key': '_website_sale_comparison.product_add_to_compare',
         })])
-        Website.with_context(load_all_views=True).viewref('_website_sale_comparison.product_add_to_compare').invalidate_cache()
+        View.invalidate_model()
 
         # Simulate end of installation/update
         View._create_all_specific_views(['_website_sale_comparison'])
@@ -863,7 +865,7 @@ class TestCowViewSaving(TestViewSavingCommon):
 
         # Simulate website_sale update on top level view
         self._create_imd(self.base_view)
-        self.base_view.invalidate_cache()
+        self.base_view.invalidate_model()
         View._load_records([dict(xml_id='_website_sale.product', values={
             'website_meta_title': 'A bug got fixed by updating this field',
         })])
@@ -890,7 +892,7 @@ class TestCowViewSaving(TestViewSavingCommon):
             'name': 'Main layout',
             'mode': 'extension',
             'inherit_id': base_view.id,
-            'arch': '<xpath expr="//t[@t-set=\'head_website\']" position="replace"><t t-call-assets="assets_summernote" t-js="false" groups="website.group_website_publisher"/></xpath>',
+            'arch': '<xpath expr="//t[@t-set=\'head_website\']" position="replace"><t t-call-assets="assets_summernote" t-js="false" groups="website.group_website_restricted_editor"/></xpath>',
             'key': '_website.layout',
         })
 
@@ -995,30 +997,74 @@ class TestCowViewSaving(TestViewSavingCommon):
             View.pool._init = original_pool_init
 
     def test_specific_view_translation(self):
-        Translation = self.env['ir.translation']
-
-        Translation.insert_missing(self.base_view._fields['arch_db'],  self.base_view)
-        translation = Translation.search([
-            ('res_id', '=', self.base_view.id), ('name', '=', 'ir.ui.view,arch_db')
-        ])
-        translation.value = 'hello'
-        translation.module = 'website'
-
+        self.env['res.lang']._activate_lang('fr_BE')
+        self.base_view.with_context(lang='en_US').arch_db = '<div>hello</div>'
+        self.base_view.update_field_translations('arch_db', {'fr_BE': {'hello': 'bonjour'}})
+        self.assertEqual(self.base_view.with_context(lang='fr_BE').arch, '<div>bonjour</div>')
         self.base_view.with_context(website_id=1).write({'active': True})
         specific_view = self.base_view._get_specific_views() - self.base_view
 
-        self.assertEqual(specific_view.with_context(lang='en_US').arch, '<div>hello</div>',
-            "copy on write (COW) also copy existing translations")
+        self.assertEqual(specific_view.with_context(lang='fr_BE').arch, '<div>bonjour</div>',
+                         "copy on write (COW) also copy existing translations")
 
-        translation.value = 'hi'
-        self.assertEqual(specific_view.with_context(lang='en_US').arch, '<div>hello</div>',
-            "updating translation of base view doesn't update specific view")
+        self.base_view.update_field_translations('arch_db', {'fr_BE': {'bonjour': 'salut'}})
+        self.assertEqual(self.base_view.with_context(lang='fr_BE').arch, '<div>salut</div>')
+        self.assertEqual(specific_view.with_context(lang='fr_BE').arch, '<div>bonjour</div>',
+                         "updating translation of base view doesn't update specific view")
 
-        Translation._load_module_terms(['website'], ['en_US'], overwrite=True)
+        self.env['res.lang']._activate_lang('es_ES')
+        # Translate specific 'arch_db' while the generic value has no content for the
+        # translation language.
+        specific_view.update_field_translations('arch_db', {'es_ES': {'hello': 'hola'}})
+        self.assertEqual(specific_view.with_context(lang='es_ES').arch, '<div>hola</div>')
 
-        specific_view.invalidate_cache(['arch_db', 'arch'])
-        self.assertEqual(specific_view.with_context(lang='en_US').arch, '<div>hi</div>',
-            "loading module translation copy translation from base to specific view")
+        self.env['ir.module.module']._load_module_terms(['website'], ['en_US', 'fr_BE', 'es_ES'], overwrite=True)
+
+        specific_view.invalidate_model(['arch_db', 'arch'])
+        self.assertEqual(specific_view.with_context(lang='fr_BE').arch, '<div>salut</div>',
+                         "loading module translation copy translation from base to specific view")
+
+        self.assertEqual(specific_view.with_context(lang='es_ES').arch, '<div>hola</div>',
+                         "loading module translation should not remove specific translations that are not available on base view")
+
+        # Make sure updating a short list of languages does not destroy existing translations.
+        self.env['res.lang']._activate_lang('nl_NL')
+
+        self.env['ir.module.module']._load_module_terms(['website'], ['nl_NL'], overwrite=True)
+
+        specific_view.invalidate_model(['arch_db', 'arch'])
+        self.assertEqual(specific_view.with_context(lang='fr_BE').arch, '<div>salut</div>',
+                         "loading module translation for a specific language should not remove existing translations for other languages")
+
+        self.assertEqual(specific_view.with_context(lang='es_ES').arch, '<div>hola</div>',
+                         "loading module translation for a specific language should not remove existing translations for other languages")
+
+    def test_view_to_translate_tag(self):
+        fr_BE = self.env['res.lang']._activate_lang('fr_BE')
+        self.base_view.with_context(lang='en_US').arch_db = '<div>hello</div>'
+        self.assertFalse(self.base_view.website_id)
+        website = self.env['website'].browse(1)
+        website.default_lang_id = fr_BE
+        self.base_view.with_context(website_id=1).write({'active': True})
+        specific_view = self.base_view._get_specific_views() - self.base_view
+
+        # generic view without website_id but with website for request
+        with patch('odoo.addons.website.models.ir_http.get_request_website', lambda: website):
+            self.base_view.invalidate_recordset()
+            self.assertIn('to_translate', self.base_view.with_context(lang='en_US', edit_translations=True).arch)
+            self.assertIn('translated', self.base_view.with_context(lang='fr_BE', edit_translations=True).arch)
+            self.base_view.invalidate_recordset()
+
+        # generic view without website_id
+        self.assertIn('translated', self.base_view.with_context(lang='en_US', edit_translations=True).arch)
+        self.assertIn('to_translate', self.base_view.with_context(lang='fr_BE', edit_translations=True).arch)
+        self.base_view.update_field_translations('arch_db', {'fr_BE': {'hello': 'bonjour'}})
+        self.assertIn('translated', self.base_view.with_context(lang='en_US', edit_translations=True).arch)
+        self.assertIn('translated', self.base_view.with_context(lang='fr_BE', edit_translations=True).arch)
+
+        # specific view with website_id
+        self.assertIn('to_translate', specific_view.with_context(lang='en_US', edit_translations=True).arch)
+        self.assertIn('translated', specific_view.with_context(lang='fr_BE', edit_translations=True).arch)
 
     def test_soc_complete_flow(self):
         """
@@ -1087,7 +1133,7 @@ class TestCowViewSaving(TestViewSavingCommon):
         Website = self.env['website']
         self._create_imd(self.inherit_view)
         # invalidate cache to recompute xml_id, or it will still be empty
-        self.inherit_view.invalidate_cache()
+        self.inherit_view.invalidate_model()
         base_view_2 = self.base_view.copy({'key': 'website.base_view2', 'arch': '<div>base2 content</div>'})
         self.base_view.with_context(website_id=1).write({'arch': '<div>website 1 content</div>'})
         specific_view = Website.with_context(load_all_views=True, website_id=1).viewref(self.base_view.key)
@@ -1113,6 +1159,25 @@ class TestCowViewSaving(TestViewSavingCommon):
         self.assertTrue(self.inherit_view in base_view_2.inherit_children_ids, "D should be under B")
         self.assertTrue(specific_child_view in base_view_2.inherit_children_ids, "D' should be under B")
 
+    def test_no_cow_on_translate(self):
+        french = self.env['res.lang']._activate_lang('fr_FR')
+        self.env['ir.module.module']._load_module_terms(['website'], [french.code])
+        # Make sure res.lang.get_installed is recomputed
+        self.env.registry.clear_caches()
+
+        View = self.env['ir.ui.view'].with_context(lang=french.code, website_id=1)
+        old_specific_views = View.search([('website_id', '!=', None)])
+        view = self.base_view.with_context(lang=french.code, website_id=1)
+
+        root = html.fromstring(self.base_view.arch, parser=html.HTMLParser(encoding="utf-8"))
+        to_translate = root.text_content()
+        sha = sha256(to_translate.encode()).hexdigest()
+        view.update_field_translations_sha('arch_db', {french.code: {sha: 'contenu de base'}})
+
+        new_specific_views = View.search([('website_id', '!=', None)])
+        self.assertEqual(len(old_specific_views), len(new_specific_views), "No additional specific view must have been created")
+        self.assertTrue(view.arch.index('contenu de base') > 0, "New translation must appear in view")
+
 
 @tagged('-at_install', 'post_install')
 class Crawler(HttpCase):
@@ -1136,7 +1201,6 @@ class Crawler(HttpCase):
         })
 
     def test_get_switchable_related_views(self):
-        View = self.env['ir.ui.view']
         Website = self.env['website']
 
         # Set up
@@ -1173,7 +1237,7 @@ class Crawler(HttpCase):
         event_child_view.copy({'name': 'Filter by Category', 'inherit_id': event_child_view.id, 'key': '_website_event.event_category'})
         event_child_view.copy({'name': 'Filter by Country', 'inherit_id': event_child_view.id, 'key': '_website_event.event_location'})
 
-        View.flush()
+        self.env.flush_all()
 
         # Customize
         #   | Main Frontend Layout

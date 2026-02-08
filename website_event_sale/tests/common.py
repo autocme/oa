@@ -12,14 +12,28 @@ class TestWebsiteEventSaleCommon(TransactionCase):
     @classmethod
     def setUpClass(cls):
         super(TestWebsiteEventSaleCommon, cls).setUpClass()
+
         cls.env.company.country_id = cls.env.ref('base.us')
+        cls.currency_test = cls.env['res.currency'].create({
+            'name': 'eventX',
+            'rounding': 0.01,
+            'symbol': 'EX',
+        })
+        cls.partner = cls.env['res.partner'].create({'name': 'test'})
+        cls.env['res.currency.rate'].search([]).unlink()
+        cls.rate = cls.env['res.currency.rate'].create({
+            'company_id': cls.env.company.id,
+            'currency_id': cls.currency_test.id,
+            'name': '2022-01-01',
+            'rate': 10,
+        })
         cls.zero_tax = cls.env['account.tax'].sudo().create({
             'name': 'Tax 0',
             'amount': 0,
         })
         cls.product_event = cls.env['product.product'].create({
-            'base_unit_price': 100,
             'detailed_type': 'event',
+            'list_price': 100,
             'name': 'Event Registration No Company Assigned',
             'taxes_id': [(6, 0, cls.zero_tax.ids)],
         })
@@ -37,20 +51,6 @@ class TestWebsiteEventSaleCommon(TransactionCase):
             'product_id': cls.product_event.id,
             'price': 100,
         }])
-        cls.currency_test = cls.env['res.currency'].create({
-            'name': 'eventX',
-            'rounding': 0.01,
-            'symbol': 'EX',
-        })
-        cls.partner = cls.env['res.partner'].create({'name': 'test'})
-
-        cls.env['res.currency.rate'].search([]).unlink()
-        cls.rate = cls.env['res.currency.rate'].create({
-            'company_id': cls.env.company.id,
-            'currency_id': cls.currency_test.id,
-            'name': '2022-01-01',
-            'rate': 10,
-        })
 
         cls.current_website = cls.env['website'].get_current_website()
         cls.pricelist = cls.current_website.get_current_pricelist()

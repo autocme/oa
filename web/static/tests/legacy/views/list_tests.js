@@ -1,37 +1,56 @@
 odoo.define('web.list_tests', function (require) {
 "use strict";
 
-var AbstractFieldOwl = require('web.AbstractFieldOwl');
-var AbstractStorageService = require('web.AbstractStorageService');
-var BasicModel = require('web.BasicModel');
-var core = require('web.core');
+const AbstractFieldOwl = require('web.AbstractFieldOwl');
+const AbstractStorageService = require('web.AbstractStorageService');
+const BasicModel = require('web.BasicModel');
+const core = require('web.core');
 const Domain = require('web.Domain')
-var basicFields = require('web.basic_fields');
-var fieldRegistry = require('web.field_registry');
-var fieldRegistryOwl = require('web.field_registry_owl');
-var FormView = require('web.FormView');
-var ListRenderer = require('web.ListRenderer');
-var ListView = require('web.ListView');
-var mixins = require('web.mixins');
-var RamStorage = require('web.RamStorage');
-var testUtils = require('web.test_utils');
+const basicFields = require('web.basic_fields');
+const fieldRegistry = require('web.field_registry');
+const fieldRegistryOwl = require('web.field_registry_owl');
+const FormView = require('web.FormView');
+const ListRenderer = require('web.ListRenderer');
+const ListView = require('web.ListView');
+const mixins = require('web.mixins');
+const RamStorage = require('web.RamStorage');
+const testUtils = require('web.test_utils');
+var KanbanView = require('web.KanbanView');
 const { patch, unpatch } = require('web.utils');
-var widgetRegistry = require('web.widget_registry');
+const widgetRegistry = require('web.widget_registry');
 const widgetRegistryOwl = require('web.widgetRegistry');
 var Widget = require('web.Widget');
+const ControlPanel = require('web.ControlPanel');
+const ListController = require('web.ListController');
+const { registerCleanup } = require("@web/../tests/helpers/cleanup");
 
+const { registry } = require('@web/core/registry');
+const legacyViewRegistry = require('web.view_registry');
 
-var _t = core._t;
 const cpHelpers = require('@web/../tests/search/helpers');
+const { LegacyComponent } = require("@web/legacy/legacy_component");
 var createView = testUtils.createView;
 
-const { click, legacyExtraNextTick } = require("@web/../tests/helpers/utils");
+const { getFixture, click, legacyExtraNextTick } = require("@web/../tests/helpers/utils");
 const { createWebClient, doAction, loadState } = require('@web/../tests/webclient/helpers');
 
-let serverData;
+const { _t } = core;
+const { markup, onMounted, onWillUnmount, xml } = require("@odoo/owl");
 
-QUnit.module('Views', {
+let serverData;
+let target;
+QUnit.module('LegacyViews', {
     beforeEach: function () {
+        // Avoid animation to not have to wait until the tooltip is removed
+        this.initialTooltipDefaultAnimation = Tooltip.Default.animation;
+        Tooltip.Default.animation = false;
+        registry.category("views").remove("list"); // remove new list from registry
+        registry.category("views").remove("kanban"); // remove new kanban from registry
+        registry.category("views").remove("form"); // remove new form from registry
+        legacyViewRegistry.add("list", ListView); // add legacy list -> will be wrapped and added to new registry
+        legacyViewRegistry.add("kanban", KanbanView); // add legacy kanban -> will be wrapped and added to new registry
+        legacyViewRegistry.add("form", FormView); // add legacy form -> will be wrapped and added to new registry
+
         this.data = {
             foo: {
                 fields: {
@@ -105,38 +124,17 @@ QUnit.module('Views', {
                     {id: "2-20170808020000", name: "virtual"},
                 ]
             },
-            "ir.translation": {
-                fields: {
-                    lang_code: {type: "char"},
-                    src: {type: "char"},
-                    value: {type: "char"},
-                    res_id: {type: "integer"},
-                    name: {type: "char"},
-                    lang: {type: "char"},
-                },
-                records: [{
-                    id: 99,
-                    res_id: 1,
-                    value: '',
-                    lang_code: 'en_US',
-                    lang: 'en_US',
-                    name: 'foo,foo'
-                },{
-                    id: 100,
-                    res_id: 1,
-                    value: '',
-                    lang_code: 'fr_BE',
-                    lang: 'fr_BE',
-                    name: 'foo,foo'
-                }]
-            },
         };
 
         serverData = { models: this.data };
-    }
+        target = getFixture();
+    },
+    afterEach: async function () {
+        Tooltip.Default.animation = this.initialTooltipDefaultAnimation;
+    },
 }, function () {
 
-    QUnit.module('ListView');
+    QUnit.module('ListView (legacy)');
 
     QUnit.test('simple readonly list', async function (assert) {
         assert.expect(10);
@@ -770,37 +768,6 @@ QUnit.module('Views', {
         list.destroy();
     });
 
-    QUnit.test('Multiple-page-action-request should contain context', async function (assert) {
-        assert.expect(1);
-        const list = await createView({
-            View: ListView,
-            model: 'foo',
-            data: this.data,
-            context: { this_key_should_be_present_in_context: 1 },
-            arch: `
-                <tree limit="1">
-                    <header>
-                         <button name="x" type="object" class="btn_triggering_search_request" string="btn triggering search request"/>
-                    </header>
-                    <field name="foo" />
-                </tree>`,
-            mockRPC(route, args) {
-                if (args.method === 'search') {
-                    assert.deepEqual(args.kwargs.context, { this_key_should_be_present_in_context: 1 });
-                }
-                return this._super.call(this, ...arguments);
-            }
-        });
-        // Click to: Select all records on current page
-        await testUtils.dom.click(list.el.querySelector('.o_data_row .o_list_record_selector input[type="checkbox"]'));
-        // Click to: Select all records on ALL pages
-        await testUtils.dom.click(list.el.querySelector('.o_list_select_domain'));
-        // Click on action button to trigger "search" request
-        await testUtils.dom.click(list.el.querySelector('button[name="x"]'));
-
-        list.destroy();
-    });
-
     QUnit.test('column names (noLabel, label, string and default)', async function (assert) {
         assert.expect(4);
 
@@ -1346,7 +1313,7 @@ QUnit.module('Views', {
         assert.containsNone(list, ".o_group_open", "no group is open");
         assert.deepEqual(
             [...list.el.querySelectorAll(".o_group_header .o_group_name")].map((el) => el.innerText),
-            ["Value 1 (3)", "Value 2 (2)", "Value 3 (1)", "Undefined (1)"],
+            ["Value 1 (3)", "Value 2 (2)", "Value 3 (1)", "None (1)"],
             "should have those group headers",
         );
 
@@ -1370,7 +1337,7 @@ QUnit.module('Views', {
                 "​blipValue1Value2Value3",
                 "Value3(1)",
                 "​blipValue1Value2Value3",
-                "Undefined(1)",
+                "None(1)",
                 "​gnap"
             ],
             "should have these row contents"
@@ -2032,17 +1999,17 @@ QUnit.module('Views', {
         const webClient = await createWebClient({ serverData });
 
         await doAction(webClient, 11);
-        await testUtils.dom.click($(webClient.el).find('.o_list_button_add'));
+        await testUtils.dom.click($(target).find('.o_list_button_add'));
 
-        assert.isNotVisible($(webClient.el).find('.o_list_button_add'),
+        assert.isNotVisible($(target).find('.o_list_button_add'),
             "create button should be invisible");
-        assert.isVisible($(webClient.el).find('.o_list_button_save'), "save button should be visible");
+        assert.isVisible($(target).find('.o_list_button_save'), "save button should be visible");
 
-        await testUtils.dom.click($(webClient.el).find('.dropdown-toggle:contains("Group By")'));
-        await testUtils.dom.click($(webClient.el).find('.o_group_by_menu .o_menu_item:contains("candle")'));
+        await testUtils.dom.click($(target).find('.dropdown-toggle:contains("Group By")'));
+        await testUtils.dom.click($(target).find('.o_group_by_menu .o_menu_item:contains("candle")'));
 
-        assert.isNotVisible($(webClient.el).find('.o_list_button_add'), "create button should be invisible");
-        assert.isNotVisible($(webClient.el).find('.o_list_button_save'),
+        assert.isNotVisible($(target).find('.o_list_button_add'), "create button should be invisible");
+        assert.isNotVisible($(target).find('.o_list_button_save'),
             "save button should be invisible after applying groupby");
     });
 
@@ -2265,37 +2232,6 @@ QUnit.module('Views', {
         list.destroy();
     });
 
-    QUnit.test('selection box in grouped list, multi pages)', async function (assert) {
-        assert.expect(8);
-
-        var list = await createView({
-            View: ListView,
-            model: 'foo',
-            data: this.data,
-            groupBy: ['int_field'],
-            arch: '<tree groups_limit="2"><field name="foo"/><field name="bar"/></tree>',
-        });
-
-        assert.containsN(list, '.o_group_header', 2);
-        assert.containsNone(list.$('.o_cp_buttons'), '.o_list_selection_box');
-
-        // open first group and select all records of first page
-        await testUtils.dom.click(list.$('.o_group_header:first'));
-        assert.containsOnce(list, '.o_data_row');
-        await testUtils.dom.click(list.$('thead .o_list_record_selector input'));
-        assert.containsOnce(list.$('.o_cp_buttons'), '.o_list_selection_box');
-        assert.containsOnce(list.$('.o_list_selection_box'), '.o_list_select_domain');
-        assert.strictEqual(list.$('.o_list_selection_box').text().replace(/\s+/g, ' ').trim(),
-            '1 selected Select all'); // we don't know the total count, so we don't display it
-
-        // select all domain
-        await testUtils.dom.click(list.$('.o_list_selection_box .o_list_select_domain'));
-        assert.containsOnce(list.$('.o_cp_buttons'), '.o_list_selection_box');
-        assert.strictEqual(list.$('.o_list_selection_box').text().trim(), 'All selected');
-
-        list.destroy();
-    });
-
     QUnit.test('selection box is displayed after header buttons', async function (assert) {
         assert.expect(5);
 
@@ -2320,7 +2256,7 @@ QUnit.module('Views', {
         // select a record
         await testUtils.dom.click(list.$('.o_data_row:first .o_list_record_selector input'));
         assert.containsOnce(list.$('.o_cp_buttons'), '.o_list_selection_box');
-        const lastElement = list.$('.o_cp_buttons .o_list_buttons').children(":last")[0];
+        const lastElement = list.$('.o_cp_buttons .o_legacy_list_buttons').children(":last")[0];
         assert.strictEqual(lastElement, list.$('.o_cp_buttons .o_list_selection_box')[0],
             "last element should selection box");
         assert.strictEqual(list.$('.o_list_selection_box').text().trim(), '1 selected');
@@ -2883,7 +2819,7 @@ QUnit.module('Views', {
                 </tree>`,
             viewOptions: {
                 action: {
-                    help: '<p class="hello">click to add a foo</p>'
+                    help: 'click to add a foo',
                 }
             },
         });
@@ -2946,7 +2882,7 @@ QUnit.module('Views', {
             View: ListView,
         });
 
-        assert.strictEqual(list.$('table').width(), list.$('.o_list_view').width(),
+        assert.strictEqual(list.$('table').width(), list.$('.o_legacy_list_view').width(),
             "Table should not be stretched by its content");
 
         list.destroy();
@@ -2994,7 +2930,7 @@ QUnit.module('Views', {
             View: ListView,
         });
 
-        assert.strictEqual(list.$('table').width(), list.$('.o_list_view').width());
+        assert.strictEqual(list.$('table').width(), list.$('.o_legacy_list_view').width());
         const largeCells = list.$('.o_data_cell.large');
         assert.ok(Math.abs(largeCells[0].offsetWidth - largeCells[1].offsetWidth) <= 1);
         assert.ok(Math.abs(largeCells[1].offsetWidth - largeCells[2].offsetWidth) <= 1);
@@ -3660,11 +3596,11 @@ QUnit.module('Views', {
             model: 'foo',
             data: this.data,
             mockRPC: function (route, args) {
-                if (route === "/web/dataset/call_button" && args.method === 'translate_fields') {
-                    return Promise.resolve({
-                        domain: [],
-                        context: {search_default_name: 'foo,foo'},
-                    });
+                if (route === "/web/dataset/call_kw/foo/get_field_translations") {
+                    return Promise.resolve([
+                        [{lang: "en_US", source: "yop", value: "yop"}, {lang: "fr_BE", source: "yop", value: "valeur français"}],
+                        {translation_type: "char", translation_show_source: false},
+                    ]);
                 }
                 if (route === "/web/dataset/call_kw/res.lang/get_installed") {
                     return Promise.resolve([["en_US","English"], ["fr_BE", "Frenglish"]]);
@@ -3689,54 +3625,6 @@ QUnit.module('Views', {
         _t.database.multi_lang = multiLang;
         list.destroy();
     });
-
-    QUnit.test('fields are translatable in multi-editable list view', async function (assert) {
-        assert.expect(1);
-        var multiLang = _t.database.multi_lang;
-        _t.database.multi_lang = true;
-        this.data.foo.fields.foo.translate = true;
-
-        var list = await createView({
-            View: ListView,
-            model: 'foo',
-            data: this.data,
-            session: {
-                user_context: {lang: 'en_US'},
-            },
-            mockRPC: function (route, args) {
-                if (route === "/web/dataset/call_button" && args.method === 'translate_fields') {
-                    return Promise.resolve({
-                        domain: [],
-                        context: {search_default_name: 'foo,foo'},
-                    });
-                }
-                if (route === "/web/dataset/call_kw/res.lang/get_installed") {
-                    return Promise.resolve([["en_US","English"], ["fr_BE", "Frenglish"]]);
-                }
-                return this._super.apply(this, arguments);
-            },
-            arch: '<tree multi_edit="1">' +
-                        '<field name="foo" required="1"/>' +
-                    '</tree>',
-        });
-
-        await testUtils.dom.click(list.$('.o_data_row:first .o_list_record_selector input').first());
-        await testUtils.nextTick();
-        await testUtils.dom.click(list.$('.o_data_row:first .o_list_char'));
-        await testUtils.nextTick();
-        await testUtils.dom.click(list.$('input.o_field_translate+span.o_field_translate'));
-        await testUtils.nextTick();
-
-        await testUtils.fields.editInput($('.o_translation_dialog input:first'), 'bla_');
-        await testUtils.nextTick();
-
-        await testUtils.modal.clickButton('Save');
-        assert.strictEqual($('.o_data_row:first .o_list_char').text(), 'bla_');
-
-        _t.database.multi_lang = multiLang;
-        list.destroy();
-    });
-
 
     QUnit.test('long words in text cells should break into smaller lines', async function (assert) {
         assert.expect(2);
@@ -4121,14 +4009,14 @@ QUnit.module('Views', {
         const webClient = await createWebClient({ serverData, mockRPC });
         await doAction(webClient, 11);
 
-        assert.containsNone(webClient, '.o_cp_action_menus', 'sidebar should be invisible');
-        assert.containsN(webClient, 'tbody td.o_list_record_selector', 4, "should have 4 records");
+        assert.containsNone(target, '.o_cp_action_menus', 'sidebar should be invisible');
+        assert.containsN(target, 'tbody td.o_list_record_selector', 4, "should have 4 records");
 
-        await click(webClient.el.querySelector('tbody td.o_list_record_selector input'));
-        assert.containsOnce(webClient, '.o_cp_action_menus', 'sidebar should be visible');
+        await click(target.querySelector('tbody td.o_list_record_selector input'));
+        assert.containsOnce(target, '.o_cp_action_menus', 'sidebar should be visible');
 
-        await click(webClient.el.querySelector('.o_cp_action_menus .dropdown-toggle'));
-        const archiveItem = [...webClient.el.querySelectorAll('.o_cp_action_menus .dropdown-menu li > a')]
+        await click(target.querySelector('.o_cp_action_menus .dropdown-toggle'));
+        const archiveItem = [...target.querySelectorAll('.o_cp_action_menus .o-dropdown-menu li > a')]
             .filter((elem) => elem.textContent === 'Archive');
         await click(archiveItem[0]);
         assert.strictEqual(document.querySelectorAll('.modal').length, 1,
@@ -4500,36 +4388,15 @@ QUnit.module('Views', {
             }
         });
 
-        assert.containsNone(list, '.o_list_buttons', "should not have any buttons");
-        list.destroy();
-    });
-
-    QUnit.test('list with group_by_no_leaf and group by', async function (assert) {
-        assert.expect(4);
-
-        const list = await createView({
-            View: ListView,
-            model: 'foo',
-            data: this.data,
-            arch: '<tree expand="1"><field name="foo"/></tree>',
-            groupBy: ['currency_id'],
-            context: { group_by_no_leaf: true },
-        });
-        const groups = list.el.querySelectorAll(".o_group_name");
-        const groupsRecords = [...list.el.querySelectorAll(".o_data_row .o_data_cell")];
-
-        assert.strictEqual(groups.length, 2, "There should be 2 groups");
-        assert.strictEqual(groups[0].textContent, "EUR (1)", "First group should have 1 record");
-        assert.strictEqual(groups[1].textContent, "USD (3)", "Second group should have 3 records");
-        assert.deepEqual(
-            groupsRecords.map(groupEl => groupEl.textContent),
-            ["yop", "blip", "gnap", "blip"],
-            "Groups should contains correct records");
+        assert.containsNone(list, '.o_legacy_list_buttons', "should not have any buttons");
         list.destroy();
     });
 
     QUnit.test('display a tooltip on a field', async function (assert) {
         assert.expect(4);
+
+        fieldRegistry.add("toggle_button", basicFields.FieldToggleBoolean);
+        registerCleanup(() => delete fieldRegistry.map.toggle_button);
 
         var initialDebugMode = odoo.debug;
         odoo.debug = false;
@@ -4548,24 +4415,25 @@ QUnit.module('Views', {
         // 1000 ms. not totally academic, but a short test suite is easier to sell :(
         list.$('th[data-name=foo]').tooltip('show', false);
 
-        list.$('th[data-name=foo]').trigger($.Event('mouseenter'));
+        list.$('th[data-name=foo]')[0].dispatchEvent(new Event('mouseover'));
         assert.strictEqual($('.tooltip .oe_tooltip_string').length, 0, "should not have rendered a tooltip");
 
         odoo.debug = true;
         // it is necessary to rerender the list so tooltips can be properly created
         await list.reload();
         list.$('th[data-name=foo]').tooltip('show', false);
-        list.$('th[data-name=foo]').trigger($.Event('mouseenter'));
+        list.$('th[data-name=foo]')[0].dispatchEvent(new Event('mouseover'));
         assert.strictEqual($('.tooltip .oe_tooltip_string').length, 1, "should have rendered a tooltip");
 
         await list.reload();
         list.$('th[data-name=bar]').tooltip('show', false);
-        list.$('th[data-name=bar]').trigger($.Event('mouseenter'));
+        list.$('th[data-name=bar]')[0].dispatchEvent(new Event('mouseover'));
         assert.containsOnce($, '.oe_tooltip_technical>li[data-item="widget"]',
             'widget should be present for this field');
         assert.strictEqual($('.oe_tooltip_technical>li[data-item="widget"]')[0].lastChild.wholeText.trim(),
             'Button (toggle_button)', "widget description should be correct");
 
+        list.$('th[data-name=bar]')[0].dispatchEvent(new Event('mouseout'));
         odoo.debug = initialDebugMode;
         list.destroy();
     });
@@ -4668,13 +4536,13 @@ QUnit.module('Views', {
             arch: '<tree><field name="foo"/></tree>',
             viewOptions: {
                 action: {
-                    help: '<p class="hello">click to add a record</p>'
+                    help: 'click to add a record',
                 }
             },
         });
 
         assert.containsNone(list, '.o_view_nocontent');
-        await testUtils.dom.click(list.$('.o_list_view'));
+        await testUtils.dom.click(list.$('.o_legacy_list_view'));
         assert.doesNotHaveClass(list.$('.o_list_button_add'), 'o_catch_attention');
 
         await list.reload({ domain: [['id', '<', 0]] });
@@ -4698,7 +4566,7 @@ QUnit.module('Views', {
             arch: '<tree><field name="foo"/></tree>',
             viewOptions: {
                 action: {
-                    help: '<p class="hello">click to add a partner</p>'
+                    help: markup('<p class="hello">click to add a partner</p>'),
                 }
             },
         });
@@ -4762,12 +4630,12 @@ QUnit.module('Views', {
             domain: [['id', '<', 0]], // such that no record matches the domain
             viewOptions: {
                 action: {
-                    help: '<p class="hello">click to add a partner</p>'
+                    help: markup('<p class="hello">click to add a partner</p>'),
                 }
             },
         });
 
-        assert.hasClass(list.$el, 'o_view_sample_data');
+        assert.hasClass(list.$el, 'o_legacy_view_sample_data');
         assert.containsOnce(list, '.o_list_table');
         assert.containsN(list, '.o_data_row', 10);
         assert.containsOnce(list, '.o_nocontent_help .hello');
@@ -4778,7 +4646,7 @@ QUnit.module('Views', {
         assert.strictEqual(cells[0].innerText.trim(), "",
             "Char field should yield an empty element"
         );
-        assert.containsOnce(cells[1], '.custom-checkbox',
+        assert.containsOnce(cells[1], '.form-check',
             "Boolean field has been instantiated"
         );
         assert.notOk(isNaN(cells[2].innerText.trim()), "Intger value is a number");
@@ -4805,14 +4673,14 @@ QUnit.module('Views', {
         // reload with another domain -> should no longer display the sample records
         await list.reload({ domain: Domain.FALSE_DOMAIN });
 
-        assert.doesNotHaveClass(list.$el, 'o_view_sample_data');
+        assert.doesNotHaveClass(list.$el, 'o_legacy_view_sample_data');
         assert.containsNone(list, '.o_list_table');
         assert.containsOnce(list, '.o_nocontent_help .hello');
 
         // reload with another domain matching records
         await list.reload({ domain: Domain.TRUE_DOMAIN });
 
-        assert.doesNotHaveClass(list.$el, 'o_view_sample_data');
+        assert.doesNotHaveClass(list.$el, 'o_legacy_view_sample_data');
         assert.containsOnce(list, '.o_list_table');
         assert.containsN(list, '.o_data_row', 4);
         assert.containsNone(list, '.o_nocontent_help .hello');
@@ -4842,7 +4710,7 @@ QUnit.module('Views', {
             },
         });
 
-        assert.hasClass(list.$el, 'o_view_sample_data');
+        assert.hasClass(list.$el, 'o_legacy_view_sample_data');
         assert.ok(list.$('.o_data_row').length > 0);
         assert.hasClass(list.el.querySelector('.o_data_row'), 'o_sample_data_disabled');
         assert.containsN(list, 'th', 2, "should have 2 th, 1 for selector and 1 for foo");
@@ -4851,7 +4719,7 @@ QUnit.module('Views', {
         await testUtils.dom.click(list.$('table .o_optional_columns_dropdown_toggle'));
         await testUtils.dom.click(list.$('div.o_optional_columns div.dropdown-item:first input'));
 
-        assert.hasClass(list.$el, 'o_view_sample_data');
+        assert.hasClass(list.$el, 'o_legacy_view_sample_data');
         assert.ok(list.$('.o_data_row').length > 0);
         assert.hasClass(list.el.querySelector('.o_data_row'), 'o_sample_data_disabled');
         assert.containsN(list, 'th', 3);
@@ -4940,14 +4808,14 @@ QUnit.module('Views', {
 
         assert.containsOnce(list, '.o_list_table');
         assert.containsN(list, '.o_data_row', 4);
-        assert.doesNotHaveClass(list.$el, 'o_view_sample_data');
+        assert.doesNotHaveClass(list.$el, 'o_legacy_view_sample_data');
 
         // reload with another domain matching no record (should not display the sample records)
         await list.reload({ domain: Domain.FALSE_DOMAIN });
 
         assert.containsOnce(list, '.o_list_table');
         assert.containsNone(list, '.o_data_row');
-        assert.doesNotHaveClass(list.$el, 'o_view_sample_data');
+        assert.doesNotHaveClass(list.$el, 'o_legacy_view_sample_data');
 
         list.destroy();
     });
@@ -4968,7 +4836,7 @@ QUnit.module('Views', {
             domain: Domain.FALSE_DOMAIN,
         });
 
-        assert.hasClass(list, 'o_view_sample_data');
+        assert.hasClass(list, 'o_legacy_view_sample_data');
         assert.containsOnce(list, '.o_list_table');
         assert.containsN(list, '.o_data_row', 10);
 
@@ -4995,14 +4863,14 @@ QUnit.module('Views', {
             View: ListView,
             viewOptions: {
                 action: {
-                    help: '<p class="hello">click to add a partner</p>'
+                    help: "click to add a partner",
                 },
                 hasActionMenus: true,
             },
         });
 
         // Initial state: all records displayed
-        assert.doesNotHaveClass(list, 'o_view_sample_data');
+        assert.doesNotHaveClass(list, 'o_legacy_view_sample_data');
         assert.containsOnce(list, '.o_list_table');
         assert.containsN(list, '.o_data_row', 4);
         assert.containsNone(list, '.o_nocontent_help');
@@ -5014,7 +4882,7 @@ QUnit.module('Views', {
         await testUtils.dom.click($('.modal-footer .btn-primary'));
 
         // Final state: no more sample data, but nocontent helper displayed
-        assert.doesNotHaveClass(list, 'o_view_sample_data');
+        assert.doesNotHaveClass(list, 'o_legacy_view_sample_data');
         assert.containsNone(list, '.o_list_table');
         assert.containsOnce(list, '.o_nocontent_help');
 
@@ -5037,13 +4905,13 @@ QUnit.module('Views', {
             View: ListView,
             viewOptions: {
                 action: {
-                    help: '<p class="hello">click to add a partner</p>'
+                    help: "click to add a partner",
                 },
             },
         });
 
         // Initial state: sample data and nocontent helper displayed
-        assert.hasClass(list, 'o_view_sample_data');
+        assert.hasClass(list, 'o_legacy_view_sample_data');
         assert.containsOnce(list, '.o_list_table');
         assert.containsN(list, '.o_data_row', 10);
         assert.containsOnce(list, '.o_nocontent_help');
@@ -5051,14 +4919,14 @@ QUnit.module('Views', {
         // Start creating a record
         await testUtils.dom.click(list.el.querySelector('.btn.o_list_button_add'));
 
-        assert.doesNotHaveClass(list, 'o_view_sample_data');
+        assert.doesNotHaveClass(list, 'o_legacy_view_sample_data');
         assert.containsOnce(list, '.o_data_row');
 
         // Discard temporary record
         await testUtils.dom.click(list.el.querySelector('.btn.o_list_button_discard'));
 
         // Final state: table should be displayed with no data at all
-        assert.doesNotHaveClass(list, 'o_view_sample_data');
+        assert.doesNotHaveClass(list, 'o_legacy_view_sample_data');
         assert.containsOnce(list, '.o_list_table');
         assert.containsNone(list, '.o_data_row');
         assert.containsNone(list, '.o_nocontent_help');
@@ -5082,14 +4950,14 @@ QUnit.module('Views', {
             View: ListView,
             viewOptions: {
                 action: {
-                    help: '<p class="hello">click to add a partner</p>'
+                    help: "click to add a partner",
                 },
                 hasActionMenus: true,
             },
         });
 
         // Initial state: sample data and nocontent helper displayed
-        assert.hasClass(list, 'o_view_sample_data');
+        assert.hasClass(list, 'o_legacy_view_sample_data');
         assert.containsOnce(list, '.o_list_table');
         assert.containsN(list, '.o_data_row', 10);
         assert.containsOnce(list, '.o_nocontent_help');
@@ -5097,13 +4965,13 @@ QUnit.module('Views', {
         // Start creating a record
         await testUtils.dom.click(list.el.querySelector('.btn.o_list_button_add'));
 
-        assert.doesNotHaveClass(list, 'o_view_sample_data');
+        assert.doesNotHaveClass(list, 'o_legacy_view_sample_data');
         assert.containsOnce(list, '.o_data_row');
 
         // Save temporary record
         await testUtils.dom.click(list.el.querySelector('.btn.o_list_button_save'));
 
-        assert.doesNotHaveClass(list, 'o_view_sample_data');
+        assert.doesNotHaveClass(list, 'o_legacy_view_sample_data');
         assert.containsOnce(list, '.o_list_table');
         assert.containsOnce(list, '.o_data_row');
         assert.containsNone(list, '.o_nocontent_help');
@@ -5115,34 +4983,9 @@ QUnit.module('Views', {
         await testUtils.dom.click($('.modal-footer .btn-primary'));
 
         // Final state: there should be no table, but the no content helper
-        assert.doesNotHaveClass(list, 'o_view_sample_data');
+        assert.doesNotHaveClass(list, 'o_legacy_view_sample_data');
         assert.containsNone(list, '.o_list_table');
         assert.containsOnce(list, '.o_nocontent_help');
-        list.destroy();
-    });
-
-    QUnit.test('Do not display nocontent when it is an empty html tag', async function (assert) {
-        assert.expect(2);
-
-        this.data.foo.records = [];
-
-        var list = await createView({
-            View: ListView,
-            model: 'foo',
-            data: this.data,
-            arch: '<tree><field name="foo"/></tree>',
-            viewOptions: {
-                action: {
-                    help: '<p class="hello"></p>'
-                }
-            },
-        });
-
-        assert.containsNone(list, '.o_view_nocontent',
-            "should not display the no content helper");
-
-        assert.containsOnce(list, 'table', "should have a table in the dom");
-
         list.destroy();
     });
 
@@ -5455,7 +5298,7 @@ QUnit.module('Views', {
                 '</tree>',
             viewOptions: {
                 action: {
-                    help: '<p class="hello">click to add a partner</p>'
+                    help: "click to add a partner",
                 }
             },
             mockRPC: function (route, args) {
@@ -5593,7 +5436,7 @@ QUnit.module('Views', {
 
         await testUtils.dom.click(list.$buttons.find('.o_list_button_add'));
         await testUtils.fields.editInput(list.$('tr.o_selected_row input[name="foo"]'), 'new value');
-        await testUtils.dom.click(list.$('.o_list_view'));
+        await testUtils.dom.click(list.$('.o_legacy_list_view'));
 
         assert.strictEqual(createCount, 1, "should have created a record");
 
@@ -8618,9 +8461,9 @@ QUnit.module('Views', {
 
         await testUtils.fields.many2one.clickOpenDropdown("m2m");
         await testUtils.fields.many2one.clickItem("m2m", "Search More");
-        assert.containsOnce(document.body, '.modal .o_list_view', "should have open the modal");
+        assert.containsOnce(document.body, '.modal .o_legacy_list_view', "should have open the modal");
 
-        await testUtils.dom.click($('.modal .o_list_view .o_data_row:first'));
+        await testUtils.dom.click($('.modal .o_legacy_list_view .o_data_row:first'));
 
         assert.containsOnce(document.body, ".modal [role='alert']", "should have open the confirmation modal");
         assert.containsN(document.body, ".modal .o_field_many2manytags .badge", 3);
@@ -9017,7 +8860,7 @@ QUnit.module('Views', {
         assert.containsN(list, '.o_data_row', 4);
 
         // select all records
-        await testUtils.dom.click(list.$('.o_list_view thead .o_list_record_selector input'));
+        await testUtils.dom.click(list.$('.o_legacy_list_view thead .o_list_record_selector input'));
 
         // edit last cell of last line
         await testUtils.dom.click(list.$('.o_data_row:last .o_data_cell:last'));
@@ -9397,7 +9240,7 @@ QUnit.module('Views', {
             groupBy: ['date:month'],
         });
 
-        assert.strictEqual(list.$('tbody').text(), "January 2017 (1)Undefined (3)",
+        assert.strictEqual(list.$('tbody').text(), "January 2017 (1)None (3)",
             "the group names should be correct");
 
         list.destroy();
@@ -9405,6 +9248,9 @@ QUnit.module('Views', {
 
     QUnit.test('grouped list edition with toggle_button widget', async function (assert) {
         assert.expect(3);
+
+        fieldRegistry.add("toggle_button", basicFields.FieldToggleBoolean);
+        registerCleanup(() => delete fieldRegistry.map.toggle_button);
 
         var list = await createView({
             View: ListView,
@@ -9513,12 +9359,12 @@ QUnit.module('Views', {
     QUnit.test('basic support for widgets (being Owl Components)', async function (assert) {
         assert.expect(1);
 
-        class MyComponent extends owl.Component {
+        class MyComponent extends LegacyComponent {
             get value() {
                 return JSON.stringify(this.props.record.data);
             }
         }
-        MyComponent.template = owl.tags.xml`<div t-esc="value"/>`;
+        MyComponent.template = xml`<div t-esc="value"/>`;
         widgetRegistryOwl.add('test', MyComponent);
 
         const list = await createView({
@@ -9623,7 +9469,7 @@ QUnit.module('Views', {
             },
         });
 
-        assert.containsN(list, '.o_list_view .o_data_row', 4,
+        assert.containsN(list, '.o_legacy_list_view .o_data_row', 4,
             "list view should contain 4 records");
 
         // reload with a domain (this request is blocked)
@@ -9631,7 +9477,7 @@ QUnit.module('Views', {
         list.reload({domain: [['foo', '=', 'yop']]});
         await testUtils.nextTick();
 
-        assert.containsN(list, '.o_list_view .o_data_row', 4,
+        assert.containsN(list, '.o_legacy_list_view .o_data_row', 4,
             "list view should still contain 4 records (search_read being blocked)");
 
         // reload without the domain
@@ -9639,14 +9485,14 @@ QUnit.module('Views', {
         list.reload({domain: []});
         await testUtils.nextTick();
 
-        assert.containsN(list, '.o_list_view .o_data_row', 4,
+        assert.containsN(list, '.o_legacy_list_view .o_data_row', 4,
             "list view should still contain 4 records");
 
         // unblock the RPC
         prom.resolve();
         await testUtils.nextTick();
 
-        assert.containsN(list, '.o_list_view .o_data_row', 4,
+        assert.containsN(list, '.o_legacy_list_view .o_data_row', 4,
             "list view should still contain 4 records");
 
         list.destroy();
@@ -9988,7 +9834,7 @@ QUnit.module('Views', {
         var $disabledCell = list.$('.o_data_row:eq(1) .o_data_cell:last-child');
         await testUtils.dom.click($disabledCell.prev());
         assert.containsOnce($disabledCell, ':disabled:checked');
-        var $disabledLabel = $disabledCell.find('.custom-control-label');
+        var $disabledLabel = $disabledCell.find('.form-check-label');
         await testUtils.dom.click($disabledLabel);
         assert.containsOnce($disabledCell, ':checked',
             "clicking disabled checkbox did not work"
@@ -10002,7 +9848,7 @@ QUnit.module('Views', {
         var $enabledCell = list.$('.o_data_row:eq(0) .o_data_cell:last-child');
         await testUtils.dom.click($enabledCell.prev());
         assert.containsOnce($enabledCell, ':checked:not(:disabled)');
-        var $enabledLabel = $enabledCell.find('.custom-control-label');
+        var $enabledLabel = $enabledCell.find('.form-check-label');
         await testUtils.dom.click($enabledLabel);
         assert.containsNone($enabledCell, ':checked',
             "clicking enabled checkbox worked and unchecked it"
@@ -10218,9 +10064,7 @@ QUnit.module('Views', {
                 type: 'ir.actions.act_window',
                 views: [[3, 'list']],
                 search_view_id: [9, 'search'],
-                flags: {
-                    context: { group_by: ['int_field'] },
-                },
+                context: { group_by: ['int_field'] },
             },
         };
 
@@ -10238,25 +10082,25 @@ QUnit.module('Views', {
             }
         };
 
-        const webClient = await createWebClient({serverData, mockRPC});
+        const webClient = await createWebClient({ serverData, mockRPC});
         await doAction(webClient, 11);
 
-        assert.containsOnce(webClient, '.o_list_view');
-        assert.strictEqual($(webClient.el).find('.o_pager_counter').text().trim(), '1-3 / 4');
-        assert.containsN(webClient, '.o_group_header', 3); // page 1
+        assert.containsOnce(target, '.o_legacy_list_view');
+        assert.strictEqual($(target).find('.o_pager_counter').text().trim(), '1-3 / 4');
+        assert.containsN(target, '.o_group_header', 3); // page 1
 
-        await testUtils.dom.click($(webClient.el).find('.o_pager_next')); // switch to page 2
+        await testUtils.dom.click($(target).find('.o_pager_next')); // switch to page 2
         await legacyExtraNextTick();
 
-        assert.strictEqual($(webClient.el).find('.o_pager_counter').text().trim(), '4-4 / 4');
-        assert.containsN(webClient, '.o_group_header', 1); // page 2
+        assert.strictEqual($(target).find('.o_pager_counter').text().trim(), '4-4 / 4');
+        assert.containsN(target, '.o_group_header', 1); // page 2
 
         // toggle a filter -> there should be only one group left (on page 1)
-        await cpHelpers.toggleFilterMenu(webClient);
-        await cpHelpers.toggleMenuItem(webClient, 0);
+        await cpHelpers.toggleFilterMenu(target);
+        await cpHelpers.toggleMenuItem(target, 0);
 
-        assert.strictEqual($(webClient.el).find('.o_pager_counter').text().trim(), '1-1 / 1');
-        assert.containsN(webClient, '.o_group_header', 1); // page 1
+        assert.strictEqual($(target).find('.o_pager_counter').text().trim(), '1-1 / 1');
+        assert.containsN(target, '.o_group_header', 1); // page 1
 
         assert.verifySteps([
             '[], undefined',
@@ -11105,6 +10949,7 @@ QUnit.module('Views', {
             View: ListView,
             model: 'foo',
             data: this.data,
+            debug: 1,
             arch: '<tree editable="bottom"><field name="foo" required="1"/></tree>',
             groupBy: ['bar'],
         });
@@ -11190,14 +11035,14 @@ QUnit.module('Views', {
             'should focus the "Add a line" button');
         await testUtils.fields.triggerKeydown($(document.activeElement), 'down');
 
-        assert.strictEqual(document.activeElement.textContent, 'false (1)',
+        assert.strictEqual(document.activeElement.textContent, 'No (1)',
             'focus should be on second group header');
         assert.strictEqual(list.$('tr.o_data_row').length, 3,
             'should have 3 rows displayed');
         await testUtils.fields.triggerKeydown($(document.activeElement), 'enter');
         assert.strictEqual(list.$('tr.o_data_row').length, 4,
             'should have 4 rows displayed');
-        assert.strictEqual(document.activeElement.textContent, 'false (1)',
+        assert.strictEqual(document.activeElement.textContent, 'No (1)',
             'focus should still be on second group header');
 
         await testUtils.fields.triggerKeydown($(document.activeElement), 'down');
@@ -11246,12 +11091,12 @@ QUnit.module('Views', {
             'second field of first record should be focused');
 
         await testUtils.fields.triggerKeydown($(document.activeElement), 'up');
-        assert.strictEqual(document.activeElement.textContent, 'true (3)',
+        assert.strictEqual(document.activeElement.textContent, 'Yes (3)',
             'focus should be on first group header');
         await testUtils.fields.triggerKeydown($(document.activeElement), 'enter');
         assert.strictEqual(list.$('tr.o_data_row').length, 2,
             'should have 2 rows displayed (first group should be closed)');
-        assert.strictEqual(document.activeElement.textContent, 'true (3)',
+        assert.strictEqual(document.activeElement.textContent, 'Yes (3)',
             'focus should still be on first group header');
 
         assert.strictEqual(list.$('tr.o_data_row').length, 2,
@@ -11259,27 +11104,27 @@ QUnit.module('Views', {
         await testUtils.fields.triggerKeydown($(document.activeElement), 'right');
         assert.strictEqual(list.$('tr.o_data_row').length, 5,
             'should have 5 rows displayed');
-        assert.strictEqual(document.activeElement.textContent, 'true (3)',
+        assert.strictEqual(document.activeElement.textContent, 'Yes (3)',
             'focus is still in header');
         await testUtils.fields.triggerKeydown($(document.activeElement), 'right');
         assert.strictEqual(list.$('tr.o_data_row').length, 5,
             'should have 5 rows displayed');
-        assert.strictEqual(document.activeElement.textContent, 'true (3)',
+        assert.strictEqual(document.activeElement.textContent, 'Yes (3)',
             'focus is still in header');
 
         await testUtils.fields.triggerKeydown($(document.activeElement), 'left');
         assert.strictEqual(list.$('tr.o_data_row').length, 2,
             'should have 2 rows displayed');
-        assert.strictEqual(document.activeElement.textContent, 'true (3)',
+        assert.strictEqual(document.activeElement.textContent, 'Yes (3)',
             'focus is still in header');
         await testUtils.fields.triggerKeydown($(document.activeElement), 'left');
         assert.strictEqual(list.$('tr.o_data_row').length, 2,
             'should have 2 rows displayed');
-        assert.strictEqual(document.activeElement.textContent, 'true (3)',
+        assert.strictEqual(document.activeElement.textContent, 'Yes (3)',
             'focus is still in header');
 
         await testUtils.fields.triggerKeydown($(document.activeElement), 'down');
-        assert.strictEqual(document.activeElement.textContent, 'false (2)',
+        assert.strictEqual(document.activeElement.textContent, 'No (2)',
             'focus should now be on second group header');
         await testUtils.fields.triggerKeydown($(document.activeElement), 'down');
         assert.strictEqual(document.activeElement.tagName, 'TD',
@@ -11397,7 +11242,7 @@ QUnit.module('Views', {
         assert.containsOnce(list, 'tbody:nth(3) .o_data_row');
 
         await testUtils.dom.click(list.$('.o_group_field_row_add a:eq(1)')); // create row in second group
-        assert.strictEqual(list.$('.o_group_name:eq(1)').text(), 'false (2)',
+        assert.strictEqual(list.$('.o_group_name:eq(1)').text(), 'No (2)',
             "group should have correct name and count");
         assert.containsN(list, 'tbody:nth(3) .o_data_row', 2);
         assert.hasClass(list.$('.o_data_row:nth(3)'), 'o_selected_row');
@@ -11597,11 +11442,11 @@ QUnit.module('Views', {
         const optionalFieldsToggler = list.el.querySelector('table').lastElementChild;
         assert.ok(optionalFieldsToggler.classList.contains('o_optional_columns_dropdown_toggle'),
             'The optional fields toggler is the second last element');
-        const optionalFieldsDropdown = list.el.querySelector('.o_list_view').lastElementChild;
+        const optionalFieldsDropdown = list.el.querySelector('.o_legacy_list_view').lastElementChild;
         assert.ok(optionalFieldsDropdown.classList.contains('o_optional_columns'),
             'The optional fields dropdown is the last element');
 
-        assert.ok(list.$('.o_optional_columns .dropdown-menu').hasClass('dropdown-menu-right'),
+        assert.ok(list.$('.o_optional_columns .dropdown-menu').hasClass('dropdown-menu-end'),
             'In LTR, the dropdown should be anchored to the right and expand to the left');
 
         // optional fields
@@ -11665,11 +11510,11 @@ QUnit.module('Views', {
         const optionalFieldsToggler = list.el.querySelector('table').lastElementChild;
         assert.ok(optionalFieldsToggler.classList.contains('o_optional_columns_dropdown_toggle'),
             'The optional fields toggler is the last element');
-        const optionalFieldsDropdown = list.el.querySelector('.o_list_view').lastElementChild;
+        const optionalFieldsDropdown = list.el.querySelector('.o_legacy_list_view').lastElementChild;
         assert.ok(optionalFieldsDropdown.classList.contains('o_optional_columns'),
             'The optional fields is the last element');
 
-        assert.ok(list.$('.o_optional_columns .dropdown-menu').hasClass('dropdown-menu-left'),
+        assert.ok(list.$('.o_optional_columns .dropdown-menu').hasClass('dropdown-menu-start'),
             'In RTL, the dropdown should be anchored to the left and expand to the right');
 
         list.destroy();
@@ -11857,7 +11702,7 @@ QUnit.module('Views', {
             res_id: 1,
         });
 
-        const listWidth = form.el.querySelector('.o_list_view').offsetWidth;
+        const listWidth = form.el.querySelector('.o_legacy_list_view').offsetWidth;
 
         await testUtils.dom.click(form.el.querySelector('.o_optional_columns_dropdown_toggle'));
         assert.strictEqual(form.el.querySelector('.o_optional_columns').offsetLeft, listWidth,
@@ -11903,18 +11748,18 @@ QUnit.module('Views', {
 
         await doAction(webClient, 2);
 
-        assert.containsOnce(webClient, '.o_list_view',
+        assert.containsOnce(target, '.o_legacy_list_view',
             "should have rendered a list view");
 
-        assert.containsN(webClient, 'th', 3, "should display 3 th (selector + 2 fields)");
+        assert.containsN(target, 'th', 3, "should display 3 th (selector + 2 fields)");
 
         // enable optional field
-        await testUtils.dom.click($(webClient.el).find('table .o_optional_columns_dropdown_toggle'));
-        assert.notOk($(webClient.el).find('div.o_optional_columns div.dropdown-item [name="m2o"]').is(":checked"));
-        assert.ok($(webClient.el).find('div.o_optional_columns div.dropdown-item [name="o2m"]').is(":checked"));
-        await testUtils.dom.click($(webClient.el).find('div.o_optional_columns div.dropdown-item:first'));
-        assert.containsN(webClient, 'th', 4, "should display 4 th (selector + 3 fields)");
-        assert.ok($(webClient.el).find('th:contains(M2O field)').is(':visible'),
+        await testUtils.dom.click($(target).find('table .o_optional_columns_dropdown_toggle'));
+        assert.notOk($(target).find('div.o_optional_columns div.dropdown-item [name="m2o"]').is(":checked"));
+        assert.ok($(target).find('div.o_optional_columns div.dropdown-item [name="o2m"]').is(":checked"));
+        await testUtils.dom.click($(target).find('div.o_optional_columns div.dropdown-item:first'));
+        assert.containsN(target, 'th', 4, "should display 4 th (selector + 3 fields)");
+        assert.ok($(target).find('th:contains(M2O field)').is(':visible'),
             "should have a visible m2o field"); //m2o field
 
         // switch to kanban view
@@ -11923,9 +11768,9 @@ QUnit.module('Views', {
             view_type: 'kanban',
         });
 
-        assert.containsNone(webClient, '.o_list_view',
+        assert.containsNone(target, '.o_legacy_list_view',
             "should not display the list view anymore");
-        assert.containsOnce(webClient, '.o_kanban_view',
+        assert.containsOnce(target, '.o_legacy_kanban_view',
             "should have switched to the kanban view");
 
         // switch back to list view
@@ -11934,46 +11779,46 @@ QUnit.module('Views', {
             view_type: 'list',
         });
 
-        assert.containsNone(webClient, '.o_kanban_view',
+        assert.containsNone(target, '.o_legacy_kanban_view',
             "should not display the kanban view anymoe");
-        assert.containsOnce(webClient, '.o_list_view',
+        assert.containsOnce(target, '.o_legacy_list_view',
             "should display the list view");
 
-        assert.containsN(webClient, 'th', 4, "should display 4 th");
-        assert.ok($(webClient.el).find('th:contains(M2O field)').is(':visible'),
+        assert.containsN(target, 'th', 4, "should display 4 th");
+        assert.ok($(target).find('th:contains(M2O field)').is(':visible'),
             "should have a visible m2o field"); //m2o field
-        assert.ok($(webClient.el).find('th:contains(O2M field)').is(':visible'),
+        assert.ok($(target).find('th:contains(O2M field)').is(':visible'),
             "should have a visible o2m field"); //m2o field
 
         // disable optional field
-        await testUtils.dom.click($(webClient.el).find('table .o_optional_columns_dropdown_toggle'));
-        assert.ok($(webClient.el).find('div.o_optional_columns div.dropdown-item [name="m2o"]').is(":checked"));
-        assert.ok($(webClient.el).find('div.o_optional_columns div.dropdown-item [name="o2m"]').is(":checked"));
-        await testUtils.dom.click($(webClient.el).find('div.o_optional_columns div.dropdown-item:last input'));
-        assert.ok($(webClient.el).find('th:contains(M2O field)').is(':visible'),
+        await testUtils.dom.click($(target).find('table .o_optional_columns_dropdown_toggle'));
+        assert.ok($(target).find('div.o_optional_columns div.dropdown-item [name="m2o"]').is(":checked"));
+        assert.ok($(target).find('div.o_optional_columns div.dropdown-item [name="o2m"]').is(":checked"));
+        await testUtils.dom.click($(target).find('div.o_optional_columns div.dropdown-item:last input'));
+        assert.ok($(target).find('th:contains(M2O field)').is(':visible'),
             "should have a visible m2o field"); //m2o field
-        assert.notOk($(webClient.el).find('th:contains(O2M field)').is(':visible'),
+        assert.notOk($(target).find('th:contains(O2M field)').is(':visible'),
             "should have a visible o2m field"); //m2o field
-        assert.containsN(webClient, 'th', 3, "should display 3 th");
+        assert.containsN(target, 'th', 3, "should display 3 th");
 
         await doAction(webClient, 1);
 
-        assert.containsNone(webClient, '.o_list_view',
+        assert.containsNone(target, '.o_legacy_list_view',
             "should not display the list view anymore");
-        assert.containsOnce(webClient, '.o_kanban_view',
+        assert.containsOnce(target, '.o_legacy_kanban_view',
             "should have switched to the kanban view");
 
         await doAction(webClient, 2);
 
-        assert.containsNone(webClient, '.o_kanban_view',
+        assert.containsNone(target, '.o_legacy_kanban_view',
             "should not havethe kanban view anymoe");
-        assert.containsOnce(webClient, '.o_list_view',
+        assert.containsOnce(target, '.o_legacy_list_view',
             "should display the list view");
 
-        assert.containsN(webClient, 'th', 3, "should display 3 th");
-        assert.ok($(webClient.el).find('th:contains(M2O field)').is(':visible'),
+        assert.containsN(target, 'th', 3, "should display 3 th");
+        assert.ok($(target).find('th:contains(M2O field)').is(':visible'),
             "should have a visible m2o field"); //m2o field
-        assert.notOk($(webClient.el).find('th:contains(O2M field)').is(':visible'),
+        assert.notOk($(target).find('th:contains(O2M field)').is(':visible'),
             "should have a visible o2m field"); //m2o field
     });
 
@@ -12248,11 +12093,11 @@ QUnit.module('Views', {
 
         const th = form.el.getElementsByTagName('th')[0];
         const resizeHandle = th.getElementsByClassName('o_resize')[0];
-        const listInitialWidth = form.el.querySelector('.o_list_view').offsetWidth;
+        const listInitialWidth = form.el.querySelector('.o_legacy_list_view').offsetWidth;
 
         await testUtils.dom.dragAndDrop(resizeHandle, form.el.getElementsByTagName('th')[1], { position: "right" });
 
-        assert.strictEqual(form.el.querySelector('.o_list_view').offsetWidth, listInitialWidth,
+        assert.strictEqual(form.el.querySelector('.o_legacy_list_view').offsetWidth, listInitialWidth,
             "resizing the column should not impact the width of list");
 
         form.destroy();
@@ -12332,14 +12177,12 @@ QUnit.module('Views', {
         let mountedCalls = 0;
         let willUnmountCalls = 0;
         class MyField extends AbstractFieldOwl {
-            mounted() {
-                mountedCalls++;
-            }
-            willUnmount() {
-                willUnmountCalls++;
+            setup() {
+                onMounted(() => mountedCalls++);
+                onWillUnmount(() => willUnmountCalls++);
             }
         }
-        MyField.template = owl.tags.xml`<span>Hello World</span>`;
+        MyField.template = xml`<span>Hello World</span>`;
         fieldRegistryOwl.add('my_owl_field', MyField);
 
         const list = await createView({
@@ -12374,7 +12217,7 @@ QUnit.module('Views', {
         });
 
         assert.containsN(list, '.o_data_row', 4);
-        assert.containsN(list, '.o_data_cell .custom-checkbox input:checked', 3);
+        assert.containsN(list, '.o_data_cell .form-check input:checked', 3);
 
         // select all records and edit the boolean field
         await testUtils.dom.click(list.$('thead .o_list_record_selector input'));
@@ -12385,7 +12228,7 @@ QUnit.module('Views', {
         assert.containsOnce(document.body, '.modal');
         await testUtils.dom.click($('.modal .modal-footer .btn-primary'));
 
-        assert.containsNone(list, '.o_data_cell .custom-checkbox input:checked');
+        assert.containsNone(list, '.o_data_cell .form-check input:checked');
 
         list.destroy();
     });
@@ -12480,16 +12323,16 @@ QUnit.module('Views', {
     });
 
     QUnit.test("update control panel while list view is mounting", async function (assert) {
-        const ControlPanel = require('web.ControlPanel');
-        const ListController = require('web.ListController');
 
         let mountedCounterCall = 0;
 
         patch(ControlPanel.prototype, 'test.ControlPanel', {
-            mounted() {
-                mountedCounterCall = mountedCounterCall + 1;
-                assert.step(`mountedCounterCall-${mountedCounterCall}`);
-                this._super(...arguments);
+            setup() {
+                this._super();
+                onMounted(() => {
+                    mountedCounterCall = mountedCounterCall + 1;
+                    assert.step(`mountedCounterCall-${mountedCounterCall}`);
+                });
             },
         });
 
@@ -12552,18 +12395,18 @@ QUnit.module('Views', {
 
         await doAction(webClient, 1);
 
-        assert.strictEqual($(webClient.el).find('.o_field_cell[name="foo"]').text(), "yopblipgnapblip");
-        assert.containsN(webClient, '.o_data_row', 4);
+        assert.strictEqual($(target).find('.o_field_cell[name="foo"]').text(), "yopblipgnapblip");
+        assert.containsN(target, '.o_data_row', 4);
 
-        await testUtils.dom.click($(webClient.el).find('.o_list_button_add'));
-        await testUtils.fields.editInput($(webClient.el).find('.o_field_widget[name="foo"]'), "test");
+        await testUtils.dom.click($(target).find('.o_list_button_add'));
+        await testUtils.fields.editInput($(target).find('.o_field_widget[name="foo"]'), "test");
 
         // change action and come back
         await doAction(webClient, 2);
         await doAction(webClient, 1, { clearBreadcrumbs: true });
 
-        assert.strictEqual($(webClient.el).find('.o_field_cell[name="foo"]').text(), "yopblipgnapbliptest");
-        assert.containsN(webClient, '.o_data_row', 5);
+        assert.strictEqual($(target).find('.o_field_cell[name="foo"]').text(), "yopblipgnapbliptest");
+        assert.containsN(target, '.o_data_row', 5);
     });
 
     QUnit.test("Auto save: modify a record and leave action", async function (assert) {
@@ -12596,16 +12439,16 @@ QUnit.module('Views', {
 
         await doAction(webClient, 1);
 
-        assert.strictEqual($(webClient.el).find('.o_field_cell[name="foo"]').text(), "yopblipgnapblip");
+        assert.strictEqual($(target).find('.o_field_cell[name="foo"]').text(), "yopblipgnapblip");
 
-        await testUtils.dom.click($(webClient.el).find('.o_field_cell[name="foo"]:first'));
-        await testUtils.fields.editInput($(webClient.el).find('.o_field_widget[name="foo"]'), "test");
+        await testUtils.dom.click($(target).find('.o_field_cell[name="foo"]:first'));
+        await testUtils.fields.editInput($(target).find('.o_field_widget[name="foo"]'), "test");
 
         // change action and come back
         await doAction(webClient, 2);
         await doAction(webClient, 1, { clearBreadcrumbs: true });
 
-        assert.strictEqual($(webClient.el).find('.o_field_cell[name="foo"]').text(), "testblipgnapblip");
+        assert.strictEqual($(target).find('.o_field_cell[name="foo"]').text(), "testblipgnapblip");
     });
 
     QUnit.test("Auto save: modify a record and leave action (reject)", async function (assert) {
@@ -12638,16 +12481,16 @@ QUnit.module('Views', {
 
         await doAction(webClient, 1);
 
-        assert.strictEqual($(webClient.el).find('.o_field_cell[name="foo"]').text(), "yopblipgnapblip");
+        assert.strictEqual($(target).find('.o_field_cell[name="foo"]').text(), "yopblipgnapblip");
 
-        await testUtils.dom.click($(webClient.el).find('.o_field_cell[name="foo"]:first'));
-        await testUtils.fields.editInput($(webClient.el).find('.o_field_widget[name="foo"]'), "");
+        await testUtils.dom.click($(target).find('.o_field_cell[name="foo"]:first'));
+        await testUtils.fields.editInput($(target).find('.o_field_widget[name="foo"]'), "");
 
         await assert.rejects(doAction(webClient, 2));
 
-        assert.strictEqual($(webClient.el).find('.o_field_cell[name="foo"]').text(), "blipgnapblip");
-        assert.hasClass($(webClient.el).find('.o_field_widget[name="foo"]:first'), 'o_field_invalid');
-        assert.containsN(webClient, '.o_data_row', 4);
+        assert.strictEqual($(target).find('.o_field_cell[name="foo"]').text(), "blipgnapblip");
+        assert.hasClass($(target).find('.o_field_widget[name="foo"]:first'), 'o_field_invalid');
+        assert.containsN(target, '.o_data_row', 4);
     });
 
     QUnit.test("Auto save: add a record and change page", async function (assert) {
@@ -12941,6 +12784,30 @@ QUnit.module('Views', {
         list.destroy();
     });
 
+    QUnit.test('archive/unarchive not available on active readonly models', async function (assert) {
+        assert.expect(2);
+
+        this.data.foo.fields.active = { string: 'Active', type: 'boolean', default: true, readonly: true };
+
+        const list = await createView({
+            View: ListView,
+            model: 'foo',
+            data: this.data,
+            arch: '<tree limit="3"><field name="display_name"/></tree>',
+            viewOptions: {
+                hasActionMenus: true,
+            },
+        });
+
+        await testUtils.dom.click(list.$('tbody .o_data_row:first td.o_list_record_selector:first input'));
+        assert.containsOnce(list, '.o_cp_action_menus', 'sidebar should be available');
+
+        await testUtils.dom.click(list.$('.o_cp_action_menus .dropdown-toggle:contains(Action)'));
+        assert.containsNone(list, 'a:contains(Archive)', 'Archive action should not be available');
+
+        list.destroy();
+    });
+
     QUnit.test('FieldColorPicker: dont overflow color picker in list', async function (assert) {
         const list = await createView({
             View: ListView,
@@ -12964,53 +12831,6 @@ QUnit.module('Views', {
         list.destroy();
     });
 
-    QUnit.test('editable list view: check iso-language used to default date context when groupby applied', async function (assert) {
-        assert.expect(4);
-
-        const originalLocale = moment.locale();
-        var numberMap = {'١': '1', '٢': '2', '٣': '3', '٤': '4', '٥': '5', '٦': '6', '٧': '7', '٨': '8', '٩': '9', '٠': '0'};
-        var symbolMap = {'1': '١', '2': '٢', '3': '٣', '4': '٤', '5': '٥', '6': '٦', '7': '٧', '8': '٨', '9': '٩', '0': '٠'};
-        moment.defineLocale('ar_001', {
-            preparse: function (string) {
-                return string.replace(/\u200f/g, '').replace(/[١٢٣٤٥٦٧٨٩٠]/g, function (match) {
-                    return numberMap[match];
-                }).replace(/،/g, ',');
-            },
-            postformat: function (string) {
-                return string.replace(/\d/g, function (match) {
-                    return symbolMap[match];
-                }).replace(/,/g, '،');
-            },
-        });
-
-        var list = await createView({
-            View: ListView,
-            debug: 1,
-            data: this.data,
-            model: 'foo',
-            arch: '<tree editable="bottom"><field name="date"/></tree>',
-            groupBy: ['date:day'],
-            mockRPC(route, args) {
-                if (args.method === 'create') {
-                    assert.step('create');
-                    assert.strictEqual(args.model, 'foo');
-                    assert.strictEqual(args.args[0].date, '2017-01-25');
-                }
-                return this._super.call(this, ...arguments);
-            }
-        });
-
-        await testUtils.dom.click(list.$('.o_group_name:eq(0)'));
-        await testUtils.dom.click(list.$('.o_add_record_row a'));
-        await testUtils.dom.click($('.o_list_button_save'));
-
-        moment.locale(originalLocale);
-        moment.updateLocale('ar_001', null);
-
-        list.destroy();
-
-        assert.verifySteps(['create']);
-    });
 
 });
 

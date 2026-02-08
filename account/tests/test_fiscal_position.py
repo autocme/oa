@@ -67,7 +67,7 @@ class TestFiscalPosition(common.TransactionCase):
     def test_10_fp_country(self):
         def assert_fp(partner, expected_pos, message):
             self.assertEqual(
-                self.fp.get_fiscal_position(partner.id).id,
+                self.fp._get_fiscal_position(partner).id,
                 expected_pos.id,
                 message)
 
@@ -221,7 +221,7 @@ class TestFiscalPosition(common.TransactionCase):
         # Delivery (VAT/country) : NL/NL
         # Expected FP : Régime National
         self.assertEqual(
-            self.env['account.fiscal.position'].get_fiscal_position(partner_be_vat.id, partner_nl_vat.id),
+            self.env['account.fiscal.position']._get_fiscal_position(partner_be_vat, partner_nl_vat),
             fp_be_nat
         )
 
@@ -230,7 +230,7 @@ class TestFiscalPosition(common.TransactionCase):
         # Delivery (VAT/country) : BE/BE
         # Expected FP : Régime National
         self.assertEqual(
-            self.env['account.fiscal.position'].get_fiscal_position(partner_nl_vat.id, partner_be_vat.id),
+            self.env['account.fiscal.position']._get_fiscal_position(partner_nl_vat, partner_be_vat),
             fp_be_nat
         )
 
@@ -239,7 +239,7 @@ class TestFiscalPosition(common.TransactionCase):
         # Delivery (VAT/country) : None/NL
         # Expected FP : Régime National
         self.assertEqual(
-            self.env['account.fiscal.position'].get_fiscal_position(partner_be_vat.id, partner_nl_no_vat.id),
+            self.env['account.fiscal.position']._get_fiscal_position(partner_be_vat, partner_nl_no_vat),
             fp_be_nat
         )
 
@@ -248,7 +248,7 @@ class TestFiscalPosition(common.TransactionCase):
         # Delivery (VAT/country) : NL/NL
         # Expected FP : Régime Intra-Communautaire
         self.assertEqual(
-            self.env['account.fiscal.position'].get_fiscal_position(partner_nl_vat.id, partner_nl_vat.id),
+            self.env['account.fiscal.position']._get_fiscal_position(partner_nl_vat, partner_nl_vat),
             fp_eu_intra
         )
 
@@ -257,7 +257,7 @@ class TestFiscalPosition(common.TransactionCase):
         # Delivery (VAT/country) : None/NL
         # Expected FP : EU privé
         self.assertEqual(
-            self.env['account.fiscal.position'].get_fiscal_position(partner_nl_no_vat.id, partner_nl_no_vat.id),
+            self.env['account.fiscal.position']._get_fiscal_position(partner_nl_no_vat, partner_nl_no_vat),
             fp_eu_priv
         )
 
@@ -266,7 +266,7 @@ class TestFiscalPosition(common.TransactionCase):
         # Delivery (VAT/country) : None/US
         # Expected FP : Régime Extra-Communautaire
         self.assertEqual(
-            self.env['account.fiscal.position'].get_fiscal_position(partner_us_no_vat.id, partner_us_no_vat.id),
+            self.env['account.fiscal.position']._get_fiscal_position(partner_us_no_vat, partner_us_no_vat),
             fp_eu_extra
         )
 
@@ -286,7 +286,7 @@ class TestFiscalPosition(common.TransactionCase):
         })
         with self.assertRaises(ValidationError):
             fiscal_position.write({
-                'zip_from' : '123',
+                'zip_from': '123',
             })
         with self.assertRaises(ValidationError):
             fiscal_position.write({

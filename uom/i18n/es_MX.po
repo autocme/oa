@@ -3,16 +3,16 @@
 # 	* uom
 # 
 # Translators:
-# Martin Trigaux, 2021
+# Martin Trigaux, 2022
 # Fernanda Alvarez, 2024
 # Patricia Gutiérrez Capetillo <pagc@odoo.com>, 2024
 # 
 msgid ""
 msgstr ""
-"Project-Id-Version: Odoo Server saas~14.4\n"
+"Project-Id-Version: Odoo Server 16.0beta\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2021-07-12 07:50+0000\n"
-"PO-Revision-Date: 2021-09-14 12:27+0000\n"
+"POT-Creation-Date: 2022-09-23 08:03+0000\n"
+"PO-Revision-Date: 2022-09-22 05:55+0000\n"
 "Last-Translator: Patricia Gutiérrez Capetillo <pagc@odoo.com>, 2024\n"
 "Language-Team: Spanish (Mexico) (https://app.transifex.com/odoo/teams/41243/es_MX/)\n"
 "MIME-Version: 1.0\n"
@@ -29,7 +29,7 @@ msgid ""
 "                                </span>"
 msgstr ""
 "<span class=\"oe_grey oe_inline\">\n"
-"                                    por ejemplo: 1 * (unidad de referencia) = proporción * (esta unidad)\n"
+"                                    por ejemplo: 1*(unidad de referencia)=razón*(esta unidad)\n"
 "                                </span>"
 
 #. module: uom
@@ -40,7 +40,7 @@ msgid ""
 "                                </span>"
 msgstr ""
 "<span class=\"oe_grey oe_inline\">\n"
-"                                    por ejemplo: 1 * (esta unidad) = proporción * (unidad de referencia)\n"
+"                                    por ejemplo: 1*(esta unidad)=razón*(unidad de referencia)\n"
 "                                </span>"
 
 #. module: uom
@@ -126,13 +126,6 @@ msgstr "Nombre en pantalla"
 #: model:uom.uom,name:uom.product_uom_dozen
 msgid "Dozens"
 msgstr "Docenas"
-
-#. module: uom
-#: model:ir.model.fields,help:uom.field_uom_category__reference_uom_id
-msgid "Dummy field to keep track of reference uom change"
-msgstr ""
-"Campo de simulación para llevar un registro de referencia para cambios de "
-"UdM"
 
 #. module: uom
 #: model_terms:ir.ui.view,arch_db:uom.uom_uom_view_search
@@ -280,7 +273,7 @@ msgstr ""
 #. module: uom
 #: model:ir.model.constraint,message:uom.constraint_uom_uom_factor_gt_zero
 msgid "The conversion ratio for a unit of measure cannot be 0!"
-msgstr "La relación de conversión para una unidad de medida no puede ser 0"
+msgstr "¡La relación de conversión para una unidad de medida no puede ser 0!"
 
 #. module: uom
 #: code:addons/uom/models/uom_uom.py:0
@@ -388,7 +381,15 @@ msgstr ""
 "horas, días."
 
 #. module: uom
-#: code:addons/uom/models/uom_uom.py:0 code:addons/uom/models/uom_uom.py:0
+#: code:addons/uom/models/uom_uom.py:0
+#, python-format
+msgid "UoM category %s must have at least one reference unit of measure."
+msgstr ""
+"La categoría %s de unidades de medida debería tener al menos una unidad de "
+"medida de referencia."
+
+#. module: uom
+#: code:addons/uom/models/uom_uom.py:0
 #, python-format
 msgid "UoM category %s should have a reference unit of measure."
 msgstr ""
@@ -417,12 +418,6 @@ msgstr "Volumen"
 #, python-format
 msgid "Warning for %s"
 msgstr "Advertencia para %s"
-
-#. module: uom
-#: code:addons/uom/models/uom_uom.py:0
-#, python-format
-msgid "Warning!"
-msgstr "¡Advertencia!"
 
 #. module: uom
 #: model:uom.category,name:uom.product_uom_categ_kgm
@@ -527,3 +522,8 @@ msgstr "oz"
 #: model:uom.uom,name:uom.product_uom_qt
 msgid "qt (US)"
 msgstr "qt (EE. UU.)"
+
+#. module: uom
+#: model:uom.uom,name:uom.product_uom_yard
+msgid "yd"
+msgstr "yd"

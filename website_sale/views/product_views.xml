@@ -74,7 +74,7 @@
     <record id="product_template_action_website" model="ir.actions.act_window">
         <field name="name">Products</field>
         <field name="res_model">product.template</field>
-        <field name="view_mode">tree,kanban,form,activity</field>
+        <field name="view_mode">kanban,tree,form,activity</field>
         <field name="view_id"/>
         <field name="search_view_id" ref="product_template_search_view_website"/>
         <field name="context">{'search_default_published': 1, 'tree_view_ref':'website_sale.product_template_view_tree_website_sale', 'kanban_view_ref':'website_sale.product_template_view_kanban_website_sale'}</field>
@@ -92,14 +92,23 @@
         <field name="model">product.template</field>
         <field name="inherit_id" ref="product.product_template_only_form_view"/>
         <field name="arch" type="xml">
+            <div name="pricing" position="after">
+                <label for="compare_list_price" groups="website_sale.group_product_price_comparison"/>
+                <div class="o_row" groups="website_sale.group_product_price_comparison">
+                    <del class="oe_read_only">
+                        <field name="compare_list_price" nolabel="1" widget="monetary" options="{'currency_field': 'currency_id', 'field_digits': True}"/>
+                    </del>
+                    <field name="compare_list_price" nolabel="1" widget="monetary" options="{'currency_field': 'currency_id', 'field_digits': True}" class="oe_edit_only"/>
+                </div>
+            </div>
             <xpath expr="//field[@name='uom_id']" position="after">
                 <label for="base_unit_count" groups="website_sale.group_show_uom_price"/>
-                <div name="base_unit_price" groups="website_sale.group_show_uom_price" class="o_row">
-                    <field name="base_unit_count" attrs="{'invisible': [('product_variant_count', '>', 1)]}" />
-                    <field name="base_unit_id" options="{'no_open': True}" attrs="{'invisible': [('product_variant_count', '>', 1)]}" />
-                    <span attrs="{'invisible': ['|', ('base_unit_price','=', 0), ('product_variant_count', '>', 1)]}">
-                        (<field name="base_unit_price"/> / <field name="base_unit_name"/>)
-                    </span>
+                <div name="base_unit_price" groups="website_sale.group_show_uom_price" class="d-flex flex-row">
+                    <field name="base_unit_count" attrs="{'invisible': [('product_variant_count', '>', 1)]}" style="width: 4rem;"/>
+                    <field name="base_unit_id" options="{'no_open': True}" attrs="{'invisible': [('product_variant_count', '>', 1)]}" placeholder="Specify unit" style="width: 10rem;"/>
+                    <div class="d-flex flex-row" attrs="{'invisible': ['|', ('base_unit_price','=', 0), ('product_variant_count', '>', 1)]}">
+                        (<field name="base_unit_price" class="oe_inline"/> / <field name="base_unit_name" class="oe_inline"/>)
+                    </div>
                     <span class='text-muted' attrs="{'invisible': [('product_variant_count', '&lt;=', 1)]}">Based on variants</span>
                 </div>
             </xpath>
@@ -113,12 +122,12 @@
         <field name="arch" type="xml">
             <xpath expr="//field[@name='uom_id']" position="after">
                 <label for="base_unit_count" groups="website_sale.group_show_uom_price"/>
-                <div name="base_unit_price" groups="website_sale.group_show_uom_price" class="o_row">
-                    <field name="base_unit_count"/>
-                    <field name="base_unit_id" options="{'no_open': True}"/>
-                    <span attrs="{'invisible': [('base_unit_price','=', 0)]}">
-                        (<field name="base_unit_price"/> / <field name="base_unit_name"/>)
-                    </span>
+                <div name="base_unit_price" groups="website_sale.group_show_uom_price" class="d-flex flex-row">
+                    <field name="base_unit_count" style="width: 4rem;"/>
+                    <field name="base_unit_id" options="{'no_open': True}" placeholder="Specify unit" style="width: 10rem;"/>
+                    <div class="d-flex flex-row" attrs="{'invisible': [('base_unit_price','=', 0)]}">
+                        (<field name="base_unit_price" class="oe_inline"/> / <field name="base_unit_name" class="oe_inline"/>)
+                    </div>
                 </div>
             </xpath>
         </field>
@@ -164,21 +173,21 @@
         <field name="model">product.product</field>
         <field name="inherit_id" ref="product.product_variant_easy_edit_view"/>
         <field name="arch" type="xml">
-            <field name="standard_price" position="after">
+            <xpath expr="//group[@name='pricing']" position="inside">
                 <label for="base_unit_count" groups="website_sale.group_show_uom_price"/>
-                <div name="base_unit_price" groups="website_sale.group_show_uom_price" class="o_row">
-                    <field name="base_unit_count"/>
-                    <field name="base_unit_id" options="{'no_open': True}"/>
-                    <span attrs="{'invisible': [('base_unit_price','=', 0)]}">
-                        (<field name="base_unit_price"/> / <field name="base_unit_name"/>)
-                    </span>
+                <div name="base_unit_price" groups="website_sale.group_show_uom_price" class="d-flex flex-row">
+                    <field name="base_unit_count" style="width: 4rem;"/>
+                    <field name="base_unit_id" options="{'no_open': True}" placeholder="Specify unit" style="width: 10rem;"/>
+                    <div class="d-flex flex-row" attrs="{'invisible': [('base_unit_price','=', 0)]}">
+                        (<field name="base_unit_price" class="oe_inline"/> / <field name="base_unit_name" class="oe_inline"/>)
+                    </div>
                 </div>
-            </field>
-            <sheet position="inside">
+            </xpath>
+            <xpath expr="//group[@name='packaging']" position="after">
                 <group name="product_variant_images" string="Extra Variant Media">
                     <field name="product_variant_image_ids" class="o_website_sale_image_list" context="{'default_name': name}" mode="kanban" add-label="Add a Media" nolabel="1"/>
                 </group>
-            </sheet>
+            </xpath>
         </field>
     </record>
 
@@ -197,6 +206,11 @@
                         <group>
                             <field name="html_class"/>
                             <field name="bg_color"/>
+                        </group>
+                    </group>
+                    <group string="Products">
+                        <group>
+                            <field name="product_tag_ids" widget="many2many_tags" options="{'color_field': 'color', 'no_edit_color': 1}"/>
                         </group>
                     </group>
                 </sheet>
@@ -269,6 +283,7 @@
         <field name="arch" type="xml">
             <xpath expr="//group[@name='pricelist_availability']" position="after">
                 <group name="pricelist_website" string="Website">
+                    <field name="company_id" invisible="1"/>
                     <field name="website_id" options="{'no_create': True}"/>
                     <field name="selectable"/>
                     <field name="code"/>
@@ -345,17 +360,17 @@
                             </div>
                             <!-- below 100 Kb: good -->
                             <t t-if="record.image_1920.raw_value.length &lt; 100*1000">
-                                <t t-set="size_status" t-value="'badge-success'"/>
+                                <t t-set="size_status" t-value="'text-bg-success'"/>
                                 <t t-set="message">Acceptable file size</t>
                             </t>
                             <!-- below 1000 Kb: decent -->
                             <t t-elif="record.image_1920.raw_value.length &lt; 1000*1000">
-                                <t t-set="size_status" t-value="'badge-warning'" />
+                                <t t-set="size_status" t-value="'text-bg-warning'" />
                                 <t t-set="message">Huge file size. The image should be optimized/reduced.</t>
                             </t>
                             <!-- above 1000 Kb: bad -->
                             <t t-else="1">
-                                <t t-set="size_status" t-value="'badge-danger'"/>
+                                <t t-set="size_status" t-value="'text-bg-danger'"/>
                                 <t t-set="message">Optimization required! Reduce the image size or increase your compression settings.</t>
                             </t>
                             <span t-attf-class="badge #{size_status} o_product_image_size" t-esc="record.image_1920.value" t-att-title="message"/>

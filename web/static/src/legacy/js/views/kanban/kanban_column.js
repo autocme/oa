@@ -1,8 +1,8 @@
 odoo.define('web.KanbanColumn', function (require) {
 "use strict";
 
-var config = require('web.config');
 var core = require('web.core');
+var config = require('web.config');
 var session = require('web.session');
 var Dialog = require('web.Dialog');
 var KanbanRecord = require('web.KanbanRecord');
@@ -67,7 +67,7 @@ var KanbanColumn = Widget.extend({
         this.offset = 0;
         this.loadMoreCount = data.loadMoreCount;
         this.loadMoreOffset = data.loadMoreOffset;
-        this.canBeFolded = this.folded;
+        this.isMobile = config.device.isMobile;
 
         if (options.hasProgressBar) {
             this.barOptions = {
@@ -80,10 +80,12 @@ var KanbanColumn = Widget.extend({
 
         if (options.grouped_by_m2o || options.grouped_by_date || options.grouped_by_m2m) {
             // For many2x and datetime, a false value means that the field is not set.
-            this.title = value ? value : _t('Undefined');
+            this.title = value ? value : _t('None');
+        } else if (this.groupedBy && this.fields[this.groupedBy].type === 'boolean') {
+            this.title = value === undefined ? _t('None') : (value ? _t('Yes') : _t('No'));
         } else {
             // False and 0 might be valid values for these fields.
-            this.title = value === undefined ? _t('Undefined') : value;
+            this.title = value === undefined ? _t('None') : value;
         }
 
         if (options.group_by_tooltip) {
@@ -106,7 +108,7 @@ var KanbanColumn = Widget.extend({
             defs.push(this._addRecord(this.data_records[i]));
         }
 
-        if (this.recordsDraggable) {
+        if (this.recordsDraggable && !config.device.isMobile) {
             this.$el.sortable({
                 connectWith: '.o_kanban_group',
                 containment: this.draggable ? false : 'parent',
@@ -146,23 +148,25 @@ var KanbanColumn = Widget.extend({
                 }
             });
         }
-        this.$el.click(function (event) {
-            if (self.folded) {
-                self._onToggleFold(event);
-            }
-        });
+        if (!config.device.isMobile) {
+            this.$el.click(function (event) {
+                if (self.folded) {
+                    self._onToggleFold(event);
+                }
+            });
+        }
         if (this.barOptions) {
             this.$el.addClass('o_kanban_has_progressbar');
-            this.progressBar = new KanbanColumnProgressBar(this, this.barOptions, this.data);
+            this.progressBar = this._getKanbanColumnProgressBar();
             defs.push(this.progressBar.appendTo(this.$header));
         }
 
-        var title = this.folded ? this.title + ' (' + this.data.count + ')' : this.title;
+        var title = !config.device.isMobile && this.folded ? this.title + ' (' + this.data.count + ')' : this.title;
         this.$header.find('.o_column_title').text(title);
 
-        this.$el.toggleClass('o_column_folded', this.canBeFolded);
+        this.$el.toggleClass('o_column_folded', !config.device.isMobile && this.folded);
         if (this.tooltipInfo) {
-            this.$header.find('.o_kanban_header_title').tooltip({}).attr('data-original-title', this.tooltipInfo);
+            this.$header.find('.o_kanban_header_title').tooltip({}).attr('data-bs-original-title', this.tooltipInfo);
         }
         if (!this.loadMoreCount) {
             this.$('.o_kanban_load_more').remove();
@@ -210,7 +214,7 @@ var KanbanColumn = Widget.extend({
         this.trigger_up('close_quick_create'); // close other quick create widgets
         var context = this.data.getContext();
         var groupByField = viewUtils.getGroupByField(this.groupedBy);
-        context['default_' + groupByField] = viewUtils.getGroupValue(this.data, groupByField);
+        context['default_' + groupByField] = viewUtils.getGroupValue(this.data, this.groupedBy);
         this.quickCreateWidget = new RecordQuickCreate(this, {
             context: context,
             formViewRef: this.quickCreateView,
@@ -286,6 +290,15 @@ var KanbanColumn = Widget.extend({
         });
         return ids;
     },
+    /**
+     * This method can be over-ridden when custom ColumnProgressbar is to be used
+     *
+     * @private
+     * @returns {Widget} the instance of 'KanbanColumnProgressBar'
+     */
+    _getKanbanColumnProgressBar: function () {
+        return new KanbanColumnProgressBar(this, this.barOptions, this.data);
+    },
 
     //--------------------------------------------------------------------------
     // Handlers
@@ -355,7 +368,11 @@ var KanbanColumn = Widget.extend({
      */
     _onLoadMore: function (event) {
         event.preventDefault();
-        this.trigger_up('kanban_load_column_records', { loadMoreOffset: this.loadMoreOffset });
+        if (this.folded) {
+            this.trigger_up('column_toggle_fold');
+        } else {
+            this.trigger_up('kanban_load_column_records', { loadMoreOffset: this.loadMoreOffset });
+        }
     },
     /**
      * @private

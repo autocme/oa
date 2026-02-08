@@ -9,7 +9,6 @@ var qweb = core.qweb;
 const GalleryWidget = publicWidget.Widget.extend({
 
     selector: '.s_image_gallery:not(.o_slideshow)',
-    xmlDependencies: ['/website/static/src/snippets/s_image_gallery/000.xml'],
     events: {
         'click img': '_onClickImg',
     },
@@ -53,43 +52,40 @@ const GalleryWidget = publicWidget.Widget.extend({
             interval: milliseconds || 0,
             id: _.uniqueId('slideshow_'),
         }));
-        this.$modal.modal({
-            keyboard: true,
-            backdrop: true,
-        });
+        this.__onModalKeydown = this._onModalKeydown.bind(this);
         this.$modal.on('hidden.bs.modal', function () {
             $(this).hide();
             $(this).siblings().filter('.modal-backdrop').remove(); // bootstrap leaves a modal-backdrop
+            this.removeEventListener("keydown", self.__onModalKeydown);
             $(this).remove();
             self.$modal = undefined;
         });
-        this.$modal.find('.modal-content, .modal-body.o_slideshow').css('height', '100%');
-        this.$modal[0].tabIndex = "-1";
-        this.$modal.appendTo(document.body);
-
-        this.__onModalKeydown = this._onModalKeydown.bind(this);
         this.$modal.one('shown.bs.modal', function () {
             self.trigger_up('widgets_start_request', {
                 editableMode: false,
                 $target: self.$modal.find('.modal-body.o_slideshow'),
             });
-            self.$modal[0].addEventListener("keydown", self.__onModalKeydown);
+            this.addEventListener("keydown", self.__onModalKeydown);
         });
-        this.$modal.one("hide.bs.modal", () => {
-            this.$modal[0].removeEventListener("keydown", this.__onModalKeydown);
-        });
+        this.$modal.appendTo(document.body);
+        const modalBS = new Modal(this.$modal[0], {keyboard: true, backdrop: true});
+        modalBS.show();
     },
     _onModalKeydown(ev) {
         if (ev.key === "ArrowLeft" || ev.key === "ArrowRight") {
             const side = ev.key === "ArrowLeft" ? "prev" : "next";
             this.$modal[0].querySelector(`.carousel-control-${side}`).click();
         }
+        if (ev.key === "Escape") {
+            // If the user is connected as an editor, prevent the backend header
+            // from collapsing.
+            ev.stopPropagation();
+        }
     },
 });
 
 const GallerySliderWidget = publicWidget.Widget.extend({
     selector: '.o_slideshow',
-    xmlDependencies: ['/website/static/src/snippets/s_image_gallery/000.xml'],
     disabledInEditableMode: false,
 
     /**
@@ -101,7 +97,7 @@ const GallerySliderWidget = publicWidget.Widget.extend({
         this.$indicator = this.$carousel.find('.carousel-indicators');
         this.$prev = this.$indicator.find('li.o_indicators_left').css('visibility', ''); // force visibility as some databases have it hidden
         this.$next = this.$indicator.find('li.o_indicators_right').css('visibility', '');
-        var $lis = this.$indicator.find('li[data-slide-to]');
+        var $lis = this.$indicator.find('li[data-bs-slide-to]');
         let indicatorWidth = this.$indicator.width();
         if (indicatorWidth === 0) {
             // An ancestor may be hidden so we try to find it and make it
@@ -151,11 +147,11 @@ const GallerySliderWidget = publicWidget.Widget.extend({
                 var $item = self.$carousel.find('.carousel-inner .carousel-item-prev, .carousel-inner .carousel-item-next');
                 var index = $item.index();
                 $lis.removeClass('active')
-                    .filter('[data-slide-to="' + index + '"]')
+                    .filter('[data-bs-slide-to="' + index + '"]')
                     .addClass('active');
             }, 0);
         });
-        this.$indicator.on('click.gallery_slider', '> li:not([data-slide-to])', function () {
+        this.$indicator.on('click.gallery_slider', '> li:not([data-bs-slide-to])', function () {
             page += ($(this).hasClass('o_indicators_left') ? -1 : 1);
             page = Math.max(0, Math.min(nbPages - 1, page)); // should not be necessary
             self.$carousel.carousel(page * realNbPerPage);

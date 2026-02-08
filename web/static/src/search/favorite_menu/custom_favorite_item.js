@@ -1,10 +1,11 @@
 /** @odoo-module **/
 
+import { Dropdown } from "@web/core/dropdown/dropdown";
+import { CheckBox } from "@web/core/checkbox/checkbox";
 import { registry } from "@web/core/registry";
-import { useAutofocus, useService } from "@web/core/utils/hooks";
+import { useService } from "@web/core/utils/hooks";
 
-const { Component, hooks } = owl;
-const { useRef, useState } = hooks;
+import { Component, useRef, useState } from "@odoo/owl";
 
 const favoriteMenuRegistry = registry.category("favoriteMenu");
 
@@ -12,9 +13,8 @@ export class CustomFavoriteItem extends Component {
     setup() {
         this.notificationService = useService("notification");
         this.descriptionRef = useRef("description");
-        useAutofocus();
         this.state = useState({
-            description: this.env.config.displayName || "",
+            description: this.env.config.getDisplayName(),
             isDefault: false,
             isShared: false,
         });
@@ -24,7 +24,7 @@ export class CustomFavoriteItem extends Component {
      * @param {Event} ev
      */
     saveFavorite(ev) {
-        if (!this.state.description.length) {
+        if (!this.state.description) {
             this.notificationService.add(
                 this.env._t("A name for your favorite filter is required."),
                 { type: "danger" }
@@ -46,17 +46,16 @@ export class CustomFavoriteItem extends Component {
         this.env.searchModel.createNewFavorite({ description, isDefault, isShared });
 
         Object.assign(this.state, {
-            description: this.env.config.displayName || "",
+            description: this.env.config.getDisplayName(),
             isDefault: false,
             isShared: false,
         });
     }
 
     /**
-     * @param {Event} ev
+     * @param {boolean} checked
      */
-    onDefaultCheckboxChange(ev) {
-        const { checked } = ev.target;
+    onDefaultCheckboxChange(checked) {
         this.state.isDefault = checked;
         if (checked) {
             this.state.isShared = false;
@@ -64,10 +63,9 @@ export class CustomFavoriteItem extends Component {
     }
 
     /**
-     * @param {Event} ev
+     * @param {boolean} checked
      */
-    onShareCheckboxChange(ev) {
-        const { checked } = ev.target;
+    onShareCheckboxChange(checked) {
         this.state.isShared = checked;
         if (checked) {
             this.state.isDefault = false;
@@ -93,6 +91,7 @@ export class CustomFavoriteItem extends Component {
 }
 
 CustomFavoriteItem.template = "web.CustomFavoriteItem";
+CustomFavoriteItem.components = { CheckBox, Dropdown };
 favoriteMenuRegistry.add(
     "custom-favorite-item",
     { Component: CustomFavoriteItem, groupNumber: 3 },

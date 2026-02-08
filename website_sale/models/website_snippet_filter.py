@@ -21,7 +21,7 @@ class WebsiteSnippetFilter(models.Model):
         samples = super()._get_hardcoded_sample(model)
         if model._name == 'product.product':
             data = [{
-                'image_512': b'/product/static/img/product_chair.png',
+                'image_512': b'/product/static/img/product_chair.jpg',
                 'display_name': _('Chair'),
                 'description_sale': _('Sit comfortably'),
             }, {
@@ -33,7 +33,7 @@ class WebsiteSnippetFilter(models.Model):
                 'display_name': _('Whiteboard'),
                 'description_sale': _('With three feet'),
             }, {
-                'image_512': b'/product/static/img/product_product_27-image.png',
+                'image_512': b'/product/static/img/product_product_27-image.jpg',
                 'display_name': _('Drawer'),
                 'description_sale': _('On wheels'),
             }, {
@@ -41,7 +41,7 @@ class WebsiteSnippetFilter(models.Model):
                 'display_name': _('Box'),
                 'description_sale': _('Reinforced for heavy loads'),
             }, {
-                'image_512': b'/product/static/img/product_product_9-image.png',
+                'image_512': b'/product/static/img/product_product_9-image.jpg',
                 'display_name': _('Bin'),
                 'description_sale': _('Pedal-based opening system'),
             }]
@@ -102,7 +102,7 @@ class WebsiteSnippetFilter(models.Model):
         visitor = self.env['website.visitor']._get_visitor_from_request()
         if visitor:
             excluded_products = website.sale_get_order().order_line.product_id.ids
-            tracked_products = self.env['website.track'].sudo().read_group(
+            tracked_products = self.env['website.track'].sudo()._read_group(
                 [('visitor_id', '=', visitor.id), ('product_id', '!=', False), ('product_id.website_published', '=', True), ('product_id', 'not in', excluded_products)],
                 ['product_id', 'visit_datetime:max'], ['product_id'], limit=limit, orderby='visit_datetime DESC')
             products_ids = [product['product_id'][0] for product in tracked_products]
@@ -157,4 +157,25 @@ class WebsiteSnippetFilter(models.Model):
                         [('id', 'in', products_ids)],
                     ])
                     products = self.env['product.product'].with_context(display_default_code=False).search(domain, limit=limit)
+        return products
+
+    def _get_products_alternative_products(self, website, limit, domain, context):
+        products = self.env['product.product']
+        current_id = context.get('product_template_id')
+        if not current_id:
+            return products
+        current_template = self.env['product.template'].browse(int(current_id))
+        if current_template.exists():
+            excluded_products = website.sale_get_order().order_line.product_id
+            excluded_products |= current_template.product_variant_ids
+            included_products = current_template.alternative_product_ids.product_variant_ids
+            products = included_products - excluded_products
+            if website.prevent_zero_price_sale:
+                products = products.filtered(lambda p: p._get_contextual_price())
+            if products:
+                domain = expression.AND([
+                    domain,
+                    [('id', 'in', products.ids)],
+                ])
+                products = self.env['product.product'].with_context(display_default_code=False).search(domain, limit=limit)
         return products

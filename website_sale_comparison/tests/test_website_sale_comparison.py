@@ -5,8 +5,7 @@ import logging
 
 from collections import OrderedDict
 from lxml import etree
-from unittest import skip
-from odoo import tools
+from odoo import Command
 
 import odoo.tests
 
@@ -21,27 +20,20 @@ class TestWebsiteSaleComparison(odoo.tests.TransactionCase):
 
         Technically it tests the removal of copied views by the base method
         `_remove_copied_views`. The problematic view that has to be removed is
-        `product_add_to_compare` because it has a reference to `add_to_compare`.
+        `product_attributes_body` because it has a reference to `add_to_compare`.
         """
-        # YTI TODO: Adapt this tour without demo data
-        # I still didn't figure why, but this test freezes on runbot
-        # without the demo data
-        if not odoo.tests.loaded_demo_data(self.env):
-            _logger.warning("This test relies on demo data. To be rewritten independently of demo data for accurate and reliable results.")
-            return
-
         Website0 = self.env['website'].with_context(website_id=None)
         Website1 = self.env['website'].with_context(website_id=1)
 
         # Create a generic inherited view, with a key not starting with
         # `website_sale_comparison` otherwise the unlink will work just based on
         # the key, but we want to test also for `MODULE_UNINSTALL_FLAG`.
-        product_add_to_compare = Website0.viewref('website_sale_comparison.product_add_to_compare')
+        product_attributes_body = Website0.viewref('website_sale_comparison.product_attributes_body')
         test_view_key = 'my_test.my_key'
         self.env['ir.ui.view'].with_context(website_id=None).create({
             'name': 'test inherited view',
             'key': test_view_key,
-            'inherit_id': product_add_to_compare.id,
+            'inherit_id': product_attributes_body.id,
             'arch': '<div/>',
         })
 
@@ -52,7 +44,7 @@ class TestWebsiteSaleComparison(odoo.tests.TransactionCase):
 
         # Verify initial state: the specific views exist
         self.assertEqual(Website1.viewref('website_sale.product').website_id.id, 1)
-        self.assertEqual(Website1.viewref('website_sale_comparison.product_add_to_compare').website_id.id, 1)
+        self.assertEqual(Website1.viewref('website_sale_comparison.product_attributes_body').website_id.id, 1)
         self.assertEqual(Website1.viewref(test_view_key).website_id.id, 1)
 
         # Remove the module (use `module_uninstall` because it is enough to test
@@ -62,9 +54,9 @@ class TestWebsiteSaleComparison(odoo.tests.TransactionCase):
         website_sale_comparison.module_uninstall()
 
         # Check that the generic view is correctly removed
-        self.assertFalse(Website0.viewref('website_sale_comparison.product_add_to_compare', raise_if_not_found=False))
+        self.assertFalse(Website0.viewref('website_sale_comparison.product_attributes_body', raise_if_not_found=False))
         # Check that the specific view is correctly removed
-        self.assertFalse(Website1.viewref('website_sale_comparison.product_add_to_compare', raise_if_not_found=False))
+        self.assertFalse(Website1.viewref('website_sale_comparison.product_attributes_body', raise_if_not_found=False))
 
         # Check that the generic inherited view is correctly removed
         self.assertFalse(Website0.viewref(test_view_key, raise_if_not_found=False))
@@ -115,12 +107,63 @@ class TestUi(odoo.tests.HttpCase):
         for variant, price in zip(self.variants_margaux, [487.32, 394.05, 532.44, 1047.84]):
             variant.product_template_attribute_value_ids.filtered(lambda ptav: ptav.attribute_id == self.attribute_vintage).price_extra = price
 
-    @skip("Random bug that will not be fixed in 15.0")
     def test_01_admin_tour_product_comparison(self):
-        # YTI FIXME: Adapt to work without demo data
-        if not odoo.tests.loaded_demo_data(self.env):
-            _logger.warning("This test relies on demo data. To be rewritten independently of demo data for accurate and reliable results.")
-            return
+        attribute = self.env['product.attribute'].create({
+            'name': 'Color',
+            'sequence': 10,
+            'display_type': 'color',
+            'value_ids': [
+                Command.create({
+                    'name': 'Red',
+                }),
+                Command.create({
+                    'name': 'Pink',
+                }),
+                Command.create({
+                    'name': 'Blue'
+                })
+            ]
+        })
+        self.env['product.template'].create([{
+            'name': 'Color T-Shirt',
+            'list_price': 20.0,
+            'website_sequence': 1,
+            'is_published': True,
+            'type': 'service',
+            'invoice_policy': 'delivery',
+            'attribute_line_ids': [
+                Command.create({
+                    'attribute_id': attribute.id,
+                    'value_ids': attribute.value_ids,
+                })
+            ]
+        }, {
+            'name': 'Color Pants',
+            'list_price': 20.0,
+            'website_sequence': 1,
+            'is_published': True,
+            'type': 'service',
+            'invoice_policy': 'delivery',
+            'attribute_line_ids': [
+                Command.create({
+                    'attribute_id': attribute.id,
+                    'value_ids': attribute.value_ids,
+                })
+            ]
+        }, {
+            'name': 'Color Shoes',
+            'list_price': 20.0,
+            'website_sequence': 1,
+            'is_published': True,
+            'type': 'service',
+            'invoice_policy': 'delivery',
+            'attribute_line_ids': [
+                Command.create({
+                    'attribute_id': attribute.id,
+                    'value_ids': attribute.value_ids,
+                })
+            ]
+        }])
         self.start_tour("/", 'product_comparison', login='admin')
 
     def test_02_attribute_multiple_lines(self):
@@ -163,7 +206,7 @@ class TestUi(odoo.tests.HttpCase):
 
         tr_vintage = table.xpath('tbody/tr')[0]
         text_vintage = etree.tostring(tr_vintage, encoding='unicode', method='text')
-        self.assertEqual(text_vintage.replace(' ', '').replace('\n', ''), "Vintage2018201720162015")
+        self.assertEqual(text_vintage.replace(' ', '').replace('\n', ''), "Vintage2018,2017,2016,20152018,2017,2016,20152018,2017,2016,20152018,2017,2016,2015")
 
         tr_varieties = table.xpath('tbody/tr')[1]
         text_varieties = etree.tostring(tr_varieties, encoding='unicode', method='text')
@@ -193,12 +236,12 @@ class TestUi(odoo.tests.HttpCase):
         self.assertEqual(prep_categories, OrderedDict([
             (category_varieties, OrderedDict([
                 (self.attribute_varieties, OrderedDict([
-                    (self.template_margaux.product_variant_id, self.attribute_line_varieties.product_template_value_ids)
+                    (self.template_margaux.product_variant_id, self.attribute_line_varieties.value_ids)
                 ]))
             ])),
             (category_vintage, OrderedDict([
                 (self.attribute_vintage, OrderedDict([
-                    (self.template_margaux.product_variant_id, self.attribute_line_vintage.product_template_value_ids[0])
+                    (self.template_margaux.product_variant_id, self.attribute_line_vintage.value_ids)
                 ]))
             ])),
         ]))

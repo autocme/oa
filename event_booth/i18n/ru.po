@@ -3,21 +3,23 @@
 # 	* event_booth
 # 
 # Translators:
-# Martin Trigaux, 2021
-# Андрей Гусев <gaussgss@gmail.com>, 2021
-# Ivan Kropotkin <yelizariev@itpp.dev>, 2021
-# ILMIR <karamov@it-projects.info>, 2021
-# Irina Fedulova <istartlin@gmail.com>, 2021
-# Ekaterina <nawsikaya@bk.ru>, 2021
+# Андрей Гусев <gaussgss@gmail.com>, 2022
+# Иван Дроздов <hiraetari@gmail.com>, 2022
+# Ivan Kropotkin <yelizariev@itpp.dev>, 2022
+# Ekaterina <nawsikaya@bk.ru>, 2022
 # Сергей Шебанин <sergey@shebanin.ru>, 2022
+# Martin Trigaux, 2022
+# ILMIR <karamov@it-projects.info>, 2022
+# Irina Fedulova <istartlin@gmail.com>, 2022
+# alenafairy, 2023
 # Wil Odoo, 2024
 # 
 msgid ""
 msgstr ""
-"Project-Id-Version: Odoo Server 15.0\n"
+"Project-Id-Version: Odoo Server 16.0beta\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-08-14 15:43+0000\n"
-"PO-Revision-Date: 2021-09-14 12:21+0000\n"
+"POT-Creation-Date: 2022-10-10 10:23+0000\n"
+"PO-Revision-Date: 2022-09-22 05:45+0000\n"
 "Last-Translator: Wil Odoo, 2024\n"
 "Language-Team: Russian (https://app.transifex.com/odoo/teams/41243/ru/)\n"
 "MIME-Version: 1.0\n"
@@ -220,7 +222,6 @@ msgstr ""
 
 #. module: event_booth
 #: model_terms:ir.ui.view,arch_db:event_booth.event_booth_category_view_form
-#: model_terms:ir.ui.view,arch_db:event_booth.event_booth_view_search
 #: model_terms:ir.ui.view,arch_db:event_booth.event_type_booth_view_search
 msgid "Booth Type"
 msgstr "Тип стенда"
@@ -243,7 +244,6 @@ msgstr ""
 #: model:ir.ui.menu,name:event_booth.menu_event_booth
 #: model_terms:ir.ui.view,arch_db:event_booth.event_booth_view_form_from_event
 #: model_terms:ir.ui.view,arch_db:event_booth.event_booth_view_tree_from_event
-#: model_terms:ir.ui.view,arch_db:event_booth.event_event_view_form
 #: model_terms:ir.ui.view,arch_db:event_booth.event_type_view_form
 msgid "Booths"
 msgstr "Стенды"
@@ -278,14 +278,14 @@ msgstr "Создайте стенд для печати"
 #: model:ir.model.fields,field_description:event_booth.field_event_booth_category__create_uid
 #: model:ir.model.fields,field_description:event_booth.field_event_type_booth__create_uid
 msgid "Created by"
-msgstr "Создан"
+msgstr "Создал"
 
 #. module: event_booth
 #: model:ir.model.fields,field_description:event_booth.field_event_booth__create_date
 #: model:ir.model.fields,field_description:event_booth.field_event_booth_category__create_date
 #: model:ir.model.fields,field_description:event_booth.field_event_type_booth__create_date
 msgid "Created on"
-msgstr "Создан"
+msgstr "Дата создания"
 
 #. module: event_booth
 #: model:ir.model.fields,field_description:event_booth.field_event_booth_category__description
@@ -353,6 +353,12 @@ msgid "Event Type Booths"
 msgstr "Тип мероприятия Стенды"
 
 #. module: event_booth
+#: model_terms:ir.ui.view,arch_db:event_booth.event_booth_view_graph
+#: model_terms:ir.ui.view,arch_db:event_booth.event_booth_view_pivot
+msgid "Event booth"
+msgstr "Кабинка для проведения мероприятий"
+
+#. module: event_booth
 #: model:ir.model.fields,field_description:event_booth.field_event_booth__message_follower_ids
 msgid "Followers"
 msgstr "Подписчики"
@@ -412,7 +418,6 @@ msgstr "Значок, обозначающий действие исключен
 
 #. module: event_booth
 #: model:ir.model.fields,help:event_booth.field_event_booth__message_needaction
-#: model:ir.model.fields,help:event_booth.field_event_booth__message_unread
 msgid "If checked, new messages require your attention."
 msgstr "Если отмечено, новые сообщения будут требовать вашего внимания."
 
@@ -496,7 +501,7 @@ msgstr "Сообщения"
 #. module: event_booth
 #: model:ir.model.fields,field_description:event_booth.field_event_booth__my_activity_date_deadline
 msgid "My Activity Deadline"
-msgstr "Крайний срок моей активности "
+msgstr "Крайний срок моего действия"
 
 #. module: event_booth
 #: model:ir.model.fields,field_description:event_booth.field_event_booth__name
@@ -506,12 +511,12 @@ msgstr "Крайний срок моей активности "
 #: model_terms:ir.ui.view,arch_db:event_booth.event_booth_view_search
 #: model_terms:ir.ui.view,arch_db:event_booth.event_type_booth_view_form_from_type
 msgid "Name"
-msgstr "Название"
+msgstr "Имя"
 
 #. module: event_booth
 #: model:ir.model.fields,field_description:event_booth.field_event_booth__activity_calendar_event_id
 msgid "Next Activity Calendar Event"
-msgstr "Календарное событие для следующего действия"
+msgstr "Встреча в календаре для следующего действия"
 
 #. module: event_booth
 #: model:ir.model.fields,field_description:event_booth.field_event_booth__activity_date_deadline
@@ -540,18 +545,13 @@ msgstr "Количество ошибок"
 
 #. module: event_booth
 #: model:ir.model.fields,help:event_booth.field_event_booth__message_needaction_counter
-msgid "Number of messages which requires an action"
+msgid "Number of messages requiring action"
 msgstr "Количество сообщений, требующих действия"
 
 #. module: event_booth
 #: model:ir.model.fields,help:event_booth.field_event_booth__message_has_error_counter
 msgid "Number of messages with delivery error"
 msgstr "Количество сообщений с ошибкой отправки"
-
-#. module: event_booth
-#: model:ir.model.fields,help:event_booth.field_event_booth__message_unread_counter
-msgid "Number of unread messages"
-msgstr "Количество непрочитанных сообщений"
 
 #. module: event_booth
 #: model:event.booth,name:event_booth.event_booth_10_event_7
@@ -567,6 +567,13 @@ msgstr "OpenWood Demonstrator 2"
 #: model:event.booth,name:event_booth.event_booth_12_event_7
 msgid "OpenWood Demonstrator 3"
 msgstr "OpenWood Demonstrator 3"
+
+#. module: event_booth
+#: model_terms:ir.ui.view,arch_db:event_booth.event_booth_view_form_from_event
+#: model_terms:ir.ui.view,arch_db:event_booth.event_booth_view_form_quick_create
+#: model_terms:ir.ui.view,arch_db:event_booth.event_type_booth_view_form_from_type
+msgid "Pick a Booth Category..."
+msgstr "Выберите категорию стенда..."
 
 #. module: event_booth
 #: model_terms:event.booth.category,description:event_booth.event_booth_category_premium
@@ -650,11 +657,6 @@ msgid "Showbooth 2"
 msgstr "Выставочный стенд 2"
 
 #. module: event_booth
-#: model:ir.model.fields,help:event_booth.field_event_booth__state
-msgid "Shows the availability of a Booth"
-msgstr ""
-
-#. module: event_booth
 #: model_terms:event.booth.category,description:event_booth.event_booth_category_standard
 msgid "Standard"
 msgstr "Стандарт"
@@ -699,16 +701,6 @@ msgid "Unavailable"
 msgstr "Недоступно"
 
 #. module: event_booth
-#: model:ir.model.fields,field_description:event_booth.field_event_booth__message_unread
-msgid "Unread Messages"
-msgstr "Непрочитанные сообщения"
-
-#. module: event_booth
-#: model:ir.model.fields,field_description:event_booth.field_event_booth__message_unread_counter
-msgid "Unread Messages Counter"
-msgstr "Счетчик непрочитанных сообщений"
-
-#. module: event_booth
 #: model_terms:event.booth.category,description:event_booth.event_booth_category_vip
 msgid "VIP"
 msgstr "VIP"
@@ -732,6 +724,11 @@ msgstr "Сообщения с сайта"
 #: model:ir.model.fields,help:event_booth.field_event_booth__website_message_ids
 msgid "Website communication history"
 msgstr "История общения с сайтом"
+
+#. module: event_booth
+#: model_terms:ir.ui.view,arch_db:event_booth.event_booth_category_view_form
+msgid "e.g. \"Those stands will be place near the entrance and...\""
+msgstr "например, \"Эти стенды будут размещены около входа и...\""
 
 #. module: event_booth
 #: model_terms:ir.ui.view,arch_db:event_booth.event_booth_view_form_from_event

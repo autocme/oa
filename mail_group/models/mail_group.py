@@ -95,7 +95,7 @@ class MailGroup(models.Model):
     @api.depends('mail_group_message_ids.create_date', 'mail_group_message_ids.moderation_status')
     def _compute_mail_group_message_last_month_count(self):
         month_date = datetime.today() - relativedelta.relativedelta(months=1)
-        messages_data = self.env['mail.group.message'].read_group([
+        messages_data = self.env['mail.group.message']._read_group([
             ('mail_group_id', 'in', self.ids),
             ('create_date', '>=', fields.Datetime.to_string(month_date)),
             ('moderation_status', '=', 'accepted'),
@@ -116,7 +116,7 @@ class MailGroup(models.Model):
             self.mail_group_message_count = 0
             return
 
-        results = self.env['mail.group.message'].read_group(
+        results = self.env['mail.group.message']._read_group(
             [('mail_group_id', 'in', self.ids)],
             ['mail_group_id'],
             ['mail_group_id'],
@@ -130,7 +130,7 @@ class MailGroup(models.Model):
 
     @api.depends('mail_group_message_ids.moderation_status')
     def _compute_mail_group_message_moderation_count(self):
-        results = self.env['mail.group.message'].read_group(
+        results = self.env['mail.group.message']._read_group(
             [('mail_group_id', 'in', self.ids), ('moderation_status', '=', 'pending_moderation')],
             ['mail_group_id'],
             ['mail_group_id'],
@@ -292,7 +292,7 @@ class MailGroup(models.Model):
         # First create the <mail.message>
         Mailthread = self.env['mail.thread']
         values = dict((key, val) for key, val in kwargs.items() if key in self.env['mail.message']._fields)
-        author_id, email_from = Mailthread._message_compute_author(author_id, email_from, raise_exception=True)
+        author_id, email_from = Mailthread._message_compute_author(author_id, email_from, raise_on_email=True)
 
         values.update({
             'author_id': author_id,
@@ -424,7 +424,7 @@ class MailGroup(models.Model):
             mail_values = []
             for email_member_normalized, email_member in batch_email_member:
                 if email_member_normalized == message.email_from_normalized:
-                    # Do not send the email to his author
+                    # Do not send the email to their author
                     continue
 
                 # SMTP headers related to the subscription
@@ -432,7 +432,7 @@ class MailGroup(models.Model):
                 unsubscribe_url = self._get_email_unsubscribe_url(email_member_normalized)
 
                 headers = {
-                    ** self._notify_email_header_dict(),
+                    ** self._notify_by_email_get_headers(),
                     'List-Archive': f'<{base_url}/groups/{slug(self)}>',
                     'List-Subscribe': f'<{base_url}/groups?email={email_url_encoded}>',
                     'List-Unsubscribe': f'<{unsubscribe_url}>',
@@ -457,8 +457,7 @@ class MailGroup(models.Model):
                     'unsub_label': f'{base_url}/groups?unsubscribe',
                     'unsub_url':  unsubscribe_url,
                 }
-                template = self.env.ref('mail_group.mail_group_footer')
-                footer = template._render(template_values, engine='ir.qweb', minimal_qcontext=True)
+                footer = self.env['ir.qweb']._render('mail_group.mail_group_footer', template_values, minimal_qcontext=True)
                 member_body = tools.append_content_to_html(body, footer, plaintext=False)
 
                 mail_values.append({
@@ -502,10 +501,10 @@ class MailGroup(models.Model):
             moderators_to_notify = group.moderator_ids
             MailThread = self.env['mail.thread'].with_context(mail_notify_author=True)
             for moderator in moderators_to_notify:
-                body = template._render({
+                body = self.env['ir.qweb']._render('mail_group.mail_group_notify_moderation', {
                     'moderator': moderator,
                     'group': group,
-                    }, engine='ir.qweb', minimal_qcontext=True)
+                    }, minimal_qcontext=True)
                 email_from = moderator.company_id.catchall_formatted or moderator.company_id.email_formatted
                 MailThread.message_notify(
                     partner_ids=moderator.partner_id.ids,
@@ -560,7 +559,7 @@ class MailGroup(models.Model):
         existing_member = self._find_member(email, partner_id)
         if existing_member:
             # Update the information of the partner to force the synchronization
-            # If one the the value is not up to date (e.g. if our email is subscribed
+            # If one the value is not up to date (e.g. if our email is subscribed
             # but our partner was not set)
             existing_member.write({
                 'email': email,
@@ -605,7 +604,7 @@ class MailGroup(models.Model):
         template = self.env.ref('mail_group.mail_template_list_subscribe')
         template.with_context(token_url=confirm_action_url).send_mail(
             self.id,
-            force_send=True,
+            email_layout_xmlid='mail.mail_notification_light',
             email_values={
                 'author_id': self.create_uid.partner_id.id,
                 'auto_delete': True,
@@ -613,7 +612,7 @@ class MailGroup(models.Model):
                 'email_to': email,
                 'message_type': 'user_notification',
             },
-            notif_layout='mail.mail_notification_light',
+            force_send=True,
         )
         _logger.info('Subscription email sent to %s.', email)
 
@@ -625,7 +624,7 @@ class MailGroup(models.Model):
         template = self.env.ref('mail_group.mail_template_list_unsubscribe')
         template.with_context(token_url=confirm_action_url).send_mail(
             self.id,
-            force_send=True,
+            email_layout_xmlid='mail.mail_notification_light',
             email_values={
                 'author_id': self.create_uid.partner_id.id,
                 'auto_delete': True,
@@ -633,7 +632,7 @@ class MailGroup(models.Model):
                 'email_to': email,
                 'message_type': 'user_notification',
             },
-            notif_layout='mail.mail_notification_light',
+            force_send=True,
         )
         _logger.info('Unsubscription email sent to %s.', email)
 

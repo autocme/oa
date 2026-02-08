@@ -10,7 +10,7 @@ odoo.define('pos_hr.tour.PosHrTourMethods', function (require) {
             return [
                 {
                     content: 'click login button',
-                    trigger: '.login-overlay .login-button.select-employee',
+                    trigger: '.login-overlay .login-button.select-cashier',
                 },
             ];
         }
@@ -49,12 +49,6 @@ odoo.define('pos_hr.tour.PosHrTourMethods', function (require) {
                     run: () => {},
                 },
             ];
-        }
-        cashInOutVisible(visible=true) {
-            const trigger = visible
-                ? ".pos-branding .cash-move-button"
-                : ".pos-branding:not(:has(.cash-move-button))";
-            return [{ trigger, run: () => {} }];
         }
     }
     class Execute {

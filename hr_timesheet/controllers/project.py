@@ -10,8 +10,8 @@ from odoo.addons.project.controllers.portal import CustomerPortal
 
 class ProjectCustomerPortal(CustomerPortal):
 
-    def _prepare_project_sharing_session_info(self, project):
-        session_info = super()._prepare_project_sharing_session_info(project)
+    def _prepare_project_sharing_session_info(self, project, task=None):
+        session_info = super()._prepare_project_sharing_session_info(project, task)
 
         company = project.company_id
         timesheet_encode_uom = company.timesheet_encode_uom_id
@@ -45,6 +45,7 @@ class ProjectCustomerPortal(CustomerPortal):
         timesheets_by_subtask = defaultdict(lambda: request.env['account.analytic.line'].sudo())
         for timesheet in subtasks_timesheets:
             timesheets_by_subtask[timesheet.task_id] |= timesheet
+        values['allow_timesheets'] = task.allow_timesheets
         values['timesheets'] = timesheets
         values['timesheets_by_subtask'] = timesheets_by_subtask
         values['is_uom_day'] = request.env['account.analytic.line']._is_timesheet_encode_uom_day()

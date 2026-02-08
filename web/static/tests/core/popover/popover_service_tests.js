@@ -2,12 +2,10 @@
 
 import { popoverService } from "@web/core/popover/popover_service";
 import { registry } from "@web/core/registry";
-import { registerCleanup } from "../../helpers/cleanup";
 import { clearRegistryWithCleanup, makeTestEnv } from "../../helpers/mock_env";
-import { click, getFixture, nextTick } from "../../helpers/utils";
+import { click, getFixture, mount, nextTick } from "../../helpers/utils";
 
-const { Component, mount } = owl;
-const { xml } = owl.tags;
+import { Component, xml } from "@odoo/owl";
 
 let env;
 let fixture;
@@ -41,13 +39,7 @@ QUnit.module("Popover service", {
 
         fixture = getFixture();
         env = await makeTestEnv();
-        const pseudoWebClient = await mount(PseudoWebClient, {
-            env,
-            target: fixture,
-        });
-        registerCleanup(() => {
-            pseudoWebClient.destroy();
-        });
+        await mount(PseudoWebClient, fixture, { env });
         popovers = env.services.popover;
         popoverTarget = fixture.querySelector("#anchor");
     },
@@ -140,7 +132,7 @@ QUnit.test("sub component triggers close", async (assert) => {
     assert.containsOnce(fixture, ".o_popover_container");
 
     class Comp extends Component {}
-    Comp.template = xml`<div id="comp" t-on-click="trigger('popover-closed')">in popover</div>`;
+    Comp.template = xml`<div id="comp" t-on-click="() => this.props.close()">in popover</div>`;
 
     popovers.add(popoverTarget, Comp, {});
     await nextTick();
@@ -171,6 +163,28 @@ QUnit.test("close popover if target is removed", async (assert) => {
 
     assert.containsNone(fixture, ".o_popover");
     assert.containsNone(fixture, ".o_popover #comp");
+});
+
+QUnit.test("close and do not crash if target parent does not exist", async (assert) => {
+    assert.expect(3);
+
+    // This target does not have any parent, it simulates the case where the element disappeared
+    // from the DOM before the setup of the component
+    const dissapearedTarget = document.createElement("div");
+
+    assert.containsOnce(fixture, ".o_popover_container");
+
+    class Comp extends Component {}
+    Comp.template = xml`<div id="comp">in popover</div>`;
+
+    function onClose() {
+        assert.step("close");
+    }
+
+    popovers.add(dissapearedTarget, Comp, {}, { onClose });
+    await nextTick();
+
+    assert.verifySteps(["close"]);
 });
 
 QUnit.test("keep popover if target sibling is removed", async (assert) => {
