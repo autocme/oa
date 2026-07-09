@@ -177,6 +177,65 @@ describe("pos.order - loyalty", () => {
         expect(result.discountable).toBe(25);
     });
 
+    test("_getDiscountableOnCheapest excludes fixed tax for non-ewallet program", async () => {
+        const store = await setupPosEnv();
+        const models = store.models;
+        const order = store.addNewOrder();
+
+        // Tax #1 (15%) becomes a fixed tax, tax #2 (25%) stays as percent
+        const fixedTax = models["account.tax"].get(1);
+        const percentTax = models["account.tax"].get(2);
+        fixedTax.amount_type = "fixed";
+        models["product.template"].get(5).taxes_id = [fixedTax, percentTax];
+
+        await addProductLineToOrder(store, order, {
+            templateId: 5,
+            productId: 5,
+        });
+
+        // Reward #4 - cheapest discount, program type "promotion"
+        const reward = models["loyalty.reward"].get(4);
+        reward.all_discount_product_ids = [models["product.product"].get(5)];
+
+        order.triggerRecomputeAllPrices();
+        const result = order._getDiscountableOnCheapest(reward);
+
+        const taxKeys = Object.keys(result.discountablePerTax);
+        expect(taxKeys.length).toBe(1);
+        const taxIds = taxKeys[0].split(",").map(Number);
+        expect(taxIds).toInclude(percentTax.id);
+        expect(taxIds).not.toInclude(fixedTax.id);
+    });
+
+    test("_getDiscountableOnSpecific excludes fixed tax for non-ewallet program", async () => {
+        const store = await setupPosEnv();
+        const models = store.models;
+        const order = store.addNewOrder();
+
+        const fixedTax = models["account.tax"].get(1);
+        const percentTax = models["account.tax"].get(2);
+        fixedTax.amount_type = "fixed";
+        models["product.template"].get(5).taxes_id = [fixedTax, percentTax];
+
+        await addProductLineToOrder(store, order, {
+            templateId: 5,
+            productId: 5,
+        });
+
+        const reward = models["loyalty.reward"].get(4);
+        reward.discount_applicability = "specific";
+        reward.all_discount_product_ids = [models["product.product"].get(5)];
+
+        order.triggerRecomputeAllPrices();
+        const result = order._getDiscountableOnSpecific(reward);
+
+        const taxKeys = Object.keys(result.discountablePerTax);
+        expect(taxKeys.length).toBe(1);
+        const taxIds = taxKeys[0].split(",").map(Number);
+        expect(taxIds).toInclude(percentTax.id);
+        expect(taxIds).not.toInclude(fixedTax.id);
+    });
+
     test("_computeNItems", async () => {
         const store = await setupPosEnv();
         const models = store.models;
@@ -337,5 +396,44 @@ describe("pos.order - loyalty", () => {
         expect(loyaltyStats2[0].points.spent).toBe(2);
         expect(loyaltyStats2[0].points.total).toBe(1);
         expect(loyaltyStats2[0].points.balance).toBe(3);
+    });
+
+    test("reward amount tax included cheapest product", async () => {
+        const store = await setupPosEnv();
+        const order = store.addNewOrder();
+
+        const line = await addProductLineToOrder(store, order, {
+            productId: 24,
+            templateId: 24,
+            qty: 1,
+        });
+        expect(line.prices.total_included).toBe(10);
+        expect(line.prices.total_excluded).toBe(8.7);
+        await store.updateRewards();
+        await tick();
+        expect(order.getOrderlines().length).toBe(2);
+        const rewardLine = order._get_reward_lines()[0];
+        expect(rewardLine.prices.total_included).toBe(-10);
+    });
+
+    test("_getRewardLineValuesDiscount - gift card payment uses full amount tax-free", async () => {
+        const store = await setupPosEnv();
+        const models = store.models;
+        const order = store.addNewOrder();
+
+        const product = models["product.product"].get(1);
+        await addProductLineToOrder(store, order, { productId: product.id, price_unit: 50 });
+
+        const reward = models["loyalty.reward"].get(4);
+        const discountProduct = models["product.product"].get(200);
+        discountProduct.taxes_id = [];
+        reward.discount_line_product_id = discountProduct;
+
+        const lines = order._getRewardLineValuesDiscount({ reward, coupon_id: 1 });
+
+        expect(lines).toHaveLength(1);
+        const [line] = lines;
+        expect(line.price_unit).toBe(-50);
+        expect(line.tax_ids).toHaveLength(0);
     });
 });

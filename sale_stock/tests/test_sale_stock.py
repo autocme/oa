@@ -698,6 +698,8 @@ class TestSaleStock(TestSaleStockCommon, ValuationReconciliationTestCommon):
         return_picking.button_validate()
         # Checks the delivery amount (must be 0).
         self.assertEqual(sale_order.order_line.qty_delivered, 0)
+        self.assertEqual(sale_order.order_line.invoice_status, 'no')
+        self.assertEqual(sale_order.invoice_status, 'no')
 
     def test_12_return_without_refund(self):
         """ Do the exact thing than in `test_11_return_with_refund` except we
@@ -739,14 +741,19 @@ class TestSaleStock(TestSaleStockCommon, ValuationReconciliationTestCommon):
         product with an invoicing policy on 'order', then checks a new SO line was created.
         After that, creates a second sale order and does the same thing but with a product
         with and invoicing policy on 'ordered'.
+
+        Additionally, verifies that the automatically generated Sale Order Line correctly
+        inherits the product's specific sales description
         """
         product_inv_on_delivered = self.company_data['product_delivery_no']
+        product_inv_on_delivered.description_sale = 'product_deliv'
         # Configure a product with invoicing policy on order.
         product_inv_on_order = self.env['product.product'].create({
             'name': 'Shenaniffluffy',
             'type': 'consu',
             'invoice_policy': 'order',
             'list_price': 55.0,
+            'description_sale': 'FluffyShen'
         })
         # Creates a sale order for 3 products invoiced on qty. delivered.
         sale_order = self._get_new_sale_order(amount=3)
@@ -780,6 +787,7 @@ class TestSaleStock(TestSaleStockCommon, ValuationReconciliationTestCommon):
         self.assertEqual(so_line_2.product_id.id, product_inv_on_order.id)
         self.assertEqual(so_line_2.product_uom_qty, 0)
         self.assertEqual(so_line_2.qty_delivered, 5)
+        self.assertEqual(so_line_2.name, product_inv_on_order.display_name + "\nFluffyShen")
         self.assertEqual(
             so_line_2.price_unit, 0,
             "Shouldn't get the product price as the invoice policy is on qty. ordered")
@@ -821,6 +829,7 @@ class TestSaleStock(TestSaleStockCommon, ValuationReconciliationTestCommon):
         self.assertEqual(so_line_2.product_id.id, product_inv_on_delivered.id)
         self.assertEqual(so_line_2.product_uom_qty, 0)
         self.assertEqual(so_line_2.qty_delivered, 5)
+        self.assertEqual(so_line_2.name, product_inv_on_delivered.display_name + "\nproduct_deliv")
         self.assertEqual(
             so_line_2.price_unit, 70.0,
             "Should get the product price as the invoice policy is on qty. delivered")
@@ -1628,7 +1637,7 @@ class TestSaleStock(TestSaleStockCommon, ValuationReconciliationTestCommon):
         })
         pick.with_user(inventory_admin_user).move_ids.write(
             {'quantity': 1, 'picked': True})
-        Form.from_action(self.env(user=inventory_admin_user), pick.button_validate())\
+        Form.from_action(self.env(user=inventory_admin_user), pick.with_user(inventory_admin_user).button_validate())\
             .save().process_cancel_backorder()
 
     def test_reduce_qty_ordered_no_backorder(self):
@@ -2322,10 +2331,22 @@ class TestSaleStock(TestSaleStockCommon, ValuationReconciliationTestCommon):
             } for partner in [self.partner_a, self.partner_b]
         ])
         sale_orders.action_confirm()
-        self.assertEqual(
-            sale_orders.picking_ids.move_ids.mapped('description_picking'),
-            ['No variant: extra: Best', 'No variant: extra: Best\nFrench Sofa']
-        )
+        basic_user = self.env['res.users'].create({
+            'name': 'Some Stock Sale User',
+            'login': 'some_stock_sale_user',
+            'email': 'some_stock_sale@user.com',
+            'group_ids': [
+                Command.set([
+                self.ref('sales_team.group_sale_salesman'),
+                self.ref('stock.group_stock_user'),
+            ])],
+        })
+        deliveries = sale_orders.picking_ids.with_user(basic_user.id)
+        sale_orders.invalidate_recordset()
+        self.assertRecordValues(deliveries.move_ids, [
+            {'description_picking': "No variant: extra: Best"},
+            {'description_picking': "No variant: extra: Best\nFrench Sofa"},
+        ])
 
     def test_multicompany_transit_with_one_company_for_user(self):
         """ Check that the inter-company transit location is created when
@@ -2612,7 +2633,28 @@ class TestSaleStock(TestSaleStockCommon, ValuationReconciliationTestCommon):
         Check that the customer of an SO is propageted to all moves of the
         pull chain in multi-step deliveries.
         """
-        # delivery_route = self.warehouse_3_steps_pull.delivery_route_id
+        sale_order = self.env['sale.order'].create({
+            'partner_id': self.partner_a.id,
+            'warehouse_id':  self.warehouse_3_steps_pull.id,
+            'order_line': [Command.create({
+                'product_id': self.product_a.id,
+                'product_uom_qty': 1,
+            })]
+        })
+        sale_order.action_confirm()
+        self.assertRecordValues(sale_order.picking_ids.sorted(lambda p: p.picking_type_id.name)[::-1], [
+            {'partner_id': self.partner_a.id, 'picking_type_id': self.warehouse_3_steps_pull.pick_type_id.id},
+            {'partner_id': self.partner_a.id, 'picking_type_id': self.warehouse_3_steps_pull.pack_type_id.id},
+            {'partner_id': self.partner_a.id, 'picking_type_id': self.warehouse_3_steps_pull.out_type_id.id},
+        ])
+
+    def test_sale_partner_propagation_3_step_mtso_pull(self):
+        """
+        Check that the customer of an SO is propageted to all moves of the
+        pull chain in multi-step take from stock if availble else trigger an
+        other rule (mtso) deliveries.
+        """
+        self.warehouse_3_steps_pull.delivery_route_id.rule_ids[1:].procure_method = 'mts_else_mto'
         sale_order = self.env['sale.order'].create({
             'partner_id': self.partner_a.id,
             'warehouse_id':  self.warehouse_3_steps_pull.id,
@@ -2668,3 +2710,56 @@ class TestSaleStock(TestSaleStockCommon, ValuationReconciliationTestCommon):
         lot.invalidate_recordset()
         self.assertEqual(lot.with_user(user).sale_order_count, 1)
         self.assertEqual(lot.with_user(user).sale_order_ids, sale_order_2)
+
+    def test_invoice_zero_quantity_after_delivery_fifo(self):
+        """
+        Posting an invoice with quantity = 0 after delivery
+        """
+        self.env.company.write({
+            'cost_method': 'fifo',
+            'inventory_valuation': 'real_time',
+        })
+
+        sale = self._get_new_sale_order(product=self.new_product, amount=1)
+        sale.action_confirm()
+
+        picking = sale.picking_ids
+        self.assertEqual(len(picking), 1)
+
+        picking.move_ids.quantity = 1
+        picking.button_validate()
+
+        invoice = sale._create_invoices()
+        invoice.invoice_line_ids.quantity = 0
+        invoice.action_post()
+
+        self.assertEqual(invoice.state, 'posted')
+
+    def test_validate_picking_creates_sale_line_for_so_with_no_sol(self):
+        """Test that validating a picking creates a sale order line for a sale order with no lines"""
+        warehouse = self.company_data['default_warehouse']
+        sale_order = self.env['sale.order'].create({
+            'partner_id': self.partner_a.id
+        })
+        sale_order.action_confirm()
+        self.assertFalse(sale_order.order_line)
+
+        delivery = self.env['stock.picking'].create({
+            'picking_type_id': warehouse.out_type_id.id,
+            'sale_id': sale_order.id,
+            'move_ids': [
+                Command.create({
+                    'product_id': self.new_product.id,
+                    'product_uom_qty': 3,
+                }),
+            ],
+        })
+        delivery.button_validate()
+
+        self.assertEqual(delivery.state, 'done')
+        self.assertRecordValues(delivery.move_ids, [
+            {'product_id': self.new_product.id, 'sale_line_id': sale_order.order_line.id}
+        ])
+        self.assertRecordValues(sale_order.order_line, [
+            {'product_id': self.new_product.id, 'product_uom_qty': 0, 'qty_delivered': 3}
+        ])

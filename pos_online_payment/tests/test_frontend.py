@@ -282,7 +282,7 @@ class TestUi(TestPointOfSaleHttpCommon, OnlinePaymentCommon):
         self.start_pos_tour('OnlinePaymentErrorsTour', login="pos_op_user")
 
     def test_customer_display_online_payment(self):
-        self.start_tour(f"/pos_customer_display/{self.main_pos_config.id}/{self.main_pos_config.access_token}",
+        self.start_tour(f"/pos_customer_display/{self.main_pos_config.id}/{self.main_pos_config.access_token}?access_token={self.main_pos_config.access_token}",
                         'CustomerDisplayTourOnlinePayment', login="pos_user")
 
     def test_refuse_online_payment_without_accounting_payment(self):
@@ -336,6 +336,31 @@ class TestUi(TestPointOfSaleHttpCommon, OnlinePaymentCommon):
         self.assertEqual(order.partner_id.name, "A simple PoS man!", "The selected customer was not kept after adding an online payment.")
         self.assertEqual(order.state, "draft", "The order should still be in draft state.")
         self.assertEqual(len(order.payment_ids), 0, "There should be no payment line in the order.")
+
+    def test_payment_method_customer_required(self):
+        """
+        Test that the data sent to the pos contains the information needed to identify
+        which payment method requires a customer.
+        """
+        self.env['res.partner'].create({'name': 'A Test Partner'})
+        online_pm = self.pos_config.payment_method_ids.search([('is_online_payment', '=', True)], limit=1)
+        self.pos_config.with_user(self.pos_admin).open_ui()
+
+        def _get_customer_required_providers_code_patch(self):
+            return ['none']
+
+        with patch.object(self.env.registry.models['pos.payment.method'], "_get_customer_required_providers_code", _get_customer_required_providers_code_patch):
+            loaded_data = self.pos_config.current_session_id.load_data([])
+            config_online_pm_data = [record.get('_customer_required') for record in loaded_data['pos.payment.method'] if record['id'] == online_pm.id]
+            self.assertTrue(all(config_online_pm_data))
+            self.start_pos_tour('test_payment_method_customer_required')
+
+    def test_online_payment_amount_updated_after_order_modification(self):
+        self.pos_config.with_user(self.pos_admin).open_ui()
+        self.start_pos_tour('test_online_payment_amount_updated_after_order_modification', login="pos_admin")
+        order = self.pos_config.current_session_id.order_ids.sorted(lambda o: o.id, reverse=True)[0]
+        self.assertEqual(order.state, "draft", "The order should still be in draft state, awaiting the online payment.")
+        self.assertEqual(order.amount_total, 96.0, "The increased order total should be synced to the server.")
 
     @classmethod
     def tearDownClass(cls):

@@ -42,6 +42,7 @@ const RE_PADDING_MATCH = /[ ]*padding[^;]*;/g;
 const RE_PADDING = /([\d.]+)/;
 const RE_WHITESPACE = /[\s\u200b]*/;
 const SELECTORS_IGNORE = /(^\*$|:hover|:before|:after|:active|:link|::|')|@page/; // :not(:has) should be legal
+const RE_THEME_COLOR_CLASS = /^bg-o-color-\d+$/;
 const CONVERT_INLINE_BLACKLIST_CLASSES = ["o_mail_redirect"];
 // CSS properties relating to font, which Outlook seem to have trouble inheriting.
 const FONT_PROPERTIES_TO_INHERIT = [
@@ -65,7 +66,8 @@ export const TABLE_ATTRIBUTES = {
 };
 // Cancel tables default styles.
 export const TABLE_STYLES = {
-    "border-collapse": "collapse",
+    "border-collapse": "separate",
+    "border-spacing": "0px",
     "text-align": "inherit",
     "font-size": "unset",
     "line-height": "inherit",
@@ -466,6 +468,7 @@ export function cardToTable(element) {
                 col.append(child);
             }
             const subTable = _createTable();
+            subTable.style.height = "100%";
             const superRow = document.createElement("tr");
             const superCol = document.createElement("td");
             row.append(col);
@@ -553,7 +556,7 @@ export function classToStyle(element, cssRules) {
             }
         }
         style = correctBorderAttributes(style);
-        if (Object.keys(style || {}).length === 0) {
+        if (Object.keys(style || {}).length === 0 || node.nodeName === "T") {
             writes.push(() => {
                 node.removeAttribute("style");
             });
@@ -562,6 +565,18 @@ export function classToStyle(element, cssRules) {
                 node.setAttribute("style", style);
                 if (node.style.width) {
                     node.setAttribute("width", node.style.width.replace("px", "").trim());
+                }
+            });
+        }
+
+        const themeColorClasses = [...node.classList].filter((c) => RE_THEME_COLOR_CLASS.test(c));
+        if (themeColorClasses.length) {
+            writes.push(() => {
+                for (const cls of themeColorClasses) {
+                    node.classList.remove(cls);
+                }
+                if (!node.classList.length) {
+                    node.removeAttribute("class");
                 }
             });
         }
@@ -640,6 +655,10 @@ export function classToStyle(element, cssRules) {
                         computedStyle.getPropertyValue(prop) ||
                         computedStyle.getPropertyValue(styleName);
                     node.style.setProperty(styleName, value);
+                    if (value.includes("calc(")) {
+                        // If value included a calc(), assign the node's computed style property value for Outlook compatibility
+                        node.style.setProperty(styleName, computedStyle.getPropertyValue(styleName));
+                    }
                 }
             }
         });

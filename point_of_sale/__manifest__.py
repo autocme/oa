@@ -7,7 +7,7 @@
     'category': 'Sales/Point of Sale',
     'sequence': 40,
     'summary': 'Handle checkouts and payments for shops and restaurants.',
-    'depends': ['resource', 'stock_account', 'barcodes', 'html_editor', 'digest', 'phone_validation', 'iot_base', 'google_address_autocomplete'],
+    'depends': ['resource', 'stock_account', 'barcodes', 'html_editor', 'digest', 'phone_validation','iot_base', 'google_address_autocomplete'],
     'uninstall_hook': 'uninstall_hook',
     'data': [
         'security/point_of_sale_security.xml',
@@ -80,10 +80,12 @@
             'point_of_sale/static/src/scss/pos_dashboard.scss',
             'point_of_sale/static/src/backend/tours/point_of_sale.js',
             'point_of_sale/static/src/backend/pos_kanban_view/*',
+            'point_of_sale/static/src/backend/lna_checklist/*',
             'point_of_sale/static/src/backend/pos_payment_provider_cards/*',
             'point_of_sale/static/src/app/hooks/hooks.js',
             'point_of_sale/static/src/backend/many2many_placeholder_list_view/*',
             'point_of_sale/static/src/backend/test_epos/*',
+            'point_of_sale/static/src/app/utils/init_lna.js',
         ],
         "web.assets_web_dark": [
             'point_of_sale/static/src/scss/pos_dashboard.dark.scss',
@@ -198,7 +200,7 @@
             'web/static/src/webclient/actions/**/*',
             ('remove', 'web/static/src/webclient/actions/reports/layout_assets/**/*'),
             ('remove', 'web/static/src/webclient/actions/**/*css'),
-   
+            'partner_autocomplete/static/src/**/*',
             'google_address_autocomplete/static/src/**/*',
         ],
         'point_of_sale.base_tests': [

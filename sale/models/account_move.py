@@ -17,7 +17,7 @@ class AccountMove(models.Model):
     campaign_id = fields.Many2one(ondelete='set null')
     medium_id = fields.Many2one(ondelete='set null')
     source_id = fields.Many2one(ondelete='set null')
-    sale_order_count = fields.Integer(compute="_compute_origin_so_count", string='Sale Order Count')
+    sale_order_count = fields.Integer(compute="_compute_origin_so_count", string='Sale Order Count', compute_sudo=True)
     sale_warning_text = fields.Text(
         "Sale Warning",
         help="Internal warning for the partner or the products as set by the user.",
@@ -119,7 +119,9 @@ class AccountMove(models.Model):
         posted = super()._post(soft)
 
         for invoice in posted.filtered(lambda move: move.is_invoice()):
-            payments = invoice.mapped('transaction_ids.payment_id').filtered(lambda x: x.state == 'in_process')
+            payments = invoice.mapped("transaction_ids.payment_id").filtered(
+                lambda x: x.state in ("in_process", "paid")
+            )
             move_lines = payments.move_id.line_ids.filtered(lambda line: line.account_type in ('asset_receivable', 'liability_payable') and not line.reconciled)
             for line in move_lines:
                 invoice.js_assign_outstanding_line(line.id)

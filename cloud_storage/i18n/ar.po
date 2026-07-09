@@ -1,26 +1,18 @@
-# Translation of Odoo Server.
-# This file contains the translation of the following modules:
-# * cloud_storage
 #
-# "Tiffany Chang (tic)" <tic@odoo.com>, 2025.
-# "Dylan Kiss (dyki)" <dyki@odoo.com>, 2025.
-# "Malaz Siddig Elsayed Abuidris (msea)" <msea@odoo.com>, 2025.
 msgid ""
 msgstr ""
-"Project-Id-Version: Odoo Server 18.0\n"
+"Project-Id-Version: j_apps_translate\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2026-01-25 18:36+0000\n"
-"PO-Revision-Date: 2025-12-29 09:27+0000\n"
+"PO-Revision-Date: 2026-07-08 15:30+0000\n"
 "Last-Translator: \"Malaz Siddig Elsayed Abuidris (msea)\" <msea@odoo.com>\n"
-"Language-Team: Arabic <https://translate.odoo.com/projects/odoo-19/"
-"cloud_storage/ar/>\n"
+"Language-Team: Arabic <https://translate.odoo.com/projects/odoo-19/cloud_storage/ar/>\n"
 "Language: ar\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
-"Content-Transfer-Encoding: \n"
-"Plural-Forms: nplurals=6; plural=n==0 ? 0 : n==1 ? 1 : n==2 ? 2 : n%100>=3 "
-"&& n%100<=10 ? 3 : n%100>=11 ? 4 : 5;\n"
-"X-Generator: Weblate 5.14.3\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=6; plural=(n==0 ? 0 : n==1 ? 1 : n==2 ? 2 : n%100>=3 && n%100<=10 ? 3 : n%100>=11 ? 4 : 5);\n"
+"X-Generator: j_apps_translate/19.0.1.0.0\n"
 
 #. module: cloud_storage
 #: model_terms:ir.ui.view,arch_db:cloud_storage.cloud_storage_config_settings_view_form
@@ -40,6 +32,7 @@ msgstr "مساحة التخزين السحابية"
 
 #. module: cloud_storage
 #: model:ir.model.fields,field_description:cloud_storage.field_res_config_settings__cloud_storage_provider
+#: model:ir.model.fields,field_description:cloud_storage.field_res_config_test__cloud_storage_provider
 msgid "Cloud Storage Provider for new attachments"
 msgstr "مزود مساحة التخزين السحابية للمرفقات الجديدة"
 
@@ -78,7 +71,7 @@ msgstr "اسم العرض"
 #: code:addons/cloud_storage/models/ir_attachment.py:0
 msgid ""
 "Failed to download attachment (%(id)s) from cloud: %(code)s - %(reason)s"
-msgstr ""
+msgstr "فشل تنزيل المرفق (%(id)s) من السحابة: %(code)s - %(reason)s"
 
 #. module: cloud_storage
 #: model:ir.model,name:cloud_storage.model_ir_http
@@ -95,22 +88,24 @@ msgstr "المُعرف"
 #. module: cloud_storage
 #: model_terms:ir.ui.view,arch_db:cloud_storage.cloud_storage_config_settings_view_form
 msgid "Minimum File Size"
-msgstr ""
+msgstr "الحد الأدنى لحجم الملف"
 
 #. module: cloud_storage
 #: model:ir.model.fields,field_description:cloud_storage.field_res_config_settings__cloud_storage_min_file_size_mb
+#: model:ir.model.fields,field_description:cloud_storage.field_res_config_test__cloud_storage_min_file_size_mb
 msgid "Minimum File Size (MB)"
-msgstr ""
+msgstr "الحد الأدنى لحجم الملف (ميغابايت)"
 
 #. module: cloud_storage
 #: model:ir.model.fields,field_description:cloud_storage.field_res_config_settings__cloud_storage_min_file_size
+#: model:ir.model.fields,field_description:cloud_storage.field_res_config_test__cloud_storage_min_file_size
 msgid "Minimum File Size (bytes)"
 msgstr "تقليل مساحة الملف (بايت)"
 
 #. module: cloud_storage
 #: model_terms:ir.ui.view,arch_db:cloud_storage.cloud_storage_config_settings_view_form
 msgid "Minimum size for attachments to be stored in the cloud storage"
-msgstr ""
+msgstr "الحد الأدنى لحجم المرفقات التي يتم تخزينها في مساحة التخزين السحابية"
 
 #. module: cloud_storage
 #. odoo-python
@@ -125,6 +120,8 @@ msgstr "قم بتحديد مزود مساحة التخزين السحابية ل
 
 #. module: cloud_storage
 #: model:ir.model.fields,field_description:cloud_storage.field_ir_attachment__type
+#: model:ir.model.fields,field_description:cloud_storage.field_product_document__type
+#: model:ir.model.fields,field_description:cloud_storage.field_quotation_document__type
 msgid "Type"
 msgstr "النوع"
 
@@ -136,6 +133,8 @@ msgstr "لا يُسمَح لك برفع الملف إلى مساحة التخز�
 
 #. module: cloud_storage
 #: model:ir.model.fields,help:cloud_storage.field_ir_attachment__type
+#: model:ir.model.fields,help:cloud_storage.field_product_document__type
+#: model:ir.model.fields,help:cloud_storage.field_quotation_document__type
 msgid ""
 "You can either upload a file from your computer or copy/paste an internet "
 "link to your file."
@@ -143,20 +142,12 @@ msgstr "يمكنك أن ترفع ملفًا من جهازك أو تنسخ وتل
 
 #. module: cloud_storage
 #: model:ir.model.fields,help:cloud_storage.field_res_config_settings__cloud_storage_min_file_size
+#: model:ir.model.fields,help:cloud_storage.field_res_config_test__cloud_storage_min_file_size
 msgid ""
 "webclient can upload files larger than the minimum file size\n"
-"        (in bytes) as url attachments to the server and then upload the file "
-"to\n"
+"        (in bytes) as url attachments to the server and then upload the file to\n"
 "        the cloud storage."
 msgstr ""
 "بإمكان webclient رفع الملفات الأكبر من الحد الأدنى لحجم الملف\n"
 "        (بايت) كمرفقات بتنسيق URL إلى الخادم ثم رفع الملف في\n"
 "        مساحة التخزين السحابية."
-
-#~ msgid "Cloud Storage Settings"
-#~ msgstr "إعدادات مساحة التخزين السحابية"
-
-#~ msgid ""
-#~ "Minimum size(bytes) for attachments to be stored in the cloud storage"
-#~ msgstr ""
-#~ "قم بتقليل حجم المرفقات (بايت) حتى يتم تخزينها في مساحة التخزين السحابية"

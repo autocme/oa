@@ -20,7 +20,6 @@ to support In-App purchases inside Odoo. """,
         'views/iap_views.xml',
         'views/res_config_settings.xml',
     ],
-
     'assets': {
         'web.assets_backend': [
             'iap/static/src/**/*.js',
