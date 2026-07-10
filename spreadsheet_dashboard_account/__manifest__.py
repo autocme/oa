@@ -11,7 +11,6 @@
         "data/dashboards.xml",
     ],
     'installable': False,
-    'auto_install': ['account'],
     'author': 'Odoo S.A.',
     'license': 'LGPL-3',
 }

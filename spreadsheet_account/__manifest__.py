@@ -7,8 +7,7 @@
     'summary': 'Spreadsheet Accounting formulas',
     'description': 'Spreadsheet Accounting formulas',
     'depends': ['spreadsheet', 'account'],
-    'installable': True,
-    'auto_install': True,
+    'installable': False,
     'author': 'Odoo S.A.',
     'license': 'LGPL-3',
     'assets': {
