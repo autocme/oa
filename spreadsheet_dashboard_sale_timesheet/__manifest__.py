@@ -9,8 +9,7 @@
     'data': [
         "data/dashboards.xml",
     ],
-    'installable': True,
-    'auto_install': ['sale_timesheet'],
+    'installable': False,
     'author': 'Odoo S.A.',
     'license': 'LGPL-3',
 }
