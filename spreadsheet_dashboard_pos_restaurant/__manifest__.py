@@ -10,7 +10,6 @@
         "data/dashboards.xml",
     ],
     'installable': False,
-    'auto_install': ['pos_hr', 'pos_restaurant'],
     'author': 'Odoo S.A.',
     'license': 'LGPL-3',
 }
