@@ -9,7 +9,7 @@
     'data': [
         "data/dashboards.xml",
     ],
-    'installable': True,
+    'installable': False,
     'auto_install': ['hr_timesheet'],
     'author': 'Odoo S.A.',
     'license': 'LGPL-3',
