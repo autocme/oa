@@ -10,7 +10,7 @@
     'data': [
         "data/dashboards.xml",
     ],
-    'installable': True,
+    'installable': False,
     'auto_install': ['event_sale'],
     'author': 'Odoo S.A.',
     'license': 'LGPL-3',
