@@ -7,7 +7,7 @@
     'summary': 'Spreadsheet',
     'description': 'Spreadsheet',
     'depends': ['bus', 'web', 'portal'],
-    'installable': True,
+    'installable': False,
     'author': 'Odoo S.A.',
     'license': 'LGPL-3',
     'data': [
